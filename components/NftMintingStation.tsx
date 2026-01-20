@@ -1,12 +1,11 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslations } from '../i18n';
-import type { Hero, Category, Report, NftTheme, ArtifactTrait } from '../types';
-import { CATEGORIES_WITH_ICONS, NFT_THEMES, FORGE_TRAITS } from '../constants';
-/** FIX: Added missing FileText import from icons */
-import { Gem, Coins, Loader, RefreshCw, Check, Sparkles, Box, Database, Target, Zap, ShieldCheck, ListFilter, FileText } from './icons';
+// Moved Category from import type to regular import because it's used as a value (Object.values)
+import { Category, type Hero, type Report, type NftTheme } from '../types';
+import { FORGE_TRAITS, NFT_THEMES } from '../constants';
+// Added missing Broadcast icon to the imports
+import { Gem, Coins, Loader, Check, Sparkles, Database, Target, Zap, ShieldCheck, FileText, ArrowRight, RefreshCw, X, Broadcast } from './icons';
 import NftCard from './NftCard';
-import { generateNftPromptIdeas } from '../services/geminiService';
 
 interface NftMintingStationProps {
   hero: Hero;
@@ -15,22 +14,16 @@ interface NftMintingStationProps {
   reports: Report[];
 }
 
-const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero, onMintNft, reports }) => {
+const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero, reports }) => {
   const { t } = useTranslations();
-  
-  // Synthesis Lab State
   const [step, setStep] = useState<1 | 2 | 3>(1);
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [theme, setTheme] = useState<NftTheme | ''>('');
   const [dpalCategory, setDpalCategory] = useState<Category | ''>('');
   const [selectedTraits, setSelectedTraits] = useState<string[]>([]);
-  
-  // Concept & Mint State
-  const [concepts, setConcepts] = useState<string[]>([]);
   const [selectedConcept, setSelectedConcept] = useState<string | null>(null);
   const [isMinting, setIsMinting] = useState(false);
   const [mintedReport, setMintedReport] = useState<Report | null>(null);
-  const [isGeneratingConcept, setIsGeneratingConcept] = useState(false);
+  const [revealActive, setRevealActive] = useState(false);
 
   const MINT_BASE_COST = 500;
   const traitsCost = useMemo(() => 
@@ -40,335 +33,290 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero, on
   const totalCost = MINT_BASE_COST + traitsCost;
   const canAfford = hero.heroCredits >= totalCost;
 
-  const authorityScore = useMemo(() => {
-    const base = selectedMaterials.length * 10;
-    const traitBonus = selectedTraits.reduce((acc, tid) => acc + (FORGE_TRAITS.find(t => t.id === tid)?.bonusValue || 0), 0);
-    return Math.min(100, 30 + base + traitBonus);
-  }, [selectedMaterials, selectedTraits]);
-
-  const handleToggleMaterial = (id: string) => {
-      setSelectedMaterials(prev => 
-        prev.includes(id) ? prev.filter(mid => mid !== id) : prev.length < 3 ? [...prev, id] : prev
-      );
-  };
-
-  const handleToggleTrait = (id: string) => {
-      setSelectedTraits(prev => 
-        prev.includes(id) ? prev.filter(tid => tid !== id) : [...prev, id]
-      );
-  };
-
-  const handleGenerateVisions = async () => {
-    if (!theme || !dpalCategory) return;
-    setIsGeneratingConcept(true);
-    setConcepts([]);
-    try {
-      const newConcepts = await generateNftPromptIdeas(hero, theme, dpalCategory);
-      setConcepts(newConcepts);
-    } catch (e) {
-      setConcepts(["Synaptic Echo Error", "Temporal Glimpse Failure", "Fragmented Reality"]);
-    } finally {
-      setIsGeneratingConcept(false);
-    }
+  const generateSignature = async (body: any, timestamp: number, nonce: string) => {
+    const raw = JSON.stringify(body) + timestamp + nonce;
+    const encoder = new TextEncoder();
+    const data = encoder.encode(raw);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
   };
 
   const handleFinalSynthesis = async () => {
     if (!selectedConcept || !canAfford || isMinting) return;
     setIsMinting(true);
+
     try {
-      const newReport = await onMintNft(selectedConcept, theme as NftTheme, dpalCategory as Category, {
-          authorityScore,
-          traits: selectedTraits.map(tid => FORGE_TRAITS.find(t => t.id === tid)?.name),
-          materials: selectedMaterials
+      const timestamp = Date.now();
+      const nonce = Math.random().toString(36).substring(2, 15);
+      const idempotencyKey = `mint-${hero.operativeId}-${timestamp}`;
+
+      const body = {
+        assetDraftId: `draft-${timestamp}`,
+        collectionId: 'GENESIS_01',
+        chain: 'DPAL_INTERNAL',
+        priceCredits: totalCost,
+        idempotencyKey,
+        attributes: selectedTraits.map(tid => ({
+          trait_type: 'Module',
+          value: FORGE_TRAITS.find(t => t.id === tid)?.name
+        })),
+        meta: { concept: selectedConcept, theme, category: dpalCategory }
+      };
+
+      const signature = await generateSignature(body, timestamp, nonce);
+
+      const response = await fetch('/api/nft/mint', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dpal-timestamp': timestamp.toString(),
+          'x-dpal-nonce': nonce,
+          'x-dpal-signature': signature
+        },
+        body: JSON.stringify(body)
       });
-      setMintedReport(newReport);
-    } catch (e) {
+
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'MINT_FAILED');
+      }
+
+      const receipt = await response.json();
+      
+      setHero(prev => ({
+          ...prev,
+          heroCredits: prev.heroCredits - receipt.priceCredits
+      }));
+
+      const finalReport: Report = {
+          id: receipt.tokenId,
+          title: selectedConcept,
+          description: `Minted via DPAL Oracle. Framework: ${theme}. Signature: ${receipt.txHash}`,
+          category: dpalCategory as Category,
+          location: 'Vanguard_Lab',
+          timestamp: new Date(),
+          hash: receipt.txHash,
+          blockchainRef: receipt.txHash,
+          status: 'Resolved',
+          trustScore: 100,
+          severity: 'Standard',
+          isActionable: false,
+          earnedNft: {
+              source: 'minted',
+              title: selectedConcept,
+              imageUrl: `https://api.dpal.net/v1/assets/${receipt.tokenId}.png`,
+              mintCategory: dpalCategory as Category,
+              blockNumber: 6843021,
+              txHash: receipt.txHash,
+              rarity: 'Rare' as any,
+              grade: 'S'
+          }
+      };
+
+      setMintedReport(finalReport);
+      setRevealActive(true);
+    } catch (e: any) {
       console.error(e);
+      alert(e.message || "Synthesis disrupted. Check terminal connection.");
     } finally {
       setIsMinting(false);
     }
   };
 
   return (
-    <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 font-mono relative overflow-hidden">
-      {/* Background Ambience */}
+    <div className="bg-zinc-950 border border-zinc-800 rounded-[2.5rem] p-8 md:p-12 font-mono relative overflow-hidden min-h-[700px]">
+      <style>{`
+        .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: rgba(34, 211, 238, 0.2); animation: scan 4s linear infinite; z-index: 50; }
+        @keyframes scan { from { top: 0; } to { top: 100%; } }
+        .materialize-reveal { animation: materialize 2s ease-out forwards; }
+        @keyframes materialize { 0% { opacity: 0; transform: scale(0.8) translateY(20px); filter: blur(20px); } 100% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); } }
+        .glitch-text { animation: text-glitch 3s infinite; }
+        @keyframes text-glitch { 0% { transform: translate(0); } 1% { transform: translate(-2px, 1px); } 2% { transform: translate(2px, -1px); } 3% { transform: translate(0); } 100% { transform: translate(0); } }
+      `}</style>
+      
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.05),transparent_50%)]"></div>
-      <div className="absolute top-0 left-0 w-full h-1 bg-cyan-500/20 animate-pulse"></div>
+      <div className="scan-line"></div>
+      
+      {revealActive && mintedReport ? (
+          <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center animate-fade-in">
+              <div className="materialize-reveal space-y-12 max-w-2xl w-full">
+                  <div className="space-y-4">
+                      <div className="flex items-center justify-center space-x-4 mb-2">
+                        <Sparkles className="w-8 h-8 text-cyan-400 animate-pulse" />
+                        <h2 className="text-4xl md:text-6xl font-black text-white uppercase tracking-tighter glitch-text">Artifact_Synthesized</h2>
+                      </div>
+                      <p className="text-cyan-500 font-black uppercase tracking-[0.6em] text-xs">Ledger_Seal_Authenticated</p>
+                  </div>
 
-      <header className="text-center mb-16 relative z-10">
-        <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">{t('nftMintingStation.title')}</h2>
-        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em]">{t('nftMintingStation.subtitle')}</p>
-      </header>
+                  <div className="relative group">
+                      <div className="absolute -inset-10 bg-cyan-500/10 blur-[80px] animate-pulse"></div>
+                      <div className="relative transform hover:scale-105 transition-transform duration-700">
+                        <NftCard report={mintedReport} />
+                      </div>
+                  </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 relative z-10">
-        {/* Left Column: Synthesis Steps */}
-        <div className="lg:col-span-7 space-y-10">
-            {/* Step Indicators */}
-            <div className="flex items-center space-x-4 mb-8">
-                {[1, 2, 3].map(s => (
-                    <button 
-                        key={s} 
-                        onClick={() => s < step && setStep(s as any)}
-                        className={`flex-1 h-1 rounded-full transition-all duration-500 ${s <= step ? 'bg-cyan-500 shadow-[0_0_10px_cyan]' : 'bg-zinc-800'}`}
-                    />
-                ))}
-            </div>
+                  <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-3xl space-y-6 text-left shadow-2xl">
+                      <div className="grid grid-cols-2 gap-8">
+                          <div>
+                              <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Token_ID</p>
+                              <p className="text-xs font-black text-white truncate">{mintedReport.id}</p>
+                          </div>
+                          <div>
+                              <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">TX_Hash</p>
+                              <p className="text-xs font-black text-emerald-500 truncate">{mintedReport.hash}</p>
+                          </div>
+                      </div>
+                      <div className="pt-6 border-t border-zinc-800 flex justify-between items-center">
+                          <div className="flex items-center space-x-3 text-cyan-500">
+                              <ShieldCheck className="w-5 h-5" />
+                              <span className="text-[9px] font-black uppercase tracking-widest">Protocol: Genesis_01</span>
+                          </div>
+                          <p className="text-[9px] font-mono text-zinc-700">BLOCK_HEIGHT: #6843021</p>
+                      </div>
+                  </div>
 
-            {step === 1 && (
-                <div className="space-y-8 animate-fade-in">
-                    <div className="space-y-4">
-                        <label className="text-xs font-black uppercase text-zinc-500 tracking-widest flex items-center space-x-2">
-                            <Database className="w-4 h-4 text-cyan-500"/><span>Ingest_Data_Fragments ({selectedMaterials.length}/3)</span>
-                        </label>
-                        <div className="grid grid-cols-1 gap-3 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-                            {reports.filter(r => r.isAuthor).map(report => (
-                                <button 
-                                    key={report.id}
-                                    onClick={() => handleToggleMaterial(report.id)}
-                                    className={`w-full text-left p-4 rounded-2xl border-2 transition-all flex items-center justify-between ${
-                                        selectedMaterials.includes(report.id) ? 'bg-cyan-950/20 border-cyan-500 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700'
-                                    }`}
-                                >
-                                    <div className="flex items-center space-x-4 truncate">
-                                        <div className="p-2 bg-zinc-950 rounded-lg"><FileText className="w-4 h-4"/></div>
-                                        <span className="text-xs font-black uppercase truncate">{report.title}</span>
-                                    </div>
-                                    {selectedMaterials.includes(report.id) && <Check className="w-4 h-4 text-cyan-400" />}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                  <button 
+                    onClick={() => { setRevealActive(false); setStep(1); setMintedReport(null); setDpalCategory(''); setTheme(''); }}
+                    className="bg-white hover:bg-cyan-50 text-black font-black py-6 px-16 rounded-[2rem] uppercase tracking-[0.4em] text-xs shadow-4xl active:scale-95 transition-all"
+                  >
+                    Dismiss_to_Archive
+                  </button>
+              </div>
+          </div>
+      ) : (
+          <div className="relative z-10">
+            <header className="text-center mb-16">
+                <h2 className="text-4xl font-black text-white uppercase tracking-tighter mb-2">Ledger_Forge</h2>
+                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em]">Authorized Backend Synthesis Mode</p>
+            </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-2">Neural_Framework</label>
-                            <select 
-                                value={theme} 
-                                onChange={(e) => setTheme(e.target.value as NftTheme)}
-                                className="w-full bg-zinc-900 border-2 border-zinc-800 p-4 rounded-2xl text-xs font-black uppercase tracking-tight text-white focus:border-cyan-500 outline-none cursor-pointer hover:bg-zinc-850 transition-colors"
-                            >
-                                <option value="">[SELECT_FRAMEWORK]</option>
-                                {NFT_THEMES.map(t => <option key={t.value} value={t.value}>{t.label.toUpperCase()} PROTOCOL</option>)}
-                            </select>
-                        </div>
-                        <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-2">Ledger_Domain</label>
-                            <select 
-                                value={dpalCategory} 
-                                onChange={(e) => setDpalCategory(e.target.value as Category)}
-                                className="w-full bg-zinc-900 border-2 border-zinc-800 p-4 rounded-2xl text-xs font-black uppercase tracking-tight text-white focus:border-cyan-500 outline-none cursor-pointer hover:bg-zinc-850 transition-colors"
-                            >
-                                <option value="">[SELECT_DOMAIN]</option>
-                                {CATEGORIES_WITH_ICONS.map(c => <option key={c.value} value={c.value}>{c.value}</option>)}
-                            </select>
-                        </div>
-                    </div>
-
-                    <button 
-                        disabled={!theme || !dpalCategory}
-                        onClick={() => { setStep(2); handleGenerateVisions(); }}
-                        className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.3em] text-xs shadow-2xl active:scale-95 transition-all disabled:opacity-20"
-                    >
-                        Initialize_Interpretation
-                    </button>
-                </div>
-            )}
-
-            {step === 2 && (
-                <div className="space-y-8 animate-fade-in">
-                    <label className="text-xs font-black uppercase text-zinc-500 tracking-widest flex items-center space-x-2">
-                        <Target className="w-4 h-4 text-cyan-500"/><span>Oracle_Interpretations</span>
-                    </label>
-                    
-                    <div className="space-y-3">
-                        {isGeneratingConcept ? (
-                            <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                                <Loader className="w-10 h-10 animate-spin text-cyan-500" />
-                                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest animate-pulse">Filtering_Synaptic_Noise...</p>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                <div className="lg:col-span-7 space-y-10">
+                    <div className="flex items-center space-x-6 mb-12">
+                        {[1, 2, 3].map(s => (
+                            <div key={s} className="flex items-center space-x-4">
+                                <div className={`w-10 h-10 rounded-xl border-2 flex items-center justify-center font-black transition-all ${step >= s ? 'bg-cyan-600 border-cyan-400 text-white shadow-lg' : 'bg-zinc-900 border-zinc-800 text-zinc-700'}`}>{s}</div>
+                                {s < 3 && <div className={`w-12 h-1 rounded-full ${step > s ? 'bg-cyan-600' : 'bg-zinc-800'}`}></div>}
                             </div>
-                        ) : (
-                            concepts.map((concept, idx) => (
-                                <button 
-                                    key={idx}
-                                    onClick={() => setSelectedConcept(concept)}
-                                    className={`w-full text-left p-6 rounded-[2rem] border-2 transition-all group ${
-                                        selectedConcept === concept ? 'bg-cyan-950/20 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-                                    }`}
-                                >
-                                    <p className={`text-sm italic font-medium leading-relaxed ${selectedConcept === concept ? 'text-white' : 'text-zinc-500 group-hover:text-zinc-300'}`}>"{concept}"</p>
-                                </button>
-                            ))
-                        )}
+                        ))}
                     </div>
 
-                    <div className="flex space-x-4">
-                        <button onClick={() => setStep(1)} className="px-10 py-5 bg-zinc-900 border border-zinc-800 rounded-2xl text-[10px] font-black uppercase text-zinc-500 hover:text-white transition-all">Back</button>
-                        <button 
-                            disabled={!selectedConcept}
-                            onClick={() => setStep(3)}
-                            className="flex-grow bg-white text-black font-black py-5 rounded-2xl uppercase tracking-[0.3em] text-xs shadow-2xl transition-all disabled:opacity-20"
-                        >
-                            Configure_Traits
-                        </button>
-                    </div>
-                </div>
-            )}
-
-            {step === 3 && (
-                <div className="space-y-10 animate-fade-in">
-                    <div className="space-y-6">
-                        <label className="text-xs font-black uppercase text-zinc-500 tracking-widest flex items-center space-x-2">
-                            <Zap className="w-4 h-4 text-cyan-500"/><span>Trait_Infusion_Modules</span>
-                        </label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {FORGE_TRAITS.map(trait => (
-                                <button 
-                                    key={trait.id}
-                                    onClick={() => handleToggleTrait(trait.id)}
-                                    className={`p-5 rounded-[2rem] border-2 text-left transition-all relative overflow-hidden group ${
-                                        selectedTraits.includes(trait.id) ? 'bg-cyan-950/20 border-cyan-500' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
-                                    }`}
-                                >
-                                    <div className="flex justify-between items-start mb-2">
-                                        <h4 className="font-black uppercase text-sm tracking-tighter text-white">{trait.name}</h4>
-                                        <div className="flex items-center space-x-1 text-yellow-500 font-black text-[10px]">
-                                            <span>{trait.cost}</span><Coins className="w-3 h-3"/>
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] text-zinc-500 leading-relaxed font-bold">{trait.description}</p>
-                                    <div className="mt-4 text-[8px] font-black uppercase text-cyan-500/80">+{trait.bonusValue} {trait.bonusType}</div>
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="bg-zinc-900 border-2 border-zinc-800 rounded-[2.5rem] p-10 space-y-10">
-                         <div className="flex justify-between items-end border-b border-zinc-800 pb-8 gap-4">
-                            <div className="min-w-0">
-                                <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] mb-4">Verification_Authority</h3>
-                                <div className="flex items-end space-x-4">
-                                    <span className="text-5xl md:text-6xl font-black text-white tracking-tighter leading-none">{authorityScore}</span>
-                                    <span className="text-lg md:text-xl font-black text-emerald-500 mb-1">/ 100</span>
+                    {step === 1 && (
+                        <div className="space-y-8 animate-fade-in">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-2">Neural_Framework</label>
+                                    <select 
+                                        value={theme} 
+                                        onChange={(e) => setTheme(e.target.value as NftTheme)}
+                                        className="w-full bg-zinc-950 border-2 border-zinc-800 p-5 rounded-2xl text-xs font-black uppercase text-white focus:border-cyan-500 outline-none transition-all shadow-inner"
+                                    >
+                                        <option value="">[SELECT_FRAMEWORK]</option>
+                                        {NFT_THEMES.map(t => <option key={t.value} value={t.value}>{t.label.toUpperCase()}</option>)}
+                                    </select>
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-2">Ledger_Domain</label>
+                                    <select 
+                                        value={dpalCategory} 
+                                        onChange={(e) => setDpalCategory(e.target.value as Category)}
+                                        className="w-full bg-zinc-950 border-2 border-zinc-800 p-5 rounded-2xl text-xs font-black uppercase text-white focus:border-cyan-500 outline-none transition-all shadow-inner"
+                                    >
+                                        <option value="">[SELECT_DOMAIN]</option>
+                                        {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
                                 </div>
                             </div>
-                            <div className="text-right flex-shrink-0">
-                                <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total_Cost</p>
-                                <div className="flex items-center justify-end space-x-3 text-2xl md:text-3xl font-black text-yellow-500">
-                                    <span>{totalCost}</span><Coins className="w-6 h-6"/>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center px-1">
-                                <span className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Resonance_Sync</span>
-                                <span className="text-[8px] font-black text-cyan-500">74%</span>
-                            </div>
-                            <div className="h-1 w-full bg-zinc-950 rounded-full overflow-hidden border border-zinc-900">
-                                <div className="h-full bg-cyan-600 shadow-[0_0_10px_cyan]" style={{width: '74%'}}></div>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 pt-4">
-                            <button onClick={() => setStep(2)} className="w-full sm:w-auto px-10 py-5 bg-zinc-900 border border-zinc-800 rounded-2xl text-[10px] font-black uppercase text-zinc-500 hover:text-white transition-all">Back</button>
                             <button 
-                                onClick={handleFinalSynthesis}
-                                disabled={isMinting || !canAfford}
-                                className="flex-grow bg-cyan-600 hover:bg-cyan-500 text-white font-black py-6 rounded-2xl uppercase tracking-[0.3em] text-xs shadow-2xl active:scale-95 transition-all disabled:bg-zinc-800 disabled:text-zinc-600"
+                                onClick={() => { setSelectedConcept("Oracle Vision #" + Date.now().toString().slice(-4)); setStep(2); }}
+                                disabled={!theme || !dpalCategory}
+                                className="w-full bg-white text-black font-black py-6 rounded-2xl uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-10 transition-all flex items-center justify-center space-x-4"
                             >
-                                {isMinting ? <Loader className="w-5 h-5 animate-spin mx-auto"/> : t('nftMintingStation.generateVisionsButton')}
+                                <span>Initialize_Vision_Sync</span>
+                                <ArrowRight className="w-4 h-4" />
                             </button>
                         </div>
-                    </div>
-                </div>
-            )}
-        </div>
+                    )}
 
-        {/* Right Column: Schematic & Result */}
-        <div className="lg:col-span-5 h-full min-h-[500px] flex flex-col">
-            <div className="flex-grow bg-black rounded-[3rem] border-4 border-zinc-900 shadow-2xl relative overflow-hidden group p-8 flex flex-col items-center justify-center">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.1),transparent_70%)] animate-pulse"></div>
-                
-                {isMinting ? (
-                    <div className="text-center space-y-6 relative z-10 animate-fade-in">
-                        <div className="w-32 h-32 bg-zinc-950 rounded-[3rem] border-2 border-cyan-500/50 flex items-center justify-center relative shadow-[0_0_40px_rgba(6,182,212,0.2)] mx-auto">
-                            <RefreshCw className="w-16 h-16 text-cyan-500 animate-spin" />
-                            <div className="absolute inset-0 bg-cyan-500/5 rounded-[3rem] animate-ping"></div>
-                        </div>
-                        <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.5em] animate-pulse">{t('nftMintingStation.generating')}</p>
-                    </div>
-                ) : mintedReport ? (
-                    <div className="w-full animate-fade-in space-y-8">
-                        <div className="flex items-center justify-center space-x-3">
-                            <ShieldCheck className="w-6 h-6 text-emerald-500" />
-                            <h3 className="text-xl font-black text-emerald-400 uppercase tracking-tighter">Synthesis_Complete</h3>
-                        </div>
-                        <div className="max-w-[280px] mx-auto">
-                            <NftCard report={mintedReport} />
-                        </div>
-                        <div className="bg-zinc-900/60 p-5 rounded-2xl border border-zinc-800 text-center">
-                            <p className="text-[9px] font-black text-zinc-600 uppercase mb-1">Block_Height</p>
-                            <p className="text-sm font-mono text-cyan-600">#{Math.floor(Math.random() * 100000) + 6843000}</p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="text-center space-y-10 relative z-10 p-10 transition-all duration-700">
-                         <div className="relative">
-                            <div className="absolute inset-0 bg-cyan-500/10 blur-3xl animate-pulse"></div>
-                            <Gem className={`w-32 h-32 mx-auto transition-all duration-1000 ${step > 1 ? 'text-cyan-400 drop-shadow-[0_0_20px_cyan] scale-110' : 'text-zinc-900'}`} />
-                         </div>
-                         
-                         <div className="space-y-4">
-                            <h3 className="text-xl font-black uppercase text-zinc-700 tracking-tighter">Lab_Status: READY</h3>
-                            <div className="grid grid-cols-3 gap-2">
-                                {[1,2,3].map(i => (
-                                    <div key={i} className={`h-1.5 rounded-full ${step >= i ? 'bg-cyan-600' : 'bg-zinc-900'}`}/>
-                                ))}
+                    {step === 2 && (
+                        <div className="space-y-8 animate-fade-in">
+                            <div className="bg-zinc-900/60 p-10 rounded-[3rem] border-2 border-zinc-800 relative overflow-hidden shadow-inner">
+                                <div className="absolute top-0 right-0 p-8 opacity-5"><Broadcast className="w-24 h-24 text-cyan-400"/></div>
+                                <p className="text-zinc-500 font-bold text-xs uppercase tracking-widest mb-6 border-b border-zinc-800 pb-4">Oracle_Inference_Result:</p>
+                                <p className="text-white font-black text-3xl uppercase tracking-tighter leading-none italic">"{selectedConcept}"</p>
+                                <p className="text-zinc-600 text-[9px] font-bold uppercase mt-10 tracking-[0.4em]">Pattern_Match: 99.4% STABLE</p>
                             </div>
-                            <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-widest leading-relaxed max-w-[20ch] mx-auto">
-                                Feed raw evidence fragments into the neural loop to synthesize artifacts.
-                            </p>
-                         </div>
-                    </div>
-                )}
-            </div>
+                            <div className="flex gap-4">
+                                <button onClick={() => setStep(1)} className="px-10 py-6 bg-zinc-900 text-zinc-500 font-black rounded-2xl uppercase text-[10px] tracking-widest border border-zinc-800 hover:text-white transition-all">Re-Sync</button>
+                                <button onClick={() => setStep(3)} className="flex-grow bg-white text-black font-black py-6 rounded-2xl uppercase tracking-widest text-[10px] shadow-xl active:scale-95 transition-all">Configure_Artifact_Traits</button>
+                            </div>
+                        </div>
+                    )}
 
-            {/* Schematic Overlay (Mini) */}
-            {!mintedReport && (
-                <div className="mt-8 bg-zinc-900 border border-zinc-800 rounded-3xl p-6 space-y-4 animate-fade-in">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Synthesis_Blueprint</span>
-                        <div className="flex space-x-1">
-                            <div className="w-1 h-1 bg-cyan-500 rounded-full"></div>
-                            <div className="w-1 h-1 bg-cyan-500 rounded-full opacity-50"></div>
+                    {step === 3 && (
+                        <div className="space-y-10 animate-fade-in">
+                            <div className="bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] p-10 space-y-10 shadow-inner">
+                                <div className="flex justify-between items-end border-b border-zinc-800 pb-8">
+                                    <div>
+                                        <h3 className="text-xs font-black text-zinc-600 uppercase tracking-[0.4em] mb-4">Total_Synthesis_Cost</h3>
+                                        <div className="flex items-center space-x-4 text-4xl font-black text-amber-500">
+                                            <span>{totalCost}</span><Coins className="w-8 h-8"/>
+                                        </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Operative_Balance</p>
+                                        <p className="text-sm font-black text-white">{hero.heroCredits} HC</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-4">
+                                    <div className="flex items-center space-x-3 text-cyan-500/80">
+                                        <ShieldCheck className="w-4 h-4" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest">Network_Policies</span>
+                                    </div>
+                                    <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed max-w-md">
+                                        All artifacts are stored on the DPAL production nodes hosted on Railway. Metadata is permanently indexed to the MongoDB cluster.
+                                    </p>
+                                </div>
+
+                                <button 
+                                    onClick={handleFinalSynthesis}
+                                    disabled={isMinting || !canAfford}
+                                    className={`w-full py-8 rounded-[2rem] font-black uppercase tracking-[0.4em] text-xs shadow-4xl active:scale-95 transition-all flex items-center justify-center space-x-6 border-b-8 ${canAfford ? 'bg-cyan-600 hover:bg-cyan-500 border-cyan-800 text-white' : 'bg-zinc-800 border-zinc-900 text-zinc-600 cursor-not-allowed'}`}
+                                >
+                                    {isMinting ? <Loader className="w-8 h-8 animate-spin"/> : <Zap className="w-8 h-8 text-white"/>}
+                                    <span>{isMinting ? 'FORGING_ETERNAL_TRUTH...' : canAfford ? 'Authorize_Ledger_Commit' : 'Insufficient_Resource_Sync'}</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                    <div className="space-y-3">
-                        <div className="flex justify-between text-[10px] font-bold">
-                            <span className="text-zinc-600">FRAMEWORK:</span>
-                            <span className="text-cyan-500 truncate ml-4 text-right">{(NFT_THEMES.find(t => t.value === theme)?.label || '[PENDING]').toUpperCase()}</span>
+                    )}
+                </div>
+
+                <div className="lg:col-span-5 h-full min-h-[450px]">
+                    <div className="h-full bg-black rounded-[4rem] border-4 border-zinc-900 flex flex-col items-center justify-center p-12 text-center shadow-4xl relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.03),transparent_70%)]"></div>
+                        <div className="absolute -inset-2 bg-cyan-500/5 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        
+                        <div className="relative z-10 space-y-8">
+                            <div className="w-40 h-40 bg-zinc-950 rounded-[3rem] border border-zinc-800 flex items-center justify-center mx-auto shadow-inner group-hover:border-cyan-900 transition-colors">
+                                <Gem className="w-20 h-20 text-zinc-900 group-hover:text-cyan-600 transition-all duration-700" />
+                            </div>
+                            <div>
+                                <h4 className="text-xl font-black uppercase tracking-tighter text-zinc-700 group-hover:text-zinc-500 transition-colors">Awaiting_Neural_Handshake</h4>
+                                <p className="text-[9px] text-zinc-800 font-bold uppercase tracking-[0.4em] mt-2">Forge Shards from Field Directives</p>
+                            </div>
                         </div>
-                        <div className="flex justify-between text-[10px] font-bold">
-                            <span className="text-zinc-600">DATA_FRAGS:</span>
-                            <span className="text-white">{selectedMaterials.length} Shards</span>
-                        </div>
-                        <div className="flex justify-between text-[10px] font-bold">
-                            <span className="text-zinc-600">INFUSIONS:</span>
-                            <span className="text-white">{selectedTraits.length} Active</span>
-                        </div>
+                        
+                        {/* DECORATIVE CORNER BRACKETS */}
+                        <div className="absolute top-10 left-10 w-8 h-8 border-t-2 border-l-2 border-zinc-900"></div>
+                        <div className="absolute top-10 right-10 w-8 h-8 border-t-2 border-r-2 border-zinc-900"></div>
+                        <div className="absolute bottom-10 left-10 w-8 h-8 border-b-2 border-l-2 border-zinc-900"></div>
+                        <div className="absolute bottom-10 right-10 w-8 h-8 border-b-2 border-r-2 border-zinc-900"></div>
                     </div>
                 </div>
-            )}
-        </div>
-      </div>
-
-      <style>{`
-        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
-      `}</style>
+            </div>
+          </div>
+      )}
     </div>
   );
 };
