@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from '../i18n';
 import { type HeroPersona, Archetype } from '../types';
@@ -64,6 +63,20 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
 
     return (
         <div className="font-mono space-y-8 w-full overflow-hidden">
+            {/* MANDATORY FRONTEND VERIFICATION TEST (USER REQUESTED) */}
+            <div className="bg-zinc-900/40 p-4 rounded-2xl border border-zinc-800 flex items-center justify-between no-print">
+                 <div className="flex items-center space-x-4">
+                     <Monitor className="w-5 h-5 text-cyan-500" />
+                     <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Frontend_Render_Verification</p>
+                 </div>
+                 <img
+                    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"
+                    alt="test"
+                    className="bg-cyan-500/20"
+                    style={{ width: 40, height: 40, borderRadius: "50%" }}
+                />
+            </div>
+
             <div className="flex justify-between items-center bg-zinc-950/80 p-8 rounded-[2.5rem] border border-zinc-800 shadow-2xl backdrop-blur-md">
                 <div className="flex items-center space-x-6 min-w-0">
                     <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/30 relative flex-shrink-0">
@@ -93,7 +106,6 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
 
                     <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 md:gap-12">
                         <div className="lg:col-span-4 space-y-10 min-w-0">
-                            {/* PHOTO UPLOAD SLOT */}
                             <div className="space-y-6">
                                 <div className="flex items-center space-x-3 px-3">
                                     <Camera className="w-4 h-4 text-cyan-500" />
