@@ -1,6 +1,6 @@
 // Import Buffer to resolve 'Cannot find name Buffer' error in environments without Node.js types.
 import { Buffer } from 'buffer';
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface INftAsset extends Document {
   tokenId: string;
@@ -9,9 +9,8 @@ export interface INftAsset extends Document {
   metadataUri: string;
   imageUri: string;
   attributes: Array<{ trait_type: string, value: any }>;
-  createdByUserId: Types.ObjectId;
+  createdByUserId: string;
   status: 'DRAFT' | 'MINTED' | 'BURNED';
-  // Use Buffer type from the imported 'buffer' module.
   imageData?: Buffer;
 }
 
@@ -22,9 +21,8 @@ const NftAssetSchema = new Schema<INftAsset>({
   metadataUri: { type: String, required: true },
   imageUri: { type: String, required: true },
   attributes: [{ trait_type: String, value: Schema.Types.Mixed }],
-  createdByUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  createdByUserId: { type: String, required: true },
   status: { type: String, default: 'MINTED' },
-  // Use Schema.Types.Buffer to ensure Mongoose correctly handles binary data.
   imageData: { type: Schema.Types.Buffer }
 }, { timestamps: true });
 

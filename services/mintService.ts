@@ -1,4 +1,3 @@
-// Import Buffer to resolve 'Cannot find name Buffer' error in environments without Node.js types.
 import { Buffer } from 'buffer';
 import mongoose from 'mongoose';
 import { CreditWallet } from '../models/CreditWallet';
@@ -9,22 +8,21 @@ import { NftAsset } from '../models/NftAsset';
 import { AuditEvent } from '../models/AuditEvent';
 import { GoogleGenAI } from "@google/genai";
 
-// Fix: Always use literal process.env.API_KEY for initialization as per coding guidelines.
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * Executes the full NFT minting transaction on the server.
- * Handles credit locking, image generation, asset creation, and ledger settlement.
+ * Robust implementation using String IDs for Operatives.
  */
 export const executeMintFlow = async (userId: string, payload: any) => {
   const { idempotencyKey, prompt, theme, category, priceCredits, nonce, timestamp } = payload;
   
-  console.log(`[BACKEND_MINT_START] userId: ${userId} idempotency: ${idempotencyKey}`);
+  console.log(`[BACKEND] Materializing Shard for Operative #${userId}...`);
 
-  // 1. Check Idempotency First
+  // 1. Idempotency Guard
   const existingReceipt = await MintReceipt.findOne({ userId, idempotencyKey });
   if (existingReceipt) {
-    console.log(`[MINT_IDEMPOTENCY_HIT] Returning existing receipt for ${idempotencyKey}`);
+    console.log(`[BACKEND] Shard already materialized for key: ${idempotencyKey}`);
     return {
         ok: true,
         tokenId: existingReceipt.tokenId,
@@ -35,12 +33,18 @@ export const executeMintFlow = async (userId: string, payload: any) => {
     };
   }
 
+  // 2. Ensure Wallet Exists (Provision if missing)
+  await CreditWallet.updateOne(
+    { userId },
+    { $setOnInsert: { balance: 10000, lockedBalance: 0 } }, 
+    { upsert: true }
+  );
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
-    // 2. Credit Lock
-    console.log(`[MINT_CREDIT_LOCK] Attempting lock for ${priceCredits} HC`);
+    // 3. Lock Credits
     const wallet = await CreditWallet.findOneAndUpdate(
       { userId, balance: { $gte: priceCredits } },
       { 
@@ -50,26 +54,27 @@ export const executeMintFlow = async (userId: string, payload: any) => {
       { session, new: true }
     );
 
-    if (!wallet) throw new Error('INSUFFICIENT_CREDITS_SYNCHRONIZATION_FAILED');
+    if (!wallet) throw new Error('INSUFFICIENT_RESOURCE_BALANCE');
 
-    // 3. Create Mint Request Record
+    // 4. Record Request
     const request = await MintRequest.create([{
       ...payload,
+      assetDraftId: `DRAFT-${Date.now()}`,
+      collectionId: 'GENESIS_01',
+      chain: 'DPAL_INTERNAL',
       userId,
       status: 'PROCESSING'
     }], { session });
 
-    // 4. Generate Image via Google GenAI (Server Side Only)
-    console.log(`[MINT_IMAGE_GEN_START] Creating artifact for concept: ${prompt}`);
+    // 5. Generate Visual Telemetry (Gemini Oracle)
+    console.log(`[BACKEND] Invoking Gemini Oracle for: ${prompt}`);
     const imageResponse = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: { 
-        parts: [{ text: `A futuristic holographic accountability artifact for a decentralized ledger. Concept: ${prompt}. Visual Theme: ${theme}. Category: ${category}. High fidelity, 4K, ray-traced, cinematic perspective.` }] 
+        parts: [{ text: `A futuristic holographic accountability artifact for a decentralized ledger. Concept: ${prompt}. Visual Theme: ${theme}. Category: ${category}. Cinematic lighting, 8k resolution, detailed glass and metal surfaces.` }] 
       },
       config: {
-        imageConfig: {
-          aspectRatio: "1:1"
-        }
+        imageConfig: { aspectRatio: "1:1" }
       }
     });
 
@@ -81,27 +86,26 @@ export const executeMintFlow = async (userId: string, payload: any) => {
       }
     }
     
-    if (!base64Image) throw new Error('IMAGE_GENERATION_SUBSYSTEM_FAILURE');
-    console.log(`[MINT_IMAGE_GEN_SUCCESS] Binary data materialized.`);
+    if (!base64Image) throw new Error('ORACLE_VISUAL_GENERATION_FAILED');
 
-    // 5. Generate Ledger Identifiers
+    // 6. Generate Shard Identifiers
     const tokenId = `DPAL-${Date.now()}-${Math.floor(Math.random() * 9999).toString().padStart(4, '0')}`;
     const txHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
 
-    // 6. Persist Asset and Image Binary
+    // 7. Persist Shard Artifact
     const asset = await NftAsset.create([{
       tokenId,
-      collectionId: payload.collectionId || 'GENESIS_01',
-      chain: payload.chain || 'DPAL_INTERNAL',
+      collectionId: 'GENESIS_01',
+      chain: 'DPAL_INTERNAL',
       metadataUri: `dpal://metadata/${tokenId}`,
       imageUri: `/api/assets/${tokenId}.png`, 
       attributes: payload.traits || [],
       createdByUserId: userId,
       status: 'MINTED',
       imageData: Buffer.from(base64Image, 'base64') 
-    } as any], { session });
+    }], { session });
 
-    // 7. Settle Credits and Ledger
+    // 8. Settlement
     await CreditWallet.updateOne(
       { userId },
       { $inc: { lockedBalance: -priceCredits } },
@@ -117,7 +121,6 @@ export const executeMintFlow = async (userId: string, payload: any) => {
       idempotencyKey: `spend-${idempotencyKey}`
     }], { session });
 
-    // 8. Final Immutable Receipt
     const receipt = await MintReceipt.create([{
       mintRequestId: request[0]._id,
       userId,
@@ -131,7 +134,7 @@ export const executeMintFlow = async (userId: string, payload: any) => {
 
     await MintRequest.updateOne({ _id: request[0]._id }, { status: 'COMPLETED' }, { session });
 
-    // 9. Permanent Audit Trail
+    // 9. Permanent Audit
     await AuditEvent.create([{
       actorUserId: userId,
       action: 'NFT_MINT',
@@ -142,7 +145,7 @@ export const executeMintFlow = async (userId: string, payload: any) => {
     }], { session });
 
     await session.commitTransaction();
-    console.log(`[MINT_TRANSACTION_COMMITTED] Token ${tokenId} stored.`);
+    console.log(`[BACKEND] Shard ${tokenId} successfully committed to ledger.`);
     
     return {
         ok: true,
@@ -154,29 +157,16 @@ export const executeMintFlow = async (userId: string, payload: any) => {
     };
 
   } catch (error: any) {
-    if (session.inTransaction()) {
-        await session.abortTransaction();
-    }
-    console.error(`[MINT_TRANSACTION_FAILED] userId: ${userId} error: ${error.message}`);
-    
-    try {
-      await MintRequest.updateOne(
-        { userId, idempotencyKey: payload.idempotencyKey },
-        { status: 'FAILED', error: error.message }
-      );
-    } catch (e) { /* ignore secondary write failure */ }
-
+    if (session.inTransaction()) await session.abortTransaction();
+    console.error(`[BACKEND] Materialization Failure: ${error.message}`);
     throw error;
   } finally {
     session.endSession();
   }
 };
 
-/**
- * Endpoint handler logic for GET /api/assets/:tokenId.png
- */
 export const serveAssetImage = async (tokenId: string): Promise<{ buffer: Buffer, mimeType: string }> => {
-  const asset = await NftAsset.findOne({ tokenId }) as any;
-  if (!asset || !asset.imageData) throw new Error('ASSET_IDENTIFIER_INVALID_OR_NOT_FOUND');
-  return { buffer: asset.imageData, mimeType: 'image/png' };
+  const asset = await NftAsset.findOne({ tokenId });
+  if (!asset || !asset.imageData) throw new Error('SHARD_IDENTIFIER_NOT_FOUND');
+  return { buffer: asset.imageData as Buffer, mimeType: 'image/png' };
 };

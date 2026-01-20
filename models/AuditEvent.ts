@@ -1,8 +1,7 @@
-
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface IAuditEvent extends Document {
-  actorUserId: Types.ObjectId;
+  actorUserId: string;
   action: string;
   entityType: string;
   entityId: string;
@@ -14,7 +13,7 @@ export interface IAuditEvent extends Document {
 }
 
 const AuditEventSchema = new Schema<IAuditEvent>({
-  actorUserId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  actorUserId: { type: String, required: true },
   action: { type: String, required: true },
   entityType: { type: String, required: true },
   entityId: { type: String, required: true },

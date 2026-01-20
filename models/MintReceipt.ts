@@ -1,9 +1,8 @@
-
 import { Schema, model, Document, Types } from 'mongoose';
 
 export interface IMintReceipt extends Document {
   mintRequestId: Types.ObjectId;
-  userId: Types.ObjectId;
+  userId: string;
   tokenId: string;
   txHash: string;
   chain: string;
@@ -15,7 +14,7 @@ export interface IMintReceipt extends Document {
 
 const MintReceiptSchema = new Schema<IMintReceipt>({
   mintRequestId: { type: Schema.Types.ObjectId, ref: 'MintRequest', required: true },
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   tokenId: { type: String, required: true, unique: true },
   txHash: { type: String, required: true },
   chain: { type: String, required: true },

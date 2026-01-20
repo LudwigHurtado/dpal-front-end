@@ -1,8 +1,7 @@
-
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface IMintRequest extends Document {
-  userId: Types.ObjectId;
+  userId: string;
   assetDraftId: string;
   collectionId: string;
   priceCredits: number;
@@ -10,13 +9,13 @@ export interface IMintRequest extends Document {
   idempotencyKey: string;
   nonce: string;
   timestamp: number;
-  signature: string;
+  signature?: string;
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   error?: string;
 }
 
 const MintRequestSchema = new Schema<IMintRequest>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   assetDraftId: { type: String, required: true },
   collectionId: { type: String, required: true },
   priceCredits: { type: Number, required: true },
@@ -24,7 +23,7 @@ const MintRequestSchema = new Schema<IMintRequest>({
   idempotencyKey: { type: String, required: true, unique: true },
   nonce: { type: String, required: true },
   timestamp: { type: Number, required: true },
-  signature: { type: String, required: true },
+  signature: { type: String, required: false }, // Signature optional for prototype forging
   status: { type: String, default: 'PENDING' },
   error: String
 }, { timestamps: true });

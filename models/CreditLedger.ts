@@ -1,19 +1,18 @@
-
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface ICreditLedger extends Document {
-  userId: Types.ObjectId;
+  userId: string;
   type: 'CREDIT_LOCK' | 'CREDIT_SPEND' | 'CREDIT_UNLOCK' | 'DEPOSIT';
   amount: number;
   direction: 'CREDIT' | 'DEBIT';
-  referenceId: string; // e.g., mintRequestId
+  referenceId: string;
   idempotencyKey: string;
   meta?: any;
   createdAt: Date;
 }
 
 const CreditLedgerSchema = new Schema<ICreditLedger>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: String, required: true },
   type: { type: String, required: true },
   amount: { type: Number, required: true },
   direction: { type: String, required: true },

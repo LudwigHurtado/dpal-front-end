@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Category, type Hero, type Report, type NftTheme } from '../types';
 import { FORGE_TRAITS, NFT_THEMES } from '../constants';
-// FIX: Added missing icon imports: User, Monitor, ArrowLeft
 import { Gem, Coins, Loader, Check, Sparkles, Database, Target, Zap, ShieldCheck, FileText, ArrowRight, RefreshCw, X, Broadcast, Activity, Box, Fingerprint, Activity as ActivityIcon, User, Monitor, ArrowLeft } from './icons';
 import NftCard from './NftCard';
 import { generateNftPromptIdeas } from '../services/geminiService';
@@ -34,7 +33,6 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
   const totalCost = MINT_BASE_COST + traitsCost;
   const canAfford = hero.heroCredits >= totalCost;
 
-  // Handle concept generation from Gemini
   const syncOracleVisions = async () => {
     if (!theme || !dpalCategory) return;
     setIsSyncingConcepts(true);
@@ -52,7 +50,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
   const handleFinalSynthesis = async () => {
     if (!selectedConcept || !canAfford || isMinting) return;
     
-    console.log("[FORGE] Initializing Ledger Commit...");
+    console.log("[FORGE] Initializing Ledger Commit for Operative #" + hero.operativeId);
     setIsMinting(true);
     setActiveStep('FORGING');
 
@@ -76,17 +74,11 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
         traits: selectedTraits.map(tid => ({
           trait_type: 'Module',
           value: FORGE_TRAITS.find(t => t.id === tid)?.name
-        })),
-        metadata: {
-            operativeId: hero.operativeId,
-            rank: hero.rank,
-            generation: "GENESIS_01"
-        }
+        }))
       };
 
-      const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-backend.up.railway.app';
-      
-      const response = await fetch(`${apiBase}/api/nft/mint`, {
+      // Use relative proxy path to bypass CORS and hit Vercel rewrites
+      const response = await fetch('/api/nft/mint', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -100,21 +92,17 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
       const contentType = response.headers.get('content-type');
       if (!contentType || !contentType.includes('application/json')) {
         const text = await response.text();
-        throw new Error(`CRITICAL_NETWORK_FAILURE: ${text.substring(0, 200)}`);
+        throw new Error(`CRITICAL_NETWORK_FAILURE: Server responded with non-JSON data. Link may be blocked.`);
       }
 
       const receipt = await response.json();
-      if (!response.ok) throw new Error(receipt.message || `MINT_REJECTED (${response.status})`);
+      if (!response.ok) throw new Error(receipt.message || `MINT_REJECTED_BY_NODE_${response.status}`);
 
-      console.log("[FORGE] Ledger Success:", receipt);
-
-      // Update Credits
       setHero(prev => ({
           ...prev,
           heroCredits: prev.heroCredits - (receipt.priceCredits || totalCost)
       }));
 
-      // Materialize Report for Display
       const finalReport: Report = {
           id: receipt.tokenId,
           title: selectedConcept,
@@ -146,11 +134,11 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
     } catch (e: any) {
       clearTimeout(timeoutId);
       console.error("[FORGE_ERR]", e);
-      setActiveStep('AUGMENT'); // Return to last stable state
+      setActiveStep('AUGMENT'); 
       if (e.name === 'AbortError') {
-        alert("Synthesis Timed Out (60s). Check terminal logs.");
+        alert("Synthesis Timed Out (60s). The Forge node is busy.");
       } else {
-        alert(e.message || "Synthesis disrupted. Recalibrate neural link.");
+        alert(e.message || "Synthesis disrupted. Check terminal network status.");
       }
     } finally {
       setIsMinting(false);
@@ -186,7 +174,6 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(6,182,212,0.05),transparent_50%)] pointer-events-none"></div>
       <div className="absolute top-0 left-0 w-full h-1 bg-cyan-500/20 scan-y z-50 pointer-events-none"></div>
 
-      {/* HEADER SECTION */}
       <header className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-16">
           <div className="flex items-center space-x-6">
               <div className="p-4 bg-cyan-950/40 rounded-3xl border-2 border-cyan-500/30 shadow-2xl">
@@ -214,7 +201,6 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
           </div>
       </header>
 
-      {/* PROGRESS TRACKER */}
       <div className="relative z-10 flex items-center justify-center space-x-8 mb-16">
           {[
               { id: 'FRAMEWORK', icon: <Box />, label: 'Setup' },
@@ -240,7 +226,6 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
           })}
       </div>
 
-      {/* MAIN CONTENT AREA */}
       <div className="flex-grow relative z-10 flex flex-col">
           {activeStep === 'FRAMEWORK' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 animate-fade-in">
@@ -491,7 +476,6 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
           )}
       </div>
 
-      {/* FOOTER METRICS */}
       {activeStep !== 'SUCCESS' && (
           <footer className="relative z-10 mt-16 pt-10 border-t border-zinc-900 flex flex-wrap justify-between items-center gap-8 opacity-60">
               <div className="flex items-center space-x-8">

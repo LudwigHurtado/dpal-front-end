@@ -1,8 +1,7 @@
-
-import { Schema, model, Document, Types } from 'mongoose';
+import { Schema, model, Document } from 'mongoose';
 
 export interface ICreditWallet extends Document {
-  userId: Types.ObjectId;
+  userId: string;
   balance: number;
   lockedBalance: number;
   updatedAt: Date;
@@ -10,7 +9,7 @@ export interface ICreditWallet extends Document {
 }
 
 const CreditWalletSchema = new Schema<ICreditWallet>({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true },
+  userId: { type: String, required: true, unique: true },
   balance: { type: Number, default: 0, min: 0 },
   lockedBalance: { type: Number, default: 0, min: 0 },
   updatedAt: { type: Date, default: Date.now }
