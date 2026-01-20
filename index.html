@@ -1,22 +1,29 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>DPAL: Decentralized Public Accountability Ledger</title>
-    
-    <!-- iOS / Apple Web App Meta Tags -->
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="DPAL">
-    <link rel="apple-touch-icon" href="https://raw.githubusercontent.com/google/material-design-icons/master/png/action/account_balance/white/2x/ic_account_balance_white_48dp.png">
-    
-    <!-- Web App Manifest -->
-    <link rel="manifest" href="/manifest.json">
-    
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
+
+    <title>DPAL: Decentralized Public Accountability Ledger | DEPLOY TEST 01</title>
+
+    <meta name="dpal-build-marker" content="DEPLOY_TEST_01" />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DPAL" />
+    <link
+      rel="apple-touch-icon"
+      href="https://raw.githubusercontent.com/google/material-design-icons/master/png/action/account_balance/white/2x/ic_account_balance_white_48dp.png"
+    />
+
+    <link rel="manifest" href="/manifest.json" />
+
     <script src="https://cdn.tailwindcss.com"></script>
+
     <script type="importmap">
 {
   "imports": {
@@ -34,22 +41,21 @@
   }
 }
 </script>
+
     <style>
-      /* Base System Colors */
       body {
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        padding: env(safe-area-inset-top) env(safe-area-inset-right)
+          env(safe-area-inset-bottom) env(safe-area-inset-left);
         background-color: #000;
         margin: 0;
         transition: font-size 0.3s ease;
       }
 
-      /* Interface Scaling Protocols */
       html.scale-standard { font-size: 16px; }
       html.scale-large { font-size: 18px; }
       html.scale-ultra { font-size: 21px; }
       html.scale-magnified { font-size: 24px; }
 
-      /* Responsive Adjustments for Scaling */
       @media (max-width: 640px) {
         html.scale-standard { font-size: 14px; }
         html.scale-large { font-size: 16px; }
@@ -57,7 +63,6 @@
         html.scale-magnified { font-size: 20px; }
       }
 
-      /* Global Scrollbar Refinement */
       ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
@@ -73,7 +78,6 @@
         background: #3f3f46;
       }
 
-      /* React Grid Layout specific styles */
       .react-grid-item.react-grid-placeholder {
         background: rgba(34, 211, 238, 0.1) !important;
         border-radius: 1.5rem !important;
@@ -98,11 +102,32 @@
         border-right: 2px solid rgba(255, 255, 255, 0.2);
         border-bottom: 2px solid rgba(255, 255, 255, 0.2);
       }
+
+      #dpal-deploy-test-badge {
+        position: fixed;
+        bottom: 10px;
+        right: 10px;
+        z-index: 99999;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(0, 255, 255, 0.12);
+        color: #00ffff;
+        font: 12px/1.2 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        letter-spacing: 0.5px;
+        border: 1px solid rgba(0, 255, 255, 0.25);
+        user-select: none;
+        pointer-events: none;
+      }
     </style>
-  <link rel="stylesheet" href="/index.css">
-</head>
+
+    <link rel="stylesheet" href="/index.css" />
+  </head>
+
   <body>
     <div id="root"></div>
+
+    <div id="dpal-deploy-test-badge">DEPLOY TEST 01</div>
+
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>
