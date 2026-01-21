@@ -45,6 +45,9 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
             setDraftDescription('');
             setSourceImage(null);
             setIsWorkspaceOpen(false);
+        } catch (e) {
+            console.error("Recruitment Failed", e);
+            alert("Neural link failed to materialize operative image. Check Railway backend logs.");
         } finally {
             setIsGenerating(false);
         }
@@ -63,20 +66,6 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
 
     return (
         <div className="font-mono space-y-8 w-full overflow-hidden">
-            {/* MANDATORY FRONTEND VERIFICATION TEST (USER REQUESTED) */}
-            <div className="bg-zinc-900/40 p-4 rounded-2xl border border-zinc-800 flex items-center justify-between no-print">
-                 <div className="flex items-center space-x-4">
-                     <Monitor className="w-5 h-5 text-cyan-500" />
-                     <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Frontend_Render_Verification</p>
-                 </div>
-                 <img
-                    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA"
-                    alt="test"
-                    className="bg-cyan-500/20"
-                    style={{ width: 40, height: 40, borderRadius: "50%" }}
-                />
-            </div>
-
             <div className="flex justify-between items-center bg-zinc-950/80 p-8 rounded-[2.5rem] border border-zinc-800 shadow-2xl backdrop-blur-md">
                 <div className="flex items-center space-x-6 min-w-0">
                     <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/30 relative flex-shrink-0">
@@ -113,7 +102,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                 </div>
                                 <div 
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="relative w-full aspect-square rounded-[3rem] border-2 border-dashed border-zinc-800 bg-zinc-900/40 flex flex-col items-center justify-center cursor-pointer hover:border-cyan-500/50 transition-all overflow-hidden group shadow-inner"
+                                    className="relative w-full aspect-square rounded-[3rem] border-2 border-dashed border-zinc-800 bg-zinc-900/40 flex flex-col items-center justify-center cursor-pointer hover:border-cyan-500/50 transition-all overflow-hidden shadow-inner group"
                                 >
                                     {sourceImage ? (
                                         <>
@@ -205,7 +194,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                             <button 
                                 onClick={handleCreatePersona}
                                 disabled={!draftDescription.trim() || isGenerating}
-                                className="w-full mt-8 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-6 rounded-[2rem] uppercase tracking-[0.2em] text-xs shadow-3xl active:scale-[0.98] transition-all disabled:opacity-10 flex items-center justify-center space-x-6 group overflow-hidden relative"
+                                className="w-full mt-8 bg-cyan-600 hover:bg-cyan-50 text-white font-black py-6 rounded-[2rem] uppercase tracking-[0.2em] text-xs shadow-3xl active:scale-[0.98] transition-all disabled:opacity-10 flex items-center justify-center space-x-6 group overflow-hidden relative"
                             >
                                 {isGenerating ? <Loader className="w-6 h-6 animate-spin text-white"/> : <Sparkles className="w-6 h-6 text-white transition-transform group-hover:scale-125"/>}
                                 <span className="truncate">{isGenerating ? 'NEURAL_RECONSTRUCTION...' : 'RECRUIT_OPERATIVE'}</span>
@@ -237,7 +226,9 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.15),transparent_70%)] blur-2xl"></div>
                                     <div className={`w-32 h-32 mx-auto rounded-[2.5rem] p-1.5 border-2 border-dashed border-zinc-800 relative z-10 transition-all duration-700 ${isEquipped ? 'scale-110 shadow-3xl border-cyan-500/50' : 'group-hover:border-zinc-700'}`}>
                                         <div className="w-full h-full rounded-[2rem] overflow-hidden border-2 border-zinc-900 bg-black">
-                                            <img src={persona.imageUrl} alt={persona.name} className={`w-full h-full object-cover transition-all duration-1000 ${isEquipped ? 'grayscale-0' : 'grayscale group-hover:grayscale-0 contrast-125'}`} />
+                                            {persona.imageUrl && (
+                                              <img src={persona.imageUrl} alt={persona.name} className={`w-full h-full object-cover transition-all duration-1000 ${isEquipped ? 'grayscale-0' : 'grayscale group-hover:grayscale-0 contrast-125'}`} />
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -311,7 +302,7 @@ const Trash2: React.FC<{ className?: string }> = ({ className }) => (
     <path d="M3 6h18" />
     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
     <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
+    <line x1="10" x2="10" y1="11" y2="17" />
     <line x1="14" y1="11" x2="14" y2="17" />
   </svg>
 );

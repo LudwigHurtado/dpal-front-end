@@ -8,7 +8,8 @@ import { NftAsset } from '../models/NftAsset';
 import { AuditEvent } from '../models/AuditEvent';
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// CRITICAL: Must use named parameter for API KEY
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 /**
  * Executes the full NFT minting transaction on the server.

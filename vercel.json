@@ -1,12 +1,20 @@
 {
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://dpal-ai-server-production.up.railway.app/api/$1"
+      "source": "/api/:path*",
+      "destination": "https://dpal-ai-server-production.up.railway.app/api/:path*"
     },
     {
-      "source": "/(.*)",
+      "source": "/:path*",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/:path*",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" }
+      ]
     }
   ]
 }

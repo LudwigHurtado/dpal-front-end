@@ -7,9 +7,9 @@ import { CATEGORIES } from "../constants";
 import { OFFLINE_DIRECTIVES, OFFLINE_INTEL, OFFLINE_TRAINING, OFFLINE_MISSION_TEMPLATES } from "./offlineAiData";
 
 const FLASH_TEXT_MODEL = 'gemini-3-flash-preview'; 
-const IMAGE_GEN_MODEL = 'gemini-3-pro-image-preview';
 
 const getApiKey = () => process.env.API_KEY;
+const getApiBase = () => (import.meta as any).env?.VITE_API_BASE || 'https://dpal-backend.up.railway.app';
 
 export type AiErrorType = 'NOT_CONFIGURED' | 'TEMPORARY_FAILURE' | 'RATE_LIMITED';
 
@@ -255,13 +255,22 @@ export async function performIAReview(report: Report): Promise<{ findings: any[]
     } catch (error) { return handleApiError(error); }
 }
 
+/**
+ * MOVED TO BACKEND: Image generation now passes through the Railway backend to ensure 
+ * stable URL contracts and secure neural handling.
+ */
 export async function generateNftImage(hero: Hero, reportContext: any, prompt: string, theme?: NftTheme): Promise<string> {
   if (!isAiEnabled()) return `https://picsum.photos/seed/${prompt.substring(0,5)}/400/600`;
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({ model: IMAGE_GEN_MODEL, contents: `Artifact: ${prompt}. Theme: ${theme}.`, config: { imageConfig: { aspectRatio: '3:4', imageSize: '1K' } } });
-    for (const part of response.candidates[0].content.parts) { if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`; }
-    throw new Error("No image data.");
+    const apiBase = getApiBase();
+    const response = await fetch(`${apiBase}/api/nft/generate-image`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, theme, operativeId: hero.operativeId })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "IMAGE_SYNC_FAILED");
+    return data.imageUrl.startsWith('/') ? `${apiBase}${data.imageUrl}` : data.imageUrl;
   } catch (error) { return handleApiError(error); }
 }
 
@@ -339,13 +348,22 @@ export async function generateHeroPersonaDetails(prompt: string, arch: Archetype
     } catch (e) { return handleApiError(e); }
 }
 
+/**
+ * MOVED TO BACKEND: Operative portraits are now handled via the Railway backend to ensure
+ * they are indexed to MongoDB and served from a stable URL contract.
+ */
 export async function generateHeroPersonaImage(prompt: string, arch: Archetype, sourceImageData?: string): Promise<string> {
     if (!isAiEnabled()) return `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`;
     try {
-        const ai = getAiClient();
-        const response = await ai.models.generateContent({ model: IMAGE_GEN_MODEL, contents: `Hero portrait for ${arch}: ${prompt}.`, config: { imageConfig: { aspectRatio: '1:1', imageSize: '1K' } } });
-        for (const part of response.candidates[0].content.parts) { if (part.inlineData) return `data:image/png;base64,${part.inlineData.data}`; }
-        throw new Error("Persona image failed.");
+        const apiBase = getApiBase();
+        const response = await fetch(`${apiBase}/api/persona/generate-image`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt, archetype: arch, sourceImage: sourceImageData })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || "PERSONA_SYNC_FAILED");
+        return data.imageUrl.startsWith('/') ? `${apiBase}${data.imageUrl}` : data.imageUrl;
     } catch (e) { return handleApiError(e); }
 }
 

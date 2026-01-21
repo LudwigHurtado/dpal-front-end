@@ -79,33 +79,40 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
         }))
       };
 
-      // FIX: Use apiBase for the fetch call to ensure it works in the AI Studio preview environment
-      const response = await fetch(`${apiBase}/api/nft/mint`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal
-      });
+      // ATTEMPT 1: Try relative path first (leveraging Vercel Proxy)
+      let response;
+      try {
+        response = await fetch('/api/nft/mint', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+      } catch (e) {
+        console.warn("[FORGE] Relative dispatch failed, falling back to absolute node.");
+        // ATTEMPT 2: Fallback to absolute Railway URL
+        response = await fetch(`${apiBase}/api/nft/mint`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+          signal: controller.signal
+        });
+      }
 
       clearTimeout(timeoutId);
 
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        throw new Error(`CRITICAL_NETWORK_FAILURE: Node rejected connection.`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`MINT_REJECTED: ${response.status} - ${errorText.substring(0, 100)}`);
       }
 
       const receipt = await response.json();
-      if (!response.ok) throw new Error(receipt.message || `MINT_REJECTED_BY_NODE_${response.status}`);
-
+      
       setHero(prev => ({
           ...prev,
           heroCredits: prev.heroCredits - (receipt.priceCredits || totalCost)
       }));
 
-      // Resolve relative path to absolute for the preview
       const resolvedImageUrl = receipt.imageUrl.startsWith('/') 
         ? `${apiBase}${receipt.imageUrl}` 
         : receipt.imageUrl;
@@ -145,7 +152,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
       if (e.name === 'AbortError') {
         alert("Synthesis Timed Out (60s). The Forge node is busy.");
       } else {
-        alert(e.message || "Synthesis disrupted. Check terminal network status.");
+        alert(`Synthesis disrupted: ${e.message}. Check terminal network status.`);
       }
     } finally {
       setIsMinting(false);
@@ -400,7 +407,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
                       </div>
                   </div>
                   <div className="space-y-1">
-                      <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">API_Proxy</p>
+                      <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">API_Node</p>
                       <p className="text-[10px] font-black text-white truncate max-w-[200px]">{apiBase}</p>
                   </div>
               </div>
