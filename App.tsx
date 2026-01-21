@@ -204,7 +204,6 @@ const App: React.FC = () => {
 
     return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
-
       <Header 
         onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
         onNavigateHome={() => setCurrentView('mainMenu')} 
