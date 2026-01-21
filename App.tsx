@@ -203,7 +203,12 @@ const App: React.FC = () => {
   };
 
   return (
+  return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
+      <div style={{ color: "red", fontSize: "22px", fontWeight: 700 }}>
+        DEPLOY STAMP 2026-01-20 VERIFIED
+      </div>
+
       <Header 
         onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
         onNavigateHome={() => setCurrentView('mainMenu')} 
@@ -217,11 +222,18 @@ const App: React.FC = () => {
       
       <main className="container mx-auto px-4 py-8 flex-grow relative z-10">
         {currentView === 'aiSetup' && (
-          <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
+          <AiSetupView
+            onReturn={() => setCurrentView('mainMenu')}
+            onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }}
+          />
         )}
         
         {currentView === 'mainMenu' && (
-          <MainMenu onNavigate={handleNavigate} totalReports={reports.length} onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} />
+          <MainMenu
+            onNavigate={handleNavigate}
+            totalReports={reports.length}
+            onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }}
+          />
         )}
 
         {currentView === 'categorySelection' && (
@@ -243,93 +255,185 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'reportComplete' && completedReport && (
-          <ReportCompleteView report={completedReport} onReturn={() => setCurrentView('mainMenu')} onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <ReportCompleteView
+            report={completedReport}
+            onReturn={() => setCurrentView('mainMenu')}
+            onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+          />
         )}
 
         {currentView === 'hub' && (
           <div className="space-y-10">
-            <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+            <LedgerScanner
+              reports={reports}
+              onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+            />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               <div className="lg:col-span-8">
-                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} />
+                <MainContentPanel
+                  reports={reports}
+                  filteredReports={filteredReports}
+                  analysis={null}
+                  analysisError={null}
+                  onCloseAnalysis={() => {}}
+                  onAddReportImage={() => {}}
+                  onReturnToMainMenu={() => setCurrentView('mainMenu')}
+                  onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+                  activeTab={hubTab}
+                  setActiveTab={setHubTab}
+                  onAddNewReport={() => handleNavigate('categorySelection')}
+                />
               </div>
               <div className="lg:col-span-4">
-                <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
+                <FilterPanel
+                  filters={filters}
+                  setFilters={setFilters}
+                  onAnalyzeFeed={() => handleNavigate('liveIntelligence')}
+                  isAnalyzing={false}
+                  reportCount={reports.length}
+                  hero={heroWithRank}
+                  reports={reports}
+                  onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+                  onAddNewReport={() => handleNavigate('categorySelection')}
+                />
               </div>
             </div>
           </div>
         )}
 
         {currentView === 'liveIntelligence' && (
-          <LiveIntelligenceView onReturn={() => setCurrentView(prevView === 'heroHub' ? 'heroHub' : 'mainMenu')} onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }} heroLocation={heroLocation} setHeroLocation={setHeroLocation} initialCategories={initialCategoriesForIntel} textScale={globalTextScale} />
+          <LiveIntelligenceView
+            onReturn={() => setCurrentView(prevView === 'heroHub' ? 'heroHub' : 'mainMenu')}
+            onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }}
+            heroLocation={heroLocation}
+            setHeroLocation={setHeroLocation}
+            initialCategories={initialCategoriesForIntel}
+            textScale={globalTextScale}
+          />
         )}
 
         {currentView === 'generateMission' && selectedIntelForMission && (
-          <GenerateMissionView intelItem={selectedIntelForMission} onReturn={() => handleNavigate('liveIntelligence')} onAcceptMission={async (intel, approach, goal) => {
+          <GenerateMissionView
+            intelItem={selectedIntelForMission}
+            onReturn={() => handleNavigate('liveIntelligence')}
+            onAcceptMission={async (intel, approach, goal) => {
               const m = await generateMissionFromIntel(intel, approach, goal);
               const structuredM: Mission = {
-                  ...m,
-                  id: `msn-${Date.now()}`,
-                  phase: 'RECON',
-                  currentActionIndex: 0,
-                  status: 'active',
-                  reconActions: [
-                      /** FIX: Removed invalid properties 'requiredChecks', 'riskChecks', 'evidenceRequired' and added required 'prompts' */
-                      { id: 'rec-1', name: 'Coordinate Survey', task: 'Verify geospatial center of target.', whyItMatters: "Ensures legal jurisdiction and node alignment.", icon: '🛰️', priority: 'High', isComplete: false, prompts: [{ id: 'p-rec-1', type: 'confirmation', promptText: 'GPS Link Verified', required: true, responseType: 'checkbox', storedAs: { entity: 'riskAssessment', field: 'gps_verified' } }], impactedSkills: ['Technical'] },
-                      { id: 'rec-2', name: 'Strategic Mapping', task: 'Identify impacted citizens.', whyItMatters: "Quantifies community harm factor.", icon: '👥', priority: 'Medium', isComplete: false, prompts: [{ id: 'p-rec-2', type: 'observation', promptText: 'Sector count verified', required: true, responseType: 'text', storedAs: { entity: 'missionLog', field: 'impact_count' } }], impactedSkills: ['Empathy'] },
-                  ],
-                  mainActions: (m.steps || []).map((s: any, i: number) => ({
-                      id: `act-${i}`,
-                      name: s.name,
-                      task: s.task,
-                      whyItMatters: s.whyItMatters || "Primary field directive.",
-                      icon: s.icon,
-                      priority: s.priority || 'Medium',
-                      isComplete: false,
-                      /** FIX: Removed invalid properties 'requiredChecks', 'riskChecks', 'evidenceRequired' and added required 'prompts' */
-                      prompts: s.prompts || [],
-                      impactedSkills: ['Forensic', 'Tactical']
-                  }))
+                ...m,
+                id: `msn-${Date.now()}`,
+                phase: 'RECON',
+                currentActionIndex: 0,
+                status: 'active',
+                reconActions: [
+                  { id: 'rec-1', name: 'Coordinate Survey', task: 'Verify geospatial center of target.', whyItMatters: "Ensures legal jurisdiction and node alignment.", icon: '🛰️', priority: 'High', isComplete: false, prompts: [{ id: 'p-rec-1', type: 'confirmation', promptText: 'GPS Link Verified', required: true, responseType: 'checkbox', storedAs: { entity: 'riskAssessment', field: 'gps_verified' } }], impactedSkills: ['Technical'] },
+                  { id: 'rec-2', name: 'Strategic Mapping', task: 'Identify impacted citizens.', whyItMatters: "Quantifies community harm factor.", icon: '👥', priority: 'Medium', isComplete: false, prompts: [{ id: 'p-rec-2', type: 'observation', promptText: 'Sector count verified', required: true, responseType: 'text', storedAs: { entity: 'missionLog', field: 'impact_count' } }], impactedSkills: ['Empathy'] },
+                ],
+                mainActions: (m.steps || []).map((s: any, i: number) => ({
+                  id: `act-${i}`,
+                  name: s.name,
+                  task: s.task,
+                  whyItMatters: s.whyItMatters || "Primary field directive.",
+                  icon: s.icon,
+                  priority: s.priority || 'Medium',
+                  isComplete: false,
+                  prompts: s.prompts || [],
+                  impactedSkills: ['Forensic', 'Tactical']
+                }))
               };
               setMissions(prev => [structuredM, ...prev]);
               handleNavigate('heroHub', undefined, 'missions');
-          }} />
+            }}
+          />
         )}
 
         {currentView === 'missionDetail' && selectedMissionForDetail && (
-          <MissionDetailView mission={selectedMissionForDetail} onReturn={() => handleNavigate('heroHub', undefined, 'missions')} messages={[]} onSendMessage={() => {}} hero={heroWithRank} onCompleteMissionStep={handleCompleteMissionStep} />
+          <MissionDetailView
+            mission={selectedMissionForDetail}
+            onReturn={() => handleNavigate('heroHub', undefined, 'missions')}
+            messages={[]}
+            onSendMessage={() => {}}
+            hero={heroWithRank}
+            onCompleteMissionStep={handleCompleteMissionStep}
+          />
         )}
 
         {currentView === 'missionComplete' && completedMissionSummary && (
-          <MissionCompleteView mission={completedMissionSummary} onReturn={() => setCurrentView('mainMenu')} />
+          <MissionCompleteView
+            mission={completedMissionSummary}
+            onReturn={() => setCurrentView('mainMenu')}
+          />
         )}
 
         {currentView === 'heroHub' && (
-          <HeroHub onReturnToHub={() => setCurrentView('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} onMintNft={async () => ({} as any)} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={() => {}} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
+          <HeroHub
+            onReturnToHub={() => setCurrentView('mainMenu')}
+            missions={missions}
+            isLoadingMissions={false}
+            hero={heroWithRank}
+            setHero={setHero}
+            heroLocation={heroLocation}
+            setHeroLocation={setHeroLocation}
+            onGenerateNewMissions={() => {}}
+            onMintNft={async () => ({} as any)}
+            reports={reports}
+            iapPacks={IAP_PACKS}
+            storeItems={STORE_ITEMS}
+            onInitiateHCPurchase={() => {}}
+            onInitiateStoreItemPurchase={() => {}}
+            onAddHeroPersona={handleAddHeroPersona}
+            onDeleteHeroPersona={() => {}}
+            onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))}
+            onGenerateHeroBackstory={async () => {}}
+            onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }}
+            onNavigate={handleNavigate}
+            activeTab={heroHubTab}
+            setActiveTab={setHeroHubTab}
+          />
         )}
 
         {currentView === 'transparencyDatabase' && (
-          <TransparencyDatabaseView onReturn={() => setCurrentView('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <TransparencyDatabaseView
+            onReturn={() => setCurrentView('mainMenu')}
+            hero={heroWithRank}
+            reports={reports}
+            filters={filters}
+            setFilters={setFilters}
+            onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+          />
         )}
 
         {currentView === 'trainingHolodeck' && (
-          <TrainingHolodeckView hero={heroWithRank} onReturn={() => setCurrentView('mainMenu')} onComplete={() => {}} />
+          <TrainingHolodeckView
+            hero={heroWithRank}
+            onReturn={() => setCurrentView('mainMenu')}
+            onComplete={() => {}}
+          />
         )}
 
         {currentView === 'incidentRoom' && selectedReportForIncidentRoom && (
-          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => setCurrentView('hub')} messages={[]} onSendMessage={() => {}} />
+          <IncidentRoomView
+            report={selectedReportForIncidentRoom}
+            hero={heroWithRank}
+            onReturn={() => setCurrentView('hub')}
+            messages={[]}
+            onSendMessage={() => {}}
+          />
         )}
 
         {currentView === 'reputationAndCurrency' && (
-          <ReputationAndCurrencyView onReturn={() => setCurrentView('mainMenu')} />
+          <ReputationAndCurrencyView
+            onReturn={() => setCurrentView('mainMenu')}
+          />
         )}
 
         {currentView === 'ecosystem' && (
-          <EcosystemOverview onReturn={() => setCurrentView('mainMenu')} />
+          <EcosystemOverview
+            onReturn={() => setCurrentView('mainMenu')}
+          />
         )}
       </main>
     </div>
   );
-};
+
 
 export default App;
