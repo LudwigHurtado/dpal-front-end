@@ -47,7 +47,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
             setIsWorkspaceOpen(false);
         } catch (e) {
             console.error("Recruitment Failed", e);
-            alert("Neural link failed to materialize operative image. Check Railway backend logs.");
+            alert("Neural link failed to materialize hero identity. Check system node status.");
         } finally {
             setIsGenerating(false);
         }
@@ -73,7 +73,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                         <Activity className="w-6 h-6 text-cyan-400 relative z-10" />
                     </div>
                     <div className="min-w-0">
-                        <p className="text-sm font-black text-white uppercase tracking-tighter truncate">Recruitment_Terminal</p>
+                        <p className="text-sm font-black text-white uppercase tracking-tighter truncate">Identity_Manifesto</p>
                         <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.4em] truncate">{personas.length} / {MAX_PERSONAS} SLOTS_AUTHORIZED</p>
                     </div>
                 </div>
@@ -82,7 +82,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                         onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
                         className={`px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl active:scale-95 flex-shrink-0 ${isWorkspaceOpen ? 'bg-zinc-800 text-zinc-500' : 'bg-cyan-600 text-white hover:bg-cyan-500'}`}
                     >
-                        {isWorkspaceOpen ? 'Abort' : 'OPERATIVE_CONFIGURATION'}
+                        {isWorkspaceOpen ? 'Cancel' : 'MINT_NEW_IDENTITY'}
                     </button>
                 )}
             </div>
@@ -98,7 +98,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                             <div className="space-y-6">
                                 <div className="flex items-center space-x-3 px-3">
                                     <Camera className="w-4 h-4 text-cyan-500" />
-                                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.3em]">Biometric_Source</label>
+                                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.3em]">Identity_Reference (Photo)</label>
                                 </div>
                                 <div 
                                     onClick={() => fileInputRef.current?.click()}
@@ -123,7 +123,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                                 <Camera className="w-8 h-8 text-zinc-700 group-hover:text-cyan-400 transition-colors" />
                                             </div>
                                             <div>
-                                                <p className="text-[10px] font-black text-zinc-600 uppercase leading-relaxed tracking-widest">Upload Profile Photo</p>
+                                                <p className="text-[10px] font-black text-zinc-600 uppercase leading-relaxed tracking-widest">Upload Portrait Base</p>
                                             </div>
                                         </div>
                                     )}
@@ -160,7 +160,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                 <div className="bg-zinc-900/80 border-b border-zinc-800 px-8 py-5 flex justify-between items-center">
                                     <div className="flex items-center space-x-4">
                                         <Zap className="w-5 h-5 text-amber-500" />
-                                        <label className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.3em]">Operative_Manifesto</label>
+                                        <label className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.3em]">Hero_Conceptualization</label>
                                     </div>
                                     <div className="flex items-center space-x-2">
                                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse"></div>
@@ -171,7 +171,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                 <div className="p-8 pb-0">
                                      <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl mb-4">
                                          <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                                             <Sparkles className="w-3 h-3" /> Oracle_Suggestion:
+                                             <Sparkles className="w-3 h-3" /> Oracle_Vision:
                                          </p>
                                          <p className="text-[10px] text-zinc-400 font-bold mt-1 uppercase italic leading-relaxed">{currentMeta?.suggestion}</p>
                                      </div>
@@ -180,14 +180,14 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                 <textarea
                                     value={draftDescription}
                                     onChange={(e) => setDraftDescription(e.target.value)}
-                                    placeholder="Define the hero's core determination..."
+                                    placeholder="Describe your hero using words or suggestions... (e.g., 'A rogue made of shadows with neon eyes')"
                                     className="w-full h-full min-h-[250px] bg-black/30 p-10 pt-4 text-white font-bold text-base outline-none focus:bg-black/50 transition-all placeholder:text-zinc-800 resize-none leading-relaxed"
                                     maxLength={200}
                                 />
 
                                 <div className="bg-zinc-900/80 p-5 border-t border-zinc-800 flex justify-between items-center px-10">
                                     <span className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">Buffer: {draftDescription.length}/200</span>
-                                    {isGenerating && <div className="flex items-center space-x-3 text-cyan-500 animate-pulse"><Loader className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Synthesizing...</span></div>}
+                                    {isGenerating && <div className="flex items-center space-x-3 text-cyan-500 animate-pulse"><Loader className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Minting...</span></div>}
                                 </div>
                             </div>
 
@@ -197,7 +197,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                 className="w-full mt-8 bg-cyan-600 hover:bg-cyan-50 text-white font-black py-6 rounded-[2rem] uppercase tracking-[0.2em] text-xs shadow-3xl active:scale-[0.98] transition-all disabled:opacity-10 flex items-center justify-center space-x-6 group overflow-hidden relative"
                             >
                                 {isGenerating ? <Loader className="w-6 h-6 animate-spin text-white"/> : <Sparkles className="w-6 h-6 text-white transition-transform group-hover:scale-125"/>}
-                                <span className="truncate">{isGenerating ? 'NEURAL_RECONSTRUCTION...' : 'RECRUIT_OPERATIVE'}</span>
+                                <span className="truncate">{isGenerating ? 'NEURAL_MINTING_IN_PROGRESS...' : 'MINT_HERO_IDENTITY'}</span>
                             </button>
                         </div>
                     </div>
@@ -247,7 +247,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                             onClick={() => onEquipPersona(persona.id)} 
                                             className="flex-grow bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-cyan-400 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all border border-zinc-800 hover:border-cyan-500/30 active:scale-95"
                                         >
-                                            DEPLOY
+                                            EQUIP_IDENTITY
                                         </button>
                                     ) : (
                                         <div className="flex-grow flex items-center justify-center space-x-3 text-cyan-400 bg-cyan-950/20 py-4 rounded-2xl border border-cyan-500/30">
@@ -296,14 +296,14 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
     );
 };
 
-// Internal icon for deletion
 const Trash2: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M3 6h18" />
     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
     <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
     <line x1="10" x2="10" y1="11" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
+    {/* FIX: Removed duplicate x2 attribute from line element */}
+    <line x1="14" x2="14" y1="11" y2="17" />
   </svg>
 );
 

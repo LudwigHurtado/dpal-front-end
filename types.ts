@@ -1,74 +1,178 @@
+// Complete types for DPAL application
 
 export enum Category {
-  Travel = "Travel",
-  ElderlyCare = "Elderly Care",
-  ProfessionalServices = "Professional Services",
-  NonProfit = "Non-Profit & Charity",
-  Events = "Event Transparency",
-  PoliceMisconduct = "Police Misconduct",
-  Housing = "Housing",
-  MedicalNegligence = "Medical Negligence",
-  ConsumerScams = "Consumer Scams",
-  Education = "Education",
-  Environment = "Environment",
-  WorkplaceIssues = "Workplace Issues",
-  VeteransServices = "Veterans' Services",
-  PublicTransport = "Public Transport",
-  Infrastructure = "Infrastructure",
-  Allergies = "Allergies",
-  InsuranceFraud = "Insurance Fraud",
-  Clergy = "Clergy",
-  WaterViolations = "Water Related Violations",
-  Other = "Other",
-  CivicDuty = "Civic Duty",
-  AccidentsRoadHazards = "Accidents and Road Hazards",
-  MedicalEmergencies = "Medical Emergencies",
-  FireEnvironmentalHazards = "Fire and Environmental Hazards",
-  PublicSafetyAlerts = "Public Safety Alerts"
+    Travel = 'Travel',
+    ElderlyCare = 'Elderly Care',
+    ProfessionalServices = 'Professional Services',
+    NonProfit = 'Non-Profit & Charity',
+    Events = 'Event Transparency',
+    PoliceMisconduct = 'Police Misconduct',
+    Housing = 'Housing',
+    MedicalNegligence = 'Medical Negligence',
+    ConsumerScams = 'Consumer Scams',
+    Education = 'Education',
+    Environment = 'Environment',
+    WorkplaceIssues = 'Workplace Issues',
+    VeteransServices = 'Veterans\' Services',
+    PublicTransport = 'Public Transport',
+    Infrastructure = 'Infrastructure',
+    Allergies = 'Allergies',
+    InsuranceFraud = 'Insurance Fraud',
+    Clergy = 'Clergy',
+    WaterViolations = 'Water Related Violations',
+    Other = 'Other',
+    CivicDuty = 'Civic Duty',
+    AccidentsRoadHazards = 'Accidents & Road Hazards',
+    MedicalEmergencies = 'Medical Emergencies',
+    FireEnvironmentalHazards = 'Fire & Environmental Hazards',
+    PublicSafetyAlerts = 'Public Safety Alerts'
 }
 
 export enum SubscriptionTier {
-    Scout = "SCOUT_BASE",
-    Guardian = "GUARDIAN_PRO",
-    Sentinel = "SENTINEL_ELITE",
-    Oracle = "ORACLE_GENESIS"
+    Scout = 'Scout',
+    Guardian = 'Guardian',
+    Sentinel = 'Sentinel',
+    Oracle = 'Oracle'
 }
 
-export enum SimulationMode {
-    Synthesist = "Logic & Analysis",
-    Dynamic = "Field Response",
-    Mediation = "Social Harmony",
-    Forensic = "Artifact Recovery",
-    Regulatory = "Policy Compliance",
-    Environmental = "Neural Scan"
+export type SeverityLevel = 'Informational' | 'Standard' | 'Critical' | 'Catastrophic';
+export type ReportStatus = 'Submitted' | 'In Review' | 'Resolved';
+
+export enum NftRarity {
+    Common = 'Common',
+    Rare = 'Rare',
+    Epic = 'Epic',
+    Legendary = 'Legendary'
 }
 
-export enum SimulationDifficulty {
-    Entry = "Entry",
-    Standard = "Standard",
-    Elite = "Elite"
+export interface Report {
+    id: string;
+    title: string;
+    description: string;
+    category: Category;
+    location: string;
+    timestamp: Date;
+    hash: string;
+    blockchainRef: string;
+    status: ReportStatus;
+    trustScore: number;
+    severity: SeverityLevel;
+    isActionable: boolean;
+    imageUrls?: string[];
+    attachments?: File[];
+    credsEarned?: number;
+    isAuthor?: boolean;
+    isGeneratingNft?: boolean;
+    earnedNft?: {
+        source: string;
+        title: string;
+        imageUrl: string;
+        mintCategory: Category;
+        blockNumber: number;
+        txHash: string;
+        rarity: NftRarity;
+        grade: string;
+    };
+    structuredData?: any;
 }
 
 export enum SkillLevel {
-    Beginner = "Beginner",
-    Intermediate = "Intermediate",
-    Expert = "Expert"
+    Beginner = 'Beginner',
+    Intermediate = 'Intermediate',
+    Expert = 'Expert'
 }
 
-export type ActionOutcome = 'CLEAN_SUCCESS' | 'PARTIAL_SUCCESS' | 'RISKY_SUCCESS' | 'PARTIAL_CONFIRMATION' | 'INCOMPLETE';
+export enum EducationRole {
+    Teacher = 'Teacher',
+    Student = 'Student',
+    Employee = 'Employee',
+    Observer = 'Observer'
+}
+
+export enum NftTheme {
+    Cyberpunk = 'Cyberpunk',
+    Ancient = 'Ancient',
+    Fantasy = 'Fantasy',
+    OldWest = 'OldWest',
+    Modern = 'Modern',
+    Mythical = 'Mythical',
+    Steampunk = 'Steampunk',
+    Apocalyptic = 'Apocalyptic',
+    Solarpunk = 'Solarpunk',
+    DeepSea = 'DeepSea',
+    Cosmic = 'Cosmic',
+    Noir = 'Noir',
+    Glitch = 'Glitch',
+    Biopunk = 'Biopunk',
+    Renaissance = 'Renaissance',
+    Shogun = 'Shogun',
+    Nordic = 'Nordic',
+    Vaporwave = 'Vaporwave',
+    Minimalist = 'Minimalist',
+    Gothic = 'Gothic',
+    Industrial = 'Industrial',
+    Solstice = 'Solstice',
+    Quantum = 'Quantum',
+    Magma = 'Magma'
+}
+
+export enum Archetype {
+    Analyst = 'Analyst',
+    Shepherd = 'Shepherd',
+    Seeker = 'Seeker',
+    Sentinel = 'Sentinel',
+    Firefighter = 'Firefighter',
+    Seraph = 'Seraph',
+    Guide = 'Guide'
+}
+
+export type SkillType = 'Logic' | 'Empathy' | 'Social' | 'Tactical' | 'Wisdom' | 'Civic' | 'Environmental' | 'Infrastructure' | 'Technical' | 'Forensic';
+
+export enum HeroPath {
+    Sentinel = 'Path of the Sentinel',
+    Steward = 'Path of the Steward',
+    Seeker = 'Path of the Seeker',
+    Arbiter = 'Path of the Arbiter',
+    Ghost = 'Path of the Ghost'
+}
+
+export enum SimulationMode {
+    Synthesist = 'Synthesist',
+    Dynamic = 'Dynamic',
+    Mediation = 'Mediation',
+    Forensic = 'Forensic',
+    Regulatory = 'Regulatory'
+}
+
+export enum SimulationDifficulty {
+    Entry = 'Entry',
+    Standard = 'Standard',
+    Elite = 'Elite'
+}
+
+export enum MissionApproach {
+    EVIDENCE_FIRST = 'EVIDENCE_FIRST',
+    COMMUNITY_FIRST = 'COMMUNITY_FIRST',
+    SYSTEMS_FIRST = 'SYSTEMS_FIRST'
+}
+
+export enum MissionGoal {
+    STOP_HARM = 'STOP_HARM',
+    DOCUMENT_HARM = 'DOCUMENT_HARM',
+    GET_REMEDY = 'GET_REMEDY'
+}
 
 export interface FieldPrompt {
-  id: string;
-  type: "confirmation" | "evidence" | "observation" | "safety";
-  promptText: string;
-  required: boolean;
-  responseType: "checkbox" | "photo" | "video" | "text" | "multi-select";
-  options?: string[]; // For multi-select
-  validationRules?: { rule: "minLength" | "fileType" | "geoRequired" | "timeWindow"; value: any }[];
-  storedAs: {
-    entity: "report" | "evidence" | "missionLog" | "riskAssessment";
-    field: string;
-  };
+    id: string;
+    type: 'confirmation' | 'evidence' | 'observation' | 'safety';
+    promptText: string;
+    required: boolean;
+    responseType: 'checkbox' | 'photo' | 'video' | 'text' | 'multi-select';
+    options?: string[];
+    storedAs: {
+        entity: 'report' | 'evidence' | 'missionLog' | 'riskAssessment';
+        field: string;
+    };
 }
 
 export interface MissionAction {
@@ -80,254 +184,87 @@ export interface MissionAction {
     priority: 'High' | 'Medium' | 'Low';
     isComplete: boolean;
     prompts: FieldPrompt[];
-    outcome?: ActionOutcome;
-    completedAt?: number;
-    userResponses?: Record<string, any>;
-    evidenceUrls?: string[];
-    impactedSkills: SkillType[];
+    impactedSkills: string[];
 }
 
 export interface Mission {
-  id: string;
-  title: string;
-  backstory: string;
-  category: Category;
-  approach?: MissionApproach;
-  goal?: MissionGoal;
-  location?: string;
-  ledgerRef?: string;
-  successProbability: number;
-  reconActions: MissionAction[];
-  mainActions: MissionAction[];
-  currentActionIndex: number;
-  phase: 'RECON' | 'OPERATION' | 'COMPLETED';
-  status?: 'active' | 'completed';
-  linkedReportId?: string;
-  finalReward: { hc: number; legendTokens?: number; nft: { name: string; icon: string } };
-  steps?: any[]; // Legacy
-  currentStepIndex?: number; // Legacy
-}
-
-export enum Archetype {
-    Analyst = "Logic-Driven Analyst",
-    Shepherd = "Compassionate Shepherd",
-    Seeker = "Unyielding Seeker",
-    Sentinel = "Civic Sentinel",
-    Firefighter = "Hazard Responder",
-    Seraph = "Radiant Guardian",
-    Guide = "Communal Pathweaver"
-}
-
-export type MissionApproach = 'EVIDENCE_FIRST' | 'COMMUNITY_FIRST' | 'SYSTEMS_FIRST';
-export type MissionGoal = 'STOP_HARM' | 'DOCUMENT_HARM' | 'GET_REMEDY';
-export type SeverityLevel = 'Informational' | 'Standard' | 'Critical' | 'Catastrophic';
-export type SkillType = 'Logic' | 'Forensic' | 'Empathy' | 'Technical' | 'Wisdom' | 'Social' | 'Tactical' | 'Civic' | 'Environmental' | 'Infrastructure';
-export type DirectivePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-
-export interface DirectivePacket {
-  priority: DirectivePriority;
-  confidence: number;
-  timeWindow: string;
-  geoRadiusMeters: number;
-  primaryAction: string;
-  steps: Array<{
-    verb: string;
-    actor: string;
-    detail: string;
-    eta: string;
-    safety: string;
-  }>;
-  escalation: Array<{
-    trigger: string;
-    action: string;
-  }>;
-  evidenceMissing: Array<{
-    item: string;
-    howToCaptureSafely: string;
-  }>;
-  resourceRequests: string[];
-  safetyFlags: string[];
-}
-
-export interface AiDirective {
     id: string;
     title: string;
-    description: string;
-    instruction: string;
-    rewardHc: number;
-    rewardXp: number;
-    difficulty: 'Entry' | 'Standard' | 'Elite';
+    backstory: string;
     category: Category;
-    status: 'available' | 'active' | 'completed';
-    proofImageUrl?: string;
-    timestamp: number;
-    packet?: DirectivePacket;
-    auditHash?: string;
-    recommendedNextAction?: string;
+    successProbability: number;
+    reconActions: MissionAction[];
+    mainActions: MissionAction[];
+    currentActionIndex: number;
+    phase: 'RECON' | 'OPERATION' | 'COMPLETED';
+    status: 'active' | 'completed';
+    steps: any[];
+    finalReward: {
+        hc: number;
+        legendTokens?: number;
+        nft: { name: string; icon: string };
+    };
+    currentStepIndex: number;
+    location?: string;
+}
+
+export interface FeedAnalysis {
+    summary: string;
+    hot_topics: Array<{ topic: string, report_ids: string[] }>;
+}
+
+export interface Rank {
+    level: number;
+    title: string;
+    xpNeeded: number;
+    perk: string;
+}
+
+export interface IapPack {
+    sku: string;
+    hcAmount: number;
+    price: number;
+    isBestValue?: boolean;
+}
+
+export interface StoreItem {
+    sku: string;
+    name: string;
+    icon: string;
+    type: 'Gear' | 'Tool' | 'Consumable' | 'Badge' | 'Frame';
+    price: number;
 }
 
 export interface ChatMessage {
     id: string;
     sender: string;
-    text?: string;
-    imageUrl?: string;
-    audioUrl?: string;
+    text: string;
     timestamp: number;
     isSystem?: boolean;
-    ledgerProof: string; 
-    rank?: number;
-    avatarUrl?: string;
+    imageUrl?: string;
+    audioUrl?: string;
+    ledgerProof: string;
 }
 
-export interface Report {
-  id: string;
-  title: string;
-  description: string;
-  category: Category;
-  location: string;
-  timestamp: Date;
-  imageUrls?: string[];
-  audioUrl?: string;
-  hash: string;
-  blockchainRef: string;
-  isAuthor?: boolean;
-  status: ReportStatus;
-  trustScore: number; 
-  severity: SeverityLevel;
-  isActionable: boolean;
-  structuredData?: any;
-  credsEarned?: number;
-  attachments?: File[];
-  isGeneratingNft?: boolean;
-  tags?: string[];
-  evidence?: Array<{
-      type: string;
-      url: string;
-      notes: string;
-      hash: string;
-  }>;
-  earnedNft?: {
-    source: 'report' | 'minted' | 'badge';
+export interface IntelItem {
+    id: string;
+    category: Category;
     title: string;
-    imageUrl: string;
-    mintCategory: Category;
-    blockNumber: number;
-    txHash: string;
-    rarity: NftRarity;
-    grade: string;
-  };
-}
-
-export type ReportStatus = 'Submitted' | 'In Review' | 'Resolved';
-
-export enum NftTheme {
-    Fantasy = "Forensic Reconstruction (Fantasy)",
-    OldWest = "Frontier Investigation (Western)",
-    Cyberpunk = "Neural Net Projection (Cyberpunk)",
-    Ancient = "Archeological Audit (Ancient)",
-    Modern = "Street-Level Mapping (Modern)",
-    Mythical = "Legendary Synthesis (Mythical)",
-    Steampunk = "Clockwork Forensics (Steampunk)",
-    Apocalyptic = "Post-Crisis Recovery (Wasteland)",
-    Solarpunk = "Renewable Utopia (Solarpunk)",
-    DeepSea = "Abyssal Extraction (Deep Sea)",
-    Cosmic = "Void Singularity (Cosmic)",
-    Noir = "Monochrome Detective (Noir)",
-    Glitch = "System Fragmentation (Glitch)",
-    Biopunk = "Genetic Sequence (Biopunk)",
-    Renaissance = "Classical Illumination (Renaissance)",
-    Shogun = "Dynastic Protocol (Eastern)",
-    Nordic = "Boreal Convergence (Norse)",
-    Vaporwave = "Retro-Wave Simulation (90s)",
-    Minimalist = "Zen Purity (Geometric)",
-    Gothic = "Ethereal Shadow (Gothic)",
-    Industrial = "Brutalist Steel (Industrial)",
-    Solstice = "Celestial Alignment (Sun/Moon)",
-    Quantum = "Sub-Atomic Probability (Quantum)",
-    Magma = "Volcanic Core (Primal)"
-}
-
-export enum NftRarity {
-    Common = "Common",
-    Rare = "Rare",
-    Epic = "Epic",
-    Legendary = "Legendary",
-}
-
-export interface Rank {
-  level: number;
-  title: string;
-  xpNeeded: number;
-  perk: string;
-}
-
-export interface Item {
-  id: string;
-  name: string;
-  type: 'Gear' | 'Tool' | 'Consumable' | 'Augmentation';
-  icon: string;
-  resonance: number; 
-  bonusSkill?: SkillType;
-  bonusValue?: number;
-}
-
-export interface IapPack {
-  sku: string;
-  price: number;
-  hcAmount: number;
-  isBestValue?: boolean;
-}
-
-export interface StoreItem {
-  sku: string;
-  price: number;
-  name: string;
-  description: string;
-  icon: string;
-  type: 'Gear' | 'Tool' | 'Consumable' | 'Badge' | 'Frame';
-}
-
-export interface Hero {
-    name: string;
-    operativeId: string;
-    level: number;
-    xp: number;
-    xpToNextLevel: number;
-    heroCredits: number;
-    reputation: number;
-    legendTokens: number;
-    rank: number;
-    title: string;
-    unlockedTitles: string[];
-    equippedTitle: string | null;
-    inventory: Item[];
-    personas: HeroPersona[];
-    equippedPersonaId: null | string;
-    theme: 'light' | 'neon';
-    masteryScore: number;
-    wisdomMastery: number;
-    socialMastery: number;
-    civicMastery: number;
-    environmentalMastery: number;
-    infrastructureMastery: number;
-    base: { name: string; level: number; status: string };
-    skills: SkillNode[];
-    path: HeroPath;
-    hasMadeFirstPurchase?: boolean;
-    unlockedItemSkus: string[];
-    activeParcels: QrParcel[];
-    subscriptionTier: SubscriptionTier;
-    subscriptionRenewal?: number;
+    location: string;
+    time: string;
+    summary: string;
+    source: string;
+    links?: Array<{ uri: string, title: string }>;
 }
 
 export interface HeroPersona {
     id: string;
-    prompt: string;
     name: string;
     backstory: string;
     combatStyle: string;
     imageUrl: string;
-    archetype?: Archetype;
+    prompt: string;
+    archetype: Archetype;
 }
 
 export interface TacticalDossier {
@@ -358,36 +295,125 @@ export interface HealthRecord {
     ownerName: string;
     relationship: string;
     bloodType: string;
+    dob: string;
     allergies: string[];
     medications: string[];
     emergencyContact: string;
     sharedFolderUri?: string;
+    criticalNotes?: string;
+    profilePicture?: string;
     isCloudSynced: boolean;
     timestamp: number;
-    criticalNotes?: string;
 }
 
-export interface SkillNode {
+export interface AiDirective {
     id: string;
-    name: string;
+    title: string;
     description: string;
-    cost: number;
-    isUnlocked: boolean;
-}
-
-export enum HeroPath {
-    Sentinel = "Path of the Sentinel",
-    Steward = "Path of the Steward",
-    Seeker = "Path of the Seeker",
-    Arbiter = "Path of the Arbiter",
-    Ghost = "Path of the Ghost"
+    instruction: string;
+    rewardHc: number;
+    rewardXp: number;
+    difficulty: 'Entry' | 'Standard' | 'Elite';
+    category: Category;
+    status: 'available' | 'completed';
+    timestamp: number;
+    recommendedNextAction?: string;
+    proofImageUrl?: string;
+    auditHash?: string;
+    packet?: {
+        priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+        confidence: number;
+        timeWindow: string;
+        geoRadiusMeters: number;
+        primaryAction: string;
+        steps: Array<{ verb: string; actor: string; detail: string; eta: string; safety: string }>;
+        escalation: Array<{ trigger: string; action: string }>;
+        evidenceMissing: Array<{ item: string; howToCaptureSafely: string }>;
+        resourceRequests?: any[];
+        safetyFlags: string[];
+    };
 }
 
 export interface MissionCompletionSummary {
     title: string;
     rewardHeroCredits: number;
     rewardLegendTokens?: number;
-    rewardNft: { name: string; icon: string };
+    rewardNft: { name: string, icon: string };
+}
+
+export interface ProfileSettings {
+    privacy: {
+        publicProfile: boolean;
+        showStats: boolean;
+        showInventory: boolean;
+        allowDms: boolean;
+        anonymousReporting: boolean;
+    };
+    notifications: {
+        dailyChallenge: boolean;
+        missionAvailable: boolean;
+        verificationRequests: boolean;
+        purchaseReceipts: boolean;
+        mintConfirmations: boolean;
+    };
+    preferences: {
+        language: string;
+        locationPrecision: 'city' | 'gps';
+        theme: 'light' | 'neon';
+    };
+}
+
+export interface DailyChallengeTask {
+    id: string;
+    label: string;
+    target: number;
+    current: number;
+    isComplete: boolean;
+}
+
+export interface DailyChallenge {
+    id: string;
+    expiresAt: number;
+    tasks: DailyChallengeTask[];
+    reward: { hc: number; xp: number; badgeId?: string };
+    isClaimed: boolean;
+}
+
+export interface LedgerEvent {
+    id: string;
+    type: 'CREDIT_SPEND' | 'MISSION_COMPLETED' | 'MINT_CONFIRMED' | 'PURCHASE_CONFIRMED' | 'VERIFICATION_BONUS' | 'DAILY_REWARD';
+    amount: number;
+    timestamp: number;
+    refId: string;
+    hash: string;
+}
+
+export interface HeroStats {
+    reportsSubmitted: number;
+    reportsVerified: number;
+    missionsCompleted: number;
+    upvotesReceived: number;
+    impactScore: number;
+    dollarsSaved: number;
+    topCategories: Category[];
+    strongestCategory: Category;
+}
+
+export interface Item {
+    id: string;
+    name: string;
+    type: 'Augmentation' | 'Gear' | 'Tool' | 'Consumable' | 'Badge' | 'Frame';
+    icon: string;
+    resonance?: number;
+    bonusSkill?: string;
+    bonusValue?: number;
+}
+
+export interface SkillNode {
+    id: string;
+    name: string;
+    level: number;
+    maxLevel: number;
 }
 
 export interface QrParcel {
@@ -402,11 +428,50 @@ export interface QrParcel {
     timestamp: number;
 }
 
+export interface TrainingScenario {
+    id: string;
+    title: string;
+    description: string;
+    environment: string;
+    bgKeyword: string;
+    objectives: string[];
+    masterDebrief: string;
+    difficulty: number;
+    options: Array<{
+        id: string;
+        text: string;
+        successOutcome: string;
+        failOutcome: string;
+        dc: number;
+        rationale: string;
+    }>;
+}
+
+export interface IntelAnalysis {
+    threatScore: number;
+    communityImpact: string;
+    investigativeComplexity: string;
+    verificationDifficulty: 'Simple' | 'Complex' | 'Classified';
+    aiAssessment: string;
+    targetEntity: string;
+}
+
+export type ActionOutcome = 'CLEAN_SUCCESS' | 'RISKY_SUCCESS' | 'PARTIAL_CONFIRMATION';
+
+export interface EvidenceItem {
+    id: string;
+    name: string;
+    type: 'photo' | 'video' | 'text' | 'geo';
+    status: 'Strong' | 'Fair' | 'Weak';
+    content?: string;
+    previewUrl?: string;
+}
+
 export interface LiveMissionState {
     id: string;
     title: string;
     category: Category;
-    checklist: { id: string; s: 'todo' | 'done'; label: string }[];
+    checklist: Array<{ id: string, s: 'todo' | 'done', label: string }>;
     score: number;
     risk: 'Low' | 'Medium' | 'High';
     evidence: EvidenceItem[];
@@ -420,66 +485,10 @@ export interface LiveIntelligenceUI {
     risk: 'Low' | 'Medium' | 'High';
 }
 
-export interface EvidenceItem {
-    id: string;
-    name: string;
-    type: 'geo' | 'photo' | 'text';
-    status: string;
-    content?: string;
-    previewUrl?: string;
-}
-
-export interface TacticalIntel {
-    objective: string;
-    threatLevel: 'Low' | 'Medium' | 'High' | 'Extreme';
-    keyInsight: string;
-    protocol: string;
-}
-
-export interface TrainingScenario {
-    id: string;
-    title: string;
-    description: string;
-    environment: string;
-    bgKeyword: string;
-    objectives: string[];
-    masterDebrief: string;
-    options: {
-        id: string;
-        text: string;
-        successOutcome: string;
-        failOutcome: string;
-        dc: number;
-        rationale: string;
-    }[];
-    difficulty: number;
-}
-
-export interface IntelAnalysis {
-    threatScore: number;
-    communityImpact: string;
-    investigativeComplexity: string;
-    verificationDifficulty: 'Simple' | 'Complex' | 'Classified';
-    aiAssessment: string;
-    targetEntity: string;
-}
-
 export interface CharacterNft {
     title: string;
     imageUrl: string;
     collection: string;
-}
-
-export interface LiveIntelligenceResponse {
-    ui: LiveIntelligenceUI;
-    patch: Partial<LiveMissionState>;
-}
-
-export interface Augmentation {
-    id: string;
-    targetSkill: SkillType;
-    multiplier: number;
-    description: string;
 }
 
 export interface TrainingModule {
@@ -489,40 +498,54 @@ export interface TrainingModule {
     skillType: SkillType;
     masteryReward: number;
     isLocked: boolean;
+    notAskedToDo: string;
+    indicators: string[];
+    checklist: string[];
     isScripture?: boolean;
-    notAskedToDo: string; 
-    indicators: string[]; 
-    checklist: string[]; 
 }
 
-export enum EducationRole {
-    Teacher = "Teacher",
-    Student = "Student",
-    Employee = "Employee",
-    Observer = "Observer",
+export interface TacticalIntel {
+    objective: string;
+    threatLevel: 'Low' | 'Medium' | 'High' | 'Extreme';
+    keyInsight: string;
+    protocol: string;
 }
 
-export interface FeedAnalysis {
-  summary: string;
-  hot_topics: { topic: string; report_ids: string[] }[];
-}
-
-export interface IntelItem {
-  id: string;
-  category: Category;
-  title: string;
-  location: string;
-  time: string;
-  summary: string;
-  source: string;
-  links?: { uri: string; title: string }[];
-}
-
-export interface ArtifactTrait {
-    id: string;
+export interface Hero {
     name: string;
-    description: string;
-    cost: number;
-    bonusType: string;
-    bonusValue: number;
+    handle: string;
+    bio: string;
+    heroOath?: string;
+    operativeId: string;
+    level: number;
+    xp: number;
+    xpToNextLevel: number;
+    heroCredits: number;
+    reputation: number;
+    legendTokens: number;
+    rank: number;
+    title: string;
+    unlockedTitles: string[];
+    equippedTitle: string | null;
+    inventory: Item[];
+    personas: HeroPersona[];
+    equippedPersonaId: null | string;
+    theme: 'light' | 'neon';
+    masteryScore: number;
+    wisdomMastery: number;
+    socialMastery: number;
+    civicMastery: number;
+    environmentalMastery: number;
+    infrastructureMastery: number;
+    base: { name: string; level: number; status: string };
+    skills: SkillNode[];
+    path: HeroPath;
+    hasMadeFirstPurchase?: boolean;
+    unlockedItemSkus: string[];
+    activeParcels: QrParcel[];
+    subscriptionTier: SubscriptionTier;
+    subscriptionRenewal?: number;
+    settings: ProfileSettings;
+    stats: HeroStats;
+    streak: number;
 }

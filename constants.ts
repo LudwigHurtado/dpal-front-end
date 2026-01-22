@@ -476,6 +476,8 @@ export const RANKS: Rank[] = [
 
 export const INITIAL_HERO_PROFILE: Hero = {
     name: "Operative Prime",
+    handle: "prime_ops",
+    bio: "Lead field analyst for the DPAL vanguard.",
     operativeId: "849201",
     level: 3,
     xp: 650,
@@ -505,7 +507,23 @@ export const INITIAL_HERO_PROFILE: Hero = {
     path: HeroPath.Sentinel,
     unlockedItemSkus: ['badge_first_report'],
     activeParcels: [],
-    subscriptionTier: SubscriptionTier.Scout
+    subscriptionTier: SubscriptionTier.Scout,
+    settings: {
+        privacy: { publicProfile: true, showStats: true, showInventory: true, allowDms: true, anonymousReporting: false },
+        notifications: { dailyChallenge: true, missionAvailable: true, verificationRequests: true, purchaseReceipts: true, mintConfirmations: true },
+        preferences: { language: 'EN', locationPrecision: 'gps', theme: 'neon' }
+    },
+    stats: {
+        reportsSubmitted: 15,
+        reportsVerified: 12,
+        missionsCompleted: 5,
+        upvotesReceived: 142,
+        impactScore: 850,
+        dollarsSaved: 4500,
+        topCategories: [Category.Environment, Category.Infrastructure],
+        strongestCategory: Category.Environment
+    },
+    streak: 5
 };
 
 export const MOCK_REPORTS: Report[] = [
@@ -813,6 +831,7 @@ export const STARTER_MISSION: Mission = {
     ],
     currentActionIndex: 0,
     phase: 'OPERATION',
+    status: 'active',
     steps: [{ name: "Link Test", task: "Verify optics calibration by scanning the first block.", icon: "📸", priority: "High", isComplete: false }],
     finalReward: { hc: 50, nft: { name: "Starter Shard", icon: "🔰" } },
     currentStepIndex: 0

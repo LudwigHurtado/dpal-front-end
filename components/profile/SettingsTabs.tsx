@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { type Hero, type ProfileSettings } from '../../types';
-import { User, ShieldCheck, Broadcast, Zap, Database, Globe, Check, RefreshCw, X, LogOut, Lock, ChevronRight } from '../icons';
+import { User, ShieldCheck, Broadcast, Zap, Database, Globe, Check, RefreshCw, X, LogOut, Lock, ChevronRight, AlertTriangle } from '../icons';
+import { INITIAL_HERO_PROFILE } from '../../constants';
 
 interface SettingsTabsProps {
     hero: Hero;
@@ -24,11 +24,7 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
         const [category, key] = path.split('.') as [keyof ProfileSettings, string];
         
         setHero(prev => {
-            const currentSettings = prev.settings || {
-                privacy: { publicProfile: true, showStats: true, showInventory: true, allowDms: true, anonymousReporting: false },
-                notifications: { dailyChallenge: true, missionAvailable: true, verificationRequests: true, purchaseReceipts: true, mintConfirmations: true },
-                preferences: { language: 'EN', locationPrecision: 'gps', theme: 'neon' }
-            };
+            const currentSettings = prev.settings || INITIAL_HERO_PROFILE.settings;
             
             return {
                 ...prev,
@@ -43,6 +39,25 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
         });
         
         setTimeout(() => setIsSaving(false), 800);
+    };
+
+    const handleNodeReconstruction = () => {
+        if (confirm("WARNING: This will reset all local settings and profile data to defaults. Your Operative ID and credits will be preserved. Proceed?")) {
+            setIsSaving(true);
+            setHero(prev => ({
+                ...INITIAL_HERO_PROFILE,
+                operativeId: prev.operativeId,
+                heroCredits: prev.heroCredits,
+                reputation: prev.reputation,
+                xp: prev.xp,
+                personas: prev.personas,
+                inventory: prev.inventory
+            }));
+            setTimeout(() => {
+                setIsSaving(false);
+                alert("Identity Reconstruction Complete.");
+            }, 1500);
+        }
     };
 
     return (
@@ -75,9 +90,9 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
                  <div className="flex justify-between items-start mb-16">
                     <div>
                         <h2 className="text-4xl font-black text-white uppercase tracking-tighter leading-none">{activeTab.toUpperCase()}_CALIBRATION</h2>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-4">Shard: DPAL-S_V2.0 // Node: {hero.operativeId}</p>
+                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-4">Shard: DPAL-S_V2.5 // Node: {hero.operativeId}</p>
                     </div>
-                    {isSaving && <div className="flex items-center space-x-3 text-cyan-400 animate-pulse"><RefreshCw className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Saving...</span></div>}
+                    {isSaving && <div className="flex items-center space-x-3 text-cyan-400 animate-pulse"><RefreshCw className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Processing...</span></div>}
                  </div>
 
                  <div className="space-y-10 animate-fade-in">
@@ -88,7 +103,8 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
                                 <textarea 
                                     className="w-full bg-black border-2 border-zinc-800 p-6 rounded-[2rem] text-sm text-white font-bold outline-none focus:border-cyan-600 transition-all resize-none min-h-[150px] shadow-inner"
                                     placeholder="I swear to hold power accountable..."
-                                    defaultValue={hero.heroOath}
+                                    value={hero?.heroOath || ''}
+                                    onChange={(e) => setHero(prev => ({...prev, heroOath: e.target.value}))}
                                 />
                             </div>
                             <div className="space-y-10">
@@ -136,15 +152,20 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
                                 <button className="w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all">Update_Secure_Keyphrase</button>
                              </div>
                              
-                             <div className="flex items-center justify-between p-6 bg-zinc-900 border border-zinc-800 rounded-[2rem]">
-                                 <div className="flex items-center space-x-4">
-                                     <Globe className="w-6 h-6 text-zinc-700" />
-                                     <div>
-                                         <p className="text-xs font-black text-zinc-300 uppercase">Trusted Devices</p>
-                                         <p className="text-[8px] font-bold text-zinc-600 uppercase">3 Authorized Sessions Active</p>
-                                     </div>
+                             <div className="p-8 bg-zinc-900/40 border-2 border-zinc-800 border-dashed rounded-[3rem] space-y-6">
+                                 <div className="flex items-center space-x-4 text-amber-500">
+                                     <AlertTriangle className="w-6 h-6" />
+                                     <h4 className="text-sm font-black uppercase tracking-tight">Identity_Repair_Protocol</h4>
                                  </div>
-                                 <ChevronRight className="w-5 h-5 text-zinc-800" />
+                                 <p className="text-[10px] font-bold text-zinc-500 uppercase leading-relaxed tracking-widest">
+                                     IF YOUR IDENTITY SHARD IS CORRUPTED OR UI PARAMETERS ARE FAILING TO RENDER, INITIALIZE NODE RECONSTRUCTION. THIS REBUILDS SYSTEM FIELDS FROM ORIGIN WITHOUT DELETING EARNED CREDITS.
+                                 </p>
+                                 <button 
+                                    onClick={handleNodeReconstruction}
+                                    className="w-full py-4 bg-amber-600/10 hover:bg-amber-600 text-amber-500 hover:text-black border border-amber-600/30 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all"
+                                 >
+                                     Run_Node_Reconstruction
+                                 </button>
                              </div>
                         </div>
                     )}

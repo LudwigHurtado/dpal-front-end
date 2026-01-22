@@ -11,6 +11,7 @@ import QuickActionsRow from './profile/QuickActionsRow';
 import DailyChallengeCard from './profile/DailyChallengeCard';
 import ImpactDashboard from './profile/ImpactDashboard';
 import InventoryPreview from './profile/InventoryPreview';
+import HeroPersonaManager from './HeroPersonaManager';
 import SettingsTabs from './profile/SettingsTabs';
 import AuditLogModal from './modals/AuditLogModal';
 import EditProfileModal from './modals/EditProfileModal';
@@ -39,7 +40,6 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
     const [activity, setActivity] = useState<any[]>([]);
 
     useEffect(() => {
-        // Fetch real-time feed and stats here
         setActivity([
             { id: '1', icon: <CheckCircle className="w-3 h-3 text-emerald-500"/>, label: 'Verified "Unsafe Meal Report"', time: '2h ago' },
             { id: '2', icon: <Megaphone className="w-3 h-3 text-rose-500"/>, label: 'Submitted "HOA Abuse" Shard', time: '5h ago' },
@@ -48,22 +48,11 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
         ]);
     }, []);
 
-    const updateHeroField = async (field: string, value: any) => {
-        setHero(prev => ({ ...prev, [field]: value }));
-        try {
-            await fetch(`${apiBase}/api/profile/me`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ [field]: value })
-            });
-        } catch (e) { console.error("Sync Failure", e); }
-    };
-
     if (isLoading) return <div className="py-40 flex flex-col items-center justify-center space-y-6"><Loader className="w-12 h-12 animate-spin text-cyan-500" /><p className="text-xs font-black uppercase tracking-[0.4em] text-zinc-600">Synchronizing Identity Shard...</p></div>;
 
     return (
         <div className="max-w-[1400px] mx-auto space-y-12 pb-32">
-            {/* 1. TOP NAV TOGGLE (Settings vs Overview) */}
+            {/* 1. TOP NAV TOGGLE */}
             <div className="flex justify-center">
                 <div className="bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl flex space-x-2 shadow-2xl">
                     <button 
@@ -83,11 +72,15 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
 
             {activeSection === 'overview' ? (
                 <div className="space-y-12 animate-fade-in">
-                    {/* A. HERO BANNER */}
+                    {/* A. HERO BANNER - PRIMARY HERO SLOT */}
                     <HeroBanner 
                         hero={hero} 
                         onEdit={() => setShowEditProfile(true)}
-                        onUpdateAvatar={() => onNavigate('heroHub', undefined, 'profile')} 
+                        onUpdateAvatar={() => {
+                            // Scroll to persona manager
+                            const el = document.getElementById('persona-minting-station');
+                            el?.scrollIntoView({ behavior: 'smooth' });
+                        }} 
                     />
 
                     {/* B. QUICK ACTIONS */}
@@ -97,15 +90,34 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
                         mintReady={true}
                     />
 
+                    {/* C. HERO MINTING & PERSONA MANAGEMENT SECTION */}
+                    <div id="persona-minting-station" className="space-y-8">
+                        <div className="flex items-center justify-between px-6">
+                            <h3 className="text-sm font-black uppercase text-zinc-500 tracking-[0.4em] flex items-center gap-4">
+                                <Sparkles className="w-5 h-5 text-cyan-500" />
+                                <span>Hero_Identity_Forge</span>
+                            </h3>
+                            <div className="bg-cyan-500/10 px-4 py-1.5 rounded-full border border-cyan-500/30">
+                                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Neural_Minting_Active</span>
+                            </div>
+                        </div>
+                        <HeroPersonaManager 
+                            personas={hero.personas}
+                            equippedPersonaId={hero.equippedPersonaId}
+                            onAddHeroPersona={onAddHeroPersona}
+                            onDeletePersona={onDeleteHeroPersona}
+                            onEquipPersona={onEquipHeroPersona}
+                        />
+                    </div>
+
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                        {/* C. DAILY CHALLENGE (LEFT) */}
+                        {/* D. DAILY CHALLENGE (LEFT) */}
                         <div className="lg:col-span-4 space-y-8">
                             <DailyChallengeCard 
                                 hero={hero} 
                                 setHero={setHero}
                             />
                             
-                            {/* REPUTATION SUMMARY (DPAL FEEL) */}
                             <div className="bg-zinc-900/60 border-2 border-zinc-800 rounded-[3rem] p-8 space-y-8 shadow-xl relative overflow-hidden">
                                 <div className="absolute top-0 right-0 p-8 opacity-5"><ShieldCheck className="w-40 h-40 text-emerald-500"/></div>
                                 <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
@@ -127,7 +139,7 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
                             </div>
                         </div>
 
-                        {/* D. IMPACT DASHBOARD & ACTIVITY (RIGHT) */}
+                        {/* E. IMPACT DASHBOARD & ACTIVITY (RIGHT) */}
                         <div className="lg:col-span-8 space-y-12">
                             <ImpactDashboard stats={hero.stats} activity={activity} />
                             
