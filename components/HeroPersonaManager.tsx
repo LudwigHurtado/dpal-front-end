@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from '../i18n';
 import { type HeroPersona, Archetype } from '../types';
-import { Loader, Check, User, Zap, ShieldCheck, Search, Eye, Sparkles, Activity, Target, Camera, X, RefreshCw, Heart, Scale, Monitor, Trash2 } from './icons';
+import { Loader, Check, User, Zap, ShieldCheck, Search, Eye, Sparkles, Activity, Target, Camera, X, RefreshCw, Heart, Scale, Monitor } from './icons';
 
 interface HeroPersonaManagerProps {
     personas: HeroPersona[];
@@ -21,13 +21,11 @@ const ARCHETYPE_INFO = [
     { type: Archetype.Guide, icon: User, desc: 'Communal wisdom.', color: 'indigo', suggestion: 'Mapping the way forward' },
 ];
 
-const SUGGESTION_CHIPS = ["Shadow Operative", "Neon Knight", "Cyber Monk", "Data Drifter", "Oracle Vanguard", "Sentinel Guard", "Rogue Analyst"];
-
 const MAX_PERSONAS = 5;
 
 const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equippedPersonaId, onAddHeroPersona, onDeletePersona, onEquipPersona }) => {
     const { t } = useTranslations();
-    const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(personas.length === 0);
+    const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
     const [draftDescription, setDraftDescription] = useState('');
     const [selectedArchetype, setSelectedArchetype] = useState<Archetype>(Archetype.Sentinel);
     const [isGenerating, setIsGenerating] = useState(false);
@@ -177,17 +175,6 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                          </p>
                                          <p className="text-[10px] text-zinc-400 font-bold mt-1 uppercase italic leading-relaxed">{currentMeta?.suggestion}</p>
                                      </div>
-                                     <div className="flex flex-wrap gap-2 mb-4">
-                                         {SUGGESTION_CHIPS.map(chip => (
-                                             <button 
-                                                key={chip} 
-                                                onClick={() => setDraftDescription(chip)}
-                                                className="px-3 py-1 bg-zinc-800 hover:bg-cyan-600 rounded-lg text-[8px] font-black text-zinc-400 hover:text-white transition-all uppercase tracking-widest border border-zinc-700"
-                                             >
-                                                 {chip}
-                                             </button>
-                                         ))}
-                                     </div>
                                 </div>
 
                                 <textarea
@@ -207,9 +194,9 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                             <button 
                                 onClick={handleCreatePersona}
                                 disabled={!draftDescription.trim() || isGenerating}
-                                className="w-full mt-8 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-8 rounded-[2rem] uppercase tracking-[0.4em] text-sm shadow-3xl active:scale-[0.98] transition-all disabled:opacity-10 flex items-center justify-center space-x-6 group overflow-hidden relative border-b-8 border-cyan-800"
+                                className="w-full mt-8 bg-cyan-600 hover:bg-cyan-50 text-white font-black py-6 rounded-[2rem] uppercase tracking-[0.2em] text-xs shadow-3xl active:scale-[0.98] transition-all disabled:opacity-10 flex items-center justify-center space-x-6 group overflow-hidden relative"
                             >
-                                {isGenerating ? <Loader className="w-8 h-8 animate-spin text-white"/> : <Sparkles className="w-8 h-8 text-white transition-transform group-hover:scale-125"/>}
+                                {isGenerating ? <Loader className="w-6 h-6 animate-spin text-white"/> : <Sparkles className="w-6 h-6 text-white transition-transform group-hover:scale-125"/>}
                                 <span className="truncate">{isGenerating ? 'NEURAL_MINTING_IN_PROGRESS...' : 'MINT_HERO_IDENTITY'}</span>
                             </button>
                         </div>
@@ -308,5 +295,16 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
         </div>
     );
 };
+
+const Trash2: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 6h18" />
+    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+    <line x1="10" x2="10" y1="11" y2="17" />
+    {/* FIX: Removed duplicate x2 attribute from line element */}
+    <line x1="14" x2="14" y1="11" y2="17" />
+  </svg>
+);
 
 export default HeroPersonaManager;

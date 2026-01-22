@@ -4,7 +4,7 @@ import { useTranslations } from '../i18n';
 import { 
     Loader, ShieldCheck, Zap, Sparkles, Target, Box, Database, 
     Monitor, Search, Pencil, User, Award, Activity, Clock, 
-    ChevronRight, Settings, List, Plus, Layout as LayoutIcon, Coins, Fingerprint 
+    ChevronRight, Settings, List, Plus, Layout as LayoutIcon, Coins 
 } from './icons';
 import HeroBanner from './profile/HeroBanner';
 import QuickActionsRow from './profile/QuickActionsRow';
@@ -34,15 +34,15 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
     const [showEditProfile, setShowEditProfile] = useState(false);
     const [activeSection, setActiveSection] = useState<'overview' | 'settings'>('overview');
 
-    const hasIdentities = (hero.personas || []).length > 0;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-backend.up.railway.app';
 
     // Mock/Persisted Activity Feed
     const [activity, setActivity] = useState<any[]>([]);
 
     useEffect(() => {
         setActivity([
-            { id: '1', icon: <Activity className="w-3 h-3 text-emerald-500"/>, label: 'Verified "Unsafe Meal Report"', time: '2h ago' },
-            { id: '2', icon: <Monitor className="w-3 h-3 text-rose-500"/>, label: 'Submitted "HOA Abuse" Shard', time: '5h ago' },
+            { id: '1', icon: <CheckCircle className="w-3 h-3 text-emerald-500"/>, label: 'Verified "Unsafe Meal Report"', time: '2h ago' },
+            { id: '2', icon: <Megaphone className="w-3 h-3 text-rose-500"/>, label: 'Submitted "HOA Abuse" Shard', time: '5h ago' },
             { id: '3', icon: <Coins className="w-3 h-3 text-amber-500"/>, label: 'Earned 25 Credits (Audit Bonus)', time: '1d ago' },
             { id: '4', icon: <Award className="w-3 h-3 text-cyan-400"/>, label: 'Unlocked Badge: Evidence Ace', time: '2d ago' },
         ]);
@@ -72,39 +72,16 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
 
             {activeSection === 'overview' ? (
                 <div className="space-y-12 animate-fade-in">
-                    
-                    {/* A. PRIMARY HERO SLOT / BANNER */}
-                    <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-[4.2rem] opacity-20 blur group-hover:opacity-40 transition-opacity duration-1000"></div>
-                        <HeroBanner 
-                            hero={hero} 
-                            onEdit={() => setShowEditProfile(true)}
-                            onUpdateAvatar={() => {
-                                const el = document.getElementById('persona-minting-station');
-                                el?.scrollIntoView({ behavior: 'smooth' });
-                            }} 
-                        />
-                    </div>
-
-                    {!hasIdentities && (
-                        <div className="animate-pulse-slow">
-                            <button 
-                                onClick={() => {
-                                    const el = document.getElementById('persona-minting-station');
-                                    el?.scrollIntoView({ behavior: 'smooth' });
-                                }}
-                                className="w-full p-12 bg-cyan-900/10 border-4 border-dashed border-cyan-800/40 rounded-[3rem] flex flex-col items-center justify-center space-y-8 group hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all"
-                            >
-                                <div className="p-8 bg-cyan-950 rounded-full border border-cyan-500/30">
-                                    <Fingerprint className="w-16 h-16 text-cyan-400 group-hover:scale-110 transition-transform" />
-                                </div>
-                                <div className="text-center space-y-2">
-                                    <h3 className="text-3xl font-black uppercase text-white tracking-tighter">Initialize_Hero_Protocol</h3>
-                                    <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest">Awaiting Identity Synthesis. Click to materialize your first operative.</p>
-                                </div>
-                            </button>
-                        </div>
-                    )}
+                    {/* A. HERO BANNER - PRIMARY HERO SLOT */}
+                    <HeroBanner 
+                        hero={hero} 
+                        onEdit={() => setShowEditProfile(true)}
+                        onUpdateAvatar={() => {
+                            // Scroll to persona manager
+                            const el = document.getElementById('persona-minting-station');
+                            el?.scrollIntoView({ behavior: 'smooth' });
+                        }} 
+                    />
 
                     {/* B. QUICK ACTIONS */}
                     <QuickActionsRow 
@@ -113,8 +90,8 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
                         mintReady={true}
                     />
 
-                    {/* C. HERO MINTING STATION */}
-                    <div id="persona-minting-station" className="space-y-8 pt-8">
+                    {/* C. HERO MINTING & PERSONA MANAGEMENT SECTION */}
+                    <div id="persona-minting-station" className="space-y-8">
                         <div className="flex items-center justify-between px-6">
                             <h3 className="text-sm font-black uppercase text-zinc-500 tracking-[0.4em] flex items-center gap-4">
                                 <Sparkles className="w-5 h-5 text-cyan-500" />
@@ -125,7 +102,7 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
                             </div>
                         </div>
                         <HeroPersonaManager 
-                            personas={hero.personas || []}
+                            personas={hero.personas}
                             equippedPersonaId={hero.equippedPersonaId}
                             onAddHeroPersona={onAddHeroPersona}
                             onDeletePersona={onDeleteHeroPersona}
@@ -134,7 +111,7 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                        {/* D. STATS & TRACKERS */}
+                        {/* D. DAILY CHALLENGE (LEFT) */}
                         <div className="lg:col-span-4 space-y-8">
                             <DailyChallengeCard 
                                 hero={hero} 
@@ -162,7 +139,7 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
                             </div>
                         </div>
 
-                        {/* E. IMPACT DASHBOARD */}
+                        {/* E. IMPACT DASHBOARD & ACTIVITY (RIGHT) */}
                         <div className="lg:col-span-8 space-y-12">
                             <ImpactDashboard stats={hero.stats} activity={activity} />
                             
@@ -184,13 +161,6 @@ const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
 
             {showAuditLog && <AuditLogModal hero={hero} onClose={() => setShowAuditLog(false)} />}
             {showEditProfile && <EditProfileModal hero={hero} onSave={(data) => { setHero(prev => ({...prev, ...data})); setShowEditProfile(false); }} onClose={() => setShowEditProfile(false)} />}
-            <style>{`
-                @keyframes pulse-slow {
-                    0%, 100% { opacity: 1; }
-                    50% { opacity: 0.7; }
-                }
-                .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
-            `}</style>
         </div>
     );
 };
@@ -200,6 +170,19 @@ const MetricRow: React.FC<{ label: string; value: string; color: string }> = ({ 
         <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
         <span className={`text-xs font-black text-${color}-500`}>{value}</span>
     </div>
+);
+
+const CheckCircle: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+const Megaphone: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m3 11 18-5v12L3 13v-2Z" />
+        <line x1="11.6" x2="11.6" y1="16.5" y2="21" />
+    </svg>
 );
 
 export default HeroProfileTab;
