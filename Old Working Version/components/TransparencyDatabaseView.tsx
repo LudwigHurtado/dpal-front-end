@@ -151,7 +151,7 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                     <div className="space-y-4">
                         <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] ml-2">Domain_Focus</label>
                         <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                            {[...Object.values(Category)].sort((a: any, b: any) => a.localeCompare(b)).map(cat => {
+                            {[...Object.values(Category)].sort((a, b) => a.localeCompare(b)).map(cat => {
                                 const isSel = filters.selectedCategories.includes(cat);
                                 return (
                                     <button 

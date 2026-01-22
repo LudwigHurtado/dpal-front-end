@@ -1,302 +1,176 @@
-
-import React, { useState, useRef, useEffect } from 'react';
-import { type Hero, type Report, Archetype, type Item, type SkillType, HeroPath } from '../types';
+import React, { useState, useEffect } from 'react';
+import { type Hero, Archetype, HeroPath, type LedgerEvent, type DailyChallenge } from '../types';
 import { useTranslations } from '../i18n';
-import { Loader, Coins, Gem, Award, ChevronDown, Check, Zap, Sparkles, ShieldCheck, User, Monitor, MapPin, RefreshCw, Maximize2, Target, Box, Database, ArrowRight, Activity, Eye, Search, Pencil, X, Sun, Scale, Mask, Home } from './icons';
-import { RANKS } from '../constants';
-import HeroPersonaManager from './HeroPersonaManager';
+import { 
+    Loader, ShieldCheck, Zap, Sparkles, Target, Box, Database, 
+    Monitor, Search, Pencil, User, Award, Activity, Clock, 
+    ChevronRight, Settings, List, Plus, Layout as LayoutIcon, Coins 
+} from './icons';
+import HeroBanner from './profile/HeroBanner';
+import QuickActionsRow from './profile/QuickActionsRow';
+import DailyChallengeCard from './profile/DailyChallengeCard';
+import ImpactDashboard from './profile/ImpactDashboard';
+import InventoryPreview from './profile/InventoryPreview';
+import SettingsTabs from './profile/SettingsTabs';
+import AuditLogModal from './modals/AuditLogModal';
+import EditProfileModal from './modals/EditProfileModal';
 
 interface HeroProfileTabProps {
     hero: Hero;
     setHero: React.Dispatch<React.SetStateAction<Hero>>;
-    onNavigate: (view: any) => void;
+    onNavigate: (view: any, cat?: any, tab?: any) => void;
     onAddHeroPersona: (description: string, archetype: Archetype) => Promise<void>;
     onDeleteHeroPersona: (personaId: string) => void;
     onEquipHeroPersona: (personaId: string | null) => void;
-    onGenerateBackstory: () => Promise<void>;
-}
-
-const getPathIcon = (path: HeroPath) => {
-    switch(path) {
-        case HeroPath.Sentinel: return <ShieldCheck className="w-5 h-5" />;
-        case HeroPath.Steward: return <Sun className="w-5 h-5" />;
-        case HeroPath.Seeker: return <Search className="w-5 h-5" />;
-        case HeroPath.Arbiter: return <Scale className="w-5 h-5" />;
-        case HeroPath.Ghost: return <Mask className="w-5 h-5" />;
-        default: return <User className="w-5 h-5" />;
-    }
 }
 
 const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
-    hero,
-    setHero,
-    onGenerateBackstory,
-    onAddHeroPersona,
-    onDeleteHeroPersona,
-    onEquipHeroPersona,
-    onNavigate
+    hero, setHero, onNavigate, onAddHeroPersona, onDeleteHeroPersona, onEquipHeroPersona
 }) => {
     const { t } = useTranslations();
-    const [isEditingGlobal, setIsEditingGlobal] = useState(false);
-    
-    // Form States
-    const [editName, setEditName] = useState(hero.name);
-    const [editPath, setEditPath] = useState(hero.path);
-    const [editTitle, setEditTitle] = useState(hero.equippedTitle || hero.title);
-    const [editBaseName, setEditBaseName] = useState(hero.base.name);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showAuditLog, setShowAuditLog] = useState(false);
+    const [showEditProfile, setShowEditProfile] = useState(false);
+    const [activeSection, setActiveSection] = useState<'overview' | 'settings'>('overview');
 
-    const nextRank = RANKS.find(r => r.level === hero.rank + 1);
-    const xpProgress = nextRank ? (hero.xp / nextRank.xpNeeded) * 100 : 100;
+    const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-backend.up.railway.app';
 
-    const equippedPersona = hero.personas.find(p => p.id === hero.equippedPersonaId);
-    const avatarUrl = equippedPersona ? equippedPersona.imageUrl : 'https://i.imgur.com/8p8Vp6V.png';
+    // Mock/Persisted Activity Feed
+    const [activity, setActivity] = useState<any[]>([]);
 
-    const handleSaveGlobal = () => {
-        setHero(prev => ({
-            ...prev,
-            name: editName.trim() || prev.name,
-            path: editPath,
-            equippedTitle: editTitle,
-            title: editTitle,
-            base: {
-                ...prev.base,
-                name: editBaseName.trim() || prev.base.name
-            }
-        }));
-        setIsEditingGlobal(false);
+    useEffect(() => {
+        // Fetch real-time feed and stats here
+        setActivity([
+            { id: '1', icon: <CheckCircle className="w-3 h-3 text-emerald-500"/>, label: 'Verified "Unsafe Meal Report"', time: '2h ago' },
+            { id: '2', icon: <Megaphone className="w-3 h-3 text-rose-500"/>, label: 'Submitted "HOA Abuse" Shard', time: '5h ago' },
+            { id: '3', icon: <Coins className="w-3 h-3 text-amber-500"/>, label: 'Earned 25 Credits (Audit Bonus)', time: '1d ago' },
+            { id: '4', icon: <Award className="w-3 h-3 text-cyan-400"/>, label: 'Unlocked Badge: Evidence Ace', time: '2d ago' },
+        ]);
+    }, []);
+
+    const updateHeroField = async (field: string, value: any) => {
+        setHero(prev => ({ ...prev, [field]: value }));
+        try {
+            await fetch(`${apiBase}/api/profile/me`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [field]: value })
+            });
+        } catch (e) { console.error("Sync Failure", e); }
     };
 
+    if (isLoading) return <div className="py-40 flex flex-col items-center justify-center space-y-6"><Loader className="w-12 h-12 animate-spin text-cyan-500" /><p className="text-xs font-black uppercase tracking-[0.4em] text-zinc-600">Synchronizing Identity Shard...</p></div>;
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 font-mono animate-fade-in pb-12 overflow-hidden">
-            {/* COLUMN 1: THE COMMAND DECK (Identity Focus) */}
-            <div className="lg:col-span-4 space-y-6 min-w-0">
-                 <div className="bg-zinc-900 border-4 border-zinc-800 rounded-[3rem] p-8 md:p-10 shadow-2xl relative overflow-hidden group min-h-[600px] flex flex-col items-center">
-                    {/* Tactical HUD Overlays */}
-                    <div className="absolute inset-0 pointer-events-none z-20">
-                         <div className="absolute top-10 left-10 w-24 h-24 border-t border-l border-cyan-500/40 rounded-tl-3xl"></div>
-                         <div className="absolute bottom-10 right-10 w-24 h-24 border-b border-r border-cyan-500/40 rounded-br-3xl"></div>
-                    </div>
-
-                    <div className="relative z-10 text-center flex-grow flex flex-col items-center w-full">
-                        {/* THE GROUNDED HERO AVATAR */}
-                        <div className="relative inline-block mb-10 mt-8">
-                            <div className="absolute -inset-10 bg-cyan-500/5 blur-[60px]"></div>
-                            <div className="relative z-10">
-                                <div className="w-56 h-56 rounded-[3.5rem] p-1 bg-gradient-to-tr from-cyan-600 to-blue-500 shadow-2xl overflow-hidden border-4 border-zinc-950 transition-transform duration-500 hover:scale-105">
-                                     <img 
-                                        src={avatarUrl} 
-                                        alt="Operative Profile" 
-                                        className="w-full h-full object-cover grayscale-[0.1] hover:grayscale-0 transition-all duration-700" 
-                                    />
-                                </div>
-                                {/* Tactical HUD Ring */}
-                                <div className="absolute -inset-4 border-2 border-cyan-500/20 rounded-[4rem] animate-pulse pointer-events-none"></div>
-                                
-                                {/* Edit Toggle Button Over Picture - REPLACED bg-white with bg-cyan-600 */}
-                                <button 
-                                    onClick={() => {
-                                        setEditName(hero.name);
-                                        setEditPath(hero.path);
-                                        setEditTitle(hero.equippedTitle || hero.title);
-                                        setEditBaseName(hero.base.name);
-                                        setIsEditingGlobal(!isEditingGlobal);
-                                    }}
-                                    className="absolute -bottom-2 -right-2 bg-cyan-600 text-white p-4 rounded-3xl shadow-3xl hover:bg-cyan-500 transition-all active:scale-90 border-4 border-zinc-950 group/edit z-30"
-                                    title="Edit Operative Profile"
-                                >
-                                    {isEditingGlobal ? <X className="w-5 h-5" /> : <Pencil className="w-5 h-5 group-hover/edit:rotate-12 transition-transform" />}
-                                </button>
-                            </div>
-                        </div>
-
-                        {isEditingGlobal ? (
-                            <div className="w-full space-y-5 animate-fade-in px-4 pb-4">
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em]">Operative_Name</label>
-                                    <input 
-                                        value={editName}
-                                        onChange={e => setEditName(e.target.value)}
-                                        className="w-full bg-black border-2 border-zinc-800 p-3 rounded-xl text-center text-lg font-black uppercase text-white outline-none focus:border-cyan-500 transition-all"
-                                        placeholder="Enter name..."
-                                    />
-                                </div>
-                                
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em]">Ledger_Title</label>
-                                    <select 
-                                        value={editTitle}
-                                        onChange={e => setEditTitle(e.target.value)}
-                                        className="w-full bg-black border-2 border-zinc-800 p-3 rounded-xl text-center text-[10px] font-black uppercase text-zinc-400 outline-none cursor-pointer hover:border-zinc-700"
-                                    >
-                                        {hero.unlockedTitles.map(t => <option key={t} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em]">Base_Node_ID</label>
-                                    <input 
-                                        value={editBaseName}
-                                        onChange={e => setEditBaseName(e.target.value)}
-                                        className="w-full bg-black border-2 border-zinc-800 p-3 rounded-xl text-center text-xs font-black uppercase text-zinc-500 outline-none focus:border-cyan-500 transition-all"
-                                        placeholder="e.g. VANGUARD_ZERO"
-                                    />
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[9px] font-black text-cyan-500 uppercase tracking-[0.3em]">Path_Protocol</label>
-                                    <div className="grid grid-cols-5 gap-2">
-                                        {Object.values(HeroPath).map(p => (
-                                            <button 
-                                                key={p}
-                                                onClick={() => setEditPath(p)}
-                                                className={`p-3 rounded-xl border-2 flex items-center justify-center transition-all ${editPath === p ? 'bg-cyan-500 border-cyan-400 text-black shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-black border-zinc-800 text-zinc-600 hover:border-zinc-700'}`}
-                                                title={p}
-                                            >
-                                                {getPathIcon(p)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <button 
-                                    onClick={handleSaveGlobal}
-                                    className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-4 rounded-2xl uppercase tracking-widest text-[10px] transition-all active:scale-95 shadow-xl mt-4"
-                                >
-                                    Apply_Configuration
-                                </button>
-                            </div>
-                        ) : (
-                            <div className="space-y-4 mb-8 w-full px-4 min-w-0">
-                                <h4 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter leading-none truncate">{hero.name}</h4>
-                                <div className="inline-flex flex-col items-center space-y-3">
-                                    <div className="inline-flex items-center space-x-3 bg-cyan-950/40 border border-cyan-500/30 px-6 py-2 rounded-full shadow-[0_0_15px_rgba(6,182,212,0.2)]">
-                                        <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                                        <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest truncate">{hero.equippedTitle || hero.title}</span>
-                                    </div>
-                                    <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest bg-zinc-800/40 px-3 py-1 rounded-lg">
-                                        {getPathIcon(hero.path)}
-                                        <span>{hero.path}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* VITAL SIGNS (Progression Index) */}
-                    {!isEditingGlobal && (
-                        <div className="w-full pt-8 border-t border-zinc-800/50 space-y-6 relative z-10">
-                            <div className="space-y-3">
-                                <div className="flex justify-between items-end px-2">
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Field_Hardiness_Index</p>
-                                    <p className="text-sm font-black text-emerald-500">{Math.round(xpProgress)}%</p>
-                                </div>
-                                <div className="w-full bg-zinc-950 rounded-full h-2 border border-zinc-800 overflow-hidden shadow-inner">
-                                    <div className="bg-cyan-500 h-full transition-all duration-1000 shadow-[0_0_15px_cyan]" style={{ width: `${xpProgress}%` }}></div>
-                                </div>
-                            </div>
-                            
-                            <div className="flex items-center justify-between px-2 bg-zinc-950/30 p-4 rounded-2xl border border-zinc-800/50">
-                                <div className="flex items-center space-x-3">
-                                    <Home className="w-4 h-4 text-zinc-600" />
-                                    <span className="text-[9px] font-black text-zinc-600 uppercase">Base_Node:</span>
-                                </div>
-                                <span className="text-[9px] font-black text-white uppercase truncate ml-2">{hero.base.name}</span>
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {/* TRANSPARENCY DATABASE LINK */}
-                <div className="bg-zinc-900 border-2 border-zinc-800 p-8 rounded-[3rem] shadow-2xl space-y-6 group min-w-0">
-                    <div className="flex items-center justify-between">
-                         <h3 className="text-xs font-black uppercase text-white tracking-[0.2em] flex items-center space-x-3">
-                            <Database className="w-5 h-5 text-emerald-500" />
-                            <span>Global_Audit_Hub</span>
-                        </h3>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 font-bold leading-relaxed uppercase tracking-widest">Access decentralized ledger for field evidence synchronization</p>
+        <div className="max-w-[1400px] mx-auto space-y-12 pb-32">
+            {/* 1. TOP NAV TOGGLE (Settings vs Overview) */}
+            <div className="flex justify-center">
+                <div className="bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl flex space-x-2 shadow-2xl">
                     <button 
-                        onClick={() => onNavigate('transparencyDatabase')}
-                        className="w-full flex items-center justify-center space-x-4 bg-emerald-600 hover:bg-emerald-500 text-white font-black py-5 rounded-2xl shadow-xl transition-all active:scale-95 uppercase text-xs tracking-widest"
+                        onClick={() => setActiveSection('overview')}
+                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSection === 'overview' ? 'bg-cyan-600 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
                     >
-                        <Search className="w-5 h-5" />
-                        <span>Audit Public Ledger</span>
+                        Intelligence_Hub
+                    </button>
+                    <button 
+                        onClick={() => setActiveSection('settings')}
+                        className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeSection === 'settings' ? 'bg-cyan-600 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'}`}
+                    >
+                        Node_Calibration
                     </button>
                 </div>
             </div>
 
-            {/* COLUMN 2: AUGMENTATIONS & PERSONA CONTROL */}
-            <div className="lg:col-span-8 space-y-8 min-w-0">
-                {/* Calibration Management Section */}
-                <div className="bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] p-6 md:p-10 shadow-2xl relative overflow-hidden min-w-0">
-                    <div className="flex items-center space-x-6 mb-10 px-4 md:px-0">
-                        <div className="p-4 bg-emerald-500/10 rounded-2xl border border-emerald-500/20">
-                            <Zap className="w-8 h-8 text-emerald-400" />
-                        </div>
-                        <div className="min-w-0">
-                            <h2 className="text-2xl font-black text-white uppercase tracking-tighter truncate">Hero_Calibration_Link</h2>
-                            <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-[0.4em] truncate">Active_Operational_Personas</p>
-                        </div>
-                    </div>
-                    
-                    <HeroPersonaManager
-                        personas={hero.personas}
-                        equippedPersonaId={hero.equippedPersonaId}
-                        onAddHeroPersona={onAddHeroPersona}
-                        onDeletePersona={onDeleteHeroPersona}
-                        onEquipPersona={onEquipHeroPersona}
+            {activeSection === 'overview' ? (
+                <div className="space-y-12 animate-fade-in">
+                    {/* A. HERO BANNER */}
+                    <HeroBanner 
+                        hero={hero} 
+                        onEdit={() => setShowEditProfile(true)}
+                        onUpdateAvatar={() => onNavigate('heroHub', undefined, 'profile')} 
                     />
-                </div>
 
-                {/* Field Gear Kit Visualizer */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 min-w-0">
-                    <div className="bg-zinc-900/60 border-2 border-zinc-800 p-8 rounded-[3rem] space-y-6 shadow-xl min-w-0">
-                        <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
-                            <Box className="w-5 h-5 text-cyan-500"/>
-                            <span>Field_Deployable_Kit</span>
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            {hero.inventory.length > 0 ? hero.inventory.map(item => (
-                                <div key={item.id} className="bg-black/60 p-4 rounded-2xl border border-zinc-800 hover:border-cyan-500/30 transition-all group min-w-0 overflow-hidden">
-                                    <div className="flex justify-between items-start mb-3">
-                                        <span className="text-xl group-hover:scale-110 transition-transform">{item.icon}</span>
-                                    </div>
-                                    <p className="text-[10px] font-black text-white uppercase truncate">{item.name}</p>
-                                    <p className="text-[7px] font-bold text-cyan-600 uppercase mt-1">Calib_{item.resonance}.0</p>
+                    {/* B. QUICK ACTIONS */}
+                    <QuickActionsRow 
+                        onNavigate={onNavigate} 
+                        missionCount={2} 
+                        mintReady={true}
+                    />
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
+                        {/* C. DAILY CHALLENGE (LEFT) */}
+                        <div className="lg:col-span-4 space-y-8">
+                            <DailyChallengeCard 
+                                hero={hero} 
+                                setHero={setHero}
+                            />
+                            
+                            {/* REPUTATION SUMMARY (DPAL FEEL) */}
+                            <div className="bg-zinc-900/60 border-2 border-zinc-800 rounded-[3rem] p-8 space-y-8 shadow-xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-8 opacity-5"><ShieldCheck className="w-40 h-40 text-emerald-500"/></div>
+                                <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
+                                    <Activity className="w-5 h-5 text-emerald-500" />
+                                    <span>Trust_Index</span>
+                                </h3>
+                                <div className="space-y-6">
+                                    <MetricRow label="Verification Rate" value="94%" color="emerald" />
+                                    <MetricRow label="Evidence Quality" value="8.8/10" color="cyan" />
+                                    <MetricRow label="Appeals Filed" value="0" color="zinc" />
                                 </div>
-                            )) : (
-                                <p className="col-span-2 text-[10px] text-zinc-700 font-black uppercase text-center py-6">Kit_Depleted</p>
-                            )}
+                                <button 
+                                    onClick={() => setShowAuditLog(true)}
+                                    className="w-full py-4 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center space-x-3"
+                                >
+                                    <Database className="w-4 h-4 text-emerald-500" />
+                                    <span>View_Full_Audit_Log</span>
+                                </button>
+                            </div>
                         </div>
-                    </div>
 
-                    <div className="bg-zinc-900/60 border-2 border-zinc-800 p-8 rounded-[3rem] space-y-6 relative overflow-hidden shadow-xl min-w-0">
-                        <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
-                            <Sparkles className="w-5 h-5 text-emerald-500"/>
-                            <span>Accreditation_Resonance</span>
-                        </h3>
-                        <div className="space-y-4">
-                            <SkillResonance label="Wisdom" value={hero.wisdomMastery} color="yellow" />
-                            <SkillResonance label="Social" value={hero.socialMastery} color="rose" />
-                            <SkillResonance label="Civic" value={hero.civicMastery} color="cyan" />
+                        {/* D. IMPACT DASHBOARD & ACTIVITY (RIGHT) */}
+                        <div className="lg:col-span-8 space-y-12">
+                            <ImpactDashboard stats={hero.stats} activity={activity} />
+                            
+                            <div className="space-y-6">
+                                <h3 className="text-sm font-black uppercase text-zinc-500 tracking-[0.4em] px-4 flex items-center gap-4">
+                                    <Box className="w-5 h-5 text-cyan-500" />
+                                    <span>Inventory_Buffer</span>
+                                </h3>
+                                <InventoryPreview hero={hero} />
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            ) : (
+                <div className="animate-fade-in">
+                    <SettingsTabs hero={hero} setHero={setHero} />
+                </div>
+            )}
+
+            {showAuditLog && <AuditLogModal hero={hero} onClose={() => setShowAuditLog(false)} />}
+            {showEditProfile && <EditProfileModal hero={hero} onSave={(data) => { setHero(prev => ({...prev, ...data})); setShowEditProfile(false); }} onClose={() => setShowEditProfile(false)} />}
         </div>
     );
 };
 
-const SkillResonance: React.FC<{ label: string; value: number; color: string }> = ({ label, value, color }) => (
-    <div className="space-y-2">
-        <div className="flex justify-between items-center px-1">
-            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
-            <span className={`text-[9px] font-black uppercase text-${color}-500`}>{value}%</span>
-        </div>
-        <div className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden border border-zinc-800/50 shadow-inner">
-            <div className={`h-full bg-${color}-500 shadow-[0_0_10px_currentColor] transition-all duration-1000`} style={{ width: `${Math.min(100, value)}%` }}></div>
-        </div>
+const MetricRow: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => (
+    <div className="flex justify-between items-center px-2">
+        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
+        <span className={`text-xs font-black text-${color}-500`}>{value}</span>
     </div>
+);
+
+const CheckCircle: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+  </svg>
+);
+
+const Megaphone: React.FC<{ className?: string }> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="m3 11 18-5v12L3 13v-2Z" />
+        <line x1="11.6" x2="11.6" y1="16.5" y2="21" />
+    </svg>
 );
 
 export default HeroProfileTab;

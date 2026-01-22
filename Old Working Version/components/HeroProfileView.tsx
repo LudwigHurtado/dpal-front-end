@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 // FIX: Changed import to correctly handle HeroPath enum as a value.
 import { type Hero, HeroPath } from '../types';
@@ -123,7 +122,7 @@ const HeroProfileView: React.FC<HeroProfileViewProps> = ({ hero, setHero }) => {
                     <h3 className="text-xl font-bold text-white mb-4">{t('heroProfile.heroPath')}</h3>
                     {isEditing ? (
                          <div className="space-y-2">
-                             {heroPaths.map((path: any) => {
+                             {heroPaths.map(path => {
                                  const pathKey = path.split(' ').pop()?.toLowerCase() || 'sentinel';
                                  return (
                                     <label key={path} className={`flex items-center space-x-3 p-3 rounded-lg border-2 cursor-pointer transition-colors ${editedPath === path ? 'bg-blue-900/50 border-blue-500' : 'border-transparent hover:bg-gray-700/50'}`}>
