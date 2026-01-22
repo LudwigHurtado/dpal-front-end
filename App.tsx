@@ -38,6 +38,9 @@ import { useTranslations } from './i18n';
 export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'subscription' | 'aiSetup';
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
+console.log("AI enabled?", Boolean(import.meta.env.VITE_GEMINI_API_KEY));
+console.log("API base:", import.meta.env.VITE_API_BASE);
+
 const getInitialReports = (): Report[] => {
   const saved = localStorage.getItem('dpal-reports');
   if (saved) {

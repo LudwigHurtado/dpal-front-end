@@ -60,17 +60,6 @@ export class AiError extends Error {
   }
 }
 
-export const isAiEnabled = () => {
-  const enabled = Boolean(getApiKey());
-  debugLog("isAiEnabled:", enabled, {
-    hasViteKey: Boolean(import.meta.env.VITE_GEMINI_API_KEY),
-    hasLegacyKey:
-      typeof process !== "undefined" ? Boolean((process as any).env?.API_KEY) : false,
-    apiBase: getApiBase(),
-  });
-  return enabled;
-};
-
 const getAiClient = () => {
   const key = getApiKey();
   if (!key) throw new AiError("NOT_CONFIGURED", "Neural link unconfigured. Device has no AI key.");
