@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
@@ -37,6 +38,22 @@ import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'subscription' | 'aiSetup';
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
+
+// ✅ ADD: strict tab types (removes `any`)
+type HeroHubTab =
+  | 'profile'
+  | 'missions'
+  | 'skills'
+  | 'training'
+  | 'briefing'
+  | 'collection'
+  | 'mint'
+  | 'store';
+
+type HubTab =
+  | 'my_reports'
+  | 'community'
+  | 'work_feed';
 
 console.log("AI enabled?", Boolean(import.meta.env.VITE_GEMINI_API_KEY));
 console.log("API base:", import.meta.env.VITE_API_BASE);
@@ -90,8 +107,8 @@ const App: React.FC = () => {
   const [reports, setReports] = useState<Report[]>(getInitialReports);
   const [currentView, setCurrentView] = useState<View>('mainMenu');
   const [prevView, setPrevView] = useState<View>('mainMenu');
-  const [heroHubTab, setHeroHubTab] = useState<'profile' | 'missions' | 'skills' | 'training' | 'briefing' | 'collection' | 'mint' | 'store'>('profile');
-  const [hubTab, setHubTab] = useState<'my_reports' | 'community' | 'work_feed'>('my_reports');
+  const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
+  const [hubTab, setHubTab] = useState<HubTab>('my_reports');
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
 
   const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(null);
@@ -141,7 +158,11 @@ const App: React.FC = () => {
     });
   }, [reports, filters]);
 
-  const handleNavigate = (view: View, category?: Category, targetTab?: any) => {
+  const handleNavigate = (
+    view: View,
+    category?: Category,
+    targetTab?: HeroHubTab | HubTab
+  ) => {
     const aiViews: View[] = ['liveIntelligence', 'generateMission', 'trainingHolodeck', 'aiWorkDirectives'];
     if (aiViews.includes(view) && !isAiEnabled() && !isOfflineMode) {
         setPrevView(currentView);
@@ -154,8 +175,41 @@ const App: React.FC = () => {
         setCurrentView('reportSubmission'); 
     } 
     else { 
-        if (view === 'heroHub' && targetTab) setHeroHubTab(targetTab); 
-        if (view === 'hub' && targetTab) setHubTab(targetTab); 
+        // ✅ SAFE hero hub navigation
+        if (view === 'heroHub') {
+          const allowedHeroTabs: HeroHubTab[] = [
+            'profile',
+            'missions',
+            'skills',
+            'training',
+            'briefing',
+            'collection',
+            'mint',
+            'store',
+          ];
+
+          if (targetTab && allowedHeroTabs.includes(targetTab as HeroHubTab)) {
+            setHeroHubTab(targetTab as HeroHubTab);
+          } else {
+            // fallback instead of black screen
+            setHeroHubTab('profile');
+          }
+        }
+
+        // ✅ SAFE hub navigation
+        if (view === 'hub') {
+          const allowedHubTabs: HubTab[] = [
+            'my_reports',
+            'community',
+            'work_feed',
+          ];
+
+          if (targetTab && allowedHubTabs.includes(targetTab as HubTab)) {
+            setHubTab(targetTab as HubTab);
+          } else {
+            setHubTab('my_reports');
+          }
+        }
         setCurrentView(view); 
     }
   };
