@@ -53,6 +53,8 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
             const { isAiEnabled } = await import('../services/geminiService');
             if (!isAiEnabled()) {
                 alert("AI key not configured. Please set VITE_GEMINI_API_KEY in your environment variables or enable offline mode.");
+            } else if (e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError") || e?.type === "NETWORK_ERROR") {
+                alert("Network connection failed. This is likely a CORS issue - the Gemini API should be called through your backend, not directly from the browser. Please check:\n\n1. Your backend server is running\n2. CORS is properly configured\n3. Your internet connection is stable\n\nTry again in a moment.");
             } else if (e?.message?.includes("403") || e?.message?.includes("Forbidden") || e?.message?.includes("API_KEY")) {
                 alert("API authentication failed (403). Your Gemini API key may be invalid, expired, or missing required permissions. Please check your VITE_GEMINI_API_KEY configuration.");
             } else if (e?.message?.includes("429") || e?.message?.includes("RATE_LIMITED")) {
