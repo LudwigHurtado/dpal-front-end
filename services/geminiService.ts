@@ -57,10 +57,11 @@ const getAiClient = () => {
 };
 
 const handleApiError = (error: any): never => {
-  console.error(`Gemini API Error:`, error);
+  console.error(`Backend API Error:`, error);
 
   if (error?.message?.includes("Failed to fetch") || error?.message?.includes("NetworkError") || error?.name === "TypeError") {
-    throw new AiError("NETWORK_ERROR", "Network connection failed. This could be due to:\n1. CORS restrictions (API calls should go through backend)\n2. Internet connectivity issues\n3. Gemini API service temporarily unavailable\n\nTry again in a moment or check your network connection.");
+    const apiBase = getApiBase();
+    throw new AiError("NETWORK_ERROR", `Backend API connection failed.\n\nBackend URL: ${apiBase || 'Not configured'}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- Backend is deployed and running\n- VITE_API_BASE is set correctly in Vercel/Railway\n- Backend CORS allows your frontend origin`);
   }
 
   if (error?.status === 403 || error?.statusCode === 403 || error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
@@ -726,7 +727,11 @@ export async function generateHeroPersonaDetails(prompt: string, arch: Archetype
   if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
   try {
     const apiBase = getApiBase();
-    const apiUrl = apiBase ? `${apiBase}/api/persona/generate-details` : '/api/persona/generate-details';
+    // Try relative path first (for Vercel proxy), fallback to absolute
+    let apiUrl = '/api/persona/generate-details';
+    if (apiBase) {
+      apiUrl = `${apiBase}/api/persona/generate-details`;
+    }
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -735,8 +740,11 @@ export async function generateHeroPersonaDetails(prompt: string, arch: Archetype
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
-      throw new Error(errorData.message || errorData.error || "PERSONA_DETAILS_SYNC_FAILED");
+      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}`, error: 'unknown' }));
+      const error = new Error(errorData.message || errorData.error || "PERSONA_DETAILS_SYNC_FAILED");
+      (error as any).status = response.status;
+      (error as any).errorCode = errorData.error;
+      throw error;
     }
 
     const data = await response.json();
@@ -746,7 +754,11 @@ export async function generateHeroPersonaDetails(prompt: string, arch: Archetype
       backstory: data.backstory,
       combatStyle: data.combatStyle
     };
-  } catch (e) {
+  } catch (e: any) {
+    // If it's already an AiError, re-throw it
+    if (e.type && e.name === "AiError") {
+      throw e;
+    }
     return handleApiError(e);
   }
 }
@@ -755,18 +767,36 @@ export async function generateHeroPersonaImage(prompt: string, arch: Archetype, 
   if (!isAiEnabled()) return `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`;
   try {
     const apiBase = getApiBase();
-    const response = await fetch(`${apiBase}/api/persona/generate-image`, {
+    // Try relative path first (for Vercel proxy), fallback to absolute
+    let apiUrl = '/api/persona/generate-image';
+    if (apiBase) {
+      apiUrl = `${apiBase}/api/persona/generate-image`;
+    }
+
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, archetype: arch, sourceImage: sourceImageData }),
     });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}`, error: 'unknown' }));
+      const error = new Error(errorData.message || errorData.error || "PERSONA_SYNC_FAILED");
+      (error as any).status = response.status;
+      (error as any).errorCode = errorData.error;
+      throw error;
+    }
+
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "PERSONA_SYNC_FAILED");
     // Only use imageUrl property
     return typeof data.imageUrl === "string" && data.imageUrl.startsWith("/")
-      ? `${apiBase}${data.imageUrl}`
+      ? `${apiBase || ''}${data.imageUrl}`
       : data.imageUrl;
-  } catch (e) {
+  } catch (e: any) {
+    // If it's already an AiError, re-throw it
+    if (e.type && e.name === "AiError") {
+      throw e;
+    }
     return handleApiError(e);
   }
 }
