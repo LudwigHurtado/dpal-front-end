@@ -68,13 +68,17 @@ const getAiClient = () => {
 
 const handleApiError = (error: any): never => {
   console.error(`Gemini API Error:`, error);
+  // Check for 403 Forbidden (authentication/permission issues)
+  if (error?.status === 403 || error?.statusCode === 403 || error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
+    throw new AiError("FORBIDDEN", "API authentication failed (403). Your Gemini API key may be invalid, expired, or missing required permissions. Please check your VITE_GEMINI_API_KEY configuration.");
+  }
   if (error?.message?.includes("API_KEY_INVALID") || error?.type === "NOT_CONFIGURED") {
     throw new AiError("NOT_CONFIGURED", "AI is off. Your device has no valid AI key configured.");
   }
   if (error?.message?.includes("429") || error?.message?.includes("QUOTA")) {
     throw new AiError("RATE_LIMITED", "Neural link saturated. Frequency limits reached.");
   }
-  throw new AiError("TEMPORARY_FAILURE", "Transient neural disruption. Link stability low.");
+  throw new AiError("TEMPORARY_FAILURE", `Transient neural disruption: ${error?.message || 'Unknown error'}. Link stability low.`);
 };
 
 // --- AI SERVICE METHODS ---

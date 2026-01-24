@@ -47,9 +47,19 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
             setDraftDescription('');
             setSourceImage(null);
             setIsWorkspaceOpen(false);
-        } catch (e) {
+        } catch (e: any) {
             console.error("Recruitment Failed", e);
-            alert("Neural link failed to materialize hero identity. Check system node status.");
+            // Check if AI is enabled
+            const { isAiEnabled } = await import('../services/geminiService');
+            if (!isAiEnabled()) {
+                alert("AI key not configured. Please set VITE_GEMINI_API_KEY in your environment variables or enable offline mode.");
+            } else if (e?.message?.includes("403") || e?.message?.includes("Forbidden") || e?.message?.includes("API_KEY")) {
+                alert("API authentication failed (403). Your Gemini API key may be invalid, expired, or missing required permissions. Please check your VITE_GEMINI_API_KEY configuration.");
+            } else if (e?.message?.includes("429") || e?.message?.includes("RATE_LIMITED")) {
+                alert("API rate limit reached. Please wait a moment and try again.");
+            } else {
+                alert(`Neural link failed: ${e?.message || 'Unknown error'}. Check system node status and API configuration.`);
+            }
         } finally {
             setIsGenerating(false);
         }

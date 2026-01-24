@@ -42,8 +42,19 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
         const ideas = await generateNftPromptIdeas(hero, theme as NftTheme, dpalCategory as Category);
         setConcepts(ideas);
         setActiveStep('INFERENCE');
-    } catch (e) {
-        alert("Neural link unstable. Retrying handshake...");
+    } catch (e: any) {
+        console.error("[FORGE] Oracle vision sync failed:", e);
+        // Check if AI is enabled
+        const { isAiEnabled } = await import('../services/geminiService');
+        if (!isAiEnabled()) {
+            alert("AI key not configured. Please set VITE_GEMINI_API_KEY in your environment or enable offline mode.");
+        } else if (e?.message?.includes("RATE_LIMITED") || e?.message?.includes("429")) {
+            alert("API rate limit reached. Please wait a moment and try again.");
+        } else if (e?.message?.includes("API_KEY_INVALID") || e?.message?.includes("NOT_CONFIGURED")) {
+            alert("AI key is invalid. Please check your VITE_GEMINI_API_KEY configuration.");
+        } else {
+            alert(`Neural link unstable: ${e?.message || 'Connection failed'}. Check your network connection and try again.`);
+        }
     } finally {
         setIsSyncingConcepts(false);
     }
