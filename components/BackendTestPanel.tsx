@@ -255,27 +255,27 @@ const BackendTestPanel: React.FC = () => {
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 bg-black border border-zinc-800 rounded-lg p-6 max-w-md shadow-2xl">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-bold text-white flex items-center gap-2">
-          <Server className="w-5 h-5" />
+    <div className="fixed bottom-4 right-4 z-50 bg-black border border-zinc-800 rounded-lg p-6 max-w-4xl w-[90vw] max-h-[90vh] shadow-2xl flex flex-col">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+          <Server className="w-6 h-6" />
           Backend Connection Test
         </h3>
         <button
           onClick={() => setResults([])}
           className="text-zinc-400 hover:text-white"
         >
-          <X className="w-5 h-5" />
+          <X className="w-6 h-6" />
         </button>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm text-zinc-400 mb-2">Backend URL:</label>
+      <div className="mb-4 flex-shrink-0">
+        <label className="block text-sm text-zinc-400 mb-2 font-medium">Backend URL:</label>
         <input
           type="text"
           value={apiBase}
           onChange={(e) => setApiBase(e.target.value)}
-          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-2 text-white text-sm"
+          className="w-full bg-zinc-900 border border-zinc-700 rounded px-4 py-2.5 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="https://your-backend.railway.app"
         />
       </div>
@@ -283,7 +283,7 @@ const BackendTestPanel: React.FC = () => {
       <button
         onClick={runTests}
         disabled={isTesting}
-        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-bold py-2 px-4 rounded flex items-center justify-center gap-2 mb-4"
+        className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded flex items-center justify-center gap-2 mb-4 flex-shrink-0 transition-colors"
       >
         {isTesting ? (
           <>
@@ -299,11 +299,11 @@ const BackendTestPanel: React.FC = () => {
       </button>
 
       {results.length > 0 && (
-        <div className="space-y-3 max-h-96 overflow-y-auto">
+        <div className="space-y-3 flex-1 overflow-y-auto pr-2">
           {results.map((result, index) => (
             <div
               key={index}
-              className={`border rounded p-3 ${
+              className={`border rounded-lg p-4 ${
                 result.status === 'success'
                   ? 'border-green-500 bg-green-500/10'
                   : result.status === 'error'
@@ -311,27 +311,27 @@ const BackendTestPanel: React.FC = () => {
                   : 'border-zinc-700 bg-zinc-900'
               }`}
             >
-              <div className="flex items-start gap-2">
+              <div className="flex items-start gap-3">
                 {result.status === 'pending' && (
-                  <Loader className="w-4 h-4 text-zinc-400 animate-spin mt-0.5" />
+                  <Loader className="w-5 h-5 text-zinc-400 animate-spin mt-0.5 flex-shrink-0" />
                 )}
                 {result.status === 'success' && (
-                  <Check className="w-4 h-4 text-green-400 mt-0.5" />
+                  <Check className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                 )}
                 {result.status === 'error' && (
-                  <AlertCircle className="w-4 h-4 text-red-400 mt-0.5" />
+                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
                 )}
-                <div className="flex-1">
-                  <div className="font-semibold text-white text-sm">{result.name}</div>
-                  <div className="text-xs text-zinc-400 mt-1 whitespace-pre-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="font-semibold text-white text-base mb-2">{result.name}</div>
+                  <div className="text-sm text-zinc-300 mt-1 whitespace-pre-wrap leading-relaxed">
                     {result.message}
                   </div>
                   {result.details && (
-                    <details className="mt-2">
-                      <summary className="text-xs text-zinc-500 cursor-pointer hover:text-zinc-400">
-                        Show Details
+                    <details className="mt-3" open={result.status === 'error'}>
+                      <summary className="text-sm text-zinc-400 cursor-pointer hover:text-zinc-300 font-medium mb-2">
+                        ▼ Show Details
                       </summary>
-                      <pre className="text-xs text-zinc-400 mt-2 bg-zinc-950 p-2 rounded overflow-auto">
+                      <pre className="text-xs text-zinc-300 mt-2 bg-zinc-950 p-3 rounded border border-zinc-800 overflow-x-auto max-w-full break-all">
                         {JSON.stringify(result.details, null, 2)}
                       </pre>
                     </details>
