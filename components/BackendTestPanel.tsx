@@ -72,11 +72,19 @@ const BackendTestPanel: React.FC = () => {
         };
       }
     } catch (error: any) {
+      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch');
       testResults[1] = {
         name: 'Backend Health Check',
         status: 'error',
-        message: `Failed to connect: ${error.message}`,
-        details: { url: `${apiBase}/health`, error: error.message, type: error.name },
+        message: isTimeout 
+          ? `Backend is not reachable at this URL.\n\nPossible issues:\n1. Backend not deployed on Railway\n2. Wrong Railway URL\n3. Backend service is down\n\nCheck Railway dashboard to verify deployment.`
+          : `Failed to connect: ${error.message}`,
+        details: { 
+          url: `${apiBase}/health`, 
+          error: error.message, 
+          type: error.name,
+          suggestion: 'Verify backend is deployed and running on Railway'
+        },
       };
     }
     setResults([...testResults]);
@@ -120,11 +128,17 @@ const BackendTestPanel: React.FC = () => {
         };
       }
     } catch (error: any) {
+      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch');
       testResults[2] = {
         name: 'CORS Configuration',
         status: 'error',
-        message: `CORS test failed: ${error.message}`,
-        details: { error: error.message },
+        message: isTimeout
+          ? `Cannot test CORS - backend is not reachable.\n\nFix the backend connection first, then CORS can be tested.`
+          : `CORS test failed: ${error.message}`,
+        details: { 
+          error: error.message,
+          note: 'CORS test requires backend to be reachable first'
+        },
       };
     }
     setResults([...testResults]);
@@ -166,11 +180,19 @@ const BackendTestPanel: React.FC = () => {
         };
       }
     } catch (error: any) {
+      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch');
       testResults[3] = {
         name: 'Persona Generate Details API',
         status: 'error',
-        message: `Request failed: ${error.message}`,
-        details: { url: `${apiBase}/api/persona/generate-details`, error: error.message, type: error.name },
+        message: isTimeout
+          ? `Backend API not reachable.\n\nThis is why persona generation fails. Deploy backend first.`
+          : `Request failed: ${error.message}`,
+        details: { 
+          url: `${apiBase}/api/persona/generate-details`, 
+          error: error.message, 
+          type: error.name,
+          impact: 'Persona generation will not work until backend is deployed'
+        },
       };
     }
     setResults([...testResults]);
@@ -212,11 +234,19 @@ const BackendTestPanel: React.FC = () => {
         };
       }
     } catch (error: any) {
+      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch');
       testResults[4] = {
         name: 'NFT Generate Image API',
         status: 'error',
-        message: `Request failed: ${error.message}`,
-        details: { url: `${apiBase}/api/nft/generate-image`, error: error.message, type: error.name },
+        message: isTimeout
+          ? `Backend API not reachable.\n\nThis is why NFT minting fails. Deploy backend first.`
+          : `Request failed: ${error.message}`,
+        details: { 
+          url: `${apiBase}/api/nft/generate-image`, 
+          error: error.message, 
+          type: error.name,
+          impact: 'NFT generation and minting will not work until backend is deployed'
+        },
       };
     }
     setResults([...testResults]);
