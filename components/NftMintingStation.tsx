@@ -113,8 +113,21 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`MINT_REJECTED: ${response.status} - ${errorText.substring(0, 100)}`);
+        // Try to parse error response as JSON
+        let errorData: any = {};
+        try {
+          const errorText = await response.text();
+          errorData = JSON.parse(errorText);
+        } catch {
+          // If parsing fails, use status code
+          errorData = { error: 'unknown', message: `HTTP ${response.status}` };
+        }
+
+        // Create error with status code and message
+        const error = new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
+        (error as any).status = response.status;
+        (error as any).errorCode = errorData.error;
+        throw error;
       }
 
       const receipt = await response.json();
@@ -160,10 +173,49 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
       clearTimeout(timeoutId);
       console.error("[FORGE_ERR]", e);
       setActiveStep('AUGMENT'); 
+      
+      // Handle specific error types
       if (e.name === 'AbortError') {
-        alert("Synthesis Timed Out (60s). The Forge node is busy.");
+        alert("⏱️ Synthesis Timed Out (60s). The Forge node is busy. Please try again.");
+        return;
+      }
+
+      // Handle network/connection errors
+      if (e.message?.includes("Failed to fetch") || e.message?.includes("NetworkError") || e.name === "TypeError") {
+        alert("🌐 Network Connection Failed\n\nThis could be due to:\n1. Backend server is not running\n2. CORS configuration issue\n3. Internet connectivity problems\n\nPlease check your network connection and ensure the backend server is running.");
+        return;
+      }
+
+      // Handle specific HTTP status codes from backend
+      const status = e.status || (e.message?.match(/HTTP (\d+)/)?.[1] ? parseInt(e.message.match(/HTTP (\d+)/)?.[1]) : null);
+      const errorCode = e.errorCode || e.message?.toLowerCase();
+
+      if (status === 400) {
+        // Bad request - validation error
+        alert(`❌ Invalid Request\n\n${e.message || 'Please check your input and try again.'}`);
+      } else if (status === 402 || errorCode?.includes('insufficient')) {
+        // Insufficient balance
+        const needed = totalCost;
+        const current = hero.heroCredits;
+        alert(`💳 Insufficient Credits\n\nRequired: ${needed.toLocaleString()} HC\nYour Balance: ${current.toLocaleString()} HC\n\nYou need ${(needed - current).toLocaleString()} more credits to complete this mint.`);
+      } else if (status === 409 || errorCode?.includes('mint_in_progress')) {
+        // Mint already in progress
+        alert("⏳ Mint Already In Progress\n\nA mint request with this idempotency key is already being processed. Please wait for it to complete or try again with a different request.");
+      } else if (status === 500 && (errorCode?.includes('configuration') || e.message?.includes('GEMINI_API_KEY'))) {
+        // Configuration error
+        alert("⚙️ Server Configuration Error\n\nThe AI service is not properly configured on the backend. Please contact the administrator.");
+      } else if (status === 502 || errorCode?.includes('image_generation')) {
+        // Image generation failed
+        alert("🎨 Image Generation Failed\n\nThe AI image generation service encountered an error. Please try again in a moment.");
+      } else if (status && status >= 500) {
+        // Other server errors
+        alert(`🔴 Server Error (${status})\n\n${e.message || 'The backend server encountered an unexpected error. Please try again later.'}`);
+      } else if (status && status >= 400) {
+        // Other client errors
+        alert(`⚠️ Request Error (${status})\n\n${e.message || 'Your request could not be processed. Please check your input and try again.'}`);
       } else {
-        alert(`Synthesis disrupted: ${e.message}. Check terminal network status.`);
+        // Generic error
+        alert(`❌ Synthesis Disrupted\n\n${e.message || 'An unexpected error occurred. Check terminal network status and try again.'}`);
       }
     } finally {
       setIsMinting(false);

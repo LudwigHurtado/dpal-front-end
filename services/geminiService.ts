@@ -491,8 +491,22 @@ export async function generateNftImage(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, theme, operativeId: hero.operativeId }),
     });
+    
+    if (!response.ok) {
+      // Parse error response
+      let errorData: any = {};
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = { message: `HTTP ${response.status}`, error: 'unknown' };
+      }
+      const error = new Error(errorData.message || errorData.error || "IMAGE_SYNC_FAILED");
+      (error as any).status = response.status;
+      (error as any).errorCode = errorData.error;
+      throw error;
+    }
+    
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "IMAGE_SYNC_FAILED");
     return data.imageUrl.startsWith("/") ? `${apiBase}${data.imageUrl}` : data.imageUrl;
   } catch (error) {
     return handleApiError(error);

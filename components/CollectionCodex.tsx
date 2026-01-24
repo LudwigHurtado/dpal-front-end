@@ -21,8 +21,15 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
     const fetchCollection = async () => {
         setIsLoading(true);
         try {
-            // Pointing to your Railway-connected MongoDB API
-            const response = await fetch('/api/nft/receipts');
+            const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-ai-server-production.up.railway.app';
+            // Try relative path first (for Vercel proxy), fallback to absolute
+            let response;
+            try {
+                response = await fetch('/api/nft/receipts');
+            } catch {
+                response = await fetch(`${apiBase}/api/nft/receipts`);
+            }
+            
             if (response.ok) {
                 const data = await response.json();
                 // Map DB receipts back to Report structure for the UI
@@ -42,7 +49,9 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
                     earnedNft: {
                         source: 'minted',
                         title: receipt.tokenId,
-                        imageUrl: receipt.imageUri || `https://api.dpal.net/v1/assets/${receipt.tokenId}.png`,
+                        imageUrl: receipt.imageUri || (receipt.imageUrl?.startsWith('/') 
+                            ? `${apiBase}${receipt.imageUrl}` 
+                            : receipt.imageUrl) || `https://api.dpal.net/v1/assets/${receipt.tokenId}.png`,
                         mintCategory: receipt.category || 'Other',
                         blockNumber: 6843021,
                         txHash: receipt.txHash,
@@ -51,9 +60,23 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
                     }
                 }));
                 setDbNfts(mapped);
+            } else {
+                // Handle error response
+                let errorData: any = {};
+                try {
+                    errorData = await response.json();
+                } catch {
+                    errorData = { message: `HTTP ${response.status}`, error: 'unknown' };
+                }
+                console.error("Failed to fetch receipts:", errorData.message || errorData.error || `HTTP ${response.status}`);
+                // Don't show alert for collection fetch - just log and continue with empty collection
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error("DB Fetch Failed", e);
+            // Network errors - silently fail, user can retry by refreshing
+            if (e.message?.includes("Failed to fetch") || e.message?.includes("NetworkError")) {
+                console.warn("Network error fetching collection - backend may be unavailable");
+            }
         } finally {
             setIsLoading(false);
         }

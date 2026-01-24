@@ -1,3 +1,18 @@
+/**
+ * ⚠️ DEPRECATED / DEAD CODE ⚠️
+ * 
+ * This file contains BACKEND logic (MongoDB models, transactions, session management)
+ * that should NOT be in the front-end codebase.
+ * 
+ * This code should be moved to: c:\DPAL\dpal-ai-server\src\services\mint.service.ts
+ * 
+ * The front-end should only call API endpoints (e.g., POST /api/nft/mint), not execute
+ * backend logic directly.
+ * 
+ * This file is kept temporarily as a reference for implementing the backend service.
+ * TODO: Remove this file once the backend implementation is complete.
+ */
+
 import { Buffer } from 'buffer';
 import mongoose from 'mongoose';
 import { CreditWallet } from '../models/CreditWallet';
@@ -9,6 +24,7 @@ import { AuditEvent } from '../models/AuditEvent';
 import { GoogleGenAI } from "@google/genai";
 
 // CRITICAL: Must use named parameter for API KEY
+// NOTE: This should use GEMINI_API_KEY in backend, not API_KEY
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
 /**
