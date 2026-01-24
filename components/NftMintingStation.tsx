@@ -25,7 +25,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
   const [isMinting, setIsMinting] = useState(false);
   const [mintedReport, setMintedReport] = useState<Report | null>(null);
 
-  const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-backend.up.railway.app';
+  const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-ai-server-production.up.railway.app';
 
   const MINT_BASE_COST = 500;
   const traitsCost = useMemo(() => 
