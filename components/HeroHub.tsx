@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { SkillLevel, type Mission, type Hero, type Category, type Report, type IapPack, type StoreItem, type NftTheme, type SkillNode, Archetype } from '../types';
 import { useTranslations } from '../i18n';
+import { type HeroHubTab, type HubTab, type View } from '../App';
 import { ArrowLeft, Loader, Coins, Gem, Star, Award, RefreshCw, List, ChevronDown, Check, Zap, UserCircle, Store, Broadcast, Sparkles, ArrowRight, MapPin, Crosshair, Monitor, Eye, EyeOff, Target, Box, Database, Clock, ShieldCheck, Fingerprint, Activity, CheckCircle, Map, User, Search, ListFilter, Package } from './icons';
 import { RANKS, CATEGORIES_WITH_ICONS } from '../constants';
 import CollectionCodex from './CollectionCodex';
@@ -31,9 +32,9 @@ interface HeroHubProps {
   onEquipHeroPersona: (personaId: string | null) => void;
   onGenerateHeroBackstory: () => Promise<void>;
   onNavigateToMissionDetail: (mission: Mission) => void;
-  onNavigate: (view: any) => void;
-  activeTab: any;
-  setActiveTab: (tab: any) => void;
+  onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
+  activeTab: HeroHubTab;
+  setActiveTab: (tab: HeroHubTab) => void;
 }
 
 const QUICK_LOCATIONS = ["San Jose, CA", "Los Angeles, CA", "Chicago, IL", "New York, NY", "London, UK"];
@@ -249,7 +250,7 @@ const HeroHub: React.FC<HeroHubProps> = ({
                             if (tab.id === 'briefing') {
                                 onNavigate('liveIntelligence');
                             } else {
-                                setActiveTab(tab.id as any)
+                                setActiveTab(tab.id as HeroHubTab)
                             }
                         }}
                         className={`flex-shrink-0 flex items-center justify-center space-x-3 md:space-x-4 px-5 py-2.5 md:px-10 md:py-6 text-[9px] md:text-xs font-black uppercase tracking-[0.2em] rounded-2xl md:rounded-[2.5rem] transition-all duration-500 ${

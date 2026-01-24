@@ -40,7 +40,7 @@ export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educa
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
 // ✅ ADD: strict tab types (removes `any`)
-type HeroHubTab =
+export type HeroHubTab =
   | 'profile'
   | 'missions'
   | 'skills'
@@ -48,9 +48,10 @@ type HeroHubTab =
   | 'briefing'
   | 'collection'
   | 'mint'
-  | 'store';
+  | 'store'
+  | 'vault';
 
-type HubTab =
+export type HubTab =
   | 'my_reports'
   | 'community'
   | 'work_feed';
@@ -186,6 +187,7 @@ const App: React.FC = () => {
             'collection',
             'mint',
             'store',
+            'vault',
           ];
 
           if (targetTab && allowedHeroTabs.includes(targetTab as HeroHubTab)) {

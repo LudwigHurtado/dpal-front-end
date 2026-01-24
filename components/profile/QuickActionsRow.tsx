@@ -1,8 +1,10 @@
 import React from 'react';
 import { Target, Gem, Megaphone, ShieldCheck, Box, UserCircle } from '../icons';
+import { type View, type HeroHubTab, type HubTab } from '../../App';
+import { type Category } from '../../types';
 
 interface QuickActionsRowProps {
-    onNavigate: (view: any, cat?: any, tab?: any) => void;
+    onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
     missionCount: number;
     mintReady: boolean;
 }

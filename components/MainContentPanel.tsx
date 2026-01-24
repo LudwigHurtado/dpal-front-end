@@ -6,6 +6,7 @@ import MyReportsList from './MyReportsList';
 import CommunityWorkFeed from './CommunityWorkFeed';
 import { useTranslations } from '../i18n';
 import { User, List, ArrowLeft, Zap, ShieldCheck, Activity } from './icons';
+import { type HubTab } from '../App';
 
 interface MainContentPanelProps {
   reports: Report[];
@@ -16,8 +17,8 @@ interface MainContentPanelProps {
   onAddReportImage: (reportId: string, imageUrl: string) => void;
   onReturnToMainMenu: () => void;
   onJoinReportChat: (report: Report) => void;
-  activeTab: 'my_reports' | 'community' | 'work_feed';
-  setActiveTab: (tab: 'my_reports' | 'community' | 'work_feed') => void;
+  activeTab: HubTab;
+  setActiveTab: (tab: HubTab) => void;
   onAddNewReport: () => void;
 }
 
@@ -67,7 +68,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
+              onClick={() => setActiveTab(tab.id as HubTab)}
               className={`flex-shrink-0 min-w-max flex items-center justify-center space-x-3 py-2.5 px-4 md:px-6 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${
                 isActive
                 ? 'bg-cyan-600 text-white shadow-[0_0_25px_rgba(6,182,212,0.3)] border-t border-cyan-400/30'

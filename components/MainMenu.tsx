@@ -5,9 +5,10 @@ import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Br
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
+import { type View, type HeroHubTab, type HubTab } from '../App';
 
 interface MainMenuProps {
-    onNavigate: (view: any, category?: Category, extra?: any) => void;
+    onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
     totalReports: number;
     onGenerateMissionForCategory: (category: Category) => void;
 }

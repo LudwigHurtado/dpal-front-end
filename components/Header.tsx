@@ -2,8 +2,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ShieldCheck, User, Coins, Gem, Globe, Maximize2, Search, Monitor, Broadcast, Store, List, Package, Database, Zap, Target, Award, ChevronLeft, ChevronRight, Activity, X, Home, Sparkles, AlertTriangle, Megaphone } from './icons';
 import { useTranslations } from '../i18n';
-import { type Hero, SubscriptionTier } from '../types';
-import { TextScale, type View } from '../App';
+import { type Hero, SubscriptionTier, type Category } from '../types';
+import { TextScale, type View, type HeroHubTab, type HubTab } from '../App';
 import { isAiEnabled } from '../services/geminiService';
 
 interface HeaderProps {
@@ -11,7 +11,7 @@ interface HeaderProps {
     onNavigateHome: () => void;
     onNavigateToReputationAndCurrency: () => void;
     onNavigateMissions: () => void;
-    onNavigate: (view: View, category?: any, tab?: any) => void;
+    onNavigate: (view: View, category?: Category, tab?: HeroHubTab | HubTab) => void;
     hero: Hero;
     textScale: TextScale;
     setTextScale: (scale: TextScale) => void;
