@@ -1,3 +1,4 @@
+
 /**
  * @file This service handles all interactions with the Google Gemini API.
  */
@@ -29,29 +30,18 @@ import {
 
 const FLASH_TEXT_MODEL = "gemini-3-flash-preview";
 
-/**
- * IMPORTANT:
- * - In Vite/Vercel, use import.meta.env.VITE_* for frontend env vars.
- * - Keeping a fallback to process.env.API_KEY preserves older builds/configs.
- */
-
-
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 export const isAiEnabled = () => Boolean(getApiKey());
 
 const getApiBase = () =>
   import.meta.env.VITE_API_BASE || "https://dpal-ai-server-production.up.railway.app";
 
-/**
- * Optional: temporary debugging. Keep false in production.
- * If you want to debug once, set to true, deploy, check console, then turn back off.
- */
 const DEBUG_AI = false;
 const debugLog = (...args: any[]) => {
   if (DEBUG_AI) console.log("[AI DEBUG]", ...args);
 };
 
-export type AiErrorType = "NOT_CONFIGURED" | "TEMPORARY_FAILURE" | "RATE_LIMITED";
+export type AiErrorType = "NOT_CONFIGURED" | "TEMPORARY_FAILURE" | "RATE_LIMITED" | "NETWORK_ERROR" | "FORBIDDEN";
 
 export class AiError extends Error {
   constructor(public type: AiErrorType, message: string) {
@@ -68,29 +58,25 @@ const getAiClient = () => {
 
 const handleApiError = (error: any): never => {
   console.error(`Gemini API Error:`, error);
-  
-  // Check for network/fetch errors (CORS, connectivity issues)
+
   if (error?.message?.includes("Failed to fetch") || error?.message?.includes("NetworkError") || error?.name === "TypeError") {
     throw new AiError("NETWORK_ERROR", "Network connection failed. This could be due to:\n1. CORS restrictions (API calls should go through backend)\n2. Internet connectivity issues\n3. Gemini API service temporarily unavailable\n\nTry again in a moment or check your network connection.");
   }
-  
-  // Check for 403 Forbidden (authentication/permission issues)
+
   if (error?.status === 403 || error?.statusCode === 403 || error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
     throw new AiError("FORBIDDEN", "API authentication failed (403). Your Gemini API key may be invalid, expired, or missing required permissions. Please check your VITE_GEMINI_API_KEY configuration.");
   }
-  
+
   if (error?.message?.includes("API_KEY_INVALID") || error?.type === "NOT_CONFIGURED") {
     throw new AiError("NOT_CONFIGURED", "AI is off. Your device has no valid AI key configured.");
   }
-  
+
   if (error?.message?.includes("429") || error?.message?.includes("QUOTA")) {
     throw new AiError("RATE_LIMITED", "Neural link saturated. Frequency limits reached.");
   }
-  
+
   throw new AiError("TEMPORARY_FAILURE", `Transient neural disruption: ${error?.message || 'Unknown error'}. Link stability low.`);
 };
-
-// --- AI SERVICE METHODS ---
 
 export async function generateAiDirectives(
   location: string,
@@ -190,8 +176,18 @@ export async function generateAiDirectives(
     });
 
     const items = JSON.parse(response.text || "[]");
+    // Only return known properties and required postprocessing
     return items.map((item: any) => ({
-      ...item,
+      // Known: all fields from items above, plus the three specified below.
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      instruction: item.instruction,
+      rewardHc: item.rewardHc,
+      rewardXp: item.rewardXp,
+      difficulty: item.difficulty,
+      category: item.category,
+      packet: item.packet,
       status: "available",
       timestamp: Date.now(),
       recommendedNextAction: "Escalate to Investigative Mission",
@@ -300,7 +296,17 @@ export async function generateMissionFromIntel(
     });
 
     const m = JSON.parse(response.text || "{}");
-    return { ...m, approach, goal, category: intel.category, successProbability: 0.9 };
+    // Only include known/required properties in the result
+    return {
+      title: m.title,
+      backstory: m.backstory,
+      steps: m.steps,
+      finalReward: m.finalReward,
+      approach,
+      goal,
+      category: intel.category,
+      successProbability: 0.9
+    };
   } catch (e) {
     return handleApiError(e);
   }
@@ -338,7 +344,16 @@ export async function analyzeIntelSource(intel: IntelItem): Promise<IntelAnalysi
         },
       },
     });
-    return JSON.parse(response.text || "{}") as IntelAnalysis;
+    const out = JSON.parse(response.text || "{}") as IntelAnalysis;
+    // Only known properties according to required keys and type
+    return {
+      threatScore: out.threatScore,
+      communityImpact: out.communityImpact,
+      investigativeComplexity: out.investigativeComplexity,
+      verificationDifficulty: out.verificationDifficulty,
+      aiAssessment: out.aiAssessment,
+      targetEntity: out.targetEntity
+    };
   } catch (error) {
     return handleApiError(error);
   }
@@ -373,7 +388,19 @@ export async function fetchLiveIntelligence(categories: Category[], location: st
       },
       contents: `Accountability incidents in ${location}.`,
     });
-    return JSON.parse(response.text || "[]");
+    // return an array of only known/required fields
+    const arr = JSON.parse(response.text || "[]");
+    return Array.isArray(arr)
+      ? arr.map((item: any) => ({
+          id: item.id,
+          category: item.category,
+          title: item.title,
+          location: item.location,
+          time: item.time,
+          summary: item.summary,
+          source: item.source,
+        }))
+      : [];
   } catch (e) {
     return handleApiError(e);
   }
@@ -424,7 +451,19 @@ export async function generateTrainingScenario(
         },
       },
     });
-    return JSON.parse(response.text || "{}") as TrainingScenario;
+    const r = JSON.parse(response.text || "{}") as TrainingScenario;
+    // Only return known properties
+    return {
+      id: r.id,
+      title: r.title,
+      description: r.description,
+      environment: r.environment,
+      bgKeyword: r.bgKeyword,
+      objectives: r.objectives,
+      masterDebrief: r.masterDebrief,
+      options: r.options,
+      difficulty: r.difficulty,
+    };
   } catch (e) {
     return handleApiError(e);
   }
@@ -467,16 +506,25 @@ export async function performIAReview(report: Report): Promise<{ findings: any[]
         },
       },
     });
-    return JSON.parse(response.text || "{}");
+    // Only known properties
+    const data = JSON.parse(response.text || "{}");
+    return {
+      findings: Array.isArray(data.findings)
+        ? data.findings.map((f: any) => ({
+            id: f.id,
+            title: f.title,
+            value: f.value,
+            status: f.status,
+            hash: f.hash
+          }))
+        : [],
+      outcome: data.outcome
+    };
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-/**
- * MOVED TO BACKEND: Image generation now passes through the Railway backend to ensure
- * stable URL contracts and secure neural handling.
- */
 export async function generateNftImage(
   hero: Hero,
   reportContext: any,
@@ -491,9 +539,8 @@ export async function generateNftImage(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, theme, operativeId: hero.operativeId }),
     });
-    
+
     if (!response.ok) {
-      // Parse error response
       let errorData: any = {};
       try {
         errorData = await response.json();
@@ -505,9 +552,12 @@ export async function generateNftImage(
       (error as any).errorCode = errorData.error;
       throw error;
     }
-    
+
     const data = await response.json();
-    return data.imageUrl.startsWith("/") ? `${apiBase}${data.imageUrl}` : data.imageUrl;
+    // Only use known property .imageUrl
+    return typeof data.imageUrl === "string" && data.imageUrl.startsWith("/")
+      ? `${apiBase}${data.imageUrl}`
+      : data.imageUrl;
   } catch (error) {
     return handleApiError(error);
   }
@@ -529,7 +579,11 @@ export async function generateNftDetails(description: string): Promise<{ nftTitl
         },
       },
     });
-    return JSON.parse(response.text || "{}");
+    const d = JSON.parse(response.text || "{}");
+    return {
+      nftTitle: d.nftTitle,
+      nftDescription: d.nftDescription
+    };
   } catch (error) {
     return handleApiError(error);
   }
@@ -555,7 +609,9 @@ export async function generateNftPromptIdeas(hero: Hero, theme: NftTheme, dpalCa
         responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } },
       },
     });
-    return JSON.parse(response.text || "[]");
+    const arr = JSON.parse(response.text || "[]");
+    // Only array of strings
+    return Array.isArray(arr) ? arr.filter((s) => typeof s === "string") : [];
   } catch (error) {
     return handleApiError(error);
   }
@@ -570,6 +626,7 @@ export async function generateHeroBackstory(hero: Hero): Promise<string> {
       contents: `Background for: ${hero.name}.`,
       config: { temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
     });
+    // Only the raw text as backstory
     return (response.text || "").trim();
   } catch (error) {
     return handleApiError(error);
@@ -602,7 +659,14 @@ export async function getMissionTaskAdvice(
         },
       },
     });
-    return JSON.parse(response.text || "{}") as TacticalIntel;
+    const r = JSON.parse(response.text || "{}") as TacticalIntel;
+    // Only return known properties
+    return {
+      objective: r.objective,
+      threatLevel: r.threatLevel,
+      keyInsight: r.keyInsight,
+      protocol: r.protocol
+    };
   } catch (error) {
     return handleApiError(error);
   }
@@ -640,44 +704,53 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
         },
       },
     });
-    return JSON.parse(response.text || "{}");
-  } catch (e) {
-    return handleApiError(e);
-  }
-}
-/**
- * MOVED TO BACKEND: Persona details generation now passes through the Railway backend to ensure
- * stable API contracts and avoid CORS issues.
- */
-export async function generateHeroPersonaDetails(prompt: string, arch: Archetype): Promise<any> {
-  if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
-  try {
-    // Use relative path first (works with Vercel proxy), fallback to absolute URL
-    const apiBase = getApiBase();
-    const apiUrl = apiBase ? `${apiBase}/api/persona/generate-details` : '/api/persona/generate-details';
-    
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, archetype: arch }),
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
-      throw new Error(errorData.message || errorData.error || "PERSONA_DETAILS_SYNC_FAILED");
-    }
-    
-    const data = await response.json();
-    return data;
+    const d = JSON.parse(response.text || "{}");
+    // Only include known/required properties
+    return {
+      ui: d.ui && typeof d.ui === "object" ? {
+        next: d.ui.next,
+        why: d.ui.why,
+        need: Array.isArray(d.ui.need) ? d.ui.need : [],
+        risk: d.ui.risk,
+        eta: d.ui.eta,
+        score: d.ui.score
+      } : { next: "", why: "", need: [], risk: "", eta: 0, score: 0 },
+      patch: d.patch && typeof d.patch === "object" ? d.patch : {}
+    };
   } catch (e) {
     return handleApiError(e);
   }
 }
 
-/**
- * MOVED TO BACKEND: Operative portraits are now handled via the Railway backend to ensure
- * they are indexed to MongoDB and served from a stable URL contract.
- */
+export async function generateHeroPersonaDetails(prompt: string, arch: Archetype): Promise<any> {
+  if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
+  try {
+    const apiBase = getApiBase();
+    const apiUrl = apiBase ? `${apiBase}/api/persona/generate-details` : '/api/persona/generate-details';
+
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, archetype: arch }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
+      throw new Error(errorData.message || errorData.error || "PERSONA_DETAILS_SYNC_FAILED");
+    }
+
+    const data = await response.json();
+    // Only known persona properties (use direct result as shape is not defined)
+    return {
+      name: data.name,
+      backstory: data.backstory,
+      combatStyle: data.combatStyle
+    };
+  } catch (e) {
+    return handleApiError(e);
+  }
+}
+
 export async function generateHeroPersonaImage(prompt: string, arch: Archetype, sourceImageData?: string): Promise<string> {
   if (!isAiEnabled()) return `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`;
   try {
@@ -689,7 +762,10 @@ export async function generateHeroPersonaImage(prompt: string, arch: Archetype, 
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.message || "PERSONA_SYNC_FAILED");
-    return data.imageUrl.startsWith("/") ? `${apiBase}${data.imageUrl}` : data.imageUrl;
+    // Only use imageUrl property
+    return typeof data.imageUrl === "string" && data.imageUrl.startsWith("/")
+      ? `${apiBase}${data.imageUrl}`
+      : data.imageUrl;
   } catch (e) {
     return handleApiError(e);
   }
