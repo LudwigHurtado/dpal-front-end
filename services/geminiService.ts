@@ -40,7 +40,7 @@ const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 export const isAiEnabled = () => Boolean(getApiKey());
 
 const getApiBase = () =>
-  import.meta.env.VITE_API_BASE || "https://dpal-backend.up.railway.app";
+  import.meta.env.VITE_API_BASE || "https://dpal-ai-server-production.up.railway.app";
 
 /**
  * Optional: temporary debugging. Keep false in production.
@@ -639,14 +639,22 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
 export async function generateHeroPersonaDetails(prompt: string, arch: Archetype): Promise<any> {
   if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
   try {
+    // Use relative path first (works with Vercel proxy), fallback to absolute URL
     const apiBase = getApiBase();
-    const response = await fetch(`${apiBase}/api/persona/generate-details`, {
+    const apiUrl = apiBase ? `${apiBase}/api/persona/generate-details` : '/api/persona/generate-details';
+    
+    const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, archetype: arch }),
     });
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
+      throw new Error(errorData.message || errorData.error || "PERSONA_DETAILS_SYNC_FAILED");
+    }
+    
     const data = await response.json();
-    if (!response.ok) throw new Error(data.message || "PERSONA_DETAILS_SYNC_FAILED");
     return data;
   } catch (e) {
     return handleApiError(e);
