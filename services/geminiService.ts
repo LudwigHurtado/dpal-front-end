@@ -632,23 +632,22 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
   }
 }
 
+/**
+ * MOVED TO BACKEND: Persona details generation now passes through the Railway backend to ensure
+ * stable API contracts and avoid CORS issues.
+ */
 export async function generateHeroPersonaDetails(prompt: string, arch: Archetype): Promise<any> {
   if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
-      model: FLASH_TEXT_MODEL,
-      contents: `Persona details for ${arch}: ${prompt}.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: { name: { type: Type.STRING }, backstory: { type: Type.STRING }, combatStyle: { type: Type.STRING } },
-          required: ["name", "backstory", "combatStyle"],
-        },
-      },
+    const apiBase = getApiBase();
+    const response = await fetch(`${apiBase}/api/persona/generate-details`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, archetype: arch }),
     });
-    return JSON.parse(response.text || "{}");
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.message || "PERSONA_DETAILS_SYNC_FAILED");
+    return data;
   } catch (e) {
     return handleApiError(e);
   }
