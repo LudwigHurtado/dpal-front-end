@@ -631,7 +631,6 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
     return handleApiError(e);
   }
 }
-
 /**
  * MOVED TO BACKEND: Persona details generation now passes through the Railway backend to ensure
  * stable API contracts and avoid CORS issues.
