@@ -12,7 +12,7 @@ const BackendTestPanel: React.FC = () => {
   const [isTesting, setIsTesting] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
   const [apiBase, setApiBase] = useState(
-    (import.meta as any).env?.VITE_API_BASE || 'https://dpal-ai-server-production.up.railway.app'
+    (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app'
   );
 
   const runTests = async () => {
@@ -49,7 +49,7 @@ const BackendTestPanel: React.FC = () => {
     setResults([...testResults]);
 
     try {
-      const healthUrl = `${apiBase}/health`;
+      const healthUrl = `${baseUrl}/health`;
       const healthResponse = await fetch(healthUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
@@ -80,7 +80,7 @@ const BackendTestPanel: React.FC = () => {
           ? `Backend is not reachable at this URL.\n\nPossible issues:\n1. Backend not deployed on Railway\n2. Wrong Railway URL\n3. Backend service is down\n\nCheck Railway dashboard to verify deployment.`
           : `Failed to connect: ${error.message}`,
         details: { 
-          url: `${apiBase}/health`, 
+          url: `${baseUrl}/health`, 
           error: error.message, 
           type: error.name,
           suggestion: 'Verify backend is deployed and running on Railway'
@@ -98,7 +98,7 @@ const BackendTestPanel: React.FC = () => {
     setResults([...testResults]);
 
     try {
-      const corsTestUrl = `${apiBase}/health`;
+      const corsTestUrl = `${baseUrl}/health`;
       const corsResponse = await fetch(corsTestUrl, {
         method: 'OPTIONS',
         headers: {
@@ -152,7 +152,7 @@ const BackendTestPanel: React.FC = () => {
     setResults([...testResults]);
 
     try {
-      const personaUrl = `${apiBase}/api/persona/generate-details`;
+      const personaUrl = `${baseUrl}/api/persona/generate-details`;
       const personaResponse = await fetch(personaUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,7 +188,7 @@ const BackendTestPanel: React.FC = () => {
           ? `Backend API not reachable.\n\nThis is why persona generation fails. Deploy backend first.`
           : `Request failed: ${error.message}`,
         details: { 
-          url: `${apiBase}/api/persona/generate-details`, 
+          url: `${baseUrl}/api/persona/generate-details`, 
           error: error.message, 
           type: error.name,
           impact: 'Persona generation will not work until backend is deployed'
@@ -206,7 +206,7 @@ const BackendTestPanel: React.FC = () => {
     setResults([...testResults]);
 
     try {
-      const nftUrl = `${apiBase}/api/nft/generate-image`;
+      const nftUrl = `${baseUrl}/api/nft/generate-image`;
       const nftResponse = await fetch(nftUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -242,7 +242,7 @@ const BackendTestPanel: React.FC = () => {
           ? `Backend API not reachable.\n\nThis is why NFT minting fails. Deploy backend first.`
           : `Request failed: ${error.message}`,
         details: { 
-          url: `${apiBase}/api/nft/generate-image`, 
+          url: `${baseUrl}/api/nft/generate-image`, 
           error: error.message, 
           type: error.name,
           impact: 'NFT generation and minting will not work until backend is deployed'
