@@ -54,13 +54,19 @@ const BackendTestPanel: React.FC = () => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
       
-      const healthResponse = await fetch(healthUrl, {
-        method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
+      let healthResponse: Response;
+      try {
+        healthResponse = await fetch(healthUrl, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutId);
+        // Re-throw to be caught by outer catch
+        throw fetchError;
+      }
 
       if (healthResponse.ok) {
         const healthData = await healthResponse.json();
@@ -79,18 +85,18 @@ const BackendTestPanel: React.FC = () => {
         };
       }
     } catch (error: any) {
-      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch') || error.name === 'AbortError';
+      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch') || error.name === 'AbortError' || error.code === 'ECONNABORTED';
       testResults[1] = {
         name: 'Backend Health Check',
         status: 'error',
         message: isTimeout 
-          ? `Backend request timed out or is not reachable.\n\nPossible issues:\n1. Backend not deployed on Railway\n2. Wrong Railway URL\n3. Backend service is down\n4. MongoDB connection failing (check Railway logs)\n\nCheck Railway dashboard → Deploy Logs for errors.`
-          : `Failed to connect: ${error.message}`,
+          ? `⏱️ Request timed out after 10 seconds.\n\n🔴 ROOT CAUSE: MongoDB connection failing!\n\nBackend error: "Operation mintrequests.findOne() buffering timed out"\n\n✅ FIX:\n1. Railway → "web" service → Variables\n2. Find "MONGODB_URL" → Rename to "MONGODB_URI"\n3. Value: mongodb://mongo:...@mongodb.railway.internal:27017\n4. Apply changes → Restart service\n\nAfter fix, check logs for: "✅ Mongo connected"`
+          : `Failed to connect: ${error.message || error}`,
         details: { 
           url: `${baseUrl}/health`, 
-          error: error.message, 
-          type: error.name,
-          suggestion: 'Verify backend is deployed and running on Railway. Check for MongoDB connection errors in logs.'
+          error: error.message || String(error), 
+          type: error.name || 'Unknown',
+          suggestion: 'MONGODB_URI variable is missing/wrong in Railway. This blocks all database operations.'
         },
       };
     }
