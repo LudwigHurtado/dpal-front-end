@@ -593,7 +593,7 @@ export async function generateNftDetails(description: string): Promise<{ nftTitl
 export async function generateNftPromptIdeas(hero: Hero, theme: NftTheme, dpalCategory: Category): Promise<string[]> {
   if (!isAiEnabled()) return ["Decentralized Oversight Shard", "Truth Network Artifact", "Community Governance Token"];
   try {
-    const ai = getAiClient();
+    const apiBase = getApiBase();
     const prompt = `Act as the DPAL Oracle. Generate 3 unique, evocative, and conceptually dense short phrases (max 5 words each) for an NFT artifact based on:
     Theme: ${theme}
     Category: ${dpalCategory}
@@ -602,20 +602,44 @@ export async function generateNftPromptIdeas(hero: Hero, theme: NftTheme, dpalCa
     The phrases should sound like fragments of a futuristic accountability ledger.
     Return only a JSON array of strings.`;
 
-    const response = await ai.models.generateContent({
-      model: FLASH_TEXT_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: { type: Type.ARRAY, items: { type: Type.STRING } },
-      },
+    const response = await fetch(`${apiBase}/api/ai/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
     });
-    const arr = JSON.parse(response.text || "[]");
-    // Only array of strings
-    return Array.isArray(arr) ? arr.filter((s) => typeof s === "string") : [];
-  } catch (error) {
-    return handleApiError(error);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`AI request failed: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+    const answer = data.answer || "[]";
+    
+    // Try to parse as JSON array
+    try {
+      const parsed = JSON.parse(answer);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((s) => typeof s === "string");
+      }
+      // If it's a string that looks like an array, try to extract it
+      const arrayMatch = answer.match(/\[.*?\]/);
+      if (arrayMatch) {
+        const arr = JSON.parse(arrayMatch[0]);
+        return Array.isArray(arr) ? arr.filter((s) => typeof s === "string") : [];
+      }
+    } catch (parseError) {
+      console.warn("Failed to parse AI response as JSON array:", answer);
+    }
+    
+    // Fallback: return default
+    return ["Decentralized Oversight Shard", "Truth Network Artifact", "Community Governance Token"];
+  } catch (error: any) {
+    console.error("Failed to generate NFT prompt ideas:", error);
+    // Return fallback instead of throwing to prevent UI crashes
+    return ["Decentralized Oversight Shard", "Truth Network Artifact", "Community Governance Token"];
   }
+  
 }
 
 export async function generateHeroBackstory(hero: Hero): Promise<string> {
