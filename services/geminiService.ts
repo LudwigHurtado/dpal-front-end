@@ -34,7 +34,7 @@ const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 export const isAiEnabled = () => Boolean(getApiKey());
 
 const getApiBase = () =>
-  import.meta.env.VITE_API_BASE || "https://dpal-ai-server-production.up.railway.app";
+  import.meta.env.VITE_API_BASE || "https://web-production-a27b.up.railway.app";
 
 const DEBUG_AI = false;
 const debugLog = (...args: any[]) => {
