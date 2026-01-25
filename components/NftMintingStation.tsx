@@ -294,7 +294,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
                           isPast ? 'bg-emerald-950 border-emerald-500 text-emerald-500' :
                           'bg-zinc-900 border-zinc-800 text-zinc-700'
                       }`}>
-                          {isPast ? <Check className="w-6 h-6"/> : React.cloneElement(s.icon as React.ReactElement, { className: "w-6 h-6" })}
+                          {isPast ? <Check className="w-6 h-6"/> : React.cloneElement(s.icon as React.ReactElement<any>, { className: "w-6 h-6" })}
                       </div>
                       <span className={`text-[9px] font-black uppercase tracking-widest hidden md:block ${isActive ? 'text-white' : 'text-zinc-700'}`}>{s.label}</span>
                       {idx < 3 && <div className={`w-12 h-0.5 rounded-full ${isPast ? 'bg-emerald-500' : 'bg-zinc-900'}`}></div>}
@@ -446,7 +446,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
                       <div className="relative group w-full max-w-md">
                           <div className="absolute -inset-16 bg-cyan-500/10 blur-[100px] animate-pulse rounded-full pointer-events-none"></div>
                           <div className="transform transition-transform duration-1000 hover:scale-105">
-                              <NftCard report={mintedReport} />
+                              {mintedReport && <NftCard report={mintedReport} />}
                           </div>
                       </div>
 

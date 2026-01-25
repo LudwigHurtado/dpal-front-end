@@ -50,10 +50,17 @@ const BackendTestPanel: React.FC = () => {
 
     try {
       const healthUrl = `${baseUrl}/health`;
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const healthResponse = await fetch(healthUrl, {
         method: 'GET',
         headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (healthResponse.ok) {
         const healthData = await healthResponse.json();
@@ -72,18 +79,18 @@ const BackendTestPanel: React.FC = () => {
         };
       }
     } catch (error: any) {
-      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch');
+      const isTimeout = error.message?.includes('timeout') || error.message?.includes('Failed to fetch') || error.name === 'AbortError';
       testResults[1] = {
         name: 'Backend Health Check',
         status: 'error',
         message: isTimeout 
-          ? `Backend is not reachable at this URL.\n\nPossible issues:\n1. Backend not deployed on Railway\n2. Wrong Railway URL\n3. Backend service is down\n\nCheck Railway dashboard to verify deployment.`
+          ? `Backend request timed out or is not reachable.\n\nPossible issues:\n1. Backend not deployed on Railway\n2. Wrong Railway URL\n3. Backend service is down\n4. MongoDB connection failing (check Railway logs)\n\nCheck Railway dashboard → Deploy Logs for errors.`
           : `Failed to connect: ${error.message}`,
         details: { 
           url: `${baseUrl}/health`, 
           error: error.message, 
           type: error.name,
-          suggestion: 'Verify backend is deployed and running on Railway'
+          suggestion: 'Verify backend is deployed and running on Railway. Check for MongoDB connection errors in logs.'
         },
       };
     }
@@ -99,13 +106,20 @@ const BackendTestPanel: React.FC = () => {
 
     try {
       const corsTestUrl = `${baseUrl}/health`;
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      
       const corsResponse = await fetch(corsTestUrl, {
         method: 'OPTIONS',
         headers: {
           'Origin': window.location.origin,
           'Access-Control-Request-Method': 'GET',
         },
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       const corsHeaders = {
         'access-control-allow-origin': corsResponse.headers.get('access-control-allow-origin'),
@@ -153,6 +167,10 @@ const BackendTestPanel: React.FC = () => {
 
     try {
       const personaUrl = `${baseUrl}/api/persona/generate-details`;
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for AI calls
+      
       const personaResponse = await fetch(personaUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,7 +178,10 @@ const BackendTestPanel: React.FC = () => {
           prompt: 'Test persona',
           archetype: 'Sentinel',
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (personaResponse.ok) {
         const personaData = await personaResponse.json();
@@ -207,6 +228,10 @@ const BackendTestPanel: React.FC = () => {
 
     try {
       const nftUrl = `${baseUrl}/api/nft/generate-image`;
+      // Add timeout to prevent hanging
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout for AI calls
+      
       const nftResponse = await fetch(nftUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -214,7 +239,10 @@ const BackendTestPanel: React.FC = () => {
           prompt: 'Test NFT image',
           theme: 'artifact',
         }),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (nftResponse.ok) {
         const nftData = await nftResponse.json();
