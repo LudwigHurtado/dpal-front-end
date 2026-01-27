@@ -24,6 +24,8 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
   const [isSyncingConcepts, setIsSyncingConcepts] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [mintedReport, setMintedReport] = useState<Report | null>(null);
+  const [conceptPreviews, setConceptPreviews] = useState<Record<number, string>>({});
+  const [generatingPreviews, setGeneratingPreviews] = useState<Set<number>>(new Set());
 
   const apiBase = getApiBase();
 
@@ -38,10 +40,32 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
   const syncOracleVisions = async () => {
     if (!theme || !dpalCategory) return;
     setIsSyncingConcepts(true);
+    setConceptPreviews({});
+    setGeneratingPreviews(new Set());
     try {
         const ideas = await generateNftPromptIdeas(hero, theme as NftTheme, dpalCategory as Category);
         setConcepts(ideas);
         setActiveStep('INFERENCE');
+        
+        // Generate preview images for each concept in the background
+        const { generateNftImage } = await import('../services/geminiService');
+        ideas.forEach((concept, index) => {
+          setGeneratingPreviews(prev => new Set([...prev, index]));
+          generateNftImage(hero, null, concept, theme as NftTheme)
+            .then(previewUrl => {
+              setConceptPreviews(prev => ({ ...prev, [index]: previewUrl }));
+            })
+            .catch(err => {
+              console.warn(`Preview generation failed for concept ${index}:`, err);
+            })
+            .finally(() => {
+              setGeneratingPreviews(prev => {
+                const next = new Set(prev);
+                next.delete(index);
+                return next;
+              });
+            });
+        });
     } catch (e: any) {
         console.error("[FORGE] Oracle vision sync failed:", e);
         // Check if AI is enabled
@@ -247,6 +271,17 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
         }
         .surgical-scan { animation: s-scan 2s linear infinite; }
         @keyframes s-scan { 0% { top: 0; } 100% { top: 100%; } }
+        @keyframes progress {
+            0% { width: 0%; }
+            50% { width: 70%; }
+            100% { width: 100%; }
+        }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes float {
+            0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.4; }
+            50% { transform: translateY(-20px) rotate(180deg); opacity: 0.8; }
+        }
       `}</style>
 
       <div className="absolute inset-0 forge-grid pointer-events-none"></div>
@@ -311,42 +346,167 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
                   <div className="lg:col-span-7 space-y-12">
                       {activeStep === 'FRAMEWORK' && (
                           <div className="space-y-12 animate-fade-in">
-                              <div className="space-y-4">
-                                  <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Initialize_Parameters</h2>
-                                  <p className="text-sm text-zinc-500 font-bold uppercase leading-relaxed max-w-xl">Select core framework for shard materialization.</p>
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                  <div className="space-y-3">
-                                      <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-4 flex items-center gap-2"><Monitor className="w-3 h-3"/>Neural_Framework</label>
-                                      <select value={theme} onChange={e => setTheme(e.target.value as NftTheme)} className="w-full bg-zinc-900 border-2 border-zinc-800 p-6 rounded-3xl text-sm font-black uppercase text-white focus:border-cyan-500 outline-none appearance-none">{NFT_THEMES.map(t => <option key={t.value} value={t.value}>{t.label.toUpperCase()}</option>)}</select>
-                                  </div>
-                                  <div className="space-y-3">
-                                      <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-4 flex items-center gap-2"><Database className="w-3 h-3"/>Sector_Node</label>
-                                      <select value={dpalCategory} onChange={e => setDpalCategory(e.target.value as Category)} className="w-full bg-zinc-900 border-2 border-zinc-800 p-6 rounded-3xl text-sm font-black uppercase text-white focus:border-cyan-500 outline-none appearance-none">{Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}</select>
+                              <div className="space-y-6">
+                                  <div className="flex items-center space-x-4">
+                                      <div className="p-4 bg-cyan-500/20 rounded-3xl border border-cyan-500/30">
+                                          <Box className="w-8 h-8 text-cyan-400" />
+                                      </div>
+                                      <div>
+                                          <h2 className="text-4xl font-black uppercase tracking-tighter text-white">Choose_Your_Vision</h2>
+                                          <p className="text-sm text-cyan-500 font-bold uppercase leading-relaxed mt-2">Select the aesthetic and category for your artifact</p>
+                                      </div>
                                   </div>
                               </div>
-                              <button onClick={syncOracleVisions} disabled={!theme || !dpalCategory || isSyncingConcepts} className="w-full bg-white text-black font-black py-8 rounded-[2.5rem] uppercase tracking-[0.4em] text-xs shadow-4xl active:scale-95 disabled:opacity-20 transition-all flex items-center justify-center space-x-6 border-b-8 border-zinc-300">
-                                {isSyncingConcepts ? <Loader className="w-8 h-8 animate-spin" /> : <Sparkles className="w-8 h-8 text-cyan-600"/>}
-                                <span>Initialize_Oracle_Link</span>
-                              </button>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                  <div className="space-y-4 group">
+                                      <div className="flex items-center space-x-3">
+                                          <Monitor className="w-5 h-5 text-cyan-500"/>
+                                          <label className="text-sm font-black text-cyan-400 uppercase tracking-widest">Visual_Style</label>
+                                      </div>
+                                      <select 
+                                          value={theme} 
+                                          onChange={e => setTheme(e.target.value as NftTheme)} 
+                                          className="w-full bg-zinc-900 border-2 border-zinc-800 hover:border-cyan-500/50 focus:border-cyan-500 p-6 rounded-3xl text-sm font-black uppercase text-white outline-none appearance-none transition-all cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]"
+                                      >
+                                          <option value="">Select Style...</option>
+                                          {NFT_THEMES.map(t => (
+                                              <option key={t.value} value={t.value}>{t.label}</option>
+                                          ))}
+                                      </select>
+                                      {theme && (
+                                          <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest animate-fade-in">
+                                              ✓ {NFT_THEMES.find(t => t.value === theme)?.label} Selected
+                                          </p>
+                                      )}
+                                  </div>
+                                  
+                                  <div className="space-y-4 group">
+                                      <div className="flex items-center space-x-3">
+                                          <Database className="w-5 h-5 text-cyan-500"/>
+                                          <label className="text-sm font-black text-cyan-400 uppercase tracking-widest">Category</label>
+                                      </div>
+                                      <select 
+                                          value={dpalCategory} 
+                                          onChange={e => setDpalCategory(e.target.value as Category)} 
+                                          className="w-full bg-zinc-900 border-2 border-zinc-800 hover:border-cyan-500/50 focus:border-cyan-500 p-6 rounded-3xl text-sm font-black uppercase text-white outline-none appearance-none transition-all cursor-pointer shadow-lg hover:shadow-[0_0_20px_rgba(6,182,212,0.2)]"
+                                      >
+                                          <option value="">Select Category...</option>
+                                          {Object.values(Category).map(c => (
+                                              <option key={c} value={c}>{c}</option>
+                                          ))}
+                                      </select>
+                                      {dpalCategory && (
+                                          <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest animate-fade-in">
+                                              ✓ {dpalCategory} Selected
+                                          </p>
+                                      )}
+                                  </div>
+                              </div>
+                              
+                              <div className="pt-6">
+                                  <button 
+                                      onClick={syncOracleVisions} 
+                                      disabled={!theme || !dpalCategory || isSyncingConcepts} 
+                                      className={`w-full bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-black py-10 rounded-[2.5rem] uppercase tracking-[0.4em] text-sm shadow-[0_0_40px_rgba(6,182,212,0.4)] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center space-x-6 border-b-4 border-cyan-700 hover:border-cyan-600 relative overflow-hidden group`}
+                                  >
+                                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                      {isSyncingConcepts ? (
+                                          <>
+                                              <Loader className="w-10 h-10 animate-spin relative z-10" />
+                                              <span className="relative z-10 text-base">Connecting_To_Oracle...</span>
+                                          </>
+                                      ) : (
+                                          <>
+                                              <Sparkles className="w-10 h-10 relative z-10"/>
+                                              <span className="relative z-10 text-base">Generate_Unique_Visions</span>
+                                          </>
+                                      )}
+                                  </button>
+                                  {(!theme || !dpalCategory) && (
+                                      <p className="text-center text-[10px] text-zinc-700 font-black uppercase tracking-widest mt-4">
+                                          Select both style and category to continue
+                                      </p>
+                                  )}
+                              </div>
                           </div>
                       )}
 
                       {activeStep === 'INFERENCE' && (
                           <div className="space-y-12 animate-fade-in">
                               <div className="text-center md:text-left space-y-4">
-                                  <h2 className="text-3xl font-black uppercase tracking-tighter text-white">The_Oracle_Visions</h2>
-                                  <p className="text-xs text-zinc-500 font-bold uppercase tracking-[0.4em]">Decoded conceptual dispatches</p>
+                                  <div className="flex items-center space-x-4 mb-2">
+                                      <div className="p-3 bg-cyan-500/20 rounded-2xl border border-cyan-500/30">
+                                          <Sparkles className="w-6 h-6 text-cyan-400 animate-pulse" />
+                                      </div>
+                                      <div>
+                                          <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Oracle_Visions</h2>
+                                          <p className="text-xs text-cyan-500 font-bold uppercase tracking-[0.4em] mt-1">AI-Generated Concepts</p>
+                                      </div>
+                                  </div>
+                                  <p className="text-sm text-zinc-500 font-bold uppercase leading-relaxed max-w-xl">Select a vision to materialize into your artifact.</p>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                  {concepts.map((c, i) => (
-                                      <button key={i} onClick={() => { setSelectedConcept(c); setActiveStep('AUGMENT'); }} className="group relative flex flex-col p-8 bg-zinc-900 border-2 border-zinc-800 rounded-[2.5rem] hover:border-cyan-500 transition-all text-left overflow-hidden active:scale-95">
-                                          <p className="text-lg font-black text-white uppercase leading-tight flex-grow italic group-hover:text-cyan-100">"{c}"</p>
-                                          <div className="mt-6 flex items-center space-x-3 text-[9px] font-black text-zinc-600 uppercase tracking-widest group-hover:text-cyan-600 transition-colors"><span>Sync_Concept</span><ArrowRight className="w-3 h-3" /></div>
-                                      </button>
-                                  ))}
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                  {concepts.map((c, i) => {
+                                      const hasPreview = conceptPreviews[i];
+                                      const isGenerating = generatingPreviews.has(i);
+                                      return (
+                                          <button 
+                                              key={i} 
+                                              onClick={() => { setSelectedConcept(c); setActiveStep('AUGMENT'); }} 
+                                              className="group relative flex flex-col bg-zinc-900 border-2 border-zinc-800 rounded-[2.5rem] hover:border-cyan-500 hover:shadow-[0_0_30px_rgba(6,182,212,0.3)] transition-all text-left overflow-hidden active:scale-95"
+                                          >
+                                              {/* Preview Image */}
+                                              <div className="relative w-full h-48 bg-zinc-950 overflow-hidden">
+                                                  {hasPreview ? (
+                                                      <img 
+                                                          src={conceptPreviews[i]} 
+                                                          alt={c}
+                                                          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                                                          onError={(e) => {
+                                                              (e.target as HTMLImageElement).style.display = 'none';
+                                                          }}
+                                                      />
+                                                  ) : isGenerating ? (
+                                                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-cyan-950/20 to-zinc-950">
+                                                          <div className="text-center space-y-3">
+                                                              <Loader className="w-8 h-8 text-cyan-500 animate-spin mx-auto" />
+                                                              <p className="text-[8px] font-black text-cyan-500 uppercase tracking-widest">Generating_Preview</p>
+                                                          </div>
+                                                      </div>
+                                                  ) : (
+                                                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-zinc-950 to-zinc-900">
+                                                          <Sparkles className="w-12 h-12 text-zinc-800 group-hover:text-cyan-500/30 transition-colors" />
+                                                      </div>
+                                                  )}
+                                                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent opacity-60"></div>
+                                              </div>
+                                              
+                                              {/* Concept Text */}
+                                              <div className="p-6 space-y-4">
+                                                  <p className="text-base font-black text-white uppercase leading-tight italic group-hover:text-cyan-100 transition-colors line-clamp-2">"{c}"</p>
+                                                  <div className="flex items-center justify-between pt-2 border-t border-zinc-800">
+                                                      <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest group-hover:text-cyan-600 transition-colors">Select_Concept</span>
+                                                      <ArrowRight className="w-4 h-4 text-zinc-700 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all" />
+                                                  </div>
+                                              </div>
+                                              
+                                              {/* Hover Glow Effect */}
+                                              <div className="absolute inset-0 bg-cyan-500/0 group-hover:bg-cyan-500/5 transition-colors pointer-events-none rounded-[2.5rem]"></div>
+                                          </button>
+                                      );
+                                  })}
                               </div>
-                              <button onClick={() => setActiveStep('FRAMEWORK')} className="text-[10px] font-black text-zinc-700 hover:text-white transition-colors uppercase tracking-[0.4em] mx-auto flex items-center space-x-2"><RefreshCw className="w-4 h-4"/> <span>Re-Initialize</span></button>
+                              <div className="flex items-center justify-center space-x-6 pt-4">
+                                  <button onClick={() => setActiveStep('FRAMEWORK')} className="text-[10px] font-black text-zinc-700 hover:text-white transition-colors uppercase tracking-[0.4em] flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-zinc-900 border border-zinc-800">
+                                      <ArrowLeft className="w-4 h-4"/> 
+                                      <span>Back_To_Setup</span>
+                                  </button>
+                                  <button onClick={syncOracleVisions} disabled={isSyncingConcepts} className="text-[10px] font-black text-cyan-600 hover:text-cyan-400 transition-colors uppercase tracking-[0.4em] flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-cyan-950/20 border border-cyan-800/30 disabled:opacity-50">
+                                      <RefreshCw className={`w-4 h-4 ${isSyncingConcepts ? 'animate-spin' : ''}`}/> 
+                                      <span>Generate_New_Visions</span>
+                                  </button>
+                              </div>
                           </div>
                       )}
 
@@ -354,42 +514,119 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
                           <div className="space-y-12 animate-fade-in">
                               <div className="space-y-4">
                                    <div className="flex items-center space-x-4 mb-4">
-                                        <button onClick={() => setActiveStep('INFERENCE')} className="p-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-500 rounded-xl transition-all border border-zinc-800"><ArrowLeft className="w-4 h-4"/></button>
-                                        <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest bg-zinc-950 px-4 py-1.5 rounded-full border border-zinc-900">Vision: {selectedConcept?.substring(0,20)}...</span>
+                                        <button onClick={() => setActiveStep('INFERENCE')} className="p-3 bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-white rounded-xl transition-all border border-zinc-800 hover:border-cyan-500/50">
+                                            <ArrowLeft className="w-4 h-4"/>
+                                        </button>
+                                        <div className="flex-1 bg-zinc-950 px-4 py-2 rounded-full border border-zinc-900">
+                                            <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Selected Vision</p>
+                                            <p className="text-sm font-black text-cyan-400 uppercase tracking-tight truncate">"{selectedConcept?.substring(0,40)}..."</p>
+                                        </div>
                                    </div>
-                                   <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Augment_Metadata</h2>
-                                   <p className="text-sm text-zinc-500 font-bold uppercase leading-relaxed max-w-xl italic border-l-4 border-cyan-500 pl-6">"Enhance visual fidelity with cryptographic modules."</p>
+                                   <div className="flex items-center space-x-4">
+                                       <div className="p-3 bg-cyan-500/20 rounded-2xl border border-cyan-500/30">
+                                           <Zap className="w-6 h-6 text-cyan-400" />
+                                       </div>
+                                       <div>
+                                           <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Enhance_With_Traits</h2>
+                                           <p className="text-sm text-cyan-500 font-bold uppercase leading-relaxed max-w-xl mt-1">Optional: Add cryptographic modules to increase rarity</p>
+                                       </div>
+                                   </div>
                               </div>
-                              <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-4">
+                              <div className="space-y-3 max-h-[350px] overflow-y-auto custom-scrollbar pr-4">
                                    {FORGE_TRAITS.map(trait => {
                                        const isSelected = selectedTraits.includes(trait.id);
                                        return (
-                                           <button key={trait.id} onClick={() => setSelectedTraits(prev => isSelected ? prev.filter(id => id !== trait.id) : [...prev, trait.id])} className={`p-6 rounded-[2rem] border-2 transition-all flex items-center justify-between group shadow-xl ${isSelected ? 'bg-cyan-500/10 border-cyan-500 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'}`}>
-                                               <div className="flex items-center space-x-6 text-left">
-                                                   <div className={`p-4 rounded-2xl transition-colors ${isSelected ? 'bg-cyan-500 text-black' : 'bg-zinc-900 text-zinc-700'}`}><Zap className="w-5 h-5"/></div>
-                                                   <div><h4 className="text-sm font-black uppercase tracking-tight">{trait.name}</h4><p className="text-[10px] font-bold text-zinc-600 uppercase">{trait.description}</p></div>
+                                           <button 
+                                               key={trait.id} 
+                                               onClick={() => setSelectedTraits(prev => isSelected ? prev.filter(id => id !== trait.id) : [...prev, trait.id])} 
+                                               className={`p-6 rounded-[2rem] border-2 transition-all flex items-center justify-between group shadow-xl relative overflow-hidden ${
+                                                   isSelected 
+                                                       ? 'bg-gradient-to-r from-cyan-500/20 to-cyan-500/10 border-cyan-500 text-white shadow-[0_0_20px_rgba(6,182,212,0.3)]' 
+                                                       : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-cyan-500/50 hover:bg-zinc-900'
+                                               }`}
+                                           >
+                                               <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/5 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                               <div className="flex items-center space-x-6 text-left relative z-10">
+                                                   <div className={`p-4 rounded-2xl transition-all ${isSelected ? 'bg-cyan-500 text-black shadow-[0_0_15px_cyan]' : 'bg-zinc-900 text-zinc-700 group-hover:bg-zinc-800'}`}>
+                                                       <Zap className="w-5 h-5"/>
+                                                   </div>
+                                                   <div>
+                                                       <h4 className="text-sm font-black uppercase tracking-tight">{trait.name}</h4>
+                                                       <p className="text-[10px] font-bold text-zinc-600 uppercase mt-1">{trait.description}</p>
+                                                   </div>
                                                </div>
-                                               <div className="flex items-center space-x-4"><div className="text-right"><p className="text-[10px] font-black text-amber-500">{trait.cost} HC</p></div>{isSelected && <Check className="w-5 h-5 text-emerald-500" />}</div>
+                                               <div className="flex items-center space-x-4 relative z-10">
+                                                   <div className="text-right">
+                                                       <p className={`text-[10px] font-black ${isSelected ? 'text-amber-400' : 'text-amber-500'}`}>{trait.cost} HC</p>
+                                                   </div>
+                                                   {isSelected && (
+                                                       <div className="p-2 bg-emerald-500 rounded-full animate-pulse">
+                                                           <Check className="w-4 h-4 text-black" />
+                                                       </div>
+                                                   )}
+                                               </div>
                                            </button>
                                        );
                                    })}
                               </div>
-                              <button onClick={handleFinalSynthesis} disabled={!canAfford || isMinting} className={`w-full py-8 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-sm shadow-4xl active:scale-95 transition-all flex items-center justify-center space-x-6 border-b-8 ${canAfford ? 'bg-cyan-600 hover:bg-cyan-500 border-cyan-800 text-white' : 'bg-zinc-800 border-zinc-900 text-zinc-600 cursor-not-allowed'}`}>
-                                  {isMinting ? <Loader className="w-8 h-8 animate-spin"/> : <Gem className="w-8 h-8 text-white"/>}
-                                  <span>{canAfford ? 'Materialize_Shard' : 'Insufficient_Credits'}</span>
-                              </button>
+                              <div className="space-y-4 pt-4 border-t border-zinc-900">
+                                  <div className="flex items-center justify-between text-sm">
+                                      <span className="text-zinc-500 font-black uppercase tracking-widest">Total Cost</span>
+                                      <span className="text-amber-400 font-black text-xl">{totalCost.toLocaleString()} HC</span>
+                                  </div>
+                                  <button 
+                                      onClick={handleFinalSynthesis} 
+                                      disabled={!canAfford || isMinting} 
+                                      className={`w-full py-8 rounded-[2.5rem] font-black uppercase tracking-[0.4em] text-sm shadow-4xl active:scale-95 transition-all flex items-center justify-center space-x-6 border-b-4 relative overflow-hidden group ${
+                                          canAfford 
+                                              ? 'bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 border-cyan-700 hover:border-cyan-600 text-white shadow-[0_0_40px_rgba(6,182,212,0.4)]' 
+                                              : 'bg-zinc-800 border-zinc-900 text-zinc-600 cursor-not-allowed'
+                                      }`}
+                                  >
+                                      <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                                      {isMinting ? (
+                                          <>
+                                              <Loader className="w-8 h-8 animate-spin relative z-10"/>
+                                              <span className="relative z-10">Materializing...</span>
+                                          </>
+                                      ) : (
+                                          <>
+                                              <Gem className="w-8 h-8 relative z-10"/>
+                                              <span className="relative z-10">{canAfford ? 'Materialize_Shard' : `Need ${(totalCost - hero.heroCredits).toLocaleString()} More HC`}</span>
+                                          </>
+                                      )}
+                                  </button>
+                              </div>
                           </div>
                       )}
                       
                       {activeStep === 'FORGING' && (
                           <div className="flex flex-col items-center justify-center py-20 animate-fade-in space-y-12">
                               <div className="relative">
-                                  <div className="absolute -inset-16 bg-cyan-500/10 blur-[80px] animate-pulse"></div>
-                                  <Loader className="w-32 h-32 text-cyan-500 animate-spin relative z-10" />
+                                  <div className="absolute -inset-20 bg-cyan-500/20 blur-[100px] animate-pulse"></div>
+                                  <div className="relative z-10">
+                                      <Loader className="w-32 h-32 text-cyan-500 animate-spin" />
+                                      <div className="absolute inset-0 flex items-center justify-center">
+                                          <Gem className="w-16 h-16 text-cyan-400 animate-pulse" />
+                                      </div>
+                                  </div>
                               </div>
-                              <div className="text-center space-y-6">
-                                  <h3 className="text-3xl font-black uppercase tracking-tighter text-white">Forging_Eternal_Truth</h3>
-                                  <p className="text-xs font-black text-cyan-500 uppercase tracking-[0.6em] animate-pulse">Synchronizing_With_Ledger_Node</p>
+                              <div className="text-center space-y-6 max-w-md">
+                                  <h3 className="text-4xl font-black uppercase tracking-tighter text-white bg-gradient-to-r from-cyan-400 to-white bg-clip-text text-transparent">
+                                      Materializing_Shard
+                                  </h3>
+                                  <div className="space-y-3">
+                                      <p className="text-sm font-black text-cyan-500 uppercase tracking-[0.6em] animate-pulse">
+                                          Invoking_Gemini_Oracle
+                                      </p>
+                                      <div className="flex items-center justify-center space-x-2 text-[10px] font-black text-zinc-600 uppercase tracking-widest">
+                                          <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></div>
+                                          <span>Generating_Photorealistic_Artifact</span>
+                                      </div>
+                                  </div>
+                                  <div className="w-full max-w-xs h-1 bg-zinc-900 rounded-full overflow-hidden mt-8">
+                                      <div className="h-full bg-gradient-to-r from-cyan-500 to-cyan-400 animate-[progress_3s_ease-in-out_infinite]"></div>
+                                  </div>
                               </div>
                           </div>
                       )}
@@ -437,24 +674,60 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
           ) : (
               <div className="flex-grow flex flex-col items-center justify-center py-10 animate-fade-in w-full materialize">
                   <div className="flex flex-col items-center space-y-12 max-w-4xl w-full">
-                      <div className="text-center space-y-4">
-                          <div className="inline-flex items-center space-x-4 bg-emerald-500/20 border border-emerald-500/30 px-8 py-3 rounded-full shadow-[0_0_30px_rgba(16,185,129,0.2)] mb-4">
-                              <ShieldCheck className="w-6 h-6 text-emerald-400" />
+                      {/* Success Header with Confetti Effect */}
+                      <div className="text-center space-y-6 relative">
+                          <div className="absolute -inset-20 bg-emerald-500/10 blur-[120px] animate-pulse rounded-full"></div>
+                          <div className="relative z-10 inline-flex items-center space-x-4 bg-emerald-500/20 border-2 border-emerald-500/40 px-8 py-4 rounded-full shadow-[0_0_40px_rgba(16,185,129,0.4)] mb-6 animate-pulse">
+                              <ShieldCheck className="w-7 h-7 text-emerald-400 animate-bounce" />
                               <span className="text-sm font-black text-emerald-400 uppercase tracking-[0.4em]">Materialization_Confirmed</span>
                           </div>
-                          <h2 className="text-5xl md:text-7xl font-black text-white uppercase tracking-tighter leading-none">Artifact_Secured</h2>
+                          <h2 className="text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none bg-gradient-to-r from-emerald-400 via-cyan-400 to-white bg-clip-text text-transparent relative z-10">
+                              Artifact_Secured
+                          </h2>
+                          <p className="text-sm text-zinc-500 font-bold uppercase tracking-[0.3em] relative z-10">
+                              Your unique NFT has been permanently recorded on the ledger
+                          </p>
                       </div>
 
+                      {/* NFT Card with Enhanced Presentation */}
                       <div className="relative group w-full max-w-md">
-                          <div className="absolute -inset-16 bg-cyan-500/10 blur-[100px] animate-pulse rounded-full pointer-events-none"></div>
-                          <div className="transform transition-transform duration-1000 hover:scale-105">
+                          <div className="absolute -inset-20 bg-gradient-to-r from-cyan-500/20 via-emerald-500/20 to-cyan-500/20 blur-[100px] animate-pulse rounded-full pointer-events-none"></div>
+                          <div className="absolute -inset-4 bg-cyan-500/10 rounded-[3rem] blur-xl group-hover:bg-cyan-500/20 transition-all"></div>
+                          <div className="transform transition-transform duration-1000 hover:scale-105 relative z-10">
                               {mintedReport && <NftCard report={mintedReport} />}
+                          </div>
+                          {/* Floating particles effect */}
+                          <div className="absolute inset-0 pointer-events-none">
+                              {[...Array(6)].map((_, i) => (
+                                  <div 
+                                      key={i}
+                                      className="absolute w-2 h-2 bg-cyan-400/40 rounded-full animate-[float_3s_ease-in-out_infinite]"
+                                      style={{
+                                          left: `${20 + i * 15}%`,
+                                          top: `${10 + i * 12}%`,
+                                          animationDelay: `${i * 0.5}s`
+                                      }}
+                                  ></div>
+                              ))}
                           </div>
                       </div>
 
-                      <div className="flex flex-col sm:flex-row gap-6 w-full max-w-xl">
-                          <button onClick={resetForge} className="flex-1 bg-white hover:bg-cyan-50 text-black font-black py-6 rounded-2xl uppercase tracking-[0.3em] text-xs shadow-4xl active:scale-95 transition-all">Return_To_Forge</button>
-                          <button onClick={() => (window as any).aistudio?.onNavigate?.('hub', undefined, 'collection')} className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 font-black py-6 rounded-2xl border border-zinc-800 uppercase tracking-[0.3em] text-xs shadow-xl active:scale-95 transition-all">View_Ledger_Archive</button>
+                      {/* Action Buttons */}
+                      <div className="flex flex-col sm:flex-row gap-6 w-full max-w-xl relative z-10">
+                          <button 
+                              onClick={resetForge} 
+                              className="flex-1 bg-gradient-to-r from-white to-cyan-50 hover:from-cyan-50 hover:to-white text-black font-black py-6 rounded-2xl uppercase tracking-[0.3em] text-xs shadow-[0_0_30px_rgba(255,255,255,0.3)] active:scale-95 transition-all border-b-4 border-zinc-300 hover:border-cyan-400 relative overflow-hidden group"
+                          >
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                              <span className="relative z-10">Mint_Another</span>
+                          </button>
+                          <button 
+                              onClick={() => (window as any).aistudio?.onNavigate?.('hub', undefined, 'collection')} 
+                              className="flex-1 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 hover:text-white font-black py-6 rounded-2xl border-2 border-zinc-800 hover:border-cyan-500/50 uppercase tracking-[0.3em] text-xs shadow-xl active:scale-95 transition-all relative overflow-hidden group"
+                          >
+                              <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/0 via-cyan-500/10 to-cyan-500/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                              <span className="relative z-10">View_Collection</span>
+                          </button>
                       </div>
                   </div>
               </div>
