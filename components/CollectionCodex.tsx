@@ -27,39 +27,54 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
             let response;
             try {
                 response = await fetch('/api/nft/receipts');
+                // If relative path returns 404, fallback to absolute backend URL
+                if (!response.ok && response.status === 404) {
+                    response = await fetch(`${apiBase}/api/nft/receipts`);
+                }
             } catch {
+                // Network error - try absolute backend URL
                 response = await fetch(`${apiBase}/api/nft/receipts`);
             }
             
             if (response.ok) {
                 const data = await response.json();
                 // Map DB receipts back to Report structure for the UI
-                const mapped: Report[] = data.map((receipt: any) => ({
-                    id: receipt.tokenId,
-                    title: receipt.tokenId,
-                    description: `Shard authenticated via Railway node. Hash: ${receipt.txHash}`,
-                    category: receipt.category || 'Other',
-                    location: 'Ledger_Node',
-                    timestamp: new Date(receipt.createdAt),
-                    hash: receipt.txHash,
-                    blockchainRef: receipt.txHash,
-                    status: 'Resolved',
-                    trustScore: 100,
-                    severity: 'Standard',
-                    isActionable: false,
-                    earnedNft: {
-                        source: 'minted',
-                        title: receipt.tokenId,
-                        imageUrl: receipt.imageUri || (receipt.imageUrl?.startsWith('/') 
-                            ? `${apiBase}${receipt.imageUrl}` 
-                            : receipt.imageUrl) || `https://api.dpal.net/v1/assets/${receipt.tokenId}.png`,
-                        mintCategory: receipt.category || 'Other',
-                        blockNumber: 6843021,
-                        txHash: receipt.txHash,
-                        rarity: 'Rare' as any,
-                        grade: 'S'
+                const mapped: Report[] = data.map((receipt: any) => {
+                    // Resolve image URL - backend now provides imageUri/imageUrl
+                    let imageUrl = receipt.imageUri || receipt.imageUrl;
+                    if (imageUrl?.startsWith('/')) {
+                        // Relative path - make it absolute using backend base URL
+                        imageUrl = `${apiBase}${imageUrl}`;
+                    } else if (!imageUrl) {
+                        // Fallback: construct the standard asset path
+                        imageUrl = `${apiBase}/api/assets/${receipt.tokenId}.png`;
                     }
-                }));
+                    
+                    return {
+                        id: receipt.tokenId,
+                        title: receipt.tokenId,
+                        description: `Shard authenticated via Railway node. Hash: ${receipt.txHash}`,
+                        category: receipt.category || 'Other',
+                        location: 'Ledger_Node',
+                        timestamp: new Date(receipt.createdAt),
+                        hash: receipt.txHash,
+                        blockchainRef: receipt.txHash,
+                        status: 'Resolved',
+                        trustScore: 100,
+                        severity: 'Standard',
+                        isActionable: false,
+                        earnedNft: {
+                            source: 'minted',
+                            title: receipt.tokenId,
+                            imageUrl: imageUrl,
+                            mintCategory: receipt.category || 'Other',
+                            blockNumber: 6843021,
+                            txHash: receipt.txHash,
+                            rarity: 'Rare' as any,
+                            grade: 'S'
+                        }
+                    };
+                });
                 setDbNfts(mapped);
             } else {
                 // Handle error response
