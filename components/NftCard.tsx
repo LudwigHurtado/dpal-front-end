@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { type Report, type CharacterNft } from '../types';
 import { useTranslations } from '../i18n';
-import { CATEGORIES_WITH_ICONS } from '../constants';
+import { CATEGORIES_WITH_ICONS, getApiBase } from '../constants';
 import { QrCode, Loader } from './icons';
 import QrCodeDisplay from './QrCodeDisplay';
 
@@ -15,9 +15,6 @@ const NftCard: React.FC<NftCardProps> = ({ report, characterNft }) => {
     const [showQr, setShowQr] = useState(false);
     const [imageLoaded, setImageLoaded] = useState(false);
     const { t } = useTranslations();
-
-import { getApiBase } from '../constants';
-    
     const apiBase = getApiBase();
     const nft = report?.earnedNft;
     const isCharacter = !!characterNft;
