@@ -72,7 +72,9 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
 
     try {
       const timestamp = Date.now();
-      const nonce = Math.random().toString(36).substring(2, 15);
+      // Generate a truly unique nonce using crypto API for better uniqueness
+      const nonce = crypto.randomUUID ? crypto.randomUUID() : 
+        `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
       const idempotencyKey = `mint-${hero.operativeId}-${timestamp}-${nonce}`;
 
       const body = {
