@@ -31,7 +31,6 @@ import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
-import BackendTestPanel from './components/BackendTestPanel';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION } from './constants';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
@@ -388,9 +387,6 @@ const App: React.FC = () => {
           <EcosystemOverview onReturn={() => setCurrentView('mainMenu')} />
         )}
       </main>
-      
-      {/* Backend Test Panel - Always visible for debugging */}
-      <BackendTestPanel />
     </div>
   );
 };
