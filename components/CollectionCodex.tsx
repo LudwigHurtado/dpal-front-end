@@ -2,6 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Report, Hero } from '../types';
 import { useTranslations } from '../i18n';
+import { getApiBase } from '../constants';
 import NftCard from './NftCard';
 import { ArrowLeft, Award, Coins, Gem, Loader, RefreshCw, Database, Search, ShieldCheck } from './icons';
 
@@ -21,7 +22,7 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
     const fetchCollection = async () => {
         setIsLoading(true);
         try {
-            const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-ai-server-production.up.railway.app';
+            const apiBase = getApiBase();
             // Try relative path first (for Vercel proxy), fallback to absolute
             let response;
             try {

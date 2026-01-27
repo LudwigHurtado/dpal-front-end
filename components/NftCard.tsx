@@ -16,7 +16,9 @@ const NftCard: React.FC<NftCardProps> = ({ report, characterNft }) => {
     const [imageLoaded, setImageLoaded] = useState(false);
     const { t } = useTranslations();
 
-    const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://dpal-ai-server-production.up.railway.app';
+import { getApiBase } from '../constants';
+    
+    const apiBase = getApiBase();
     const nft = report?.earnedNft;
     const isCharacter = !!characterNft;
     const displayData = isCharacter ? characterNft : nft;

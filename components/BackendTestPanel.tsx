@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getApiBase } from '../constants';
 import { Check, X, Loader, AlertCircle, Server, Database, Key, Globe } from './icons';
 
 interface TestResult {
@@ -11,11 +12,12 @@ interface TestResult {
 const BackendTestPanel: React.FC = () => {
   const [isTesting, setIsTesting] = useState(false);
   const [results, setResults] = useState<TestResult[]>([]);
-  const [apiBase, setApiBase] = useState(
-    (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app'
-  );
+  const [apiBase, setApiBase] = useState(getApiBase());
 
   const runTests = async () => {
+    // Normalize the backend base URL (remove trailing slashes)
+    const baseUrl = apiBase.replace(/\/+$/, '');
+
     setIsTesting(true);
     setResults([]);
 

@@ -2,6 +2,14 @@
 /** FIX: Added NftTheme to imports */
 import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, TrainingModule, EducationRole, Mission, HeroPath, NftTheme, SubscriptionTier } from "./types";
 
+/**
+ * Standardized API base URL for backend services.
+ * Uses VITE_API_BASE environment variable if set, otherwise falls back to default Railway deployment.
+ */
+export const getApiBase = (): string => {
+  return (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app';
+};
+
 export const CATEGORIES = Object.values(Category);
 
 export const CATEGORIES_WITH_ICONS = [

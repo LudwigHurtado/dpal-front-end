@@ -33,8 +33,10 @@ const FLASH_TEXT_MODEL = "gemini-3-flash-preview";
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 export const isAiEnabled = () => Boolean(getApiKey());
 
-const getApiBase = () =>
-  import.meta.env.VITE_API_BASE || "https://web-production-a27b.up.railway.app";
+import { getApiBase } from "../constants";
+
+// Re-export for backward compatibility, but use centralized constant
+const getApiBaseLocal = () => getApiBase();
 
 const DEBUG_AI = false;
 const debugLog = (...args: any[]) => {
@@ -60,7 +62,7 @@ const handleApiError = (error: any): never => {
   console.error(`Backend API Error:`, error);
 
   if (error?.message?.includes("Failed to fetch") || error?.message?.includes("NetworkError") || error?.name === "TypeError") {
-    const apiBase = getApiBase();
+    const apiBase = getApiBaseLocal();
     throw new AiError("NETWORK_ERROR", `Backend API connection failed.\n\nBackend URL: ${apiBase || 'Not configured'}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- Backend is deployed and running\n- VITE_API_BASE is set correctly in Vercel/Railway\n- Backend CORS allows your frontend origin`);
   }
 
@@ -534,7 +536,7 @@ export async function generateNftImage(
 ): Promise<string> {
   if (!isAiEnabled()) return `https://picsum.photos/seed/${prompt.substring(0, 5)}/400/600`;
   try {
-    const apiBase = getApiBase();
+    const apiBase = getApiBaseLocal();
     const response = await fetch(`${apiBase}/api/nft/generate-image`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -593,7 +595,7 @@ export async function generateNftDetails(description: string): Promise<{ nftTitl
 export async function generateNftPromptIdeas(hero: Hero, theme: NftTheme, dpalCategory: Category): Promise<string[]> {
   if (!isAiEnabled()) return ["Decentralized Oversight Shard", "Truth Network Artifact", "Community Governance Token"];
   try {
-    const apiBase = getApiBase();
+    const apiBase = getApiBaseLocal();
     const prompt = `Act as the DPAL Oracle. Generate 3 unique, evocative, and conceptually dense short phrases (max 5 words each) for an NFT artifact based on:
     Theme: ${theme}
     Category: ${dpalCategory}
@@ -750,7 +752,7 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
 export async function generateHeroPersonaDetails(prompt: string, arch: Archetype): Promise<any> {
   if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
   try {
-    const apiBase = getApiBase();
+    const apiBase = getApiBaseLocal();
     // Try relative path first (for Vercel proxy), fallback to absolute
     let apiUrl = '/api/persona/generate-details';
     if (apiBase) {
@@ -790,7 +792,7 @@ export async function generateHeroPersonaDetails(prompt: string, arch: Archetype
 export async function generateHeroPersonaImage(prompt: string, arch: Archetype, sourceImageData?: string): Promise<string> {
   if (!isAiEnabled()) return `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`;
   try {
-    const apiBase = getApiBase();
+    const apiBase = getApiBaseLocal();
     // Try relative path first (for Vercel proxy), fallback to absolute
     let apiUrl = '/api/persona/generate-image';
     if (apiBase) {

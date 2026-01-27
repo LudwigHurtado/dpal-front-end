@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Category, type Hero, type Report, type NftTheme } from '../types';
-import { FORGE_TRAITS, NFT_THEMES } from '../constants';
+import { FORGE_TRAITS, NFT_THEMES, getApiBase } from '../constants';
 import { Gem, Coins, Loader, Check, Sparkles, Database, Target, Zap, ShieldCheck, FileText, ArrowRight, RefreshCw, X, Broadcast, Activity, Box, Fingerprint, Activity as ActivityIcon, User, Monitor, ArrowLeft } from './icons';
 import NftCard from './NftCard';
 import { generateNftPromptIdeas } from '../services/geminiService';
@@ -25,7 +25,7 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
   const [isMinting, setIsMinting] = useState(false);
   const [mintedReport, setMintedReport] = useState<Report | null>(null);
 
-  const apiBase = (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app';
+  const apiBase = getApiBase();
 
   const MINT_BASE_COST = 500;
   const traitsCost = useMemo(() => 
