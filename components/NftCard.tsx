@@ -54,6 +54,7 @@ const NftCard: React.FC<NftCardProps> = ({ report, characterNft }) => {
                         src={finalImageUrl} 
                         alt={displayData.title} 
                         onLoad={() => setImageLoaded(true)}
+                        onError={() => setImageLoaded(true)}
                         className={`w-full h-full object-cover aspect-[4/5] transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`} 
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent pointer-events-none"></div>
@@ -90,6 +91,7 @@ const NftCard: React.FC<NftCardProps> = ({ report, characterNft }) => {
                     src={finalImageUrl} 
                     alt={displayData.title} 
                     onLoad={() => setImageLoaded(true)}
+                    onError={() => setImageLoaded(true)}
                     className={`w-full h-full object-cover aspect-[4/5] transition-opacity duration-700 ${imageLoaded ? 'opacity-100' : 'opacity-0'}`} 
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent pointer-events-none"></div>
