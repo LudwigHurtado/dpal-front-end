@@ -100,8 +100,24 @@ const getInitialMissions = (): Mission[] => {
 
 const getInitialHero = (): Hero => {
   const saved = localStorage.getItem('dpal-hero');
-  if (saved) { try { return JSON.parse(saved); } catch (e) { return INITIAL_HERO_PROFILE; } }
-  return INITIAL_HERO_PROFILE;
+  let base: Hero;
+  if (saved) {
+    try {
+      base = JSON.parse(saved);
+    } catch {
+      base = INITIAL_HERO_PROFILE;
+    }
+  } else {
+    base = INITIAL_HERO_PROFILE;
+  }
+
+  // Ensure testers always have enough Hero Credits to mint
+  const MIN_HERO_CREDITS = 100_000;
+  if (typeof base.heroCredits !== 'number' || base.heroCredits < MIN_HERO_CREDITS) {
+    base = { ...base, heroCredits: MIN_HERO_CREDITS };
+  }
+
+  return base;
 };
 
 const App: React.FC = () => {
