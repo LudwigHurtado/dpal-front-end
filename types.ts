@@ -306,6 +306,34 @@ export interface HealthRecord {
     timestamp: number;
 }
 
+export interface WorkStep {
+    id: string;
+    name: string;
+    task: string;
+    instruction: string;
+    isComplete: boolean;
+    requiresProof: boolean;
+    proofType?: 'photo' | 'video' | 'text' | 'location';
+    order: number;
+    proofUrl?: string;
+}
+
+export interface WorkPhase {
+    id: string;
+    name: string;
+    description: string;
+    phaseType: 'RECON' | 'EXECUTION' | 'VERIFICATION' | 'COMPLETION';
+    steps: WorkStep[];
+    compensation: {
+        hc: number;
+        xp: number;
+        bonusMultiplier?: number;
+    };
+    isComplete: boolean;
+    completedAt?: number;
+    estimatedDuration: string;
+}
+
 export interface AiDirective {
     id: string;
     title: string;
@@ -315,11 +343,15 @@ export interface AiDirective {
     rewardXp: number;
     difficulty: 'Entry' | 'Standard' | 'Elite';
     category: Category;
-    status: 'available' | 'completed';
+    status: 'available' | 'completed' | 'in_progress';
     timestamp: number;
     recommendedNextAction?: string;
     proofImageUrl?: string;
     auditHash?: string;
+    // New phased structure
+    phases?: WorkPhase[];
+    currentPhaseIndex?: number;
+    // Legacy packet structure (maintained for backward compatibility)
     packet?: {
         priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
         confidence: number;

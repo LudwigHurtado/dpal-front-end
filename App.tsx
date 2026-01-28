@@ -142,6 +142,17 @@ const App: React.FC = () => {
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => localStorage.getItem('dpal-offline-mode') === 'true');
+  const [directives, setDirectives] = useState<AiDirective[]>(() => {
+    const saved = localStorage.getItem('dpal-directives');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
 
   useEffect(() => { localStorage.setItem('dpal-offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
@@ -154,7 +165,8 @@ const App: React.FC = () => {
     localStorage.setItem('dpal-hero', JSON.stringify(hero));
     localStorage.setItem('dpal-reports', JSON.stringify(reports));
     localStorage.setItem('dpal-missions', JSON.stringify(missions));
-  }, [hero, reports, missions]);
+    localStorage.setItem('dpal-directives', JSON.stringify(directives));
+  }, [hero, reports, missions, directives]);
 
   const heroWithRank = useMemo((): Hero => {
     let currentRank: Rank = RANKS[0];
@@ -277,6 +289,51 @@ const App: React.FC = () => {
     setCurrentView('reportComplete');
   };
 
+  const handleCompleteDirective = (directive: AiDirective): Report => {
+    // Calculate total compensation from phases
+    const totalHc = directive.phases?.reduce((sum, phase) => sum + phase.compensation.hc, 0) || directive.rewardHc;
+    const totalXp = directive.phases?.reduce((sum, phase) => sum + phase.compensation.xp, 0) || directive.rewardXp;
+
+    // Update hero credits and XP
+    setHero(prev => ({
+      ...prev,
+      heroCredits: (prev.heroCredits || 0) + totalHc,
+      xp: (prev.xp || 0) + totalXp,
+    }));
+
+    // Mark directive as completed
+    const updatedDirective: AiDirective = {
+      ...directive,
+      status: 'completed',
+      rewardHc: totalHc,
+      rewardXp: totalXp,
+    };
+    setDirectives(prev => prev.map(d => d.id === directive.id ? updatedDirective : d));
+
+    // Create a Report from the completed directive
+    const reportId = `dir-${directive.id}`;
+    const report: Report = {
+      id: reportId,
+      title: `Work Directive: ${directive.title}`,
+      description: directive.description,
+      category: directive.category,
+      location: heroLocation || 'Unknown',
+      timestamp: new Date(),
+      hash: directive.auditHash || `0x${Math.random().toString(16).slice(2)}`,
+      blockchainRef: directive.auditHash || '',
+      isAuthor: true,
+      status: 'Submitted',
+      trustScore: 100,
+      severity: 'Informational',
+      isActionable: false,
+      credsEarned: totalHc,
+      imageUrls: directive.proofImageUrl ? [directive.proofImageUrl] : undefined,
+    };
+
+    setReports(prev => [report, ...prev]);
+    return report;
+  };
+
   return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
       <Header 
@@ -397,6 +454,18 @@ const App: React.FC = () => {
 
         {currentView === 'reputationAndCurrency' && (
           <ReputationAndCurrencyView onReturn={() => setCurrentView('mainMenu')} />
+        )}
+
+        {currentView === 'aiWorkDirectives' && (
+          <AiWorkDirectivesView
+            onReturn={() => setCurrentView('mainMenu')}
+            hero={heroWithRank}
+            heroLocation={heroLocation}
+            setHeroLocation={setHeroLocation}
+            directives={directives}
+            setDirectives={setDirectives}
+            onCompleteDirective={handleCompleteDirective}
+          />
         )}
 
         {currentView === 'ecosystem' && (

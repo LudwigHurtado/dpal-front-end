@@ -95,7 +95,23 @@ export async function generateAiDirectives(
             ACT AS: DPAL Tactical Dispatcher.
             TARGET LOCATION: ${location}.
             SECTOR: ${workCategory}.
-            TASK: Generate ${count} structured "Directives" for field operatives.
+            TASK: Generate ${count} structured "Directives" for field operatives with PHASED WORK STRUCTURE.
+            
+            Each directive MUST have 4 phases:
+            1. RECON - Initial investigation and planning (2-3 steps)
+            2. EXECUTION - Main work tasks (3-5 steps)
+            3. VERIFICATION - Proof submission and validation (2-3 steps)
+            4. COMPLETION - Final review and reward distribution (1-2 steps)
+            
+            Each phase must have:
+            - Clear name and description
+            - 2-5 actionable steps with specific tasks
+            - Compensation breakdown (hc and xp per phase)
+            - Estimated duration
+            
+            Steps should require proof where appropriate (photo, video, text, or location).
+            Total compensation should be distributed across phases (RECON: 20%, EXECUTION: 50%, VERIFICATION: 20%, COMPLETION: 10%).
+            
             RESPONSE FORMAT: JSON Array.
         `;
 
@@ -118,6 +134,44 @@ export async function generateAiDirectives(
               rewardXp: { type: Type.NUMBER },
               difficulty: { type: Type.STRING, enum: ["Entry", "Standard", "Elite"] },
               category: { type: Type.STRING },
+              phases: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    id: { type: Type.STRING },
+                    name: { type: Type.STRING },
+                    description: { type: Type.STRING },
+                    phaseType: { type: Type.STRING, enum: ["RECON", "EXECUTION", "VERIFICATION", "COMPLETION"] },
+                    steps: {
+                      type: Type.ARRAY,
+                      items: {
+                        type: Type.OBJECT,
+                        properties: {
+                          id: { type: Type.STRING },
+                          name: { type: Type.STRING },
+                          task: { type: Type.STRING },
+                          instruction: { type: Type.STRING },
+                          requiresProof: { type: Type.BOOLEAN },
+                          proofType: { type: Type.STRING, enum: ["photo", "video", "text", "location"] },
+                          order: { type: Type.NUMBER },
+                        },
+                      },
+                    },
+                    compensation: {
+                      type: Type.OBJECT,
+                      properties: {
+                        hc: { type: Type.NUMBER },
+                        xp: { type: Type.NUMBER },
+                        bonusMultiplier: { type: Type.NUMBER },
+                      },
+                    },
+                    estimatedDuration: { type: Type.STRING },
+                  },
+                  required: ["id", "name", "description", "phaseType", "steps", "compensation", "estimatedDuration"],
+                },
+              },
+              // Legacy packet structure (optional for backward compatibility)
               packet: {
                 type: Type.OBJECT,
                 properties: {
@@ -149,17 +203,6 @@ export async function generateAiDirectives(
                   },
                   safetyFlags: { type: Type.ARRAY, items: { type: Type.STRING } },
                 },
-                required: [
-                  "priority",
-                  "confidence",
-                  "timeWindow",
-                  "geoRadiusMeters",
-                  "primaryAction",
-                  "steps",
-                  "escalation",
-                  "evidenceMissing",
-                  "safetyFlags",
-                ],
               },
             },
             required: [
@@ -171,7 +214,7 @@ export async function generateAiDirectives(
               "rewardXp",
               "difficulty",
               "category",
-              "packet",
+              "phases",
             ],
           },
         },
@@ -179,22 +222,49 @@ export async function generateAiDirectives(
     });
 
     const items = JSON.parse(response.text || "[]");
-    // Only return known properties and required postprocessing
-    return items.map((item: any) => ({
-      // Known: all fields from items above, plus the three specified below.
-      id: item.id,
-      title: item.title,
-      description: item.description,
-      instruction: item.instruction,
-      rewardHc: item.rewardHc,
-      rewardXp: item.rewardXp,
-      difficulty: item.difficulty,
-      category: item.category,
-      packet: item.packet,
-      status: "available",
-      timestamp: Date.now(),
-      recommendedNextAction: "Escalate to Investigative Mission",
-    }));
+    // Process and structure the phased directives
+    return items.map((item: any) => {
+      const phases = (item.phases || []).map((phase: any, phaseIdx: number) => ({
+        id: phase.id || `phase-${phaseIdx}`,
+        name: phase.name,
+        description: phase.description,
+        phaseType: phase.phaseType,
+        steps: (phase.steps || []).map((step: any, stepIdx: number) => ({
+          id: step.id || `step-${phaseIdx}-${stepIdx}`,
+          name: step.name,
+          task: step.task,
+          instruction: step.instruction,
+          isComplete: false,
+          requiresProof: step.requiresProof || false,
+          proofType: step.proofType,
+          order: step.order !== undefined ? step.order : stepIdx,
+        })),
+        compensation: {
+          hc: phase.compensation?.hc || 0,
+          xp: phase.compensation?.xp || 0,
+          bonusMultiplier: phase.compensation?.bonusMultiplier,
+        },
+        isComplete: false,
+        estimatedDuration: phase.estimatedDuration || "1-2 hours",
+      }));
+
+      return {
+        id: item.id,
+        title: item.title,
+        description: item.description,
+        instruction: item.instruction,
+        rewardHc: item.rewardHc,
+        rewardXp: item.rewardXp,
+        difficulty: item.difficulty,
+        category: item.category,
+        phases,
+        currentPhaseIndex: 0,
+        status: "available" as const,
+        timestamp: Date.now(),
+        recommendedNextAction: "Begin RECON phase",
+        packet: item.packet, // Keep for backward compatibility
+      };
+    });
   } catch (error) {
     return handleApiError(error);
   }
