@@ -1,15 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, User, Coins, Gem, Globe, Maximize2, Search, Monitor, Broadcast, Store, List, Package, Database, Zap, Target, Award, ChevronLeft, ChevronRight, Activity, X, Home, Sparkles, AlertTriangle, Megaphone, ListFilter } from './icons';
+import { ShieldCheck, User, Coins, Gem, Globe, Maximize2, Search, Monitor, Broadcast, Store, List, Package, Database, Zap, Target, Award, ChevronLeft, ChevronRight, Activity, X, Home, Sparkles, AlertTriangle, Megaphone } from './icons';
 import { useTranslations } from '../i18n';
 import { type Hero, SubscriptionTier, type Category } from '../types';
 import { TextScale, type View, type HeroHubTab, type HubTab } from '../App';
 import { isAiEnabled } from '../services/geminiService';
-import HomeLayoutSelector from './HomeLayoutSelector';
-import type { HomeLayout } from '../constants';
 
 interface HeaderProps {
-    currentView: View;
     onNavigateToHeroHub: () => void;
     onNavigateHome: () => void;
     onNavigateToReputationAndCurrency: () => void;
@@ -18,9 +15,6 @@ interface HeaderProps {
     hero: Hero;
     textScale: TextScale;
     setTextScale: (scale: TextScale) => void;
-    homeLayout: HomeLayout;
-    setHomeLayout: (layout: HomeLayout) => void;
-    onOpenFilterSheet: () => void;
 }
 
 const AiStatusIndicator: React.FC = () => {
@@ -125,7 +119,6 @@ const SystemTicker: React.FC = () => {
 };
 
 const Header: React.FC<HeaderProps> = ({ 
-    currentView,
     onNavigateToHeroHub, 
     onNavigateHome, 
     onNavigateToReputationAndCurrency, 
@@ -134,9 +127,6 @@ const Header: React.FC<HeaderProps> = ({
     hero, 
     textScale, 
     setTextScale,
-    homeLayout,
-    setHomeLayout,
-    onOpenFilterSheet,
 }) => {
   const { language, setLanguage } = useTranslations();
   const [isLangOpen, setIsLangOpen] = useState(false);
@@ -194,28 +184,8 @@ const Header: React.FC<HeaderProps> = ({
       }
   };
 
-  const showLayoutSwitcher = currentView === 'hub';
-  const showFiltersButton = currentView === 'hub' && onOpenFilterSheet;
-
   return (
     <header className="bg-black border-b border-zinc-900 sticky top-0 z-[100] font-mono w-full flex flex-col">
-      {/* Layout switcher only on mobile so PC header stays compact and Feed/Ledger nav stays visible */}
-      {showLayoutSwitcher && (
-        <div className="md:hidden w-full px-4 md:px-8 py-3 border-b border-zinc-900/80 flex flex-wrap items-center justify-between gap-3">
-          <HomeLayoutSelector value={homeLayout} onChange={setHomeLayout} />
-          {showFiltersButton && (
-            <button
-              type="button"
-              onClick={onOpenFilterSheet}
-              className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
-              aria-label="Open filters"
-            >
-              <ListFilter className="w-4 h-4" />
-              <span>Filters</span>
-            </button>
-          )}
-        </div>
-      )}
       <div className="w-full px-4 md:px-8 py-4 flex items-center justify-between gap-4">
           
           <button onClick={onNavigateHome} className="flex items-center space-x-3 group flex-shrink-0">

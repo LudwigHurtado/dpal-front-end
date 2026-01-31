@@ -36,9 +36,6 @@ import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STAR
 import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
-import HomeLayoutSelector from './components/HomeLayoutSelector';
-import MapHubView from './components/MapHubView';
-import CategoryHubView from './components/CategoryHubView';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { useTranslations } from './i18n';
 
@@ -353,7 +350,6 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
       <Header 
-        currentView={currentView}
         onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
         onNavigateHome={() => setCurrentView('mainMenu')} 
         onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
@@ -362,9 +358,6 @@ const App: React.FC = () => {
         hero={heroWithRank} 
         textScale={globalTextScale} 
         setTextScale={setGlobalTextScale}
-        homeLayout={homeLayout}
-        setHomeLayout={setHomeLayout}
-        onOpenFilterSheet={() => setFilterSheetOpen(true)}
       />
       
       <main className={`container mx-auto px-4 py-8 flex-grow relative z-10 ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24 md:pb-8' : ''}`}>
@@ -401,36 +394,15 @@ const App: React.FC = () => {
         {currentView === 'hub' && (
           <div className="space-y-6 md:space-y-10">
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
-            {/* Desktop: layout selector in content so header stays compact; Feed/Ledger nav stays visible */}
-            <div className="hidden md:flex md:items-center md:justify-between md:gap-4">
-              <HomeLayoutSelector value={homeLayout} onChange={setHomeLayout} />
-              {homeLayout !== 'feed' && (
-                <button
-                  type="button"
-                  onClick={() => setFilterSheetOpen(true)}
-                  className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
-                  aria-label="Open filters"
-                >
-                  <span>Filters</span>
-                </button>
-              )}
-            </div>
-            {homeLayout === 'feed' && (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-                <div className="w-full lg:col-span-8">
-                  <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} />
-                </div>
-                <div className="hidden lg:block lg:col-span-4">
-                  <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
-                </div>
+            {/* Community feed: always show feed layout so Feed and Ledger nav work reliably */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+              <div className="w-full lg:col-span-8">
+                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} />
               </div>
-            )}
-            {homeLayout === 'map' && (
-              <MapHubView onReturnToMainMenu={() => setCurrentView('mainMenu')} onOpenFilters={() => setFilterSheetOpen(true)} />
-            )}
-            {homeLayout === 'categories' && (
-              <CategoryHubView onReturnToMainMenu={() => setCurrentView('mainMenu')} onOpenFilters={() => setFilterSheetOpen(true)} />
-            )}
+              <div className="hidden lg:block lg:col-span-4">
+                <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
+              </div>
+            </div>
           </div>
         )}
 

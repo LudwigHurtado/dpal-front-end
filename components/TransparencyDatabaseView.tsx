@@ -53,7 +53,8 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
     if (filters.location) {
         result = result.filter(r => r.location.toLowerCase().includes(filters.location.toLowerCase()));
     }
-    return result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    const toTime = (r: Report) => (r.timestamp instanceof Date ? r.timestamp : new Date((r as any).timestamp)).getTime();
+    return result.sort((a, b) => toTime(b) - toTime(a));
   }, [reports, filters, showOnlyActionable]);
 
   const handleRunQuery = () => {
