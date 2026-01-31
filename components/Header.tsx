@@ -199,25 +199,15 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <header className="bg-black border-b border-zinc-900 sticky top-0 z-[100] font-mono w-full flex flex-col">
+      {/* Layout switcher only on mobile so PC header stays compact and Feed/Ledger nav stays visible */}
       {showLayoutSwitcher && (
-        <div className="w-full px-4 md:px-8 py-3 border-b border-zinc-900/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="md:hidden w-full px-4 md:px-8 py-3 border-b border-zinc-900/80 flex flex-wrap items-center justify-between gap-3">
           <HomeLayoutSelector value={homeLayout} onChange={setHomeLayout} />
           {showFiltersButton && (
             <button
               type="button"
               onClick={onOpenFilterSheet}
-              className="md:hidden inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
-              aria-label="Open filters"
-            >
-              <ListFilter className="w-4 h-4" />
-              <span>Filters</span>
-            </button>
-          )}
-          {showFiltersButton && homeLayout !== 'feed' && (
-            <button
-              type="button"
-              onClick={onOpenFilterSheet}
-              className="hidden md:inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
+              className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
               aria-label="Open filters"
             >
               <ListFilter className="w-4 h-4" />

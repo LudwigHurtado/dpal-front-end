@@ -401,10 +401,24 @@ const App: React.FC = () => {
         {currentView === 'hub' && (
           <div className="space-y-6 md:space-y-10">
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+            {/* Desktop: layout selector in content so header stays compact; Feed/Ledger nav stays visible */}
+            <div className="hidden md:flex md:items-center md:justify-between md:gap-4">
+              <HomeLayoutSelector value={homeLayout} onChange={setHomeLayout} />
+              {homeLayout !== 'feed' && (
+                <button
+                  type="button"
+                  onClick={() => setFilterSheetOpen(true)}
+                  className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
+                  aria-label="Open filters"
+                >
+                  <span>Filters</span>
+                </button>
+              )}
+            </div>
             {homeLayout === 'feed' && (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
                 <div className="w-full lg:col-span-8">
-                  <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={undefined} />
+                  <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} />
                 </div>
                 <div className="hidden lg:block lg:col-span-4">
                   <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
