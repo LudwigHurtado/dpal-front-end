@@ -5,7 +5,7 @@ import FeedPanel from './FeedPanel';
 import MyReportsList from './MyReportsList';
 import CommunityWorkFeed from './CommunityWorkFeed';
 import { useTranslations } from '../i18n';
-import { User, List, ArrowLeft, Zap, ShieldCheck, Activity } from './icons';
+import { User, List, ArrowLeft, Zap, ShieldCheck, Activity, ListFilter } from './icons';
 import { type HubTab } from '../App';
 
 interface MainContentPanelProps {
@@ -20,6 +20,7 @@ interface MainContentPanelProps {
   activeTab: HubTab;
   setActiveTab: (tab: HubTab) => void;
   onAddNewReport: () => void;
+  onOpenFilters?: () => void;
 }
 
 const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, activeTab, setActiveTab, onAddNewReport, ...rest }) => {
@@ -46,7 +47,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
 
   return (
     <div className="space-y-8 font-mono animate-fade-in">
-       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
           <button
             onClick={onReturnToMainMenu}
             className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors group"
@@ -54,10 +55,21 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
             <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span>TERMINAL_EXIT</span>
           </button>
-          
-          <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
+          <div className="flex items-center gap-3">
+            {onOpenFilters && (
+              <button
+                onClick={onOpenFilters}
+                className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors lg:hidden"
+                aria-label="Open filters"
+              >
+                <ListFilter className="w-4 h-4" />
+                <span>Filters</span>
+              </button>
+            )}
+            <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
               <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
               <span>Network_Search_Active</span>
+            </div>
           </div>
        </div>
 

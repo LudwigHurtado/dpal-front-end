@@ -32,7 +32,13 @@ import SustainmentCenter from './components/SustainmentCenter';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
-import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION } from './constants';
+import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY } from './constants';
+import type { HomeLayout } from './constants';
+import BottomNav from './components/BottomNav';
+import FilterSheet from './components/FilterSheet';
+import HomeLayoutSelector from './components/HomeLayoutSelector';
+import MapHubView from './components/MapHubView';
+import CategoryHubView from './components/CategoryHubView';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { useTranslations } from './i18n';
 
@@ -126,6 +132,8 @@ const App: React.FC = () => {
   const [prevView, setPrevView] = useState<View>('mainMenu');
   const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
   const [hubTab, setHubTab] = useState<HubTab>('my_reports');
+  const [homeLayout, setHomeLayout] = useState<HomeLayout>(getStoredHomeLayout);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
 
   const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(null);
@@ -167,6 +175,14 @@ const App: React.FC = () => {
     localStorage.setItem('dpal-missions', JSON.stringify(missions));
     localStorage.setItem('dpal-directives', JSON.stringify(directives));
   }, [hero, reports, missions, directives]);
+
+  useEffect(() => {
+    localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, homeLayout);
+  }, [homeLayout]);
+
+  useEffect(() => {
+    if (currentView !== 'hub') setFilterSheetOpen(false);
+  }, [currentView]);
 
   const heroWithRank = useMemo((): Hero => {
     let currentRank: Rank = RANKS[0];
@@ -337,6 +353,7 @@ const App: React.FC = () => {
   return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
       <Header 
+        currentView={currentView}
         onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
         onNavigateHome={() => setCurrentView('mainMenu')} 
         onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
@@ -344,10 +361,13 @@ const App: React.FC = () => {
         onNavigate={handleNavigate} 
         hero={heroWithRank} 
         textScale={globalTextScale} 
-        setTextScale={setGlobalTextScale} 
+        setTextScale={setGlobalTextScale}
+        homeLayout={homeLayout}
+        setHomeLayout={setHomeLayout}
+        onOpenFilterSheet={() => setFilterSheetOpen(true)}
       />
       
-      <main className="container mx-auto px-4 py-8 flex-grow relative z-10">
+      <main className={`container mx-auto px-4 py-8 flex-grow relative z-10 ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24 md:pb-8' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -379,17 +399,41 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'hub' && (
-          <div className="space-y-10">
+          <div className="space-y-6 md:space-y-10">
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-8">
-                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} />
+            {homeLayout === 'feed' && (
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+                <div className="w-full lg:col-span-8">
+                  <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={undefined} />
+                </div>
+                <div className="hidden lg:block lg:col-span-4">
+                  <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
+                </div>
               </div>
-              <div className="lg:col-span-4">
-                <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
-              </div>
-            </div>
+            )}
+            {homeLayout === 'map' && (
+              <MapHubView onReturnToMainMenu={() => setCurrentView('mainMenu')} onOpenFilters={() => setFilterSheetOpen(true)} />
+            )}
+            {homeLayout === 'categories' && (
+              <CategoryHubView onReturnToMainMenu={() => setCurrentView('mainMenu')} onOpenFilters={() => setFilterSheetOpen(true)} />
+            )}
           </div>
+        )}
+
+        {currentView === 'hub' && filterSheetOpen && (
+          <FilterSheet
+            open={filterSheetOpen}
+            onClose={() => setFilterSheetOpen(false)}
+            filters={filters}
+            setFilters={setFilters}
+            onAnalyzeFeed={() => handleNavigate('liveIntelligence')}
+            isAnalyzing={false}
+            reportCount={reports.length}
+            hero={heroWithRank}
+            reports={reports}
+            onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+            onAddNewReport={() => handleNavigate('categorySelection')}
+          />
         )}
 
         {currentView === 'liveIntelligence' && (
@@ -472,6 +516,10 @@ const App: React.FC = () => {
           <EcosystemOverview onReturn={() => setCurrentView('mainMenu')} />
         )}
       </main>
+
+      {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) && (
+        <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
+      )}
     </div>
   );
 };

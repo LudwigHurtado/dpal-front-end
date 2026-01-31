@@ -10,6 +10,18 @@ export const getApiBase = (): string => {
   return (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app';
 };
 
+/** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
+export type HomeLayout = 'feed' | 'map' | 'categories';
+export const HOME_LAYOUT_STORAGE_KEY = 'dpal-home-layout';
+
+export const getStoredHomeLayout = (): HomeLayout => {
+  try {
+    const raw = localStorage.getItem(HOME_LAYOUT_STORAGE_KEY);
+    if (raw === 'feed' || raw === 'map' || raw === 'categories') return raw;
+  } catch (_) {}
+  return 'feed';
+};
+
 export const CATEGORIES = Object.values(Category);
 
 export const CATEGORIES_WITH_ICONS = [
