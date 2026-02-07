@@ -1,0 +1,14 @@
+---
+description: After making code changes, always run git add, commit, and push
+alwaysApply: true
+---
+
+# Git workflow
+
+When you complete code changes in this project:
+
+1. **Stage** all relevant changed and new files: `git add <files>` (or `git add -A` for everything).
+2. **Commit** with a clear, short message describing the change.
+3. **Push** to the remote: `git push`.
+
+Do not leave changes only committed locally unless the user explicitly asks to skip push (e.g. "commit but don't push").
