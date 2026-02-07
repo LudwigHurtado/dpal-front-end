@@ -3,15 +3,11 @@ import { Report as ReportType, Category } from '../../types';
 import { CATEGORIES_WITH_ICONS } from '../../constants';
 import { Search, ChevronRight, MapPin, Heart, MessageSquare, CheckCircle } from '../icons';
 
-const DPAL_PRIMARY = '#1e5f9e';
-const DPAL_SECONDARY = '#0d7d4a';
-const DPAL_WARNING = '#b45309';
-
 const severityColor: Record<string, string> = {
-  Informational: '#94a3b8',
-  Standard: '#1e5f9e',
-  Critical: '#b45309',
-  Catastrophic: '#dc2626',
+  Informational: '#a1a1aa',
+  Standard: '#22d3ee',
+  Critical: '#f59e0b',
+  Catastrophic: '#ef4444',
 };
 
 function formatDistance(_report: ReportType): string {
@@ -80,21 +76,19 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
     CATEGORIES_WITH_ICONS.find((c) => c.value === category);
 
   return (
-    <div className="dpal-mobile-ui min-h-full bg-[#f8fafc] pb-8">
-      <div className="sticky top-0 z-10 bg-white border-b border-[#e2e8f0] px-4 py-3">
-        <h1 className="text-xl font-bold text-[#0f172a]">Reports Near You</h1>
-        {/* Search bar */}
+    <div className="dpal-mobile-ui min-h-full bg-zinc-950 pb-8">
+      <div className="sticky top-0 z-10 bg-zinc-900 border-b border-zinc-800 px-4 py-3">
+        <h1 className="text-xl font-bold text-white uppercase tracking-tight">Reports Near You</h1>
         <div className="relative mt-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#94a3b8]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-500" />
           <input
             type="search"
             placeholder="Search reports..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] text-[#0f172a] placeholder:text-[#94a3b8] text-base"
+            className="w-full pl-10 pr-4 py-3 rounded-xl border border-zinc-800 bg-zinc-900 text-white placeholder:text-zinc-500 text-base"
           />
         </div>
-        {/* Category chips */}
         <div className="flex gap-2 mt-2 overflow-x-auto pb-1 no-scrollbar">
           {CATEGORIES_WITH_ICONS.slice(0, 8).map((c) => {
             const selected = selectedCategories.includes(c.value);
@@ -103,11 +97,9 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
                 key={c.value}
                 type="button"
                 onClick={() => toggleCategory(c.value)}
-                className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-colors touch-manipulation"
-                style={{
-                  backgroundColor: selected ? DPAL_PRIMARY : '#f1f5f9',
-                  color: selected ? '#fff' : '#475569',
-                }}
+                className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider touch-manipulation transition-colors ${
+                  selected ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-400'
+                }`}
               >
                 {c.icon} {c.value}
               </button>
@@ -118,8 +110,8 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
 
       <div className="px-4 py-4 space-y-3 max-w-lg mx-auto">
         {filteredReports.length === 0 ? (
-          <div className="text-center py-12 text-[#64748b]">
-            <p className="font-medium">No reports match your filters.</p>
+          <div className="text-center py-12 text-zinc-500">
+            <p className="font-bold uppercase tracking-wider">No reports match your filters.</p>
           </div>
         ) : (
           filteredReports.map((report) => {
@@ -131,7 +123,7 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
             return (
               <article
                 key={report.id}
-                className="dpal-card p-4 flex flex-col gap-0 touch-manipulation active:opacity-90"
+                className="dpal-card p-4 flex flex-col gap-0 touch-manipulation active:opacity-90 border-zinc-800"
                 onClick={() => onOpenReport(report)}
               >
                 <div className="flex gap-3">
@@ -146,14 +138,14 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
 
                   {/* Center: title + summary + bottom row */}
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-[#0f172a] line-clamp-1">{report.title}</h3>
-                    <p className="text-sm text-[#475569] line-clamp-2 mt-0.5">{report.description}</p>
+                    <h3 className="font-semibold text-white line-clamp-1">{report.title}</h3>
+                    <p className="text-sm text-zinc-400 line-clamp-2 mt-0.5">{report.description}</p>
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className="text-xs text-[#64748b] flex items-center gap-0.5">
+                      <span className="text-xs text-zinc-500 flex items-center gap-0.5">
                         <MapPin className="w-3 h-3" />
                         {formatDistance(report)}
                       </span>
-                      <span className="text-xs text-[#64748b]">{formatTime(report.timestamp)}</span>
+                      <span className="text-xs text-zinc-500">{formatTime(report.timestamp)}</span>
                       {verified && (
                         <span className="dpal-chip-verified text-[10px] font-semibold">Verified</span>
                       )}
@@ -165,16 +157,15 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
 
                   {/* Right: chevron */}
                   <div className="flex-shrink-0 flex items-center">
-                    <ChevronRight className="w-5 h-5 text-[#94a3b8]" />
+                    <ChevronRight className="w-5 h-5 text-cyan-500" />
                   </div>
                 </div>
-                {/* Card actions: Follow, Share, Confirm, Comment */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#e2e8f0]" onClick={(e) => e.stopPropagation()}>
-                <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[#64748b] hover:bg-[#f1f5f9] touch-manipulation text-xs font-medium" onClick={() => onFollow?.(report)}><Heart className="w-4 h-4" /> Follow</button>
-                <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[#64748b] hover:bg-[#f1f5f9] touch-manipulation text-xs font-medium" onClick={() => onShare?.(report)}><span>↗</span> Share</button>
-                <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[#64748b] hover:bg-[#f1f5f9] touch-manipulation text-xs font-medium" onClick={() => onConfirmWitness?.(report)}><CheckCircle className="w-4 h-4" /> Witness</button>
-                <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[#64748b] hover:bg-[#f1f5f9] touch-manipulation text-xs font-medium" onClick={() => onComment?.(report)}><MessageSquare className="w-4 h-4" /> Comment</button>
-              </div>
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-800" onClick={(e) => e.stopPropagation()}>
+                  <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 touch-manipulation text-xs font-bold uppercase" onClick={(e) => { e.preventDefault(); onFollow?.(report); }}><Heart className="w-4 h-4" /> Follow</button>
+                  <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 touch-manipulation text-xs font-bold uppercase" onClick={(e) => { e.preventDefault(); onShare?.(report); }}><span>↗</span> Share</button>
+                  <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 touch-manipulation text-xs font-bold uppercase" onClick={(e) => { e.preventDefault(); onConfirmWitness?.(report); }}><CheckCircle className="w-4 h-4" /> Witness</button>
+                  <button type="button" className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-zinc-400 hover:bg-zinc-800 touch-manipulation text-xs font-bold uppercase" onClick={(e) => { e.preventDefault(); onComment?.(report); }}><MessageSquare className="w-4 h-4" /> Comment</button>
+                </div>
             </article>
             );
           })

@@ -3,9 +3,6 @@ import { Home, Search, PlusCircle, AlertCircle, User } from '../icons';
 
 export type MobileTab = 'home' | 'search' | 'report' | 'alerts' | 'profile';
 
-const DPAL_PRIMARY = '#1e5f9e';
-const DPAL_TEXT_MUTED = '#94a3b8';
-const DPAL_TEXT_PRIMARY = '#0f172a';
 const TOUCH_MIN = 44;
 const BOTTOM_NAV_HEIGHT = 56;
 const SAFE_BOTTOM = 'env(safe-area-inset-bottom, 0px)';
@@ -26,7 +23,7 @@ const tabs: { id: MobileTab; label: string; icon: React.ReactNode }[] = [
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChange }) => {
   return (
     <nav
-      className="fixed left-0 right-0 bottom-0 z-[90] flex items-center justify-around border-t bg-white shadow-[0_-2px_10px_rgba(0,0,0,0.06)]"
+      className="fixed left-0 right-0 bottom-0 z-[90] flex items-center justify-around border-t border-zinc-800 bg-zinc-900 shadow-[0_-4px_20px_rgba(0,0,0,0.4)] font-mono"
       style={{
         minHeight: `${BOTTOM_NAV_HEIGHT}px`,
         paddingBottom: SAFE_BOTTOM,
@@ -40,25 +37,26 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
             key={id}
             type="button"
             onClick={() => onTabChange(id)}
-            className="flex flex-col items-center justify-center flex-1 min-w-0 py-2 transition-colors touch-manipulation"
-            style={{
-              minHeight: `${TOUCH_MIN}px`,
-              color: isActive ? DPAL_PRIMARY : DPAL_TEXT_MUTED,
-            }}
+            className="flex flex-col items-center justify-center flex-1 min-w-0 py-2 transition-colors touch-manipulation active:scale-95"
+            style={{ minHeight: `${TOUCH_MIN}px` }}
             aria-label={label}
             aria-current={isActive ? 'page' : undefined}
           >
             <span
-              className={`flex items-center justify-center rounded-full transition-colors ${
-                isReport ? 'bg-[#1e5f9e] text-white w-12 h-12 -mt-5' : ''
+              className={`flex items-center justify-center rounded-full transition-all ${
+                isReport
+                  ? 'bg-cyan-500 text-black w-12 h-12 -mt-5 border-2 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.4)]'
+                  : isActive
+                    ? 'text-cyan-400'
+                    : 'text-zinc-500'
               }`}
-              style={isReport && isActive ? { backgroundColor: DPAL_PRIMARY, color: '#fff' } : {}}
             >
               {icon}
             </span>
             <span
-              className="text-[10px] font-semibold mt-1 truncate max-w-full px-0.5"
-              style={{ color: isActive ? DPAL_PRIMARY : DPAL_TEXT_MUTED }}
+              className={`text-[10px] font-bold mt-1 truncate max-w-full px-0.5 uppercase tracking-wider ${
+                isActive ? 'text-cyan-400' : 'text-zinc-500'
+              }`}
             >
               {label}
             </span>

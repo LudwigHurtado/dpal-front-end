@@ -18,7 +18,7 @@ const MobileLayout: React.FC<MobileLayoutProps> = ({
 }) => {
   return (
     <div
-      className="dpal-mobile-ui min-h-screen flex flex-col bg-[#f8fafc]"
+      className="dpal-mobile-ui min-h-screen flex flex-col bg-zinc-950 text-zinc-100 font-mono"
       style={{ paddingTop: SAFE_TOP }}
     >
       <main

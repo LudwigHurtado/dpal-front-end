@@ -9,6 +9,7 @@ import MobileCaseFeedView from './components/mobile/MobileCaseFeedView';
 import MobileHomeView from './components/mobile/MobileHomeView';
 import MobileAlertsView from './components/mobile/MobileAlertsView';
 import MobileProfileView from './components/mobile/MobileProfileView';
+import MobileCaseDetailView from './components/mobile/MobileCaseDetailView';
 import type { MobileTab } from './components/mobile/MobileBottomNav';
 import FilterPanel from './components/FilterPanel';
 import MainContentPanel from './components/MainContentPanel';
@@ -371,12 +372,16 @@ const App: React.FC = () => {
     return (
       <MobileLayout activeTab={mobileTab} onTabChange={setMobileTab}>
         {mobileSubView === 'reportDetail' && selectedReportForIncidentRoom ? (
-          <IncidentRoomView
+          <MobileCaseDetailView
             report={selectedReportForIncidentRoom}
-            hero={heroWithRank}
             onReturn={() => setMobileSubView(null)}
-            messages={[]}
-            onSendMessage={() => {}}
+            onConfirmWitness={() => {}}
+            onAddEvidence={() => {}}
+            onMessageReporter={() => {}}
+            onUpdateReport={(r, updates) => {
+              setReports(prev => prev.map(report => report.id === r.id ? { ...report, ...updates } : report));
+              setSelectedReportForIncidentRoom(prev => prev && prev.id === r.id ? { ...prev, ...updates } : prev);
+            }}
           />
         ) : (
           <>
