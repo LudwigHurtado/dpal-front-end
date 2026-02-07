@@ -10,6 +10,7 @@ import MobileHomeView from './components/mobile/MobileHomeView';
 import MobileAlertsView from './components/mobile/MobileAlertsView';
 import MobileProfileView from './components/mobile/MobileProfileView';
 import MobileCaseDetailView from './components/mobile/MobileCaseDetailView';
+import MobileFiltersView, { type MobileFiltersState } from './components/mobile/MobileFiltersView';
 import type { MobileTab } from './components/mobile/MobileBottomNav';
 import FilterPanel from './components/FilterPanel';
 import MainContentPanel from './components/MainContentPanel';
@@ -172,6 +173,8 @@ const App: React.FC = () => {
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   const [mobileTab, setMobileTab] = useState<MobileTab>('home');
   const [mobileSubView, setMobileSubView] = useState<null | 'reportDetail'>(null);
+  const [mobileShowFilters, setMobileShowFilters] = useState(false);
+  const [mobileFilters, setMobileFilters] = useState<MobileFiltersState | null>(null);
   const [preferDesktop, setPreferDesktop] = useState(false);
   useEffect(() => {
     const onResize = () => setIsMobileViewport(window.innerWidth < 768);
@@ -383,6 +386,12 @@ const App: React.FC = () => {
               setSelectedReportForIncidentRoom(prev => prev && prev.id === r.id ? { ...prev, ...updates } : prev);
             }}
           />
+        ) : mobileShowFilters ? (
+          <MobileFiltersView
+            onBack={() => setMobileShowFilters(false)}
+            onApply={(f) => { setMobileFilters(f); setMobileShowFilters(false); }}
+            initialFilters={mobileFilters ?? undefined}
+          />
         ) : (
           <>
             {(mobileTab === 'home' || mobileTab === 'search') && (
@@ -392,6 +401,10 @@ const App: React.FC = () => {
                   setSelectedReportForIncidentRoom(r);
                   setMobileSubView('reportDetail');
                 }}
+                onOpenFilters={() => setMobileShowFilters(true)}
+                filterRadiusKm={mobileFilters?.radiusKm}
+                filterDateRange={mobileFilters?.dateRange}
+                filterWithEvidenceOnly={mobileFilters?.onlyWithEvidence}
               />
             )}
             {mobileTab === 'report' && (

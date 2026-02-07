@@ -45,7 +45,7 @@ const MobileBottomNav: React.FC<MobileBottomNavProps> = ({ activeTab, onTabChang
             <span
               className={`flex items-center justify-center rounded-full transition-all ${
                 isReport
-                  ? 'bg-cyan-500 text-black w-12 h-12 -mt-5 border-2 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.4)]'
+                  ? 'bg-emerald-500 text-white w-12 h-12 -mt-5 border-2 border-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.4)]'
                   : isActive
                     ? 'text-cyan-400'
                     : 'text-zinc-500'

@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Category, Report, SeverityLevel } from '../../types';
 import { CATEGORIES_WITH_ICONS } from '../../constants';
-import { MapPin, Camera, Mic, ShieldCheck } from '../icons';
+import { MapPin, Camera, Mic, ShieldCheck, User, ChevronDown } from '../icons';
 
 const TOUCH_MIN = 44;
+const HEADER_BLUE = '#2563eb';
 
 interface MobileSubmissionViewProps {
   onReturn?: () => void;
@@ -11,7 +12,13 @@ interface MobileSubmissionViewProps {
   onSuccess?: () => void;
 }
 
-const VERIFICATION_LEVELS = ['Draft', 'Community', 'Verified'] as const;
+const SEVERITY_OPTIONS: SeverityLevel[] = ['Informational', 'Standard', 'Critical', 'Catastrophic'];
+const SUB_CATEGORIES: Record<string, string[]> = {
+  [Category.AccidentsRoadHazards]: ['Damaged Sign', 'Pothole', 'Flooding', 'Other'],
+  [Category.Environment]: ['Illegal Dumping', 'Pollution', 'Other'],
+  [Category.PublicSafetyAlerts]: ['Safety Issue', 'Hazard', 'Other'],
+};
+const DEFAULT_SUBS: string[] = ['Damaged Sign', 'Pothole', 'Other'];
 
 const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
   addReport,
@@ -22,9 +29,14 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
   const [location, setLocation] = useState('');
   const [address, setAddress] = useState('');
   const [whatHappened, setWhatHappened] = useState('');
-  const [verificationLevel, setVerificationLevel] = useState<(typeof VERIFICATION_LEVELS)[number]>('Community');
+  const [severity, setSeverity] = useState<SeverityLevel>('Standard');
+  const [repeatIssue, setRepeatIssue] = useState(false);
   const [markSensitive, setMarkSensitive] = useState(false);
   const [submitPublic, setSubmitPublic] = useState(true);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [subcategoryOpen, setSubcategoryOpen] = useState(false);
+
+  const subOptions = category ? (SUB_CATEGORIES[category] || DEFAULT_SUBS) : [];
 
   const handleUseMyLocation = () => {
     if (navigator.geolocation) {
@@ -42,8 +54,8 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
       description: whatHappened,
       category,
       location: location || address || 'Not specified',
-      trustScore: verificationLevel === 'Verified' ? 85 : verificationLevel === 'Community' ? 50 : 20,
-      severity: 'Standard' as SeverityLevel,
+      trustScore: 50,
+      severity,
       isActionable: true,
     };
     addReport(reportPayload);
@@ -51,131 +63,159 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
   };
 
   const canSubmit = category && whatHappened.trim().length > 0;
+  const now = new Date();
+  const timeStr = `${now.toLocaleDateString(undefined, { month: 'short' })} ${now.getDate()} ${now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 
   return (
-    <div className="dpal-mobile-ui min-h-full bg-zinc-950 pb-8">
-      <div className="sticky top-0 z-10 bg-zinc-900 border-b border-zinc-800 px-4 py-3">
-        <h1 className="text-xl font-bold text-white uppercase tracking-tight">Create Report</h1>
-        <select
-          value={verificationLevel}
-          onChange={(e) => setVerificationLevel(e.target.value as (typeof VERIFICATION_LEVELS)[number])}
-          className="mt-2 text-sm font-bold text-zinc-300 border border-zinc-700 rounded-lg px-3 py-1.5 bg-zinc-800"
-        >
-          {VERIFICATION_LEVELS.map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
-      </div>
+    <div className="min-h-full bg-zinc-950 pb-8">
+      {/* Header: User | DPAL logo */}
+      <header className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-zinc-800" style={{ backgroundColor: HEADER_BLUE }}>
+        <button type="button" className="p-2 rounded-full bg-white/20 text-white touch-manipulation" aria-label="Profile">
+          <User className="w-6 h-6" />
+        </button>
+        <span className="text-lg font-bold text-white tracking-tight">DPAL</span>
+        <div className="w-10" />
+      </header>
 
-      <div className="px-4 py-6 space-y-6 max-w-lg mx-auto">
-        <section>
-          <label className="block text-sm font-bold text-cyan-400 uppercase tracking-wider mb-2">Category</label>
-          <div className="flex flex-wrap gap-2">
-            {CATEGORIES_WITH_ICONS.slice(0, 12).map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => setCategory(c.value)}
-                className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border text-sm font-bold uppercase touch-manipulation transition-colors ${
-                  category === c.value ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-zinc-900 border-zinc-700 text-zinc-400'
-                }`}
-                style={{ minHeight: `${TOUCH_MIN}px` }}
-              >
-                <span>{c.icon}</span>
-                <span className="truncate max-w-[120px]">{c.value}</span>
-              </button>
-            ))}
-          </div>
-          {category && (
-            <input
-              type="text"
-              placeholder="Subcategory (optional)"
-              value={subcategory}
-              onChange={(e) => setSubcategory(e.target.value)}
-              className="dpal-input w-full mt-2"
-            />
+      <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
+        <h1 className="text-lg font-bold text-white">Create Report</h1>
+
+        {/* Category dropdown */}
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Category</label>
+          <button
+            type="button"
+            onClick={() => setCategoryOpen(!categoryOpen)}
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-white text-left"
+          >
+            <span>{category ? CATEGORIES_WITH_ICONS.find(c => c.value === category)?.value ?? category : 'Select category'}</span>
+            <ChevronDown className="w-5 h-5 text-zinc-500" />
+          </button>
+          {categoryOpen && (
+            <div className="mt-1 rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">
+              {CATEGORIES_WITH_ICONS.slice(0, 14).map((c) => (
+                <button key={c.value} type="button" onClick={() => { setCategory(c.value); setCategoryOpen(false); }} className="w-full px-4 py-2 text-left text-white text-sm hover:bg-zinc-800">
+                  {c.icon} {c.value}
+                </button>
+              ))}
+            </div>
           )}
-        </section>
+        </div>
 
-        <section>
-          <label className="block text-sm font-bold text-cyan-400 uppercase tracking-wider mb-2">Location</label>
+        {/* Subcategory dropdown */}
+        {category && (
+          <div>
+            <label className="block text-xs font-medium text-zinc-400 mb-1">Subcategory</label>
+            <button
+              type="button"
+              onClick={() => setSubcategoryOpen(!subcategoryOpen)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-white text-left"
+            >
+              <span>{subcategory || 'Select subcategory'}</span>
+              <ChevronDown className="w-5 h-5 text-zinc-500" />
+            </button>
+            {subcategoryOpen && (
+              <div className="mt-1 rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">
+                {subOptions.map((s) => (
+                  <button key={s} type="button" onClick={() => { setSubcategory(s); setSubcategoryOpen(false); }} className="w-full px-4 py-2 text-left text-white text-sm hover:bg-zinc-800">{s}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Location - blue button */}
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">Location</label>
           <button
             type="button"
             onClick={handleUseMyLocation}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-zinc-700 text-cyan-400 font-bold uppercase touch-manipulation hover:border-cyan-500"
-            style={{ minHeight: `${TOUCH_MIN}px` }}
+            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold touch-manipulation"
+            style={{ backgroundColor: HEADER_BLUE }}
           >
             <MapPin className="w-5 h-5" />
-            Use my location
+            Use My Current Location
           </button>
           <input
             type="text"
-            placeholder="Address (optional)"
+            placeholder="Enter Address"
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="dpal-input w-full mt-2"
+            className="w-full mt-2 px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-500"
           />
-          {location && <p className="text-xs text-zinc-500 mt-1">{location}</p>}
-        </section>
+        </div>
 
-        <section>
-          <label className="block text-sm font-bold text-cyan-400 uppercase tracking-wider mb-2">What happened?</label>
+        {/* What happened? */}
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-1">What happened?</label>
           <textarea
-            placeholder="Brief description..."
+            placeholder="Describe the issue..."
             value={whatHappened}
             onChange={(e) => setWhatHappened(e.target.value)}
             rows={4}
-            className="dpal-input w-full resize-none"
+            className="w-full px-4 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-500 resize-none"
           />
-        </section>
+        </div>
 
-        <section>
-          <label className="block text-sm font-bold text-cyan-400 uppercase tracking-wider mb-2">Add Evidence</label>
+        {/* Add Evidence */}
+        <div>
+          <label className="block text-xs font-medium text-zinc-400 mb-2">Add Evidence</label>
           <div className="flex gap-3">
-            <button type="button" className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 font-bold uppercase touch-manipulation hover:border-cyan-500" style={{ minHeight: 72 }}>
-              <Camera className="w-7 h-7 text-cyan-500" />
-              <span className="text-xs">Photos</span>
+            <button type="button" className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 touch-manipulation" style={{ minHeight: 72 }}>
+              <Camera className="w-7 h-7" style={{ color: HEADER_BLUE }} />
+              <span className="text-xs">Photo</span>
             </button>
-            <button type="button" className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 font-bold uppercase touch-manipulation hover:border-cyan-500" style={{ minHeight: 72 }}>
+            <button type="button" className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 touch-manipulation" style={{ minHeight: 72 }}>
               <span className="text-2xl">🎥</span>
               <span className="text-xs">Video</span>
             </button>
-            <button type="button" className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 font-bold uppercase touch-manipulation hover:border-cyan-500" style={{ minHeight: 72 }}>
-              <Mic className="w-7 h-7 text-cyan-500" />
+            <button type="button" className="flex-1 flex flex-col items-center justify-center gap-2 py-4 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-400 touch-manipulation" style={{ minHeight: 72 }}>
+              <Mic className="w-7 h-7" style={{ color: HEADER_BLUE }} />
               <span className="text-xs">Audio</span>
             </button>
           </div>
-        </section>
+        </div>
 
-        {category && (
-          <section>
-            <label className="block text-sm font-bold text-cyan-400 uppercase tracking-wider mb-2">Details</label>
-            <div className="flex flex-wrap gap-2">
-              {['Severity', 'Date/Time', 'Repeat issue?'].map((chip) => (
-                <span key={chip} className="px-3 py-1.5 rounded-lg bg-zinc-800 text-zinc-400 text-sm font-bold">
-                  {chip}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
+        {/* Severity + Date/Time row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex gap-1">
+            {SEVERITY_OPTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setSeverity(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium touch-manipulation ${
+                  severity === s ? 'bg-amber-500 text-black' : 'bg-zinc-800 text-zinc-400'
+                }`}
+              >
+                {s === 'Informational' ? 'Low' : s === 'Standard' ? 'Medium' : s === 'Critical' ? 'High' : 'Critical+'}
+              </button>
+            ))}
+          </div>
+          <span className="text-xs text-zinc-500 flex items-center gap-1">
+            {timeStr}
+            <ChevronDown className="w-4 h-4" />
+          </span>
+        </div>
 
-        <section className="space-y-3">
-          <p className="text-xs text-zinc-500 flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-emerald-500" />
-            No personal info — keep descriptions factual and anonymous where possible.
-          </p>
-          <label className="flex items-center gap-3 touch-manipulation cursor-pointer">
-            <input type="checkbox" checked={markSensitive} onChange={(e) => setMarkSensitive(e.target.checked)} className="w-5 h-5 rounded border-zinc-600 text-cyan-500 bg-zinc-800" />
-            <span className="text-sm font-bold text-zinc-300">Mark as sensitive</span>
-          </label>
-        </section>
+        {/* Repeat Issue toggle */}
+        <label className="flex items-center justify-between py-2 touch-manipulation cursor-pointer">
+          <span className="text-sm text-zinc-300">Repeat Issue?</span>
+          <input type="checkbox" checked={repeatIssue} onChange={(e) => setRepeatIssue(e.target.checked)} className="w-5 h-5 rounded border-zinc-600 text-blue-500 bg-zinc-800" />
+        </label>
 
-        <div className="flex gap-3 pt-4">
+        {/* Sensitive checkbox */}
+        <label className="flex items-start gap-3 py-2 touch-manipulation cursor-pointer">
+          <input type="checkbox" checked={markSensitive} onChange={(e) => setMarkSensitive(e.target.checked)} className="w-5 h-5 mt-0.5 rounded border-zinc-600 text-blue-500 bg-zinc-800" />
+          <span className="text-sm text-zinc-400">Mark as Sensitive (Visible to Trusted & Verified Users Only)</span>
+        </label>
+
+        {/* Submit buttons */}
+        <div className="flex gap-3 pt-2">
           <button
             type="button"
             onClick={() => setSubmitPublic(true)}
-            className={`flex-1 py-3 rounded-xl font-bold uppercase touch-manipulation ${submitPublic ? 'bg-cyan-500 text-black border border-cyan-400' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
+            className={`flex-1 py-3 rounded-xl font-semibold touch-manipulation ${submitPublic ? 'bg-emerald-500 text-white' : 'bg-zinc-800 text-zinc-400'}`}
             style={{ minHeight: TOUCH_MIN }}
           >
             Submit Public
@@ -183,21 +223,22 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
           <button
             type="button"
             onClick={() => setSubmitPublic(false)}
-            className={`flex-1 py-3 rounded-xl font-bold uppercase touch-manipulation ${!submitPublic ? 'bg-cyan-500 text-black border border-cyan-400' : 'bg-zinc-800 text-zinc-400 border border-zinc-700'}`}
+            className={`flex-1 py-3 rounded-xl font-semibold touch-manipulation ${!submitPublic ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-zinc-400'}`}
             style={{ minHeight: TOUCH_MIN }}
           >
-            Trusted only
+            Submit Private
           </button>
         </div>
         <button
           type="button"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className="dpal-btn-primary w-full mt-2"
+          className="w-full py-3 rounded-xl font-semibold touch-manipulation bg-blue-600 text-white disabled:opacity-50"
           style={{ minHeight: 52 }}
         >
           Submit Report
         </button>
+        <p className="text-center text-xs text-zinc-500">Your personal info is kept private.</p>
       </div>
     </div>
   );
