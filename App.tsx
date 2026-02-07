@@ -1,7 +1,15 @@
 /// <reference types="vite/client" />
 
+import './styles/mobile-theme.css';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
+import MobileLayout from './components/mobile/MobileLayout';
+import MobileSubmissionView from './components/mobile/MobileSubmissionView';
+import MobileCaseFeedView from './components/mobile/MobileCaseFeedView';
+import MobileHomeView from './components/mobile/MobileHomeView';
+import MobileAlertsView from './components/mobile/MobileAlertsView';
+import MobileProfileView from './components/mobile/MobileProfileView';
+import type { MobileTab } from './components/mobile/MobileBottomNav';
 import FilterPanel from './components/FilterPanel';
 import MainContentPanel from './components/MainContentPanel';
 import HeroHub from './components/HeroHub';
@@ -158,6 +166,18 @@ const App: React.FC = () => {
     }
     return [];
   });
+
+  /* Mobile UI: viewport-based layout and tab state */
+  const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
+  const [mobileTab, setMobileTab] = useState<MobileTab>('home');
+  const [mobileSubView, setMobileSubView] = useState<null | 'reportDetail'>(null);
+  const [preferDesktop, setPreferDesktop] = useState(false);
+  useEffect(() => {
+    const onResize = () => setIsMobileViewport(window.innerWidth < 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+  const useMobileLayout = isMobileViewport && !preferDesktop;
 
   useEffect(() => { localStorage.setItem('dpal-offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
@@ -346,6 +366,50 @@ const App: React.FC = () => {
     setReports(prev => [report, ...prev]);
     return report;
   };
+
+  if (useMobileLayout) {
+    return (
+      <MobileLayout activeTab={mobileTab} onTabChange={setMobileTab}>
+        {mobileSubView === 'reportDetail' && selectedReportForIncidentRoom ? (
+          <IncidentRoomView
+            report={selectedReportForIncidentRoom}
+            hero={heroWithRank}
+            onReturn={() => setMobileSubView(null)}
+            messages={[]}
+            onSendMessage={() => {}}
+          />
+        ) : (
+          <>
+            {(mobileTab === 'home' || mobileTab === 'search') && (
+              <MobileCaseFeedView
+                reports={reports}
+                onOpenReport={(r) => {
+                  setSelectedReportForIncidentRoom(r);
+                  setMobileSubView('reportDetail');
+                }}
+              />
+            )}
+            {mobileTab === 'report' && (
+              <MobileSubmissionView
+                addReport={handleAddReport}
+                onSuccess={() => setMobileTab('home')}
+              />
+            )}
+            {mobileTab === 'alerts' && <MobileAlertsView />}
+            {mobileTab === 'profile' && (
+              <MobileProfileView
+                hero={heroWithRank}
+                onNavigateToFullProfile={() => {
+                  setPreferDesktop(true);
+                  setCurrentView('heroHub');
+                }}
+              />
+            )}
+          </>
+        )}
+      </MobileLayout>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">

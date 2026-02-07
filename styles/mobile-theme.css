@@ -1,0 +1,113 @@
+/**
+ * DPAL Mobile UI Design System
+ * Theme: Light (clean, high trust)
+ * Primary: DPAL Blue (actions/links)
+ * Secondary: Green (verified/positive)
+ * Warning: Amber (unverified / needs review)
+ */
+
+:root {
+  /* DPAL Mobile palette */
+  --dpal-primary: #1e5f9e;
+  --dpal-primary-hover: #164a7a;
+  --dpal-primary-light: #e8f1fa;
+  --dpal-secondary: #0d7d4a;
+  --dpal-secondary-hover: #066338;
+  --dpal-secondary-light: #e6f4ee;
+  --dpal-warning: #b45309;
+  --dpal-warning-hover: #924308;
+  --dpal-warning-light: #fef3e6;
+
+  /* Surfaces */
+  --dpal-bg: #f8fafc;
+  --dpal-surface: #ffffff;
+  --dpal-surface-elevated: #ffffff;
+  --dpal-border: #e2e8f0;
+  --dpal-border-strong: #cbd5e1;
+
+  /* Text */
+  --dpal-text-primary: #0f172a;
+  --dpal-text-secondary: #475569;
+  --dpal-text-muted: #94a3b8;
+
+  /* One-thumb friendly */
+  --dpal-touch-min: 44px;
+  --dpal-bottom-nav-height: 56px;
+  --dpal-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --dpal-safe-top: env(safe-area-inset-top, 0px);
+}
+
+/* Apply only when mobile layout is active */
+.dpal-mobile-ui {
+  background-color: var(--dpal-bg) !important;
+  color: var(--dpal-text-primary);
+}
+
+.dpal-mobile-ui .dpal-btn-primary {
+  background-color: var(--dpal-primary);
+  color: #fff;
+  min-height: var(--dpal-touch-min);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  border: none;
+}
+
+.dpal-mobile-ui .dpal-btn-primary:active {
+  background-color: var(--dpal-primary-hover);
+}
+
+.dpal-mobile-ui .dpal-btn-secondary {
+  background-color: var(--dpal-secondary);
+  color: #fff;
+  min-height: var(--dpal-touch-min);
+  padding: 12px 20px;
+  border-radius: 12px;
+  font-weight: 600;
+  border: none;
+}
+
+.dpal-mobile-ui .dpal-chip-verified {
+  background-color: var(--dpal-secondary-light);
+  color: var(--dpal-secondary);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.dpal-mobile-ui .dpal-chip-warning {
+  background-color: var(--dpal-warning-light);
+  color: var(--dpal-warning);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.dpal-mobile-ui .dpal-card {
+  background: var(--dpal-surface);
+  border: 1px solid var(--dpal-border);
+  border-radius: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.dpal-mobile-ui .dpal-input {
+  min-height: var(--dpal-touch-min);
+  padding: 12px 16px;
+  border: 1px solid var(--dpal-border);
+  border-radius: 12px;
+  background: var(--dpal-surface);
+  color: var(--dpal-text-primary);
+  font-size: 16px; /* avoids iOS zoom on focus */
+}
+
+.dpal-mobile-ui .dpal-input::placeholder {
+  color: var(--dpal-text-muted);
+}
+
+.dpal-mobile-ui .dpal-input:focus {
+  outline: none;
+  border-color: var(--dpal-primary);
+  box-shadow: 0 0 0 3px var(--dpal-primary-light);
+}
