@@ -1,12 +1,21 @@
-import React from 'react';
-import { MapPin, ArrowLeft, ShieldCheck } from './icons';
+import React, { useMemo, useState } from 'react';
+import { MapPin, ArrowLeft, ShieldCheck, Loader } from './icons';
 
 interface MapHubViewProps {
   onReturnToMainMenu: () => void;
   onOpenFilters?: () => void;
+  /** Optional location query for map center (e.g. from filters or "Earth"). */
+  mapCenter?: string;
 }
 
-const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilters }) => {
+const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilters, mapCenter = 'Earth' }) => {
+  const [mapLoaded, setMapLoaded] = useState(false);
+
+  const mapUrl = useMemo(() => {
+    const query = (mapCenter && mapCenter.trim()) || 'Earth';
+    return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=k&z=12&ie=UTF8&iwloc=&output=embed`;
+  }, [mapCenter]);
+
   return (
     <div className="space-y-6 font-mono animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -28,13 +37,24 @@ const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilte
         )}
       </div>
 
-      <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/80 overflow-hidden aspect-[4/3] flex flex-col items-center justify-center min-h-[280px]">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(6,182,212,0.08),transparent_60%)] pointer-events-none" />
-        <MapPin className="w-16 h-16 text-zinc-600 mb-4" />
-        <h2 className="text-lg font-black uppercase tracking-widest text-zinc-500 mb-2">Map View</h2>
-        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-wider text-center max-w-[280px]">
-          Geospatial report map — coming soon. Use Filters to set location.
-        </p>
+      <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/80 overflow-hidden aspect-[4/3] min-h-[280px] flex flex-col">
+        {!mapLoaded && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/90 z-10">
+            <Loader className="w-10 h-10 text-cyan-500 animate-spin mb-3" />
+            <MapPin className="w-8 h-8 text-zinc-600 mb-2" />
+            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Loading Google Maps…</p>
+          </div>
+        )}
+        <iframe
+          src={mapUrl}
+          className="w-full h-full min-h-[280px] rounded-2xl border-0 transition-opacity duration-300"
+          style={{ opacity: mapLoaded ? 1 : 0 }}
+          title="Geospatial report map"
+          onLoad={() => setMapLoaded(true)}
+          allowFullScreen
+          loading="lazy"
+          referrerPolicy="no-referrer-when-downgrade"
+        />
       </div>
     </div>
   );

@@ -67,7 +67,8 @@ export type HeroHubTab =
 export type HubTab =
   | 'my_reports'
   | 'community'
-  | 'work_feed';
+  | 'work_feed'
+  | 'map';
 
 console.log("AI enabled?", Boolean(import.meta.env.VITE_GEMINI_API_KEY));
 console.log("API base:", import.meta.env.VITE_API_BASE);
@@ -265,12 +266,7 @@ const App: React.FC = () => {
 
         // ✅ SAFE hub navigation
         if (view === 'hub') {
-          const allowedHubTabs: HubTab[] = [
-            'my_reports',
-            'community',
-            'work_feed',
-          ];
-
+          const allowedHubTabs: HubTab[] = ['my_reports', 'community', 'work_feed', 'map'];
           if (targetTab && allowedHubTabs.includes(targetTab as HubTab)) {
             setHubTab(targetTab as HubTab);
           } else {
@@ -478,7 +474,7 @@ const App: React.FC = () => {
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 min-h-0">
               <div className="w-full lg:col-span-8 min-h-[400px]">
-                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} />
+                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} mapCenter={filters.location || undefined} />
               </div>
               <div className="hidden lg:block lg:col-span-4">
                 <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />

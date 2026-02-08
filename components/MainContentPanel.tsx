@@ -4,8 +4,9 @@ import type { Report, FeedAnalysis } from '../types';
 import FeedPanel from './FeedPanel';
 import MyReportsList from './MyReportsList';
 import CommunityWorkFeed from './CommunityWorkFeed';
+import MapHubView from './MapHubView';
 import { useTranslations } from '../i18n';
-import { User, List, ArrowLeft, Zap, ShieldCheck, Activity, ListFilter } from './icons';
+import { User, List, ArrowLeft, Zap, ShieldCheck, Activity, ListFilter, Map } from './icons';
 import { type HubTab } from '../App';
 
 interface MainContentPanelProps {
@@ -21,15 +22,18 @@ interface MainContentPanelProps {
   setActiveTab: (tab: HubTab) => void;
   onAddNewReport: () => void;
   onOpenFilters?: () => void;
+  /** Optional location for Map tab center (e.g. from filters). */
+  mapCenter?: string;
 }
 
-const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, activeTab, setActiveTab, onAddNewReport, ...rest }) => {
+const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, activeTab, setActiveTab, onAddNewReport, mapCenter, ...rest }) => {
   const { t } = useTranslations();
   
   const tabs = [
     { id: 'my_reports', label: t('mainContent.myReports'), icon: User },
     { id: 'community', label: t('mainContent.communityFeed'), icon: List },
     { id: 'work_feed', label: 'WORK_LOG', icon: Activity },
+    { id: 'map', label: 'Map', icon: Map },
   ];
 
   const renderContent = () => {
@@ -40,6 +44,8 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
         return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} {...rest} />;
       case 'work_feed':
         return <CommunityWorkFeed />;
+      case 'map':
+        return <MapHubView onReturnToMainMenu={onReturnToMainMenu} onOpenFilters={rest.onOpenFilters} mapCenter={mapCenter} />;
       default:
         return null;
     }
