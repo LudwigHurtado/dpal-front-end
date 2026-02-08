@@ -30,9 +30,7 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
   const [showOnlyActionable, setShowOnlyActionable] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowIntro(false);
-    }, 2500);
+    const timer = setTimeout(() => setShowIntro(false), 800);
     return () => clearTimeout(timer);
   }, []);
 
@@ -62,42 +60,15 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
     setTimeout(() => setIsQuerying(false), 800);
   };
 
-  if (showIntro) {
-    return (
-      <div className="fixed inset-0 bg-black z-[300] flex flex-col items-center justify-center font-mono overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.1),transparent_70%)] animate-pulse"></div>
-        
-        <div className="relative z-10 text-center space-y-8 px-6">
-            <div className="p-8 bg-emerald-500/10 rounded-full border-4 border-emerald-500/30 inline-block animate-bounce-slow shadow-[0_0_50px_rgba(16,185,129,0.2)]">
-                <Database className="w-20 h-20 text-emerald-400" />
-            </div>
-            
-            <div className="space-y-4">
-                <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter leading-none animate-fade-up">
-                    Forensic_Ledger_Archive
-                </h1>
-                <p className="text-emerald-500 font-black uppercase tracking-[0.4em] text-xs animate-pulse">
-                    [STATUS: RECONSTRUCTING_HI_FI_TELEMETRY]
-                </p>
-                <div className="h-1 w-64 bg-zinc-900 mx-auto rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500 animate-loading-bar"></div>
-                </div>
-            </div>
-        </div>
-
-        <style>{`
-            @keyframes fade-up { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            @keyframes loading-bar { 0% { width: 0; } 100% { width: 100%; } }
-            .animate-bounce-slow { animation: bounce 3s infinite; }
-            .animate-fade-up { animation: fade-up 0.8s ease-out forwards; }
-            .animate-loading-bar { animation: loading-bar 2s ease-in-out forwards; }
-        `}</style>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col h-[calc(100vh-120px)] lg:h-[85vh] bg-zinc-950 text-white rounded-[2.5rem] border border-zinc-800 shadow-2xl animate-fade-in font-mono overflow-hidden">
+    <div className="relative flex flex-col min-h-[70vh] bg-zinc-950 text-white rounded-[2.5rem] border border-zinc-800 shadow-2xl font-mono overflow-hidden">
+      {showIntro && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 z-10 rounded-[2.5rem]">
+          <Database className="w-16 h-16 text-emerald-400 animate-pulse mb-4" />
+          <p className="text-emerald-500 text-xs font-bold uppercase tracking-wider">Loading ledger...</p>
+        </div>
+      )}
+      <div className={`flex flex-col flex-1 min-h-0 ${showIntro ? 'invisible' : ''}`}>
         <header className="bg-zinc-900/80 border-b border-zinc-800 px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 flex-shrink-0 z-10">
             <button onClick={onReturn} className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-cyan-400 transition-colors group">
                 <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
@@ -201,6 +172,7 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                 </div>
             </main>
         </div>
+      </div>
     </div>
   );
 };

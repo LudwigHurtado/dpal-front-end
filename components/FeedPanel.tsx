@@ -62,6 +62,8 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  const toTime = (r: Report) => (r.timestamp instanceof Date ? r.timestamp : new Date((r as any).timestamp)).getTime();
+
   const displayedReports = useMemo(() => {
     let reportsToDisplay = reports;
     if (activeTopic && analysis) {
@@ -73,23 +75,27 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
     }
 
     const sortedReports = [...reportsToDisplay];
-    switch (sortBy) {
+    try {
+      switch (sortBy) {
         case 'oldest':
-            sortedReports.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-            break;
+          sortedReports.sort((a, b) => toTime(a) - toTime(b));
+          break;
         case 'category':
-            sortedReports.sort((a, b) => {
-                const catAInfo = CATEGORIES_WITH_ICONS.find(c => c.value === a.category);
-                const catBInfo = CATEGORIES_WITH_ICONS.find(c => c.value === b.category);
-                const nameA = catAInfo ? t(catAInfo.translationKey) : a.category;
-                const nameB = catBInfo ? t(catBInfo.translationKey) : b.category;
-                return nameA.localeCompare(nameB);
-            });
-            break;
+          sortedReports.sort((a, b) => {
+            const catAInfo = CATEGORIES_WITH_ICONS.find(c => c.value === a.category);
+            const catBInfo = CATEGORIES_WITH_ICONS.find(c => c.value === b.category);
+            const nameA = catAInfo ? t(catAInfo.translationKey) : a.category;
+            const nameB = catBInfo ? t(catBInfo.translationKey) : b.category;
+            return nameA.localeCompare(nameB);
+          });
+          break;
         case 'recent':
         default:
-            sortedReports.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
-            break;
+          sortedReports.sort((a, b) => toTime(b) - toTime(a));
+          break;
+      }
+    } catch (_) {
+      // fallback if timestamp is invalid
     }
     return sortedReports;
   }, [reports, analysis, activeTopic, sortBy, t]);
