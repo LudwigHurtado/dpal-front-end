@@ -19,7 +19,7 @@ const ITEMS: { view: View; label: string; icon: React.ElementType }[] = [
 const BottomNav: React.FC<BottomNavProps> = ({ currentView, onNavigate, className = '' }) => {
   return (
     <nav
-      className={`md:hidden fixed bottom-0 left-0 right-0 z-[90] bg-zinc-950/95 border-t border-zinc-800 backdrop-blur-md safe-area-pb ${className}`}
+      className={`fixed bottom-0 left-0 right-0 z-[90] bg-zinc-950/95 border-t border-zinc-800 backdrop-blur-md safe-area-pb ${className}`}
       aria-label="Primary navigation"
     >
       <div className="flex items-center justify-around h-16 px-2">

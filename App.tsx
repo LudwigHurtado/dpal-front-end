@@ -442,7 +442,7 @@ const App: React.FC = () => {
         setTextScale={setGlobalTextScale}
       />
       
-      <main className={`container mx-auto px-4 py-8 flex-grow relative z-10 ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24 md:pb-8' : ''}`}>
+      <main className={`container mx-auto px-4 py-8 flex-grow relative z-10 ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -474,11 +474,10 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'hub' && (
-          <div className="space-y-6 md:space-y-10">
+          <div className="space-y-6 md:space-y-10 min-h-0 flex flex-col">
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
-            {/* Community feed: always show feed layout so Feed and Ledger nav work reliably */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-              <div className="w-full lg:col-span-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 min-h-0">
+              <div className="w-full lg:col-span-8 min-h-[400px]">
                 <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} />
               </div>
               <div className="hidden lg:block lg:col-span-4">
