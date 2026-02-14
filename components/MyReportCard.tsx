@@ -48,19 +48,24 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat }) => {
 
   useEffect(() => {
     let objectUrl: string | null = null;
-    if (report.imageUrls && report.imageUrls.length > 0) {
-        setPrimaryImageUrl(report.imageUrls[0]);
-    } else if (report.attachments && report.attachments.length > 0) {
-        const imageFile = report.attachments.find(f => f.type.startsWith('image/'));
-        if (imageFile) {
-            objectUrl = URL.createObjectURL(imageFile);
-            setPrimaryImageUrl(objectUrl);
-        }
-    } else {
+    const imageUrls = Array.isArray((report as any).imageUrls) ? (report as any).imageUrls : [];
+    const attachments = Array.isArray((report as any).attachments) ? (report as any).attachments : [];
+
+    if (imageUrls.length > 0) {
+      setPrimaryImageUrl(typeof imageUrls[0] === 'string' ? imageUrls[0] : null);
+    } else if (attachments.length > 0) {
+      const imageFile = attachments.find((f: any) => f && typeof f.type === 'string' && f.type.startsWith('image/'));
+      if (imageFile) {
+        objectUrl = URL.createObjectURL(imageFile as File);
+        setPrimaryImageUrl(objectUrl);
+      } else {
         setPrimaryImageUrl(null);
+      }
+    } else {
+      setPrimaryImageUrl(null);
     }
     return () => { if (objectUrl) URL.revokeObjectURL(objectUrl); };
-  }, [report.attachments, report.imageUrls]);
+  }, [report]);
 
   const timeAgo = (date: Date): string => {
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);

@@ -29,10 +29,13 @@ const BorderPulseEKG: React.FC = () => (
 const MyReportsList: React.FC<MyReportsListProps> = ({ reports, onJoinReportChat, onAddNewReport }) => {
   const { t } = useTranslations();
 
-  const myReports = useMemo(() => 
-    reports.filter(r => r.isAuthor).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()), 
-    [reports]
-  );
+  const myReports = useMemo(() => {
+    const toTime = (r: Report) => {
+      const d = r.timestamp instanceof Date ? r.timestamp : new Date((r as any).timestamp);
+      return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+    };
+    return reports.filter(r => r.isAuthor).sort((a, b) => toTime(b) - toTime(a));
+  }, [reports]);
 
   return (
     <div className="group/ledger bg-zinc-900/40 border border-zinc-800 rounded-[3rem] shadow-2xl overflow-hidden animate-fade-in relative p-1">
