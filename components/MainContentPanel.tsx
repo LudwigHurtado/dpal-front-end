@@ -26,7 +26,7 @@ interface MainContentPanelProps {
   mapCenter?: string;
 }
 
-const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, activeTab, setActiveTab, onAddNewReport, mapCenter, ...rest }) => {
+const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, activeTab, setActiveTab, onAddNewReport, mapCenter, onOpenFilters, ...rest }) => {
   const { t } = useTranslations();
   
   const tabs = [
@@ -45,7 +45,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
       case 'work_feed':
         return <CommunityWorkFeed />;
       case 'map':
-        return <MapHubView onReturnToMainMenu={onReturnToMainMenu} onOpenFilters={rest.onOpenFilters} mapCenter={mapCenter} />;
+        return <MapHubView onReturnToMainMenu={onReturnToMainMenu} onOpenFilters={onOpenFilters} mapCenter={mapCenter} />;
       default:
         return null;
     }
