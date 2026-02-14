@@ -38,10 +38,11 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
     let result = [...reports];
     if (showOnlyActionable) result = result.filter(r => r.isActionable);
     if (filters.keyword) {
+      const q = filters.keyword.toLowerCase();
       result = result.filter(r =>
-          r.title.toLowerCase().includes(filters.keyword.toLowerCase()) ||
-          r.description.toLowerCase().includes(filters.keyword.toLowerCase()) ||
-          r.id.toLowerCase() === filters.keyword.toLowerCase()
+          (r.title || '').toString().toLowerCase().includes(q) ||
+          (r.description || '').toString().toLowerCase().includes(q) ||
+          (r.id || '').toString().toLowerCase() === q
       );
     }
     if (filters.selectedCategories.length > 0) {
@@ -49,7 +50,8 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
       result = result.filter(r => set.has(r.category));
     }
     if (filters.location) {
-        result = result.filter(r => r.location.toLowerCase().includes(filters.location.toLowerCase()));
+        const qLoc = filters.location.toLowerCase();
+        result = result.filter(r => (r.location || '').toString().toLowerCase().includes(qLoc));
     }
     const toTime = (r: Report) => (r.timestamp instanceof Date ? r.timestamp : new Date((r as any).timestamp)).getTime();
     return result.sort((a, b) => toTime(b) - toTime(a));
