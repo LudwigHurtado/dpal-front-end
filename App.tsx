@@ -32,6 +32,7 @@ import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
+import FieldMissionsView from './components/FieldMissionsView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY } from './constants';
 import type { HomeLayout } from './constants';
@@ -40,7 +41,17 @@ import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'subscription' | 'aiSetup';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'subscription' | 'aiSetup' | 'fieldMissions';
+
+/** Beacon published to the map for others to see (location shared with group) */
+export interface FieldBeacon {
+  id: string;
+  latitude: number;
+  longitude: number;
+  label?: string;
+  isOwn: boolean;
+  timestamp: number;
+}
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
 // ✅ ADD: strict tab types (removes `any`)
@@ -147,6 +158,7 @@ const App: React.FC = () => {
   const [itemForPayment, setItemForPayment] = useState<IapPack | StoreItem | null>(null);
   const [selectedMissionForDetail, setSelectedMissionForDetail] = useState<Mission | null>(null);
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
+  const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => localStorage.getItem('dpal-offline-mode') === 'true');
   const [directives, setDirectives] = useState<AiDirective[]>(() => {
@@ -368,7 +380,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -481,6 +493,27 @@ const App: React.FC = () => {
           <TransparencyDatabaseView onReturn={() => setCurrentView('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
+        {currentView === 'fieldMissions' && (
+          <FieldMissionsView
+            onReturn={() => setCurrentView('mainMenu')}
+            missions={missions}
+            beacons={fieldBeacons}
+            onPublishBeacon={(latitude, longitude, label) => {
+              setFieldBeacons((prev) => [
+                ...prev,
+                {
+                  id: `beacon-${Date.now()}`,
+                  latitude,
+                  longitude,
+                  label,
+                  isOwn: true,
+                  timestamp: Date.now(),
+                },
+              ]);
+            }}
+          />
+        )}
+
         {currentView === 'trainingHolodeck' && (
           <TrainingHolodeckView hero={heroWithRank} onReturn={() => setCurrentView('mainMenu')} onComplete={() => {}} />
         )}
@@ -510,7 +543,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) && (
+      {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && (
         <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
       )}
     </div>

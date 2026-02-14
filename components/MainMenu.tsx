@@ -272,6 +272,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerat
                 />
 
                 <PrimaryNavModule 
+                    icon={<Broadcast className="w-8 h-8" />}
+                    label="FIELD_MISSIONS"
+                    subLabel="Beacon, Map & Help Requests — Join or Offer Help"
+                    status="LIVE"
+                    colorClass="emerald"
+                    onClick={() => onNavigate('fieldMissions')}
+                />
+
+                <PrimaryNavModule 
                     icon={<Scale className="w-8 h-8" />}
                     label="AI_REGULATION"
                     subLabel="Oversight Protocols for Rogue Nodes"
