@@ -3,15 +3,6 @@
 import './styles/mobile-theme.css';
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
-import MobileLayout from './components/mobile/MobileLayout';
-import MobileSubmissionView from './components/mobile/MobileSubmissionView';
-import MobileCaseFeedView from './components/mobile/MobileCaseFeedView';
-import MobileHomeView from './components/mobile/MobileHomeView';
-import MobileAlertsView from './components/mobile/MobileAlertsView';
-import MobileProfileView from './components/mobile/MobileProfileView';
-import MobileCaseDetailView from './components/mobile/MobileCaseDetailView';
-import MobileFiltersView, { type MobileFiltersState } from './components/mobile/MobileFiltersView';
-import type { MobileTab } from './components/mobile/MobileBottomNav';
 import FilterPanel from './components/FilterPanel';
 import MainContentPanel from './components/MainContentPanel';
 import HeroHub from './components/HeroHub';
@@ -170,19 +161,14 @@ const App: React.FC = () => {
     return [];
   });
 
-  /* Mobile UI: viewport-based layout and tab state */
+  /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
-  const [mobileTab, setMobileTab] = useState<MobileTab>('home');
-  const [mobileSubView, setMobileSubView] = useState<null | 'reportDetail'>(null);
-  const [mobileShowFilters, setMobileShowFilters] = useState(false);
-  const [mobileFilters, setMobileFilters] = useState<MobileFiltersState | null>(null);
-  const [preferDesktop, setPreferDesktop] = useState(false);
   useEffect(() => {
     const onResize = () => setIsMobileViewport(window.innerWidth < 768);
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
-  const useMobileLayout = isMobileViewport && !preferDesktop;
+  const useMobileLayout = isMobileViewport;
 
   useEffect(() => { localStorage.setItem('dpal-offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
@@ -367,78 +353,22 @@ const App: React.FC = () => {
     return report;
   };
 
-  if (useMobileLayout) {
-    return (
-      <MobileLayout activeTab={mobileTab} onTabChange={setMobileTab}>
-        {mobileSubView === 'reportDetail' && selectedReportForIncidentRoom ? (
-          <MobileCaseDetailView
-            report={selectedReportForIncidentRoom}
-            onReturn={() => setMobileSubView(null)}
-            onConfirmWitness={() => {}}
-            onAddEvidence={() => {}}
-            onMessageReporter={() => {}}
-            onUpdateReport={(r, updates) => {
-              setReports(prev => prev.map(report => report.id === r.id ? { ...report, ...updates } : report));
-              setSelectedReportForIncidentRoom(prev => prev && prev.id === r.id ? { ...prev, ...updates } : prev);
-            }}
-          />
-        ) : mobileShowFilters ? (
-          <MobileFiltersView
-            onBack={() => setMobileShowFilters(false)}
-            onApply={(f) => { setMobileFilters(f); setMobileShowFilters(false); }}
-            initialFilters={mobileFilters ?? undefined}
-          />
-        ) : (
-          <>
-            {(mobileTab === 'home' || mobileTab === 'search') && (
-              <MobileCaseFeedView
-                reports={reports}
-                onOpenReport={(r) => {
-                  setSelectedReportForIncidentRoom(r);
-                  setMobileSubView('reportDetail');
-                }}
-                onOpenFilters={() => setMobileShowFilters(true)}
-                filterRadiusKm={mobileFilters?.radiusKm}
-                filterDateRange={mobileFilters?.dateRange}
-                filterWithEvidenceOnly={mobileFilters?.onlyWithEvidence}
-              />
-            )}
-            {mobileTab === 'report' && (
-              <MobileSubmissionView
-                addReport={handleAddReport}
-                onSuccess={() => setMobileTab('home')}
-              />
-            )}
-            {mobileTab === 'alerts' && <MobileAlertsView />}
-            {mobileTab === 'profile' && (
-              <MobileProfileView
-                hero={heroWithRank}
-                onNavigateToFullProfile={() => {
-                  setPreferDesktop(true);
-                  setCurrentView('heroHub');
-                }}
-              />
-            )}
-          </>
-        )}
-      </MobileLayout>
-    );
-  }
-
   return (
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
-      <Header 
-        onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
-        onNavigateHome={() => setCurrentView('mainMenu')} 
-        onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
-        onNavigateMissions={() => handleNavigate('liveIntelligence')} 
-        onNavigate={handleNavigate} 
-        hero={heroWithRank} 
-        textScale={globalTextScale} 
-        setTextScale={setGlobalTextScale}
-      />
+      {!useMobileLayout && (
+        <Header 
+          onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
+          onNavigateHome={() => setCurrentView('mainMenu')} 
+          onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
+          onNavigateMissions={() => handleNavigate('liveIntelligence')} 
+          onNavigate={handleNavigate} 
+          hero={heroWithRank} 
+          textScale={globalTextScale} 
+          setTextScale={setGlobalTextScale}
+        />
+      )}
       
-      <main className={`container mx-auto px-4 py-8 flex-grow relative z-10 ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase'].includes(currentView) ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
