@@ -10,12 +10,13 @@ function formatDistance(_report: ReportType): string {
   return d;
 }
 
-function formatTime(date: Date): string {
-  const d = new Date(date);
+function formatTime(date: Date | string | number | undefined): string {
+  const d = new Date(date as any);
+  if (Number.isNaN(d.getTime())) return 'recent';
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffMins = Math.floor(diffMs / 60000);
-  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffMins < 60) return `${Math.max(0, diffMins)}m ago`;
   const diffHours = Math.floor(diffMins / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
   return `${Math.floor(diffHours / 24)}d ago`;
@@ -71,12 +72,12 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
     }
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.description.toLowerCase().includes(q) ||
-          r.category.toLowerCase().includes(q),
-      );
+      list = list.filter((r) => {
+        const title = (r?.title || '').toString().toLowerCase();
+        const desc = (r?.description || '').toString().toLowerCase();
+        const cat = (r?.category || '').toString().toLowerCase();
+        return title.includes(q) || desc.includes(q) || cat.includes(q);
+      });
     }
     if (filterWithEvidenceOnly) {
       list = list.filter((r) => r.imageUrls?.length);
@@ -152,7 +153,8 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
         ) : (
           filteredReports.map((report) => {
             const verified = isVerified(report);
-            const imgUrl = report.imageUrls?.[0] || `https://picsum.photos/seed/${report.id}/400/200`;
+            const safeId = (report?.id || `rep-${Date.now()}`).toString();
+            const imgUrl = report.imageUrls?.[0] || `https://picsum.photos/seed/${safeId}/400/200`;
 
             return (
               <article
@@ -165,14 +167,14 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
                     <img src={imgUrl} alt="" className="w-full h-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-white line-clamp-1">{report.title}</h3>
+                    <h3 className="font-semibold text-white line-clamp-1">{(report.title || 'Untitled Report').toString()}</h3>
                     <p className="text-xs text-zinc-500 mt-0.5">
                       {formatDistance(report)} · {formatTime(report.timestamp)}
                     </p>
                     <p className={`text-xs mt-1 font-medium ${verified ? 'text-emerald-400' : 'text-red-400'}`}>
                       {verified ? '✓ Verified' : '✗ Unverified'}
                     </p>
-                    <p className="text-sm text-zinc-400 line-clamp-2 mt-1">{report.description}</p>
+                    <p className="text-sm text-zinc-400 line-clamp-2 mt-1">{(report.description || '').toString()}</p>
                   </div>
                 </div>
                 <div className="flex border-t border-zinc-800" onClick={(e) => e.stopPropagation()}>
