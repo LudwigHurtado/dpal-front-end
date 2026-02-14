@@ -76,12 +76,35 @@ console.log("AI enabled?", Boolean(import.meta.env.VITE_GEMINI_API_KEY));
 console.log("API base:", import.meta.env.VITE_API_BASE);
 
 const getInitialReports = (): Report[] => {
+  const normalizeReport = (r: any): Report => {
+    const parsedTs = new Date(r?.timestamp);
+    const safeTs = Number.isNaN(parsedTs.getTime()) ? new Date() : parsedTs;
+
+    return {
+      ...r,
+      id: r?.id || `rep-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: typeof r?.title === 'string' ? r.title : 'Untitled Report',
+      description: typeof r?.description === 'string' ? r.description : '',
+      location: typeof r?.location === 'string' ? r.location : 'Unknown',
+      category: r?.category || Category.Other,
+      timestamp: safeTs,
+      severity: r?.severity || 'Standard',
+      status: r?.status || 'Submitted',
+      trustScore: typeof r?.trustScore === 'number' ? r.trustScore : 70,
+    } as Report;
+  };
+
   const saved = localStorage.getItem('dpal-reports');
   if (saved) {
-    try { return JSON.parse(saved).map((r: any) => ({ ...r, timestamp: new Date(r.timestamp) })); } 
-    catch (e) { return MOCK_REPORTS; }
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed.map(normalizeReport);
+      return MOCK_REPORTS.map(normalizeReport);
+    } catch (e) {
+      return MOCK_REPORTS.map(normalizeReport);
+    }
   }
-  return MOCK_REPORTS;
+  return MOCK_REPORTS.map(normalizeReport);
 };
 
 const getInitialMissions = (): Mission[] => {
@@ -212,13 +235,17 @@ const App: React.FC = () => {
 
   const filteredReports = useMemo(() => {
     return reports.filter(report => {
-      const matchesKeyword = !filters.keyword || 
-        report.title.toLowerCase().includes(filters.keyword.toLowerCase()) ||
-        report.description.toLowerCase().includes(filters.keyword.toLowerCase());
-      const matchesCategory = filters.selectedCategories.length === 0 || 
-        filters.selectedCategories.includes(report.category);
-      const matchesLocation = !filters.location || 
-        report.location.toLowerCase().includes(filters.location.toLowerCase());
+      const title = (report.title || '').toString().toLowerCase();
+      const description = (report.description || '').toString().toLowerCase();
+      const location = (report.location || '').toString().toLowerCase();
+
+      const keyword = (filters.keyword || '').toLowerCase();
+      const locationFilter = (filters.location || '').toLowerCase();
+
+      const matchesKeyword = !keyword || title.includes(keyword) || description.includes(keyword);
+      const matchesCategory = filters.selectedCategories.length === 0 || filters.selectedCategories.includes(report.category);
+      const matchesLocation = !locationFilter || location.includes(locationFilter);
+
       return matchesKeyword && matchesCategory && matchesLocation;
     });
   }, [reports, filters]);
