@@ -21,17 +21,24 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
 
   useEffect(() => {
     let objectUrls: string[] = [];
-    if ((!report.imageUrls || report.imageUrls.length === 0) && report.attachments) {
-        const imageFiles = report.attachments.filter(f => f.type.startsWith('image/'));
+
+    const rawImageUrls = Array.isArray((report as any).imageUrls) ? (report as any).imageUrls : [];
+    const attachments = Array.isArray((report as any).attachments) ? (report as any).attachments : [];
+
+    if (rawImageUrls.length === 0 && attachments.length > 0) {
+        const imageFiles = attachments.filter((f: any) => f && typeof f.type === 'string' && f.type.startsWith('image/'));
         if (imageFiles.length > 0) {
-            objectUrls = imageFiles.map(file => URL.createObjectURL(file));
+            objectUrls = imageFiles.map((file: File) => URL.createObjectURL(file));
             setImageUrlsToDisplay(objectUrls);
+        } else {
+            setImageUrlsToDisplay([]);
         }
     } else {
-        setImageUrlsToDisplay(report.imageUrls || []);
+        setImageUrlsToDisplay(rawImageUrls.filter((u: any) => typeof u === 'string'));
     }
+
     return () => objectUrls.forEach(url => URL.revokeObjectURL(url));
-  }, [report.attachments, report.imageUrls]);
+  }, [report]);
 
   const timeAgo = (date: Date): string => {
     const seconds = Math.floor((new Date().getTime() - date.getTime()) / 1000);
