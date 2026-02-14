@@ -75,6 +75,26 @@ export type HubTab =
 console.log("AI enabled?", Boolean(import.meta.env.VITE_GEMINI_API_KEY));
 console.log("API base:", import.meta.env.VITE_API_BASE);
 
+const isMobileDeviceProfile = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(ua);
+};
+
+const DEVICE_PROFILE = isMobileDeviceProfile() ? 'mobile' : 'desktop';
+const scopedKey = (key: string) => `dpal-${DEVICE_PROFILE}-${key}`;
+
+const getScopedItem = (key: string, legacyKey?: string): string | null => {
+  const next = localStorage.getItem(scopedKey(key));
+  if (next !== null) return next;
+  if (legacyKey) return localStorage.getItem(legacyKey);
+  return null;
+};
+
+const setScopedItem = (key: string, value: string) => {
+  localStorage.setItem(scopedKey(key), value);
+};
+
 const getInitialReports = (): Report[] => {
   const normalizeReport = (r: any): Report => {
     const parsedTs = new Date(r?.timestamp);
@@ -94,7 +114,7 @@ const getInitialReports = (): Report[] => {
     } as Report;
   };
 
-  const saved = localStorage.getItem('dpal-reports');
+  const saved = getScopedItem('reports', 'dpal-reports');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -108,7 +128,7 @@ const getInitialReports = (): Report[] => {
 };
 
 const getInitialMissions = (): Mission[] => {
-  const saved = localStorage.getItem('dpal-missions');
+  const saved = getScopedItem('missions', 'dpal-missions');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -138,7 +158,7 @@ const getInitialMissions = (): Mission[] => {
 };
 
 const getInitialHero = (): Hero => {
-  const saved = localStorage.getItem('dpal-hero');
+  const saved = getScopedItem('hero', 'dpal-hero');
   let base: Hero;
   if (saved) {
     try {
@@ -165,7 +185,11 @@ const App: React.FC = () => {
   const [prevView, setPrevView] = useState<View>('mainMenu');
   const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
   const [hubTab, setHubTab] = useState<HubTab>('my_reports');
-  const [homeLayout, setHomeLayout] = useState<HomeLayout>(getStoredHomeLayout);
+  const [homeLayout, setHomeLayout] = useState<HomeLayout>(() => {
+    const savedLayout = getScopedItem('home-layout', HOME_LAYOUT_STORAGE_KEY);
+    if (savedLayout === 'feed' || savedLayout === 'map' || savedLayout === 'categories') return savedLayout;
+    return getStoredHomeLayout();
+  });
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
 
@@ -183,9 +207,9 @@ const App: React.FC = () => {
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
   const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
-  const [isOfflineMode, setIsOfflineMode] = useState(() => localStorage.getItem('dpal-offline-mode') === 'true');
+  const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode', 'dpal-offline-mode') === 'true');
   const [directives, setDirectives] = useState<AiDirective[]>(() => {
-    const saved = localStorage.getItem('dpal-directives');
+    const saved = getScopedItem('directives', 'dpal-directives');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -205,7 +229,7 @@ const App: React.FC = () => {
   }, []);
   const useMobileLayout = isMobileViewport;
 
-  useEffect(() => { localStorage.setItem('dpal-offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
+  useEffect(() => { setScopedItem('offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
   useEffect(() => {
     document.documentElement.classList.remove('scale-standard', 'scale-large', 'scale-ultra', 'scale-magnified');
@@ -213,14 +237,14 @@ const App: React.FC = () => {
   }, [globalTextScale]);
 
   useEffect(() => {
-    localStorage.setItem('dpal-hero', JSON.stringify(hero));
-    localStorage.setItem('dpal-reports', JSON.stringify(reports));
-    localStorage.setItem('dpal-missions', JSON.stringify(missions));
-    localStorage.setItem('dpal-directives', JSON.stringify(directives));
+    setScopedItem('hero', JSON.stringify(hero));
+    setScopedItem('reports', JSON.stringify(reports));
+    setScopedItem('missions', JSON.stringify(missions));
+    setScopedItem('directives', JSON.stringify(directives));
   }, [hero, reports, missions, directives]);
 
   useEffect(() => {
-    localStorage.setItem(HOME_LAYOUT_STORAGE_KEY, homeLayout);
+    setScopedItem('home-layout', homeLayout);
   }, [homeLayout]);
 
   useEffect(() => {
