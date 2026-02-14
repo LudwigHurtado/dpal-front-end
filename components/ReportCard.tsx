@@ -41,6 +41,9 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
     return `${Math.floor(seconds / 3600)}H_AGO`;
   };
 
+  const safeTimestamp = report.timestamp instanceof Date ? report.timestamp : new Date((report as any).timestamp);
+  const timeLabel = Number.isNaN(safeTimestamp.getTime()) ? '—' : timeAgo(safeTimestamp);
+
   const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === report.category);
 
   return (
@@ -64,7 +67,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
           <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-[10px] font-black text-zinc-500 uppercase bg-black/40 px-3 py-1 rounded-lg border border-zinc-800">
                   <Clock className="w-3.5 h-3.5" />
-                  <span>{timeAgo(report.timestamp)}</span>
+                  <span>{timeLabel}</span>
               </div>
           </div>
       </div>

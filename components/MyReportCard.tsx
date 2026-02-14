@@ -71,7 +71,10 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat }) => {
     if (hours < 24) return `${Math.floor(hours)}H_AGO`;
     return `${Math.floor(hours / 24)}D_AGO`;
   };
-  
+
+  const safeTimestamp = report.timestamp instanceof Date ? report.timestamp : new Date((report as any).timestamp);
+  const timeLabel = Number.isNaN(safeTimestamp.getTime()) ? '—' : timeAgo(safeTimestamp);
+
   const hasReward = report.earnedNft || report.credsEarned || report.isGeneratingNft;
 
   return (
@@ -101,7 +104,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat }) => {
                         <div className="w-1 h-1 bg-zinc-800 rounded-full"></div>
                         <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
                             <Clock className="w-3 h-3" />
-                            <span>{timeAgo(report.timestamp)}</span>
+                            <span>{timeLabel}</span>
                         </div>
                     </div>
                     <StatusBadge status={report.status} />
