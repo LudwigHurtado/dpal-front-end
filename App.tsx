@@ -114,7 +114,7 @@ const getInitialReports = (): Report[] => {
     } as Report;
   };
 
-  const saved = getScopedItem('reports', 'dpal-reports');
+  const saved = getScopedItem('reports');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -128,7 +128,7 @@ const getInitialReports = (): Report[] => {
 };
 
 const getInitialMissions = (): Mission[] => {
-  const saved = getScopedItem('missions', 'dpal-missions');
+  const saved = getScopedItem('missions');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -158,7 +158,7 @@ const getInitialMissions = (): Mission[] => {
 };
 
 const getInitialHero = (): Hero => {
-  const saved = getScopedItem('hero', 'dpal-hero');
+  const saved = getScopedItem('hero');
   let base: Hero;
   if (saved) {
     try {
@@ -207,9 +207,9 @@ const App: React.FC = () => {
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
   const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
-  const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode', 'dpal-offline-mode') === 'true');
+  const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
   const [directives, setDirectives] = useState<AiDirective[]>(() => {
-    const saved = getScopedItem('directives', 'dpal-directives');
+    const saved = getScopedItem('directives');
     if (saved) {
       try {
         return JSON.parse(saved);

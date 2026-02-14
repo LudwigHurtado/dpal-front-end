@@ -29,13 +29,31 @@ export class AppErrorBoundary extends Component<Props, State> {
             <p className="text-zinc-500 text-xs">
               The app hit an error. This can happen if report data is in an unexpected format.
             </p>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-wider rounded-xl transition-colors"
-            >
-              Reload
-            </button>
+            <p className="text-zinc-400 text-[11px] break-words">
+              {this.state.error?.message || 'Unknown client error'}
+            </p>
+            <div className="flex items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="px-6 py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-black uppercase tracking-wider rounded-xl transition-colors"
+              >
+                Reload
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const keys = Object.keys(localStorage);
+                  for (const k of keys) {
+                    if (k.startsWith('dpal-')) localStorage.removeItem(k);
+                  }
+                  window.location.reload();
+                }}
+                className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-white font-black uppercase tracking-wider rounded-xl transition-colors"
+              >
+                Reset Local Cache
+              </button>
+            </div>
           </div>
         </div>
       );
