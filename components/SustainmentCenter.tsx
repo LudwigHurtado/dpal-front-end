@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { ArrowLeft, Monitor, Zap, Activity, Coins, Plus, CheckCircle, Play } from './icons';
+import GoogleAdSlot from './GoogleAdSlot';
 
 interface SustainmentCenterProps {
     onReturn: () => void;
@@ -193,6 +194,17 @@ const SustainmentCenter: React.FC<SustainmentCenterProps> = ({ onReturn, onRewar
                                 <p className="text-[10px] text-zinc-500 uppercase tracking-widest">{video.addedBy === 'user' ? 'Community Added' : 'Official Feed'}</p>
                             </button>
                         ))}
+                    </div>
+
+                    <div className="bg-zinc-900 border-2 border-zinc-800 rounded-3xl p-6 space-y-3">
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-widest">Sponsored Support</p>
+                        <GoogleAdSlot
+                            slot={import.meta.env.VITE_ADSENSE_SLOT_SUPPORT_NODE || ''}
+                            format="auto"
+                            className="rounded-xl overflow-hidden"
+                            style={{ minHeight: 120 }}
+                        />
+                        <p className="text-[10px] text-zinc-600">Ads help fund infrastructure and transparency tooling.</p>
                     </div>
 
                     <div className="bg-purple-950/20 border border-purple-500/30 rounded-3xl p-6">
