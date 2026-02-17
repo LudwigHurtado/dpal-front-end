@@ -20,6 +20,14 @@ interface AttachedFile {
     type: 'image' | 'video' | 'audio' | 'other';
 }
 
+interface UploadTrayItem {
+  id: string;
+  name: string;
+  progress: number;
+  status: 'uploading' | 'ready' | 'failed';
+  reason?: string;
+}
+
 const STEPS = [
   { id: 'DOMAIN', label: 'Domain_Picker', icon: <Target className="w-4 h-4"/> },
   { id: 'TEMPORAL', label: 'Temporal_Sync', icon: <Clock className="w-4 h-4"/> },
@@ -99,6 +107,8 @@ const ForensicField: React.FC<{
     }
 };
 
+const DRAFT_KEY = 'dpal-report-draft-v1';
+
 const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselectedCategory, prefilledDescription }) => {
   const [activeStepIndex, setActiveStepIndex] = useState(() => (preselectedCategory ? 1 : 0));
   const [desktopExpanded, setDesktopExpanded] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth >= 1280 : false);
@@ -108,6 +118,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   const [description, setDescription] = useState(prefilledDescription || '');
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
+  const [uploadTray, setUploadTray] = useState<UploadTrayItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
@@ -136,6 +147,37 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
       recognitionRef.current?.stop?.();
     };
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft?.category && !preselectedCategory) setCategory(draft.category);
+      if (draft?.severity) setSeverity(draft.severity);
+      if (draft?.location) setLocation(draft.location);
+      if (draft?.description) setDescription(draft.description);
+      if (draft?.answers) setAnswers(draft.answers);
+      if (typeof draft?.safetyConfirmed === 'boolean') setSafetyConfirmed(draft.safetyConfirmed);
+      if (Array.isArray(draft?.uploadTray)) setUploadTray(draft.uploadTray);
+    } catch {
+      // ignore corrupted draft
+    }
+  }, [preselectedCategory]);
+
+  useEffect(() => {
+    const payload = {
+      category,
+      severity,
+      location,
+      description,
+      answers,
+      safetyConfirmed,
+      uploadTray,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  }, [category, severity, location, description, answers, safetyConfirmed, uploadTray]);
 
   const toggleDictation = () => {
     if (!dictationSupported) return;
@@ -188,11 +230,29 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     if (activeStepIndex > 0) setActiveStepIndex(activeStepIndex - 1);
   };
 
+  const startUploadProgress = (id: string, failReason?: string) => {
+    let progress = 0;
+    const timer = setInterval(() => {
+      progress = Math.min(100, progress + 20);
+      setUploadTray((prev) => prev.map((u) => (u.id === id ? { ...u, progress } : u)));
+      if (progress >= 100) {
+        clearInterval(timer);
+        setUploadTray((prev) => prev.map((u) => (u.id === id ? { ...u, status: failReason ? 'failed' : 'ready', reason: failReason } : u)));
+      }
+    }, 180);
+  };
+
+  const retryUpload = (id: string) => {
+    setUploadTray((prev) => prev.map((u) => (u.id === id ? { ...u, status: 'uploading', reason: undefined, progress: 0 } : u)));
+    startUploadProgress(id);
+  };
+
   const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     // Explicitly type file as File to resolve unknown type issues
-    const newAttachments: AttachedFile[] = Array.from(files).map((file: File) => {
+    const pickedFiles = Array.from(files);
+    const newAttachments: AttachedFile[] = pickedFiles.map((file: File) => {
         let type: AttachedFile['type'] = 'other';
         if (file.type.startsWith('image/')) type = 'image';
         else if (file.type.startsWith('video/')) type = 'video';
@@ -200,6 +260,19 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return { file, preview: type === 'image' ? URL.createObjectURL(file) : null, type };
     });
     setAttachments(prev => [...prev, ...newAttachments]);
+
+    const trayItems: UploadTrayItem[] = pickedFiles.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      name: file.name,
+      progress: 0,
+      status: 'uploading',
+    }));
+    setUploadTray((prev) => [...prev, ...trayItems]);
+    trayItems.forEach((item, idx) => {
+      const file = pickedFiles[idx];
+      const failReason = file.size > 12 * 1024 * 1024 ? 'File exceeds 12MB upload reliability threshold.' : undefined;
+      startUploadProgress(item.id, failReason);
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -217,6 +290,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         attachments: attachments.map(a => a.file),
         structuredData: { ...answers, fidelity: fidelityScore, safety_checked: true }
     });
+    localStorage.removeItem(DRAFT_KEY);
   };
 
   const renderStepContent = () => {
@@ -489,6 +563,25 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
               )}
           </form>
       </div>
+
+      {uploadTray.length > 0 && (
+        <div className="fixed bottom-4 right-4 w-[320px] max-w-[95vw] bg-zinc-950/95 border border-zinc-700 rounded-2xl p-3 z-50 shadow-2xl backdrop-blur sticky">
+          <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-2">Upload Tray</p>
+          <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+            {uploadTray.map((item) => (
+              <div key={item.id} className="border border-zinc-800 rounded-xl p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] text-zinc-300 truncate">{item.name}</p>
+                  <span className={`text-[9px] uppercase ${item.status === 'failed' ? 'text-rose-400' : item.status === 'ready' ? 'text-emerald-400' : 'text-cyan-400'}`}>{item.status}</span>
+                </div>
+                <div className="h-1 bg-zinc-800 rounded mt-2 overflow-hidden"><div className="h-full bg-cyan-500" style={{ width: `${item.progress}%` }} /></div>
+                {item.reason && <p className="text-[9px] text-rose-400 mt-1">{item.reason}</p>}
+                {item.status === 'failed' && <button type="button" onClick={() => retryUpload(item.id)} className="text-[9px] mt-1 text-amber-300 underline">Retry</button>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
