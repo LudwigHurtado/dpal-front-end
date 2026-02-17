@@ -25,7 +25,9 @@ export enum Category {
     AccidentsRoadHazards = 'Accidents & Road Hazards',
     MedicalEmergencies = 'Medical Emergencies',
     FireEnvironmentalHazards = 'Fire & Environmental Hazards',
-    PublicSafetyAlerts = 'Public Safety Alerts'
+    PublicSafetyAlerts = 'Public Safety Alerts',
+    P2PEscrowVerification = 'P2P Escrow & Document Verification',
+    ProofOfLifeBiometric = 'Proof of Life & Biometric Verification'
 }
 
 export enum SubscriptionTier {

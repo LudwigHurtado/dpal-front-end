@@ -50,6 +50,8 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.MedicalEmergencies, translationKey: "categories.medicalEmergencies", icon: "🚑", imageSeed: "emergency-room-busy", headline: "Medical Emergencies" },
   { value: Category.FireEnvironmentalHazards, translationKey: "categories.fireEnvironmentalHazards", icon: "🔥", imageSeed: "forest-fire-smoke-plume", headline: "Fire & Environmental Hazards" },
   { value: Category.PublicSafetyAlerts, translationKey: "categories.publicSafetyAlerts", icon: "⚠️", imageSeed: "public-safety-warning-sign", headline: "Public Safety Alerts" },
+  { value: Category.P2PEscrowVerification, translationKey: "categories.p2pEscrowVerification", icon: "🤝", imageSeed: "digital-contract-signature-secure", headline: "P2P Escrow & Document Verification" },
+  { value: Category.ProofOfLifeBiometric, translationKey: "categories.proofOfLifeBiometric", icon: "🧬", imageSeed: "biometric-fingerprint-face-scan", headline: "Proof of Life & Biometric Verification" },
 ].sort((a, b) => a.value.localeCompare(b.value));
 
 const GLOBAL_CORE = [
@@ -110,6 +112,31 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             ],
             deep_dive_questions: [
                 { id: "PSA_DD_01", section: "Safe Zone", label: "Safe Assembly Point ID", required: false, answer_type: "short_text", help_text: "Nearest exit or safe-room ID" }
+            ]
+        },
+        [Category.P2PEscrowVerification]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "ESC_01", section: "Contract Context", label: "Escrow type", required: true, answer_type: "single_select", options: ["Goods", "Service", "Rental", "Loan", "Freelance Milestone", "Other"], institutional_value_tag: "audit" },
+                { id: "ESC_02", section: "Contract Context", label: "Current stage", required: true, answer_type: "single_select", options: ["Created", "Funded", "Disputed", "Released", "Refund Requested"], institutional_value_tag: "audit" },
+                { id: "ESC_03", section: "Evidence & Chain-of-Custody", label: "Uploaded proof documents", required: true, answer_type: "multi_select", options: ["Contract PDF", "Invoice", "ID Document", "Proof of Delivery", "Chat Transcript", "None"], institutional_value_tag: "regulatory" },
+                { id: "ESC_04", section: "Verification", label: "Face check status", required: true, answer_type: "single_select", options: ["Passed", "Failed", "Manual Review", "Not attempted"], institutional_value_tag: "safety" },
+                { id: "ESC_05", section: "Verification", label: "Fingerprint check status", required: true, answer_type: "single_select", options: ["Passed", "Failed", "Manual Review", "Not attempted"], institutional_value_tag: "safety" }
+            ],
+            deep_dive_questions: [
+                { id: "ESC_DD_01", section: "Dispute", label: "Dispute reason", required: false, answer_type: "single_select", options: ["Non-delivery", "Partial Delivery", "Fraud Concern", "Identity Mismatch", "Other"] }
+            ]
+        },
+        [Category.ProofOfLifeBiometric]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "BIO_01", section: "Proof of Life", label: "Proof-of-life method", required: true, answer_type: "single_select", options: ["Live selfie video", "Challenge phrase", "Blink/Head movement", "Fingerprint + selfie", "Other"], institutional_value_tag: "safety" },
+                { id: "BIO_02", section: "Verification", label: "Face match confidence", required: true, answer_type: "single_select", options: ["95-100%", "85-94%", "70-84%", "Below 70%", "Not available"], institutional_value_tag: "audit" },
+                { id: "BIO_03", section: "Verification", label: "Fingerprint status", required: true, answer_type: "single_select", options: ["Matched", "Not matched", "Unreadable", "Not captured"], institutional_value_tag: "audit" },
+                { id: "BIO_04", section: "Evidence & Chain-of-Custody", label: "Biometric evidence attached", required: true, answer_type: "multi_select", options: ["Face image", "Liveness video", "Fingerprint capture", "Government ID", "Session Logs", "None"], institutional_value_tag: "regulatory" }
+            ],
+            deep_dive_questions: [
+                { id: "BIO_DD_01", section: "Risk", label: "Potential spoofing signal", required: false, answer_type: "single_select", options: ["None", "Replay suspected", "Static image suspected", "Fingerprint artifact suspected", "Unsure"] }
             ]
         },
         [Category.Allergies]: {
