@@ -117,6 +117,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     return FORM_BUNDLE.categories[category] || FORM_BUNDLE.categories['Other'];
   }, [category]);
 
+  const isEscrowCategory = category === Category.P2PEscrowVerification || category === Category.ProofOfLifeBiometric;
+
   const fidelityScore = useMemo(() => {
     let score = 0;
     if (category) score += 10;
@@ -155,7 +157,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     if (!category || !safetyConfirmed) return;
     setIsSubmitting(true);
     addReport({
-        title: `Forensic_Sync_${category.toUpperCase()}_${Date.now().toString().slice(-4)}`,
+        title: `${isEscrowCategory ? 'Escrow_Receipt' : 'Forensic_Sync'}_${category.toUpperCase()}_${Date.now().toString().slice(-4)}`,
         description,
         category,
         location: location || 'GEO_STAMPED_NODE',
@@ -222,16 +224,16 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return (
           <div className="space-y-8 animate-fade-in">
             <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Forensic_Data_Intake</h3>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Protocol: SH-256 Structured Fact Verification</p>
+              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">{isEscrowCategory ? 'Escrow_Transaction_Intake' : 'Forensic_Data_Intake'}</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{isEscrowCategory ? 'Capture seller, buyer, item and payment details for community-safe trade receipt' : 'Protocol: SH-256 Structured Fact Verification'}</p>
             </div>
             <div className="space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-4">
                {schema?.core_questions.slice(0, 4).map(q => (
                  <ForensicField key={q.id} question={q} value={answers[q.id]} onChange={v => setAnswers({...answers, [q.id]: v})} />
                ))}
                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">Situational_Summary</label>
-                   <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed" placeholder="Summarize the core observation..." />
+                   <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{isEscrowCategory ? 'Transaction_Summary' : 'Situational_Summary'}</label>
+                   <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed" placeholder={isEscrowCategory ? 'Summarize what was sold, by whom, to whom, and what receipt proof is available...' : 'Summarize the core observation...'} />
                </div>
             </div>
             <button onClick={handleNext} disabled={description.length < 10} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-20 transition-all">Continue_To_Evidence_Sync</button>
@@ -241,8 +243,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return (
           <div className="space-y-8 animate-fade-in">
             <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Visual_Intel_Synchronization</h3>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Attach telemetry shards to strengthen report fidelity</p>
+              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">{isEscrowCategory ? 'Escrow_Evidence_Upload' : 'Visual_Intel_Synchronization'}</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{isEscrowCategory ? 'Upload receipt proof, item photos, chat screenshots, transfer confirmation, and identity snapshots' : 'Attach telemetry shards to strengthen report fidelity'}</p>
             </div>
             
             <div 
@@ -307,8 +309,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return (
           <div className="space-y-10 animate-fade-in pb-8">
             <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Ledger_Preview_Protocol</h3>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Review forensic metadata before cryptographic sealing</p>
+              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">{isEscrowCategory ? 'Escrow_Receipt_Preview' : 'Ledger_Preview_Protocol'}</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{isEscrowCategory ? 'Review transaction details and publish a verifiable community safety receipt' : 'Review forensic metadata before cryptographic sealing'}</p>
             </div>
 
             <div className="bg-zinc-900 border-2 border-zinc-800 rounded-[2.5rem] p-8 space-y-6 shadow-xl relative overflow-hidden">

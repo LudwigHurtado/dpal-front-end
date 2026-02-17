@@ -117,14 +117,18 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
         [Category.P2PEscrowVerification]: {
             core_questions: [
                 ...GLOBAL_CORE,
-                { id: "ESC_01", section: "Contract Context", label: "Escrow type", required: true, answer_type: "single_select", options: ["Goods", "Service", "Rental", "Loan", "Freelance Milestone", "Other"], institutional_value_tag: "audit" },
-                { id: "ESC_02", section: "Contract Context", label: "Current stage", required: true, answer_type: "single_select", options: ["Created", "Funded", "Disputed", "Released", "Refund Requested"], institutional_value_tag: "audit" },
-                { id: "ESC_03", section: "Evidence & Chain-of-Custody", label: "Uploaded proof documents", required: true, answer_type: "multi_select", options: ["Contract PDF", "Invoice", "ID Document", "Proof of Delivery", "Chat Transcript", "None"], institutional_value_tag: "regulatory" },
-                { id: "ESC_04", section: "Verification", label: "Face check status", required: true, answer_type: "single_select", options: ["Passed", "Failed", "Manual Review", "Not attempted"], institutional_value_tag: "safety" },
-                { id: "ESC_05", section: "Verification", label: "Fingerprint check status", required: true, answer_type: "single_select", options: ["Passed", "Failed", "Manual Review", "Not attempted"], institutional_value_tag: "safety" }
+                { id: "ESC_01", section: "Trade Context", label: "Transaction type", required: true, answer_type: "single_select", options: ["Trading Card Sale", "Collectible Sale", "Electronics", "Service", "Rental", "Other"], institutional_value_tag: "audit" },
+                { id: "ESC_02", section: "Trade Context", label: "Seller handle / name", required: true, answer_type: "short_text", help_text: "Who sold you the item?" , institutional_value_tag: "audit" },
+                { id: "ESC_03", section: "Trade Context", label: "Buyer handle / name", required: true, answer_type: "short_text", help_text: "Who bought the item?" , institutional_value_tag: "audit" },
+                { id: "ESC_04", section: "Item Details", label: "What was sold", required: true, answer_type: "short_text", help_text: "Card/item name, condition, serial, etc.", institutional_value_tag: "audit" },
+                { id: "ESC_05", section: "Payment", label: "Payment amount range", required: true, answer_type: "single_select", options: ["<$20", "$20-$99", "$100-$499", "$500-$999", "$1000+"], institutional_value_tag: "financial_fraud" },
+                { id: "ESC_06", section: "Payment", label: "Payment method", required: true, answer_type: "single_select", options: ["Cash", "Bank Transfer", "Card", "Crypto", "Escrow Wallet", "Other"], institutional_value_tag: "audit" },
+                { id: "ESC_07", section: "Evidence", label: "Receipt evidence", required: true, answer_type: "multi_select", options: ["No receipt - creating one now", "Chat screenshot", "Transfer proof", "Invoice", "Tracking info", "Photo of item exchange"], institutional_value_tag: "regulatory" },
+                { id: "ESC_08", section: "Verification", label: "Face verification status", required: true, answer_type: "single_select", options: ["Passed", "Failed", "Manual Review", "Not attempted"], institutional_value_tag: "safety" },
+                { id: "ESC_09", section: "Verification", label: "Fingerprint verification status", required: true, answer_type: "single_select", options: ["Passed", "Failed", "Manual Review", "Not attempted"], institutional_value_tag: "safety" }
             ],
             deep_dive_questions: [
-                { id: "ESC_DD_01", section: "Dispute", label: "Dispute reason", required: false, answer_type: "single_select", options: ["Non-delivery", "Partial Delivery", "Fraud Concern", "Identity Mismatch", "Other"] }
+                { id: "ESC_DD_01", section: "Dispute", label: "Dispute reason", required: false, answer_type: "single_select", options: ["Non-delivery", "Wrong item / fake item", "Partial delivery", "Identity mismatch", "Payment mismatch", "Other"] }
             ]
         },
         [Category.ProofOfLifeBiometric]: {
