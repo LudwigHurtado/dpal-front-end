@@ -518,7 +518,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
       {/* CONTENT AREA */}
       <div className="flex-grow order-1 lg:order-2">
-          <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[4rem] p-10 md:p-16 shadow-4xl relative overflow-hidden">
+          <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[3rem] md:rounded-[4rem] p-6 md:p-10 lg:p-14 shadow-4xl relative overflow-hidden">
               <div className="mb-6 p-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Voice Reporting</p>
@@ -551,7 +551,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
                   <div className="h-full bg-cyan-600 transition-all duration-1000" style={{ width: `${((activeStepIndex + 1) / STEPS.length) * 100}%` }}></div>
               </div>
               
-              <div className={`${desktopExpanded ? 'min-h-[760px]' : 'min-h-[500px]'} flex flex-col justify-center`}>
+              <div className={`${desktopExpanded ? 'min-h-[760px]' : 'min-h-[500px]'} flex flex-col justify-start pt-2`}>
                   {renderStepContent()}
               </div>
 
