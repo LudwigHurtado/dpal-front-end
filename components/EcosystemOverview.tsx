@@ -50,7 +50,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-emerald-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/tokens/impact-token.svg" alt="Impact Token" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
+                             <img src="/tokens/impact-token.png" alt="Impact Token" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 px-4 py-1 rounded-full text-[9px] font-black text-emerald-400 uppercase tracking-widest">
@@ -69,7 +69,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-blue-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/tokens/dpal-credit.svg" alt="DPAL Credit" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]" />
+                             <img src="/tokens/dpal-credit.png" alt="DPAL Credit" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-blue-950/40 border border-blue-500/30 px-4 py-1 rounded-full text-[9px] font-black text-blue-400 uppercase tracking-widest">
@@ -88,7 +88,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-amber-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/tokens/impact-shard.svg" alt="IMPT Shard" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
+                             <img src="/tokens/impact-shard.png" alt="IMPT Shard" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-amber-950/40 border border-amber-500/30 px-4 py-1 rounded-full text-[9px] font-black text-amber-400 uppercase tracking-widest">
@@ -107,7 +107,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-cyan-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/tokens/dpal-coin.svg" alt="DPAL Governance" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(6,182,212,0.3)]" />
+                             <img src="/tokens/dpal-coin.png" alt="DPAL Governance" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(6,182,212,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-cyan-950/40 border border-cyan-500/30 px-4 py-1 rounded-full text-[9px] font-black text-cyan-400 uppercase tracking-widest">
@@ -159,7 +159,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                          <div className="absolute -inset-4 bg-cyan-500/10 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                          <div className="relative rounded-[3rem] overflow-hidden border-4 border-zinc-800 bg-zinc-900/50 shadow-2xl">
                              <img 
-                                src="/tokens/impact-token.svg" 
+                                src="/tokens/impact-token.png" 
                                 alt="Impact Visual" 
                                 className="w-full h-auto object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-1000"
                              />
@@ -178,7 +178,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                         <div className="absolute -inset-4 bg-emerald-500/10 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div className="relative rounded-[3rem] overflow-hidden border-4 border-zinc-800 bg-zinc-900/50 shadow-2xl">
                              <img 
-                                src="/tokens/impact-shard.svg" 
+                                src="/tokens/ecosystem-flow.png" 
                                 alt="Impact NFT Shard" 
                                 className="w-full h-auto object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-1000"
                              />
@@ -231,7 +231,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                     <div className="absolute -inset-10 bg-purple-500/10 blur-[100px] opacity-30 group-hover:opacity-60 transition-opacity"></div>
                     <div className="relative rounded-[4rem] overflow-hidden border-[12px] border-zinc-900 bg-zinc-950 shadow-4xl">
                          <img 
-                            src="/tokens/dpal-coin.svg" 
+                            src="/tokens/dpal-coin.png" 
                             alt="Hero Hub UI Background" 
                             className="w-full h-auto opacity-80 group-hover:opacity-100 transition-opacity duration-1000"
                          />
@@ -270,3 +270,4 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
 };
 
 export default EcosystemOverview;
+
