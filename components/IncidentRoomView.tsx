@@ -15,6 +15,7 @@ interface IncidentRoomViewProps {
     onSendMessage: (text: string, imageUrl?: string, audioUrl?: string) => void;
     roomsIndex?: SituationRoomSummary[];
     onJoinRoom?: (roomId: string) => void;
+    errorBanner?: string | null;
 }
 
 interface AnalyticalSector {
@@ -47,7 +48,7 @@ const ForensicValue: React.FC<{ label: string; value?: string; icon: React.React
     </div>
 );
 
-const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, hero, messages, onSendMessage, roomsIndex = [], onJoinRoom }) => {
+const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, hero, messages, onSendMessage, roomsIndex = [], onJoinRoom, errorBanner }) => {
     const sectors = DEFAULT_SECTORS;
     
     const [activeSectorId, setActiveSectorId] = useState(sectors[0].id);
@@ -265,6 +266,11 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
 
                 {/* MAIN CHAT AREA */}
                 <div className={`transition-all duration-500 bg-black flex flex-col relative ${isSidebarCollapsed ? 'lg:col-span-12' : 'lg:col-span-8'}`}>
+                    {errorBanner && (
+                        <div className="m-4 p-3 rounded-xl border border-amber-600/40 bg-amber-950/30 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                            {errorBanner}
+                        </div>
+                    )}
                     <div className="flex-grow flex flex-col min-h-[600px] border-l-4 border-zinc-900 shadow-[inset_20px_0_60px_rgba(0,0,0,0.8)] h-full overflow-hidden">
                         <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
                     </div>

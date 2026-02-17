@@ -220,6 +220,7 @@ const App: React.FC = () => {
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
+  const [situationError, setSituationError] = useState<string | null>(null);
   const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
@@ -283,8 +284,10 @@ const App: React.FC = () => {
         const [msgs, rooms] = await Promise.all([fetchSituationMessages(roomId), fetchSituationRooms()]);
         setSituationMessages(msgs);
         setSituationRooms(rooms);
+        setSituationError(null);
       } catch (error) {
         console.warn('Situation messages fetch failed:', error);
+        setSituationError('Chat sync failed. Check API/media persistence configuration.');
       }
     };
 
@@ -537,13 +540,25 @@ const App: React.FC = () => {
       let finalAudioUrl = audioUrl;
 
       if (imageUrl?.startsWith('data:')) {
-        const upload = await uploadSituationMedia(roomId, 'image', imageUrl);
-        finalImageUrl = upload.url;
+        try {
+          const upload = await uploadSituationMedia(roomId, 'image', imageUrl);
+          finalImageUrl = upload.url;
+        } catch (error) {
+          console.warn('Situation image upload failed:', error);
+          finalImageUrl = undefined;
+          setSituationError('Image upload failed; message sent without image. Configure persistent media.');
+        }
       }
 
       if (audioUrl?.startsWith('data:')) {
-        const upload = await uploadSituationMedia(roomId, 'audio', audioUrl);
-        finalAudioUrl = upload.url;
+        try {
+          const upload = await uploadSituationMedia(roomId, 'audio', audioUrl);
+          finalAudioUrl = upload.url;
+        } catch (error) {
+          console.warn('Situation audio upload failed:', error);
+          finalAudioUrl = undefined;
+          setSituationError('Audio upload failed; message sent without audio. Configure persistent media.');
+        }
       }
 
       const saved = await sendSituationMessage(roomId, {
@@ -556,6 +571,7 @@ const App: React.FC = () => {
     } catch (error) {
       console.warn('Situation send failed:', error);
       setSituationMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setSituationError('Message send failed. Verify API connectivity and room sync.');
     }
   };
 
@@ -785,6 +801,7 @@ const App: React.FC = () => {
             messages={situationMessages}
             onSendMessage={handleSendSituationMessage}
             roomsIndex={situationRooms}
+            errorBanner={situationError}
             onJoinRoom={(roomId) => {
               const report = reports.find((r) => r.id === roomId);
               if (report) setSelectedReportForIncidentRoom(report);
