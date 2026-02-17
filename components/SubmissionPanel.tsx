@@ -101,6 +101,7 @@ const ForensicField: React.FC<{
 
 const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselectedCategory, prefilledDescription }) => {
   const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [desktopExpanded, setDesktopExpanded] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth >= 1280 : false);
   const [category, setCategory] = useState<Category | ''>(preselectedCategory || '');
   const [severity, setSeverity] = useState<SeverityLevel>('Standard');
   const [location, setLocation] = useState('');
@@ -118,6 +119,14 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   }, [category]);
 
   const isEscrowCategory = category === Category.P2PEscrowVerification || category === Category.ProofOfLifeBiometric;
+
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth < 1024) setDesktopExpanded(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   const fidelityScore = useMemo(() => {
     let score = 0;
@@ -178,7 +187,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
               <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Initialize_Reporting_Node</h3>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Select the domain protocol for this artifact</p>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[300px] overflow-y-auto custom-scrollbar p-2">
+            <div className={`grid grid-cols-2 sm:grid-cols-3 ${desktopExpanded ? 'xl:grid-cols-4' : ''} gap-4 ${desktopExpanded ? 'max-h-[620px]' : 'max-h-[300px]'} overflow-y-auto custom-scrollbar p-2`}>
               {CATEGORIES_WITH_ICONS.map(cat => (
                 <button
                   key={cat.value}
@@ -394,11 +403,20 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
       {/* CONTENT AREA */}
       <div className="flex-grow order-1 lg:order-2">
           <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[4rem] p-10 md:p-16 shadow-4xl relative overflow-hidden">
+              <div className="hidden lg:flex justify-end mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setDesktopExpanded(v => !v)}
+                    className="px-4 py-2 rounded-xl border border-zinc-700 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:border-cyan-500/50"
+                  >
+                    {desktopExpanded ? 'Standard Height' : 'Expand Desktop View'}
+                  </button>
+              </div>
               <div className="absolute top-0 left-0 w-full h-1.5 bg-zinc-800">
                   <div className="h-full bg-cyan-600 transition-all duration-1000" style={{ width: `${((activeStepIndex + 1) / STEPS.length) * 100}%` }}></div>
               </div>
               
-              <div className="min-h-[500px] flex flex-col justify-center">
+              <div className={`${desktopExpanded ? 'min-h-[760px]' : 'min-h-[500px]'} flex flex-col justify-center`}>
                   {renderStepContent()}
               </div>
 
