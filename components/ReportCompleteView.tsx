@@ -19,12 +19,15 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
     const [dispatchStatus, setDispatchStatus] = useState<'IDLE' | 'SENDING' | 'SUCCESS'>('IDLE');
     const certificateRef = useRef<HTMLDivElement>(null);
     
+    const blockRef = report.blockNumber ? `#${report.blockNumber}` : '#PENDING';
+    const txRef = report.txHash || report.blockchainRef || report.hash;
+
     const logs = [
         "ESTABLISHING_P2P_HANDSHAKE...",
         "CHRONOLOGICAL_SYNC_STABLE",
         "TRUTHSCORE_CALCULATED: " + report.trustScore + "%",
-        "BLOCK_INDEX_IDENTIFIED: #6843021",
-        "MINTING_VISUAL_TELEMETRY...",
+        `BLOCK_INDEX_IDENTIFIED: ${blockRef}`,
+        `TX_BROADCASTED: ${txRef?.slice(0, 14)}...`,
         "SHARD_SEALED_WITH_AUTHORITY_KEY"
     ];
 
@@ -247,8 +250,8 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 </h3>
                                 <div className="grid grid-cols-2 gap-x-16 gap-y-8 bg-zinc-50/50 border border-zinc-100 p-10 rounded-[2.5rem]">
                                     <DataRow label={t('reportComplete.certIdLabel')} value={`DPAL-CERT-${report.hash.substring(2, 10).toUpperCase()}`} />
-                                    <DataRow label={t('reportComplete.blockRefLabel')} value="#6843021" />
-                                    <DataRow label={t('reportComplete.dateIssuedLabel')} value={report.timestamp.toLocaleString()} />
+                                    <DataRow label={t('reportComplete.blockRefLabel')} value={blockRef} />
+                                    <DataRow label={t('reportComplete.dateIssuedLabel')} value={(report.anchoredAt || report.timestamp).toLocaleString()} />
                                     <DataRow label={t('reportComplete.categoryLabel')} value={report.category.toUpperCase()} />
                                 </div>
                             </section>

@@ -10,6 +10,8 @@ import { type View, type HeroHubTab, type HubTab } from '../App';
 interface MainMenuProps {
     onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
     totalReports: number;
+    latestHash?: string;
+    latestBlockNumber?: number;
     onGenerateMissionForCategory: (category: Category) => void;
 }
 
@@ -93,7 +95,7 @@ const PrimaryNavModule: React.FC<{
     );
 };
 
-const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerateMissionForCategory }) => {
+const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHash, latestBlockNumber, onGenerateMissionForCategory }) => {
     const { t } = useTranslations();
     const [categorySearch, setCategorySearch] = useState('');
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -308,7 +310,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerat
                 />
             </div>
 
-            <BlockchainStatusPanel totalReports={totalReports} />
+            <BlockchainStatusPanel totalReports={totalReports} latestHash={latestHash} latestBlockNumber={latestBlockNumber} />
             
             <div className="my-20 border-t border-zinc-900"></div>
             

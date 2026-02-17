@@ -54,6 +54,10 @@ export interface Report {
     timestamp: Date;
     hash: string;
     blockchainRef: string;
+    blockNumber?: number;
+    txHash?: string;
+    chain?: string;
+    anchoredAt?: Date;
     status: ReportStatus;
     trustScore: number;
     severity: SeverityLevel;

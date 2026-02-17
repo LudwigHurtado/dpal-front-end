@@ -118,7 +118,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat }) => {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div className="min-w-0 flex-grow">
                         <h4 className="text-2xl font-black text-white truncate uppercase tracking-tighter group-hover:text-cyan-100 transition-colors" title={report.title}>{report.title}</h4>
-                        <p className="text-[10px] font-mono text-zinc-600 mt-2 truncate">TX_HASH: {report.hash}</p>
+                        <p className="text-[10px] font-mono text-zinc-600 mt-2 truncate">TX_HASH: {report.txHash || report.blockchainRef || report.hash}</p>
                     </div>
 
                     {onJoinChat && (

@@ -34,7 +34,7 @@ import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
-import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY } from './constants';
+import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
 import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
@@ -118,7 +118,12 @@ const getInitialReports = (): Report[] => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed.map(normalizeReport);
+      if (Array.isArray(parsed)) {
+        return parsed.map((r: any) => normalizeReport({
+          ...r,
+          anchoredAt: r?.anchoredAt ? new Date(r.anchoredAt) : undefined,
+        }));
+      }
       return MOCK_REPORTS.map(normalizeReport);
     } catch (e) {
       return MOCK_REPORTS.map(normalizeReport);
@@ -257,6 +262,10 @@ const App: React.FC = () => {
     return { ...hero, rank: currentRank.level, title: hero.equippedTitle || currentRank.title };
   }, [hero]);
 
+  const latestAnchoredReport = useMemo(() => {
+    return reports.find(r => Boolean(r.hash || r.txHash || r.blockNumber));
+  }, [reports]);
+
   const filteredReports = useMemo(() => {
     return reports.filter(report => {
       const title = (report.title || '').toString().toLowerCase();
@@ -357,15 +366,52 @@ const App: React.FC = () => {
 
   const handleAddReport = async (rep: any) => {
     const reportId = `rep-${Date.now()}`;
-    const finalReport: Report = { 
-        ...rep, 
-        id: reportId, 
-        timestamp: new Date(), 
-        hash: `0x${Math.random().toString(16).slice(2)}`, 
-        blockchainRef: `txn_${Math.random().toString(36).slice(2)}`, 
-        isAuthor: true, 
-        status: 'Submitted' 
+
+    let anchored: {
+      reportHash?: string;
+      txHash?: string;
+      blockNumber?: number;
+      chain?: string;
+      anchoredAt?: string;
+    } = {};
+
+    try {
+      const apiBase = getApiBase();
+      const response = await fetch(`${apiBase}/api/reports/anchor`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reportId, ...rep }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        anchored = {
+          reportHash: data?.reportHash,
+          txHash: data?.txHash,
+          blockNumber: data?.blockNumber,
+          chain: data?.chain,
+          anchoredAt: data?.anchoredAt,
+        };
+      }
+    } catch (error) {
+      console.warn('Anchor API unavailable, using local fallback:', error);
+    }
+
+    const fallbackTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    const finalReport: Report = {
+      ...rep,
+      id: reportId,
+      timestamp: new Date(),
+      hash: anchored.reportHash || `0x${Math.random().toString(16).slice(2)}`,
+      blockchainRef: anchored.txHash || fallbackTxHash,
+      txHash: anchored.txHash || fallbackTxHash,
+      blockNumber: anchored.blockNumber,
+      chain: anchored.chain || 'DPAL_INTERNAL',
+      anchoredAt: anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
+      isAuthor: true,
+      status: 'Submitted'
     };
+
     setReports(prev => [finalReport, ...prev]);
     setCompletedReport(finalReport);
     setCurrentView('reportComplete');
@@ -437,7 +483,7 @@ const App: React.FC = () => {
         )}
         
         {currentView === 'mainMenu' && (
-          <MainMenu onNavigate={handleNavigate} totalReports={reports.length} onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} />
+          <MainMenu onNavigate={handleNavigate} totalReports={reports.length} latestHash={latestAnchoredReport?.hash || latestAnchoredReport?.txHash} latestBlockNumber={latestAnchoredReport?.blockNumber} onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} />
         )}
 
         {currentView === 'categorySelection' && (
