@@ -3,7 +3,8 @@ import { translations } from './translations';
 
 type Language = 'EN' | 'ES' | 'KO';
 
-const SUPPORTED_LANGUAGES: Language[] = ['EN', 'ES', 'KO'];
+// Force English-only UI for consistency/compliance requests.
+const SUPPORTED_LANGUAGES: Language[] = ['EN'];
 
 interface LanguageContextType {
   language: Language;
@@ -16,12 +17,9 @@ export const LanguageContext = createContext<LanguageContextType | undefined>(un
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguageState] = useState<Language>('EN');
 
-  const setLanguage = (langCode: string) => {
-    if (SUPPORTED_LANGUAGES.includes(langCode as Language)) {
-        setLanguageState(langCode as Language);
-    } else {
-        setLanguageState('EN'); // Default to English if unsupported
-    }
+  const setLanguage = (_langCode: string) => {
+    // Hard lock to English per product requirement.
+    setLanguageState('EN');
   }
 
   const t = (key: string, replacements?: { [key: string]: string | number }): string => {
