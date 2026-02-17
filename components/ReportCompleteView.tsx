@@ -272,18 +272,18 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             {/* D. Signature Section */}
                             <section className="pt-8 grid grid-cols-2 gap-16">
                                 <div className="space-y-4">
-                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">ORACLE_VERIFICATION_SIG</p>
+                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">VERIFICATION_SIGNATURE</p>
                                     <div className="h-[2px] w-full bg-zinc-200 mt-12 relative">
-                                        <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">DPAL_Network_Guardian</div>
+                                        <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">DPAL Verification Authority</div>
                                     </div>
-                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Network Controller: RSA-4096</p>
+                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Verification Standard: RSA-4096</p>
                                 </div>
                                 <div className="space-y-4">
                                     <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">CERTIFIED_BY</p>
                                     <div className="h-[2px] w-full bg-zinc-200 mt-12 relative">
-                                         <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">GEMINI_3_ORACLE</div>
+                                         <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">DPAL Compliance Engine</div>
                                     </div>
-                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Automated Consensus Node</p>
+                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Automated Verification Service</p>
                                 </div>
                             </section>
                         </div>
