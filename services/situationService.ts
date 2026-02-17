@@ -22,6 +22,26 @@ export async function fetchSituationMessages(roomId: string): Promise<ChatMessag
   return list.map(normalizeMessage);
 }
 
+export async function uploadSituationMedia(
+  roomId: string,
+  type: 'image' | 'audio',
+  dataUrl: string
+): Promise<{ url: string; path: string; sizeBytes: number; mimeType: string }> {
+  const res = await fetch(`${apiBase}/api/situation/media`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ roomId, type, dataUrl }),
+  });
+  if (!res.ok) throw new Error(`Failed to upload media (${res.status})`);
+  const data = await res.json();
+  return {
+    url: String(data?.url || ''),
+    path: String(data?.path || ''),
+    sizeBytes: Number(data?.sizeBytes || 0),
+    mimeType: String(data?.mimeType || ''),
+  };
+}
+
 export async function sendSituationMessage(
   roomId: string,
   payload: { sender: string; text?: string; imageUrl?: string; audioUrl?: string; isSystem?: boolean }

@@ -40,7 +40,7 @@ import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
-import { fetchSituationMessages, sendSituationMessage } from './services/situationService';
+import { fetchSituationMessages, sendSituationMessage, uploadSituationMedia } from './services/situationService';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
@@ -525,11 +525,24 @@ const App: React.FC = () => {
     setSituationMessages((prev) => [...prev, optimistic]);
 
     try {
+      let finalImageUrl = imageUrl;
+      let finalAudioUrl = audioUrl;
+
+      if (imageUrl?.startsWith('data:')) {
+        const upload = await uploadSituationMedia(roomId, 'image', imageUrl);
+        finalImageUrl = upload.url;
+      }
+
+      if (audioUrl?.startsWith('data:')) {
+        const upload = await uploadSituationMedia(roomId, 'audio', audioUrl);
+        finalAudioUrl = upload.url;
+      }
+
       const saved = await sendSituationMessage(roomId, {
         sender: heroWithRank.name,
         text,
-        imageUrl,
-        audioUrl,
+        imageUrl: finalImageUrl,
+        audioUrl: finalAudioUrl,
       });
       setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), saved]);
     } catch (error) {
