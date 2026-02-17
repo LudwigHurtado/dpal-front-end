@@ -13,6 +13,7 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
 
   const [cameraOn, setCameraOn] = useState(false);
   const [capturedFace, setCapturedFace] = useState<string | null>(null);
+  const [cameraError, setCameraError] = useState<string>('');
   const [fingerprintImage, setFingerprintImage] = useState<string | null>(null);
   const [fingerprintStatus, setFingerprintStatus] = useState<'IDLE' | 'SCANNING' | 'VERIFIED'>('IDLE');
 
@@ -21,11 +22,17 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
 
     const startCamera = async () => {
       if (!cameraOn || !videoRef.current) return;
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setCameraError('Camera API not supported on this device/browser. Use face image upload instead.');
+        return;
+      }
       try {
+        setCameraError('');
         stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         videoRef.current.srcObject = stream;
       } catch (error) {
         console.warn('Camera not available:', error);
+        setCameraError('Camera unavailable or blocked. You can upload a face image instead.');
       }
     };
 
@@ -50,15 +57,26 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
     setCapturedFace(canvas.toDataURL('image/png'));
   };
 
-  const handleFingerprintUpload = (file?: File) => {
-    if (!file) return;
+  const readImageAsDataUrl = (file?: File, onLoad?: (value: string) => void) => {
+    if (!file || !onLoad) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      setFingerprintImage(String(reader.result || ''));
+    reader.onload = () => onLoad(String(reader.result || ''));
+    reader.readAsDataURL(file);
+  };
+
+  const handleFaceUpload = (file?: File) => {
+    readImageAsDataUrl(file, (value) => {
+      setCapturedFace(value);
+      setCameraError('');
+    });
+  };
+
+  const handleFingerprintUpload = (file?: File) => {
+    readImageAsDataUrl(file, (value) => {
+      setFingerprintImage(value);
       setFingerprintStatus('SCANNING');
       setTimeout(() => setFingerprintStatus('VERIFIED'), 1800);
-    };
-    reader.readAsDataURL(file);
+    });
   };
 
   const ready = Boolean(capturedFace && fingerprintImage && fingerprintStatus === 'VERIFIED');
@@ -106,7 +124,12 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
             >
               Capture Live Photo
             </button>
+            <label className="px-4 py-2 rounded-xl bg-zinc-950 border border-zinc-700 text-xs uppercase font-black cursor-pointer">
+              Upload Face Photo
+              <input type="file" className="hidden" accept="image/*" onChange={(e) => handleFaceUpload(e.target.files?.[0])} />
+            </label>
           </div>
+          {cameraError && <p className="text-xs text-amber-400 font-bold">{cameraError}</p>}
           <canvas ref={canvasRef} className="hidden" />
         </section>
 
