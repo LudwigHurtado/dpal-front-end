@@ -83,6 +83,12 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn, onOpenP
                              <p className="text-xs text-zinc-500 font-medium leading-relaxed italic border-l-2 border-blue-500 pl-4">
                                 "The 'Gas' of the accountability engine. Used to file reports, upvote evidence, and trigger tactical missions. Purchased via the store or earned through high-fidelity data dispatches"
                              </p>
+                             <div className="flex items-center gap-3 pt-2">
+                                <button onClick={onOpenPurchase || onReturn} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest">
+                                    Buy DPAL Credit
+                                </button>
+                                <span className="text-[9px] text-zinc-500 uppercase font-black">Utility only · Not an investment product</span>
+                             </div>
                          </div>
                      </div>
 
@@ -121,6 +127,14 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn, onOpenP
                              <p className="text-xs text-zinc-500 font-medium leading-relaxed italic border-l-2 border-cyan-500 pl-4">
                                 "The foundational token of the entire network. Used to vote on system-wide upgrades, sector funding priorities, and final validation of the highest-stakes accountability blocks"
                              </p>
+                             <div className="flex items-center gap-3 pt-2">
+                                <button onClick={onOpenPurchase || onReturn} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-black uppercase tracking-widest">
+                                    Access Governance Coin
+                                </button>
+                                <button onClick={onOpenCoinLaunch || onReturn} className="px-4 py-2 rounded-lg border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-950/40">
+                                    Utility Rules
+                                </button>
+                             </div>
                          </div>
                      </div>
                  </div>
@@ -145,6 +159,13 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn, onOpenP
                           Open Coin Launch
                         </button>
                     </div>
+                 </div>
+
+                 <div className="mt-8 p-6 bg-amber-950/20 border border-amber-500/30 rounded-2xl">
+                    <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-2">Legal & Compliance Notice</p>
+                    <p className="text-[11px] text-zinc-300 leading-relaxed uppercase">
+                      DPAL tokens are presented as utility access units for platform actions (verification, mission funding, governance participation). They are not marketed as securities, investment contracts, or profit-sharing instruments. Availability and use must follow local law, KYC/AML obligations, consumer protection rules, and platform terms.
+                    </p>
                  </div>
             </section>
 
