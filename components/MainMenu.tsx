@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from '../i18n';
-import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X } from './icons';
+import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint } from './icons';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
@@ -209,6 +209,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     status="ACTIVE"
                     colorClass="amber"
                     onClick={() => onNavigate('heroHub', undefined, 'vault')}
+                />
+
+                <PrimaryNavModule 
+                    icon={<Fingerprint className="w-8 h-8" />}
+                    label="ESCROW_SERVICE"
+                    subLabel="Live face + fingerprint verification for P2P escrow"
+                    status="KYC"
+                    colorClass="cyan"
+                    onClick={() => onNavigate('escrowService')}
                 />
 
                 <PrimaryNavModule 

@@ -33,6 +33,7 @@ import SustainmentCenter from './components/SustainmentCenter';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
+import EscrowServiceView from './components/EscrowServiceView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
 import type { HomeLayout } from './constants';
@@ -41,7 +42,7 @@ import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'subscription' | 'aiSetup' | 'fieldMissions';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'subscription' | 'aiSetup' | 'fieldMissions';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -199,6 +200,7 @@ const App: React.FC = () => {
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
 
   const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(null);
+  const [submissionPrefill, setSubmissionPrefill] = useState<string>('');
   const [selectedIntelForMission, setSelectedIntelForMission] = useState<IntelItem | null>(null);
   const [initialCategoriesForIntel, setInitialCategoriesForIntel] = useState<Category[]>([]);
   
@@ -297,6 +299,7 @@ const App: React.FC = () => {
     setPrevView(currentView);
     if (category) { 
         setSelectedCategoryForSubmission(category); 
+        setSubmissionPrefill('');
         setCurrentView('reportSubmission'); 
     } 
     else { 
@@ -494,13 +497,25 @@ const App: React.FC = () => {
           />
         )}
 
+        {currentView === 'escrowService' && (
+          <EscrowServiceView
+            onReturn={() => setCurrentView('mainMenu')}
+            onStartEscrowReport={(category, prefilledDescription) => {
+              setSelectedCategoryForSubmission(category);
+              setSubmissionPrefill(prefilledDescription || 'Escrow case initialized from verification terminal.');
+              setCurrentView('reportSubmission');
+            }}
+          />
+        )}
+
         {currentView === 'reportSubmission' && selectedCategoryForSubmission && (
           <ReportSubmissionView 
             category={selectedCategoryForSubmission} 
             role={null} 
             onReturn={() => setCurrentView('categorySelection')} 
             addReport={handleAddReport} 
-            totalReports={reports.length} 
+            totalReports={reports.length}
+            prefilledDescription={submissionPrefill}
           />
         )}
 
