@@ -124,6 +124,43 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                  </div>
             </section>
 
+            <div className="mt-10 mb-24 p-10 bg-zinc-900 border-2 border-cyan-500/30 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-56 h-56 bg-cyan-500/10 blur-3xl"></div>
+                <div className="relative z-10 space-y-6">
+                    <div className="inline-flex items-center space-x-2 bg-cyan-950/40 border border-cyan-500/30 px-4 py-1 rounded-full text-[9px] font-black text-cyan-400 uppercase tracking-widest">
+                        <Coins className="w-3 h-3" />
+                        <span>Token Utility Expansion</span>
+                    </div>
+                    <h3 className="text-3xl font-black text-white uppercase tracking-tighter">DPAL_COIN_ACTION_LAYER</h3>
+                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-wider leading-relaxed">
+                        Utility coin architecture tied to real accountability actions — not speculative trading.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">01 Stake to Verify</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Guardians stake DPAL Coin to validate report integrity and consensus quality.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">02 Unlock Tools</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Spend utility credits to unlock advanced investigation and forensic modules.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">03 Sponsor Missions</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Communities and partners fund mission pools to accelerate priority cases.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">04 Reward Whistleblowers</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Verified, high-impact disclosures earn utility rewards from protocol pools.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4 md:col-span-2 lg:col-span-2">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">05 Governance Voting</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Token holders vote on treasury allocation, verification policy, and mission priorities.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             {/* 2. Core Purpose & Sustainability Section */}
             <section className="mb-32">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
