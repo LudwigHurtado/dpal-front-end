@@ -638,6 +638,13 @@ const App: React.FC = () => {
         {currentView === 'ecosystem' && (
           <EcosystemOverview onReturn={() => setCurrentView('mainMenu')} />
         )}
+
+        {currentView === 'sustainmentCenter' && (
+          <SustainmentCenter
+            onReturn={() => setCurrentView('mainMenu')}
+            onReward={(hc) => setHero((prev) => ({ ...prev, heroCredits: (prev.heroCredits || 0) + hc }))}
+          />
+        )}
       </main>
 
       {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && (
