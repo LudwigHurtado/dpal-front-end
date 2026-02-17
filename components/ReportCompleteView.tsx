@@ -269,21 +269,20 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 </div>
                             </section>
 
-                            {/* D. Signature Section */}
-                            <section className="pt-8 grid grid-cols-2 gap-16">
-                                <div className="space-y-4">
-                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">VERIFICATION_SIGNATURE</p>
-                                    <div className="h-[2px] w-full bg-zinc-200 mt-12 relative">
-                                        <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">DPAL Verification Authority</div>
+                            {/* D. Verification Stamps */}
+                            <section className="pt-8">
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">Certification Stamps</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="rounded-full border-[5px] border-zinc-900 w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-6">
+                                        <ShieldCheck className="w-10 h-10 text-zinc-900 mb-2" />
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-900">DPAL VERIFIED</p>
+                                        <p className="text-[8px] font-black uppercase tracking-wider text-zinc-500 mt-2">RSA-4096 STANDARD</p>
                                     </div>
-                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Verification Standard: RSA-4096</p>
-                                </div>
-                                <div className="space-y-4">
-                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">CERTIFIED_BY</p>
-                                    <div className="h-[2px] w-full bg-zinc-200 mt-12 relative">
-                                         <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">DPAL Compliance Engine</div>
+                                    <div className="rounded-full border-[5px] border-zinc-900 w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-6">
+                                        <Star className="w-10 h-10 text-zinc-900 mb-2" />
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-900">COMPLIANCE CERTIFIED</p>
+                                        <p className="text-[8px] font-black uppercase tracking-wider text-zinc-500 mt-2">AUTOMATED VERIFICATION</p>
                                     </div>
-                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Automated Verification Service</p>
                                 </div>
                             </section>
                         </div>
