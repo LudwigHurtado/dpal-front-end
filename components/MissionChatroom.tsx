@@ -45,6 +45,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isRecording, setIsRecording] = useState(false);
     const [isLocating, setIsLocating] = useState(false);
+    const [uploadHint, setUploadHint] = useState<string | null>(null);
     
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -123,6 +124,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
         setInputText('');
         setAttachment(null);
         setAudioAttachment(null);
+        setUploadHint(null);
     };
 
     const handleShareLocation = () => {
@@ -139,12 +141,46 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
         );
     };
 
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const compressImageToDataUrl = async (file: File): Promise<string> => {
+        const objectUrl = URL.createObjectURL(file);
+        try {
+            const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const i = new Image();
+                i.onload = () => resolve(i);
+                i.onerror = reject;
+                i.src = objectUrl;
+            });
+
+            const maxDim = 1600;
+            const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            const w = Math.max(1, Math.round(img.width * scale));
+            const h = Math.max(1, Math.round(img.height * scale));
+
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) throw new Error('Canvas not supported');
+            ctx.drawImage(img, 0, 0, w, h);
+
+            return canvas.toDataURL('image/jpeg', 0.82);
+        } finally {
+            URL.revokeObjectURL(objectUrl);
+        }
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => setAttachment(reader.result as string);
-            reader.readAsDataURL(file);
+        if (!file) return;
+
+        try {
+            setUploadHint('Optimizing image for room upload...');
+            const compressed = await compressImageToDataUrl(file);
+            setAttachment(compressed);
+            setUploadHint('Image ready. Send to persist in shared room history.');
+        } catch (err) {
+            console.error('Image prepare failed:', err);
+            setUploadHint('Image processing failed. Try another image.');
         }
     };
 
@@ -229,6 +265,11 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
 
             {/* INPUT FOOTER */}
             <div className="p-8 bg-zinc-900 border-t border-zinc-800 flex-shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+                {uploadHint && (
+                    <div className="mb-4 text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                        {uploadHint}
+                    </div>
+                )}
                 {(attachment || audioAttachment) && (
                     <div className="flex items-center space-x-4 p-4 bg-zinc-950 rounded-2xl border border-emerald-500/40 mb-6 animate-fade-in shadow-inner">
                         <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-emerald-500/20 flex items-center justify-center">
