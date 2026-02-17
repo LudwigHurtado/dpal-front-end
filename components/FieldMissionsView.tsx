@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ArrowLeft, Broadcast, MapPin, Loader, Send, X } from './icons';
+import { ArrowLeft, Broadcast, MapPin, Loader, Send, X, Clock, Coins, Scale, Target } from './icons';
 import type { Mission } from '../types';
 import type { FieldBeacon } from '../App';
 
@@ -17,6 +17,19 @@ const MOCK_HELP_REQUESTS: Array<{
   { id: 'hr-2', name: 'Sam K.', title: 'Water quality testing volunteer', description: 'Community well testing. Bring phone for photos.', lat: 40.7128, lng: -74.0060, locationLabel: 'New York, NY' },
   { id: 'hr-3', name: 'Riley T.', title: 'Traffic hazard documentation', description: 'Recurring pothole and flooding at intersection. Need timestamps.', lat: 41.8781, lng: -87.6298, locationLabel: 'Chicago, IL' },
 ];
+
+type MissionTier = 'Local' | 'National' | 'Global';
+
+interface CampaignMission {
+  id: string;
+  title: string;
+  location: string;
+  tier: MissionTier;
+  deadlineIso: string;
+  rewardPool: { funded: number; target: number; currency: string };
+  teamMission: boolean;
+  sponsor?: string;
+}
 
 interface FieldMissionsViewProps {
   onReturn: () => void;
@@ -38,6 +51,26 @@ const FieldMissionsView: React.FC<FieldMissionsViewProps> = ({
   const [messageFor, setMessageFor] = useState<{ id: string; name: string } | null>(null);
   const [messageText, setMessageText] = useState('');
   const [requestSentIds, setRequestSentIds] = useState<Set<string>>(new Set());
+
+  const campaignMissions = useMemo<CampaignMission[]>(() => {
+    const now = Date.now();
+    return missions.slice(0, 8).map((m, idx) => {
+      const tier: MissionTier = idx % 3 === 0 ? 'Global' : idx % 2 === 0 ? 'National' : 'Local';
+      const hours = tier === 'Global' ? 96 : tier === 'National' ? 72 : 36;
+      const target = tier === 'Global' ? 10000 : tier === 'National' ? 6000 : 2000;
+      const funded = Math.min(target, Math.max(300, Math.round(target * (0.25 + (idx * 0.09 % 0.6)))));
+      return {
+        id: m.id,
+        title: m.title,
+        location: m.location || 'Location TBD',
+        tier,
+        deadlineIso: new Date(now + hours * 60 * 60 * 1000).toISOString(),
+        rewardPool: { funded, target, currency: 'DPAL' },
+        teamMission: true,
+        sponsor: idx % 2 === 0 ? 'Community Treasury' : 'Civic Sponsor Pool',
+      };
+    });
+  }, [missions]);
 
   const mapUrl = useMemo(() => {
     const q = mapCenter || DEFAULT_CENTER;
@@ -139,39 +172,65 @@ const FieldMissionsView: React.FC<FieldMissionsViewProps> = ({
       {/* List: missions + help requests + beacons */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500">Missions & help requests</h2>
+        <div className="p-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 text-[10px] uppercase text-cyan-300 font-bold tracking-wide">
+          Mission Engine 2.0 active: Tiered campaigns, time-bound investigations, reward pools, team ops, and sponsor-funded missions.
+        </div>
 
-        {missions.slice(0, 5).map((m) => (
-          <div
-            key={m.id}
-            className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-3"
-          >
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <span className="text-[9px] font-black uppercase text-cyan-500">Mission</span>
-                <h3 className="text-sm font-black text-white uppercase truncate">{m.title}</h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5">{m.location || 'Location TBD'}</p>
+        {campaignMissions.map((m) => {
+          const fundedPct = Math.min(100, Math.round((m.rewardPool.funded / m.rewardPool.target) * 100));
+          const hoursLeft = Math.max(0, Math.ceil((new Date(m.deadlineIso).getTime() - Date.now()) / (1000 * 60 * 60)));
+          const tierColor = m.tier === 'Global' ? 'text-rose-400' : m.tier === 'National' ? 'text-amber-400' : 'text-emerald-400';
+
+          return (
+            <div
+              key={m.id}
+              className="p-4 rounded-2xl bg-zinc-900/80 border border-zinc-800 space-y-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className={`text-[9px] font-black uppercase ${tierColor}`}>Mission 2.0 · {m.tier}</span>
+                  <h3 className="text-sm font-black text-white uppercase truncate">{m.title}</h3>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">{m.location}</p>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => showOnMap(m.location || DEFAULT_CENTER)}
+                    className="p-2 rounded-lg border border-zinc-700 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-colors"
+                    aria-label="Show on map"
+                  >
+                    <MapPin className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRequestJoin(`mission-${m.id}`)}
+                    disabled={requestSentIds.has(`mission-${m.id}`)}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-cyan-600 hover:bg-cyan-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
+                  >
+                    {requestSentIds.has(`mission-${m.id}`) ? 'Joined campaign' : 'Join campaign'}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-center gap-1 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => showOnMap(m.location || DEFAULT_CENTER)}
-                  className="p-2 rounded-lg border border-zinc-700 text-zinc-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-colors"
-                  aria-label="Show on map"
-                >
-                  <MapPin className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleRequestJoin(`mission-${m.id}`)}
-                  disabled={requestSentIds.has(`mission-${m.id}`)}
-                  className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase bg-cyan-600 hover:bg-cyan-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white transition-colors"
-                >
-                  {requestSentIds.has(`mission-${m.id}`) ? 'Request sent' : 'Request to join'}
-                </button>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[10px] uppercase">
+                <div className="bg-black/40 border border-zinc-800 rounded-lg p-2 flex items-center gap-2"><Clock className="w-3 h-3 text-amber-400" />{hoursLeft}h left</div>
+                <div className="bg-black/40 border border-zinc-800 rounded-lg p-2 flex items-center gap-2"><Coins className="w-3 h-3 text-emerald-400" />{m.rewardPool.funded}/{m.rewardPool.target} {m.rewardPool.currency}</div>
+                <div className="bg-black/40 border border-zinc-800 rounded-lg p-2 flex items-center gap-2"><Target className="w-3 h-3 text-cyan-400" />Team mission</div>
+                <div className="bg-black/40 border border-zinc-800 rounded-lg p-2 flex items-center gap-2"><Scale className="w-3 h-3 text-purple-400" />{m.sponsor}</div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex justify-between text-[9px] text-zinc-500 uppercase font-bold">
+                  <span>Reward Pool Funding</span>
+                  <span>{fundedPct}%</span>
+                </div>
+                <div className="h-2 bg-zinc-950 rounded-full overflow-hidden border border-zinc-800">
+                  <div className="h-full bg-emerald-500" style={{ width: `${fundedPct}%` }} />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
 
         {MOCK_HELP_REQUESTS.map((hr) => (
           <div
