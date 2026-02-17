@@ -41,6 +41,7 @@ import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { fetchSituationMessages, sendSituationMessage } from './services/situationService';
+import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'subscription' | 'aiSetup' | 'fieldMissions';
@@ -426,6 +427,13 @@ const App: React.FC = () => {
     setHero(prev => ({ ...prev, personas: [...prev.personas, newPersona], equippedPersonaId: prev.equippedPersonaId || newPersona.id }));
   };
 
+  const fileToSha256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `0x${hex}`;
+  };
+
   const handleAddReport = async (rep: any) => {
     const reportId = `rep-${Date.now()}`;
 
@@ -459,6 +467,25 @@ const App: React.FC = () => {
       console.warn('Anchor API unavailable, using local fallback:', error);
     }
 
+    let evidenceRecords: any[] = [];
+    const rawAttachments: File[] = Array.isArray(rep?.attachments) ? rep.attachments : [];
+
+    if (rawAttachments.length) {
+      try {
+        const evidenceItems = await Promise.all(rawAttachments.map(async (file: File) => ({
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          sizeBytes: file.size || 0,
+          sha256: await fileToSha256(file),
+          timestampIso: new Date().toISOString(),
+        })));
+
+        evidenceRecords = await createEvidenceRecords(reportId, evidenceItems);
+      } catch (error) {
+        console.warn('Evidence vault API unavailable, continuing without remote evidence packet:', error);
+      }
+    }
+
     const fallbackTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
     const finalReport: Report = {
       ...rep,
@@ -471,7 +498,10 @@ const App: React.FC = () => {
       chain: anchored.chain || 'DPAL_INTERNAL',
       anchoredAt: anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
       isAuthor: true,
-      status: 'Submitted'
+      status: 'Submitted',
+      evidenceVault: {
+        records: evidenceRecords,
+      },
     };
 
     setReports(prev => [finalReport, ...prev]);

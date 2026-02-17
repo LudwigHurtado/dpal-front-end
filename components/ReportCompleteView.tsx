@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { Report } from '../types';
+import { fetchEvidencePacket } from '../services/evidenceVaultService';
 import { useTranslations } from '../i18n';
 /* FIX: Added missing Star icon import */
 import { ArrowLeft, Coins, Zap, Check, Loader, QrCode, ShieldCheck, Activity, Target, Database, Hash, Sparkles, Scale, Broadcast, Printer, FileText, Globe, User, Clock, ChevronDown, CheckCircle, Send, Package, ArrowRight, Mail, Monitor, FileCode, Star } from './icons';
@@ -65,6 +66,37 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
             setDispatchStatus('SUCCESS');
             setTimeout(() => setDispatchStatus('IDLE'), 3000);
         }, 2000);
+    };
+
+    const handleDownloadEvidencePacket = async () => {
+        try {
+            const packet = await fetchEvidencePacket(report.id);
+            const blob = new Blob([JSON.stringify(packet, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `dpal-certified-evidence-packet-${report.id}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.warn('Evidence packet endpoint unavailable, using local packet fallback.', error);
+            const fallback = {
+                reportId: report.id,
+                generatedAt: new Date().toISOString(),
+                records: report.evidenceVault?.records || [],
+            };
+            const blob = new Blob([JSON.stringify(fallback, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `dpal-evidence-packet-local-${report.id}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        }
     };
 
     const handleEmail = () => {
@@ -193,9 +225,9 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                     <Printer className="w-8 h-8 text-zinc-600 group-hover:text-white mb-3 transition-colors" />
                                     <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Print_Hardcopy</span>
                                 </button>
-                                <button onClick={handlePrint} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
+                                <button onClick={handleDownloadEvidencePacket} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
                                     <FileCode className="w-8 h-8 text-cyan-600 group-hover:text-white mb-3 transition-colors" />
-                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Download_PDF</span>
+                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Certified_Evidence_Packet</span>
                                 </button>
                                 <button onClick={handleEmail} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
                                     <Mail className="w-8 h-8 text-zinc-600 group-hover:text-white mb-3 transition-colors" />
@@ -253,6 +285,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                     <DataRow label={t('reportComplete.blockRefLabel')} value={blockRef} />
                                     <DataRow label={t('reportComplete.dateIssuedLabel')} value={(report.anchoredAt || report.timestamp).toLocaleString()} />
                                     <DataRow label={t('reportComplete.categoryLabel')} value={report.category.toUpperCase()} />
+                                    <DataRow label={'Evidence Artifacts'} value={`${report.evidenceVault?.records?.length || 0}`} />
                                 </div>
                             </section>
 
@@ -337,11 +370,11 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             <span>{t('reportComplete.printCert')}</span>
                         </button>
                         <button 
-                            onClick={handlePrint}
+                            onClick={handleDownloadEvidencePacket}
                             className="flex-1 md:flex-none flex items-center justify-center space-x-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-5 px-12 rounded-[1.5rem] text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-cyan-800"
                         >
                             <FileCode className="w-6 h-6" />
-                            <span>Download_Secure_PDF</span>
+                            <span>Download_Evidence_Packet</span>
                         </button>
                     </div>
 

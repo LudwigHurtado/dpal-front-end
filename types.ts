@@ -80,6 +80,20 @@ export interface Report {
         grade: string;
     };
     structuredData?: any;
+    evidenceVault?: {
+        packetHash?: string;
+        records: Array<{
+            evidenceRefId: string;
+            filename: string;
+            mimeType: string;
+            sizeBytes: number;
+            sha256: string;
+            timestampIso: string;
+            timestampHash: string;
+            chainRefId: string;
+            verificationLink: string;
+        }>;
+    };
 }
 
 export enum SkillLevel {
