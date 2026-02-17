@@ -35,6 +35,9 @@ import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
 import CoinLaunchView from './components/CoinLaunchView';
+import LayoutV1 from './layouts/LayoutV1';
+import LayoutV2 from './layouts/LayoutV2';
+import { featureFlags } from './features/featureFlags';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
 import type { HomeLayout } from './constants';
@@ -447,22 +450,24 @@ const App: React.FC = () => {
     } = {};
 
     try {
-      const apiBase = getApiBase();
-      const response = await fetch(`${apiBase}/api/reports/anchor`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reportId, ...rep }),
-      });
+      if (featureFlags.blockchainAnchorEnabled) {
+        const apiBase = getApiBase();
+        const response = await fetch(`${apiBase}/api/reports/anchor`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reportId, ...rep }),
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        anchored = {
-          reportHash: data?.reportHash,
-          txHash: data?.txHash,
-          blockNumber: data?.blockNumber,
-          chain: data?.chain,
-          anchoredAt: data?.anchoredAt,
-        };
+        if (response.ok) {
+          const data = await response.json();
+          anchored = {
+            reportHash: data?.reportHash,
+            txHash: data?.txHash,
+            blockNumber: data?.blockNumber,
+            chain: data?.chain,
+            anchoredAt: data?.anchoredAt,
+          };
+        }
       }
     } catch (error) {
       console.warn('Anchor API unavailable, using local fallback:', error);
@@ -597,7 +602,11 @@ const App: React.FC = () => {
     return report;
   };
 
+  const layoutVersion = (import.meta.env.VITE_LAYOUT_VERSION || 'v1').toLowerCase();
+  const ActiveLayout = layoutVersion === 'v2' ? LayoutV2 : LayoutV1;
+
   return (
+    <ActiveLayout>
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
       {!useMobileLayout && (
         <Header 
@@ -802,6 +811,7 @@ const App: React.FC = () => {
         <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
       )}
     </div>
+    </ActiveLayout>
   );
 };
 

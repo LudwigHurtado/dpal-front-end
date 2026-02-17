@@ -7,6 +7,7 @@ import { CATEGORIES_WITH_ICONS } from '../constants';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
 import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
+import { featureFlags } from '../features/featureFlags';
 
 interface MainMenuProps {
     onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
@@ -238,14 +239,16 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     onClick={() => onNavigate('ecosystem')}
                 />
 
-                <PrimaryNavModule 
-                    icon={<Coins className="w-8 h-8" />}
-                    label="COIN_LAUNCH"
-                    subLabel="Launch utility actions and store immutable token records"
-                    status="LEDGER"
-                    colorClass="emerald"
-                    onClick={() => onNavigate('coinLaunch')}
-                />
+                {featureFlags.governanceEnabled && (
+                    <PrimaryNavModule 
+                        icon={<Coins className="w-8 h-8" />}
+                        label="COIN_LAUNCH"
+                        subLabel="Launch utility actions and store immutable token records"
+                        status="LEDGER"
+                        colorClass="emerald"
+                        onClick={() => onNavigate('coinLaunch')}
+                    />
+                )}
 
                 <PrimaryNavModule 
                     icon={<Phone className="w-8 h-8" />}
