@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Category, Report, SeverityLevel } from '../../types';
 import { CATEGORIES_WITH_ICONS } from '../../constants';
 import { MapPin, Camera, Mic, ShieldCheck, User, ChevronDown } from '../icons';
@@ -35,6 +35,8 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
   const [submitPublic, setSubmitPublic] = useState(true);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [subcategoryOpen, setSubcategoryOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
 
   const subOptions = category ? (SUB_CATEGORIES[category] || DEFAULT_SUBS) : [];
 
@@ -45,6 +47,36 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
         () => setLocation('Location unavailable'),
       );
     } else setLocation('Location unavailable');
+  };
+
+  const quickPinFlow = () => {
+    if (location) return;
+    handleUseMyLocation();
+  };
+
+  const toggleVoice = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    if (isListening) {
+      recognitionRef.current?.stop?.();
+      setIsListening(false);
+      return;
+    }
+
+    const r = new SpeechRecognition();
+    r.lang = 'en-US';
+    r.interimResults = true;
+    r.continuous = true;
+    r.onresult = (ev: any) => {
+      let transcript = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) transcript += ev.results[i][0].transcript;
+      setWhatHappened(transcript.trim());
+    };
+    r.onend = () => setIsListening(false);
+    recognitionRef.current = r;
+    r.start();
+    setIsListening(true);
   };
 
   const handleSubmit = () => {
@@ -127,15 +159,24 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
         {/* Location - blue button */}
         <div>
           <label className="block text-xs font-medium text-zinc-400 mb-1">Location</label>
-          <button
-            type="button"
-            onClick={handleUseMyLocation}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold touch-manipulation"
-            style={{ backgroundColor: HEADER_BLUE }}
-          >
-            <MapPin className="w-5 h-5" />
-            Use My Current Location
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleUseMyLocation}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-white font-semibold touch-manipulation"
+              style={{ backgroundColor: HEADER_BLUE }}
+            >
+              <MapPin className="w-5 h-5" />
+              Use My Current Location
+            </button>
+            <button
+              type="button"
+              onClick={quickPinFlow}
+              className="px-3 py-3 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 text-xs font-semibold"
+            >
+              Quick Pin
+            </button>
+          </div>
           <input
             type="text"
             placeholder="Enter Address"
@@ -147,7 +188,12 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
 
         {/* What happened? */}
         <div>
-          <label className="block text-xs font-medium text-zinc-400 mb-1">What happened?</label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-xs font-medium text-zinc-400">What happened?</label>
+            <button type="button" onClick={toggleVoice} className={`text-xs px-2 py-1 rounded-md ${isListening ? 'bg-rose-600 text-white' : 'bg-zinc-800 text-zinc-300'}`}>
+              {isListening ? 'Stop Voice' : 'Voice'}
+            </button>
+          </div>
           <textarea
             placeholder="Describe the issue..."
             value={whatHappened}

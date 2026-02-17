@@ -5,6 +5,9 @@ import { type Report, type Hero, Category } from '../types';
 import { ArrowLeft, Database, Search, ShieldCheck, Loader, Zap, Sparkles, Filter, ListFilter, ChevronDown, Broadcast, Scale, AlertTriangle } from './icons';
 import FilterPanel from './FilterPanel';
 import ReportCard from './ReportCard';
+import OperationalConfidencePanel from './OperationalConfidencePanel';
+import LiveTransparencyMetricsCard from './LiveTransparencyMetricsCard';
+import VerifierConfidenceCard from './VerifierConfidenceCard';
 
 interface TransparencyDatabaseViewProps {
   onReturn: () => void;
@@ -90,7 +93,10 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
 
         <div className="flex-grow min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
             <aside className="lg:col-span-3 border-r border-zinc-800 bg-black/40 overflow-y-auto custom-scrollbar p-8 min-h-0">
-                <div className="space-y-10">
+                <div className="space-y-6">
+                    <OperationalConfidencePanel />
+                    <LiveTransparencyMetricsCard />
+                    <VerifierConfidenceCard />
                     {/* ACTIONABLE FILTER */}
                     <div className="space-y-6">
                         <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] ml-2">High_Stake_Oversight</label>
