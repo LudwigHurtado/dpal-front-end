@@ -148,7 +148,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
+    recognition.lang = 'en-US';
     recognition.continuous = true;
     recognition.interimResults = true;
 
@@ -282,19 +282,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
                  <ForensicField key={q.id} question={q} value={answers[q.id]} onChange={v => setAnswers({...answers, [q.id]: v})} />
                ))}
                <div className="space-y-3">
-                   <div className="flex items-center justify-between gap-3">
-                     <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{isEscrowCategory ? 'Transaction_Summary' : 'Situational_Summary'}</label>
-                     {dictationSupported && (
-                       <button
-                         type="button"
-                         onClick={toggleDictation}
-                         className={`px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'}`}
-                       >
-                         {isDictating ? <Square className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
-                         {isDictating ? 'Stop Voice' : 'Voice Override'}
-                       </button>
-                     )}
-                   </div>
+                   <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{isEscrowCategory ? 'Transaction_Summary' : 'Situational_Summary'}</label>
                    <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed" placeholder={isEscrowCategory ? 'Summarize what was sold, by whom, to whom, and what receipt proof is available...' : 'Summarize the core observation...'} />
                </div>
             </div>
@@ -457,6 +445,25 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
       {/* CONTENT AREA */}
       <div className="flex-grow order-1 lg:order-2">
           <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[4rem] p-10 md:p-16 shadow-4xl relative overflow-hidden">
+              <div className="mb-6 p-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Voice Reporting</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Apply analytical tools for clear reports.</p>
+                  </div>
+                  {dictationSupported ? (
+                    <button
+                      type="button"
+                      onClick={toggleDictation}
+                      className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest flex items-center gap-2 self-start md:self-auto ${isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white'}`}
+                    >
+                      {isDictating ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                      {isDictating ? 'Stop Voice Override' : 'Start Voice Override'}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Voice input not supported in this browser</span>
+                  )}
+              </div>
+
               <div className="hidden lg:flex justify-end mb-6">
                   <button
                     type="button"
