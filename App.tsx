@@ -40,6 +40,7 @@ import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
+import { fetchSituationMessages, sendSituationMessage } from './services/situationService';
 import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'subscription' | 'aiSetup' | 'fieldMissions';
@@ -212,6 +213,7 @@ const App: React.FC = () => {
   const [itemForPayment, setItemForPayment] = useState<IapPack | StoreItem | null>(null);
   const [selectedMissionForDetail, setSelectedMissionForDetail] = useState<Mission | null>(null);
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
+  const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
@@ -261,6 +263,31 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentView !== 'hub') setFilterSheetOpen(false);
   }, [currentView]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    const roomId = selectedReportForIncidentRoom?.id;
+    if (currentView !== 'incidentRoom' || !roomId) {
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const msgs = await fetchSituationMessages(roomId);
+        setSituationMessages(msgs);
+      } catch (error) {
+        console.warn('Situation messages fetch failed:', error);
+      }
+    };
+
+    void load();
+    timer = setInterval(load, 3500);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [currentView, selectedReportForIncidentRoom?.id]);
 
   useEffect(() => {
     if (viewRef.current === currentView) return;
@@ -450,6 +477,35 @@ const App: React.FC = () => {
     setReports(prev => [finalReport, ...prev]);
     setCompletedReport(finalReport);
     setCurrentView('reportComplete');
+  };
+
+  const handleSendSituationMessage = async (text: string, imageUrl?: string, audioUrl?: string) => {
+    const roomId = selectedReportForIncidentRoom?.id;
+    if (!roomId) return;
+
+    const optimistic: ChatMessage = {
+      id: `tmp-${Date.now()}`,
+      sender: heroWithRank.name,
+      text: text || '',
+      timestamp: Date.now(),
+      imageUrl,
+      audioUrl,
+      ledgerProof: `0x${Math.random().toString(16).slice(2)}`,
+    };
+    setSituationMessages((prev) => [...prev, optimistic]);
+
+    try {
+      const saved = await sendSituationMessage(roomId, {
+        sender: heroWithRank.name,
+        text,
+        imageUrl,
+        audioUrl,
+      });
+      setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), saved]);
+    } catch (error) {
+      console.warn('Situation send failed:', error);
+      setSituationMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+    }
   };
 
   const handleCompleteDirective = (directive: AiDirective): Report => {
@@ -663,7 +719,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'incidentRoom' && selectedReportForIncidentRoom && (
-          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => goBack('hub')} messages={[]} onSendMessage={() => {}} />
+          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => goBack('hub')} messages={situationMessages} onSendMessage={handleSendSituationMessage} />
         )}
 
         {currentView === 'reputationAndCurrency' && (
