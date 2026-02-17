@@ -5,6 +5,8 @@ import { ArrowLeft, Zap, ShieldCheck, Target, Broadcast, Database, Sparkles, Coi
 
 interface EcosystemOverviewProps {
     onReturn: () => void;
+    onOpenPurchase?: () => void;
+    onOpenCoinLaunch?: () => void;
 }
 
 const ProtocolCard: React.FC<{ title: string; desc: string; icon: React.ReactNode; color: string }> = ({ title, desc, icon, color }) => (
@@ -18,7 +20,7 @@ const ProtocolCard: React.FC<{ title: string; desc: string; icon: React.ReactNod
     </div>
 );
 
-const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
+const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn, onOpenPurchase, onOpenCoinLaunch }) => {
     return (
         <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto px-4 pb-20">
             <button
@@ -121,6 +123,28 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                              </p>
                          </div>
                      </div>
+                 </div>
+
+                 <div className="mt-10 p-8 bg-zinc-900/80 border border-emerald-500/30 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Get Utility Coins</p>
+                        <h4 className="text-2xl font-black uppercase tracking-tight text-white">Purchase DPAL Credits / Coin Access</h4>
+                        <p className="text-xs text-zinc-400 uppercase mt-2">Buy coin packs to fund missions, verification, and governance participation.</p>
+                    </div>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <button
+                          onClick={onOpenPurchase || onReturn}
+                          className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest"
+                        >
+                          Buy Coins
+                        </button>
+                        <button
+                          onClick={onOpenCoinLaunch || onReturn}
+                          className="flex-1 md:flex-none px-6 py-3 rounded-xl border border-cyan-500/40 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 text-xs font-black uppercase tracking-widest"
+                        >
+                          Open Coin Launch
+                        </button>
+                    </div>
                  </div>
             </section>
 

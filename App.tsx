@@ -796,7 +796,11 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'ecosystem' && (
-          <EcosystemOverview onReturn={() => goBack('mainMenu')} />
+          <EcosystemOverview
+            onReturn={() => goBack('mainMenu')}
+            onOpenPurchase={() => handleNavigate('heroHub', undefined, 'store')}
+            onOpenCoinLaunch={() => handleNavigate('coinLaunch')}
+          />
         )}
 
         {currentView === 'sustainmentCenter' && (
