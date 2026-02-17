@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Category } from '../types';
 import { ArrowLeft, Camera, Fingerprint, ShieldCheck, Upload, CheckCircle, User } from './icons';
 
@@ -16,6 +16,8 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
   const [cameraError, setCameraError] = useState<string>('');
   const [fingerprintImage, setFingerprintImage] = useState<string | null>(null);
   const [fingerprintStatus, setFingerprintStatus] = useState<'IDLE' | 'SCANNING' | 'VERIFIED'>('IDLE');
+  const [fingerprintMethod, setFingerprintMethod] = useState<'none' | 'device-scan' | 'photo'>('none');
+  const [fingerprintError, setFingerprintError] = useState('');
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -71,17 +73,45 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
     });
   };
 
+  const supportsDeviceBiometricScan = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const hasPublicKey = typeof (window as any).PublicKeyCredential !== 'undefined';
+    const isSecureContextOk = typeof window.isSecureContext === 'boolean' ? window.isSecureContext : true;
+    return hasPublicKey && isSecureContextOk;
+  }, []);
+
+  const handleDeviceFingerprintScan = async () => {
+    if (!supportsDeviceBiometricScan) {
+      setFingerprintError('Device biometric scan is unavailable on this browser. Use fingerprint photo upload.');
+      return;
+    }
+
+    setFingerprintError('');
+    setFingerprintStatus('SCANNING');
+    setFingerprintMethod('device-scan');
+
+    // UX-level device scan simulation hook: browser/platform biometric availability differs per device.
+    // In production, connect this path to your escrow backend + WebAuthn challenge verification endpoint.
+    setTimeout(() => {
+      setFingerprintStatus('VERIFIED');
+      setFingerprintImage(null);
+    }, 1600);
+  };
+
   const handleFingerprintUpload = (file?: File) => {
     readImageAsDataUrl(file, (value) => {
       setFingerprintImage(value);
       setFingerprintStatus('SCANNING');
+      setFingerprintMethod('photo');
+      setFingerprintError('');
       setTimeout(() => setFingerprintStatus('VERIFIED'), 1800);
     });
   };
 
-  const ready = Boolean(capturedFace && fingerprintImage && fingerprintStatus === 'VERIFIED');
+  const fingerprintReady = fingerprintStatus === 'VERIFIED' && (fingerprintMethod === 'device-scan' || Boolean(fingerprintImage));
+  const ready = Boolean(capturedFace && fingerprintReady);
 
-  const prefill = `Escrow verification packet created.\n- Face evidence: ${capturedFace ? 'captured' : 'missing'}\n- Fingerprint evidence: ${fingerprintStatus}`;
+  const prefill = `Escrow verification packet created.\n- Face evidence: ${capturedFace ? 'captured' : 'missing'}\n- Fingerprint evidence: ${fingerprintStatus}\n- Fingerprint method: ${fingerprintMethod}`;
 
   return (
     <div className="max-w-7xl mx-auto text-white font-mono animate-fade-in pb-28 px-4">
@@ -140,10 +170,23 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
               <h3 className="text-xs font-black uppercase tracking-[0.25em]">Fingerprint Scan</h3>
             </div>
 
+            {supportsDeviceBiometricScan && (
+              <button
+                onClick={handleDeviceFingerprintScan}
+                className="w-full border border-zinc-700 rounded-2xl p-4 text-left hover:border-emerald-500 bg-zinc-950"
+              >
+                <div className="flex items-center gap-3 text-sm text-zinc-300">
+                  <Fingerprint className="w-4 h-4" />
+                  Use device fingerprint scan
+                </div>
+                <p className="text-[10px] text-zinc-500 mt-2 uppercase tracking-wider">Phone sensor / platform biometric</p>
+              </button>
+            )}
+
             <label className="w-full border border-dashed border-zinc-700 rounded-2xl p-4 block cursor-pointer hover:border-cyan-500">
               <div className="flex items-center gap-3 text-sm text-zinc-300">
                 <Upload className="w-4 h-4" />
-                Upload fingerprint image
+                Upload fingerprint photo (fallback)
               </div>
               <input
                 type="file"
@@ -157,8 +200,11 @@ const EscrowServiceView: React.FC<EscrowServiceViewProps> = ({ onReturn, onStart
               <img src={fingerprintImage} alt="Fingerprint evidence" className="w-full h-40 object-cover rounded-xl border border-zinc-800" />
             )}
 
-            <div className="text-xs uppercase font-black tracking-widest text-zinc-400">
-              Status: <span className="text-white">{fingerprintStatus}</span>
+            {fingerprintError && <p className="text-xs text-amber-400 font-bold">{fingerprintError}</p>}
+
+            <div className="text-xs uppercase font-black tracking-widest text-zinc-400 space-y-1">
+              <p>Status: <span className="text-white">{fingerprintStatus}</span></p>
+              <p>Method: <span className="text-white">{fingerprintMethod}</span></p>
             </div>
           </div>
 
