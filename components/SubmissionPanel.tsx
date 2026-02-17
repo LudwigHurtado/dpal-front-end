@@ -4,7 +4,7 @@ import {
   MapPin, Send, Loader, Camera, RefreshCw, AlertTriangle, ShieldCheck, Target, Zap, 
   // Added Broadcast, removed non-existent BarChart
   Activity, Info, Briefcase, Database, Scale, Globe, FileText, Trash2, 
-  CheckCircle, ChevronRight, Maximize2, Clock, Play, Volume2, Paperclip, Plus, X, Sparkles, Broadcast
+  CheckCircle, ChevronRight, Maximize2, Clock, Play, Volume2, Paperclip, Plus, X, Sparkles, Broadcast, Mic, Square
 } from './icons';
 import { FORM_BUNDLE, CATEGORIES_WITH_ICONS } from '../constants';
 
@@ -100,7 +100,7 @@ const ForensicField: React.FC<{
 };
 
 const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselectedCategory, prefilledDescription }) => {
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [activeStepIndex, setActiveStepIndex] = useState(() => (preselectedCategory ? 1 : 0));
   const [desktopExpanded, setDesktopExpanded] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth >= 1280 : false);
   const [category, setCategory] = useState<Category | ''>(preselectedCategory || '');
   const [severity, setSeverity] = useState<SeverityLevel>('Standard');
@@ -110,8 +110,10 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const schema = useMemo(() => {
     if (!category) return null;
@@ -119,6 +121,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   }, [category]);
 
   const isEscrowCategory = category === Category.P2PEscrowVerification || category === Category.ProofOfLifeBiometric;
+  const dictationSupported = typeof window !== 'undefined' && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
   useEffect(() => {
     const onResize = () => {
@@ -127,6 +130,43 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop?.();
+    };
+  }, []);
+
+  const toggleDictation = () => {
+    if (!dictationSupported) return;
+
+    if (isDictating) {
+      recognitionRef.current?.stop?.();
+      setIsDictating(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setDescription(transcript.trim());
+    };
+
+    recognition.onend = () => setIsDictating(false);
+    recognition.onerror = () => setIsDictating(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsDictating(true);
+  };
 
   const fidelityScore = useMemo(() => {
     let score = 0;
@@ -144,6 +184,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   };
 
   const handlePrev = () => {
+    if (preselectedCategory && activeStepIndex <= 1) return;
     if (activeStepIndex > 0) setActiveStepIndex(activeStepIndex - 1);
   };
 
@@ -241,7 +282,19 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
                  <ForensicField key={q.id} question={q} value={answers[q.id]} onChange={v => setAnswers({...answers, [q.id]: v})} />
                ))}
                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{isEscrowCategory ? 'Transaction_Summary' : 'Situational_Summary'}</label>
+                   <div className="flex items-center justify-between gap-3">
+                     <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{isEscrowCategory ? 'Transaction_Summary' : 'Situational_Summary'}</label>
+                     {dictationSupported && (
+                       <button
+                         type="button"
+                         onClick={toggleDictation}
+                         className={`px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white'}`}
+                       >
+                         {isDictating ? <Square className="w-3 h-3" /> : <Mic className="w-3 h-3" />}
+                         {isDictating ? 'Stop Voice' : 'Voice Override'}
+                       </button>
+                     )}
+                   </div>
                    <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed" placeholder={isEscrowCategory ? 'Summarize what was sold, by whom, to whom, and what receipt proof is available...' : 'Summarize the core observation...'} />
                </div>
             </div>
@@ -384,7 +437,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
               <div className="space-y-8 relative">
                   <div className="absolute left-[17px] top-2 bottom-2 w-0.5 bg-zinc-800"></div>
-                  {STEPS.map((step, idx) => {
+                  {(preselectedCategory ? STEPS.filter((s) => s.id !== 'DOMAIN') : STEPS).map((step) => {
+                      const idx = STEPS.findIndex((s) => s.id === step.id);
                       const isActive = activeStepIndex === idx;
                       const isComplete = activeStepIndex > idx;
                       return (
