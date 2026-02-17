@@ -3,6 +3,16 @@ import { getApiBase } from '../constants';
 
 const apiBase = getApiBase();
 
+export interface SituationRoomSummary {
+  roomId: string;
+  title: string;
+  activeUsers?: number;
+  participants?: number;
+  memberCount?: number;
+  lastActivityAt?: number;
+  mediaPersistence?: boolean;
+}
+
 const normalizeMessage = (m: any): ChatMessage => ({
   id: String(m?.id || m?._id || `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
   sender: String(m?.sender || 'OPERATIVE'),
@@ -42,6 +52,22 @@ export async function uploadSituationMedia(
     storage: data?.storage ? String(data.storage) : undefined,
     persistent: Boolean(data?.persistent),
   };
+}
+
+export async function fetchSituationRooms(): Promise<SituationRoomSummary[]> {
+  const res = await fetch(`${apiBase}/api/situation/rooms`);
+  if (!res.ok) throw new Error(`Failed to fetch rooms (${res.status})`);
+  const data = await res.json();
+  const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
+  return rooms.map((room: any) => ({
+    roomId: String(room?.roomId || ''),
+    title: String(room?.title || 'Situation Room'),
+    activeUsers: typeof room?.activeUsers === 'number' ? room.activeUsers : undefined,
+    participants: typeof room?.participants === 'number' ? room.participants : undefined,
+    memberCount: typeof room?.memberCount === 'number' ? room.memberCount : undefined,
+    lastActivityAt: Number(room?.lastActivityAt || 0) || undefined,
+    mediaPersistence: typeof room?.mediaPersistence === 'boolean' ? room.mediaPersistence : undefined,
+  }));
 }
 
 export async function sendSituationMessage(

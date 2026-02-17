@@ -44,7 +44,7 @@ import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
-import { fetchSituationMessages, sendSituationMessage, uploadSituationMedia } from './services/situationService';
+import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
@@ -219,6 +219,7 @@ const App: React.FC = () => {
   const [selectedMissionForDetail, setSelectedMissionForDetail] = useState<Mission | null>(null);
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
+  const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
@@ -279,8 +280,9 @@ const App: React.FC = () => {
 
     const load = async () => {
       try {
-        const msgs = await fetchSituationMessages(roomId);
+        const [msgs, rooms] = await Promise.all([fetchSituationMessages(roomId), fetchSituationRooms()]);
         setSituationMessages(msgs);
+        setSituationRooms(rooms);
       } catch (error) {
         console.warn('Situation messages fetch failed:', error);
       }
@@ -776,7 +778,18 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'incidentRoom' && selectedReportForIncidentRoom && (
-          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => goBack('hub')} messages={situationMessages} onSendMessage={handleSendSituationMessage} />
+          <IncidentRoomView
+            report={selectedReportForIncidentRoom}
+            hero={heroWithRank}
+            onReturn={() => goBack('hub')}
+            messages={situationMessages}
+            onSendMessage={handleSendSituationMessage}
+            roomsIndex={situationRooms}
+            onJoinRoom={(roomId) => {
+              const report = reports.find((r) => r.id === roomId);
+              if (report) setSelectedReportForIncidentRoom(report);
+            }}
+          />
         )}
 
         {currentView === 'reputationAndCurrency' && (
