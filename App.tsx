@@ -227,6 +227,10 @@ const App: React.FC = () => {
     return [];
   });
 
+  const [viewHistory, setViewHistory] = useState<View[]>([]);
+  const viewRef = useRef<View>('mainMenu');
+  const backNavRef = useRef(false);
+
   /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
@@ -256,6 +260,20 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentView !== 'hub') setFilterSheetOpen(false);
+  }, [currentView]);
+
+  useEffect(() => {
+    if (viewRef.current === currentView) return;
+
+    if (backNavRef.current) {
+      backNavRef.current = false;
+      viewRef.current = currentView;
+      return;
+    }
+
+    const last = viewRef.current;
+    setViewHistory((prev) => [...prev, last].slice(-40));
+    viewRef.current = currentView;
   }, [currentView]);
 
   const heroWithRank = useMemo((): Hero => {
@@ -336,6 +354,20 @@ const App: React.FC = () => {
         }
         setCurrentView(view); 
     }
+  };
+
+  const goBack = (fallback: View = 'mainMenu') => {
+    setViewHistory((prev) => {
+      if (prev.length === 0) {
+        setCurrentView(fallback);
+        return prev;
+      }
+      const next = [...prev];
+      const target = next.pop() as View;
+      backNavRef.current = true;
+      setCurrentView(target);
+      return next;
+    });
   };
 
   const handleCompleteMissionStep = (m: Mission) => {
@@ -482,7 +514,7 @@ const App: React.FC = () => {
       
       <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
-          <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
+          <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
         
         {currentView === 'mainMenu' && (
@@ -493,13 +525,13 @@ const App: React.FC = () => {
           <CategorySelectionView 
             onSelectCategory={(cat) => handleNavigate('reportSubmission', cat)} 
             onSelectMissions={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} 
-            onReturnToHub={() => setCurrentView('mainMenu')} 
+            onReturnToHub={() => goBack('mainMenu')} 
           />
         )}
 
         {currentView === 'escrowService' && (
           <EscrowServiceView
-            onReturn={() => setCurrentView('mainMenu')}
+            onReturn={() => goBack('mainMenu')}
             onStartEscrowReport={(category, prefilledDescription) => {
               setSelectedCategoryForSubmission(category);
               setSubmissionPrefill(prefilledDescription || 'Escrow case initialized from verification terminal.');
@@ -512,7 +544,7 @@ const App: React.FC = () => {
           <ReportSubmissionView 
             category={selectedCategoryForSubmission} 
             role={null} 
-            onReturn={() => setCurrentView('categorySelection')} 
+            onReturn={() => goBack('categorySelection')} 
             addReport={handleAddReport} 
             totalReports={reports.length}
             prefilledDescription={submissionPrefill}
@@ -520,7 +552,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'reportComplete' && completedReport && (
-          <ReportCompleteView report={completedReport} onReturn={() => setCurrentView('mainMenu')} onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <ReportCompleteView report={completedReport} onReturn={() => goBack('mainMenu')} onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
         {currentView === 'hub' && (
@@ -528,7 +560,7 @@ const App: React.FC = () => {
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 min-h-0">
               <div className="w-full lg:col-span-8 min-h-[400px]">
-                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} mapCenter={filters.location || undefined} />
+                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => goBack('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} mapCenter={filters.location || undefined} />
               </div>
               <div className="hidden lg:block lg:col-span-4">
                 <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
@@ -554,11 +586,11 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'liveIntelligence' && (
-          <LiveIntelligenceView onReturn={() => setCurrentView(prevView === 'heroHub' ? 'heroHub' : 'mainMenu')} onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }} heroLocation={heroLocation} setHeroLocation={setHeroLocation} initialCategories={initialCategoriesForIntel} textScale={globalTextScale} />
+          <LiveIntelligenceView onReturn={() => goBack('mainMenu')} onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }} heroLocation={heroLocation} setHeroLocation={setHeroLocation} initialCategories={initialCategoriesForIntel} textScale={globalTextScale} />
         )}
 
         {currentView === 'generateMission' && selectedIntelForMission && (
-          <GenerateMissionView intelItem={selectedIntelForMission} onReturn={() => handleNavigate('liveIntelligence')} onAcceptMission={async (intel, approach, goal) => {
+          <GenerateMissionView intelItem={selectedIntelForMission} onReturn={() => goBack('liveIntelligence')} onAcceptMission={async (intel, approach, goal) => {
               const m = await generateMissionFromIntel(intel, approach, goal);
               const structuredM: Mission = {
                   ...m,
@@ -590,24 +622,24 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'missionDetail' && selectedMissionForDetail && (
-          <MissionDetailView mission={selectedMissionForDetail} onReturn={() => handleNavigate('heroHub', undefined, 'missions')} messages={[]} onSendMessage={() => {}} hero={heroWithRank} onCompleteMissionStep={handleCompleteMissionStep} />
+          <MissionDetailView mission={selectedMissionForDetail} onReturn={() => goBack('heroHub')} messages={[]} onSendMessage={() => {}} hero={heroWithRank} onCompleteMissionStep={handleCompleteMissionStep} />
         )}
 
         {currentView === 'missionComplete' && completedMissionSummary && (
-          <MissionCompleteView mission={completedMissionSummary} onReturn={() => setCurrentView('mainMenu')} />
+          <MissionCompleteView mission={completedMissionSummary} onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'heroHub' && (
-          <HeroHub onReturnToHub={() => setCurrentView('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} onMintNft={async () => ({} as any)} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={() => {}} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
+          <HeroHub onReturnToHub={() => goBack('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} onMintNft={async () => ({} as any)} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={() => {}} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
         )}
 
         {currentView === 'transparencyDatabase' && (
-          <TransparencyDatabaseView onReturn={() => setCurrentView('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <TransparencyDatabaseView onReturn={() => goBack('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
         {currentView === 'fieldMissions' && (
           <FieldMissionsView
-            onReturn={() => setCurrentView('mainMenu')}
+            onReturn={() => goBack('mainMenu')}
             missions={missions}
             beacons={fieldBeacons}
             onPublishBeacon={(latitude, longitude, label) => {
@@ -627,20 +659,20 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'trainingHolodeck' && (
-          <TrainingHolodeckView hero={heroWithRank} onReturn={() => setCurrentView('mainMenu')} onComplete={() => {}} />
+          <TrainingHolodeckView hero={heroWithRank} onReturn={() => goBack('mainMenu')} onComplete={() => {}} />
         )}
 
         {currentView === 'incidentRoom' && selectedReportForIncidentRoom && (
-          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => setCurrentView('hub')} messages={[]} onSendMessage={() => {}} />
+          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => goBack('hub')} messages={[]} onSendMessage={() => {}} />
         )}
 
         {currentView === 'reputationAndCurrency' && (
-          <ReputationAndCurrencyView onReturn={() => setCurrentView('mainMenu')} />
+          <ReputationAndCurrencyView onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'aiWorkDirectives' && (
           <AiWorkDirectivesView
-            onReturn={() => setCurrentView('mainMenu')}
+            onReturn={() => goBack('mainMenu')}
             hero={heroWithRank}
             heroLocation={heroLocation}
             setHeroLocation={setHeroLocation}
@@ -651,12 +683,12 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'ecosystem' && (
-          <EcosystemOverview onReturn={() => setCurrentView('mainMenu')} />
+          <EcosystemOverview onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'sustainmentCenter' && (
           <SustainmentCenter
-            onReturn={() => setCurrentView('mainMenu')}
+            onReturn={() => goBack('mainMenu')}
             onReward={(hc) => setHero((prev) => ({ ...prev, heroCredits: (prev.heroCredits || 0) + hc }))}
           />
         )}
@@ -670,3 +702,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
