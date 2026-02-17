@@ -26,7 +26,7 @@ export async function uploadSituationMedia(
   roomId: string,
   type: 'image' | 'audio',
   dataUrl: string
-): Promise<{ url: string; path: string; sizeBytes: number; mimeType: string }> {
+): Promise<{ url: string; path: string; sizeBytes: number; mimeType: string; storage?: string; persistent?: boolean }> {
   const res = await fetch(`${apiBase}/api/situation/media`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -39,6 +39,8 @@ export async function uploadSituationMedia(
     path: String(data?.path || ''),
     sizeBytes: Number(data?.sizeBytes || 0),
     mimeType: String(data?.mimeType || ''),
+    storage: data?.storage ? String(data.storage) : undefined,
+    persistent: Boolean(data?.persistent),
   };
 }
 
