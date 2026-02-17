@@ -81,6 +81,51 @@ const handleApiError = (error: any): never => {
   throw new AiError("TEMPORARY_FAILURE", `Transient neural disruption: ${error?.message || 'Unknown error'}. Link stability low.`);
 };
 
+function normalizeDirectiveItems(items: any[]): AiDirective[] {
+  return items.map((item: any) => {
+    const phases = (item.phases || []).map((phase: any, phaseIdx: number) => ({
+      id: phase.id || `phase-${phaseIdx}`,
+      name: phase.name,
+      description: phase.description,
+      phaseType: phase.phaseType,
+      steps: (phase.steps || []).map((step: any, stepIdx: number) => ({
+        id: step.id || `step-${phaseIdx}-${stepIdx}`,
+        name: step.name,
+        task: step.task,
+        instruction: step.instruction,
+        isComplete: false,
+        requiresProof: step.requiresProof || false,
+        proofType: step.proofType,
+        order: step.order !== undefined ? step.order : stepIdx,
+      })),
+      compensation: {
+        hc: phase.compensation?.hc || 0,
+        xp: phase.compensation?.xp || 0,
+        bonusMultiplier: phase.compensation?.bonusMultiplier,
+      },
+      isComplete: false,
+      estimatedDuration: phase.estimatedDuration || "1-2 hours",
+    }));
+
+    return {
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      instruction: item.instruction,
+      rewardHc: item.rewardHc,
+      rewardXp: item.rewardXp,
+      difficulty: item.difficulty,
+      category: item.category,
+      phases,
+      currentPhaseIndex: 0,
+      status: "available" as const,
+      timestamp: Date.now(),
+      recommendedNextAction: "Begin RECON phase",
+      packet: item.packet,
+    };
+  });
+}
+
 export async function generateAiDirectives(
   location: string,
   workCategory: Category,
@@ -222,51 +267,58 @@ export async function generateAiDirectives(
     });
 
     const items = JSON.parse(response.text || "[]");
-    // Process and structure the phased directives
-    return items.map((item: any) => {
-      const phases = (item.phases || []).map((phase: any, phaseIdx: number) => ({
-        id: phase.id || `phase-${phaseIdx}`,
-        name: phase.name,
-        description: phase.description,
-        phaseType: phase.phaseType,
-        steps: (phase.steps || []).map((step: any, stepIdx: number) => ({
-          id: step.id || `step-${phaseIdx}-${stepIdx}`,
-          name: step.name,
-          task: step.task,
-          instruction: step.instruction,
-          isComplete: false,
-          requiresProof: step.requiresProof || false,
-          proofType: step.proofType,
-          order: step.order !== undefined ? step.order : stepIdx,
-        })),
-        compensation: {
-          hc: phase.compensation?.hc || 0,
-          xp: phase.compensation?.xp || 0,
-          bonusMultiplier: phase.compensation?.bonusMultiplier,
-        },
-        isComplete: false,
-        estimatedDuration: phase.estimatedDuration || "1-2 hours",
-      }));
-
-      return {
-        id: item.id,
-        title: item.title,
-        description: item.description,
-        instruction: item.instruction,
-        rewardHc: item.rewardHc,
-        rewardXp: item.rewardXp,
-        difficulty: item.difficulty,
-        category: item.category,
-        phases,
-        currentPhaseIndex: 0,
-        status: "available" as const,
-        timestamp: Date.now(),
-        recommendedNextAction: "Begin RECON phase",
-        packet: item.packet, // Keep for backward compatibility
-      };
-    });
+    return normalizeDirectiveItems(items);
   } catch (error) {
     return handleApiError(error);
+  }
+}
+
+export async function generateAiDirectivesBudget(
+  location: string,
+  workCategory: Category,
+  count: number = 3
+): Promise<AiDirective[]> {
+  const apiBase = getApiBaseLocal();
+  const prompt = `
+    You are DPAL Work Screen Job Planner.
+    Generate ${count} high-quality civic jobs for this city: ${location}.
+    Category: ${workCategory}.
+    Jobs MUST be related to common real incidents in that city/category (transport issues, sanitation, local safety, consumer scams, public works, etc).
+    Return JSON array with fields:
+    id,title,description,instruction,rewardHc,rewardXp,difficulty,category,phases.
+    Each directive needs phases: RECON, EXECUTION, VERIFICATION, COMPLETION.
+    Each phase needs steps with proof requirements when relevant.
+  `;
+
+  try {
+    const response = await fetch(`${apiBase}/api/ai/ask`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt, tier: "cheap" }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Budget AI request failed (${response.status})`);
+    }
+
+    const data = await response.json();
+    const raw = String(data?.answer || "[]");
+
+    let parsed: any[] = [];
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      const m = raw.match(/\[[\s\S]*\]/);
+      parsed = m ? JSON.parse(m[0]) : [];
+    }
+
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return OFFLINE_DIRECTIVES[workCategory] || OFFLINE_DIRECTIVES[Category.Environment];
+    }
+
+    return normalizeDirectiveItems(parsed);
+  } catch {
+    return OFFLINE_DIRECTIVES[workCategory] || OFFLINE_DIRECTIVES[Category.Environment];
   }
 }
 
