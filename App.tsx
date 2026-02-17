@@ -34,6 +34,7 @@ import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
+import CoinLaunchView from './components/CoinLaunchView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
 import type { HomeLayout } from './constants';
@@ -44,7 +45,7 @@ import { fetchSituationMessages, sendSituationMessage, uploadSituationMedia } fr
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'subscription' | 'aiSetup' | 'fieldMissions';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -637,6 +638,10 @@ const App: React.FC = () => {
               setCurrentView('reportSubmission');
             }}
           />
+        )}
+
+        {currentView === 'coinLaunch' && (
+          <CoinLaunchView onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'reportSubmission' && selectedCategoryForSubmission && (
