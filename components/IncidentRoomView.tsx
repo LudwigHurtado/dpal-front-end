@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
 import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, Monitor, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Crosshair, X, Maximize2, AlertTriangle, QrCode } from './icons';
 import MissionChatroom from './MissionChatroom';
@@ -12,6 +13,9 @@ interface IncidentRoomViewProps {
     hero: Hero;
     messages: ChatMessage[];
     onSendMessage: (text: string, imageUrl?: string, audioUrl?: string) => void;
+    roomsIndex?: SituationRoomSummary[];
+    onJoinRoom?: (roomId: string) => void;
+    errorBanner?: string | null;
 }
 
 interface AnalyticalSector {
@@ -44,7 +48,7 @@ const ForensicValue: React.FC<{ label: string; value?: string; icon: React.React
     </div>
 );
 
-const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, hero, messages, onSendMessage }) => {
+const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, hero, messages, onSendMessage, roomsIndex = [], onJoinRoom, errorBanner }) => {
     const sectors = DEFAULT_SECTORS;
     
     const [activeSectorId, setActiveSectorId] = useState(sectors[0].id);
@@ -164,6 +168,33 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                             </div>
                         </section>
 
+                        <section className="space-y-4">
+                            <h3 className="text-[10px] font-black uppercase text-cyan-500 tracking-[0.3em]">Rooms_Directory</h3>
+                            <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar pr-1">
+                                {roomsIndex.slice(0, 12).map((room) => {
+                                    const activeCount = room.activeUsers ?? room.participants ?? room.memberCount;
+                                    return (
+                                        <div key={room.roomId} className="bg-black/50 border border-zinc-800 rounded-2xl p-3 space-y-2">
+                                            <div className="flex items-center justify-between gap-2">
+                                                <p className="text-[10px] font-black text-white uppercase tracking-wider truncate">{room.title}</p>
+                                                <span className="text-[9px] text-zinc-400">{activeCount ?? '—'} active</span>
+                                            </div>
+                                            <div className="flex items-center justify-between text-[9px] text-zinc-500">
+                                                <span>{room.lastActivityAt ? new Date(room.lastActivityAt).toLocaleString() : 'Activity unknown'}</span>
+                                                <span className={`px-2 py-0.5 rounded-full border ${room.mediaPersistence === false ? 'border-amber-700 text-amber-400' : 'border-emerald-700 text-emerald-400'}`}>
+                                                    {room.mediaPersistence === false ? 'volatile media' : 'media persisted'}
+                                                </span>
+                                            </div>
+                                            <button type="button" onClick={() => onJoinRoom?.(room.roomId)} className="w-full py-2 rounded-xl bg-emerald-600/20 border border-emerald-700 text-[10px] font-black uppercase tracking-widest text-emerald-300 hover:bg-emerald-600/30">
+                                                Join Room
+                                            </button>
+                                        </div>
+                                    );
+                                })}
+                                {roomsIndex.length === 0 && <p className="text-[10px] text-zinc-500 uppercase">No indexed rooms yet.</p>}
+                            </div>
+                        </section>
+
                         {/* MAP SECTION - Replaced overlays and cleared central view */}
                         <section className="space-y-8">
                             <div className={`p-6 md:p-8 rounded-[2.5rem] md:rounded-[3.5rem] border-4 transition-all duration-1000 flex flex-col items-center space-y-6 md:space-y-10 relative ${isBeaconActive ? 'bg-rose-950/20 border-rose-500 shadow-[0_0_50px_rgba(244,63,94,0.1)]' : 'bg-zinc-950 border-zinc-800 shadow-2xl'}`}>
@@ -235,6 +266,11 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
 
                 {/* MAIN CHAT AREA */}
                 <div className={`transition-all duration-500 bg-black flex flex-col relative ${isSidebarCollapsed ? 'lg:col-span-12' : 'lg:col-span-8'}`}>
+                    {errorBanner && (
+                        <div className="m-4 p-3 rounded-xl border border-amber-600/40 bg-amber-950/30 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                            {errorBanner}
+                        </div>
+                    )}
                     <div className="flex-grow flex flex-col min-h-[600px] border-l-4 border-zinc-900 shadow-[inset_20px_0_60px_rgba(0,0,0,0.8)] h-full overflow-hidden">
                         <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
                     </div>

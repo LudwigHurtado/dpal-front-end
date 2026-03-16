@@ -4,22 +4,19 @@ import { Cube } from './icons';
 
 interface BlockchainStatusPanelProps {
   totalReports: number;
+  latestHash?: string;
+  latestBlockNumber?: number;
 }
 
-const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({ totalReports }) => {
+const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({ totalReports, latestHash, latestBlockNumber }) => {
   const { t } = useTranslations();
-  const [currentBlock, setCurrentBlock] = useState(6843021);
-  const [blockHash, setBlockHash] = useState('');
-
-  const generateHash = () => `0x${[...Array(12)].map(() => Math.floor(Math.random() * 16).toString(16)).join('')}...`;
+  const [currentBlock, setCurrentBlock] = useState(latestBlockNumber || 6843021);
 
   useEffect(() => {
-    setBlockHash(generateHash());
-    const timer = setTimeout(() => {
-      setCurrentBlock(prev => prev + 1);
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [currentBlock]);
+    if (latestBlockNumber && latestBlockNumber > 0) {
+      setCurrentBlock(latestBlockNumber);
+    }
+  }, [latestBlockNumber]);
 
   return (
     <div className="my-8 bg-white text-gray-700 rounded-lg p-4 shadow-md border border-gray-200">
@@ -45,7 +42,7 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({ totalRepo
         </div>
         <div className="col-span-2 md:col-span-1 p-2 overflow-hidden">
           <p className="text-xs text-gray-500">{t('blockchainStatus.latestHash')}</p>
-          <p className="text-sm font-mono truncate text-gray-500" title={blockHash}>{blockHash}</p>
+          <p className="text-sm font-mono truncate text-gray-500" title={latestHash || 'PENDING_FIRST_ANCHOR'}>{latestHash || 'PENDING_FIRST_ANCHOR'}</p>
         </div>
       </div>
     </div>

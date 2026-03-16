@@ -25,7 +25,9 @@ export enum Category {
     AccidentsRoadHazards = 'Accidents & Road Hazards',
     MedicalEmergencies = 'Medical Emergencies',
     FireEnvironmentalHazards = 'Fire & Environmental Hazards',
-    PublicSafetyAlerts = 'Public Safety Alerts'
+    PublicSafetyAlerts = 'Public Safety Alerts',
+    P2PEscrowVerification = 'P2P Escrow & Document Verification',
+    ProofOfLifeBiometric = 'Proof of Life & Biometric Verification'
 }
 
 export enum SubscriptionTier {
@@ -54,6 +56,10 @@ export interface Report {
     timestamp: Date;
     hash: string;
     blockchainRef: string;
+    blockNumber?: number;
+    txHash?: string;
+    chain?: string;
+    anchoredAt?: Date;
     status: ReportStatus;
     trustScore: number;
     severity: SeverityLevel;
@@ -74,6 +80,20 @@ export interface Report {
         grade: string;
     };
     structuredData?: any;
+    evidenceVault?: {
+        packetHash?: string;
+        records: Array<{
+            evidenceRefId: string;
+            filename: string;
+            mimeType: string;
+            sizeBytes: number;
+            sha256: string;
+            timestampIso: string;
+            timestampHash: string;
+            chainRefId: string;
+            verificationLink: string;
+        }>;
+    };
 }
 
 export enum SkillLevel {

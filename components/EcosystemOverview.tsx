@@ -5,6 +5,8 @@ import { ArrowLeft, Zap, ShieldCheck, Target, Broadcast, Database, Sparkles, Coi
 
 interface EcosystemOverviewProps {
     onReturn: () => void;
+    onOpenPurchase?: () => void;
+    onOpenCoinLaunch?: () => void;
 }
 
 const ProtocolCard: React.FC<{ title: string; desc: string; icon: React.ReactNode; color: string }> = ({ title, desc, icon, color }) => (
@@ -18,7 +20,7 @@ const ProtocolCard: React.FC<{ title: string; desc: string; icon: React.ReactNod
     </div>
 );
 
-const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
+const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn, onOpenPurchase, onOpenCoinLaunch }) => {
     return (
         <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto px-4 pb-20">
             <button
@@ -50,7 +52,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-emerald-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/02d96460-018a-4d44-95b4-9d3758368b73.png" alt="Impact Token" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
+                             <img src="/tokens/impact-token.png" alt="Impact Token" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(16,185,129,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-emerald-950/40 border border-emerald-500/30 px-4 py-1 rounded-full text-[9px] font-black text-emerald-400 uppercase tracking-widest">
@@ -69,7 +71,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-blue-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/e2cb4b1a-c3fe-4eab-9ba5-e1aca2a0caa6.png" alt="DPAL Credit" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]" />
+                             <img src="/tokens/dpal-credit.png" alt="DPAL Credit" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(59,130,246,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-blue-950/40 border border-blue-500/30 px-4 py-1 rounded-full text-[9px] font-black text-blue-400 uppercase tracking-widest">
@@ -81,6 +83,12 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                              <p className="text-xs text-zinc-500 font-medium leading-relaxed italic border-l-2 border-blue-500 pl-4">
                                 "The 'Gas' of the accountability engine. Used to file reports, upvote evidence, and trigger tactical missions. Purchased via the store or earned through high-fidelity data dispatches"
                              </p>
+                             <div className="flex items-center gap-3 pt-2">
+                                <button onClick={onOpenPurchase || onReturn} className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest">
+                                    Buy DPAL Credit
+                                </button>
+                                <span className="text-[9px] text-zinc-500 uppercase font-black">Utility only · Not an investment product</span>
+                             </div>
                          </div>
                      </div>
 
@@ -88,7 +96,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-amber-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-amber-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/3fe0f391-d51f-4afb-8048-dcf6ccd9259e.png" alt="IMPT Shard" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
+                             <img src="/tokens/impact-shard.png" alt="IMPT Shard" className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(245,158,11,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-amber-950/40 border border-amber-500/30 px-4 py-1 rounded-full text-[9px] font-black text-amber-400 uppercase tracking-widest">
@@ -107,7 +115,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                      <div className="flex flex-col md:flex-row items-center p-10 bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] gap-10 hover:border-cyan-500/40 transition-all group shadow-2xl relative overflow-hidden">
                          <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity blur-3xl"></div>
                          <div className="w-56 h-56 flex-shrink-0 relative z-10">
-                             <img src="/53771c0d-3d1d-4abd-bd64-bc8aa9f5ae9d.png" alt="DPAL Governance" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(6,182,212,0.3)]" />
+                             <img src="/tokens/dpal-coin.png" alt="DPAL Governance" className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 drop-shadow-[0_0_20px_rgba(6,182,212,0.3)]" />
                          </div>
                          <div className="relative z-10 space-y-4">
                              <div className="inline-flex items-center space-x-2 bg-cyan-950/40 border border-cyan-500/30 px-4 py-1 rounded-full text-[9px] font-black text-cyan-400 uppercase tracking-widest">
@@ -119,10 +127,84 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                              <p className="text-xs text-zinc-500 font-medium leading-relaxed italic border-l-2 border-cyan-500 pl-4">
                                 "The foundational token of the entire network. Used to vote on system-wide upgrades, sector funding priorities, and final validation of the highest-stakes accountability blocks"
                              </p>
+                             <div className="flex items-center gap-3 pt-2">
+                                <button onClick={onOpenPurchase || onReturn} className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-black uppercase tracking-widest">
+                                    Access Governance Coin
+                                </button>
+                                <button onClick={onOpenCoinLaunch || onReturn} className="px-4 py-2 rounded-lg border border-cyan-500/40 text-cyan-300 text-[10px] font-black uppercase tracking-widest hover:bg-cyan-950/40">
+                                    Utility Rules
+                                </button>
+                             </div>
                          </div>
                      </div>
                  </div>
+
+                 <div className="mt-10 p-8 bg-zinc-900/80 border border-emerald-500/30 rounded-[2.5rem] flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div>
+                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Get Utility Coins</p>
+                        <h4 className="text-2xl font-black uppercase tracking-tight text-white">Purchase DPAL Credits / Coin Access</h4>
+                        <p className="text-xs text-zinc-400 uppercase mt-2">Buy coin packs to fund missions, verification, and governance participation.</p>
+                    </div>
+                    <div className="flex gap-3 w-full md:w-auto">
+                        <button
+                          onClick={onOpenPurchase || onReturn}
+                          className="flex-1 md:flex-none px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest"
+                        >
+                          Buy Coins
+                        </button>
+                        <button
+                          onClick={onOpenCoinLaunch || onReturn}
+                          className="flex-1 md:flex-none px-6 py-3 rounded-xl border border-cyan-500/40 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 text-xs font-black uppercase tracking-widest"
+                        >
+                          Open Coin Launch
+                        </button>
+                    </div>
+                 </div>
+
+                 <div className="mt-8 p-6 bg-amber-950/20 border border-amber-500/30 rounded-2xl">
+                    <p className="text-[10px] font-black text-amber-300 uppercase tracking-widest mb-2">Legal & Compliance Notice</p>
+                    <p className="text-[11px] text-zinc-300 leading-relaxed uppercase">
+                      DPAL tokens are presented as utility access units for platform actions (verification, mission funding, governance participation). They are not marketed as securities, investment contracts, or profit-sharing instruments. Availability and use must follow local law, KYC/AML obligations, consumer protection rules, and platform terms.
+                    </p>
+                 </div>
             </section>
+
+            <div className="mt-10 mb-24 p-10 bg-zinc-900 border-2 border-cyan-500/30 rounded-[3rem] shadow-2xl relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-56 h-56 bg-cyan-500/10 blur-3xl"></div>
+                <div className="relative z-10 space-y-6">
+                    <div className="inline-flex items-center space-x-2 bg-cyan-950/40 border border-cyan-500/30 px-4 py-1 rounded-full text-[9px] font-black text-cyan-400 uppercase tracking-widest">
+                        <Coins className="w-3 h-3" />
+                        <span>Token Utility Expansion</span>
+                    </div>
+                    <h3 className="text-3xl font-black text-white uppercase tracking-tighter">DPAL_COIN_ACTION_LAYER</h3>
+                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-wider leading-relaxed">
+                        Utility coin architecture tied to real accountability actions — not speculative trading.
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">01 Stake to Verify</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Guardians stake DPAL Coin to validate report integrity and consensus quality.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">02 Unlock Tools</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Spend utility credits to unlock advanced investigation and forensic modules.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">03 Sponsor Missions</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Communities and partners fund mission pools to accelerate priority cases.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">04 Reward Whistleblowers</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Verified, high-impact disclosures earn utility rewards from protocol pools.</p>
+                        </div>
+                        <div className="bg-black/40 border border-zinc-800 rounded-2xl p-4 md:col-span-2 lg:col-span-2">
+                            <p className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">05 Governance Voting</p>
+                            <p className="text-[11px] text-zinc-400 uppercase mt-2">Token holders vote on treasury allocation, verification policy, and mission priorities.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {/* 2. Core Purpose & Sustainability Section */}
             <section className="mb-32">
@@ -159,7 +241,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                          <div className="absolute -inset-4 bg-cyan-500/10 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                          <div className="relative rounded-[3rem] overflow-hidden border-4 border-zinc-800 bg-zinc-900/50 shadow-2xl">
                              <img 
-                                src="/02d96460-018a-4d44-95b4-9d3758368b73.png" 
+                                src="/tokens/impact-token.png" 
                                 alt="Impact Visual" 
                                 className="w-full h-auto object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-1000"
                              />
@@ -178,7 +260,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                         <div className="absolute -inset-4 bg-emerald-500/10 blur-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         <div className="relative rounded-[3rem] overflow-hidden border-4 border-zinc-800 bg-zinc-900/50 shadow-2xl">
                              <img 
-                                src="/c1675b74-363c-4c42-92fd-2ca6e7335dc0.png" 
+                                src="/tokens/ecosystem-flow.png" 
                                 alt="Impact NFT Shard" 
                                 className="w-full h-auto object-cover grayscale-[0.2] group-hover:grayscale-0 transition-all duration-1000"
                              />
@@ -231,7 +313,7 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
                     <div className="absolute -inset-10 bg-purple-500/10 blur-[100px] opacity-30 group-hover:opacity-60 transition-opacity"></div>
                     <div className="relative rounded-[4rem] overflow-hidden border-[12px] border-zinc-900 bg-zinc-950 shadow-4xl">
                          <img 
-                            src="/53771c0d-3d1d-4abd-bd64-bc8aa9f5ae9d.png" 
+                            src="/tokens/dpal-coin.png" 
                             alt="Hero Hub UI Background" 
                             className="w-full h-auto opacity-80 group-hover:opacity-100 transition-opacity duration-1000"
                          />
@@ -270,3 +352,4 @@ const EcosystemOverview: React.FC<EcosystemOverviewProps> = ({ onReturn }) => {
 };
 
 export default EcosystemOverview;
+

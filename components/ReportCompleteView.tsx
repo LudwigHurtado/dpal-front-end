@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import type { Report } from '../types';
+import { fetchEvidencePacket } from '../services/evidenceVaultService';
 import { useTranslations } from '../i18n';
 /* FIX: Added missing Star icon import */
 import { ArrowLeft, Coins, Zap, Check, Loader, QrCode, ShieldCheck, Activity, Target, Database, Hash, Sparkles, Scale, Broadcast, Printer, FileText, Globe, User, Clock, ChevronDown, CheckCircle, Send, Package, ArrowRight, Mail, Monitor, FileCode, Star } from './icons';
@@ -19,12 +20,15 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
     const [dispatchStatus, setDispatchStatus] = useState<'IDLE' | 'SENDING' | 'SUCCESS'>('IDLE');
     const certificateRef = useRef<HTMLDivElement>(null);
     
+    const blockRef = report.blockNumber ? `#${report.blockNumber}` : '#PENDING';
+    const txRef = report.txHash || report.blockchainRef || report.hash;
+
     const logs = [
         "ESTABLISHING_P2P_HANDSHAKE...",
         "CHRONOLOGICAL_SYNC_STABLE",
         "TRUTHSCORE_CALCULATED: " + report.trustScore + "%",
-        "BLOCK_INDEX_IDENTIFIED: #6843021",
-        "MINTING_VISUAL_TELEMETRY...",
+        `BLOCK_INDEX_IDENTIFIED: ${blockRef}`,
+        `TX_BROADCASTED: ${txRef?.slice(0, 14)}...`,
         "SHARD_SEALED_WITH_AUTHORITY_KEY"
     ];
 
@@ -62,6 +66,37 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
             setDispatchStatus('SUCCESS');
             setTimeout(() => setDispatchStatus('IDLE'), 3000);
         }, 2000);
+    };
+
+    const handleDownloadEvidencePacket = async () => {
+        try {
+            const packet = await fetchEvidencePacket(report.id);
+            const blob = new Blob([JSON.stringify(packet, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `dpal-certified-evidence-packet-${report.id}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.warn('Evidence packet endpoint unavailable, using local packet fallback.', error);
+            const fallback = {
+                reportId: report.id,
+                generatedAt: new Date().toISOString(),
+                records: report.evidenceVault?.records || [],
+            };
+            const blob = new Blob([JSON.stringify(fallback, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = url;
+            anchor.download = `dpal-evidence-packet-local-${report.id}.json`;
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+            URL.revokeObjectURL(url);
+        }
     };
 
     const handleEmail = () => {
@@ -190,9 +225,9 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                     <Printer className="w-8 h-8 text-zinc-600 group-hover:text-white mb-3 transition-colors" />
                                     <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Print_Hardcopy</span>
                                 </button>
-                                <button onClick={handlePrint} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
+                                <button onClick={handleDownloadEvidencePacket} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
                                     <FileCode className="w-8 h-8 text-cyan-600 group-hover:text-white mb-3 transition-colors" />
-                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Download_PDF</span>
+                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Certified_Evidence_Packet</span>
                                 </button>
                                 <button onClick={handleEmail} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
                                     <Mail className="w-8 h-8 text-zinc-600 group-hover:text-white mb-3 transition-colors" />
@@ -247,9 +282,10 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 </h3>
                                 <div className="grid grid-cols-2 gap-x-16 gap-y-8 bg-zinc-50/50 border border-zinc-100 p-10 rounded-[2.5rem]">
                                     <DataRow label={t('reportComplete.certIdLabel')} value={`DPAL-CERT-${report.hash.substring(2, 10).toUpperCase()}`} />
-                                    <DataRow label={t('reportComplete.blockRefLabel')} value="#6843021" />
-                                    <DataRow label={t('reportComplete.dateIssuedLabel')} value={report.timestamp.toLocaleString()} />
+                                    <DataRow label={t('reportComplete.blockRefLabel')} value={blockRef} />
+                                    <DataRow label={t('reportComplete.dateIssuedLabel')} value={(report.anchoredAt || report.timestamp).toLocaleString()} />
                                     <DataRow label={t('reportComplete.categoryLabel')} value={report.category.toUpperCase()} />
+                                    <DataRow label={'Evidence Artifacts'} value={`${report.evidenceVault?.records?.length || 0}`} />
                                 </div>
                             </section>
 
@@ -266,21 +302,20 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 </div>
                             </section>
 
-                            {/* D. Signature Section */}
-                            <section className="pt-8 grid grid-cols-2 gap-16">
-                                <div className="space-y-4">
-                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">ORACLE_VERIFICATION_SIG</p>
-                                    <div className="h-[2px] w-full bg-zinc-200 mt-12 relative">
-                                        <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">DPAL_Network_Guardian</div>
+                            {/* D. Verification Stamps */}
+                            <section className="pt-8">
+                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">Certification Stamps</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <div className="rounded-full border-[5px] border-zinc-900 w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-6">
+                                        <ShieldCheck className="w-10 h-10 text-zinc-900 mb-2" />
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-900">DPAL VERIFIED</p>
+                                        <p className="text-[8px] font-black uppercase tracking-wider text-zinc-500 mt-2">RSA-4096 STANDARD</p>
                                     </div>
-                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Network Controller: RSA-4096</p>
-                                </div>
-                                <div className="space-y-4">
-                                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">CERTIFIED_BY</p>
-                                    <div className="h-[2px] w-full bg-zinc-200 mt-12 relative">
-                                         <div className="absolute -top-12 left-0 italic font-serif text-2xl text-zinc-800 opacity-60">GEMINI_3_ORACLE</div>
+                                    <div className="rounded-full border-[5px] border-zinc-900 w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-6">
+                                        <Star className="w-10 h-10 text-zinc-900 mb-2" />
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-900">COMPLIANCE CERTIFIED</p>
+                                        <p className="text-[8px] font-black uppercase tracking-wider text-zinc-500 mt-2">AUTOMATED VERIFICATION</p>
                                     </div>
-                                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Automated Consensus Node</p>
                                 </div>
                             </section>
                         </div>
@@ -335,11 +370,11 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             <span>{t('reportComplete.printCert')}</span>
                         </button>
                         <button 
-                            onClick={handlePrint}
+                            onClick={handleDownloadEvidencePacket}
                             className="flex-1 md:flex-none flex items-center justify-center space-x-4 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-5 px-12 rounded-[1.5rem] text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all border-b-4 border-cyan-800"
                         >
                             <FileCode className="w-6 h-6" />
-                            <span>Download_Secure_PDF</span>
+                            <span>Download_Evidence_Packet</span>
                         </button>
                     </div>
 

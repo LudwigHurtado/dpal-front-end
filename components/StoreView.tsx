@@ -1,9 +1,24 @@
 
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useTranslations } from '../i18n';
 import type { Hero, IapPack, StoreItem } from '../types';
 import { ArrowLeft, Coins, Gem, Store, Check } from './icons';
+
+interface ComplianceGate {
+  allowed: boolean;
+  reason?: string;
+}
+
+const useRegionComplianceGate = (): ComplianceGate => {
+  // Placeholder for region-aware legal gating (Phase 1 scaffold).
+  return { allowed: true };
+};
+
+const useKycAmlStatus = () => {
+  // Placeholder for KYC/AML provider integration.
+  return { kycRequired: false, amlRequired: false, status: 'not_connected' as const };
+};
 
 interface StoreViewProps {
   hero: Hero;
@@ -18,6 +33,15 @@ interface StoreViewProps {
 const StoreView: React.FC<StoreViewProps> = ({ hero, iapPacks, storeItems, onInitiateHCPurchase, onInitiateStoreItemPurchase, onReturn, isEmbedded = false }) => {
     const { t } = useTranslations();
     const [activeTab, setActiveTab] = useState<'buy' | 'spend'>('buy');
+    const [utilityDisclosureAccepted, setUtilityDisclosureAccepted] = useState(false);
+    const regionGate = useRegionComplianceGate();
+    const kycAml = useKycAmlStatus();
+    const purchaseDisabledReason = useMemo(() => {
+      if (!utilityDisclosureAccepted) return 'Confirm utility-use disclosure before purchase.';
+      if (!regionGate.allowed) return regionGate.reason || 'Purchase unavailable in this region.';
+      if (kycAml.kycRequired || kycAml.amlRequired) return 'Complete KYC/AML verification to continue.';
+      return '';
+    }, [utilityDisclosureAccepted, regionGate.allowed, regionGate.reason, kycAml.kycRequired, kycAml.amlRequired]);
     
     const getTypeStyles = (type: StoreItem['type']) => {
         switch(type) {
@@ -84,6 +108,16 @@ const StoreView: React.FC<StoreViewProps> = ({ hero, iapPacks, storeItems, onIni
                      </div>
                 </div>
 
+                <div className="px-6 pt-4">
+                    <label className="flex items-start gap-2 text-xs text-zinc-300">
+                        <input type="checkbox" checked={utilityDisclosureAccepted} onChange={(e) => setUtilityDisclosureAccepted(e.target.checked)} className="mt-1" />
+                        <span>
+                          I understand DPAL credits/tokens shown here are utility access units for platform actions only and are <strong>not investment products</strong>.
+                        </span>
+                    </label>
+                    {purchaseDisabledReason && <p className="text-[11px] text-amber-400 mt-2">{purchaseDisabledReason}</p>}
+                </div>
+
                 <div className="p-6">
                     {activeTab === 'buy' && (
                         <div>
@@ -102,7 +136,8 @@ const StoreView: React.FC<StoreViewProps> = ({ hero, iapPacks, storeItems, onIni
                                         </div>
                                         <button 
                                             onClick={() => onInitiateHCPurchase(pack)}
-                                            className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition-transform transform hover:scale-105"
+                                            disabled={Boolean(purchaseDisabledReason)}
+                                            className="w-full bg-blue-600 text-white font-bold py-2 px-4 rounded-md hover:bg-blue-700 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                                         >
                                             ${pack.price.toFixed(2)}
                                         </button>
@@ -138,7 +173,7 @@ const StoreView: React.FC<StoreViewProps> = ({ hero, iapPacks, storeItems, onIni
                                             ) : (
                                                 <button 
                                                     onClick={() => onInitiateStoreItemPurchase(item)}
-                                                    disabled={!canAfford}
+                                                    disabled={!canAfford || Boolean(purchaseDisabledReason)}
                                                     className="w-full flex items-center justify-center space-x-2 bg-transparent text-skin-primary border-2 border-skin-primary font-bold py-2 px-4 rounded-md hover:bg-cyan-500/10 transition-colors disabled:border-gray-600 disabled:text-gray-500 disabled:cursor-not-allowed"
                                                 >
                                                      <Coins className="w-5 h-5"/>

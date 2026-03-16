@@ -593,7 +593,9 @@ export const translations = {
       accidentsRoadHazards: "Accidents & Road Hazards",
       medicalEmergencies: "Medical Emergencies",
       fireEnvironmentalHazards: "Fire & Environmental Hazards",
-      publicSafetyAlerts: "Public Safety Alerts"
+      publicSafetyAlerts: "Public Safety Alerts",
+      p2pEscrowVerification: "P2P Escrow & Document Verification",
+      proofOfLifeBiometric: "Proof of Life & Biometric Verification"
     },
     liveIntelligence: {
       title: "Live Intelligence",

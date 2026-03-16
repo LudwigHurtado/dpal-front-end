@@ -33,15 +33,22 @@ import SustainmentCenter from './components/SustainmentCenter';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
+import EscrowServiceView from './components/EscrowServiceView';
+import CoinLaunchView from './components/CoinLaunchView';
+import LayoutV1 from './layouts/LayoutV1';
+import LayoutV2 from './layouts/LayoutV2';
+import { featureFlags } from './features/featureFlags';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
-import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY } from './constants';
+import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
 import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
+import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
+import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'subscription' | 'aiSetup' | 'fieldMissions';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -118,7 +125,12 @@ const getInitialReports = (): Report[] => {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed.map(normalizeReport);
+      if (Array.isArray(parsed)) {
+        return parsed.map((r: any) => normalizeReport({
+          ...r,
+          anchoredAt: r?.anchoredAt ? new Date(r.anchoredAt) : undefined,
+        }));
+      }
       return MOCK_REPORTS.map(normalizeReport);
     } catch (e) {
       return MOCK_REPORTS.map(normalizeReport);
@@ -194,6 +206,7 @@ const App: React.FC = () => {
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
 
   const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(null);
+  const [submissionPrefill, setSubmissionPrefill] = useState<string>('');
   const [selectedIntelForMission, setSelectedIntelForMission] = useState<IntelItem | null>(null);
   const [initialCategoriesForIntel, setInitialCategoriesForIntel] = useState<Category[]>([]);
   
@@ -205,6 +218,9 @@ const App: React.FC = () => {
   const [itemForPayment, setItemForPayment] = useState<IapPack | StoreItem | null>(null);
   const [selectedMissionForDetail, setSelectedMissionForDetail] = useState<Mission | null>(null);
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
+  const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
+  const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
+  const [situationError, setSituationError] = useState<string | null>(null);
   const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
@@ -219,6 +235,10 @@ const App: React.FC = () => {
     }
     return [];
   });
+
+  const [viewHistory, setViewHistory] = useState<View[]>([]);
+  const viewRef = useRef<View>('mainMenu');
+  const backNavRef = useRef(false);
 
   /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -251,11 +271,57 @@ const App: React.FC = () => {
     if (currentView !== 'hub') setFilterSheetOpen(false);
   }, [currentView]);
 
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+
+    const roomId = selectedReportForIncidentRoom?.id;
+    if (currentView !== 'incidentRoom' || !roomId) {
+      return;
+    }
+
+    const load = async () => {
+      try {
+        const [msgs, rooms] = await Promise.all([fetchSituationMessages(roomId), fetchSituationRooms()]);
+        setSituationMessages(msgs);
+        setSituationRooms(rooms);
+        setSituationError(null);
+      } catch (error) {
+        console.warn('Situation messages fetch failed:', error);
+        setSituationError('Chat sync failed. Check API/media persistence configuration.');
+      }
+    };
+
+    void load();
+    timer = setInterval(load, 3500);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [currentView, selectedReportForIncidentRoom?.id]);
+
+  useEffect(() => {
+    if (viewRef.current === currentView) return;
+
+    if (backNavRef.current) {
+      backNavRef.current = false;
+      viewRef.current = currentView;
+      return;
+    }
+
+    const last = viewRef.current;
+    setViewHistory((prev) => [...prev, last].slice(-40));
+    viewRef.current = currentView;
+  }, [currentView]);
+
   const heroWithRank = useMemo((): Hero => {
     let currentRank: Rank = RANKS[0];
     for (const rank of RANKS) { if (hero.xp >= rank.xpNeeded) currentRank = rank; else break; }
     return { ...hero, rank: currentRank.level, title: hero.equippedTitle || currentRank.title };
   }, [hero]);
+
+  const latestAnchoredReport = useMemo(() => {
+    return reports.find(r => Boolean(r.hash || r.txHash || r.blockNumber));
+  }, [reports]);
 
   const filteredReports = useMemo(() => {
     return reports.filter(report => {
@@ -288,6 +354,7 @@ const App: React.FC = () => {
     setPrevView(currentView);
     if (category) { 
         setSelectedCategoryForSubmission(category); 
+        setSubmissionPrefill('');
         setCurrentView('reportSubmission'); 
     } 
     else { 
@@ -326,6 +393,20 @@ const App: React.FC = () => {
     }
   };
 
+  const goBack = (fallback: View = 'mainMenu') => {
+    setViewHistory((prev) => {
+      if (prev.length === 0) {
+        setCurrentView(fallback);
+        return prev;
+      }
+      const next = [...prev];
+      const target = next.pop() as View;
+      backNavRef.current = true;
+      setCurrentView(target);
+      return next;
+    });
+  };
+
   const handleCompleteMissionStep = (m: Mission) => {
     const actions = m.phase === 'RECON' ? m.reconActions : m.mainActions;
     const nextIdx = m.currentActionIndex + 1;
@@ -355,20 +436,143 @@ const App: React.FC = () => {
     setHero(prev => ({ ...prev, personas: [...prev.personas, newPersona], equippedPersonaId: prev.equippedPersonaId || newPersona.id }));
   };
 
+  const fileToSha256 = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer();
+    const digest = await crypto.subtle.digest('SHA-256', buffer);
+    const hex = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    return `0x${hex}`;
+  };
+
   const handleAddReport = async (rep: any) => {
     const reportId = `rep-${Date.now()}`;
-    const finalReport: Report = { 
-        ...rep, 
-        id: reportId, 
-        timestamp: new Date(), 
-        hash: `0x${Math.random().toString(16).slice(2)}`, 
-        blockchainRef: `txn_${Math.random().toString(36).slice(2)}`, 
-        isAuthor: true, 
-        status: 'Submitted' 
+
+    let anchored: {
+      reportHash?: string;
+      txHash?: string;
+      blockNumber?: number;
+      chain?: string;
+      anchoredAt?: string;
+    } = {};
+
+    try {
+      if (featureFlags.blockchainAnchorEnabled) {
+        const apiBase = getApiBase();
+        const response = await fetch(`${apiBase}/api/reports/anchor`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reportId, ...rep }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          anchored = {
+            reportHash: data?.reportHash,
+            txHash: data?.txHash,
+            blockNumber: data?.blockNumber,
+            chain: data?.chain,
+            anchoredAt: data?.anchoredAt,
+          };
+        }
+      }
+    } catch (error) {
+      console.warn('Anchor API unavailable, using local fallback:', error);
+    }
+
+    let evidenceRecords: any[] = [];
+    const rawAttachments: File[] = Array.isArray(rep?.attachments) ? rep.attachments : [];
+
+    if (rawAttachments.length) {
+      try {
+        const evidenceItems = await Promise.all(rawAttachments.map(async (file: File) => ({
+          filename: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          sizeBytes: file.size || 0,
+          sha256: await fileToSha256(file),
+          timestampIso: new Date().toISOString(),
+        })));
+
+        evidenceRecords = await createEvidenceRecords(reportId, evidenceItems);
+      } catch (error) {
+        console.warn('Evidence vault API unavailable, continuing without remote evidence packet:', error);
+      }
+    }
+
+    const fallbackTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    const finalReport: Report = {
+      ...rep,
+      id: reportId,
+      timestamp: new Date(),
+      hash: anchored.reportHash || `0x${Math.random().toString(16).slice(2)}`,
+      blockchainRef: anchored.txHash || fallbackTxHash,
+      txHash: anchored.txHash || fallbackTxHash,
+      blockNumber: anchored.blockNumber,
+      chain: anchored.chain || 'DPAL_INTERNAL',
+      anchoredAt: anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
+      isAuthor: true,
+      status: 'Submitted',
+      evidenceVault: {
+        records: evidenceRecords,
+      },
     };
+
     setReports(prev => [finalReport, ...prev]);
     setCompletedReport(finalReport);
     setCurrentView('reportComplete');
+  };
+
+  const handleSendSituationMessage = async (text: string, imageUrl?: string, audioUrl?: string) => {
+    const roomId = selectedReportForIncidentRoom?.id;
+    if (!roomId) return;
+
+    const optimistic: ChatMessage = {
+      id: `tmp-${Date.now()}`,
+      sender: heroWithRank.name,
+      text: text || '',
+      timestamp: Date.now(),
+      imageUrl,
+      audioUrl,
+      ledgerProof: `0x${Math.random().toString(16).slice(2)}`,
+    };
+    setSituationMessages((prev) => [...prev, optimistic]);
+
+    try {
+      let finalImageUrl = imageUrl;
+      let finalAudioUrl = audioUrl;
+
+      if (imageUrl?.startsWith('data:')) {
+        try {
+          const upload = await uploadSituationMedia(roomId, 'image', imageUrl);
+          finalImageUrl = upload.url;
+        } catch (error) {
+          console.warn('Situation image upload failed:', error);
+          finalImageUrl = undefined;
+          setSituationError('Image upload failed; message sent without image. Configure persistent media.');
+        }
+      }
+
+      if (audioUrl?.startsWith('data:')) {
+        try {
+          const upload = await uploadSituationMedia(roomId, 'audio', audioUrl);
+          finalAudioUrl = upload.url;
+        } catch (error) {
+          console.warn('Situation audio upload failed:', error);
+          finalAudioUrl = undefined;
+          setSituationError('Audio upload failed; message sent without audio. Configure persistent media.');
+        }
+      }
+
+      const saved = await sendSituationMessage(roomId, {
+        sender: heroWithRank.name,
+        text,
+        imageUrl: finalImageUrl,
+        audioUrl: finalAudioUrl,
+      });
+      setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), saved]);
+    } catch (error) {
+      console.warn('Situation send failed:', error);
+      setSituationMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+      setSituationError('Message send failed. Verify API connectivity and room sync.');
+    }
   };
 
   const handleCompleteDirective = (directive: AiDirective): Report => {
@@ -416,7 +620,11 @@ const App: React.FC = () => {
     return report;
   };
 
+  const layoutVersion = (import.meta.env.VITE_LAYOUT_VERSION || 'v1').toLowerCase();
+  const ActiveLayout = layoutVersion === 'v2' ? LayoutV2 : LayoutV1;
+
   return (
+    <ActiveLayout>
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
       {!useMobileLayout && (
         <Header 
@@ -433,33 +641,49 @@ const App: React.FC = () => {
       
       <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
-          <AiSetupView onReturn={() => setCurrentView('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
+          <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
         
         {currentView === 'mainMenu' && (
-          <MainMenu onNavigate={handleNavigate} totalReports={reports.length} onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} />
+          <MainMenu onNavigate={handleNavigate} totalReports={reports.length} latestHash={latestAnchoredReport?.hash || latestAnchoredReport?.txHash} latestBlockNumber={latestAnchoredReport?.blockNumber} onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} />
         )}
 
         {currentView === 'categorySelection' && (
           <CategorySelectionView 
             onSelectCategory={(cat) => handleNavigate('reportSubmission', cat)} 
             onSelectMissions={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} 
-            onReturnToHub={() => setCurrentView('mainMenu')} 
+            onReturnToHub={() => goBack('mainMenu')} 
           />
+        )}
+
+        {currentView === 'escrowService' && (
+          <EscrowServiceView
+            onReturn={() => goBack('mainMenu')}
+            onStartEscrowReport={(category, prefilledDescription) => {
+              setSelectedCategoryForSubmission(category);
+              setSubmissionPrefill(prefilledDescription || 'Escrow case initialized from verification terminal.');
+              setCurrentView('reportSubmission');
+            }}
+          />
+        )}
+
+        {currentView === 'coinLaunch' && (
+          <CoinLaunchView onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'reportSubmission' && selectedCategoryForSubmission && (
           <ReportSubmissionView 
             category={selectedCategoryForSubmission} 
             role={null} 
-            onReturn={() => setCurrentView('categorySelection')} 
+            onReturn={() => goBack('categorySelection')} 
             addReport={handleAddReport} 
-            totalReports={reports.length} 
+            totalReports={reports.length}
+            prefilledDescription={submissionPrefill}
           />
         )}
 
         {currentView === 'reportComplete' && completedReport && (
-          <ReportCompleteView report={completedReport} onReturn={() => setCurrentView('mainMenu')} onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <ReportCompleteView report={completedReport} onReturn={() => goBack('mainMenu')} onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
         {currentView === 'hub' && (
@@ -467,7 +691,7 @@ const App: React.FC = () => {
             <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 min-h-0">
               <div className="w-full lg:col-span-8 min-h-[400px]">
-                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => setCurrentView('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} mapCenter={filters.location || undefined} />
+                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => goBack('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} mapCenter={filters.location || undefined} />
               </div>
               <div className="hidden lg:block lg:col-span-4">
                 <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
@@ -493,11 +717,11 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'liveIntelligence' && (
-          <LiveIntelligenceView onReturn={() => setCurrentView(prevView === 'heroHub' ? 'heroHub' : 'mainMenu')} onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }} heroLocation={heroLocation} setHeroLocation={setHeroLocation} initialCategories={initialCategoriesForIntel} textScale={globalTextScale} />
+          <LiveIntelligenceView onReturn={() => goBack('mainMenu')} onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }} heroLocation={heroLocation} setHeroLocation={setHeroLocation} initialCategories={initialCategoriesForIntel} textScale={globalTextScale} />
         )}
 
         {currentView === 'generateMission' && selectedIntelForMission && (
-          <GenerateMissionView intelItem={selectedIntelForMission} onReturn={() => handleNavigate('liveIntelligence')} onAcceptMission={async (intel, approach, goal) => {
+          <GenerateMissionView intelItem={selectedIntelForMission} onReturn={() => goBack('liveIntelligence')} onAcceptMission={async (intel, approach, goal) => {
               const m = await generateMissionFromIntel(intel, approach, goal);
               const structuredM: Mission = {
                   ...m,
@@ -529,24 +753,24 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'missionDetail' && selectedMissionForDetail && (
-          <MissionDetailView mission={selectedMissionForDetail} onReturn={() => handleNavigate('heroHub', undefined, 'missions')} messages={[]} onSendMessage={() => {}} hero={heroWithRank} onCompleteMissionStep={handleCompleteMissionStep} />
+          <MissionDetailView mission={selectedMissionForDetail} onReturn={() => goBack('heroHub')} messages={[]} onSendMessage={() => {}} hero={heroWithRank} onCompleteMissionStep={handleCompleteMissionStep} />
         )}
 
         {currentView === 'missionComplete' && completedMissionSummary && (
-          <MissionCompleteView mission={completedMissionSummary} onReturn={() => setCurrentView('mainMenu')} />
+          <MissionCompleteView mission={completedMissionSummary} onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'heroHub' && (
-          <HeroHub onReturnToHub={() => setCurrentView('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} onMintNft={async () => ({} as any)} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={() => {}} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
+          <HeroHub onReturnToHub={() => goBack('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} onMintNft={async () => ({} as any)} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={() => {}} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
         )}
 
         {currentView === 'transparencyDatabase' && (
-          <TransparencyDatabaseView onReturn={() => setCurrentView('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <TransparencyDatabaseView onReturn={() => goBack('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
         {currentView === 'fieldMissions' && (
           <FieldMissionsView
-            onReturn={() => setCurrentView('mainMenu')}
+            onReturn={() => goBack('mainMenu')}
             missions={missions}
             beacons={fieldBeacons}
             onPublishBeacon={(latitude, longitude, label) => {
@@ -566,20 +790,32 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'trainingHolodeck' && (
-          <TrainingHolodeckView hero={heroWithRank} onReturn={() => setCurrentView('mainMenu')} onComplete={() => {}} />
+          <TrainingHolodeckView hero={heroWithRank} onReturn={() => goBack('mainMenu')} onComplete={() => {}} />
         )}
 
         {currentView === 'incidentRoom' && selectedReportForIncidentRoom && (
-          <IncidentRoomView report={selectedReportForIncidentRoom} hero={heroWithRank} onReturn={() => setCurrentView('hub')} messages={[]} onSendMessage={() => {}} />
+          <IncidentRoomView
+            report={selectedReportForIncidentRoom}
+            hero={heroWithRank}
+            onReturn={() => goBack('hub')}
+            messages={situationMessages}
+            onSendMessage={handleSendSituationMessage}
+            roomsIndex={situationRooms}
+            errorBanner={situationError}
+            onJoinRoom={(roomId) => {
+              const report = reports.find((r) => r.id === roomId);
+              if (report) setSelectedReportForIncidentRoom(report);
+            }}
+          />
         )}
 
         {currentView === 'reputationAndCurrency' && (
-          <ReputationAndCurrencyView onReturn={() => setCurrentView('mainMenu')} />
+          <ReputationAndCurrencyView onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'aiWorkDirectives' && (
           <AiWorkDirectivesView
-            onReturn={() => setCurrentView('mainMenu')}
+            onReturn={() => goBack('mainMenu')}
             hero={heroWithRank}
             heroLocation={heroLocation}
             setHeroLocation={setHeroLocation}
@@ -590,7 +826,18 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'ecosystem' && (
-          <EcosystemOverview onReturn={() => setCurrentView('mainMenu')} />
+          <EcosystemOverview
+            onReturn={() => goBack('mainMenu')}
+            onOpenPurchase={() => handleNavigate('heroHub', undefined, 'store')}
+            onOpenCoinLaunch={() => handleNavigate('coinLaunch')}
+          />
+        )}
+
+        {currentView === 'sustainmentCenter' && (
+          <SustainmentCenter
+            onReturn={() => goBack('mainMenu')}
+            onReward={(hc) => setHero((prev) => ({ ...prev, heroCredits: (prev.heroCredits || 0) + hc }))}
+          />
         )}
       </main>
 
@@ -598,7 +845,9 @@ const App: React.FC = () => {
         <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
       )}
     </div>
+    </ActiveLayout>
   );
 };
 
 export default App;
+

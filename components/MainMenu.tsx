@@ -1,15 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from '../i18n';
-import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X } from './icons';
+import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint } from './icons';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
+import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
+import { featureFlags } from '../features/featureFlags';
 
 interface MainMenuProps {
     onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
     totalReports: number;
+    latestHash?: string;
+    latestBlockNumber?: number;
     onGenerateMissionForCategory: (category: Category) => void;
 }
 
@@ -93,7 +97,7 @@ const PrimaryNavModule: React.FC<{
     );
 };
 
-const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerateMissionForCategory }) => {
+const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHash, latestBlockNumber, onGenerateMissionForCategory }) => {
     const { t } = useTranslations();
     const [categorySearch, setCategorySearch] = useState('');
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
@@ -209,6 +213,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerat
                 />
 
                 <PrimaryNavModule 
+                    icon={<Fingerprint className="w-8 h-8" />}
+                    label="ESCROW_SERVICE"
+                    subLabel="Live face + fingerprint verification for P2P escrow"
+                    status="KYC"
+                    colorClass="cyan"
+                    onClick={() => onNavigate('escrowService')}
+                />
+
+                <PrimaryNavModule 
                     icon={<Award className="w-8 h-8" />}
                     label="BADGE_REGISTRY"
                     subLabel="Monitor Accreditation & Rank Progress"
@@ -225,6 +238,17 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerat
                     colorClass="blue"
                     onClick={() => onNavigate('ecosystem')}
                 />
+
+                {featureFlags.governanceEnabled && (
+                    <PrimaryNavModule 
+                        icon={<Coins className="w-8 h-8" />}
+                        label="COIN_LAUNCH"
+                        subLabel="Launch utility actions and store immutable token records"
+                        status="LEDGER"
+                        colorClass="emerald"
+                        onClick={() => onNavigate('coinLaunch')}
+                    />
+                )}
 
                 <PrimaryNavModule 
                     icon={<Phone className="w-8 h-8" />}
@@ -308,7 +332,20 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, onGenerat
                 />
             </div>
 
-            <BlockchainStatusPanel totalReports={totalReports} />
+            <BlockchainStatusPanel totalReports={totalReports} latestHash={latestHash} latestBlockNumber={latestBlockNumber} />
+
+            <div className="my-8 bg-zinc-900/70 border border-zinc-800 rounded-3xl p-4 md:p-6">
+                <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Sponsored Transparency</p>
+                    <span className="text-[10px] text-zinc-600 uppercase">Ad</span>
+                </div>
+                <GoogleAdSlot
+                    slot={import.meta.env.VITE_ADSENSE_SLOT_HOME || import.meta.env.VITE_ADSENSE_SLOT_SUPPORT_NODE || ''}
+                    format="auto"
+                    className="rounded-xl overflow-hidden"
+                    style={{ minHeight: 120 }}
+                />
+            </div>
             
             <div className="my-20 border-t border-zinc-900"></div>
             

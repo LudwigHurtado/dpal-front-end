@@ -7,7 +7,7 @@ import {
   Database, FileText, CheckCircle, Plus, Layout as LayoutIcon, 
   Monitor, List, Package, Coins, Award
 } from './icons';
-import { generateAiDirectives, isAiEnabled, AiError } from '../services/geminiService';
+import { generateAiDirectives, generateAiDirectivesBudget, isAiEnabled, AiError } from '../services/geminiService';
 import { buildDirectiveAuditHash } from '../services/directivePacket';
 import { useTranslations } from '../i18n';
 import { CATEGORIES_WITH_ICONS } from '../constants';
@@ -42,6 +42,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [error, setError] = useState<AiError | null>(null);
   const [showCreatedState, setShowCreatedState] = useState(false);
+  const [aiMode, setAiMode] = useState<'cheap' | 'premium'>('cheap');
 
   // Initialize directive with phases if it doesn't have them (backward compatibility)
   useEffect(() => {
@@ -140,7 +141,9 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
     setIsGenerating(true);
     setError(null);
     try {
-      const data = await generateAiDirectives(heroLocation, selectedCategory, 3);
+      const data = aiMode === 'cheap'
+        ? await generateAiDirectivesBudget(heroLocation, selectedCategory, 4)
+        : await generateAiDirectives(heroLocation, selectedCategory, 3);
       setDirectives(data);
     } catch (e: any) {
       setError(e instanceof AiError ? e : new AiError('TEMPORARY_FAILURE', 'Link unstable.'));
@@ -263,7 +266,14 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center space-x-2">
                             <MapPin className="w-3 h-3 text-rose-500" /><span>Geospatial_Lock</span>
                         </label>
-                        <input value={heroLocation} onChange={e => setHeroLocation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white font-black uppercase outline-none focus:border-cyan-500 transition-all" placeholder="Enter Address..." />
+                        <input value={heroLocation} onChange={e => setHeroLocation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white font-black uppercase outline-none focus:border-cyan-500 transition-all" placeholder="Enter City or Address..." />
+                        <div className="flex flex-wrap gap-2">
+                            {['La Paz', 'Cochabamba', 'Santa Cruz', 'El Alto'].map((city) => (
+                                <button key={city} onClick={() => setHeroLocation(city)} className="px-2 py-1 rounded-md text-[9px] font-black uppercase bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white">
+                                    {city}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                     <div className="space-y-2">
                         <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Focus_Domain</label>
@@ -275,8 +285,15 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                             ))}
                         </div>
                     </div>
-                    <button onClick={handleRefresh} disabled={!selectedCategory || isGenerating} className="w-full bg-white text-black font-black py-4 rounded-xl text-[10px] uppercase shadow-lg active:scale-95 transition-all">
-                        {isGenerating ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Sync_Directives'}
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">AI_Cost_Mode</label>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => setAiMode('cheap')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'cheap' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-500'}`}>Cheap AI</button>
+                            <button onClick={() => setAiMode('premium')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'premium' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-300' : 'bg-black border-zinc-800 text-zinc-500'}`}>Premium AI</button>
+                        </div>
+                    </div>
+                    <button onClick={handleRefresh} disabled={!selectedCategory || !heroLocation.trim() || isGenerating} className="w-full bg-white text-black font-black py-4 rounded-xl text-[10px] uppercase shadow-lg active:scale-95 transition-all disabled:opacity-40">
+                        {isGenerating ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Generate_City_Jobs'}
                     </button>
                     {error && (
                         <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl">

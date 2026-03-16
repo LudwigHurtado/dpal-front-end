@@ -4,7 +4,7 @@ import {
   MapPin, Send, Loader, Camera, RefreshCw, AlertTriangle, ShieldCheck, Target, Zap, 
   // Added Broadcast, removed non-existent BarChart
   Activity, Info, Briefcase, Database, Scale, Globe, FileText, Trash2, 
-  CheckCircle, ChevronRight, Maximize2, Clock, Play, Volume2, Paperclip, Plus, X, Sparkles, Broadcast
+  CheckCircle, ChevronRight, Maximize2, Clock, Play, Volume2, Paperclip, Plus, X, Sparkles, Broadcast, Mic, Square
 } from './icons';
 import { FORM_BUNDLE, CATEGORIES_WITH_ICONS } from '../constants';
 
@@ -18,6 +18,14 @@ interface AttachedFile {
     file: File;
     preview: string | null;
     type: 'image' | 'video' | 'audio' | 'other';
+}
+
+interface UploadTrayItem {
+  id: string;
+  name: string;
+  progress: number;
+  status: 'uploading' | 'ready' | 'failed';
+  reason?: string;
 }
 
 const STEPS = [
@@ -99,23 +107,108 @@ const ForensicField: React.FC<{
     }
 };
 
+const DRAFT_KEY = 'dpal-report-draft-v1';
+
 const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselectedCategory, prefilledDescription }) => {
-  const [activeStepIndex, setActiveStepIndex] = useState(0);
+  const [activeStepIndex, setActiveStepIndex] = useState(() => (preselectedCategory ? 1 : 0));
+  const [desktopExpanded, setDesktopExpanded] = useState<boolean>(() => typeof window !== 'undefined' ? window.innerWidth >= 1280 : false);
   const [category, setCategory] = useState<Category | ''>(preselectedCategory || '');
   const [severity, setSeverity] = useState<SeverityLevel>('Standard');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState(prefilledDescription || '');
   const [answers, setAnswers] = useState<Record<string, any>>({});
   const [attachments, setAttachments] = useState<AttachedFile[]>([]);
+  const [uploadTray, setUploadTray] = useState<UploadTrayItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
+  const [isDictating, setIsDictating] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const schema = useMemo(() => {
     if (!category) return null;
     return FORM_BUNDLE.categories[category] || FORM_BUNDLE.categories['Other'];
   }, [category]);
+
+  const isEscrowCategory = category === Category.P2PEscrowVerification || category === Category.ProofOfLifeBiometric;
+  const dictationSupported = typeof window !== 'undefined' && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+
+  useEffect(() => {
+    const onResize = () => {
+      if (window.innerWidth < 1024) setDesktopExpanded(false);
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop?.();
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw);
+      if (draft?.category && !preselectedCategory) setCategory(draft.category);
+      if (draft?.severity) setSeverity(draft.severity);
+      if (draft?.location) setLocation(draft.location);
+      if (draft?.description) setDescription(draft.description);
+      if (draft?.answers) setAnswers(draft.answers);
+      if (typeof draft?.safetyConfirmed === 'boolean') setSafetyConfirmed(draft.safetyConfirmed);
+      if (Array.isArray(draft?.uploadTray)) setUploadTray(draft.uploadTray);
+    } catch {
+      // ignore corrupted draft
+    }
+  }, [preselectedCategory]);
+
+  useEffect(() => {
+    const payload = {
+      category,
+      severity,
+      location,
+      description,
+      answers,
+      safetyConfirmed,
+      uploadTray,
+      updatedAt: Date.now(),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+  }, [category, severity, location, description, answers, safetyConfirmed, uploadTray]);
+
+  const toggleDictation = () => {
+    if (!dictationSupported) return;
+
+    if (isDictating) {
+      recognitionRef.current?.stop?.();
+      setIsDictating(false);
+      return;
+    }
+
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onresult = (event: any) => {
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+      setDescription(transcript.trim());
+    };
+
+    recognition.onend = () => setIsDictating(false);
+    recognition.onerror = () => setIsDictating(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsDictating(true);
+  };
 
   const fidelityScore = useMemo(() => {
     let score = 0;
@@ -133,14 +226,33 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   };
 
   const handlePrev = () => {
+    if (preselectedCategory && activeStepIndex <= 1) return;
     if (activeStepIndex > 0) setActiveStepIndex(activeStepIndex - 1);
+  };
+
+  const startUploadProgress = (id: string, failReason?: string) => {
+    let progress = 0;
+    const timer = setInterval(() => {
+      progress = Math.min(100, progress + 20);
+      setUploadTray((prev) => prev.map((u) => (u.id === id ? { ...u, progress } : u)));
+      if (progress >= 100) {
+        clearInterval(timer);
+        setUploadTray((prev) => prev.map((u) => (u.id === id ? { ...u, status: failReason ? 'failed' : 'ready', reason: failReason } : u)));
+      }
+    }, 180);
+  };
+
+  const retryUpload = (id: string) => {
+    setUploadTray((prev) => prev.map((u) => (u.id === id ? { ...u, status: 'uploading', reason: undefined, progress: 0 } : u)));
+    startUploadProgress(id);
   };
 
   const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     // Explicitly type file as File to resolve unknown type issues
-    const newAttachments: AttachedFile[] = Array.from(files).map((file: File) => {
+    const pickedFiles = Array.from(files);
+    const newAttachments: AttachedFile[] = pickedFiles.map((file: File) => {
         let type: AttachedFile['type'] = 'other';
         if (file.type.startsWith('image/')) type = 'image';
         else if (file.type.startsWith('video/')) type = 'video';
@@ -148,6 +260,19 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return { file, preview: type === 'image' ? URL.createObjectURL(file) : null, type };
     });
     setAttachments(prev => [...prev, ...newAttachments]);
+
+    const trayItems: UploadTrayItem[] = pickedFiles.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+      name: file.name,
+      progress: 0,
+      status: 'uploading',
+    }));
+    setUploadTray((prev) => [...prev, ...trayItems]);
+    trayItems.forEach((item, idx) => {
+      const file = pickedFiles[idx];
+      const failReason = file.size > 12 * 1024 * 1024 ? 'File exceeds 12MB upload reliability threshold.' : undefined;
+      startUploadProgress(item.id, failReason);
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -155,7 +280,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     if (!category || !safetyConfirmed) return;
     setIsSubmitting(true);
     addReport({
-        title: `Forensic_Sync_${category.toUpperCase()}_${Date.now().toString().slice(-4)}`,
+        title: `${isEscrowCategory ? 'Escrow_Receipt' : 'Forensic_Sync'}_${category.toUpperCase()}_${Date.now().toString().slice(-4)}`,
         description,
         category,
         location: location || 'GEO_STAMPED_NODE',
@@ -165,6 +290,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         attachments: attachments.map(a => a.file),
         structuredData: { ...answers, fidelity: fidelityScore, safety_checked: true }
     });
+    localStorage.removeItem(DRAFT_KEY);
   };
 
   const renderStepContent = () => {
@@ -176,7 +302,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
               <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Initialize_Reporting_Node</h3>
               <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Select the domain protocol for this artifact</p>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 max-h-[300px] overflow-y-auto custom-scrollbar p-2">
+            <div className={`grid grid-cols-2 sm:grid-cols-3 ${desktopExpanded ? 'xl:grid-cols-4' : ''} gap-4 ${desktopExpanded ? 'max-h-[620px]' : 'max-h-[300px]'} overflow-y-auto custom-scrollbar p-2`}>
               {CATEGORIES_WITH_ICONS.map(cat => (
                 <button
                   key={cat.value}
@@ -222,16 +348,16 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return (
           <div className="space-y-8 animate-fade-in">
             <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Forensic_Data_Intake</h3>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Protocol: SH-256 Structured Fact Verification</p>
+              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">{isEscrowCategory ? 'Escrow_Transaction_Intake' : 'Forensic_Data_Intake'}</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{isEscrowCategory ? 'Capture seller, buyer, item and payment details for community-safe trade receipt' : 'Protocol: SH-256 Structured Fact Verification'}</p>
             </div>
             <div className="space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-4">
                {schema?.core_questions.slice(0, 4).map(q => (
                  <ForensicField key={q.id} question={q} value={answers[q.id]} onChange={v => setAnswers({...answers, [q.id]: v})} />
                ))}
                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">Situational_Summary</label>
-                   <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed" placeholder="Summarize the core observation..." />
+                   <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{isEscrowCategory ? 'Transaction_Summary' : 'Situational_Summary'}</label>
+                   <textarea value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed" placeholder={isEscrowCategory ? 'Summarize what was sold, by whom, to whom, and what receipt proof is available...' : 'Summarize the core observation...'} />
                </div>
             </div>
             <button onClick={handleNext} disabled={description.length < 10} className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-20 transition-all">Continue_To_Evidence_Sync</button>
@@ -241,8 +367,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return (
           <div className="space-y-8 animate-fade-in">
             <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Visual_Intel_Synchronization</h3>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Attach telemetry shards to strengthen report fidelity</p>
+              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">{isEscrowCategory ? 'Escrow_Evidence_Upload' : 'Visual_Intel_Synchronization'}</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{isEscrowCategory ? 'Upload receipt proof, item photos, chat screenshots, transfer confirmation, and identity snapshots' : 'Attach telemetry shards to strengthen report fidelity'}</p>
             </div>
             
             <div 
@@ -307,8 +433,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
         return (
           <div className="space-y-10 animate-fade-in pb-8">
             <div className="text-center">
-              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Ledger_Preview_Protocol</h3>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">Review forensic metadata before cryptographic sealing</p>
+              <h3 className="text-2xl font-black uppercase text-white tracking-tighter">{isEscrowCategory ? 'Escrow_Receipt_Preview' : 'Ledger_Preview_Protocol'}</h3>
+              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2">{isEscrowCategory ? 'Review transaction details and publish a verifiable community safety receipt' : 'Review forensic metadata before cryptographic sealing'}</p>
             </div>
 
             <div className="bg-zinc-900 border-2 border-zinc-800 rounded-[2.5rem] p-8 space-y-6 shadow-xl relative overflow-hidden">
@@ -373,7 +499,8 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
               <div className="space-y-8 relative">
                   <div className="absolute left-[17px] top-2 bottom-2 w-0.5 bg-zinc-800"></div>
-                  {STEPS.map((step, idx) => {
+                  {(preselectedCategory ? STEPS.filter((s) => s.id !== 'DOMAIN') : STEPS).map((step) => {
+                      const idx = STEPS.findIndex((s) => s.id === step.id);
                       const isActive = activeStepIndex === idx;
                       const isComplete = activeStepIndex > idx;
                       return (
@@ -391,12 +518,40 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
       {/* CONTENT AREA */}
       <div className="flex-grow order-1 lg:order-2">
-          <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[4rem] p-10 md:p-16 shadow-4xl relative overflow-hidden">
+          <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[3rem] md:rounded-[4rem] p-6 md:p-10 lg:p-14 shadow-4xl relative overflow-hidden">
+              <div className="mb-6 p-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Voice Reporting</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Apply analytical tools for clear reports.</p>
+                  </div>
+                  {dictationSupported ? (
+                    <button
+                      type="button"
+                      onClick={toggleDictation}
+                      className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest flex items-center gap-2 self-start md:self-auto ${isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white'}`}
+                    >
+                      {isDictating ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                      {isDictating ? 'Stop Voice Override' : 'Start Voice Override'}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Voice input not supported in this browser</span>
+                  )}
+              </div>
+
+              <div className="hidden lg:flex justify-end mb-6">
+                  <button
+                    type="button"
+                    onClick={() => setDesktopExpanded(v => !v)}
+                    className="px-4 py-2 rounded-xl border border-zinc-700 text-[10px] font-black uppercase tracking-widest text-zinc-400 hover:text-white hover:border-cyan-500/50"
+                  >
+                    {desktopExpanded ? 'Standard Height' : 'Expand Desktop View'}
+                  </button>
+              </div>
               <div className="absolute top-0 left-0 w-full h-1.5 bg-zinc-800">
                   <div className="h-full bg-cyan-600 transition-all duration-1000" style={{ width: `${((activeStepIndex + 1) / STEPS.length) * 100}%` }}></div>
               </div>
               
-              <div className="min-h-[500px] flex flex-col justify-center">
+              <div className={`${desktopExpanded ? 'min-h-[760px]' : 'min-h-[500px]'} flex flex-col justify-start pt-2`}>
                   {renderStepContent()}
               </div>
 
@@ -408,6 +563,25 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
               )}
           </form>
       </div>
+
+      {uploadTray.length > 0 && (
+        <div className="fixed bottom-4 right-4 w-[320px] max-w-[95vw] bg-zinc-950/95 border border-zinc-700 rounded-2xl p-3 z-50 shadow-2xl backdrop-blur sticky">
+          <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400 mb-2">Upload Tray</p>
+          <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+            {uploadTray.map((item) => (
+              <div key={item.id} className="border border-zinc-800 rounded-xl p-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] text-zinc-300 truncate">{item.name}</p>
+                  <span className={`text-[9px] uppercase ${item.status === 'failed' ? 'text-rose-400' : item.status === 'ready' ? 'text-emerald-400' : 'text-cyan-400'}`}>{item.status}</span>
+                </div>
+                <div className="h-1 bg-zinc-800 rounded mt-2 overflow-hidden"><div className="h-full bg-cyan-500" style={{ width: `${item.progress}%` }} /></div>
+                {item.reason && <p className="text-[9px] text-rose-400 mt-1">{item.reason}</p>}
+                {item.status === 'failed' && <button type="button" onClick={() => retryUpload(item.id)} className="text-[9px] mt-1 text-amber-300 underline">Retry</button>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 3px; }
