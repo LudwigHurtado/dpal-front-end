@@ -34,6 +34,7 @@ import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
+import StorageView from './components/StorageView';
 import CoinLaunchView from './components/CoinLaunchView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
@@ -48,7 +49,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -193,8 +194,13 @@ const getInitialHero = (): Hero => {
 
 const App: React.FC = () => {
   const [reports, setReports] = useState<Report[]>(getInitialReports);
-  const [currentView, setCurrentView] = useState<View>('mainMenu');
+  const [currentView, setCurrentView] = useState<View>(() => {
+    if (typeof window === 'undefined') return 'mainMenu';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('view') === 'storage' ? 'storage' : 'mainMenu';
+  });
   const [prevView, setPrevView] = useState<View>('mainMenu');
+
   const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
   const [hubTab, setHubTab] = useState<HubTab>('my_reports');
   const [homeLayout, setHomeLayout] = useState<HomeLayout>(() => {
@@ -639,7 +645,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions', 'storage'].includes(currentView) ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -665,6 +671,10 @@ const App: React.FC = () => {
               setCurrentView('reportSubmission');
             }}
           />
+        )}
+
+        {currentView === 'storage' && (
+          <StorageView onReturn={() => goBack('mainMenu')} reportCount={reports.length} />
         )}
 
         {currentView === 'coinLaunch' && (

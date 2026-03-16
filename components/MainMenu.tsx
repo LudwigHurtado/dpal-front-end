@@ -330,6 +330,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     colorClass="purple"
                     onClick={() => onNavigate('sustainmentCenter')}
                 />
+
+                <PrimaryNavModule 
+                    icon={<Database className="w-8 h-8" />}
+                    label="STORAGE_QR"
+                    subLabel="MongoDB data location & QR link to this page"
+                    status="NODE"
+                    colorClass="cyan"
+                    onClick={() => onNavigate('storage')}
+                />
             </div>
 
             <BlockchainStatusPanel totalReports={totalReports} latestHash={latestHash} latestBlockNumber={latestBlockNumber} />
