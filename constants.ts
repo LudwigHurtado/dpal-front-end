@@ -27,6 +27,8 @@ export const API_ROUTES = {
   PERSONA_GENERATE_DETAILS: '/api/persona/generate-details',
   PERSONA_GENERATE_IMAGE: '/api/persona/generate-image',
   assets: (tokenId: string) => `/api/assets/${tokenId}.png`,
+  ESCROW_CREATE: '/api/escrow/create',
+  ESCROW_LIST: '/api/escrow/list',
 } as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
