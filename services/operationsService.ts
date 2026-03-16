@@ -50,22 +50,63 @@ export interface EscrowRecord {
   hasFaceVerification?: boolean;
 }
 
+const ESCROW_LOCAL_KEY = 'dpal-escrows-local';
+
+function getLocalEscrows(): EscrowRecord[] {
+  try {
+    const raw = localStorage.getItem(ESCROW_LOCAL_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveLocalEscrow(record: EscrowRecord): void {
+  const list = getLocalEscrows();
+  list.unshift(record);
+  localStorage.setItem(ESCROW_LOCAL_KEY, JSON.stringify(list));
+}
+
 export async function createEscrow(payload: EscrowCreatePayload): Promise<EscrowRecord> {
-  const res = await fetch(apiUrl(API_ROUTES.ESCROW_CREATE), {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!res.ok) {
+  try {
+    const res = await fetch(apiUrl(API_ROUTES.ESCROW_CREATE), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) return res.json();
     const err = await res.json().catch(() => ({}));
     throw new Error(err.message || `escrow_create_failed_${res.status}`);
+  } catch (e) {
+    if (e instanceof Error && (e.message.includes('404') || e.message.includes('Failed to fetch') || e.message.includes('NetworkError'))) {
+      const record: EscrowRecord = {
+        id: `esc-local-${Date.now()}`,
+        payerName: payload.payerName,
+        payeeName: payload.payeeName,
+        amount: payload.amount,
+        currency: payload.currency,
+        description: payload.description,
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        receiptCount: payload.receiptImages?.length ?? 0,
+        hasFaceVerification: Boolean(payload.faceImage),
+      };
+      saveLocalEscrow(record);
+      return record;
+    }
+    throw e;
   }
-  return res.json();
 }
 
 export async function listEscrows(): Promise<EscrowRecord[]> {
-  const res = await fetch(apiUrl(API_ROUTES.ESCROW_LIST));
-  if (!res.ok) throw new Error(`escrow_list_failed_${res.status}`);
-  const data = await res.json();
-  return Array.isArray(data) ? data : data.items || data.escrows || [];
+  try {
+    const res = await fetch(apiUrl(API_ROUTES.ESCROW_LIST));
+    if (!res.ok) throw new Error(`escrow_list_failed_${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : data.items || data.escrows || [];
+  } catch {
+    return getLocalEscrows();
+  }
 }
