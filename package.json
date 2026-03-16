@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "vercel:env": "echo Run: vercel env add VITE_API_BASE production then paste https://web-production-a27b.up.railway.app",
+    "vercel:deploy": "vercel --prod"
   },
   "dependencies": {
     "@google/genai": "^1.20.0",
