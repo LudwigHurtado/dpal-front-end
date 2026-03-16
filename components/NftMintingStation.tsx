@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Category, type Hero, type Report, type NftTheme } from '../types';
-import { FORGE_TRAITS, NFT_THEMES, getApiBase } from '../constants';
+import { FORGE_TRAITS, NFT_THEMES, getApiBase, apiUrl, API_ROUTES } from '../constants';
 import { Gem, Coins, Loader, Check, Sparkles, Database, Target, Zap, ShieldCheck, FileText, ArrowRight, RefreshCw, X, Broadcast, Activity, Box, Fingerprint, Activity as ActivityIcon, User, Monitor, ArrowLeft } from './icons';
 import NftCard from './NftCard';
 import { generateNftPromptIdeas } from '../services/geminiService';
@@ -126,9 +126,8 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
           signal: controller.signal
         });
       } catch (e) {
-        console.warn("[FORGE] Relative dispatch failed, falling back to absolute node.");
-        // ATTEMPT 2: Fallback to absolute Railway URL
-        response = await fetch(`${apiBase}/api/nft/mint`, {
+        console.warn("[FORGE] Relative dispatch failed, falling back to Railway backend.");
+        response = await fetch(apiUrl(API_ROUTES.NFT_MINT), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),

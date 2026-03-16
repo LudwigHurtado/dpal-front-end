@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import type { Report, Hero } from '../types';
 import { useTranslations } from '../i18n';
-import { getApiBase } from '../constants';
+import { getApiBase, apiUrl, API_ROUTES } from '../constants';
 import NftCard from './NftCard';
 import { ArrowLeft, Award, Coins, Gem, Loader, RefreshCw, Database, Search, ShieldCheck } from './icons';
 
@@ -27,13 +27,11 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
             let response;
             try {
                 response = await fetch('/api/nft/receipts');
-                // If relative path returns 404, fallback to absolute backend URL
                 if (!response.ok && response.status === 404) {
-                    response = await fetch(`${apiBase}/api/nft/receipts`);
+                    response = await fetch(apiUrl(API_ROUTES.NFT_RECEIPTS));
                 }
             } catch {
-                // Network error - try absolute backend URL
-                response = await fetch(`${apiBase}/api/nft/receipts`);
+                response = await fetch(apiUrl(API_ROUTES.NFT_RECEIPTS));
             }
             
             if (response.ok) {
@@ -43,11 +41,9 @@ const CollectionCodex: React.FC<CollectionCodexProps> = ({ reports, hero, onRetu
                     // Resolve image URL - backend now provides imageUri/imageUrl
                     let imageUrl = receipt.imageUri || receipt.imageUrl;
                     if (imageUrl?.startsWith('/')) {
-                        // Relative path - make it absolute using backend base URL
                         imageUrl = `${apiBase}${imageUrl}`;
                     } else if (!imageUrl) {
-                        // Fallback: construct the standard asset path
-                        imageUrl = `${apiBase}/api/assets/${receipt.tokenId}.png`;
+                        imageUrl = apiUrl(API_ROUTES.assets(receipt.tokenId));
                     }
                     
                     return {

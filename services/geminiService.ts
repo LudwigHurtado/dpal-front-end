@@ -33,9 +33,8 @@ const FLASH_TEXT_MODEL = "gemini-3-flash-preview";
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 export const isAiEnabled = () => Boolean(getApiKey());
 
-import { getApiBase } from "../constants";
+import { getApiBase, apiUrl as buildApiUrl, API_ROUTES } from "../constants";
 
-// Re-export for backward compatibility, but use centralized constant
 const getApiBaseLocal = () => getApiBase();
 
 const DEBUG_AI = false;
@@ -607,7 +606,7 @@ export async function generateNftImage(
   if (!isAiEnabled()) return `https://picsum.photos/seed/${prompt.substring(0, 5)}/400/600`;
   try {
     const apiBase = getApiBaseLocal();
-    const response = await fetch(`${apiBase}/api/nft/generate-image`, {
+    const response = await fetch(buildApiUrl(API_ROUTES.NFT_GENERATE_IMAGE), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, theme, operativeId: hero.operativeId }),
@@ -674,7 +673,7 @@ export async function generateNftPromptIdeas(hero: Hero, theme: NftTheme, dpalCa
     The phrases should sound like fragments of a futuristic accountability ledger.
     Return only a JSON array of strings.`;
 
-    const response = await fetch(`${apiBase}/api/ai/ask`, {
+    const response = await fetch(buildApiUrl(API_ROUTES.AI_ASK), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt }),
@@ -823,13 +822,7 @@ export async function generateHeroPersonaDetails(prompt: string, arch: Archetype
   if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
   try {
     const apiBase = getApiBaseLocal();
-    // Try relative path first (for Vercel proxy), fallback to absolute
-    let apiUrl = '/api/persona/generate-details';
-    if (apiBase) {
-      apiUrl = `${apiBase}/api/persona/generate-details`;
-    }
-
-    const response = await fetch(apiUrl, {
+    const response = await fetch(buildApiUrl(API_ROUTES.PERSONA_GENERATE_DETAILS), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, archetype: arch }),
@@ -863,13 +856,7 @@ export async function generateHeroPersonaImage(prompt: string, arch: Archetype, 
   if (!isAiEnabled()) return `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`;
   try {
     const apiBase = getApiBaseLocal();
-    // Try relative path first (for Vercel proxy), fallback to absolute
-    let apiUrl = '/api/persona/generate-image';
-    if (apiBase) {
-      apiUrl = `${apiBase}/api/persona/generate-image`;
-    }
-
-    const response = await fetch(apiUrl, {
+    const response = await fetch(buildApiUrl(API_ROUTES.PERSONA_GENERATE_IMAGE), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prompt, archetype: arch, sourceImage: sourceImageData }),

@@ -3,12 +3,31 @@
 import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, TrainingModule, EducationRole, Mission, HeroPath, NftTheme, SubscriptionTier } from "./types";
 
 /**
- * Standardized API base URL for backend services.
- * Uses VITE_API_BASE environment variable if set, otherwise falls back to default Railway deployment.
+ * Standardized API base URL for backend services (Railway).
+ * Backend should connect to MongoDB (Railway MongoDB or Atlas) and implement the routes in API_ROUTES.
+ * Set VITE_API_BASE in .env.local or deployment env to your Railway backend URL.
  */
 export const getApiBase = (): string => {
   return (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app';
 };
+
+/** Build full URL for an API route so all requests go to the same Railway backend. */
+export const apiUrl = (path: string): string => {
+  const base = getApiBase().replace(/\/$/, '');
+  const p = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${p}`;
+};
+
+/** API paths the Railway backend (with MongoDB) should implement. */
+export const API_ROUTES = {
+  NFT_RECEIPTS: '/api/nft/receipts',
+  NFT_MINT: '/api/nft/mint',
+  NFT_GENERATE_IMAGE: '/api/nft/generate-image',
+  AI_ASK: '/api/ai/ask',
+  PERSONA_GENERATE_DETAILS: '/api/persona/generate-details',
+  PERSONA_GENERATE_IMAGE: '/api/persona/generate-image',
+  assets: (tokenId: string) => `/api/assets/${tokenId}.png`,
+} as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
 export type HomeLayout = 'feed' | 'map' | 'categories';
