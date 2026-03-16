@@ -7,7 +7,7 @@ export default defineConfig(({ mode }) => {
     return {
       server: {
         port: 3000,
-        host: '0.0.0.0',
+        host: '0.0.0.0', // accessible as http://192.168.0.10:3000 on local network
       },
       plugins: [react()],
       define: {
