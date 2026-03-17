@@ -938,4 +938,19 @@ export const NFT_THEMES = [
 ];
 
 export const LEGENDS_OF_THE_LEDGER_NFTS = [];
-export const BADGES = [];
+
+/** Single source of truth for achievement badges. Registry = one list, one purpose. */
+export interface BadgeRegistryEntry {
+  id: string;
+  nameKey: string;
+  descKey: string;
+  criteriaKey: string;
+  source: 'Reports' | 'Missions' | 'Escrow' | 'Community';
+  icon?: string;
+}
+
+export const BADGE_REGISTRY: BadgeRegistryEntry[] = [
+  { id: 'badge_first_report', nameKey: 'storeItems.badge_first_report', descKey: 'storeItems.badge_first_report_desc', criteriaKey: 'collectionCodex.badgeCriteria.firstReport', source: 'Reports', icon: '🔰' },
+  { id: 'badge_truth_seeker', nameKey: 'storeItems.badge_truth_seeker', descKey: 'storeItems.badge_truth_seeker_desc', criteriaKey: 'collectionCodex.badgeCriteria.truthSeeker', source: 'Reports', icon: '🔍' },
+  { id: 'badge_legend', nameKey: 'storeItems.badge_legend', descKey: 'storeItems.badge_legend_desc', criteriaKey: 'collectionCodex.badgeCriteria.legend', source: 'Community', icon: '⭐' },
+];

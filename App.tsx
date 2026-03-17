@@ -35,6 +35,7 @@ import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
 import StorageView from './components/StorageView';
+import PoliticianTransparencyView from './components/PoliticianTransparencyView';
 import CoinLaunchView from './components/CoinLaunchView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
@@ -49,7 +50,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -675,6 +676,10 @@ const App: React.FC = () => {
 
         {currentView === 'storage' && (
           <StorageView onReturn={() => goBack('mainMenu')} reportCount={reports.length} />
+        )}
+
+        {currentView === 'politicianTransparency' && (
+          <PoliticianTransparencyView hero={heroWithRank} onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'coinLaunch' && (

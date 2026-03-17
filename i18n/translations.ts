@@ -240,6 +240,16 @@ export const translations = {
         theme: "Theme",
         category: "Category",
         questFragment: "Quest Fragment",
+        badgeCriteria: {
+            firstReport: "Submit your first report",
+            truthSeeker: "Specialize in scam / misinformation reports",
+            legend: "Reach Legend rank",
+        },
+        badgeSource: "Source",
+        yourBadges: "Your badges",
+        allBadges: "All badges",
+        locked: "Locked",
+        earned: "Earned",
     },
     badgeUnlocked: {
         title: "Achievement Unlocked",

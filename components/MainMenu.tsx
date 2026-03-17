@@ -222,6 +222,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 />
 
                 <PrimaryNavModule 
+                    icon={<Scale className="w-8 h-8" />}
+                    label="POLITICIAN_VIEWPOINTS"
+                    subLabel="See where local officials stand on upcoming measures"
+                    status="CIVIC"
+                    colorClass="blue"
+                    onClick={() => onNavigate('politicianTransparency')}
+                />
+
+                <PrimaryNavModule 
                     icon={<Award className="w-8 h-8" />}
                     label="BADGE_REGISTRY"
                     subLabel="Monitor Accreditation & Rank Progress"
