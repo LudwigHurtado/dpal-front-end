@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from '../i18n';
 import type { Report } from '../types';
 import { Category } from '../types';
-import { ArrowLeft, Search, User, Heart, Package, Upload, MapPin, Mic, Info } from './icons';
+import { ArrowLeft, Search, Upload, MapPin, Mic, Info } from './icons';
 
 type LocatorMode = 'person' | 'pet' | 'item';
 
@@ -22,10 +22,10 @@ export interface LocatorEntry {
 
 const STORAGE_KEY = 'dpal-locator-entries-v1';
 
-const modeMeta: Record<LocatorMode, { label: string; Icon: React.ElementType; accent: string }> = {
-  person: { label: 'Find Person', Icon: User, accent: 'from-blue-600/40 to-blue-400/10' },
-  pet: { label: 'Find Pet', Icon: Heart, accent: 'from-emerald-600/40 to-emerald-400/10' },
-  item: { label: 'Find Item', Icon: Package, accent: 'from-amber-600/40 to-amber-400/10' },
+const modeMeta: Record<LocatorMode, { label: string; iconSrc: string; accent: string }> = {
+  person: { label: 'Find Person', iconSrc: '/icon-person.png', accent: 'from-blue-600/40 to-blue-400/10' },
+  pet: { label: 'Find Pet', iconSrc: '/icon-pet.png', accent: 'from-emerald-600/40 to-emerald-400/10' },
+  item: { label: 'Find Item', iconSrc: '/icon-item.png', accent: 'from-amber-600/40 to-amber-400/10' },
 };
 
 interface DPALLocatorViewProps {
@@ -191,13 +191,13 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
     }
   };
 
-  const ModeIcon = modeMeta[mode].Icon;
+  const modeIconSrc = modeMeta[mode].iconSrc;
 
   return (
     <div className="animate-fade-in relative min-h-[calc(100vh-6rem)] pb-24">
       <div
         className="absolute inset-0 -z-10 bg-cover bg-top"
-        style={{ backgroundImage: `url('/dpal-locator-ui.png')` }}
+        style={{ backgroundImage: `url('/tokens/dpal-locator-ui.png')` }}
       />
       <div className="absolute inset-0 -z-10 bg-black/55" />
 
@@ -210,7 +210,7 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
           <span>Return</span>
         </button>
 
-        <div className="pt-6 pb-6 text-center">
+        <div className="pt-8 pb-6 text-center">
           <h1 className="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
             Decentralized Person, Pets, & Assets Locator
           </h1>
@@ -219,13 +219,15 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
           <div className="lg:col-span-7">
-            <div className="rounded-3xl bg-white/90 backdrop-blur-md shadow-2xl border border-white/60 overflow-hidden">
-              <div className="px-5 py-4 border-b border-black/10">
+            <div
+              className="rounded-3xl shadow-2xl overflow-hidden"
+              style={{ backgroundImage: `url('/panel-form.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
+            >
+              <div className="px-5 py-4">
                 <div className="grid grid-cols-3 gap-2">
                   {(['person', 'pet', 'item'] as LocatorMode[]).map((m) => {
-                    const Icon = modeMeta[m].Icon;
                     const active = m === mode;
                     return (
                       <button
@@ -235,10 +237,10 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
                         className={`flex items-center justify-center gap-2 py-3 rounded-2xl font-extrabold text-sm shadow-sm border transition-all ${
                           active
                             ? 'bg-gradient-to-b from-blue-800 to-blue-700 text-white border-blue-900/40'
-                            : 'bg-white text-slate-800 border-slate-200 hover:bg-slate-50'
+                            : 'bg-white/90 text-slate-800 border-slate-200 hover:bg-white'
                         }`}
                       >
-                        <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-slate-700'}`} />
+                        <img src={modeMeta[m].iconSrc} alt="" className="w-6 h-6" draggable={false} />
                         <span className="hidden sm:inline">{modeMeta[m].label}</span>
                       </button>
                     );
@@ -362,22 +364,26 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
                   type="button"
                   onClick={handleSubmit}
                   disabled={isSubmitting || !canSubmit}
-                  className={`w-full py-4 rounded-2xl font-extrabold text-white text-lg shadow-xl transition-all ${
-                    isSubmitting || !canSubmit ? 'bg-emerald-700/60 cursor-not-allowed' : 'bg-emerald-700 hover:bg-emerald-600 active:scale-[0.99]'
+                  className={`w-full rounded-2xl font-extrabold text-white text-lg shadow-xl transition-all relative overflow-hidden ${
+                    isSubmitting || !canSubmit ? 'opacity-70 cursor-not-allowed' : 'active:scale-[0.99]'
                   }`}
+                  style={{ height: 64, backgroundImage: `url('/btn-submit.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
                 >
-                  {isSubmitting ? 'Submitting…' : 'Submit Report'}
+                  <span className="sr-only">{isSubmitting ? 'Submitting…' : 'Submit Report'}</span>
                 </button>
               </div>
             </div>
           </div>
 
           <div className="lg:col-span-5 space-y-6">
-            <div className="rounded-3xl bg-white/90 backdrop-blur-md shadow-2xl border border-white/60 overflow-hidden">
-              <div className="px-5 py-4 border-b border-black/10 flex items-center justify-between">
+            <div
+              className="rounded-3xl shadow-2xl overflow-hidden"
+              style={{ backgroundImage: `url('/panel-map.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
+            >
+              <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-2xl bg-gradient-to-b ${modeMeta[mode].accent} border border-black/10 flex items-center justify-center`}>
-                    <ModeIcon className="w-5 h-5 text-slate-900" />
+                    <img src={modeIconSrc} alt="" className="w-6 h-6" draggable={false} />
                   </div>
                   <div>
                     <div className="text-sm font-extrabold text-slate-900">Live Map Preview</div>
@@ -386,7 +392,7 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
                 </div>
               </div>
               <div className="p-5">
-                <div className="relative h-[260px] rounded-3xl bg-gradient-to-br from-slate-100 to-slate-200 border border-slate-200 overflow-hidden">
+                <div className="relative h-[260px] rounded-3xl bg-white/70 border border-slate-200 overflow-hidden">
                   <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.35),transparent_40%),radial-gradient(circle_at_70%_60%,rgba(16,185,129,0.25),transparent_45%)]" />
                   <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(0,0,0,0.04)_1px,transparent_1px)] bg-[size:32px_32px]" />
                   {coords ? (
