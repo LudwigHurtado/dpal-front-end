@@ -467,9 +467,10 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
             backgroundRepeat: 'no-repeat, no-repeat',
           }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/40 to-white/70" />
+        {/* Keep the image natural; add a soft vignette for readability */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/25" />
 
-        <div className="relative px-6 py-10 md:px-10 md:py-14 text-center">
+        <div className="relative h-[260px] md:h-[420px] px-6 md:px-10 pb-10 md:pb-14 pt-6">
           <button
             onClick={onReturn}
             className="absolute left-6 top-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900/80 bg-white/70 backdrop-blur px-4 py-2 rounded-full border border-zinc-200 hover:text-cyan-700 transition-colors"
@@ -478,28 +479,22 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
             <span>Return</span>
           </button>
 
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-zinc-900">
-            Displaced Persons, Pets & Assets Locator
-          </h1>
-          <p className="mt-3 text-sm md:text-base text-zinc-800 font-semibold max-w-3xl mx-auto">
-            Community-powered locating, reporting, and recovery — with AI matching and optional blockchain proof.
-          </p>
-
-          <div className="mt-4 inline-flex items-center rounded-full border px-4 py-2 text-xs font-black">
-            <span className="text-zinc-900">
-              Type: {type.toUpperCase()} · Hero: {heroImageSrcForType(type)}
-            </span>
-            <span
-              className={`ml-3 px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${
-                heroImageOk ? 'bg-emerald-100 border-emerald-200 text-emerald-900' : 'bg-amber-100 border-amber-200 text-amber-900'
-              }`}
-            >
-              {heroImageOk ? 'LOADED' : 'MISSING'}
-            </span>
+          <div className="h-full flex flex-col justify-end items-center text-center">
+            <div className="w-full max-w-4xl bg-white/72 backdrop-blur-md border border-white/70 shadow-xl rounded-[28px] px-6 py-6 md:px-10 md:py-8">
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-zinc-900">
+                Displaced Persons, Pets & Assets Locator
+              </h1>
+              <p className="mt-3 text-sm md:text-base text-zinc-800 font-semibold">
+                Community-powered locating, reporting, and recovery — with AI matching and optional blockchain proof.
+              </p>
+              {!heroImageOk && (
+                <div className="mt-4 inline-flex items-center rounded-full bg-amber-100 border border-amber-200 px-4 py-2 text-xs font-black text-amber-900">
+                  Hero image missing: {heroImageSrcForType(type)}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        <div className="relative h-[220px] md:h-[320px]" aria-hidden="true" />
       </section>
 
       {/* ACTION SELECTOR */}
