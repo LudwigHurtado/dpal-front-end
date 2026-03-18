@@ -684,7 +684,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'dpalLocator' && (
-          <LocatorPage onReturn={() => goBack('mainMenu')} addReport={handleAddReport} />
+          <LocatorPage onReturn={() => goBack('mainMenu')} addReport={handleAddReport} hero={heroWithRank} setHero={setHero} />
         )}
 
         {currentView === 'coinLaunch' && (

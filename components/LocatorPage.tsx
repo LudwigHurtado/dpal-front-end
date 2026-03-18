@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Report } from '../types';
+import type { Hero, Report } from '../types';
 import { Category } from '../types';
-import { ArrowLeft, MapPin, Mic, Search, Upload } from './icons';
+import { ArrowLeft, MapPin, Mic, Search, Upload, X } from './icons';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 
 type LocatorMode = 'find' | 'report';
@@ -31,9 +31,32 @@ const TYPE_META: Record<LocatorType, { label: string; iconSrc: string }> = {
 interface LocatorPageProps {
   onReturn: () => void;
   addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>) => void;
+  hero: Hero;
+  setHero: React.Dispatch<React.SetStateAction<Hero>>;
 }
 
-const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
+const LISTINGS_KEY = 'dpal-locator-listings-v1';
+const DONATIONS_KEY = 'dpal-locator-donations-v1';
+
+interface LocatorListing {
+  id: string;
+  mode: LocatorMode;
+  type: LocatorType;
+  title: string;
+  createdAt: number;
+}
+
+interface LocatorDonation {
+  id: string;
+  listingId: string;
+  donorName: string;
+  hcAmount: number;
+  tokenAmount: number;
+  message: string;
+  createdAt: number;
+}
+
+const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, setHero }) => {
   const [mode, setMode] = useState<LocatorMode>('find');
   const [type, setType] = useState<LocatorType>('person');
 
@@ -66,6 +89,59 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
 
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [listings, setListings] = useState<LocatorListing[]>(() => {
+    try {
+      const raw = localStorage.getItem(LISTINGS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [donations, setDonations] = useState<LocatorDonation[]>(() => {
+    try {
+      const raw = localStorage.getItem(DONATIONS_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
+  const [activeListingId, setActiveListingId] = useState<string | null>(null);
+
+  const activeListing = useMemo(() => listings.find((l) => l.id === activeListingId) || null, [listings, activeListingId]);
+  const activeDonations = useMemo(
+    () => donations.filter((d) => d.listingId === activeListingId),
+    [donations, activeListingId]
+  );
+  const activeDonationTotals = useMemo(() => {
+    const hc = activeDonations.reduce((s, d) => s + (d.hcAmount || 0), 0);
+    const tokens = activeDonations.reduce((s, d) => s + (d.tokenAmount || 0), 0);
+    return { hc, tokens };
+  }, [activeDonations]);
+
+  const [donateOpen, setDonateOpen] = useState(false);
+  const [donateHc, setDonateHc] = useState(0);
+  const [donateTokens, setDonateTokens] = useState(0);
+  const [donateMessage, setDonateMessage] = useState('');
+  const [donateError, setDonateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(LISTINGS_KEY, JSON.stringify(listings.slice(0, 20)));
+    } catch {
+      // ignore write errors
+    }
+  }, [listings]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(DONATIONS_KEY, JSON.stringify(donations.slice(0, 100)));
+    } catch {
+      // ignore write errors
+    }
+  }, [donations]);
 
   useEffect(() => {
     return () => {
@@ -243,6 +319,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
     }
     setIsSubmitting(true);
     try {
+      const newListingId = `loc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const finalLocation = locationText.trim() || (coords ? `${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'Unknown');
       const header = mode === 'find' ? 'FIND' : 'REPORT';
       const typeLabel = TYPE_META[type].label;
@@ -264,7 +341,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
 
       addReport({
         title: reportTitle,
-        description: bodyLines.join('\n'),
+        description: `${bodyLines.join('\n')}\nListingRefId: ${newListingId}`,
         category: Category.Other,
         location: finalLocation,
         trustScore: 70,
@@ -274,6 +351,20 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
         imageUrls: photoPreviews.length ? photoPreviews : undefined,
         isAuthor: true,
       });
+      setListings((prev) => {
+        const next: LocatorListing[] = [
+          {
+            id: newListingId,
+            mode,
+            type,
+            title: titleOrDescription.trim(),
+            createdAt: Date.now(),
+          },
+          ...prev,
+        ];
+        return next.slice(0, 20);
+      });
+      setActiveListingId(newListingId);
 
       // Reset minimal fields; keep mode/type selection.
       setTitleOrDescription('');
@@ -291,29 +382,75 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
     }
   };
 
+  const submitDonation = () => {
+    setDonateError(null);
+    if (!activeListingId) {
+      setDonateError('No active listing to support.');
+      return;
+    }
+    const hc = Number.isFinite(donateHc) ? Math.max(0, donateHc) : 0;
+    const tokens = Number.isFinite(donateTokens) ? Math.max(0, donateTokens) : 0;
+
+    if (hc <= 0 && tokens <= 0) {
+      setDonateError('Enter at least 1 HC or 1 Token.');
+      return;
+    }
+    const availableHc = hero.heroCredits ?? 0;
+    const availableTokens = hero.legendTokens ?? 0;
+    if (hc > availableHc) {
+      setDonateError(`Not enough HeroCredits. Available: ${availableHc}.`);
+      return;
+    }
+    if (tokens > availableTokens) {
+      setDonateError(`Not enough Legend Tokens. Available: ${availableTokens}.`);
+      return;
+    }
+
+    const donation: LocatorDonation = {
+      id: `don-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      listingId: activeListingId,
+      donorName: hero.name || 'Anonymous',
+      hcAmount: hc,
+      tokenAmount: tokens,
+      message: donateMessage.trim(),
+      createdAt: Date.now(),
+    };
+
+    setDonations((prev) => [donation, ...prev].slice(0, 100));
+    setHero((prev) => ({
+      ...prev,
+      heroCredits: (prev.heroCredits ?? 0) - hc,
+      legendTokens: (prev.legendTokens ?? 0) - tokens,
+    }));
+    setDonateOpen(false);
+    setDonateHc(0);
+    setDonateTokens(0);
+    setDonateMessage('');
+  };
+
   return (
     <div className="animate-fade-in pb-24">
       {/* HERO / VISUAL BANNER */}
-      <section className="relative w-full overflow-hidden rounded-[36px] shadow-2xl bg-zinc-950 border border-zinc-800">
+      <section className="relative w-full overflow-hidden rounded-[36px] shadow-2xl bg-white border border-zinc-200">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: `url('/tokens/dpal-locator-ui.png')` }}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/45 via-black/25 to-black/60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/40 to-white/70" />
 
         <div className="relative px-6 py-10 md:px-10 md:py-14 text-center">
           <button
             onClick={onReturn}
-            className="absolute left-6 top-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-white/80 hover:text-cyan-200 transition-colors"
+            className="absolute left-6 top-6 inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-900/80 bg-white/70 backdrop-blur px-4 py-2 rounded-full border border-zinc-200 hover:text-cyan-700 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Return</span>
           </button>
 
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white">
+          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-zinc-900">
             Displaced Persons, Pets & Assets Locator
           </h1>
-          <p className="mt-3 text-sm md:text-base text-white/85 font-semibold max-w-3xl mx-auto">
+          <p className="mt-3 text-sm md:text-base text-zinc-800 font-semibold max-w-3xl mx-auto">
             Community-powered locating, reporting, and recovery — with AI matching and optional blockchain proof.
           </p>
         </div>
@@ -578,6 +715,34 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
                       </span>
                     </button>
                   </div>
+
+                  {activeListingId && (
+                    <div className="mt-4 rounded-[28px] bg-white/95 border border-zinc-200 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="text-[11px] font-black uppercase tracking-widest text-zinc-600">
+                            {mode === 'find' ? 'Support this search' : 'Support this report'}
+                          </div>
+                          <div className="mt-1 text-sm font-extrabold text-zinc-900">
+                            {TYPE_META[activeListing?.type ?? type].label}
+                          </div>
+                          <div className="mt-1 text-[11px] text-zinc-700">
+                            Total supported: {activeDonationTotals.hc.toLocaleString()} HC · {activeDonationTotals.tokens.toLocaleString()} Tokens
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDonateError(null);
+                            setDonateOpen(true);
+                          }}
+                          className="px-4 py-3 rounded-2xl bg-zinc-950 text-white font-extrabold text-sm hover:bg-zinc-800 transition-colors"
+                        >
+                          Donate
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -621,6 +786,91 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport }) => {
           </div>
         </div>
       </section>
+
+      {donateOpen && activeListingId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-[32px] bg-white border border-zinc-200 shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-sm font-extrabold text-zinc-900">Support this listing</div>
+                <div className="mt-1 text-xs text-zinc-600">
+                  Donate with <span className="font-black">HeroCredits (HC)</span> and/or <span className="font-black">Legend Tokens</span>.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDonateOpen(false)}
+                className="p-2 rounded-2xl border border-zinc-200 hover:bg-zinc-50"
+                aria-label="Close donate panel"
+              >
+                <X className="w-5 h-5 text-zinc-700" />
+              </button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3">
+              <div className="rounded-[24px] border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-[11px] font-black uppercase tracking-widest text-zinc-600">HC amount</div>
+                <input
+                  type="number"
+                  min={0}
+                  step={10}
+                  value={donateHc}
+                  onChange={(e) => setDonateHc(Number(e.target.value))}
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/30"
+                />
+                <div className="mt-2 text-[11px] text-zinc-600">Available: {hero.heroCredits.toLocaleString()} HC</div>
+              </div>
+
+              <div className="rounded-[24px] border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-[11px] font-black uppercase tracking-widest text-zinc-600">Token amount</div>
+                <input
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={donateTokens}
+                  onChange={(e) => setDonateTokens(Number(e.target.value))}
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/30"
+                />
+                <div className="mt-2 text-[11px] text-zinc-600">Available: {hero.legendTokens.toLocaleString()} Tokens</div>
+              </div>
+
+              <div className="rounded-[24px] border border-zinc-200 bg-zinc-50 p-4">
+                <div className="text-[11px] font-black uppercase tracking-widest text-zinc-600">Message (optional)</div>
+                <textarea
+                  value={donateMessage}
+                  onChange={(e) => setDonateMessage(e.target.value)}
+                  rows={3}
+                  className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white px-4 py-3 outline-none focus:ring-2 focus:ring-cyan-400/30"
+                  placeholder="E.g., Keep looking — we’re watching this area."
+                />
+              </div>
+            </div>
+
+            {donateError && (
+              <div className="mt-4 rounded-[24px] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 font-semibold">
+                {donateError}
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDonateOpen(false)}
+                className="flex-1 px-4 py-3 rounded-2xl border border-zinc-200 bg-white text-zinc-800 font-extrabold hover:bg-zinc-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitDonation}
+                className="flex-1 px-4 py-3 rounded-2xl bg-zinc-950 text-white font-extrabold hover:bg-zinc-800 transition-colors"
+              >
+                Confirm Donation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
