@@ -1,5 +1,3 @@
-import { Loader } from '@googlemaps/js-api-loader';
-
 let loaderPromise: Promise<typeof google> | undefined;
 
 const getApiKey = (): string | undefined =>
@@ -19,7 +17,8 @@ const injectScript = (apiKey: string): Promise<void> => {
     s.async = true;
     s.defer = true;
     s.dataset.dpalGoogleMaps = '1';
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places`;
+    // Using explicit v=weekly helps keep Places + Map behavior consistent.
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&v=weekly`;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('google_maps_script_error'));
     document.head.appendChild(s);
@@ -34,27 +33,9 @@ export function loadGoogleMaps(): Promise<typeof google> {
     return Promise.reject(new Error('missing_google_maps_key'));
   }
 
-  const loader = new Loader({
-    apiKey,
-    version: 'weekly',
-    libraries: ['places'],
-  });
-
   loaderPromise = (async () => {
-    // Prefer `load()` for broad compatibility, fallback to `importLibrary`, then script injection.
-    try {
-      if (typeof (loader as any).load === 'function') {
-        await (loader as any).load();
-      } else if (typeof (loader as any).importLibrary === 'function') {
-        await (loader as any).importLibrary('maps');
-        await (loader as any).importLibrary('places');
-      } else {
-        throw new Error('google_maps_loader_unsupported');
-      }
-    } catch (e) {
-      // Some environments throw from loader; try direct script injection as a last resort.
-      await injectScript(apiKey);
-    }
+    // Direct script injection avoids breaking changes across loader versions.
+    await injectScript(apiKey);
 
     const g = (window as any).google as typeof google | undefined;
     if (!g?.maps) throw new Error('google_maps_load_failed');
