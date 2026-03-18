@@ -92,6 +92,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const recognitionRef = useRef<any>(null);
 
   const [mapStatus, setMapStatus] = useState<'idle' | 'loading' | 'ready' | 'missing_key' | 'error'>('idle');
+  const [mapErrorDetail, setMapErrorDetail] = useState<string | null>(null);
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
@@ -215,6 +216,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     const init = async () => {
       if (!mapDivRef.current) return;
       setMapStatus('loading');
+      setMapErrorDetail(null);
       try {
         await loadGoogleMaps();
         if (cancelled) return;
@@ -274,7 +276,9 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         setMapStatus('ready');
       } catch (e: any) {
         if (cancelled) return;
-        setMapStatus(e?.message === 'missing_google_maps_key' ? 'missing_key' : 'error');
+        const msg = String(e?.message || e || 'unknown');
+        setMapErrorDetail(msg);
+        setMapStatus(msg === 'missing_google_maps_key' ? 'missing_key' : 'error');
       }
     };
 
@@ -876,6 +880,11 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                       <div className="mt-2 text-sm text-zinc-600 max-w-sm">
                         Check API key / network, then reload. Placeholder shown below.
                       </div>
+                      {mapErrorDetail && (
+                        <div className="mt-3 text-[11px] text-zinc-500 max-w-md break-words">
+                          Error: <span className="font-black">{mapErrorDetail}</span>
+                        </div>
+                      )}
                       <img src="/locator/panel-map.png" alt="" className="mt-6 w-full max-w-sm rounded-2xl border border-zinc-200" draggable={false} />
                     </div>
                   ) : (
