@@ -17,10 +17,19 @@ export function loadGoogleMaps(): Promise<typeof google> {
   });
 
   loaderPromise = (async () => {
-    // `importLibrary` is the current supported API (works across versions).
-    await (loader as any).importLibrary('maps');
-    await (loader as any).importLibrary('places');
-    return google;
+    // Prefer `load()` for broad compatibility, fallback to `importLibrary`.
+    if (typeof (loader as any).load === 'function') {
+      await (loader as any).load();
+    } else if (typeof (loader as any).importLibrary === 'function') {
+      await (loader as any).importLibrary('maps');
+      await (loader as any).importLibrary('places');
+    } else {
+      throw new Error('google_maps_loader_unsupported');
+    }
+
+    const g = (window as any).google as typeof google | undefined;
+    if (!g?.maps) throw new Error('google_maps_load_failed');
+    return g;
   })();
 
   return loaderPromise;

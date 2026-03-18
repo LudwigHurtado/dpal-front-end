@@ -220,7 +220,8 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         if (cancelled) return;
 
         const center = coords || { lat: 40.7128, lng: -74.006 }; // default NYC
-        const map = new google.maps.Map(mapDivRef.current, {
+        const g = (window as any).google as typeof google;
+        const map = new g.maps.Map(mapDivRef.current, {
           center,
           zoom: coords ? 14 : 11,
           mapTypeControl: false,
@@ -229,7 +230,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         });
         mapRef.current = map;
 
-        const marker = new google.maps.Marker({
+        const marker = new g.maps.Marker({
           map,
           position: center,
           draggable: true,
@@ -252,7 +253,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         // Autocomplete binds to the input by id.
         const input = document.getElementById('locator-location-input') as HTMLInputElement | null;
         if (input) {
-          const ac = new google.maps.places.Autocomplete(input, {
+          const ac = new g.maps.places.Autocomplete(input, {
             fields: ['formatted_address', 'geometry'],
           });
           autocompleteRef.current = ac;
@@ -294,8 +295,10 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     // Update marker styling by mode/type
     if (!markerRef.current) return;
     const s = markerStyle(mode, type);
+    const g = (window as any).google as typeof google | undefined;
+    if (!g?.maps?.SymbolPath) return;
     markerRef.current.setIcon({
-      path: google?.maps?.SymbolPath?.CIRCLE ?? 0,
+      path: g.maps.SymbolPath.CIRCLE,
       fillColor: s.fill === 'transparent' ? '#00000000' : s.fill,
       fillOpacity: s.fill === 'transparent' ? 0 : 1,
       strokeColor: s.stroke,
@@ -344,8 +347,9 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
         // If Google Maps is available, try to resolve a friendly address.
         try {
-          if (typeof google !== 'undefined' && google?.maps?.Geocoder) {
-            const geocoder = new google.maps.Geocoder();
+          const g = (window as any).google as typeof google | undefined;
+          if (g?.maps?.Geocoder) {
+            const geocoder = new g.maps.Geocoder();
             geocoder.geocode({ location: next }, (results, status) => {
               if (status === 'OK' && results && results[0]?.formatted_address) {
                 setLocationText(results[0].formatted_address);
