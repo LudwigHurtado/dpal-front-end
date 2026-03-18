@@ -66,6 +66,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const [mode, setMode] = useState<LocatorMode>('find');
   const [type, setType] = useState<LocatorType>('person');
   const [heroImageOk, setHeroImageOk] = useState(true);
+  const [showSplash, setShowSplash] = useState(true);
 
   const [titleOrDescription, setTitleOrDescription] = useState('');
   const [notes, setNotes] = useState('');
@@ -154,6 +155,11 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     return () => {
       recognitionRef.current?.stop?.();
     };
+  }, []);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setShowSplash(false), 4000);
+    return () => window.clearTimeout(t);
   }, []);
 
   useEffect(() => {
@@ -454,6 +460,33 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
   return (
     <div className="animate-fade-in pb-24">
+      {showSplash && (
+        <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4">
+          <div className="w-full max-w-3xl">
+            <div className="relative rounded-[28px] overflow-hidden shadow-2xl border border-white/20 bg-black">
+              <img
+                src="/locator/locator-splash.png"
+                alt="DPAL Locator"
+                className="w-full h-auto max-h-[80vh] object-contain"
+                draggable={false}
+              />
+              <div className="absolute top-4 right-4">
+                <button
+                  type="button"
+                  onClick={() => setShowSplash(false)}
+                  className="px-5 py-3 rounded-full bg-white/90 hover:bg-white text-zinc-900 font-extrabold shadow-lg border border-zinc-200"
+                >
+                  Skip
+                </button>
+              </div>
+            </div>
+            <p className="mt-3 text-center text-xs text-white/80 font-semibold">
+              Loading locator tools…
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* HERO / VISUAL BANNER */}
       <section className="relative w-full overflow-hidden rounded-[36px] shadow-2xl bg-white border border-zinc-200">
         <div
