@@ -67,6 +67,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const [type, setType] = useState<LocatorType>('person');
   const [heroImageOk, setHeroImageOk] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
+  const [showHeroCopy, setShowHeroCopy] = useState(true);
 
   const [titleOrDescription, setTitleOrDescription] = useState('');
   const [notes, setNotes] = useState('');
@@ -161,6 +162,12 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     const t = window.setTimeout(() => setShowSplash(false), 4000);
     return () => window.clearTimeout(t);
   }, []);
+
+  useEffect(() => {
+    setShowHeroCopy(true);
+    const t = window.setTimeout(() => setShowHeroCopy(false), 2600);
+    return () => window.clearTimeout(t);
+  }, [type]);
 
   useEffect(() => {
     let cancelled = false;
@@ -513,11 +520,15 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
           </button>
 
           <div className="h-full flex flex-col justify-end items-center text-center">
-            <div className="w-full max-w-4xl bg-white/72 backdrop-blur-md border border-white/70 shadow-xl rounded-[28px] px-6 py-6 md:px-10 md:py-8">
-              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-zinc-900">
+            <div
+              className={`w-full max-w-4xl px-6 py-5 md:px-10 md:py-7 transition-all duration-700 ${
+                showHeroCopy ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+              }`}
+            >
+              <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-white drop-shadow-[0_4px_18px_rgba(0,0,0,0.55)]">
                 Displaced Persons, Pets & Assets Locator
               </h1>
-              <p className="mt-3 text-sm md:text-base text-zinc-800 font-semibold">
+              <p className="mt-3 text-sm md:text-base text-white/95 font-semibold drop-shadow-[0_3px_14px_rgba(0,0,0,0.55)]">
                 Community-powered locating, reporting, and recovery — with AI matching and optional blockchain proof.
               </p>
               {!heroImageOk && (
