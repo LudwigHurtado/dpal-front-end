@@ -621,53 +621,42 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 items-stretch">
             {/* FORM PANEL */}
             <div className="lg:col-span-3">
-              <div className="relative rounded-[32px] overflow-hidden shadow-xl min-h-[680px]">
-                <img
-                  src="/locator/panel-form.png"
-                  alt=""
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none opacity-80"
-                  draggable={false}
-                />
-                {/* Keep the panel image as a frame only (hide busy interior). */}
-                <div className="absolute inset-0 pointer-events-none">
-                  {/* Increased inset to fully cover the interior stripes/lines. */}
-                  <div className="absolute inset-[12px] md:inset-[14px] rounded-[26px] bg-white shadow-inner" />
-                </div>
+              <div className="relative rounded-[32px] overflow-hidden shadow-xl min-h-[680px] bg-zinc-950 border border-zinc-800">
                 <div className="relative z-10 p-6 lg:p-8">
                   <div className="flex flex-wrap gap-2 mb-5">
-                    <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-white/90 text-zinc-900 border border-zinc-200">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-zinc-900 text-zinc-100 border border-zinc-700">
                       Mode: {mode === 'find' ? 'Find' : 'Report'}
                     </span>
-                    <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-white/90 text-zinc-900 border border-zinc-200">
+                    <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-zinc-900 text-zinc-100 border border-zinc-700">
                       Type: {TYPE_META[type].label}
                     </span>
                   </div>
 
-                  <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">
+                  <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">
                     {mode === 'find' ? 'Name or short description' : 'What did you find?'}
                   </label>
                   <input
                     value={titleOrDescription}
                     onChange={(e) => setTitleOrDescription(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400/30"
+                    className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-cyan-400/30"
                     placeholder={mode === 'find' ? 'e.g., “Orange tabby cat with blue collar”' : 'e.g., “Found keys with red lanyard”'}
                   />
 
                   <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 items-start">
                     <div className="md:col-span-2">
-                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">Details / notes</label>
+                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">Details / notes</label>
                       <textarea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         rows={5}
-                        className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400/30"
+                        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-cyan-400/30"
                         placeholder="Add identifying details, condition, clothing, collar, markings, etc."
                       />
                       <div className="mt-3 flex gap-3">
                         <button
                           type="button"
                           onClick={captureGeolocation}
-                          className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/90 border border-zinc-200 text-sm font-extrabold text-zinc-900 hover:bg-white"
+                          className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-700 text-sm font-extrabold text-zinc-100 hover:bg-zinc-800"
                         >
                           <MapPin className="w-4 h-4" />
                           Use current location
@@ -678,10 +667,10 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                           disabled={!dictationSupported}
                           className={`inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border text-sm font-extrabold ${
                             !dictationSupported
-                              ? 'bg-white/60 border-zinc-200 text-zinc-400 cursor-not-allowed'
+                              ? 'bg-zinc-900 border-zinc-700 text-zinc-500 cursor-not-allowed'
                               : isDictating
                               ? 'bg-zinc-950 border-zinc-950 text-white'
-                              : 'bg-white/90 border-zinc-200 text-zinc-900 hover:bg-white'
+                              : 'bg-zinc-900 border-zinc-700 text-zinc-100 hover:bg-zinc-800'
                           }`}
                         >
                           <Mic className="w-4 h-4" />
@@ -691,8 +680,8 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                     </div>
 
                     <div className="md:col-span-1">
-                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">Photos</label>
-                      <label className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-white/90 border border-zinc-200 text-sm font-extrabold text-zinc-900 cursor-pointer hover:bg-white">
+                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">Photos</label>
+                      <label className="mt-2 flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-zinc-900 border border-zinc-700 text-sm font-extrabold text-zinc-100 cursor-pointer hover:bg-zinc-800">
                         <Upload className="w-4 h-4" />
                         Upload
                         <input
@@ -719,37 +708,37 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                   </div>
 
                   <div className="mt-6">
-                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">Location (search or paste address)</label>
+                    <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">Location (search or paste address)</label>
                     <input
                       id="locator-location-input"
                       value={locationText}
                       onChange={(e) => setLocationText(e.target.value)}
-                      className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400/30"
+                      className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-cyan-400/30"
                       placeholder="Search address…"
                     />
-                    <div className="mt-2 text-[11px] text-zinc-600">
+                    <div className="mt-2 text-[11px] text-zinc-300">
                       {coords ? `Selected GPS: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}` : 'No GPS selected yet (click the map or use current location).'}
                     </div>
                   </div>
 
                   <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">Date / time</label>
+                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">Date / time</label>
                       <input
                         type="datetime-local"
                         value={dateTime}
                         onChange={(e) => setDateTime(e.target.value)}
-                        className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400/30"
+                        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 outline-none focus:ring-2 focus:ring-cyan-400/30"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">
+                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">
                         {mode === 'find' ? 'Last seen location / details' : 'Found at location / details'}
                       </label>
                       <input
                         value={lastSeenOrFoundAt}
                         onChange={(e) => setLastSeenOrFoundAt(e.target.value)}
-                        className="mt-2 w-full rounded-2xl border border-zinc-200 bg-white/95 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-cyan-400/30"
+                        className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-400 outline-none focus:ring-2 focus:ring-cyan-400/30"
                         placeholder={mode === 'find' ? 'e.g., “Near Oak St park entrance”' : 'e.g., “Outside 22 Main St”'}
                       />
                     </div>
@@ -757,7 +746,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
                   {mode === 'find' && (
                     <div className="mt-6">
-                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-700">Search radius (km)</label>
+                      <label className="block text-xs font-black uppercase tracking-widest text-zinc-200">Search radius (km)</label>
                       <input
                         type="range"
                         min={1}
@@ -766,19 +755,19 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                         onChange={(e) => setSearchRadiusKm(Number(e.target.value))}
                         className="mt-2 w-full"
                       />
-                      <div className="text-[11px] text-zinc-600 mt-1">{searchRadiusKm} km</div>
+                      <div className="text-[11px] text-zinc-300 mt-1">{searchRadiusKm} km</div>
                     </div>
                   )}
 
                   {mode === 'report' && (
                     <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-black uppercase tracking-widest text-zinc-700">Safe now?</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-zinc-200">Safe now?</span>
                         <button
                           type="button"
                           onClick={() => setSafeNow(true)}
                           className={`px-4 py-2 rounded-2xl text-sm font-extrabold border ${
-                            safeNow === true ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white/90 text-zinc-900 border-zinc-200'
+                            safeNow === true ? 'bg-white text-zinc-950 border-white' : 'bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800'
                           }`}
                         >
                           Yes
@@ -787,13 +776,13 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                           type="button"
                           onClick={() => setSafeNow(false)}
                           className={`px-4 py-2 rounded-2xl text-sm font-extrabold border ${
-                            safeNow === false ? 'bg-zinc-950 text-white border-zinc-950' : 'bg-white/90 text-zinc-900 border-zinc-200'
+                            safeNow === false ? 'bg-white text-zinc-950 border-white' : 'bg-zinc-900 text-zinc-100 border-zinc-700 hover:bg-zinc-800'
                           }`}
                         >
                           No
                         </button>
                       </div>
-                      <label className="flex items-center gap-3 justify-start md:justify-end text-sm font-extrabold text-zinc-900">
+                      <label className="flex items-center gap-3 justify-start md:justify-end text-sm font-extrabold text-zinc-100">
                         <input type="checkbox" checked={useBlockchain} onChange={(e) => setUseBlockchain(e.target.checked)} />
                         Anchor hash to blockchain
                       </label>
