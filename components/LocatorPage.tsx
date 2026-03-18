@@ -485,11 +485,18 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
             Community-powered locating, reporting, and recovery — with AI matching and optional blockchain proof.
           </p>
 
-          {!heroImageOk && (
-            <div className="mt-4 inline-flex items-center rounded-full bg-amber-100 border border-amber-200 px-4 py-2 text-xs font-black text-amber-900">
-              Hero image missing: {heroImageSrcForType(type)}
-            </div>
-          )}
+          <div className="mt-4 inline-flex items-center rounded-full border px-4 py-2 text-xs font-black">
+            <span className="text-zinc-900">
+              Type: {type.toUpperCase()} · Hero: {heroImageSrcForType(type)}
+            </span>
+            <span
+              className={`ml-3 px-2 py-0.5 rounded-full border text-[10px] font-black uppercase tracking-widest ${
+                heroImageOk ? 'bg-emerald-100 border-emerald-200 text-emerald-900' : 'bg-amber-100 border-amber-200 text-amber-900'
+              }`}
+            >
+              {heroImageOk ? 'LOADED' : 'MISSING'}
+            </span>
+          </div>
         </div>
 
         <div className="relative h-[220px] md:h-[320px]" aria-hidden="true" />
