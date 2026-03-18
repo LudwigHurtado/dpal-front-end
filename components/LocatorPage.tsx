@@ -601,6 +601,10 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                   className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
                   draggable={false}
                 />
+                {/* Keep the panel image as a frame only (hide busy interior). */}
+                <div className="absolute inset-0 p-4 md:p-5 pointer-events-none">
+                  <div className="w-full h-full rounded-[24px] bg-white/95 shadow-inner" />
+                </div>
                 <div className="relative z-10 p-6 lg:p-8">
                   <div className="flex flex-wrap gap-2 mb-5">
                     <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-white/90 text-zinc-900 border border-zinc-200">
