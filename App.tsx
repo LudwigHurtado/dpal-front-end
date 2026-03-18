@@ -451,7 +451,10 @@ const App: React.FC = () => {
     return `0x${hex}`;
   };
 
-  const handleAddReport = async (rep: any) => {
+  const handleAddReport = async (
+    rep: any,
+    opts?: { navigateAfterSubmit?: boolean }
+  ) => {
     const reportId = `rep-${Date.now()}`;
 
     let anchored: {
@@ -524,8 +527,12 @@ const App: React.FC = () => {
     };
 
     setReports(prev => [finalReport, ...prev]);
-    setCompletedReport(finalReport);
-    setCurrentView('reportComplete');
+
+    const shouldNavigate = opts?.navigateAfterSubmit !== false;
+    if (shouldNavigate) {
+      setCompletedReport(finalReport);
+      setCurrentView('reportComplete');
+    }
   };
 
   const handleSendSituationMessage = async (text: string, imageUrl?: string, audioUrl?: string) => {
@@ -684,7 +691,12 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'dpalLocator' && (
-          <LocatorPage onReturn={() => goBack('mainMenu')} addReport={handleAddReport} hero={heroWithRank} setHero={setHero} />
+          <LocatorPage
+            onReturn={() => goBack('mainMenu')}
+            addReport={(rep) => void handleAddReport(rep, { navigateAfterSubmit: false })}
+            hero={heroWithRank}
+            setHero={setHero}
+          />
         )}
 
         {currentView === 'coinLaunch' && (

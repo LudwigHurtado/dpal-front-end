@@ -49,6 +49,12 @@ interface LocatorListing {
   mode: LocatorMode;
   type: LocatorType;
   title: string;
+  detailsText?: string;
+  lastSeenOrFoundAt?: string;
+  locationText?: string;
+  coords?: { lat: number; lng: number } | null;
+  thumbDataUrl?: string;
+  searchText: string;
   createdAt: number;
 }
 
@@ -105,7 +111,30 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     try {
       const raw = localStorage.getItem(LISTINGS_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.map((l: any) => {
+        const title = typeof l?.title === 'string' ? l.title : '';
+        const detailsText = typeof l?.detailsText === 'string' ? l.detailsText : '';
+        const lastSeenOrFoundAt = typeof l?.lastSeenOrFoundAt === 'string' ? l.lastSeenOrFoundAt : '';
+        const locationText = typeof l?.locationText === 'string' ? l.locationText : '';
+        const thumbDataUrl = typeof l?.thumbDataUrl === 'string' ? l.thumbDataUrl : undefined;
+        const searchText = typeof l?.searchText === 'string'
+          ? l.searchText
+          : [title, detailsText, lastSeenOrFoundAt, locationText].filter(Boolean).join(' ');
+        return {
+          id: String(l?.id || `loc-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`),
+          mode: (l?.mode === 'report' ? 'report' : 'find') as LocatorMode,
+          type: (l?.type === 'pet' ? 'pet' : l?.type === 'item' ? 'item' : 'person') as LocatorType,
+          title,
+          detailsText,
+          lastSeenOrFoundAt,
+          locationText,
+          coords: l?.coords ? { lat: Number(l.coords.lat), lng: Number(l.coords.lng) } : null,
+          thumbDataUrl,
+          searchText,
+          createdAt: Number(l?.createdAt || Date.now()),
+        } as LocatorListing;
+      });
     } catch {
       return [];
     }
@@ -122,6 +151,11 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const [activeListingId, setActiveListingId] = useState<string | null>(null);
 
   const activeListing = useMemo(() => listings.find((l) => l.id === activeListingId) || null, [listings, activeListingId]);
+
+  const [matchQuery, setMatchQuery] = useState('');
+  const [matchBusy, setMatchBusy] = useState(false);
+  const [matchResults, setMatchResults] = useState<LocatorListing[]>([]);
+  const [matchMessage, setMatchMessage] = useState<string | null>(null);
   const activeDonations = useMemo(
     () => donations.filter((d) => d.listingId === activeListingId),
     [donations, activeListingId]
@@ -153,6 +187,50 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
       // ignore write errors
     }
   }, [donations]);
+
+  const tokenize = (s: string): string[] =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .split(/\s+/g)
+      .map((x) => x.trim())
+      .filter(Boolean);
+
+  const runAiMatchSearch = async () => {
+    setMatchBusy(true);
+    setMatchMessage(null);
+    try {
+      const query = (matchQuery || `${titleOrDescription} ${notes} ${locationText} ${lastSeenOrFoundAt}`.trim()).trim();
+      if (!query) {
+        setMatchResults([]);
+        setMatchMessage('Type a short description to search similar missing entries.');
+        return;
+      }
+
+      const qTokens = new Set(tokenize(query).slice(0, 25));
+      // "Losts" are our Find-mode submissions.
+      const candidates = listings.filter((l) => l.mode === 'find' && l.type === type);
+
+      const scored = candidates
+        .map((l) => {
+          const lTokens = new Set(tokenize(l.searchText).slice(0, 25));
+          let overlap = 0;
+          qTokens.forEach((t) => {
+            if (lTokens.has(t)) overlap += 1;
+          });
+          return { l, overlap };
+        })
+        .filter((x) => x.overlap > 0)
+        .sort((a, b) => b.overlap - a.overlap || b.l.createdAt - a.l.createdAt)
+        .slice(0, 6)
+        .map((x) => x.l);
+
+      setMatchResults(scored);
+      if (scored.length === 0) setMatchMessage('No similar missing entries found yet. You can create a new one.');
+    } finally {
+      setMatchBusy(false);
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -427,6 +505,12 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
             mode,
             type,
             title: titleOrDescription.trim(),
+            detailsText: notes.trim(),
+            lastSeenOrFoundAt: lastSeenOrFoundAt.trim(),
+            locationText: locationText.trim(),
+            coords,
+            thumbDataUrl: photoPreviews[0],
+            searchText: [titleOrDescription, notes, locationText, lastSeenOrFoundAt].filter(Boolean).join(' '),
             createdAt: Date.now(),
           },
           ...prev,
@@ -600,7 +684,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                   : 'bg-zinc-950 text-white border-zinc-800 hover:border-zinc-600'
               }`}
             >
-              Report
+              Report Found
             </button>
           </div>
 
@@ -631,6 +715,68 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
               );
             })}
           </div>
+
+          {/* ONLINE SEARCH / AI MATCH (beta) */}
+          <div className="mt-6 rounded-[28px] border border-zinc-800 bg-zinc-950/80 p-4 md:p-5">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-black uppercase tracking-widest text-zinc-500">AI Similar Matches (beta)</div>
+                <div className="mt-1 text-sm font-extrabold text-zinc-100">
+                  Search similar missing {TYPE_META[type].label.toLowerCase()} entries
+                </div>
+              </div>
+
+              <div className="flex-1 flex gap-3 items-center">
+                <input
+                  value={matchQuery}
+                  onChange={(e) => setMatchQuery(e.target.value)}
+                  className="flex-1 rounded-2xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 placeholder:text-zinc-500 outline-none focus:ring-2 focus:ring-cyan-400/20"
+                  placeholder="e.g., 'orange tabby', 'red keys', 'small dog'..."
+                />
+                <button
+                  type="button"
+                  onClick={() => void runAiMatchSearch()}
+                  disabled={matchBusy}
+                  className={`rounded-2xl px-4 py-3 font-extrabold text-sm transition-colors border ${
+                    matchBusy
+                      ? 'bg-zinc-800 text-zinc-400 border-zinc-700 cursor-not-allowed'
+                      : 'bg-cyan-500/20 text-cyan-200 border-cyan-500/30 hover:bg-cyan-500/25'
+                  }`}
+                >
+                  {matchBusy ? 'Searching…' : 'Search'}
+                </button>
+              </div>
+            </div>
+
+            {matchMessage && (
+              <div className="mt-3 text-[11px] text-zinc-400 font-semibold">{matchMessage}</div>
+            )}
+
+            {matchResults.length > 0 && (
+              <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {matchResults.map((r) => (
+                  <div
+                    key={r.id}
+                    className="rounded-[22px] border border-zinc-800 bg-zinc-950/70 overflow-hidden"
+                  >
+                    <div className="h-24 bg-zinc-900 flex items-center justify-center">
+                      {r.thumbDataUrl ? (
+                        <img src={r.thumbDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
+                      ) : (
+                        <div className="text-[11px] text-zinc-500 font-bold">No photo</div>
+                      )}
+                    </div>
+                    <div className="p-3">
+                      <div className="text-sm font-extrabold text-zinc-100 line-clamp-2">{r.title}</div>
+                      <div className="mt-1 text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                        {new Date(r.createdAt).toLocaleDateString()} · Missing
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -644,7 +790,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                 <div className="relative z-10 p-6 lg:p-8">
                   <div className="flex flex-wrap gap-2 mb-5">
                     <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-zinc-900 text-zinc-100 border border-zinc-700">
-                      Mode: {mode === 'find' ? 'Find' : 'Report'}
+                      Mode: {mode === 'find' ? 'Find' : 'Report Found'}
                     </span>
                     <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-zinc-900 text-zinc-100 border border-zinc-700">
                       Type: {TYPE_META[type].label}
