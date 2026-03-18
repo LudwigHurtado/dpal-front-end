@@ -566,8 +566,10 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                   key={k}
                   type="button"
                   onClick={() => setType(k)}
-                  className={`rounded-3xl border shadow-sm px-4 py-4 transition-all bg-zinc-950 ${
-                    active ? 'border-cyan-400/70 ring-2 ring-cyan-400/20' : 'border-zinc-800 hover:border-zinc-600'
+                  className={`rounded-[28px] border px-4 py-4 transition-all bg-zinc-950/95 shadow-sm ${
+                    active
+                      ? 'border-cyan-400/70 shadow-[0_0_0_2px_rgba(34,211,238,0.25)]'
+                      : 'border-zinc-800 hover:border-zinc-600'
                   }`}
                 >
                   <div className="flex flex-col items-center">
