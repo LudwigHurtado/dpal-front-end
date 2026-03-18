@@ -28,6 +28,12 @@ const TYPE_META: Record<LocatorType, { label: string; iconSrc: string }> = {
   item: { label: 'Item', iconSrc: '/locator/icon-item.png' },
 };
 
+const heroImageSrcForType = (t: LocatorType): string => {
+  if (t === 'person') return '/locator/hero-person.png';
+  if (t === 'pet') return '/locator/hero-pet.png';
+  return '/locator/hero-item.png';
+};
+
 interface LocatorPageProps {
   onReturn: () => void;
   addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>) => void;
@@ -434,7 +440,12 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
       <section className="relative w-full overflow-hidden rounded-[36px] shadow-2xl bg-white border border-zinc-200">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: `url('/tokens/dpal-locator-ui.png')` }}
+          style={{
+            backgroundImage: `url('${heroImageSrcForType(type)}'), url('/tokens/dpal-locator-ui.png')`,
+            backgroundSize: 'cover, cover',
+            backgroundPosition: 'center, center',
+            backgroundRepeat: 'no-repeat, no-repeat',
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/70 via-white/40 to-white/70" />
 
