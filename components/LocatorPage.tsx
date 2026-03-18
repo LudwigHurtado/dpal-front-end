@@ -68,6 +68,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const [heroImageOk, setHeroImageOk] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [showHeroCopy, setShowHeroCopy] = useState(true);
+  const [showTypeHero, setShowTypeHero] = useState(true);
 
   const [titleOrDescription, setTitleOrDescription] = useState('');
   const [notes, setNotes] = useState('');
@@ -166,6 +167,13 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   useEffect(() => {
     setShowHeroCopy(true);
     const t = window.setTimeout(() => setShowHeroCopy(false), 2600);
+    return () => window.clearTimeout(t);
+  }, [type]);
+
+  useEffect(() => {
+    // Show the category (type) hero briefly, then return to main image.
+    setShowTypeHero(true);
+    const t = window.setTimeout(() => setShowTypeHero(false), 5000);
     return () => window.clearTimeout(t);
   }, [type]);
 
@@ -512,17 +520,20 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
       {/* HERO / VISUAL BANNER */}
       <section className="relative w-full overflow-hidden rounded-[36px] shadow-2xl bg-white border border-zinc-200">
+        {/* Base (main) hero image */}
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage: heroImageOk
-              ? `url('${heroImageSrcForType(type)}'), url('/tokens/dpal-locator-ui.png')`
-              : `url('/tokens/dpal-locator-ui.png')`,
-            backgroundSize: 'cover, cover',
-            backgroundPosition: 'center, center',
-            backgroundRepeat: 'no-repeat, no-repeat',
-          }}
+          style={{ backgroundImage: `url('/tokens/dpal-locator-ui.png')` }}
         />
+        {/* Type hero image fades in/out */}
+        {heroImageOk && (
+          <div
+            className={`absolute inset-0 bg-cover bg-center transition-opacity duration-700 ${
+              showTypeHero ? 'opacity-100' : 'opacity-0'
+            }`}
+            style={{ backgroundImage: `url('${heroImageSrcForType(type)}')` }}
+          />
+        )}
         {/* Keep the image natural; add a soft vignette for readability */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/25" />
 
