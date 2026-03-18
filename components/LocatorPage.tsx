@@ -159,7 +159,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   }, []);
 
   useEffect(() => {
-    const t = window.setTimeout(() => setShowSplash(false), 4000);
+    const t = window.setTimeout(() => setShowSplash(false), 10000);
     return () => window.clearTimeout(t);
   }, []);
 
@@ -609,12 +609,12 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                 <img
                   src="/locator/panel-form.png"
                   alt=""
-                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none"
+                  className="absolute inset-0 w-full h-full object-cover pointer-events-none select-none opacity-80"
                   draggable={false}
                 />
                 {/* Keep the panel image as a frame only (hide busy interior). */}
-                <div className="absolute inset-0 p-4 md:p-5 pointer-events-none">
-                  <div className="w-full h-full rounded-[24px] bg-white/95 shadow-inner" />
+                <div className="absolute inset-0 p-2 md:p-3 pointer-events-none">
+                  <div className="w-full h-full rounded-[28px] bg-white shadow-inner" />
                 </div>
                 <div className="relative z-10 p-6 lg:p-8">
                   <div className="flex flex-wrap gap-2 mb-5">
