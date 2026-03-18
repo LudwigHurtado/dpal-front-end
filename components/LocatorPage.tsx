@@ -65,6 +65,7 @@ interface LocatorDonation {
 const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, setHero }) => {
   const [mode, setMode] = useState<LocatorMode>('find');
   const [type, setType] = useState<LocatorType>('person');
+  const [heroImageOk, setHeroImageOk] = useState(true);
 
   const [titleOrDescription, setTitleOrDescription] = useState('');
   const [notes, setNotes] = useState('');
@@ -154,6 +155,23 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
       recognitionRef.current?.stop?.();
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const src = heroImageSrcForType(type);
+    setHeroImageOk(true);
+    const img = new Image();
+    img.onload = () => {
+      if (!cancelled) setHeroImageOk(true);
+    };
+    img.onerror = () => {
+      if (!cancelled) setHeroImageOk(false);
+    };
+    img.src = src;
+    return () => {
+      cancelled = true;
+    };
+  }, [type]);
 
   useEffect(() => {
     const urls: string[] = [];
@@ -441,7 +459,9 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{
-            backgroundImage: `url('${heroImageSrcForType(type)}'), url('/tokens/dpal-locator-ui.png')`,
+            backgroundImage: heroImageOk
+              ? `url('${heroImageSrcForType(type)}'), url('/tokens/dpal-locator-ui.png')`
+              : `url('/tokens/dpal-locator-ui.png')`,
             backgroundSize: 'cover, cover',
             backgroundPosition: 'center, center',
             backgroundRepeat: 'no-repeat, no-repeat',
@@ -464,6 +484,12 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
           <p className="mt-3 text-sm md:text-base text-zinc-800 font-semibold max-w-3xl mx-auto">
             Community-powered locating, reporting, and recovery — with AI matching and optional blockchain proof.
           </p>
+
+          {!heroImageOk && (
+            <div className="mt-4 inline-flex items-center rounded-full bg-amber-100 border border-amber-200 px-4 py-2 text-xs font-black text-amber-900">
+              Hero image missing: {heroImageSrcForType(type)}
+            </div>
+          )}
         </div>
 
         <div className="relative h-[220px] md:h-[320px]" aria-hidden="true" />
