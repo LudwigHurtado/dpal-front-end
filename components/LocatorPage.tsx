@@ -331,6 +331,22 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
       (pos) => {
         const next = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         setCoords(next);
+        // Immediately show something in the UI even if reverse-geocode fails.
+        setLocationText(`${next.lat.toFixed(6)}, ${next.lng.toFixed(6)}`);
+
+        // If Google Maps is available, try to resolve a friendly address.
+        try {
+          if (typeof google !== 'undefined' && google?.maps?.Geocoder) {
+            const geocoder = new google.maps.Geocoder();
+            geocoder.geocode({ location: next }, (results, status) => {
+              if (status === 'OK' && results && results[0]?.formatted_address) {
+                setLocationText(results[0].formatted_address);
+              }
+            });
+          }
+        } catch {
+          // ignore geocode failures; lat/lng already set
+        }
       },
       () => setError('Could not get your location. Please allow permissions or enter location manually.'),
       { enableHighAccuracy: true, timeout: 12000 }
