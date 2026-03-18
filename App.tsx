@@ -36,7 +36,7 @@ import FieldMissionsView from './components/FieldMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
 import StorageView from './components/StorageView';
 import PoliticianTransparencyView from './components/PoliticianTransparencyView';
-import DPALLocatorView from './components/DPALLocatorView';
+import LocatorPage from './components/LocatorPage';
 import CoinLaunchView from './components/CoinLaunchView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
@@ -684,7 +684,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'dpalLocator' && (
-          <DPALLocatorView onReturn={() => goBack('mainMenu')} addReport={handleAddReport} />
+          <LocatorPage onReturn={() => goBack('mainMenu')} addReport={handleAddReport} />
         )}
 
         {currentView === 'coinLaunch' && (

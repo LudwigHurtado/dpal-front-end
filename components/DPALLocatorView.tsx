@@ -23,9 +23,9 @@ export interface LocatorEntry {
 const STORAGE_KEY = 'dpal-locator-entries-v1';
 
 const modeMeta: Record<LocatorMode, { label: string; iconSrc: string; accent: string }> = {
-  person: { label: 'Find Person', iconSrc: '/icon-person.png', accent: 'from-blue-600/40 to-blue-400/10' },
-  pet: { label: 'Find Pet', iconSrc: '/icon-pet.png', accent: 'from-emerald-600/40 to-emerald-400/10' },
-  item: { label: 'Find Item', iconSrc: '/icon-item.png', accent: 'from-amber-600/40 to-amber-400/10' },
+  person: { label: 'Find Person', iconSrc: '/locator/icon-person.png', accent: 'from-blue-600/40 to-blue-400/10' },
+  pet: { label: 'Find Pet', iconSrc: '/locator/icon-pet.png', accent: 'from-emerald-600/40 to-emerald-400/10' },
+  item: { label: 'Find Item', iconSrc: '/locator/icon-item.png', accent: 'from-amber-600/40 to-amber-400/10' },
 };
 
 interface DPALLocatorViewProps {
@@ -223,7 +223,7 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
           <div className="lg:col-span-7">
             <div
               className="rounded-3xl shadow-2xl overflow-hidden"
-              style={{ backgroundImage: `url('/panel-form.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
+              style={{ backgroundImage: `url('/locator/panel-form.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
             >
               <div className="px-5 py-4">
                 <div className="grid grid-cols-3 gap-2">
@@ -367,7 +367,7 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
                   className={`w-full rounded-2xl font-extrabold text-white text-lg shadow-xl transition-all relative overflow-hidden ${
                     isSubmitting || !canSubmit ? 'opacity-70 cursor-not-allowed' : 'active:scale-[0.99]'
                   }`}
-                  style={{ height: 64, backgroundImage: `url('/btn-submit.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
+                  style={{ height: 64, backgroundImage: `url('/locator/btn-submit.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
                 >
                   <span className="sr-only">{isSubmitting ? 'Submitting…' : 'Submit Report'}</span>
                 </button>
@@ -378,7 +378,7 @@ const DPALLocatorView: React.FC<DPALLocatorViewProps> = ({ onReturn, addReport }
           <div className="lg:col-span-5 space-y-6">
             <div
               className="rounded-3xl shadow-2xl overflow-hidden"
-              style={{ backgroundImage: `url('/panel-map.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
+              style={{ backgroundImage: `url('/locator/panel-map.png')`, backgroundRepeat: 'no-repeat', backgroundSize: '100% 100%' }}
             >
               <div className="px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
