@@ -222,6 +222,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 />
 
                 <PrimaryNavModule 
+                    icon={<Map className="w-8 h-8" />}
+                    label="DPAL_LOCATOR"
+                    subLabel="Locate lost people, pets, and items (GPS + photo + voice)"
+                    status="LIVE"
+                    colorClass="emerald"
+                    onClick={() => onNavigate('dpalLocator')}
+                />
+
+                <PrimaryNavModule 
                     icon={<Scale className="w-8 h-8" />}
                     label="POLITICIAN_VIEWPOINTS"
                     subLabel="See where local officials stand on upcoming measures"
