@@ -16,6 +16,7 @@ import { loadGoogleMaps } from '../services/googleMapsLoader';
 
 interface ReportProtectPageProps {
   onOpenReportFlow: () => void;
+  onOpenMainControlPanel: () => void;
 }
 
 const sidebarItems = [
@@ -45,7 +46,7 @@ const mapLegend = [
   { label: 'Stolen Property', color: '#f59e0b' },
 ] as const;
 
-const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow }) => {
+const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow, onOpenMainControlPanel }) => {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -133,6 +134,12 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
           </nav>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={onOpenMainControlPanel}
+              className="px-4 py-3 rounded-2xl border border-white/20 bg-slate-900/75 hover:bg-slate-800/90 text-white text-sm font-semibold"
+            >
+              Main Control Panel
+            </button>
             <button className="p-3 rounded-2xl border border-white/15 bg-slate-900/75 hover:bg-slate-800/90 transition-colors">
               <AlertCircle className="w-5 h-5 text-zinc-300" />
             </button>
@@ -197,13 +204,13 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
         {/* Center column */}
         <section className="space-y-6">
           {/* Search + filters */}
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-5 shadow-[0_18px_45px_rgba(2,6,23,0.32)]">
+          <div className="rounded-3xl border border-slate-300/45 bg-gradient-to-br from-slate-100/95 to-slate-200/90 p-5 shadow-[0_18px_45px_rgba(2,6,23,0.25)]">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
+                <Search className="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   placeholder="Search DPAL Reports..."
-                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-white/10 bg-slate-900/80 text-base text-slate-100 placeholder:text-slate-400"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-300 bg-white/95 text-base text-slate-800 placeholder:text-slate-500"
                 />
               </div>
               <div className="flex flex-wrap gap-3">
@@ -212,8 +219,8 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
                     key={f}
                     className={`px-4 py-3 rounded-2xl border text-sm font-semibold ${
                       idx === 0
-                        ? 'bg-rose-500/25 border-rose-300/40 text-rose-100'
-                        : 'bg-slate-900/80 border-white/10 text-slate-200'
+                        ? 'bg-rose-100 border-rose-300 text-rose-700'
+                        : 'bg-white/90 border-slate-300 text-slate-700'
                     }`}
                   >
                     {f}
@@ -226,7 +233,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
           {/* Stat tiles */}
           <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
             {statTiles.map((s) => (
-              <div key={s.label} className={`rounded-2xl border p-5 shadow-[0_10px_30px_rgba(2,6,23,0.25)] ${s.tone}`}>
+              <div key={s.label} className={`rounded-2xl border p-5 shadow-[0_8px_18px_rgba(15,23,42,0.18)] ${s.tone} bg-white/85`}>
                 <p className="text-4xl font-bold leading-none">{s.value}</p>
                 <p className="text-sm uppercase tracking-wide mt-2">{s.label}</p>
               </div>

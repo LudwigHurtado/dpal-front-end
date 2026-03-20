@@ -6,6 +6,7 @@ interface MissionGatewayModalProps {
   rememberChoice: boolean;
   onRememberChoiceChange: (next: boolean) => void;
   onSelectReportProtect: () => void;
+  onSelectReportDashboard: () => void;
   onSelectPlayDoGood: () => void;
   onSkip: () => void;
 }
@@ -15,6 +16,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
   rememberChoice,
   onRememberChoiceChange,
   onSelectReportProtect,
+  onSelectReportDashboard,
   onSelectPlayDoGood,
   onSkip,
 }) => {
@@ -101,7 +103,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
 
           <button
             type="button"
-            onClick={onSelectReportProtect}
+            onClick={onSelectReportDashboard}
             className="text-left rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 bg-zinc-900 hover:border-blue-400 transition-all"
           >
             <img

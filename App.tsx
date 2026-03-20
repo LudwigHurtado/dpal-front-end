@@ -40,6 +40,7 @@ import LocatorPage from './components/LocatorPage';
 import DpalGameHubView from './components/DpalGameHubView';
 import MissionGatewayModal from './components/MissionGatewayModal';
 import ReportProtectPage from './components/ReportProtectPage';
+import ReportMainControlPanel from './components/ReportMainControlPanel';
 import CoinLaunchView from './components/CoinLaunchView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
@@ -55,7 +56,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -472,7 +473,7 @@ const App: React.FC = () => {
 
   const handleGatewaySkip = () => {
     setShowMissionGateway(false);
-    setCurrentView('reportProtect');
+    setCurrentView('reportDashboard');
   };
 
   const handleCompleteMissionStep = (m: Mission) => {
@@ -732,7 +733,7 @@ const App: React.FC = () => {
   return (
     <ActiveLayout>
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
-      {!useMobileLayout && currentView !== 'reportProtect' && (
+      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
           onNavigateHome={() => setCurrentView('mainMenu')} 
@@ -755,7 +756,14 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'reportProtect' && (
-          <ReportProtectPage onOpenReportFlow={() => handleNavigate('categorySelection')} />
+          <ReportMainControlPanel onOpenReportFlow={() => handleNavigate('categorySelection')} />
+        )}
+
+        {currentView === 'reportDashboard' && (
+          <ReportProtectPage
+            onOpenReportFlow={() => handleNavigate('categorySelection')}
+            onOpenMainControlPanel={() => setCurrentView('reportProtect')}
+          />
         )}
 
         {currentView === 'categorySelection' && (
@@ -1030,6 +1038,10 @@ const App: React.FC = () => {
           }
           setShowMissionGateway(false);
           setCurrentView('reportProtect');
+        }}
+        onSelectReportDashboard={() => {
+          setShowMissionGateway(false);
+          setCurrentView('reportDashboard');
         }}
         onSelectPlayDoGood={() => handleGatewaySelect('gameHub')}
         onSkip={handleGatewaySkip}
