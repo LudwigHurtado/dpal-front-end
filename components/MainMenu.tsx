@@ -121,11 +121,29 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
 
     return (
         <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
-            <header className="mb-10 md:mb-12 text-center flex flex-col items-center relative pt-4 md:pt-6">
-                <div className="relative z-10 w-full flex flex-col items-center px-1">
-                    {/* Title removed from layout — hero is image-only; keep for SEO / screen readers */}
-                    <h1 className="sr-only">Decentralized Public Accountability Ledger — Global oversight &amp; P2P accountability engine</h1>
-                    <MainPanelHeroCarousel variant="home" className="w-full" />
+            <header className="mb-12 text-center flex flex-col items-center relative pt-8">
+                <div className="relative z-10 space-y-6 md:space-y-8 flex flex-col items-center w-full px-1">
+                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase neon-glimmer max-w-5xl leading-[0.9] md:leading-none px-4">
+                        Decentralized Public Accountability Ledger
+                    </h1>
+
+                    {/* Main panel visual series — same neon home hero, not the report dashboard */}
+                    <MainPanelHeroCarousel variant="home" className="w-full max-w-5xl" />
+
+                    <button 
+                        onClick={() => onNavigate('ecosystem')}
+                        className="relative group p-1 rounded-3xl overflow-hidden transition-all active:scale-95"
+                    >
+                        <div className="absolute inset-0 bg-emerald-500/20 blur-[30px] animate-pulse group-hover:bg-emerald-500/40 transition-colors"></div>
+                        <div className="relative bg-zinc-950 border-2 border-emerald-500/40 px-10 py-4 rounded-2xl shadow-2xl backdrop-blur-xl group-hover:border-emerald-400 transition-all">
+                            <div className="flex items-center space-x-4">
+                                <Globe className="w-6 h-6 text-emerald-400 group-hover:rotate-12 transition-transform" />
+                                <p className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.4em]">GOVERNANCE_PROTOCOL</p>
+                            </div>
+                        </div>
+                    </button>
+
+                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-[0.5em] mt-4">Global Oversight & P2P Accountability Engine</p>
                 </div>
             </header>
             
@@ -449,15 +467,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 @keyframes glimmer {
                     from { opacity: 1; text-shadow: 0 0 7px #fff, 0 0 10px #06b6d4, 0 0 21px #06b6d4; }
                     to { opacity: 0.7; text-shadow: 0 0 4px #fff, 0 0 7px #06b6d4, 0 0 15px #06b6d4; }
-                }
-                .ekg-path {
-                    stroke-dasharray: 200;
-                    stroke-dashoffset: 200;
-                    animation: ekg-flow 4s linear infinite;
-                }
-                @keyframes ekg-flow {
-                    0% { stroke-dashoffset: 200; }
-                    100% { stroke-dashoffset: -200; }
                 }
                 
                 @keyframes border-trace-cw {

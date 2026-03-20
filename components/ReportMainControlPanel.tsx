@@ -78,10 +78,6 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenR
         <span>Main Control Panel</span>
       </div>
 
-      <div className="mt-4">
-        <MainPanelHeroCarousel variant="panel" />
-      </div>
-
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-[300px_1fr_340px] gap-4">
         <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-4 h-[calc(100vh-180px)] overflow-y-auto">
           <h2 className="text-lg font-black">Reporting Dashboard</h2>
