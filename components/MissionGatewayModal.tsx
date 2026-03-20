@@ -22,11 +22,8 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[400] bg-zinc-950/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div
-        className="w-full max-w-6xl rounded-[2rem] border border-zinc-700 shadow-2xl overflow-hidden bg-cover bg-center"
-        style={{ backgroundImage: "url('/gateway/mission-gateway-reference.png')" }}
-      >
-        <div className="bg-zinc-950/78">
+      <div className="w-full max-w-6xl rounded-[2rem] border border-zinc-700 shadow-2xl overflow-hidden bg-zinc-950">
+        <div className="bg-gradient-to-b from-slate-900 to-zinc-950">
         <div className="px-6 md:px-8 py-5 border-b border-zinc-800 flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-400">Welcome to DPAL</p>
@@ -45,16 +42,17 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 md:p-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 p-6 md:p-8">
           <button
             type="button"
             onClick={onSelectReportProtect}
             className="text-left rounded-[1.5rem] overflow-hidden border-2 border-cyan-500/30 bg-zinc-900 hover:border-cyan-400 transition-all group"
           >
             <img
-              src="/reports/accidents-road-hazards-hero.png"
+              src="/gateway/report-protect-card.png"
               alt="Locator and reporting"
               className="w-full h-48 md:h-56 object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/reports/accidents-road-hazards-hero.png'; }}
               draggable={false}
             />
             <div className="p-5">
@@ -79,9 +77,10 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
             className="text-left rounded-[1.5rem] overflow-hidden border-2 border-emerald-500/30 bg-zinc-900 hover:border-emerald-400 transition-all group"
           >
             <img
-              src="/games/save-the-environment.png"
+              src="/gateway/play-need-deed-card.png"
               alt="Missions and good deeds"
               className="w-full h-48 md:h-56 object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/games/save-the-environment.png'; }}
               draggable={false}
             />
             <div className="p-5">
@@ -99,6 +98,26 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
               </div>
             </div>
           </button>
+
+          <div className="text-left rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 bg-zinc-900">
+            <img
+              src="/gateway/report-dashboard-card.png"
+              alt="DPAL report dashboard preview"
+              className="w-full h-48 md:h-56 object-cover"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/report-protect/report-protect-bg-reference.png'; }}
+              draggable={false}
+            />
+            <div className="p-5">
+              <div className="flex items-center gap-2 text-blue-300 text-[10px] font-black uppercase tracking-[0.25em]">
+                <ShieldCheck className="w-4 h-4" />
+                Command Center
+              </div>
+              <h3 className="text-xl font-black uppercase mt-2">Report Dashboard</h3>
+              <p className="mt-2 text-sm text-zinc-300">
+                Live map, active alerts, verification queue, and case detail panels in one operations view.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="px-6 md:px-8 pb-6 md:pb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
