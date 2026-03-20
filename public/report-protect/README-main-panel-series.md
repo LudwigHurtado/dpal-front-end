@@ -1,33 +1,33 @@
-# Main panel image series
+# Main panel image series (home hero carousel)
 
-The manifest drives the **home main menu** hero only — the **original neon panel** (blue/white title, then this image strip, then GOVERNANCE_PROTOCOL, tagline). It is **not** shown on the Report Main Control Panel dashboard.
+## Keep Git + online in sync with your dev folder
 
-To show **only** one slide with no rotation, set `images` to a single path.
+1. **Only list files that exist** in `public/report-protect/` inside `main-panel-series.json`.  
+   If you delete a PNG locally, remove its line from the JSON (or the carousel will show broken images online).
 
-To update the series:
+2. **Commit deletions** so GitHub/Vercel drop those files:  
+   `git add -u public/report-protect` after you delete images.
 
-1. Upload new image files into `public/report-protect/`.
-2. Open `public/report-protect/main-panel-series.json`.
-3. Add the new image paths under the `images` array in the order you want.
+3. **Current carousel files** (see `main-panel-series.json` — this list should match your disk):
 
-Bundled slides (reorder or remove in JSON as you like):
+   - `main-panel-hero-ecosystem.png`
+   - `main-panel-series-01.png`
+   - `main-panel-series-04-ecosystem.png`
+   - `main-panel-series-05-report-protect-mobile.png`
+   - `main-panel-series-06-silent-observer.png`
+   - `main-panel-series-07-mission-grid.png`
+   - `main-panel-series-09-accountability-grid.png`
+   - `main-panel-series-10-play-need-deed.png`
+   - `fdeb3576-b8bc-4d9e-a971-718d4dbb6f8b.png`
 
-| File | Purpose (approx.) |
-|------|-------------------|
-| `main-panel-series-05-report-protect-mobile.png` | Report & Protect mobile mockups (carousel starts here) |
-| `main-panel-series-06-silent-observer.png` | Silent Observer feature |
-| `main-panel-series-07-mission-grid.png` | Mission cards grid |
-| `main-panel-series-08-locator-hunt.png` | Locator Hunt |
-| `main-panel-series-09-accountability-grid.png` | Accountability / category grid |
-| `main-panel-series-10-play-need-deed.png` | Play Need & Deed |
-| `main-panel-series-11-save-environment.png` | Environment mission |
-| `main-panel-series-12-signal-hunters.png` | Signal Hunters quest |
-| `main-panel-series-13-dig-evidence.png` | Dig up evidence / investigation |
-| Plus older refs: `main-panel-series-01.png`, `main-panel-hero-alt.png` |
+Add a new PNG to the folder, add its path to `images` in `main-panel-series.json`, commit, push.
 
-**Not** in the carousel (kept on disk only if you need them elsewhere): `main-panel-hero-ecosystem.png`, `main-panel-series-03-hub-composite.png`, `main-panel-series-04-ecosystem.png`, `main-command-central-reference.png`, `main-panel-series-02-home-hero.png`.
+## Other assets in this folder (not in the carousel)
+
+- `report-protect-bg-reference.png` — used by Report Work Panel, Master Control panel map, Mission Gateway fallback.
+
+The carousel is **not** shown on the Report Main Control Panel dashboard.
 
 Notes:
-- Rotation advances automatically every 5 seconds.
-- Dot controls under the image let users jump to any slide.
-- With many slides, consider a longer interval in `MainPanelHeroCarousel.tsx` if you want.
+- Rotation is every **5 seconds**; dots under the image jump to a slide.
+- With many slides, consider a longer interval in `MainPanelHeroCarousel.tsx`.

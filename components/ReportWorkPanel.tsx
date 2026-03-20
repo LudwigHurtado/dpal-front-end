@@ -35,7 +35,7 @@ const ReportWorkPanel: React.FC<ReportWorkPanelProps> = ({ onOpenMasterPanel }) 
         <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
           <div className="rounded-2xl border border-indigo-300/20 bg-slate-900/70 p-4">
             <img
-              src="/report-protect/work-mode-reference.png"
+              src="/report-protect/report-protect-bg-reference.png"
               alt="Work mode reference"
               className="w-full h-auto rounded-xl border border-white/10"
               draggable={false}

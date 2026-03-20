@@ -411,7 +411,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
               <h3 className="text-2xl font-bold">Selected Case</h3>
               <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/80 p-4">
                 <img
-                  src="/report-protect/selected-case-placeholder.png"
+                  src="/report-protect/main-panel-series-05-report-protect-mobile.png"
                   onError={(e) => {
                     const img = e.currentTarget as HTMLImageElement;
                     img.style.display = 'none';

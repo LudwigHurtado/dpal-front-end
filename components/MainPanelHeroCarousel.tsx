@@ -14,9 +14,9 @@ const MainPanelHeroCarousel: React.FC<MainPanelHeroCarouselProps> = ({
 }) => {
   const fallbackSeries = useMemo(
     () => [
+      '/report-protect/main-panel-hero-ecosystem.png',
       '/report-protect/main-panel-series-05-report-protect-mobile.png',
       '/report-protect/main-panel-series-06-silent-observer.png',
-      '/report-protect/main-panel-series-01.png',
     ],
     []
   );
