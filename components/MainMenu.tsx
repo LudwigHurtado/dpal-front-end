@@ -349,6 +349,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     onClick={() => onNavigate('hub', undefined, 'work_feed')}
                 />
 
+                <PrimaryNavModule
+                    icon={<Coins className="w-8 h-8" />}
+                    label="WORK_FOR_DPAL_COINS"
+                    subLabel="No money value. Earn via cards, NFTs, and DPAL coins."
+                    status="REWARDS"
+                    colorClass="amber"
+                    onClick={() => onNavigate('reportWorkPanel')}
+                />
+
                 <PrimaryNavModule 
                     icon={<Heart className="w-8 h-8" />}
                     label="SUPPORT_NODE"

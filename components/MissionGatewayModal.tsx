@@ -141,7 +141,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
             onClick={onSelectWorkPanel}
             className="px-4 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/15 text-indigo-100 text-xs font-black uppercase tracking-widest"
           >
-            Open Work Panel
+            Work for DPAL Coins
           </button>
         </div>
 
@@ -162,6 +162,13 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
           >
             Skip and go to dashboard
           </button>
+        </div>
+        <div className="px-6 md:px-8 pb-6">
+          <div className="rounded-xl border border-amber-300/30 bg-amber-900/15 px-4 py-3">
+            <p className="text-[11px] font-bold text-amber-100">
+              No money value. DPAL rewards are Cards, NFTs, and DPAL Coins only.
+            </p>
+          </div>
         </div>
         </div>
       </div>

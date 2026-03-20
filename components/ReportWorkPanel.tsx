@@ -32,10 +32,29 @@ const ReportWorkPanel: React.FC<ReportWorkPanelProps> = ({ onOpenMasterPanel }) 
       </div>
 
       <div className="mt-5 rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/85 to-slate-950/85 p-8 min-h-[600px]">
-        <p className="text-xl font-semibold">Work operations workspace ready.</p>
-        <p className="text-slate-300 mt-2 max-w-3xl">
-          This screen is now separated from the dashboard and master control panel. Add your final Work Panel image and layout here in the next step.
-        </p>
+        <div className="grid grid-cols-1 xl:grid-cols-[1fr_360px] gap-6">
+          <div className="rounded-2xl border border-indigo-300/20 bg-slate-900/70 p-4">
+            <img
+              src="/report-protect/work-mode-reference.png"
+              alt="Work mode reference"
+              className="w-full h-auto rounded-xl border border-white/10"
+              draggable={false}
+            />
+          </div>
+
+          <aside className="rounded-2xl border border-cyan-400/30 bg-cyan-900/10 p-5">
+            <h2 className="text-xl font-bold text-cyan-100">Work for DPAL Coins</h2>
+            <p className="text-sm text-slate-300 mt-2">
+              Join work operations, missions, and case coordination to earn DPAL ecosystem rewards.
+            </p>
+            <div className="mt-4 rounded-xl border border-amber-300/30 bg-amber-900/15 p-4">
+              <p className="text-xs font-black uppercase tracking-widest text-amber-200">Reward Policy</p>
+              <p className="text-sm text-slate-200 mt-2">
+                No money value. DPAL rewards are paid only as Cards, NFTs, and DPAL Coins.
+              </p>
+            </div>
+          </aside>
+        </div>
       </div>
     </div>
   );
