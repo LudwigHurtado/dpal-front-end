@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
   AlertCircle,
@@ -36,6 +36,43 @@ const statTiles = [
 ];
 
 const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenReportFlow, onOpenWorkPanel }) => {
+  const fallbackSeries = useMemo(() => ([
+    '/report-protect/main-command-central-reference.png',
+    '/report-protect/main-panel-series-01.png',
+  ]), []);
+  const [series, setSeries] = useState<string[]>(fallbackSeries);
+  const [activeSlide, setActiveSlide] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadSeries = async () => {
+      try {
+        const response = await fetch('/report-protect/main-panel-series.json', { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (cancelled) return;
+        const list = Array.isArray(data?.images) ? data.images.filter((x: any) => typeof x === 'string' && x.length > 0) : [];
+        if (list.length > 0) setSeries(list);
+      } catch {
+        // Keep fallback list when manifest is missing.
+      }
+    };
+    void loadSeries();
+    return () => { cancelled = true; };
+  }, [fallbackSeries]);
+
+  useEffect(() => {
+    if (series.length <= 1) return;
+    const timer = window.setInterval(() => {
+      setActiveSlide((prev) => (prev + 1) % series.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [series]);
+
+  useEffect(() => {
+    if (activeSlide >= series.length) setActiveSlide(0);
+  }, [series, activeSlide]);
+
   return (
     <div className="font-mono text-white max-w-[1500px] mx-auto px-4 pb-16 animate-fade-in">
       <header className="sticky top-2 z-30 rounded-2xl border border-zinc-700 bg-gradient-to-r from-zinc-900/95 via-slate-900/95 to-zinc-900/95 backdrop-blur px-4 md:px-6 py-4">
@@ -80,11 +117,24 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenR
 
       <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-zinc-900/60 p-4">
         <img
-          src="/report-protect/main-command-central-reference.png"
+          src={series[activeSlide] || fallbackSeries[0]}
           alt="Main command central visual reference"
           className="w-full h-auto rounded-xl border border-zinc-700 object-cover"
           draggable={false}
         />
+        {series.length > 1 && (
+          <div className="mt-3 flex items-center justify-center gap-2">
+            {series.map((_, idx) => (
+              <button
+                key={`main-series-dot-${idx}`}
+                type="button"
+                onClick={() => setActiveSlide(idx)}
+                className={`w-2.5 h-2.5 rounded-full ${idx === activeSlide ? 'bg-cyan-400' : 'bg-zinc-600 hover:bg-zinc-500'}`}
+                aria-label={`Show panel image ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-[300px_1fr_340px] gap-4">
