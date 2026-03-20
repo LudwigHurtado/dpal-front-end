@@ -41,6 +41,7 @@ import DpalGameHubView from './components/DpalGameHubView';
 import MissionGatewayModal from './components/MissionGatewayModal';
 import ReportProtectPage from './components/ReportProtectPage';
 import ReportMainControlPanel from './components/ReportMainControlPanel';
+import ReportWorkPanel from './components/ReportWorkPanel';
 import CoinLaunchView from './components/CoinLaunchView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
@@ -56,7 +57,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -473,7 +474,7 @@ const App: React.FC = () => {
 
   const handleGatewaySkip = () => {
     setShowMissionGateway(false);
-    setCurrentView('reportDashboard');
+    setCurrentView('reportProtect');
   };
 
   const handleCompleteMissionStep = (m: Mission) => {
@@ -733,7 +734,7 @@ const App: React.FC = () => {
   return (
     <ActiveLayout>
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
-      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && (
+      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'reportWorkPanel' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
           onNavigateHome={() => setCurrentView('mainMenu')} 
@@ -756,7 +757,10 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'reportProtect' && (
-          <ReportMainControlPanel onOpenReportFlow={() => handleNavigate('categorySelection')} />
+          <ReportMainControlPanel
+            onOpenReportFlow={() => handleNavigate('categorySelection')}
+            onOpenWorkPanel={() => setCurrentView('reportWorkPanel')}
+          />
         )}
 
         {currentView === 'reportDashboard' && (
@@ -764,6 +768,10 @@ const App: React.FC = () => {
             onOpenReportFlow={() => handleNavigate('categorySelection')}
             onOpenMainControlPanel={() => setCurrentView('reportProtect')}
           />
+        )}
+
+        {currentView === 'reportWorkPanel' && (
+          <ReportWorkPanel onOpenMasterPanel={() => setCurrentView('reportProtect')} />
         )}
 
         {currentView === 'categorySelection' && (
@@ -1042,6 +1050,10 @@ const App: React.FC = () => {
         onSelectReportDashboard={() => {
           setShowMissionGateway(false);
           setCurrentView('reportDashboard');
+        }}
+        onSelectWorkPanel={() => {
+          setShowMissionGateway(false);
+          setCurrentView('reportWorkPanel');
         }}
         onSelectPlayDoGood={() => handleGatewaySelect('gameHub')}
         onSkip={handleGatewaySkip}

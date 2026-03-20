@@ -7,6 +7,7 @@ interface MissionGatewayModalProps {
   onRememberChoiceChange: (next: boolean) => void;
   onSelectReportProtect: () => void;
   onSelectReportDashboard: () => void;
+  onSelectWorkPanel: () => void;
   onSelectPlayDoGood: () => void;
   onSkip: () => void;
 }
@@ -17,6 +18,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
   onRememberChoiceChange,
   onSelectReportProtect,
   onSelectReportDashboard,
+  onSelectWorkPanel,
   onSelectPlayDoGood,
   onSkip,
 }) => {
@@ -62,12 +64,12 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
                 <ShieldCheck className="w-4 h-4" />
                 Locator & Reporting
               </div>
-              <h3 className="text-xl font-black uppercase mt-2">Report & Protect</h3>
+              <h3 className="text-xl font-black uppercase mt-2">Master Control Panel</h3>
               <p className="mt-2 text-sm text-zinc-300">
                 Report hazards, locate people, pets, or property, verify events, and build public accountability.
               </p>
               <div className="mt-4 inline-flex items-center gap-2 text-cyan-200 text-[10px] font-black uppercase tracking-widest">
-                Enter reporting
+                Enter master panel
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </div>
             </div>
@@ -123,6 +125,23 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
                 Live map, active alerts, verification queue, and case detail panels in one operations view.
               </p>
             </div>
+          </button>
+        </div>
+
+        <div className="px-6 md:px-8 pb-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={onSelectReportProtect}
+            className="px-4 py-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-100 text-xs font-black uppercase tracking-widest"
+          >
+            Open Master Panel
+          </button>
+          <button
+            type="button"
+            onClick={onSelectWorkPanel}
+            className="px-4 py-2 rounded-xl border border-indigo-500/40 bg-indigo-500/15 text-indigo-100 text-xs font-black uppercase tracking-widest"
+          >
+            Open Work Panel
           </button>
         </div>
 

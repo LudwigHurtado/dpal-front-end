@@ -13,6 +13,7 @@ import {
 
 interface ReportMainControlPanelProps {
   onOpenReportFlow: () => void;
+  onOpenWorkPanel: () => void;
 }
 
 const sidebarItems = [
@@ -34,7 +35,7 @@ const statTiles = [
   { label: 'Hours Volunteered', value: 72, tone: 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' },
 ];
 
-const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenReportFlow }) => {
+const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenReportFlow, onOpenWorkPanel }) => {
   return (
     <div className="font-mono text-white max-w-[1500px] mx-auto px-4 pb-16 animate-fade-in">
       <header className="sticky top-2 z-30 rounded-2xl border border-zinc-700 bg-gradient-to-r from-zinc-900/95 via-slate-900/95 to-zinc-900/95 backdrop-blur px-4 md:px-6 py-4">
@@ -51,6 +52,13 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenR
             <span className="inline-flex items-center gap-2"><Heart className="w-4 h-4" />Community</span>
           </nav>
           <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenWorkPanel}
+              className="px-4 py-2 rounded-xl border border-cyan-500/40 bg-zinc-900/80 text-cyan-200 text-xs font-black uppercase tracking-widest hover:bg-zinc-800"
+            >
+              Work Panel
+            </button>
             <button className="p-2 rounded-xl border border-zinc-700 bg-zinc-900/80">
               <AlertCircle className="w-5 h-5 text-zinc-300" />
             </button>
