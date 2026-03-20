@@ -2,7 +2,7 @@ import React from 'react';
 import {
   AlertTriangle,
   ArrowRight,
-  Bell,
+  AlertCircle,
   Database,
   Heart,
   Home,
@@ -57,7 +57,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
 
           <div className="flex items-center gap-3">
             <button className="p-2 rounded-xl border border-zinc-700 bg-zinc-900/80">
-              <Bell className="w-5 h-5 text-zinc-300" />
+              <AlertCircle className="w-5 h-5 text-zinc-300" />
             </button>
             <button
               onClick={onOpenReportFlow}
