@@ -5,6 +5,7 @@ interface MissionGatewayModalProps {
   open: boolean;
   rememberChoice: boolean;
   onRememberChoiceChange: (next: boolean) => void;
+  onSelectMainPanel: () => void;
   onSelectReportProtect: () => void;
   onSelectReportDashboard: () => void;
   onSelectWorkPanel: () => void;
@@ -16,6 +17,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
   open,
   rememberChoice,
   onRememberChoiceChange,
+  onSelectMainPanel,
   onSelectReportProtect,
   onSelectReportDashboard,
   onSelectWorkPanel,
@@ -131,6 +133,13 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
         <div className="px-6 md:px-8 pb-3 flex flex-wrap items-center gap-3">
           <button
             type="button"
+            onClick={onSelectMainPanel}
+            className="px-4 py-2 rounded-xl border border-slate-400/40 bg-slate-400/10 text-slate-100 text-xs font-black uppercase tracking-widest"
+          >
+            Open Main Panel
+          </button>
+          <button
+            type="button"
             onClick={onSelectReportProtect}
             className="px-4 py-2 rounded-xl border border-cyan-500/40 bg-cyan-500/15 text-cyan-100 text-xs font-black uppercase tracking-widest"
           >
@@ -160,7 +169,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
             onClick={onSkip}
             className="text-[11px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-200"
           >
-            Skip and go to dashboard
+            Skip and go to main panel
           </button>
         </div>
         <div className="px-6 md:px-8 pb-6">

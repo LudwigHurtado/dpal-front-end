@@ -474,7 +474,7 @@ const App: React.FC = () => {
 
   const handleGatewaySkip = () => {
     setShowMissionGateway(false);
-    setCurrentView('reportProtect');
+    setCurrentView('mainMenu');
   };
 
   const handleCompleteMissionStep = (m: Mission) => {
@@ -1038,6 +1038,15 @@ const App: React.FC = () => {
         open={currentView === 'mainMenu' && showMissionGateway}
         rememberChoice={rememberMissionChoice}
         onRememberChoiceChange={setRememberMissionChoice}
+        onSelectMainPanel={() => {
+          if (rememberMissionChoice) {
+            try { localStorage.setItem(GATEWAY_PREF_KEY, 'mainMenu'); } catch { /* ignore */ }
+          } else {
+            try { localStorage.removeItem(GATEWAY_PREF_KEY); } catch { /* ignore */ }
+          }
+          setShowMissionGateway(false);
+          setCurrentView('mainMenu');
+        }}
         onSelectReportProtect={() => {
           if (rememberMissionChoice) {
             try { localStorage.setItem(GATEWAY_PREF_KEY, 'reporting'); } catch { /* ignore */ }
