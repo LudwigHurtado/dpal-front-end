@@ -45,14 +45,30 @@ const mapLegend = [
   { label: 'Lost Person', color: '#3b82f6' },
   { label: 'Stolen Property', color: '#f59e0b' },
 ] as const;
+const markerKinds = [
+  { id: 'hazard', label: 'Hazard', glyph: '⚠️' },
+  { id: 'car', label: 'Car', glyph: '🚗' },
+  { id: 'deer', label: 'Deer', glyph: '🦌' },
+  { id: 'tree', label: 'Tree', glyph: '🌲' },
+  { id: 'health', label: 'Health', glyph: '🏥' },
+  { id: 'mountain', label: 'Mountain', glyph: '⛰️' },
+] as const;
+type MarkerKindId = typeof markerKinds[number]['id'];
 
 const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow, onOpenMainControlPanel }) => {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
+  const userMarkersRef = useRef<google.maps.Marker[]>([]);
+  const markerKindRef = useRef<MarkerKindId>('hazard');
   const [mapStatus, setMapStatus] = useState<'idle' | 'loading' | 'ready' | 'missing_key' | 'error'>('idle');
   const [mapError, setMapError] = useState<string | null>(null);
-  const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
+  const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid'>('roadmap');
+  const [markerKind, setMarkerKind] = useState<MarkerKindId>('hazard');
+
+  useEffect(() => {
+    markerKindRef.current = markerKind;
+  }, [markerKind]);
 
   const incidentPins = useMemo(() => ([
     { title: 'Downed Power Line', lat: 39.3042, lng: -76.6163, color: '#f43f5e' },
@@ -60,6 +76,16 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
     { title: 'Missing Person Alert', lat: 39.2884, lng: -76.6144, color: '#3b82f6' },
     { title: 'Stolen Property Report', lat: 39.2997, lng: -76.6097, color: '#f59e0b' },
   ]), []);
+
+  const markerIconUrl = (kind: MarkerKindId): string => {
+    const glyph = markerKinds.find((m) => m.id === kind)?.glyph || '📍';
+    const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <circle cx="32" cy="32" r="22" fill="#0b1220" stroke="#22d3ee" stroke-width="3"/>
+  <text x="32" y="39" text-anchor="middle" font-size="22" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji">${glyph}</text>
+</svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +105,21 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
             streetViewControl: false,
             fullscreenControl: false,
             clickableIcons: false,
+          });
+
+          mapRef.current.addListener('click', (event: google.maps.MapMouseEvent) => {
+            if (!event.latLng || !mapRef.current) return;
+            const marker = new g.maps.Marker({
+              map: mapRef.current,
+              position: event.latLng,
+              draggable: true,
+              icon: {
+                url: markerIconUrl(markerKindRef.current),
+                scaledSize: new g.maps.Size(42, 42),
+                anchor: new g.maps.Point(21, 21),
+              },
+            });
+            userMarkersRef.current.push(marker);
           });
         }
 
@@ -109,6 +150,17 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
     void bootstrap();
     return () => { cancelled = true; };
   }, [incidentPins]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    userMarkersRef.current.forEach((m) => {
+      m.setIcon({
+        url: markerIconUrl(markerKind),
+        scaledSize: new google.maps.Size(42, 42),
+        anchor: new google.maps.Point(21, 21),
+      } as any);
+    });
+  }, [markerKind]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -202,9 +254,9 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
         </aside>
 
         {/* Center column */}
-        <section className="space-y-6">
+        <section className="space-y-3">
           {/* Search + filters */}
-          <div className="rounded-3xl border border-slate-300/45 bg-gradient-to-br from-slate-100/95 to-slate-200/90 p-5 shadow-[0_18px_45px_rgba(2,6,23,0.25)]">
+          <div className="rounded-2xl border border-slate-300/45 bg-gradient-to-br from-slate-100/95 to-slate-200/90 p-4 shadow-[0_18px_45px_rgba(2,6,23,0.25)]">
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1 relative">
                 <Search className="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
@@ -231,9 +283,9 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
           </div>
 
           {/* Stat tiles */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
             {statTiles.map((s) => (
-              <div key={s.label} className={`rounded-2xl border p-5 shadow-[0_8px_18px_rgba(15,23,42,0.18)] ${s.tone} bg-white/85`}>
+              <div key={s.label} className={`rounded-xl border p-4 shadow-[0_8px_18px_rgba(15,23,42,0.18)] ${s.tone} bg-white/85`}>
                 <p className="text-4xl font-bold leading-none">{s.value}</p>
                 <p className="text-sm uppercase tracking-wide mt-2">{s.label}</p>
               </div>
@@ -242,7 +294,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
 
           {/* Main map zone */}
           <div
-            className="rounded-3xl border border-white/10 overflow-hidden min-h-[620px] relative bg-slate-900 shadow-[0_25px_60px_rgba(2,6,23,0.45)]"
+            className="rounded-xl border border-white/10 overflow-hidden min-h-[540px] relative bg-slate-900 shadow-[0_25px_60px_rgba(2,6,23,0.45)]"
           >
             <div ref={mapDivRef} className="absolute inset-0" />
             <div className="absolute inset-0 bg-gradient-to-b from-slate-950/15 via-transparent to-slate-950/35 pointer-events-none z-[1]" />
@@ -256,7 +308,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
                 </div>
               </div>
             )}
-            <div className="absolute top-4 left-4 flex gap-2 z-10">
+            <div className="absolute top-4 left-4 flex gap-2 z-10 flex-wrap max-w-[70%]">
               <button
                 type="button"
                 onClick={() => mapRef.current?.setZoom(Math.min((mapRef.current?.getZoom() || 13) + 1, 20))}
@@ -273,11 +325,38 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
               </button>
               <button
                 type="button"
-                onClick={() => setMapType((prev) => (prev === 'roadmap' ? 'satellite' : 'roadmap'))}
+                onClick={() => setMapType((prev) => (prev === 'roadmap' ? 'satellite' : prev === 'satellite' ? 'hybrid' : 'roadmap'))}
                 className="px-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/15 text-sm font-medium"
               >
                 Layers
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  userMarkersRef.current.forEach((m) => m.setMap(null));
+                  userMarkersRef.current = [];
+                }}
+                className="px-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/15 text-sm font-medium"
+              >
+                Clear Markers
+              </button>
+            </div>
+            <div className="absolute bottom-4 left-4 z-10 flex flex-wrap gap-2 max-w-[70%]">
+              {markerKinds.map((kind) => (
+                <button
+                  key={kind.id}
+                  type="button"
+                  onClick={() => setMarkerKind(kind.id)}
+                  className={`px-3 py-1.5 rounded-lg border text-xs font-semibold ${
+                    markerKind === kind.id
+                      ? 'bg-cyan-600 border-cyan-300 text-white'
+                      : 'bg-slate-900/90 border-white/20 text-slate-100'
+                  }`}
+                >
+                  <span className="mr-1">{kind.glyph}</span>
+                  {kind.label}
+                </button>
+              ))}
             </div>
             <div className="absolute top-4 right-4 rounded-xl bg-slate-900/90 border border-white/15 p-3 text-sm z-10 space-y-1.5">
               {mapLegend.map((item) => (
@@ -293,7 +372,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
           </div>
 
           {/* Lower info zone */}
-          <div className="grid grid-cols-1 2xl:grid-cols-[1fr_390px] gap-5">
+          <div className="grid grid-cols-1 2xl:grid-cols-[1fr_390px] gap-0">
             <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-6">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-bold">Current Alerts</h3>
