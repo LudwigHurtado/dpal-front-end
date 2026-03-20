@@ -78,6 +78,15 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenR
         <span>Main Control Panel</span>
       </div>
 
+      <div className="mt-4 rounded-2xl border border-cyan-500/20 bg-zinc-900/60 p-4">
+        <img
+          src="/report-protect/main-command-central-reference.png"
+          alt="Main command central visual reference"
+          className="w-full h-auto rounded-xl border border-zinc-700 object-cover"
+          draggable={false}
+        />
+      </div>
+
       <div className="mt-4 grid grid-cols-1 xl:grid-cols-[300px_1fr_340px] gap-4">
         <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-4 h-[calc(100vh-180px)] overflow-y-auto">
           <h2 className="text-lg font-black">Reporting Dashboard</h2>
