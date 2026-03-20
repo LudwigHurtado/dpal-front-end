@@ -4,6 +4,7 @@ import {
   ArrowRight,
   AlertCircle,
   Database,
+  Eye,
   Heart,
   Home,
   Map,
@@ -35,6 +36,8 @@ const statTiles = [
   { label: 'Open Cases', value: 1, tone: 'bg-blue-600/20 border-blue-500/40 text-blue-300' },
   { label: 'Hours Volunteered', value: 72, tone: 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' },
 ];
+
+const quickActions = ['Verify Report', 'Check Video', 'More Info'];
 
 const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow }) => {
   return (
@@ -73,11 +76,11 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
       <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-xs text-zinc-400">
         <span className="inline-flex items-center gap-2"><Home className="w-4 h-4" />Home</span>
         <span className="mx-2">/</span>
-        <span>Report & Protect</span>
+        <span>Reporting Dashboard</span>
       </div>
 
       {/* Layer B + C: Main body */}
-      <div className="mt-4 grid grid-cols-1 xl:grid-cols-[300px_1fr_340px] gap-4">
+      <div className="mt-4 grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-4">
         {/* Left sidebar */}
         <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-4 h-[calc(100vh-180px)] overflow-y-auto">
           <h2 className="text-lg font-black">Reporting Dashboard</h2>
@@ -110,6 +113,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
             <p className="text-[10px] uppercase tracking-widest text-rose-300">Live urgent item</p>
             <p className="mt-2 text-sm font-bold">Downed Power Line Across Road</p>
             <p className="text-xs text-zinc-400 mt-1">Calvert St & North Ave.</p>
+            <p className="text-[10px] text-zinc-500 mt-2">3 observers · urgent</p>
           </div>
         </aside>
 
@@ -154,7 +158,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
 
           {/* Main map zone */}
           <div
-            className="rounded-2xl border border-zinc-800 overflow-hidden bg-cover bg-center min-h-[430px] relative"
+            className="rounded-2xl border border-zinc-800 overflow-hidden bg-cover bg-center min-h-[500px] relative"
             style={{ backgroundImage: "url('/report-protect/report-protect-bg-reference.png')" }}
           >
             <div className="absolute inset-0 bg-zinc-950/35" />
@@ -169,13 +173,13 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
               <p>Lost Person · 1</p>
               <p>Stolen Property · 1</p>
             </div>
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 text-sm font-black tracking-widest text-white/90">
-              LIVE MAP ZONE
+            <div className="absolute bottom-3 right-3 rounded-lg bg-zinc-900/90 border border-zinc-700 px-2 py-1 text-[10px] z-10">
+              Satellite
             </div>
           </div>
 
           {/* Lower info zone */}
-          <div className="grid grid-cols-1 2xl:grid-cols-[1fr_340px] gap-4">
+          <div className="grid grid-cols-1 2xl:grid-cols-[1fr_360px] gap-4">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-black">Current Alerts</h3>
@@ -192,10 +196,19 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
                       <p className="font-bold">{item}</p>
                       <p className="text-xs text-zinc-400 mt-1">Observers · Urgent · Updated 8m ago</p>
                     </div>
-                    <button className="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black uppercase tracking-widest inline-flex items-center gap-2">
-                      Verify
-                      <ArrowRight className="w-3 h-3" />
-                    </button>
+                    <div className="flex flex-wrap gap-2 justify-end">
+                      {quickActions.map((a, idx) => (
+                        <button
+                          key={a}
+                          className={`px-3 py-2 rounded-lg text-white text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2 ${
+                            idx === 0 ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-zinc-800 hover:bg-zinc-700'
+                          }`}
+                        >
+                          {a}
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -204,29 +217,34 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
               <h3 className="text-lg font-black">Selected Case</h3>
               <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-                <div className="aspect-video rounded-lg bg-zinc-800 mb-3 flex items-center justify-center text-zinc-500 text-xs">
+                <img
+                  src="/report-protect/selected-case-placeholder.png"
+                  onError={(e) => {
+                    const img = e.currentTarget as HTMLImageElement;
+                    img.style.display = 'none';
+                  }}
+                  alt=""
+                  className="aspect-video rounded-lg object-cover mb-3 w-full border border-zinc-800"
+                />
+                <div className="aspect-video rounded-lg bg-zinc-800 mb-3 hidden items-center justify-center text-zinc-500 text-xs">
                   Sector image placeholder
                 </div>
                 <p className="font-bold">Lost Pet Alert · Riley</p>
                 <p className="text-sm text-zinc-300 mt-1">Lost Golden Retriever near Federal Hill Park.</p>
                 <p className="text-xs text-zinc-400 mt-2">Reporter trust score: 88</p>
+                <p className="text-xs text-zinc-500 mt-1 inline-flex items-center gap-1"><MapPin className="w-3 h-3" />Last seen: Oak Park</p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button className="px-3 py-2 rounded-lg bg-zinc-800 text-xs font-black uppercase">View Case</button>
                   <button className="px-3 py-2 rounded-lg bg-emerald-600 text-xs font-black uppercase">Add Sighting</button>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <button className="px-3 py-2 rounded-lg bg-blue-600 text-xs font-black uppercase inline-flex items-center justify-center gap-1"><Eye className="w-3 h-3" />Verify</button>
+                  <button className="px-3 py-2 rounded-lg bg-zinc-700 text-xs font-black uppercase">Share</button>
                 </div>
               </div>
             </div>
           </div>
         </section>
-
-        {/* Optional right rail */}
-        <aside className="hidden xl:block rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-3">
-          <h3 className="text-sm font-black uppercase tracking-widest text-zinc-300">Quick panels</h3>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm">Verification queue</div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm">Nearby responders</div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm">Resource shortcuts</div>
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 text-sm">Incident notes</div>
-        </aside>
       </div>
     </div>
   );
