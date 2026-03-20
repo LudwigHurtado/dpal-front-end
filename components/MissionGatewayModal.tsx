@@ -99,7 +99,11 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
             </div>
           </button>
 
-          <div className="text-left rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 bg-zinc-900">
+          <button
+            type="button"
+            onClick={onSelectReportProtect}
+            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 bg-zinc-900 hover:border-blue-400 transition-all"
+          >
             <img
               src="/gateway/report-dashboard-card.png"
               alt="DPAL report dashboard preview"
@@ -117,7 +121,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
                 Live map, active alerts, verification queue, and case detail panels in one operations view.
               </p>
             </div>
-          </div>
+          </button>
         </div>
 
         <div className="px-6 md:px-8 pb-6 md:pb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

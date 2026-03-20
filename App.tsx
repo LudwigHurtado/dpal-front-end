@@ -472,6 +472,7 @@ const App: React.FC = () => {
 
   const handleGatewaySkip = () => {
     setShowMissionGateway(false);
+    setCurrentView('reportProtect');
   };
 
   const handleCompleteMissionStep = (m: Mission) => {

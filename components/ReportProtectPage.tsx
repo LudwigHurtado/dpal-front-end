@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  AlertTriangle,
   ArrowRight,
   AlertCircle,
   Database,
@@ -13,6 +12,7 @@ import {
   ShieldCheck,
   User,
 } from './icons';
+import { loadGoogleMaps } from '../services/googleMapsLoader';
 
 interface ReportProtectPageProps {
   onOpenReportFlow: () => void;
@@ -38,8 +38,82 @@ const statTiles = [
 ];
 
 const quickActions = ['Verify Report', 'Check Video', 'More Info'];
+const mapLegend = [
+  { label: 'Hazard', color: '#f43f5e' },
+  { label: 'Lost Pet', color: '#10b981' },
+  { label: 'Lost Person', color: '#3b82f6' },
+  { label: 'Stolen Property', color: '#f59e0b' },
+] as const;
 
 const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow }) => {
+  const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<google.maps.Marker[]>([]);
+  const [mapStatus, setMapStatus] = useState<'idle' | 'loading' | 'ready' | 'missing_key' | 'error'>('idle');
+  const [mapError, setMapError] = useState<string | null>(null);
+  const [mapType, setMapType] = useState<'roadmap' | 'satellite'>('roadmap');
+
+  const incidentPins = useMemo(() => ([
+    { title: 'Downed Power Line', lat: 39.3042, lng: -76.6163, color: '#f43f5e' },
+    { title: 'Lost Pet - Riley', lat: 39.2952, lng: -76.6224, color: '#10b981' },
+    { title: 'Missing Person Alert', lat: 39.2884, lng: -76.6144, color: '#3b82f6' },
+    { title: 'Stolen Property Report', lat: 39.2997, lng: -76.6097, color: '#f59e0b' },
+  ]), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const bootstrap = async () => {
+      if (!mapDivRef.current) return;
+      setMapStatus('loading');
+      setMapError(null);
+      try {
+        const g = await loadGoogleMaps();
+        if (cancelled || !mapDivRef.current) return;
+
+        if (!mapRef.current) {
+          mapRef.current = new g.maps.Map(mapDivRef.current, {
+            center: { lat: 39.2904, lng: -76.6122 },
+            zoom: 13,
+            mapTypeControl: false,
+            streetViewControl: false,
+            fullscreenControl: false,
+            clickableIcons: false,
+          });
+        }
+
+        markersRef.current.forEach((m) => m.setMap(null));
+        markersRef.current = incidentPins.map((pin) => (
+          new g.maps.Marker({
+            map: mapRef.current!,
+            position: { lat: pin.lat, lng: pin.lng },
+            title: pin.title,
+            icon: {
+              path: g.maps.SymbolPath.CIRCLE,
+              scale: 8,
+              fillColor: pin.color,
+              fillOpacity: 1,
+              strokeColor: '#0f172a',
+              strokeWeight: 2,
+            },
+          })
+        ));
+        setMapStatus('ready');
+      } catch (err: any) {
+        const message = String(err?.message || '');
+        if (message.includes('missing_google_maps_key')) setMapStatus('missing_key');
+        else setMapStatus('error');
+        setMapError(message || 'Map failed to initialize.');
+      }
+    };
+    void bootstrap();
+    return () => { cancelled = true; };
+  }, [incidentPins]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.setMapTypeId(mapType);
+  }, [mapType]);
+
   return (
     <div className="font-mono text-white max-w-[1500px] mx-auto px-4 pb-16 animate-fade-in">
       {/* Layer A: Top global header */}
@@ -158,23 +232,52 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
 
           {/* Main map zone */}
           <div
-            className="rounded-2xl border border-zinc-800 overflow-hidden bg-cover bg-center min-h-[500px] relative"
-            style={{ backgroundImage: "url('/report-protect/report-protect-bg-reference.png')" }}
+            className="rounded-2xl border border-zinc-800 overflow-hidden min-h-[500px] relative bg-zinc-900"
           >
-            <div className="absolute inset-0 bg-zinc-950/35" />
+            <div ref={mapDivRef} className="absolute inset-0" />
+            {mapStatus !== 'ready' && (
+              <div className="absolute inset-0 z-20 bg-zinc-950/80 flex items-center justify-center p-6 text-center">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-widest text-zinc-200">
+                    {mapStatus === 'missing_key' ? 'Map key missing' : mapStatus === 'error' ? 'Map unavailable' : 'Loading live map'}
+                  </p>
+                  {mapError ? <p className="text-[11px] text-zinc-400 mt-2">{mapError}</p> : null}
+                </div>
+              </div>
+            )}
             <div className="absolute top-3 left-3 flex gap-2 z-10">
-              <button className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs">+</button>
-              <button className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs">-</button>
-              <button className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs">Layers</button>
+              <button
+                type="button"
+                onClick={() => mapRef.current?.setZoom(Math.min((mapRef.current?.getZoom() || 13) + 1, 20))}
+                className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs"
+              >
+                +
+              </button>
+              <button
+                type="button"
+                onClick={() => mapRef.current?.setZoom(Math.max((mapRef.current?.getZoom() || 13) - 1, 3))}
+                className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs"
+              >
+                -
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapType((prev) => (prev === 'roadmap' ? 'satellite' : 'roadmap'))}
+                className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs"
+              >
+                Layers
+              </button>
             </div>
             <div className="absolute top-3 right-3 rounded-lg bg-zinc-900/90 border border-zinc-700 p-2 text-xs z-10 space-y-1">
-              <p>Hazard · 2</p>
-              <p>Lost Pet · 1</p>
-              <p>Lost Person · 1</p>
-              <p>Stolen Property · 1</p>
+              {mapLegend.map((item) => (
+                <p key={item.label} className="inline-flex items-center gap-2">
+                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                  {item.label}
+                </p>
+              ))}
             </div>
             <div className="absolute bottom-3 right-3 rounded-lg bg-zinc-900/90 border border-zinc-700 px-2 py-1 text-[10px] z-10">
-              Satellite
+              {mapType === 'satellite' ? 'Satellite' : 'Roadmap'}
             </div>
           </div>
 
