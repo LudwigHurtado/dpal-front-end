@@ -230,6 +230,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     onClick={() => onNavigate('dpalLocator')}
                 />
 
+                <PrimaryNavModule
+                    icon={<Zap className="w-8 h-8" />}
+                    label="DPAL_GAME_HUB"
+                    subLabel="Play mission modes, earn progress, and boost civic impact"
+                    status="BETA"
+                    colorClass="purple"
+                    onClick={() => onNavigate('gameHub')}
+                />
+
                 <PrimaryNavModule 
                     icon={<Scale className="w-8 h-8" />}
                     label="POLITICIAN_VIEWPOINTS"

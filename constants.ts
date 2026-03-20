@@ -89,7 +89,24 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
         [Category.AccidentsRoadHazards]: {
             core_questions: [
                 ...GLOBAL_CORE,
-                { id: "ACC_01", section: "Tactical Data", label: "Type of Hazard", required: true, answer_type: "single_select", options: ["Vehicle Collision", "Road Blockage/Debris", "Signal Failure", "Sinking/Structural Failure"], institutional_value_tag: "safety" },
+                { id: "ACC_01", section: "Tactical Data", label: "Type of Hazard", required: true, answer_type: "single_select", options: [
+                    "Vehicle collision",
+                    "Near miss / potential accident",
+                    "Disabled vehicle",
+                    "Road blockage / debris",
+                    "Pothole / road surface damage",
+                    "Damaged or missing sign",
+                    "Traffic signal / light failure",
+                    "Construction hazard",
+                    "Animal in roadway",
+                    "Fallen tree / branches",
+                    "Flooding / standing water",
+                    "Ice / snow / slick road",
+                    "Fog / low visibility",
+                    "High wind / blowing debris",
+                    "Sinkhole / structural failure",
+                    "Other"
+                ], institutional_value_tag: "safety" },
                 { id: "ACC_02", section: "Tactical Data", label: "Road Status", required: true, answer_type: "single_select", options: ["Completely Blocked", "Partially Blocked", "Traffic Moving Slow", "Clear but Dangerous"], institutional_value_tag: "safety" },
                 { id: "ACC_03", section: "Impact & Severity", label: "Visible Injuries", required: true, answer_type: "single_select", options: ["Yes - Critical", "Yes - Minor", "No Visible Injuries", "Unsure/Unable to approach"], institutional_value_tag: "safety" },
                 { id: "ACC_04", section: "Tactical Data", label: "Number of Vehicles involved", required: true, answer_type: "single_select", options: ["1", "2", "3-5", "Pileup (6+)", "None (Static Hazard)"], institutional_value_tag: "safety" },

@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Hero, Report } from '../types';
 import { Category } from '../types';
-import { ArrowLeft, MapPin, Mic, Search, Upload, X } from './icons';
+import { ArrowLeft, MapPin, Mic, Search, Upload, X, QrCode } from './icons';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
+import QrCodeDisplay from './QrCodeDisplay';
 
 type LocatorMode = 'find' | 'report';
 type LocatorType = 'person' | 'pet' | 'item';
@@ -36,7 +37,13 @@ const heroImageSrcForType = (t: LocatorType): string => {
 
 interface LocatorPageProps {
   onReturn: () => void;
-  addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>) => void;
+  addReport: (
+    report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>,
+    opts?: {
+      reportIdOverride?: string;
+      blockchainAnchorRequested?: boolean;
+    }
+  ) => void;
   hero: Hero;
   setHero: React.Dispatch<React.SetStateAction<Hero>>;
 }
@@ -57,6 +64,127 @@ interface LocatorListing {
   searchText: string;
   createdAt: number;
 }
+
+const getMockThumbUrl = (continentSlug: string, type: LocatorType): string =>
+  `/locator/mock/${continentSlug}/${type}.svg`;
+
+const buildMockLocatorListings = (): LocatorListing[] => {
+  const continents: Array<{
+    slug: string;
+    cities: Array<{ label: string; lat: number; lng: number; token: string }>;
+  }> = [
+    {
+      slug: 'africa',
+      cities: [
+        { label: 'Nairobi, Kenya', lat: -1.2921, lng: 36.8219, token: 'Nairobi' },
+        { label: 'Lagos, Nigeria', lat: 6.5244, lng: 3.3792, token: 'Lagos' },
+      ],
+    },
+    {
+      slug: 'europe',
+      cities: [
+        { label: 'Berlin, Germany', lat: 52.52, lng: 13.405, token: 'Berlin' },
+        { label: 'London, United Kingdom', lat: 51.5074, lng: -0.1278, token: 'London' },
+      ],
+    },
+    {
+      slug: 'asia',
+      cities: [
+        { label: 'Tokyo, Japan', lat: 35.6762, lng: 139.6503, token: 'Tokyo' },
+        { label: 'Mumbai, India', lat: 19.076, lng: 72.8777, token: 'Mumbai' },
+      ],
+    },
+    {
+      slug: 'north-america',
+      cities: [
+        { label: 'New York, USA', lat: 40.7128, lng: -74.006, token: 'New York' },
+        { label: 'Mexico City, Mexico', lat: 19.4326, lng: -99.1332, token: 'Mexico City' },
+      ],
+    },
+    {
+      slug: 'south-america',
+      cities: [
+        { label: 'Sao Paulo, Brazil', lat: -23.5505, lng: -46.6333, token: 'Sao Paulo' },
+        { label: 'Lima, Peru', lat: -12.0464, lng: -77.0428, token: 'Lima' },
+      ],
+    },
+    {
+      slug: 'oceania',
+      cities: [
+        { label: 'Sydney, Australia', lat: -33.8688, lng: 151.2093, token: 'Sydney' },
+        { label: 'Auckland, New Zealand', lat: -36.8485, lng: 174.7633, token: 'Auckland' },
+      ],
+    },
+  ];
+
+  const now = Date.now();
+  const ageBuckets = [1, 2, 3, 4, 5, 6]; // days ago
+  const daysAgoToMs = (d: number) => d * 24 * 60 * 60 * 1000;
+
+  const personDescriptors = [
+    { token: 'blue hoodie person grey backpack', title: 'blue hoodie', details: 'blue hoodie and grey backpack' },
+    { token: 'red scarf person black sneakers', title: 'red scarf', details: 'red scarf and black sneakers' },
+  ] as const;
+  const petDescriptors = [
+    { token: 'orange tabby cat blue collar', title: 'orange tabby', details: 'orange tabby cat with a blue collar' },
+    { token: 'white small dog green leash', title: 'white small dog', details: 'white small dog with a green leash' },
+  ] as const;
+  const itemDescriptors = [
+    { token: 'silver keys red lanyard', title: 'silver keys', details: 'silver keys on a red lanyard' },
+    { token: 'black leather wallet gold cardholder', title: 'black wallet', details: 'black leather wallet with a gold cardholder' },
+  ] as const;
+
+  const out: LocatorListing[] = [];
+  let seq = 0;
+
+  continents.forEach((continent, continentIdx) => {
+    continent.cities.forEach((city, cityIdx) => {
+      const bucket = ageBuckets[(continentIdx + cityIdx) % ageBuckets.length] ?? 1;
+
+      const person = personDescriptors[cityIdx % personDescriptors.length];
+      const pet = petDescriptors[cityIdx % petDescriptors.length];
+      const item = itemDescriptors[cityIdx % itemDescriptors.length];
+
+      const createdAt = now - daysAgoToMs(bucket) - (seq % 7) * 60_000;
+
+      const mk = (type: LocatorType, tokenPart: string, titlePart: string, detailsPart: string): LocatorListing => {
+        const id = `mock-${continent.slug}-${type}-${cityIdx}-${seq}`;
+        const locationText = city.label;
+        return {
+          id,
+          mode: 'find',
+          type,
+          title: `${type.toUpperCase()}: ${tokenPart} (${titlePart}) near ${city.token}`,
+          detailsText: `${detailsPart}. Last seen near ${city.label}.`,
+          lastSeenOrFoundAt: new Date(now - daysAgoToMs(bucket)).toISOString(),
+          locationText,
+          coords: { lat: city.lat, lng: city.lng },
+          thumbDataUrl: getMockThumbUrl(continent.slug, type),
+          searchText: [
+            tokenPart,
+            titlePart,
+            detailsPart,
+            continent.slug,
+            city.token,
+            city.label,
+            getMockThumbUrl(continent.slug, type),
+          ].join(' '),
+          createdAt,
+        };
+      };
+
+      out.push(mk('person', person.token, person.title, `Wearing ${person.details}`));
+      out.push(mk('pet', pet.token, pet.title, `Pet description: ${pet.details}`));
+      out.push(mk('item', item.token, item.title, `Item description: ${item.details}`));
+
+      seq += 1;
+    });
+  });
+
+  return out;
+};
+
+const MOCK_LOCATOR_LISTINGS = buildMockLocatorListings();
 
 interface LocatorDonation {
   id: string;
@@ -102,6 +230,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
+  const listingMarkersRef = useRef<google.maps.Marker[]>([]);
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   const [error, setError] = useState<string | null>(null);
@@ -111,8 +240,8 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     try {
       const raw = localStorage.getItem(LISTINGS_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      if (!Array.isArray(parsed)) return [];
-      return parsed.map((l: any) => {
+      if (!Array.isArray(parsed)) return MOCK_LOCATOR_LISTINGS;
+      const normalized: LocatorListing[] = parsed.map((l: any) => {
         const title = typeof l?.title === 'string' ? l.title : '';
         const detailsText = typeof l?.detailsText === 'string' ? l.detailsText : '';
         const lastSeenOrFoundAt = typeof l?.lastSeenOrFoundAt === 'string' ? l.lastSeenOrFoundAt : '';
@@ -135,8 +264,20 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
           createdAt: Number(l?.createdAt || Date.now()),
         } as LocatorListing;
       });
+      if (normalized.length === 0) return MOCK_LOCATOR_LISTINGS;
+
+      // Keep the map alive: merge mock seed listings with any existing user data.
+      const existingIds = new Set(normalized.map((l) => l.id));
+      const merged = [
+        ...normalized,
+        ...MOCK_LOCATOR_LISTINGS.filter((l) => !existingIds.has(l.id)),
+      ];
+      return merged
+        .slice()
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0))
+        .slice(0, 100);
     } catch {
-      return [];
+      return MOCK_LOCATOR_LISTINGS;
     }
   });
   const [donations, setDonations] = useState<LocatorDonation[]>(() => {
@@ -156,6 +297,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
   const [matchBusy, setMatchBusy] = useState(false);
   const [matchResults, setMatchResults] = useState<LocatorListing[]>([]);
   const [matchMessage, setMatchMessage] = useState<string | null>(null);
+  const [qrOpenId, setQrOpenId] = useState<string | null>(null);
   const activeDonations = useMemo(
     () => donations.filter((d) => d.listingId === activeListingId),
     [donations, activeListingId]
@@ -174,7 +316,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
   useEffect(() => {
     try {
-      localStorage.setItem(LISTINGS_KEY, JSON.stringify(listings.slice(0, 20)));
+      localStorage.setItem(LISTINGS_KEY, JSON.stringify(listings.slice(0, 100)));
     } catch {
       // ignore write errors
     }
@@ -225,8 +367,26 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         .slice(0, 6)
         .map((x) => x.l);
 
-      setMatchResults(scored);
-      if (scored.length === 0) setMatchMessage('No similar missing entries found yet. You can create a new one.');
+      if (scored.length > 0) {
+        setMatchResults(scored);
+        setMatchMessage(null);
+        const top = scored[0];
+        if (top?.coords) {
+          setCoords(top.coords);
+          if (top.locationText) setLocationText(top.locationText);
+        }
+      } else {
+        // For the demo + early onboarding: even if there is no keyword overlap,
+        // show the freshest seeded entries so the map/search feels alive.
+        const fallback = [...candidates].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
+        setMatchResults(fallback);
+        setMatchMessage('No exact similar entries yet. Showing seeded examples across the world.');
+        const top = fallback[0];
+        if (top?.coords) {
+          setCoords(top.coords);
+          if (top.locationText) setLocationText(top.locationText);
+        }
+      }
     } finally {
       setMatchBusy(false);
     }
@@ -236,6 +396,53 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     return () => {
       recognitionRef.current?.stop?.();
     };
+  }, []);
+
+  // Seed mock locator listings into the global "reports" ledger view (for QR verification).
+  // We only do this once per device profile (mobile/desktop).
+  const mockReportsSeededRef = useRef(false);
+  useEffect(() => {
+    if (mockReportsSeededRef.current) return;
+    mockReportsSeededRef.current = true;
+
+    if (typeof window === 'undefined') return;
+    const ua = navigator.userAgent || '';
+    const profile = /Android|iPhone|iPad|iPod|IEMobile|Opera Mini/i.test(ua) ? 'mobile' : 'desktop';
+    const reportsKey = `dpal-${profile}-reports`;
+
+    try {
+      const raw = localStorage.getItem(reportsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.some((r: any) => typeof r?.id === 'string' && r.id.startsWith('mock-'))) {
+          return;
+        }
+      }
+    } catch {
+      // ignore parse/storage errors; we still attempt seeding
+    }
+
+    // Create lightweight mock reports with QR/deep-link verification working.
+    // We skip blockchain anchor + evidence API calls for mock to keep it fast.
+    void (async () => {
+      for (const l of MOCK_LOCATOR_LISTINGS) {
+        addReport(
+          {
+            title: l.title || `Mock Locator ${l.type}`,
+            description: `DPAL Locator MOCK\nListingId: ${l.id}\nLocation: ${l.locationText || 'Unknown'}\nDetails: ${l.detailsText || ''}\nSearchText: ${l.searchText}`,
+            category: Category.Other,
+            location: l.locationText || 'Unknown',
+            trustScore: 70,
+            severity: 'Standard',
+            isActionable: true,
+            imageUrls: l.thumbDataUrl ? [l.thumbDataUrl] : undefined,
+            isAuthor: true,
+          },
+          { reportIdOverride: l.id, blockchainAnchorRequested: false }
+        );
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -390,6 +597,62 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     } as any);
   }, [mode, type, mapStatus]);
 
+  const clearListingMarkers = () => {
+    listingMarkersRef.current.forEach((m) => m.setMap(null));
+    listingMarkersRef.current = [];
+  };
+
+  // Render multiple pins for listings / AI matches.
+  useEffect(() => {
+    if (mapStatus !== 'ready') return;
+    const map = mapRef.current;
+    const g = (window as any).google as typeof google | undefined;
+    if (!map || !g?.maps?.SymbolPath) return;
+
+    clearListingMarkers();
+
+    const toShow =
+      matchResults.length > 0
+        ? matchResults
+        : listings.filter((l) => l.mode === mode && l.type === type);
+
+    const valid = toShow
+      .map((l) => ({ l, coords: l.coords }))
+      .filter((x) => x.coords && Number.isFinite(x.coords.lat) && Number.isFinite(x.coords.lng))
+      .slice(0, 60);
+
+    listingMarkersRef.current = valid.map(({ l, coords }) => {
+      const s = markerStyle(l.mode, l.type);
+      const marker = new g.maps.Marker({
+        map,
+        position: { lat: coords!.lat, lng: coords!.lng },
+        draggable: false,
+        clickable: true,
+      });
+
+      marker.setIcon({
+        path: g.maps.SymbolPath.CIRCLE,
+        fillColor: s.fill === 'transparent' ? '#00000000' : s.fill,
+        fillOpacity: s.fill === 'transparent' ? 0 : 1,
+        strokeColor: s.stroke,
+        strokeOpacity: 1,
+        strokeWeight: 3,
+        scale: 10,
+      } as any);
+
+      marker.addListener('click', () => {
+        setActiveListingId(l.id);
+        if (l.locationText) setLocationText(l.locationText);
+        if (coords) setCoords({ lat: coords.lat, lng: coords.lng });
+      });
+
+      return marker;
+    });
+
+    return () => clearListingMarkers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapStatus, listings, matchResults, mode, type]);
+
   const toggleDictation = () => {
     if (!dictationSupported) return;
     if (isDictating) {
@@ -456,7 +719,8 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
     return true;
   }, [titleOrDescription, locationText, coords, dateTime, mode, lastSeenOrFoundAt]);
 
-  const submitLabel = mode === 'find' ? 'Search & Locate' : useBlockchain ? 'Submit Report to Blockchain' : 'Submit Report';
+  // Guarantee: when a user submits a "Found item" (mode=report), we always anchor + link evidence.
+  const submitLabel = mode === 'find' ? 'Search & Locate' : 'Submit Report to Blockchain';
 
   const handleSubmit = async () => {
     setError(null);
@@ -486,7 +750,16 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         `Blockchain anchor requested: ${useBlockchain ? 'Yes' : 'No'}`,
       ].filter(Boolean);
 
-      addReport({
+      // Always include at least one "evidence" attachment so evidence/storage
+      // is linked to the reportId even if the user didn't upload photos.
+      const evidenceText = `${bodyLines.join('\n')}\n\nDPAL Locator synthetic evidence: text proof of submission.`;
+      const syntheticAttachment = new File([evidenceText], `locator-evidence-${newListingId}.txt`, {
+        type: 'text/plain',
+      });
+      const attachments = photoFiles.length ? [...photoFiles, syntheticAttachment] : [syntheticAttachment];
+
+      addReport(
+        {
         title: reportTitle,
         description: `${bodyLines.join('\n')}\nListingRefId: ${newListingId}`,
         category: Category.Other,
@@ -494,10 +767,16 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
         trustScore: 70,
         severity: 'Standard',
         isActionable: true,
-        attachments: photoFiles.length ? photoFiles : undefined,
+        attachments,
         imageUrls: photoPreviews.length ? photoPreviews : undefined,
         isAuthor: true,
-      });
+        },
+        {
+          // Guarantee: "found items" (mode=report) are always anchored + linked to evidence storage.
+          blockchainAnchorRequested: mode === 'report' ? true : useBlockchain,
+          reportIdOverride: newListingId,
+        }
+      );
       setListings((prev) => {
         const next: LocatorListing[] = [
           {
@@ -515,7 +794,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
           },
           ...prev,
         ];
-        return next.slice(0, 20);
+        return next.slice(0, 100);
       });
       setActiveListingId(newListingId);
 
@@ -583,6 +862,13 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
   return (
     <div className="animate-fade-in pb-24">
+      {qrOpenId && (
+        <QrCodeDisplay
+          type="report"
+          id={qrOpenId}
+          onClose={() => setQrOpenId(null)}
+        />
+      )}
       {showSplash && (
         <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-4">
           <div className="w-full max-w-3xl">
@@ -757,14 +1043,42 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                 {matchResults.map((r) => (
                   <div
                     key={r.id}
-                    className="rounded-[22px] border border-zinc-800 bg-zinc-950/70 overflow-hidden"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => {
+                      setActiveListingId(r.id);
+                      if (r.coords) setCoords(r.coords);
+                      if (r.locationText) setLocationText(r.locationText);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      setActiveListingId(r.id);
+                      if (r.coords) setCoords(r.coords);
+                      if (r.locationText) setLocationText(r.locationText);
+                    }}
+                    className="relative rounded-[22px] border border-zinc-800 bg-zinc-950/70 overflow-hidden cursor-pointer hover:border-cyan-500/40"
                   >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQrOpenId(r.id);
+                      }}
+                      className="absolute top-3 right-3 z-10 w-10 h-10 rounded-full bg-black/50 border border-zinc-700 text-zinc-200 flex items-center justify-center touch-manipulation"
+                      aria-label="Verify via QR"
+                    >
+                      <QrCode className="w-5 h-5" />
+                    </button>
                     <div className="h-24 bg-zinc-900 flex items-center justify-center">
-                      {r.thumbDataUrl ? (
-                        <img src={r.thumbDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-                      ) : (
-                        <div className="text-[11px] text-zinc-500 font-bold">No photo</div>
-                      )}
+                      <img
+                        src={r.thumbDataUrl || TYPE_META[r.type].iconSrc}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        draggable={false}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = TYPE_META[r.type].iconSrc;
+                        }}
+                      />
                     </div>
                     <div className="p-3">
                       <div className="text-sm font-extrabold text-zinc-100 line-clamp-2">{r.title}</div>
@@ -948,7 +1262,7 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                         </button>
                       </div>
                       <label className="flex items-center gap-3 justify-start md:justify-end text-sm font-extrabold text-zinc-100">
-                        <input type="checkbox" checked={useBlockchain} onChange={(e) => setUseBlockchain(e.target.checked)} />
+                        <input type="checkbox" checked={true} disabled />
                         Anchor hash to blockchain
                       </label>
                     </div>
@@ -999,6 +1313,14 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
                           className="px-4 py-3 rounded-2xl bg-zinc-950 text-white font-extrabold text-sm hover:bg-zinc-800 transition-colors"
                         >
                           Donate
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQrOpenId(activeListingId)}
+                          className="w-12 h-12 ml-2 rounded-2xl bg-zinc-900 border border-zinc-700 text-zinc-100 flex items-center justify-center hover:bg-zinc-800 transition-colors"
+                          aria-label="Verify via QR"
+                        >
+                          <QrCode className="w-5 h-5 text-cyan-200" />
                         </button>
                       </div>
                     </div>

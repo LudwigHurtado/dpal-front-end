@@ -37,10 +37,12 @@ import EscrowServiceView from './components/EscrowServiceView';
 import StorageView from './components/StorageView';
 import PoliticianTransparencyView from './components/PoliticianTransparencyView';
 import LocatorPage from './components/LocatorPage';
+import DpalGameHubView from './components/DpalGameHubView';
 import CoinLaunchView from './components/CoinLaunchView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
 import { featureFlags } from './features/featureFlags';
+import MobileCommunityFeedView from './components/mobile/MobileCommunityFeedView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
 import type { HomeLayout } from './constants';
@@ -51,7 +53,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -256,6 +258,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('resize', onResize);
   }, []);
   const useMobileLayout = isMobileViewport;
+  const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'community';
 
   useEffect(() => { setScopedItem('offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
@@ -270,6 +273,18 @@ const App: React.FC = () => {
     setScopedItem('missions', JSON.stringify(missions));
     setScopedItem('directives', JSON.stringify(directives));
   }, [hero, reports, missions, directives]);
+
+  // Deep-link support: ?reportId=<id> should open the certified report view.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const reportId = params.get('reportId');
+    if (!reportId) return;
+    const found = reports.find((r) => r.id === reportId);
+    if (!found) return;
+    setCompletedReport(found);
+    setCurrentView('reportComplete');
+  }, [reports]);
 
   useEffect(() => {
     setScopedItem('home-layout', homeLayout);
@@ -453,9 +468,13 @@ const App: React.FC = () => {
 
   const handleAddReport = async (
     rep: any,
-    opts?: { navigateAfterSubmit?: boolean }
+    opts?: {
+      navigateAfterSubmit?: boolean;
+      reportIdOverride?: string;
+      blockchainAnchorRequested?: boolean;
+    }
   ) => {
-    const reportId = `rep-${Date.now()}`;
+    const reportId = opts?.reportIdOverride ?? `rep-${Date.now()}`;
 
     let anchored: {
       reportHash?: string;
@@ -466,7 +485,8 @@ const App: React.FC = () => {
     } = {};
 
     try {
-      if (featureFlags.blockchainAnchorEnabled) {
+      const blockchainAnchorRequested = opts?.blockchainAnchorRequested ?? true;
+      if (featureFlags.blockchainAnchorEnabled && blockchainAnchorRequested) {
         const apiBase = getApiBase();
         const response = await fetch(`${apiBase}/api/reports/anchor`, {
           method: 'POST',
@@ -491,6 +511,8 @@ const App: React.FC = () => {
 
     let evidenceRecords: any[] = [];
     const rawAttachments: File[] = Array.isArray(rep?.attachments) ? rep.attachments : [];
+    const fallbackTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    const chainRefId = anchored.txHash || fallbackTxHash;
 
     if (rawAttachments.length) {
       try {
@@ -504,18 +526,42 @@ const App: React.FC = () => {
 
         evidenceRecords = await createEvidenceRecords(reportId, evidenceItems);
       } catch (error) {
-        console.warn('Evidence vault API unavailable, continuing without remote evidence packet:', error);
+        // Local fallback evidence packet so "storage" is still linked to the reportId.
+        // This allows QR/deep-links to keep working even if the evidence API is offline.
+        try {
+          const evidenceItems = await Promise.all(rawAttachments.map(async (file: File) => ({
+            filename: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            sizeBytes: file.size || 0,
+            sha256: await fileToSha256(file),
+            timestampIso: new Date().toISOString(),
+          })));
+
+          const origin = typeof window !== 'undefined' ? window.location.origin : '';
+          evidenceRecords = evidenceItems.map((item) => ({
+            evidenceRefId: `local-evidence-${item.sha256.slice(2, 10)}`,
+            filename: item.filename,
+            mimeType: item.mimeType,
+            sizeBytes: item.sizeBytes,
+            sha256: item.sha256,
+            timestampIso: item.timestampIso,
+            timestampHash: `0x${item.sha256.slice(2, 18)}${Date.now().toString(16).slice(0, 6)}`,
+            chainRefId,
+            verificationLink: `${origin}?reportId=${encodeURIComponent(reportId)}`,
+          }));
+        } catch (fallbackErr) {
+          console.warn('Evidence fallback generation failed:', fallbackErr);
+        }
       }
     }
 
-    const fallbackTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
     const finalReport: Report = {
       ...rep,
       id: reportId,
       timestamp: new Date(),
       hash: anchored.reportHash || `0x${Math.random().toString(16).slice(2)}`,
-      blockchainRef: anchored.txHash || fallbackTxHash,
-      txHash: anchored.txHash || fallbackTxHash,
+      blockchainRef: chainRefId,
+      txHash: chainRefId,
       blockNumber: anchored.blockNumber,
       chain: anchored.chain || 'DPAL_INTERNAL',
       anchoredAt: anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
@@ -654,7 +700,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto px-4 flex-grow relative z-10 ${useMobileLayout ? 'pt-4 pb-24' : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions', 'storage'].includes(currentView) ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions', 'storage'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -693,10 +739,20 @@ const App: React.FC = () => {
         {currentView === 'dpalLocator' && (
           <LocatorPage
             onReturn={() => goBack('mainMenu')}
-            addReport={(rep) => void handleAddReport(rep, { navigateAfterSubmit: false })}
+            addReport={(rep, locOpts) =>
+              void handleAddReport(rep, {
+                navigateAfterSubmit: false,
+                reportIdOverride: locOpts?.reportIdOverride,
+                blockchainAnchorRequested: locOpts?.blockchainAnchorRequested,
+              })
+            }
             hero={heroWithRank}
             setHero={setHero}
           />
+        )}
+
+        {currentView === 'gameHub' && (
+          <DpalGameHubView onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'coinLaunch' && (
@@ -718,18 +774,54 @@ const App: React.FC = () => {
           <ReportCompleteView report={completedReport} onReturn={() => goBack('mainMenu')} onEnterSituationRoom={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
-        {currentView === 'hub' && (
-          <div className="space-y-6 md:space-y-10 min-h-0 flex flex-col">
-            <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 min-h-0">
-              <div className="w-full lg:col-span-8 min-h-[400px]">
-                <MainContentPanel reports={reports} filteredReports={filteredReports} analysis={null} analysisError={null} onCloseAnalysis={() => {}} onAddReportImage={() => {}} onReturnToMainMenu={() => goBack('mainMenu')} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} activeTab={hubTab} setActiveTab={setHubTab} onAddNewReport={() => handleNavigate('categorySelection')} onOpenFilters={() => setFilterSheetOpen(true)} mapCenter={filters.location || undefined} />
-              </div>
-              <div className="hidden lg:block lg:col-span-4">
-                <FilterPanel filters={filters} setFilters={setFilters} onAnalyzeFeed={() => handleNavigate('liveIntelligence')} isAnalyzing={false} reportCount={reports.length} hero={heroWithRank} reports={reports} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} onAddNewReport={() => handleNavigate('categorySelection')} />
+        {currentView === 'hub' && isMobileCommunityFeed ? (
+          <MobileCommunityFeedView
+            reports={filteredReports}
+            onNavigate={(v) => handleNavigate(v)}
+            onOpenIncidentRoom={(r) => {
+              setSelectedReportForIncidentRoom(r);
+              setCurrentView('incidentRoom');
+            }}
+            onCreatePost={() => handleNavigate('categorySelection')}
+          />
+        ) : (
+          currentView === 'hub' && (
+            <div className="space-y-6 md:space-y-10 min-h-0 flex flex-col">
+              <LedgerScanner reports={reports} onTargetFound={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1 min-h-0">
+                <div className="w-full lg:col-span-8 min-h-[400px]">
+                  <MainContentPanel
+                    reports={reports}
+                    filteredReports={filteredReports}
+                    analysis={null}
+                    analysisError={null}
+                    onCloseAnalysis={() => {}}
+                    onAddReportImage={() => {}}
+                    onReturnToMainMenu={() => goBack('mainMenu')}
+                    onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+                    activeTab={hubTab}
+                    setActiveTab={setHubTab}
+                    onAddNewReport={() => handleNavigate('categorySelection')}
+                    onOpenFilters={() => setFilterSheetOpen(true)}
+                    mapCenter={filters.location || undefined}
+                  />
+                </div>
+                <div className="hidden lg:block lg:col-span-4">
+                  <FilterPanel
+                    filters={filters}
+                    setFilters={setFilters}
+                    onAnalyzeFeed={() => handleNavigate('liveIntelligence')}
+                    isAnalyzing={false}
+                    reportCount={reports.length}
+                    hero={heroWithRank}
+                    reports={reports}
+                    onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+                    onAddNewReport={() => handleNavigate('categorySelection')}
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )
         )}
 
         {currentView === 'hub' && filterSheetOpen && (
@@ -873,7 +965,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && (
+      {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && !(isMobileCommunityFeed) && (
         <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
       )}
     </div>

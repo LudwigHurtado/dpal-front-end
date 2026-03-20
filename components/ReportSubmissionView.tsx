@@ -1,9 +1,9 @@
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Category, Report, EducationRole } from '../types';
 import { CATEGORIES_WITH_ICONS, EDUCATION_ROLES } from '../constants';
 import SubmissionPanel from './SubmissionPanel';
-import { ArrowLeft, ShieldCheck, Database } from './icons';
+import { ArrowLeft, ChevronLeft, ChevronRight, Database, ShieldCheck, X } from './icons';
 import { useTranslations } from '../i18n';
 
 interface ReportSubmissionViewProps {
@@ -19,7 +19,42 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     const { t } = useTranslations();
     const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === category)!;
     const roleInfo = role ? EDUCATION_ROLES.find(r => r.value === role) : null;
-    const imageUrl = `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`;
+    const imageUrl =
+        category === Category.AccidentsRoadHazards
+            ? `/reports/accidents-road-hazards-hero.png`
+            : `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`;
+
+    const isAccidents = category === Category.AccidentsRoadHazards;
+    const guideSlides = useMemo(() => ([
+        { src: '/reports/guides/accidents-road-hazards/step-1.png', alt: 'Reporting guide step 1' },
+        { src: '/reports/guides/accidents-road-hazards/step-2.png', alt: 'Reporting guide step 2' },
+        { src: '/reports/guides/accidents-road-hazards/step-3.png', alt: 'Reporting guide step 3' },
+    ]), []);
+    const guideStorageKey = 'dpal-accidents-road-hazards-guide-dismissed-v1';
+    const [guideOpen, setGuideOpen] = useState(false);
+    const [guideIndex, setGuideIndex] = useState(0);
+
+    useEffect(() => {
+        if (!isAccidents) {
+            setGuideOpen(false);
+            return;
+        }
+        try {
+            const dismissed = localStorage.getItem(guideStorageKey) === '1';
+            setGuideOpen(!dismissed);
+            setGuideIndex(0);
+        } catch {
+            setGuideOpen(true);
+            setGuideIndex(0);
+        }
+    }, [isAccidents]);
+
+    const closeGuide = (persist: boolean) => {
+        if (persist) {
+            try { localStorage.setItem(guideStorageKey, '1'); } catch { /* ignore */ }
+        }
+        setGuideOpen(false);
+    };
 
     return (
         <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-32 px-4">
@@ -33,39 +68,127 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                     pointer-events: none;
                 }
             `}</style>
-            
-            {/* Immersive Header */}
-            <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl group">
-                <div 
-                    className="absolute inset-0 bg-cover bg-center grayscale contrast-125 brightness-50 transition-all duration-1000 group-hover:scale-105"
-                    style={{ backgroundImage: `url(${imageUrl})` }}
-                ></div>
-                <div className="absolute inset-0 bg-cyan-600/10 mix-blend-color opacity-30"></div>
-                <div className="absolute inset-0 scanline-overlay"></div>
-                <div className="absolute inset-0 dispatch-gradient"></div>
-                
-                <div className="relative h-full flex flex-col justify-between p-10 md:p-16">
-                    <button
-                        onClick={onReturn}
-                        className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 hover:text-cyan-300 transition-colors group bg-black/60 w-fit px-8 py-2 rounded-full border border-cyan-500/20 backdrop-blur-md"
-                    >
-                        <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-2" />
-                        <span>PROTOCOL_RESET</span>
-                    </button>
 
-                    <div className="flex items-end space-x-10">
-                        <div className="p-6 bg-cyan-950/60 border-2 border-cyan-500/40 rounded-[2.5rem] text-6xl shadow-[0_0_60px_rgba(6,182,212,0.3)] flex-shrink-0 backdrop-blur-xl transition-transform group-hover:scale-110 duration-700">
-                            {categoryInfo.icon}
+            {guideOpen && isAccidents && (
+                <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+                    <div className="w-full max-w-5xl bg-zinc-950 border-2 border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+                            <div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">DPAL · Reporting guide</div>
+                                <div className="text-sm font-black uppercase tracking-widest text-white mt-1">
+                                    Accidents & Road Hazards
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => closeGuide(false)}
+                                className="p-2 rounded-2xl border border-zinc-800 hover:bg-zinc-900"
+                                aria-label="Close guide"
+                            >
+                                <X className="w-5 h-5 text-zinc-200" />
+                            </button>
                         </div>
-                        <div className="pb-2">
-                            <h2 className="text-xs font-black uppercase tracking-[0.6em] text-cyan-500 mb-3">Forensic_Intake_Protocol</h2>
-                            <p className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl">
-                                {categoryInfo.headline}
-                            </p>
+
+                        <div className="bg-black">
+                            <img
+                                src={guideSlides[guideIndex]?.src}
+                                alt={guideSlides[guideIndex]?.alt}
+                                className="w-full h-auto select-none"
+                                draggable={false}
+                            />
+                        </div>
+
+                        <div className="px-5 py-4 border-t border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                                Step {guideIndex + 1} of {guideSlides.length}
+                            </div>
+
+                            <div className="flex items-center justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setGuideIndex((i) => Math.max(0, i - 1))}
+                                    disabled={guideIndex === 0}
+                                    className="px-4 py-2 rounded-2xl border border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                                >
+                                    <ChevronLeft className="w-4 h-4" />
+                                    Back
+                                </button>
+
+                                {guideIndex < guideSlides.length - 1 ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => setGuideIndex((i) => Math.min(guideSlides.length - 1, i + 1))}
+                                        className="px-4 py-2 rounded-2xl border border-cyan-500/50 bg-cyan-600 text-white hover:bg-cyan-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                                    >
+                                        Next
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => closeGuide(true)}
+                                        className="px-4 py-2 rounded-2xl border border-emerald-500/40 bg-emerald-600 text-white hover:bg-emerald-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+                                    >
+                                        Start report
+                                        <ChevronRight className="w-4 h-4" />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
+            )}
+            
+            {/* Header */}
+            {isAccidents ? (
+                <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
+                    <div
+                        className="absolute inset-0 bg-cover bg-center brightness-110 contrast-105 saturate-110"
+                        style={{ backgroundImage: `url(${imageUrl})` }}
+                    />
+                    <div className="relative h-full p-6 md:p-8 flex items-start">
+                        <button
+                            onClick={onReturn}
+                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-white bg-black/50 hover:bg-black/60 transition-colors px-5 py-2 rounded-2xl border border-white/10 backdrop-blur"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                            <span>Back</span>
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl group">
+                    <div 
+                        className="absolute inset-0 bg-cover bg-center grayscale contrast-125 brightness-50 transition-all duration-1000 group-hover:scale-105"
+                        style={{ backgroundImage: `url(${imageUrl})` }}
+                    ></div>
+                    <div className="absolute inset-0 bg-cyan-600/10 mix-blend-color opacity-30"></div>
+                    <div className="absolute inset-0 scanline-overlay"></div>
+                    <div className="absolute inset-0 dispatch-gradient"></div>
+                    
+                    <div className="relative h-full flex flex-col justify-between p-10 md:p-16">
+                        <button
+                            onClick={onReturn}
+                            className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 hover:text-cyan-300 transition-colors group bg-black/60 w-fit px-8 py-2 rounded-full border border-cyan-500/20 backdrop-blur-md"
+                        >
+                            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-2" />
+                            <span>Back</span>
+                        </button>
+
+                        <div className="flex items-end space-x-10">
+                            <div className="p-6 bg-cyan-950/60 border-2 border-cyan-500/40 rounded-[2.5rem] text-6xl shadow-[0_0_60px_rgba(6,182,212,0.3)] flex-shrink-0 backdrop-blur-xl transition-transform group-hover:scale-110 duration-700">
+                                {categoryInfo.icon}
+                            </div>
+                            <div className="pb-2">
+                                <h2 className="text-xs font-black uppercase tracking-[0.6em] text-cyan-500 mb-3">File a report</h2>
+                                <p className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl">
+                                    {categoryInfo.headline}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Redesigned Submission Flow */}
             <SubmissionPanel 
