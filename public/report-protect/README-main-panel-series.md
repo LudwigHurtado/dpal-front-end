@@ -1,6 +1,13 @@
 # Main panel image series
 
-To quickly update rotating images in the Main Control Panel:
+The same manifest drives rotating images in **two places**:
+
+- **Home (Main Menu)** — hero is **image-only** (no large headline); the first image in `images` is what users see first.
+- **Report → Main Control Panel** — full-width panel under the breadcrumb
+
+To show **only** the ecosystem hero with no rotation, set `images` to a single path (e.g. only `main-panel-hero-ecosystem.png`).
+
+To update the series:
 
 1. Upload new image files into `public/report-protect/`.
 2. Open `public/report-protect/main-panel-series.json`.

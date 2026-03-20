@@ -5,6 +5,7 @@ import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Br
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
+import MainPanelHeroCarousel from './MainPanelHeroCarousel';
 import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
 import { featureFlags } from '../features/featureFlags';
@@ -120,40 +121,11 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
 
     return (
         <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
-            <header className="mb-12 text-center flex flex-col items-center relative pt-8">
-                
-                <div className="relative z-10 space-y-8 flex flex-col items-center">
-                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase neon-glimmer max-w-5xl leading-[0.9] md:leading-none px-4">
-                        Decentralized Public Accountability Ledger
-                    </h1>
-                    
-                    <button 
-                        onClick={() => onNavigate('ecosystem')}
-                        className="relative group p-1 rounded-3xl overflow-hidden transition-all active:scale-95"
-                    >
-                        <div className="absolute inset-0 bg-emerald-500/20 blur-[30px] animate-pulse group-hover:bg-emerald-500/40 transition-colors"></div>
-                        <div className="relative bg-zinc-950 border-2 border-emerald-500/40 px-10 py-4 rounded-2xl shadow-2xl backdrop-blur-xl group-hover:border-emerald-400 transition-all">
-                            <div className="flex items-center space-x-4">
-                                <Globe className="w-6 h-6 text-emerald-400 group-hover:rotate-12 transition-transform" />
-                                <p className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.4em]">GOVERNANCE_PROTOCOL</p>
-                            </div>
-                        </div>
-                    </button>
-
-                    <div className="w-full max-w-2xl h-10 relative overflow-hidden mt-4">
-                        <svg className="absolute inset-0 w-full h-full" viewBox="0 0 200 20" preserveAspectRatio="none">
-                            <path 
-                                className="ekg-path"
-                                d="M0 10 L20 10 L22 2 L24 18 L26 10 L50 10 L52 5 L54 15 L56 10 L80 10 L82 0 L85 20 L88 10 L110 10 L112 2 L114 18 L116 10 L140 10 L142 5 L144 15 L146 10 L170 10 L172 0 L175 20 L178 10 L200 10" 
-                                fill="none" 
-                                stroke="#22d3ee" 
-                                strokeWidth="1.2" 
-                            />
-                        </svg>
-                        <div className="absolute inset-0 bg-gradient-to-r from-black via-transparent to-black pointer-events-none"></div>
-                    </div>
-
-                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-[0.5em] mt-2">Global Oversight & P2P Accountability Engine</p>
+            <header className="mb-10 md:mb-12 text-center flex flex-col items-center relative pt-4 md:pt-6">
+                <div className="relative z-10 w-full flex flex-col items-center px-1">
+                    {/* Title removed from layout — hero is image-only; keep for SEO / screen readers */}
+                    <h1 className="sr-only">Decentralized Public Accountability Ledger — Global oversight &amp; P2P accountability engine</h1>
+                    <MainPanelHeroCarousel variant="home" className="w-full" />
                 </div>
             </header>
             
