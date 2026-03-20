@@ -19,13 +19,13 @@ interface ReportProtectPageProps {
 }
 
 const sidebarItems = [
-  { label: 'Current Alerts', count: 6, active: true },
-  { label: 'Verify Reports', count: 3 },
-  { label: 'Search Reports' },
-  { label: 'Lost Pets' },
-  { label: 'Lost Persons' },
-  { label: 'Stolen Property' },
-  { label: 'My Reports' },
+  { label: 'Current Alerts', count: 6, active: true, icon: AlertCircle },
+  { label: 'Verify Reports', count: 3, icon: ShieldCheck },
+  { label: 'Search Reports', icon: Search },
+  { label: 'Lost Pets', icon: Heart },
+  { label: 'Lost Persons', icon: User },
+  { label: 'Stolen Property', icon: Database },
+  { label: 'My Reports', icon: Home },
 ];
 
 const topFilters = ['Hazard', 'Lost Pet', 'Lost Person', 'Stolen Property'];
@@ -169,7 +169,10 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
                     : 'bg-slate-900/80 border-white/10 text-slate-200 hover:bg-slate-800/90 hover:border-white/20'
                 }`}
               >
-                <span className="text-base font-medium">{item.label}</span>
+                <span className="inline-flex items-center gap-3 text-base font-medium">
+                  <item.icon className="w-4 h-4" />
+                  {item.label}
+                </span>
                 {item.count ? <span className="text-sm font-bold">{item.count}</span> : null}
               </button>
             ))}
