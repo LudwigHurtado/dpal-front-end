@@ -37,7 +37,7 @@ const statTiles = [
   { label: 'Hours Volunteered', value: 72, tone: 'bg-emerald-600/20 border-emerald-500/40 text-emerald-300' },
 ];
 
-const quickActions = ['Verify Report', 'Check Video', 'More Info'];
+const quickActions = ['Verify', 'Open Case'];
 const mapLegend = [
   { label: 'Hazard', color: '#f43f5e' },
   { label: 'Lost Pet', color: '#10b981' },
@@ -115,30 +115,30 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
   }, [mapType]);
 
   return (
-    <div className="font-mono text-white max-w-[1500px] mx-auto px-4 pb-16 animate-fade-in">
+    <div className="font-sans text-white max-w-[1760px] mx-auto px-3 md:px-6 pb-16 animate-fade-in">
       {/* Layer A: Top global header */}
-      <header className="sticky top-2 z-30 rounded-2xl border border-zinc-700 bg-gradient-to-r from-zinc-900/95 via-slate-900/95 to-zinc-900/95 backdrop-blur px-4 md:px-6 py-4">
+      <header className="sticky top-2 z-30 rounded-3xl border border-white/10 bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl px-5 md:px-8 py-5 md:py-6 shadow-[0_20px_60px_rgba(2,6,23,0.45)]">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <ShieldCheck className="w-7 h-7 text-cyan-300 flex-shrink-0" />
-            <div className="text-3xl font-black tracking-tight">DPAL</div>
+            <ShieldCheck className="w-8 h-8 text-cyan-200 flex-shrink-0" />
+            <div className="text-4xl font-extrabold tracking-tight">DPAL</div>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-6 text-sm text-zinc-300">
-            <span className="inline-flex items-center gap-2"><Search className="w-4 h-4" />Search</span>
-            <span className="inline-flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Verify</span>
-            <span className="inline-flex items-center gap-2"><Database className="w-4 h-4" />Resources</span>
-            <span className="inline-flex items-center gap-2"><User className="w-4 h-4" />My Reports</span>
-            <span className="inline-flex items-center gap-2"><Heart className="w-4 h-4" />Community</span>
+          <nav className="hidden lg:flex items-center gap-8 text-base text-slate-200">
+            <span className="inline-flex items-center gap-2.5"><Search className="w-4 h-4" />Search</span>
+            <span className="inline-flex items-center gap-2.5"><ShieldCheck className="w-4 h-4" />Verify</span>
+            <span className="inline-flex items-center gap-2.5"><Database className="w-4 h-4" />Resources</span>
+            <span className="inline-flex items-center gap-2.5"><User className="w-4 h-4" />My Reports</span>
+            <span className="inline-flex items-center gap-2.5"><Heart className="w-4 h-4" />Community</span>
           </nav>
 
           <div className="flex items-center gap-3">
-            <button className="p-2 rounded-xl border border-zinc-700 bg-zinc-900/80">
+            <button className="p-3 rounded-2xl border border-white/15 bg-slate-900/75 hover:bg-slate-800/90 transition-colors">
               <AlertCircle className="w-5 h-5 text-zinc-300" />
             </button>
             <button
               onClick={onOpenReportFlow}
-              className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black uppercase tracking-widest"
+              className="px-6 py-3 rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold tracking-wide shadow-lg shadow-cyan-900/30"
             >
               Report an Incident
             </button>
@@ -147,70 +147,70 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
       </header>
 
       {/* Breadcrumb bar */}
-      <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-900/70 px-4 py-3 text-xs text-zinc-400">
+      <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 text-sm text-slate-300">
         <span className="inline-flex items-center gap-2"><Home className="w-4 h-4" />Home</span>
-        <span className="mx-2">/</span>
+        <span className="mx-2.5 text-slate-500">/</span>
         <span>Reporting Dashboard</span>
       </div>
 
       {/* Layer B + C: Main body */}
-      <div className="mt-4 grid grid-cols-1 xl:grid-cols-[300px_1fr] gap-4">
+      <div className="mt-5 grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
         {/* Left sidebar */}
-        <aside className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-4 h-[calc(100vh-180px)] overflow-y-auto">
-          <h2 className="text-lg font-black">Reporting Dashboard</h2>
+        <aside className="rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-5 space-y-5 h-[calc(100vh-180px)] overflow-y-auto shadow-[0_18px_45px_rgba(2,6,23,0.35)]">
+          <h2 className="text-2xl font-bold tracking-tight">Reporting Dashboard</h2>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {sidebarItems.map((item) => (
               <button
                 key={item.label}
-                className={`w-full text-left px-3 py-2 rounded-xl border flex items-center justify-between ${
+                className={`w-full text-left px-4 py-3.5 rounded-2xl border flex items-center justify-between transition-all ${
                   item.active
-                    ? 'bg-cyan-600/20 border-cyan-500/40 text-cyan-200'
-                    : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:border-zinc-700'
+                    ? 'bg-cyan-500/20 border-cyan-300/40 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
+                    : 'bg-slate-900/80 border-white/10 text-slate-200 hover:bg-slate-800/90 hover:border-white/20'
                 }`}
               >
-                <span className="text-sm">{item.label}</span>
-                {item.count ? <span className="text-xs font-black">{item.count}</span> : null}
+                <span className="text-base font-medium">{item.label}</span>
+                {item.count ? <span className="text-sm font-bold">{item.count}</span> : null}
               </button>
             ))}
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-zinc-500">Map shortcut</p>
-            <div className="mt-2 flex items-center justify-between text-sm">
+          <div className="rounded-2xl border border-white/10 bg-slate-900/75 p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-400">Map shortcut</p>
+            <div className="mt-3 flex items-center justify-between text-base">
               <span className="inline-flex items-center gap-2"><Map className="w-4 h-4 text-cyan-300" />Alerts Map</span>
-              <span className="text-emerald-300 text-xs font-black">Active</span>
+              <span className="text-emerald-300 text-sm font-semibold">Active</span>
             </div>
           </div>
 
-          <div className="rounded-xl border border-rose-500/30 bg-rose-900/10 p-3">
-            <p className="text-[10px] uppercase tracking-widest text-rose-300">Live urgent item</p>
-            <p className="mt-2 text-sm font-bold">Downed Power Line Across Road</p>
-            <p className="text-xs text-zinc-400 mt-1">Calvert St & North Ave.</p>
-            <p className="text-[10px] text-zinc-500 mt-2">3 observers · urgent</p>
+          <div className="rounded-2xl border border-rose-300/20 bg-rose-900/15 p-4">
+            <p className="text-xs uppercase tracking-[0.12em] text-rose-200">Live urgent item</p>
+            <p className="mt-2 text-base font-semibold">Downed Power Line Across Road</p>
+            <p className="text-sm text-slate-300 mt-1">Calvert St & North Ave.</p>
+            <p className="text-xs text-slate-400 mt-2">3 observers · urgent</p>
           </div>
         </aside>
 
         {/* Center column */}
-        <section className="space-y-4">
+        <section className="space-y-6">
           {/* Search + filters */}
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
-            <div className="flex flex-col lg:flex-row gap-3">
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-5 shadow-[0_18px_45px_rgba(2,6,23,0.32)]">
+            <div className="flex flex-col lg:flex-row gap-4">
               <div className="flex-1 relative">
-                <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Search className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
                   placeholder="Search DPAL Reports..."
-                  className="w-full pl-10 pr-3 py-2 rounded-xl border border-zinc-700 bg-zinc-950 text-sm"
+                  className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-white/10 bg-slate-900/80 text-base text-slate-100 placeholder:text-slate-400"
                 />
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {topFilters.map((f, idx) => (
                   <button
                     key={f}
-                    className={`px-3 py-2 rounded-xl border text-xs font-black uppercase tracking-wider ${
+                    className={`px-4 py-3 rounded-2xl border text-sm font-semibold ${
                       idx === 0
-                        ? 'bg-rose-600/20 border-rose-500/50 text-rose-200'
-                        : 'bg-zinc-950 border-zinc-700 text-zinc-300'
+                        ? 'bg-rose-500/25 border-rose-300/40 text-rose-100'
+                        : 'bg-slate-900/80 border-white/10 text-slate-200'
                     }`}
                   >
                     {f}
@@ -221,20 +221,21 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
           </div>
 
           {/* Stat tiles */}
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
             {statTiles.map((s) => (
-              <div key={s.label} className={`rounded-xl border p-3 ${s.tone}`}>
-                <p className="text-2xl font-black">{s.value}</p>
-                <p className="text-[11px] uppercase tracking-widest">{s.label}</p>
+              <div key={s.label} className={`rounded-2xl border p-5 shadow-[0_10px_30px_rgba(2,6,23,0.25)] ${s.tone}`}>
+                <p className="text-4xl font-bold leading-none">{s.value}</p>
+                <p className="text-sm uppercase tracking-wide mt-2">{s.label}</p>
               </div>
             ))}
           </div>
 
           {/* Main map zone */}
           <div
-            className="rounded-2xl border border-zinc-800 overflow-hidden min-h-[500px] relative bg-zinc-900"
+            className="rounded-3xl border border-white/10 overflow-hidden min-h-[620px] relative bg-slate-900 shadow-[0_25px_60px_rgba(2,6,23,0.45)]"
           >
             <div ref={mapDivRef} className="absolute inset-0" />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/15 via-transparent to-slate-950/35 pointer-events-none z-[1]" />
             {mapStatus !== 'ready' && (
               <div className="absolute inset-0 z-20 bg-zinc-950/80 flex items-center justify-center p-6 text-center">
                 <div>
@@ -245,66 +246,66 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
                 </div>
               </div>
             )}
-            <div className="absolute top-3 left-3 flex gap-2 z-10">
+            <div className="absolute top-4 left-4 flex gap-2 z-10">
               <button
                 type="button"
                 onClick={() => mapRef.current?.setZoom(Math.min((mapRef.current?.getZoom() || 13) + 1, 20))}
-                className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs"
+                className="w-11 h-11 rounded-xl bg-slate-900/90 border border-white/15 text-base font-bold"
               >
                 +
               </button>
               <button
                 type="button"
                 onClick={() => mapRef.current?.setZoom(Math.max((mapRef.current?.getZoom() || 13) - 1, 3))}
-                className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs"
+                className="w-11 h-11 rounded-xl bg-slate-900/90 border border-white/15 text-base font-bold"
               >
                 -
               </button>
               <button
                 type="button"
                 onClick={() => setMapType((prev) => (prev === 'roadmap' ? 'satellite' : 'roadmap'))}
-                className="px-3 py-2 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs"
+                className="px-4 py-2.5 rounded-xl bg-slate-900/90 border border-white/15 text-sm font-medium"
               >
                 Layers
               </button>
             </div>
-            <div className="absolute top-3 right-3 rounded-lg bg-zinc-900/90 border border-zinc-700 p-2 text-xs z-10 space-y-1">
+            <div className="absolute top-4 right-4 rounded-xl bg-slate-900/90 border border-white/15 p-3 text-sm z-10 space-y-1.5">
               {mapLegend.map((item) => (
                 <p key={item.label} className="inline-flex items-center gap-2">
-                  <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                   {item.label}
                 </p>
               ))}
             </div>
-            <div className="absolute bottom-3 right-3 rounded-lg bg-zinc-900/90 border border-zinc-700 px-2 py-1 text-[10px] z-10">
+            <div className="absolute bottom-4 right-4 rounded-xl bg-slate-900/90 border border-white/15 px-3 py-1.5 text-xs z-10">
               {mapType === 'satellite' ? 'Satellite' : 'Roadmap'}
             </div>
           </div>
 
           {/* Lower info zone */}
-          <div className="grid grid-cols-1 2xl:grid-cols-[1fr_360px] gap-4">
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+          <div className="grid grid-cols-1 2xl:grid-cols-[1fr_390px] gap-5">
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-black">Current Alerts</h3>
-                <div className="text-xs text-zinc-400">All · Urgent · Nearby · Unverified</div>
+                <h3 className="text-2xl font-bold">Current Alerts</h3>
+                <div className="text-sm text-slate-400">All · Urgent · Nearby · Unverified</div>
               </div>
-              <div className="mt-3 space-y-3">
+              <div className="mt-4 space-y-4">
                 {[
                   'Downed Power Line Across Road',
                   'Suspicious Person Seen Lurking',
                   'Lost Pet Alert - Riley',
                 ].map((item) => (
-                  <div key={item} className="rounded-xl border border-zinc-800 bg-zinc-950 p-3 flex items-center justify-between gap-4">
+                  <div key={item} className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
                     <div>
-                      <p className="font-bold">{item}</p>
-                      <p className="text-xs text-zinc-400 mt-1">Observers · Urgent · Updated 8m ago</p>
+                      <p className="text-lg font-semibold">{item}</p>
+                      <p className="text-sm text-slate-400 mt-1">Observers · Urgent · Updated 8m ago</p>
                     </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
+                    <div className="flex flex-wrap gap-2.5 justify-end">
                       {quickActions.map((a, idx) => (
                         <button
                           key={a}
-                          className={`px-3 py-2 rounded-lg text-white text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-2 ${
-                            idx === 0 ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-zinc-800 hover:bg-zinc-700'
+                          className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold inline-flex items-center gap-2 ${
+                            idx === 0 ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-slate-700 hover:bg-slate-600'
                           }`}
                         >
                           {a}
@@ -317,9 +318,9 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
               </div>
             </div>
 
-            <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
-              <h3 className="text-lg font-black">Selected Case</h3>
-              <div className="mt-3 rounded-xl border border-zinc-800 bg-zinc-950 p-3">
+            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-6">
+              <h3 className="text-2xl font-bold">Selected Case</h3>
+              <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/80 p-4">
                 <img
                   src="/report-protect/selected-case-placeholder.png"
                   onError={(e) => {
@@ -327,22 +328,22 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow 
                     img.style.display = 'none';
                   }}
                   alt=""
-                  className="aspect-video rounded-lg object-cover mb-3 w-full border border-zinc-800"
+                  className="aspect-video rounded-xl object-cover mb-4 w-full border border-white/10"
                 />
                 <div className="aspect-video rounded-lg bg-zinc-800 mb-3 hidden items-center justify-center text-zinc-500 text-xs">
                   Sector image placeholder
                 </div>
-                <p className="font-bold">Lost Pet Alert · Riley</p>
-                <p className="text-sm text-zinc-300 mt-1">Lost Golden Retriever near Federal Hill Park.</p>
-                <p className="text-xs text-zinc-400 mt-2">Reporter trust score: 88</p>
-                <p className="text-xs text-zinc-500 mt-1 inline-flex items-center gap-1"><MapPin className="w-3 h-3" />Last seen: Oak Park</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <button className="px-3 py-2 rounded-lg bg-zinc-800 text-xs font-black uppercase">View Case</button>
-                  <button className="px-3 py-2 rounded-lg bg-emerald-600 text-xs font-black uppercase">Add Sighting</button>
+                <p className="text-xl font-semibold">Lost Pet Alert · Riley</p>
+                <p className="text-base text-slate-200 mt-1.5">Lost Golden Retriever near Federal Hill Park.</p>
+                <p className="text-sm text-slate-400 mt-2.5">Reporter trust score: 88</p>
+                <p className="text-sm text-slate-400 mt-1 inline-flex items-center gap-1.5"><MapPin className="w-4 h-4" />Last seen: Oak Park</p>
+                <div className="mt-4 grid grid-cols-2 gap-2.5">
+                  <button className="px-4 py-3 rounded-xl bg-slate-700 text-sm font-semibold">View Case</button>
+                  <button className="px-4 py-3 rounded-xl bg-emerald-600 text-sm font-semibold">Add Sighting</button>
                 </div>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  <button className="px-3 py-2 rounded-lg bg-blue-600 text-xs font-black uppercase inline-flex items-center justify-center gap-1"><Eye className="w-3 h-3" />Verify</button>
-                  <button className="px-3 py-2 rounded-lg bg-zinc-700 text-xs font-black uppercase">Share</button>
+                <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+                  <button className="px-4 py-3 rounded-xl bg-blue-600 text-sm font-semibold inline-flex items-center justify-center gap-1.5"><Eye className="w-4 h-4" />Verify</button>
+                  <button className="px-4 py-3 rounded-xl bg-slate-700 text-sm font-semibold">Share</button>
                 </div>
               </div>
             </div>
