@@ -13,12 +13,14 @@ const GAME_COPY: Record<
   | 'investigateObserveIntelligent'
   | 'beaconCommunity'
   | 'safeReporting'
+  | 'takeTheWalkShareMoment'
   | 'silentObserver'
 > = {
   'investigation-network': 'investigationNetwork',
   'investigate-observe-intelligent': 'investigateObserveIntelligent',
   'beacon-community': 'beaconCommunity',
   'safe-reporting': 'safeReporting',
+  'take-the-walk-share-moment': 'takeTheWalkShareMoment',
   'silent-observer': 'silentObserver',
 };
 

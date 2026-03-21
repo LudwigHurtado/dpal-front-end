@@ -677,6 +677,13 @@ export const translations = {
         rules:
           "Stay safe first\nDo not confront anyone\nReport only what you observed\nPhotograph only when safe and lawful\nEmergencies still go to real responders",
       },
+      takeTheWalkShareMoment: {
+        title: "Take the walk & share the moment",
+        subtitle:
+          "Help seniors enjoy fresh air, companionship, and safe outdoor time—companion missions from prep to mission complete.",
+        rules:
+          "Follow facility guidance\nRespect mobility needs\nStay patient and warm\nKeep visits safe and supervised\nLog the visit accurately",
+      },
       silentObserver: {
         title: "Silent Observer",
         subtitle:
