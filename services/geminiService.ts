@@ -27,6 +27,7 @@ import {
   OFFLINE_TRAINING,
   OFFLINE_MISSION_TEMPLATES,
 } from "./offlineAiData";
+import { searchLiveIntelWithBrave, isBraveSearchEnabled } from "./braveSearchService";
 
 const FLASH_TEXT_MODEL = "gemini-3-flash-preview";
 
@@ -484,6 +485,15 @@ export async function analyzeIntelSource(intel: IntelItem): Promise<IntelAnalysi
 }
 
 export async function fetchLiveIntelligence(categories: Category[], location: string): Promise<any> {
+  try {
+    if (isBraveSearchEnabled()) {
+      const braveItems = await searchLiveIntelWithBrave(categories, location);
+      if (braveItems.length > 0) return braveItems;
+    }
+  } catch (error) {
+    console.warn("Brave search unavailable, falling back to existing intelligence provider.", error);
+  }
+
   if (!isAiEnabled()) return OFFLINE_INTEL;
   try {
     const ai = getAiClient();
