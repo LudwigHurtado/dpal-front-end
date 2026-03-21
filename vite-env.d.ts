@@ -11,6 +11,10 @@ interface ImportMetaEnv {
   readonly VITE_FEATURE_AUDIT_TRAIL?: 'true' | 'false';
   readonly VITE_FEATURE_BLOCKCHAIN_ANCHOR?: 'true' | 'false';
   readonly VITE_FEATURE_GOVERNANCE?: 'true' | 'false';
+  /** Optional external URLs for Society Game Hub minigames */
+  readonly VITE_GAME_URL_INVESTIGATION_NETWORK?: string;
+  readonly VITE_GAME_URL_BEACON_COMMUNITY?: string;
+  readonly VITE_GAME_URL_SAFE_REPORTING?: string;
 }
 
 interface ImportMeta {

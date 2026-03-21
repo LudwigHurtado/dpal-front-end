@@ -640,6 +640,37 @@ export const translations = {
         photo: "Photo",
         text: "Statement"
       }
+    },
+    gameHub: {
+      back: "Back",
+      badge: "Society games",
+      title: "DPAL Game Hub",
+      intro:
+        "Each experience teaches a real civic skill: follow the on-screen instructions, then open the game in a new tab when you are ready. Links are configured per environment.",
+      rulesHeading: "Ground rules",
+      enlargeHint: "Tap the poster to enlarge",
+      playGame: "Play game",
+      playOpensNewTab: "Opens in a new tab",
+      linkNotConfigured: "Play link not configured. Set the matching VITE_GAME_URL_* variable for this game.",
+      closeLightbox: "Close",
+      investigationNetwork: {
+        title: "Investigation network",
+        subtitle: "Expose hidden links, follow the money, and connect evidence like an accountability board.",
+        rules:
+          "Stay factual\nNo false accusations\nMark unverified claims clearly\nUse evidence, not guesses\nRespect privacy and legal limits",
+      },
+      beaconCommunity: {
+        title: "Beacon & community",
+        subtitle: "Spot danger, pin the map, set urgency, and let the community help verify.",
+        rules:
+          "Be accurate\nNo fake alarms\nPhotograph only when safe\nEmergencies still go to real responders\nUse the right category",
+      },
+      safeReporting: {
+        title: "See it. Record it. Report safely.",
+        subtitle: "Observe from a safe distance, capture facts, and submit when it is safe to do so.",
+        rules:
+          "Stay safe first\nDo not confront anyone\nReport only what you observed\nPhotograph only when safe and lawful\nEmergencies still go to real responders",
+      },
     }
   }
 };

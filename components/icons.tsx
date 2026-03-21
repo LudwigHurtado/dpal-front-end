@@ -54,6 +54,7 @@ export const ChevronDown = Icon(<polyline points="6 9 12 15 18 9" />);
 export const ChevronUp = Icon(<polyline points="18 15 12 9 6 15" />);
 export const Globe = Icon(<><circle cx="12" cy="12" r="10" /><line x1="2" x2="22" y1="12" y2="12" /><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" /></>);
 export const Maximize2 = Icon(<><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" x2="14" y1="3" y2="10" /><line x1="3" x2="10" y1="21" y2="14" /></>);
+export const ExternalLink = Icon(<><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" x2="21" y1="14" y2="3" /></>);
 export const Search = Icon(<><circle cx="11" cy="11" r="8" /><line x1="21" x2="16.65" y1="21" y2="16.65" /></>);
 export const Monitor = Icon(<><rect width="20" height="14" x="2" y="3" rx="2" /><line x1="8" x2="16" y1="21" y2="21" /><line x1="12" x2="12" y1="17" y2="21" /></>);
 export const Broadcast = Icon(<><path d="M7 11a5 5 0 0 1 10 0" /><path d="M2 11a10 10 0 0 1 20 0" /><circle cx="12" cy="12" r="1" /></>);
