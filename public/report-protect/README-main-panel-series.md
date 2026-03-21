@@ -24,6 +24,7 @@
    - `main-panel-investigate-observe-intelligent.png` (“Investigate, observe & report intelligently” corkboard)
    - `main-panel-take-the-walk-share-moment.png` (“Take the walk & share the moment” senior companion mission)
    - `main-panel-kitty-comfort-visits.png` (“Kitty Comfort Visits” therapeutic cat mission)
+   - `main-panel-clean-zone-restore-earth.png` (“Clean the zone & restore the earth” environmental cleanup)
 
 Add a new PNG to the folder, add its path to `images` in `main-panel-series.json`, commit, push.
 

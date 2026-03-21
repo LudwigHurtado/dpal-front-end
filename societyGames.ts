@@ -4,6 +4,7 @@ export type SocietyGameId =
   | 'investigation-network'
   | 'investigate-observe-intelligent'
   | 'beacon-community'
+  | 'clean-zone-restore-earth'
   | 'safe-reporting'
   | 'take-the-walk-share-moment'
   | 'kitty-comfort-visits'
@@ -29,6 +30,10 @@ export const SOCIETY_GAMES: SocietyGameDef[] = [
     instructionImageSrc: '/report-protect/main-panel-beacon-community-guide.png',
   },
   {
+    id: 'clean-zone-restore-earth',
+    instructionImageSrc: '/games/clean-zone-restore-earth.png',
+  },
+  {
     id: 'safe-reporting',
     instructionImageSrc: '/report-protect/main-panel-series-05-report-protect-mobile.png',
   },
@@ -51,6 +56,7 @@ export function getSocietyGamePlayUrl(id: SocietyGameId): string | undefined {
     'investigation-network': import.meta.env.VITE_GAME_URL_INVESTIGATION_NETWORK,
     'investigate-observe-intelligent': import.meta.env.VITE_GAME_URL_INVESTIGATE_OBSERVE_INTELLIGENT,
     'beacon-community': import.meta.env.VITE_GAME_URL_BEACON_COMMUNITY,
+    'clean-zone-restore-earth': import.meta.env.VITE_GAME_URL_CLEAN_ZONE_RESTORE_EARTH,
     'safe-reporting': import.meta.env.VITE_GAME_URL_SAFE_REPORTING,
     'take-the-walk-share-moment': import.meta.env.VITE_GAME_URL_TAKE_THE_WALK_SHARE_MOMENT,
     'kitty-comfort-visits': import.meta.env.VITE_GAME_URL_KITTY_COMFORT_VISITS,

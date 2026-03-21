@@ -671,6 +671,12 @@ export const translations = {
         rules:
           "Be accurate\nNo fake alarms\nPhotograph only when safe\nEmergencies still go to real responders\nUse the right category",
       },
+      cleanZoneRestoreEarth: {
+        title: "Clean the zone & restore the earth",
+        subtitle: "Pick a cleanup zone, document the change, and protect the environment—from before photos to verified impact.",
+        rules:
+          "Use approved public areas\nDo not handle hazardous waste\nProtect wildlife and plants\nUpload before and after proof\nWork safely and responsibly",
+      },
       safeReporting: {
         title: "See it. Record it. Report safely.",
         subtitle: "Observe from a safe distance, capture facts, and submit when it is safe to do so.",

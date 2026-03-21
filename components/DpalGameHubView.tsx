@@ -12,6 +12,7 @@ const GAME_COPY: Record<
   | 'investigationNetwork'
   | 'investigateObserveIntelligent'
   | 'beaconCommunity'
+  | 'cleanZoneRestoreEarth'
   | 'safeReporting'
   | 'takeTheWalkShareMoment'
   | 'kittyComfortVisits'
@@ -20,6 +21,7 @@ const GAME_COPY: Record<
   'investigation-network': 'investigationNetwork',
   'investigate-observe-intelligent': 'investigateObserveIntelligent',
   'beacon-community': 'beaconCommunity',
+  'clean-zone-restore-earth': 'cleanZoneRestoreEarth',
   'safe-reporting': 'safeReporting',
   'take-the-walk-share-moment': 'takeTheWalkShareMoment',
   'kitty-comfort-visits': 'kittyComfortVisits',

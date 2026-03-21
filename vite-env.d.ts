@@ -15,6 +15,7 @@ interface ImportMetaEnv {
   readonly VITE_GAME_URL_INVESTIGATION_NETWORK?: string;
   readonly VITE_GAME_URL_INVESTIGATE_OBSERVE_INTELLIGENT?: string;
   readonly VITE_GAME_URL_BEACON_COMMUNITY?: string;
+  readonly VITE_GAME_URL_CLEAN_ZONE_RESTORE_EARTH?: string;
   readonly VITE_GAME_URL_SAFE_REPORTING?: string;
   readonly VITE_GAME_URL_TAKE_THE_WALK_SHARE_MOMENT?: string;
   readonly VITE_GAME_URL_KITTY_COMFORT_VISITS?: string;
