@@ -11,6 +11,7 @@
 3. **Current carousel files** (see `main-panel-series.json` — this list should match your disk):
 
    - `main-panel-hero-ecosystem.png`
+   - `main-panel-beacon-community-guide.png` (“Drop the beacon & warn the community” guide)
    - `main-panel-series-01.png`
    - `main-panel-series-04-ecosystem.png`
    - `main-panel-series-05-report-protect-mobile.png`
@@ -18,7 +19,9 @@
    - `main-panel-series-07-mission-grid.png`
    - `main-panel-series-09-accountability-grid.png`
    - `main-panel-series-10-play-need-deed.png`
-   - `fdeb3576-b8bc-4d9e-a971-718d4dbb6f8b.png`
+   - `main-panel-missions-overview-2x2.png` (Locator Hunt, Beacon Drop, Clean Sweep, Memory Bridge)
+   - `main-panel-investigation-network-board.png` (“Expose the hidden links” / war-room evidence board)
+   - `main-panel-investigate-observe-intelligent.png` (“Investigate, observe & report intelligently” corkboard)
 
 Add a new PNG to the folder, add its path to `images` in `main-panel-series.json`, commit, push.
 
