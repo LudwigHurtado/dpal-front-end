@@ -671,6 +671,13 @@ export const translations = {
         rules:
           "Stay safe first\nDo not confront anyone\nReport only what you observed\nPhotograph only when safe and lawful\nEmergencies still go to real responders",
       },
+      silentObserver: {
+        title: "Silent Observer",
+        subtitle:
+          "See it, record it, report it safely: document real hazards from a distance, confirm location and time, set the level, and submit.",
+        rules:
+          "Keep your distance\nRecord only what you observe\nAccurate location and hazard details\nEmergencies still go to real responders\nChoose the right category and alert level",
+      },
     }
   }
 };

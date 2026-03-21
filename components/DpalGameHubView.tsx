@@ -7,10 +7,14 @@ interface DpalGameHubViewProps {
   onReturn: () => void;
 }
 
-const GAME_COPY: Record<SocietyGameId, 'investigationNetwork' | 'beaconCommunity' | 'safeReporting'> = {
+const GAME_COPY: Record<
+  SocietyGameId,
+  'investigationNetwork' | 'beaconCommunity' | 'safeReporting' | 'silentObserver'
+> = {
   'investigation-network': 'investigationNetwork',
   'beacon-community': 'beaconCommunity',
   'safe-reporting': 'safeReporting',
+  'silent-observer': 'silentObserver',
 };
 
 const DpalGameHubView: React.FC<DpalGameHubViewProps> = ({ onReturn }) => {

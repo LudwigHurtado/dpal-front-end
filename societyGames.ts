@@ -1,6 +1,10 @@
 /** Society-impact minigames: instruction art lives in /public; play URLs are optional env-based. */
 
-export type SocietyGameId = 'investigation-network' | 'beacon-community' | 'safe-reporting';
+export type SocietyGameId =
+  | 'investigation-network'
+  | 'beacon-community'
+  | 'safe-reporting'
+  | 'silent-observer';
 
 export interface SocietyGameDef {
   id: SocietyGameId;
@@ -21,6 +25,10 @@ export const SOCIETY_GAMES: SocietyGameDef[] = [
     id: 'safe-reporting',
     instructionImageSrc: '/report-protect/main-panel-series-05-report-protect-mobile.png',
   },
+  {
+    id: 'silent-observer',
+    instructionImageSrc: '/games/silent-observer-instructions.png',
+  },
 ];
 
 export function getSocietyGamePlayUrl(id: SocietyGameId): string | undefined {
@@ -28,6 +36,7 @@ export function getSocietyGamePlayUrl(id: SocietyGameId): string | undefined {
     'investigation-network': import.meta.env.VITE_GAME_URL_INVESTIGATION_NETWORK,
     'beacon-community': import.meta.env.VITE_GAME_URL_BEACON_COMMUNITY,
     'safe-reporting': import.meta.env.VITE_GAME_URL_SAFE_REPORTING,
+    'silent-observer': import.meta.env.VITE_GAME_URL_SILENT_OBSERVER,
   };
   const u = raw[id]?.trim();
   return u || undefined;

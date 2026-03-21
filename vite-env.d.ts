@@ -15,6 +15,7 @@ interface ImportMetaEnv {
   readonly VITE_GAME_URL_INVESTIGATION_NETWORK?: string;
   readonly VITE_GAME_URL_BEACON_COMMUNITY?: string;
   readonly VITE_GAME_URL_SAFE_REPORTING?: string;
+  readonly VITE_GAME_URL_SILENT_OBSERVER?: string;
 }
 
 interface ImportMeta {
