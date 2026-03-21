@@ -14,6 +14,7 @@ const GAME_COPY: Record<
   | 'beaconCommunity'
   | 'safeReporting'
   | 'takeTheWalkShareMoment'
+  | 'kittyComfortVisits'
   | 'silentObserver'
 > = {
   'investigation-network': 'investigationNetwork',
@@ -21,6 +22,7 @@ const GAME_COPY: Record<
   'beacon-community': 'beaconCommunity',
   'safe-reporting': 'safeReporting',
   'take-the-walk-share-moment': 'takeTheWalkShareMoment',
+  'kitty-comfort-visits': 'kittyComfortVisits',
   'silent-observer': 'silentObserver',
 };
 

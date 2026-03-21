@@ -684,6 +684,13 @@ export const translations = {
         rules:
           "Follow facility guidance\nRespect mobility needs\nStay patient and warm\nKeep visits safe and supervised\nLog the visit accurately",
       },
+      kittyComfortVisits: {
+        title: "Kitty Comfort Visits",
+        subtitle:
+          "Bring calm, soft paws, and comfort—gentle therapeutic cat visits that soothe, connect, and brighten the day.",
+        rules:
+          "Use approved calm cats only\nNever force interaction\nKeep the environment quiet\nFollow mission and facility guidance\nLog responses, mood, and outcomes accurately",
+      },
       silentObserver: {
         title: "Silent Observer",
         subtitle:

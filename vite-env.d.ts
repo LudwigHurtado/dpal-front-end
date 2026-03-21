@@ -17,6 +17,7 @@ interface ImportMetaEnv {
   readonly VITE_GAME_URL_BEACON_COMMUNITY?: string;
   readonly VITE_GAME_URL_SAFE_REPORTING?: string;
   readonly VITE_GAME_URL_TAKE_THE_WALK_SHARE_MOMENT?: string;
+  readonly VITE_GAME_URL_KITTY_COMFORT_VISITS?: string;
   readonly VITE_GAME_URL_SILENT_OBSERVER?: string;
 }
 

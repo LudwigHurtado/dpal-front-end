@@ -6,6 +6,7 @@ export type SocietyGameId =
   | 'beacon-community'
   | 'safe-reporting'
   | 'take-the-walk-share-moment'
+  | 'kitty-comfort-visits'
   | 'silent-observer';
 
 export interface SocietyGameDef {
@@ -36,6 +37,10 @@ export const SOCIETY_GAMES: SocietyGameDef[] = [
     instructionImageSrc: '/games/take-the-walk-share-moment.png',
   },
   {
+    id: 'kitty-comfort-visits',
+    instructionImageSrc: '/games/kitty-comfort-visits.png',
+  },
+  {
     id: 'silent-observer',
     instructionImageSrc: '/games/silent-observer-instructions.png',
   },
@@ -48,6 +53,7 @@ export function getSocietyGamePlayUrl(id: SocietyGameId): string | undefined {
     'beacon-community': import.meta.env.VITE_GAME_URL_BEACON_COMMUNITY,
     'safe-reporting': import.meta.env.VITE_GAME_URL_SAFE_REPORTING,
     'take-the-walk-share-moment': import.meta.env.VITE_GAME_URL_TAKE_THE_WALK_SHARE_MOMENT,
+    'kitty-comfort-visits': import.meta.env.VITE_GAME_URL_KITTY_COMFORT_VISITS,
     'silent-observer': import.meta.env.VITE_GAME_URL_SILENT_OBSERVER,
   };
   const u = raw[id]?.trim();
