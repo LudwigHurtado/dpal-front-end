@@ -9,9 +9,14 @@ interface DpalGameHubViewProps {
 
 const GAME_COPY: Record<
   SocietyGameId,
-  'investigationNetwork' | 'beaconCommunity' | 'safeReporting' | 'silentObserver'
+  | 'investigationNetwork'
+  | 'investigateObserveIntelligent'
+  | 'beaconCommunity'
+  | 'safeReporting'
+  | 'silentObserver'
 > = {
   'investigation-network': 'investigationNetwork',
+  'investigate-observe-intelligent': 'investigateObserveIntelligent',
   'beacon-community': 'beaconCommunity',
   'safe-reporting': 'safeReporting',
   'silent-observer': 'silentObserver',

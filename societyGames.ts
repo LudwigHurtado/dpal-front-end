@@ -2,6 +2,7 @@
 
 export type SocietyGameId =
   | 'investigation-network'
+  | 'investigate-observe-intelligent'
   | 'beacon-community'
   | 'safe-reporting'
   | 'silent-observer';
@@ -16,6 +17,10 @@ export const SOCIETY_GAMES: SocietyGameDef[] = [
   {
     id: 'investigation-network',
     instructionImageSrc: '/report-protect/main-panel-investigation-network-board.png',
+  },
+  {
+    id: 'investigate-observe-intelligent',
+    instructionImageSrc: '/games/investigate-observe-intelligent.png',
   },
   {
     id: 'beacon-community',
@@ -34,6 +39,7 @@ export const SOCIETY_GAMES: SocietyGameDef[] = [
 export function getSocietyGamePlayUrl(id: SocietyGameId): string | undefined {
   const raw: Record<SocietyGameId, string | undefined> = {
     'investigation-network': import.meta.env.VITE_GAME_URL_INVESTIGATION_NETWORK,
+    'investigate-observe-intelligent': import.meta.env.VITE_GAME_URL_INVESTIGATE_OBSERVE_INTELLIGENT,
     'beacon-community': import.meta.env.VITE_GAME_URL_BEACON_COMMUNITY,
     'safe-reporting': import.meta.env.VITE_GAME_URL_SAFE_REPORTING,
     'silent-observer': import.meta.env.VITE_GAME_URL_SILENT_OBSERVER,

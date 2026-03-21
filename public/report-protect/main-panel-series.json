@@ -1,6 +1,7 @@
 {
   "images": [
     "/report-protect/main-panel-hero-ecosystem.png",
+    "/report-protect/main-panel-beacon-community-guide.png",
     "/report-protect/main-panel-series-01.png",
     "/report-protect/main-panel-series-04-ecosystem.png",
     "/report-protect/main-panel-series-05-report-protect-mobile.png",
@@ -8,6 +9,8 @@
     "/report-protect/main-panel-series-07-mission-grid.png",
     "/report-protect/main-panel-series-09-accountability-grid.png",
     "/report-protect/main-panel-series-10-play-need-deed.png",
-    "/report-protect/fdeb3576-b8bc-4d9e-a971-718d4dbb6f8b.png"
+    "/report-protect/main-panel-missions-overview-2x2.png",
+    "/report-protect/main-panel-investigation-network-board.png",
+    "/report-protect/main-panel-investigate-observe-intelligent.png"
   ]
 }

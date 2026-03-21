@@ -659,6 +659,12 @@ export const translations = {
         rules:
           "Stay factual\nNo false accusations\nMark unverified claims clearly\nUse evidence, not guesses\nRespect privacy and legal limits",
       },
+      investigateObserveIntelligent: {
+        title: "Investigate, observe & report intelligently",
+        subtitle: "Gather evidence, stay alert, and help uncover the facts—from inquiry to analysis.",
+        rules:
+          "Be discreet\nCheck your facts\nAvoid assumptions\nRespect privacy\nShare only verified information",
+      },
       beaconCommunity: {
         title: "Beacon & community",
         subtitle: "Spot danger, pin the map, set urgency, and let the community help verify.",
