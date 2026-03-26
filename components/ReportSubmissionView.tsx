@@ -24,6 +24,11 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.Allergies]: '/category-cards/allergies.png',
         [Category.CivicDuty]: '/category-cards/civic-duty.png',
         [Category.Clergy]: '/category-cards/clergy.png',
+        [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
+        [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
+        [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
+        [Category.HousingIssues]: '/category-cards/housing-issues.png',
+        [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
     };
     const imageUrl = categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`;
 

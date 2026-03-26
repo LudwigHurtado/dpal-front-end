@@ -71,6 +71,10 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.MedicalEmergencies, translationKey: "categories.medicalEmergencies", icon: "🚑", imageSeed: "emergency-room-busy", headline: "Medical Emergencies" },
   { value: Category.FireEnvironmentalHazards, translationKey: "categories.fireEnvironmentalHazards", icon: "🔥", imageSeed: "forest-fire-smoke-plume", headline: "Fire & Environmental Hazards" },
   { value: Category.PublicSafetyAlerts, translationKey: "categories.publicSafetyAlerts", icon: "⚠️", imageSeed: "public-safety-warning-sign", headline: "Public Safety Alerts" },
+  { value: Category.MarketplaceOnlineSalesIssues, translationKey: "categories.marketplaceOnlineSalesIssues", icon: "🛒", imageSeed: "online-marketplace-delivery-box", headline: "Marketplace & Online Sales Issues" },
+  { value: Category.MarketplaceTransactionsEscrow, translationKey: "categories.marketplaceTransactionsEscrow", icon: "🤝", imageSeed: "p2p-escrow-exchange-handoff", headline: "Marketplace Transactions (Escrow)" },
+  { value: Category.StolenPropertyRegistry, translationKey: "categories.stolenPropertyRegistry", icon: "🔒", imageSeed: "stolen-property-registry-police-ledger", headline: "Stolen Property Registry" },
+  { value: Category.HousingIssues, translationKey: "categories.housingIssues", icon: "🏚️", imageSeed: "unsafe-housing-repair-violation", headline: "Housing Issues" },
   { value: Category.P2PEscrowVerification, translationKey: "categories.p2pEscrowVerification", icon: "🤝", imageSeed: "digital-contract-signature-secure", headline: "P2P Escrow & Document Verification" },
   { value: Category.ProofOfLifeBiometric, translationKey: "categories.proofOfLifeBiometric", icon: "🧬", imageSeed: "biometric-fingerprint-face-scan", headline: "Proof of Life & Biometric Verification" },
 ].sort((a, b) => a.value.localeCompare(b.value));
@@ -242,6 +246,51 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
                 { id: "SCM_DD_02", section: "Evidence & Chain-of-Custody", label: "Evidence Type", required: false, answer_type: "multi_select", options: ["Screenshots", "Emails", "Transaction proof", "Call recording", "None"] }
             ]
         },
+        [Category.MarketplaceOnlineSalesIssues]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "MKT_01", section: "Event Context", label: "Marketplace platform", required: true, answer_type: "single_select", options: ["Facebook Marketplace", "Craigslist", "eBay", "OfferUp", "Mercari", "Other"], institutional_value_tag: "financial_fraud" },
+                { id: "MKT_02", section: "Trade Context", label: "Issue type", required: true, answer_type: "single_select", options: ["Item never delivered", "Wrong item", "Counterfeit item", "Item not as described", "Seller disappeared", "Payment issue", "Other"], institutional_value_tag: "audit" },
+                { id: "MKT_03", section: "Trade Context", label: "Transaction stage", required: true, answer_type: "single_select", options: ["Pre-payment", "Paid not shipped", "In transit", "Delivered disputed", "In-person handoff"], institutional_value_tag: "audit" },
+                { id: "MKT_04", section: "Payment", label: "Payment method", required: true, answer_type: "single_select", options: ["Card", "Bank transfer", "Cash", "Payment app", "Crypto", "Other"], institutional_value_tag: "financial_fraud" },
+                { id: "MKT_05", section: "Impact & Severity", label: "Loss range", required: true, answer_type: "single_select", options: ["None", "<$100", "$100-$500", "$500-$5k", "$5k+", "Unknown"], institutional_value_tag: "financial_fraud" },
+                { id: "MKT_06", section: "Evidence & Chain-of-Custody", label: "Proof available", required: true, answer_type: "multi_select", options: ["Listing screenshot", "Chat logs", "Payment receipt", "Shipping label/tracking", "Item photos", "None"], institutional_value_tag: "audit" }
+            ],
+            deep_dive_questions: [
+                { id: "MKT_DD_01", section: "Actor Role & System Involved", label: "Seller identity confidence", required: false, answer_type: "single_select", options: ["Verified profile", "Likely real", "Suspicious", "Unknown"] },
+                { id: "MKT_DD_02", section: "Actions Taken / Notifications", label: "Platform report submitted?", required: false, answer_type: "single_select", options: ["Yes", "No", "In progress"] }
+            ]
+        },
+        [Category.MarketplaceTransactionsEscrow]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "MKE_01", section: "Trade Context", label: "Escrow flow stage", required: true, answer_type: "single_select", options: ["Deal created", "Funded", "Inspection period", "Release requested", "Dispute opened"], institutional_value_tag: "audit" },
+                { id: "MKE_02", section: "Item Details", label: "Item class", required: true, answer_type: "single_select", options: ["Electronics", "Vehicle", "Tools", "Jewelry", "Collectible", "Business equipment", "Other"], institutional_value_tag: "audit" },
+                { id: "MKE_03", section: "Item Details", label: "Ownership proof type", required: true, answer_type: "multi_select", options: ["Receipt", "Serial number", "Transfer document", "Warranty/registration", "No proof"], institutional_value_tag: "regulatory" },
+                { id: "MKE_04", section: "Verification", label: "Identity verification level", required: true, answer_type: "single_select", options: ["Basic", "ID verified", "Biometric verified", "Unknown"], institutional_value_tag: "safety" },
+                { id: "MKE_05", section: "Impact & Severity", label: "Current escrow risk", required: true, answer_type: "single_select", options: ["No risk", "Mismatch in evidence", "Ownership conflict", "Fraud suspected", "High risk"], institutional_value_tag: "financial_fraud" },
+                { id: "MKE_06", section: "Evidence & Chain-of-Custody", label: "Transfer evidence attached", required: true, answer_type: "multi_select", options: ["Handoff photos", "Condition photos", "Packaging photos", "Video proof", "Digital signatures", "None"], institutional_value_tag: "audit" }
+            ],
+            deep_dive_questions: [
+                { id: "MKE_DD_01", section: "Dispute", label: "Dispute reason", required: false, answer_type: "single_select", options: ["Non-delivery", "Condition mismatch", "Ownership dispute", "Fraud identity", "Payment mismatch", "Other"] },
+                { id: "MKE_DD_02", section: "Actions Taken / Notifications", label: "Resolution path", required: false, answer_type: "single_select", options: ["Release", "Partial refund", "Return & refund", "Escalated review"] }
+            ]
+        },
+        [Category.StolenPropertyRegistry]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "SPR_01", section: "Event Context", label: "Report intent", required: true, answer_type: "single_select", options: ["Report stolen item", "Check before purchase", "Claim ownership", "Dispute ownership"], institutional_value_tag: "regulatory" },
+                { id: "SPR_02", section: "Item Details", label: "Property type", required: true, answer_type: "single_select", options: ["Phone/electronics", "Vehicle", "Tool", "Jewelry", "Collectible", "Business equipment", "Other"], institutional_value_tag: "audit" },
+                { id: "SPR_03", section: "Item Details", label: "Identifier available", required: true, answer_type: "multi_select", options: ["Serial number", "IMEI/VIN", "Unique marks", "Prior receipt", "Photos", "No identifier"], institutional_value_tag: "audit" },
+                { id: "SPR_04", section: "Actor Role & System Involved", label: "Ownership status", required: true, answer_type: "single_select", options: ["Original owner", "Current possessor", "Potential buyer", "Witness/third party"], institutional_value_tag: "regulatory" },
+                { id: "SPR_05", section: "Actions Taken / Notifications", label: "Official report status", required: true, answer_type: "single_select", options: ["Police report filed", "Insurance claim filed", "Both filed", "Not filed", "Unknown"], institutional_value_tag: "regulatory" },
+                { id: "SPR_06", section: "Impact & Severity", label: "Registry flag recommendation", required: true, answer_type: "single_select", options: ["Lost", "Stolen", "Disputed ownership", "Recovered", "Clear"], institutional_value_tag: "audit" }
+            ],
+            deep_dive_questions: [
+                { id: "SPR_DD_01", section: "Evidence & Chain-of-Custody", label: "Chain-of-custody proof", required: false, answer_type: "multi_select", options: ["Purchase receipt", "Transfer receipt", "Witness", "Repair records", "Photo timeline", "None"] },
+                { id: "SPR_DD_02", section: "Actions Taken / Notifications", label: "Need immediate hold alert?", required: false, answer_type: "single_select", options: ["Yes", "No", "Unsure"] }
+            ]
+        },
         [Category.Education]: {
             core_questions: [
                 ...GLOBAL_CORE,
@@ -317,6 +366,21 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             deep_dive_questions: [
                 { id: "HSG_DD_01", section: "Impact & Severity", label: "Displacement risk", required: false, answer_type: "single_select", options: ["No", "Threatened", "Evicted", "Unknown"] },
                 { id: "HSG_DD_02", section: "Evidence & Chain-of-Custody", label: "Evidence Type", required: false, answer_type: "multi_select", options: ["Photos", "Repair requests", "Inspections", "Medical notes", "None"] }
+            ]
+        },
+        [Category.HousingIssues]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "HSI_01", section: "Actor Role & System Involved", label: "Role", required: true, answer_type: "single_select", options: ["Tenant", "Owner", "Neighbor", "Inspector", "Other"], institutional_value_tag: "regulatory" },
+                { id: "HSI_02", section: "Failure Mechanism", label: "Issue category", required: true, answer_type: "multi_select", options: ["Unsafe wiring", "Water leak/mold", "No heat/AC", "Pests", "Structural damage", "Security/locks", "Sanitation", "Other"], institutional_value_tag: "safety" },
+                { id: "HSI_03", section: "Impact & Severity", label: "Urgency", required: true, answer_type: "single_select", options: ["Low", "Medium", "High", "Immediate danger"], institutional_value_tag: "public_health" },
+                { id: "HSI_04", section: "Actions Taken / Notifications", label: "Landlord/manager notified", required: true, answer_type: "single_select", options: ["Yes written", "Yes verbal", "No", "Unknown"], institutional_value_tag: "audit" },
+                { id: "HSI_05", section: "Actions Taken / Notifications", label: "Authority notified", required: true, answer_type: "single_select", options: ["Housing authority", "Code enforcement", "Legal aid", "No", "Unknown"], institutional_value_tag: "regulatory" },
+                { id: "HSI_06", section: "Impact & Severity", label: "Residents at risk", required: true, answer_type: "multi_select", options: ["Children", "Elderly", "Disabled", "Pregnant", "None", "Unknown"], institutional_value_tag: "safety" }
+            ],
+            deep_dive_questions: [
+                { id: "HSI_DD_01", section: "Impact & Severity", label: "Displacement risk", required: false, answer_type: "single_select", options: ["No", "Potential", "Already displaced", "Unknown"] },
+                { id: "HSI_DD_02", section: "Evidence & Chain-of-Custody", label: "Evidence bundle", required: false, answer_type: "multi_select", options: ["Photos", "Inspection reports", "Medical notes", "Repair requests", "None"] }
             ]
         },
         [Category.Infrastructure]: {
