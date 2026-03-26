@@ -49,6 +49,7 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
   [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
   [Category.Environment]: '/category-cards/environment.png',
+  [Category.WaterViolations]: '/category-cards/water-related.png',
   [Category.HousingIssues]: '/category-cards/housing-issues.png',
   [Category.Infrastructure]: '/category-cards/infrastructure.png',
   [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',

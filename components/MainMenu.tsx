@@ -174,7 +174,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 {(() => {
                     const TILE_IMAGES: Record<string, string> = {
                         FILE_A_REPORT: '/main-screen/file-a-report.png',
-                        REPORT_DASHBOARD: '/main-screen/report-dashboard.png',
+                        REPORT_DASHBOARD: '/main-screen/dashboard.png',
                         PUBLIC_LEDGER: '/main-screen/public-ledger.png',
                         MY_REPORTS: '/main-screen/my-reports.png',
                         FIELD_MISSIONS: '/main-screen/field-missions.png',
@@ -215,7 +215,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Open the new reporting command dashboard"
                     status="NEW"
                     colorClass="cyan"
-                    bgImageUrl="/main-screen/report-dashboard.png"
+                    bgImageUrl="/main-screen/dashboard.png"
                     onClick={() => onNavigate('reportDashboard')}
                 />
 

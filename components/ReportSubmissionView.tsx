@@ -36,6 +36,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
         [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
         [Category.Environment]: '/category-cards/environment.png',
+        [Category.WaterViolations]: '/category-cards/water-related.png',
         [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',
         [Category.Infrastructure]: '/category-cards/infrastructure.png',
         [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
