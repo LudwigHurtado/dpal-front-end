@@ -141,52 +141,78 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-                            {!hiddenCategoryImages[cat.value] && (
-                                <img
-                                    src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
-                                    alt=""
-                                    className="absolute left-0 right-0 bottom-32 top-24 w-full h-full object-contain p-0 opacity-100 transition-opacity"
-                                    onError={() =>
-                                        setHiddenCategoryImages((prev) => ({
-                                            ...prev,
-                                            [cat.value]: true,
-                                        }))
-                                    }
-                                />
-                            )}
+                            {/* HERO IMAGE REGION (kept separate from buttons so it never gets covered) */}
+                            <div className="relative flex-1 min-h-[140px]">
+                                {!hiddenCategoryImages[cat.value] && (
+                                    <img
+                                        src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
+                                        alt=""
+                                        className="absolute inset-0 w-full h-full object-contain p-0 opacity-100 transition-opacity"
+                                        onError={() =>
+                                            setHiddenCategoryImages((prev) => ({
+                                                ...prev,
+                                                [cat.value]: true,
+                                            }))
+                                        }
+                                    />
+                                )}
 
-                            {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
-                                <div
-                                    className="absolute left-0 right-0 bottom-32 top-24 opacity-35 group-hover:opacity-45 transition-opacity"
-                                    style={{
-                                        backgroundImage: `url(${SPRITE_SRC})`,
-                                        backgroundSize: '300% 200%',
-                                        backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
-                                        backgroundRepeat: 'no-repeat',
-                                    }}
-                                />
-                            )}
-                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
-                            
-                            {/* Icon-only header so it doesn't overlap baked-in image text */}
-                            <div className="absolute top-8 left-0 right-0 flex justify-center z-10 pointer-events-none">
-                                <div className="text-6xl transition-transform duration-500 group-hover:scale-110">
-                                    {cat.icon}
+                                {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
+                                    <div
+                                        className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
+                                        style={{
+                                            backgroundImage: `url(${SPRITE_SRC})`,
+                                            backgroundSize: '300% 200%',
+                                            backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
+                                            backgroundRepeat: 'no-repeat',
+                                        }}
+                                    />
+                                )}
+
+                                <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
+
+                                {/* Icon-only header so it doesn't overlap baked-in image text */}
+                                <div className="absolute top-0 left-0 right-0 flex justify-center z-10 pointer-events-none pt-2">
+                                    <div className="text-6xl transition-transform duration-500 group-hover:scale-110">
+                                        {cat.icon}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div className="mt-auto space-y-3 relative z-10">
+                            {/* ACTION BUTTONS (below the hero region, so they cannot cover the image) */}
+                            <div className="mt-6 space-y-3 relative z-10">
                                  <button
                                     onClick={() => onSelectCategory(cat.value)}
                                     className="w-full flex items-center justify-center bg-white text-black font-black py-4 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg"
                                 >
                                     <span className="sr-only">FILE_REPORT</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">FILE_REPORT</span>
                                 </button>
+                                <button
+                                    onClick={() => onSelectMissions(cat.value)}
+                                    className="hidden"
+                                >
+                                    <span className="sr-only">TACTICAL_MISSIONS</span>
+                                </button>
+
+                                {/* Tactical missions buttons (3 actions) */}
                                 <button
                                     onClick={() => onSelectMissions(cat.value)}
                                     className="w-full flex items-center justify-center bg-cyan-600 text-white font-black py-4 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
                                 >
-                                    <span className="sr-only">TACTICAL_MISSIONS</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">WORK_ON_IT</span>
+                                </button>
+                                <button
+                                    onClick={() => onSelectMissions(cat.value)}
+                                    className="w-full flex items-center justify-center bg-cyan-500/70 text-white font-black py-4 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
+                                >
+                                    <span className="text-[10px] font-black uppercase tracking-widest">PLAY</span>
+                                </button>
+                                <button
+                                    onClick={() => onSelectMissions(cat.value)}
+                                    className="w-full flex items-center justify-center bg-emerald-600 text-white font-black py-4 px-4 rounded-2xl hover:bg-emerald-500 transition-all shadow-lg"
+                                >
+                                    <span className="text-[10px] font-black uppercase tracking-widest">EARN</span>
                                 </button>
                             </div>
                         </div>
