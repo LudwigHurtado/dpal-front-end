@@ -3,7 +3,7 @@ import React, { useState, useMemo } from 'react';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { Category } from '../types';
 import { useTranslations } from '../i18n';
-import { ArrowLeft, ShieldCheck, Megaphone, Zap, Search, X, AlertTriangle } from './icons';
+import { ArrowLeft, ShieldCheck, Search, X, AlertTriangle } from './icons';
 
 interface CategorySelectionViewProps {
   onSelectCategory: (category: Category) => void;
@@ -141,8 +141,15 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-                            {/* HERO IMAGE REGION (kept separate from buttons so it never gets covered) */}
-                            <div className="relative flex-1 min-h-[140px]">
+                            {/* ICON (above image so it never blocks/covers baked-in art text) */}
+                            <div className="relative z-10 flex items-start justify-center pt-1 pb-3">
+                                <div className="text-6xl transition-transform duration-500 group-hover:scale-110">
+                                    {cat.icon}
+                                </div>
+                            </div>
+
+                            {/* HERO IMAGE REGION (separate from buttons) */}
+                            <div className="relative flex-1 min-h-[120px]">
                                 {!hiddenCategoryImages[cat.value] && (
                                     <img
                                         src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
@@ -170,49 +177,21 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                 )}
 
                                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
-
-                                {/* Icon-only header so it doesn't overlap baked-in image text */}
-                                <div className="absolute top-0 left-0 right-0 flex justify-center z-10 pointer-events-none pt-2">
-                                    <div className="text-6xl transition-transform duration-500 group-hover:scale-110">
-                                        {cat.icon}
-                                    </div>
-                                </div>
                             </div>
 
-                            {/* ACTION BUTTONS (below the hero region, so they cannot cover the image) */}
-                            <div className="mt-6 space-y-3 relative z-10">
-                                 <button
+                            {/* ACTION BUTTONS (only 2 actions, so layout feels strong) */}
+                            <div className="mt-6 flex gap-3 relative z-10">
+                                <button
                                     onClick={() => onSelectCategory(cat.value)}
-                                    className="w-full flex items-center justify-center bg-white text-black font-black py-4 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg"
+                                    className="flex-[1.4] w-full flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg"
                                 >
-                                    <span className="sr-only">FILE_REPORT</span>
                                     <span className="text-[10px] font-black uppercase tracking-widest">FILE_REPORT</span>
                                 </button>
                                 <button
                                     onClick={() => onSelectMissions(cat.value)}
-                                    className="hidden"
+                                    className="flex-[1] w-full flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
                                 >
-                                    <span className="sr-only">TACTICAL_MISSIONS</span>
-                                </button>
-
-                                {/* Tactical missions buttons (3 actions) */}
-                                <button
-                                    onClick={() => onSelectMissions(cat.value)}
-                                    className="w-full flex items-center justify-center bg-cyan-600 text-white font-black py-4 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-widest">WORK_ON_IT</span>
-                                </button>
-                                <button
-                                    onClick={() => onSelectMissions(cat.value)}
-                                    className="w-full flex items-center justify-center bg-cyan-500/70 text-white font-black py-4 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-widest">PLAY</span>
-                                </button>
-                                <button
-                                    onClick={() => onSelectMissions(cat.value)}
-                                    className="w-full flex items-center justify-center bg-emerald-600 text-white font-black py-4 px-4 rounded-2xl hover:bg-emerald-500 transition-all shadow-lg"
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-widest">EARN</span>
+                                    <span className="text-[10px] font-black uppercase tracking-widest">TACTICAL_MISSIONS</span>
                                 </button>
                             </div>
                         </div>
