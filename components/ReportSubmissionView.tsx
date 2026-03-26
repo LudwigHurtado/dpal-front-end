@@ -161,14 +161,17 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
             {/* Header */}
             {isAccidents ? (
                 <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
-                    <div
-                        className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-                        style={{ backgroundImage: `url(${imageUrl})` }}
-                    />
-                    <div className="relative h-full p-6 md:p-8 flex items-start">
+                    {/* BACKGROUND IMAGE */}
+                    <img src={imageUrl} alt="" draggable={false} className="absolute inset-0 w-full h-full object-contain" />
+
+                    {/* DARK OVERLAY */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20" />
+
+                    {/* CONTENT (inside hero) */}
+                    <div className="absolute inset-0 z-10 p-6 md:p-8 flex items-start">
                         <button
                             onClick={onReturn}
-                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-white bg-black/50 hover:bg-black/60 transition-colors px-5 py-2 rounded-2xl border border-white/10 backdrop-blur"
+                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-white bg-black/50 px-5 py-2 rounded-2xl border border-white/10 backdrop-blur"
                         >
                             <ArrowLeft className="w-5 h-5" />
                             <span>Back</span>
@@ -176,42 +179,52 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                     </div>
                 </div>
             ) : (
-                <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl group">
-                    <div 
-                        className="absolute inset-0 bg-contain bg-center bg-no-repeat"
-                        style={{ backgroundImage: `url(${imageUrl})` }}
-                    ></div>
-                    
-                    <div className="relative h-full flex flex-col justify-between p-10 md:p-16">
-                        <button
-                            onClick={onReturn}
-                            className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 hover:text-cyan-300 transition-colors group bg-black/60 w-fit px-8 py-2 rounded-full border border-cyan-500/20 backdrop-blur-md"
-                        >
-                            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-2" />
-                            <span>Back</span>
-                        </button>
+                <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
+                    {/* BACKGROUND IMAGE */}
+                    <img src={imageUrl} alt="" draggable={false} className="absolute inset-0 w-full h-full object-contain" />
 
-                        <div className="flex items-end space-x-10">
-                            <div className="p-6 bg-cyan-950/60 border-2 border-cyan-500/40 rounded-[2.5rem] text-6xl shadow-[0_0_60px_rgba(6,182,212,0.3)] flex-shrink-0 backdrop-blur-xl transition-transform group-hover:scale-110 duration-700">
-                                {categoryInfo.icon}
+                    {/* DARK OVERLAY */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20 pointer-events-none" />
+
+                    {/* CONTENT (inside hero) */}
+                    <div className="absolute inset-0 z-10 flex items-center px-6 md:px-10">
+                        <div className="flex items-center space-x-6">
+                            {/* ICON */}
+                            <div className="bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-5 backdrop-blur-xl flex-shrink-0">
+                                <span className="text-4xl md:text-5xl leading-none">{categoryInfo.icon}</span>
                             </div>
-                            <div className="pb-2">
-                                <h2 className="text-xs font-black uppercase tracking-[0.6em] text-cyan-500 mb-3">File a report</h2>
-                                <p className="text-4xl md:text-6xl font-black uppercase tracking-tighter leading-none text-white drop-shadow-2xl">
+
+                            {/* TEXT */}
+                            <div>
+                                <p className="text-cyan-400 text-xs tracking-widest mb-1">FILE A REPORT</p>
+                                <h2 className="text-white text-2xl md:text-4xl font-black leading-tight uppercase">
                                     {categoryInfo.headline}
-                                </p>
+                                </h2>
                             </div>
                         </div>
+                    </div>
+
+                    {/* BACK BUTTON */}
+                    <div className="absolute top-6 left-6 z-20">
+                        <button
+                            onClick={onReturn}
+                            className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 bg-black/60 w-fit px-6 py-2 rounded-full border border-cyan-500/20 backdrop-blur-md"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                            <span>Back</span>
+                        </button>
                     </div>
                 </div>
             )}
 
             {/* Redesigned Submission Flow */}
-            <SubmissionPanel 
-                addReport={addReport} 
-                preselectedCategory={category} 
-                prefilledDescription={prefilledDescription} 
-            />
+            <div className="mt-8 md:mt-10">
+                <SubmissionPanel
+                    addReport={addReport}
+                    preselectedCategory={category}
+                    prefilledDescription={prefilledDescription}
+                />
+            </div>
 
             {/* Bottom Metadata Shards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
