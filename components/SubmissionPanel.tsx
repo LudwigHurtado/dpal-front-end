@@ -70,7 +70,6 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   const locationAutocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const [locationMapStatus, setLocationMapStatus] = useState<'idle' | 'loading' | 'ready' | 'missing_key' | 'error'>('idle');
   const [locationMapErrorDetail, setLocationMapErrorDetail] = useState<string | null>(null);
-  const locationMapInitializedRef = useRef(false);
 
   const schema = useMemo(() => {
     if (!category) return null;
@@ -146,14 +145,19 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   useEffect(() => {
     // Preload Google Maps in the background for faster Location step.
     // Uses the same injected script path as Locator.
+    // Do not set UI error state here; only the visible map step should do that.
     if (!category) return;
-    if (locationMapStatus === 'ready' || locationMapStatus === 'loading') return;
-    void loadGoogleMaps().catch((e: any) => {
-      const msg = String(e?.message || e || 'unknown');
-      setLocationMapErrorDetail(msg);
-      setLocationMapStatus(msg === 'missing_google_maps_key' ? 'missing_key' : 'error');
-    });
+    void loadGoogleMaps().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
+  useEffect(() => {
+    // Category changes should always get a fresh map initialization path.
+    locationMapRef.current = null;
+    locationMarkerRef.current = null;
+    locationAutocompleteRef.current = null;
+    setLocationMapStatus('idle');
+    setLocationMapErrorDetail(null);
   }, [category]);
 
   const markerIconUrl = (kind: typeof markerKind): string => {
@@ -185,7 +189,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     if (STEPS[activeStepIndex]?.id !== 'TEMPORAL') return;
     if (locationMapStatus === 'loading') return;
     if (!locationMapDivRef.current) return;
-    if (locationMapInitializedRef.current) return;
+    if (locationMapRef.current && locationMarkerRef.current) return;
 
     let cancelled = false;
     const init = async () => {
@@ -260,7 +264,6 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
           });
         }
 
-        locationMapInitializedRef.current = true;
         setLocationMapStatus('ready');
       } catch (e: any) {
         if (cancelled) return;
@@ -274,7 +277,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     return () => {
       cancelled = true;
     };
-  }, [activeStepIndex, locationMapStatus]);
+  }, [activeStepIndex, locationMapStatus, category]);
 
   useEffect(() => {
     if (locationMapStatus !== 'ready') return;
@@ -526,6 +529,16 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
                         <p className="mt-2 text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
                           Set <span className="font-black">VITE_GOOGLE_MAPS_API_KEY</span> in <span className="font-black">.env.local</span> to enable the live map.
                         </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLocationMapErrorDetail(null);
+                            setLocationMapStatus('idle');
+                          }}
+                          className="mt-3 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 text-[9px] font-black uppercase tracking-widest hover:text-white"
+                        >
+                          Retry map
+                        </button>
                       </div>
                     ) : locationMapStatus === 'error' ? (
                       <div className="p-6 text-center">
@@ -534,6 +547,16 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
                         {locationMapErrorDetail && (
                           <p className="mt-2 text-[10px] text-zinc-600 break-words">Error: <span className="font-black">{locationMapErrorDetail}</span></p>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLocationMapErrorDetail(null);
+                            setLocationMapStatus('idle');
+                          }}
+                          className="mt-3 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 text-zinc-200 text-[9px] font-black uppercase tracking-widest hover:text-white"
+                        >
+                          Retry map
+                        </button>
                       </div>
                     ) : (
                       <div ref={locationMapDivRef} className="w-full h-[320px]" />
