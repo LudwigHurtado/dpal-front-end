@@ -202,12 +202,12 @@ const getInitialHero = (): Hero => {
 const App: React.FC = () => {
   const [reports, setReports] = useState<Report[]>(getInitialReports);
   const [currentView, setCurrentView] = useState<View>(() => {
-    if (typeof window === 'undefined') return 'reportDashboard';
+    if (typeof window === 'undefined') return 'mainMenu';
     const params = new URLSearchParams(window.location.search);
     if (params.get('view') === 'storage') return 'storage';
-    return 'reportDashboard';
+    return 'mainMenu';
   });
-  const [prevView, setPrevView] = useState<View>('reportDashboard');
+  const [prevView, setPrevView] = useState<View>('mainMenu');
 
   const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
   const [hubTab, setHubTab] = useState<HubTab>('my_reports');
@@ -251,7 +251,7 @@ const App: React.FC = () => {
   });
 
   const [viewHistory, setViewHistory] = useState<View[]>([]);
-  const viewRef = useRef<View>('reportDashboard');
+  const viewRef = useRef<View>('mainMenu');
   const backNavRef = useRef(false);
 
   /* Mobile: single layout for all viewports; hide header on small screens for space */
