@@ -8,6 +8,8 @@ import {
 } from './icons';
 import { FORM_BUNDLE, CATEGORIES_WITH_ICONS } from '../constants';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
+import { ForensicField } from './ForensicField';
+import AllergyQuestionDeck from './AllergyQuestionDeck';
 
 interface SubmissionPanelProps {
   addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>, audioUrl?: string) => void;
@@ -37,76 +39,6 @@ const STEPS = [
   { id: 'SAFETY', label: 'Safety', icon: <ShieldCheck className="w-4 h-4"/> },
   { id: 'COMMIT', label: 'Review', icon: <Database className="w-4 h-4"/> }
 ];
-
-const ForensicField: React.FC<{ 
-    question: any; 
-    value: any; 
-    onChange: (val: any) => void;
-}> = ({ question, value, onChange }) => {
-    const { label, help_text, answer_type, options } = question;
-    const baseClass = "w-full bg-zinc-950 border-2 border-zinc-800 p-4 rounded-2xl text-sm font-bold text-white outline-none focus:border-cyan-600 transition-all placeholder:text-zinc-900 shadow-inner";
-
-    switch (answer_type) {
-        case 'single_select':
-            return (
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{label}</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {options.map((opt: string) => (
-                            <button
-                                key={opt}
-                                type="button"
-                                onClick={() => onChange(opt)}
-                                className={`px-4 py-3 rounded-xl border-2 transition-all text-[9px] font-black uppercase text-left truncate ${value === opt ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-zinc-950 border-zinc-900 text-zinc-600 hover:border-zinc-700'}`}
-                            >
-                                {opt}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-            );
-        case 'multi_select':
-            return (
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{label}</label>
-                    <div className="grid grid-cols-2 gap-2">
-                        {options.map((opt: string) => {
-                            const isSel = (value || []).includes(opt);
-                            return (
-                                <button
-                                    key={opt}
-                                    type="button"
-                                    onClick={() => {
-                                        const current = value || [];
-                                        onChange(isSel ? current.filter((v: any) => v !== opt) : [...current, opt]);
-                                    }}
-                                    className={`px-4 py-3 rounded-xl border-2 transition-all text-[9px] font-black uppercase text-left truncate ${isSel ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg' : 'bg-zinc-950 border-zinc-900 text-zinc-600 hover:border-zinc-700'}`}
-                                >
-                                    {opt}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-            );
-        case 'datetime':
-            return (
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{label}</label>
-                    <input type="datetime-local" value={value || ''} onChange={e => onChange(e.target.value)} className={baseClass} />
-                </div>
-            );
-        case 'short_text':
-            return (
-                <div className="space-y-3">
-                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">{label}</label>
-                    <input type="text" value={value || ''} onChange={e => onChange(e.target.value)} className={baseClass} placeholder={help_text || "Input data..."} />
-                </div>
-            );
-        default:
-            return null;
-    }
-};
 
 const DRAFT_KEY = 'dpal-report-draft-v1';
 
@@ -144,6 +76,22 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
     if (!category) return null;
     return FORM_BUNDLE.categories[category] || FORM_BUNDLE.categories['Other'];
   }, [category]);
+
+  /** Allergy deck: every required structured field must be answered before continuing. */
+  const allergyIntakeComplete = useMemo(() => {
+    if (category !== Category.Allergies || !schema) return true;
+    const qs = [...(schema.core_questions || []), ...(schema.deep_dive_questions || [])];
+    for (const q of qs) {
+      if (!q.required) continue;
+      const v = answers[q.id];
+      if (q.answer_type === 'multi_select') {
+        if (!Array.isArray(v) || v.length === 0) return false;
+      } else if (v === undefined || v === null || String(v).trim() === '') {
+        return false;
+      }
+    }
+    return true;
+  }, [category, schema, answers]);
 
   const isEscrowCategory = category === Category.P2PEscrowVerification || category === Category.ProofOfLifeBiometric;
   const dictationSupported = typeof window !== 'undefined' && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
@@ -618,6 +566,66 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
           </div>
         );
       case 'FORENSIC':
+        if (category === Category.Allergies && schema) {
+          const allergyQuestions = [...(schema.core_questions || []), ...(schema.deep_dive_questions || [])];
+          return (
+            <div className="space-y-8 animate-fade-in">
+              <div className="text-center">
+                <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Situation</h3>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2 max-w-xl mx-auto leading-relaxed">
+                  One focused card at a time — built for clarity under stress. Finish the cards, then add your story.
+                </p>
+              </div>
+
+              <AllergyQuestionDeck
+                questions={allergyQuestions}
+                answers={answers}
+                onAnswerChange={(id, value) => setAnswers((prev) => ({ ...prev, [id]: value }))}
+              />
+
+              <div className="space-y-3 pt-2 border-t border-zinc-800">
+                <div className="flex items-center justify-between gap-3">
+                  <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">Your story</label>
+                  <button
+                    type="button"
+                    onClick={toggleDictation}
+                    disabled={!dictationSupported}
+                    className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${
+                      dictationSupported
+                        ? (isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white')
+                        : 'bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-60'
+                    }`}
+                    aria-label="Voice to text for summary"
+                    title={dictationSupported ? (isDictating ? 'Stop voice-to-text' : 'Voice-to-text') : 'Voice input not supported'}
+                  >
+                    {isDictating ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                    Voice
+                  </button>
+                </div>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed"
+                  placeholder="In your own words: what happened, who was involved, and what you need others to know (names optional)."
+                />
+                {!allergyIntakeComplete && (
+                  <p className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest text-center">
+                    Complete the cards above — required fields must be filled.
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={handleNext}
+                disabled={description.length < 10 || !allergyIntakeComplete}
+                className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-20 transition-all"
+              >
+                Continue
+              </button>
+            </div>
+          );
+        }
+
         return (
           <div className="space-y-8 animate-fade-in">
             <div className="text-center">
