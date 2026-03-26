@@ -44,6 +44,7 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.Clergy]: ["clergy abuse", "faith institution accountability", "religious misconduct"],
   [Category.WaterViolations]: ["water contamination", "water violations", "drinking water safety"],
   [Category.Other]: ["community safety", "local incident", "public accountability"],
+  [Category.IndependentDiscoveries]: ["independent discovery", "research breakthrough", "data anomaly", "observation report"],
   [Category.CivicDuty]: ["civic duty", "community action", "public participation"],
   [Category.AccidentsRoadHazards]: ["traffic collision", "road hazard", "street safety"],
   [Category.FireEnvironmentalHazards]: ["fire hazard", "wildfire risk", "chemical spill"],

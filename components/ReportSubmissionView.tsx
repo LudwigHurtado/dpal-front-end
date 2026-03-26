@@ -34,11 +34,14 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
         [Category.Events]: '/category-cards/event-transparency.png',
         [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
+        [Category.Environment]: '/category-cards/environment.png',
         [Category.Infrastructure]: '/category-cards/infrastructure.png',
+        [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
         [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
         [Category.NonProfit]: '/category-cards/Non-Profit.png',
         [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
         [Category.PublicTransport]: '/category-cards/public transport.png',
+        [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
         [Category.Other]: '/category-cards/Independent Discoveries.png',
     };
     const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);

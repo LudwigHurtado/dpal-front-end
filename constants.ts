@@ -51,6 +51,7 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.ProfessionalServices, translationKey: "categories.professionalServices", icon: "💼", imageSeed: "modern-office-justice", headline: "Professional Service Audit" },
   { value: Category.NonProfit, translationKey: "categories.nonProfit", icon: "🎗️", imageSeed: "community-center-charity", headline: "Non-Profit Transparency" },
   { value: Category.Events, translationKey: "categories.events", icon: "🎟️", imageSeed: "concert-stadium-night", headline: "Event Ticket Integrity" },
+  { value: Category.IndependentDiscoveries, translationKey: "categories.independentDiscoveries", icon: "🧩", imageSeed: "independent-discovery-lab", headline: "Report an Independent Discovery" },
   { value: Category.Allergies, translationKey: "categories.allergies", icon: "🥜", imageSeed: "laboratory-medical-safety", headline: "Report an Allergy Incident" },
   { value: Category.Clergy, translationKey: "categories.clergy", icon: "⛪️", imageSeed: "architecture-cathedral-shadow", headline: "Ensure Accountability in Faith Communities" },
   { value: Category.ConsumerScams, translationKey: "categories.consumerScams", icon: "💳", imageSeed: "digital-terminal-encryption", headline: "Expose Consumer Scams" },
@@ -514,6 +515,19 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             deep_dive_questions: [
                 { id: "OTH_DD_01", section: "Event Context", label: "Suggested new category name", required: false, answer_type: "short_text" },
                 { id: "OTH_DD_02", section: "Evidence & Chain-of-Custody", label: "Time-sensitive evidence", required: false, answer_type: "single_select", options: ["Yes", "No", "Unknown"] }
+            ]
+        }
+        ,
+        [Category.IndependentDiscoveries]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "IND_01", section: "Event Context", label: "Best match", required: true, answer_type: "single_select", options: ["Research breakthrough", "Observation", "Data anomaly", "Other"], institutional_value_tag: "research" },
+                { id: "IND_02", section: "Impact & Severity", label: "Immediate risk", required: true, answer_type: "single_select", options: ["None", "Possible", "High", "Unknown"], institutional_value_tag: "safety" },
+                { id: "IND_03", section: "Impact & Severity", label: "Who is affected", required: true, answer_type: "single_select", options: ["Individual", "Multiple people", "Community", "Unknown"], institutional_value_tag: "regulatory" }
+            ],
+            deep_dive_questions: [
+                { id: "IND_DD_01", section: "Event Context", label: "Discovery title / label", required: false, answer_type: "short_text" },
+                { id: "IND_DD_02", section: "Evidence & Chain-of-Custody", label: "Time-sensitive evidence", required: false, answer_type: "single_select", options: ["Yes", "No", "Unknown"] }
             ]
         }
     }

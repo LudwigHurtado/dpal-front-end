@@ -20,6 +20,7 @@ export enum Category {
     Clergy = 'Clergy',
     WaterViolations = 'Water Related Violations',
     Other = 'Other',
+    IndependentDiscoveries = 'Independent Discoveries',
     CivicDuty = 'Civic Duty',
     AccidentsRoadHazards = 'Accidents & Road Hazards',
     FireEnvironmentalHazards = 'Fire & Environmental Hazards',

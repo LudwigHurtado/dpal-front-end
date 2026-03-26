@@ -125,8 +125,16 @@ const MobileSubmissionView: React.FC<MobileSubmissionViewProps> = ({
           </button>
           {categoryOpen && (
             <div className="mt-1 rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">
-              {CATEGORIES_WITH_ICONS.slice(0, 14).map((c) => (
-                <button key={c.value} type="button" onClick={() => { setCategory(c.value); setCategoryOpen(false); }} className="w-full px-4 py-2 text-left text-white text-sm hover:bg-zinc-800">
+              {CATEGORIES_WITH_ICONS.map((c) => (
+                <button
+                  key={c.value}
+                  type="button"
+                  onClick={() => {
+                    setCategory(c.value);
+                    setCategoryOpen(false);
+                  }}
+                  className="w-full px-4 py-2 text-left text-white text-sm hover:bg-zinc-800"
+                >
                   {c.icon} {c.value}
                 </button>
               ))}

@@ -584,6 +584,7 @@ export const translations = {
       professionalServices: "Professional Services",
       nonProfit: "Non-Profit & Charity",
       events: "Event Transparency",
+      independentDiscoveries: "Independent Discoveries",
       policeMisconduct: "Police Misconduct",
       housing: "Housing",
       medicalNegligence: "Medical Negligence",
