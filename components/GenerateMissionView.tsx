@@ -36,6 +36,7 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
     [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
     [Category.NonProfit]: '/category-cards/Non-Profit.png',
     [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
+    [Category.PublicTransport]: '/category-cards/public transport.png',
     [Category.Other]: '/category-cards/Independent Discoveries.png',
   };
   const missionHero = encodeURI(categoryHeroByType[intelItem.category] || `https://picsum.photos/seed/${(categoryInfo?.imageSeed || 'intel') + '-mission'}/1200/500`);

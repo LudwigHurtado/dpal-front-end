@@ -52,6 +52,7 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
   [Category.NonProfit]: '/category-cards/Non-Profit.png',
   [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
+  [Category.PublicTransport]: '/category-cards/public transport.png',
   [Category.Other]: '/category-cards/Independent Discoveries.png',
 };
 

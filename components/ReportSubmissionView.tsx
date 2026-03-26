@@ -38,6 +38,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
         [Category.NonProfit]: '/category-cards/Non-Profit.png',
         [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
+        [Category.PublicTransport]: '/category-cards/public transport.png',
         [Category.Other]: '/category-cards/Independent Discoveries.png',
     };
     const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
