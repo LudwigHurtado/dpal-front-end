@@ -204,11 +204,12 @@ const App: React.FC = () => {
   const GATEWAY_PREF_KEY = 'dpal-mission-gateway-choice-v1';
   const [reports, setReports] = useState<Report[]>(getInitialReports);
   const [currentView, setCurrentView] = useState<View>(() => {
-    if (typeof window === 'undefined') return 'mainMenu';
+    if (typeof window === 'undefined') return 'reportDashboard';
     const params = new URLSearchParams(window.location.search);
-    return params.get('view') === 'storage' ? 'storage' : 'mainMenu';
+    if (params.get('view') === 'storage') return 'storage';
+    return 'reportDashboard';
   });
-  const [prevView, setPrevView] = useState<View>('mainMenu');
+  const [prevView, setPrevView] = useState<View>('reportDashboard');
 
   const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
   const [hubTab, setHubTab] = useState<HubTab>('my_reports');
@@ -255,7 +256,7 @@ const App: React.FC = () => {
   });
 
   const [viewHistory, setViewHistory] = useState<View[]>([]);
-  const viewRef = useRef<View>('mainMenu');
+  const viewRef = useRef<View>('reportDashboard');
   const backNavRef = useRef(false);
 
   /* Mobile: single layout for all viewports; hide header on small screens for space */
