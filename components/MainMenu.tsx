@@ -57,6 +57,7 @@ const PrimaryNavModule: React.FC<{
     onClick: () => void;
     colorClass: string;
     status: string;
+    bgImageUrl?: string;
 }> = ({ icon, label, subLabel, onClick, colorClass, status }) => {
     const hexMap: Record<string, string> = {
         rose: '#f43f5e',
@@ -75,6 +76,18 @@ const PrimaryNavModule: React.FC<{
             <DualCometBorder color={hexMap[colorClass] || '#22d3ee'} hoverable={true} />
             
             <div className={`absolute top-0 right-0 w-32 h-32 bg-${colorClass}-500/10 blur-3xl group-hover:bg-${colorClass}-500/20 transition-colors`}></div>
+
+            {bgImageUrl && (
+                <>
+                    <img
+                        src={encodeURI(bgImageUrl)}
+                        alt=""
+                        draggable={false}
+                        className="absolute inset-0 w-full h-full object-cover opacity-35"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-black/85" />
+                </>
+            )}
             
             <div className="relative w-full flex justify-between items-start mb-6">
                 <div className={`p-4 rounded-2xl bg-zinc-950 border border-zinc-700 group-hover:border-${colorClass}-500/50 transition-all shadow-lg`}>
@@ -148,12 +161,46 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
             </header>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 relative z-20">
+                {/*
+                  Main menu tile images live under:
+                  public/main-screen/
+                  and are referenced as /main-screen/<filename>.png
+                */}
+                {(() => {
+                    const TILE_IMAGES: Record<string, string> = {
+                        FILE_A_REPORT: '/main-screen/file-a-report.png',
+                        REPORT_DASHBOARD: '/main-screen/report-dashboard.png',
+                        PUBLIC_LEDGER: '/main-screen/public-ledger.png',
+                        MY_REPORTS: '/main-screen/my-reports.png',
+                        FIELD_MISSIONS: '/main-screen/field-missions.png',
+                        ASSET_ARCHIVE: '/main-screen/asset-archive.png',
+                        COIN_EXCHANGE: '/main-screen/coin-exchange.png',
+                        ESCROW_SERVICE: '/main-screen/escrow-service.png',
+                        DPAL_LOCATOR: '/main-screen/dpal-locator.png',
+                        DPAL_GAME_HUB: '/main-screen/dpal-game-hub.png',
+                        POLITICIAN_VIEWPOINTS: '/main-screen/politician-viewpoints.png',
+                        BADGE_REGISTRY: '/main-screen/badge-registry.png',
+                        ECOSYSTEM: '/main-screen/ecosystem.png',
+                        ESCALATION_HUB: '/main-screen/escalation-hub.png',
+                        MINT_STATION: '/main-screen/mint-station.png',
+                        ACADEMY: '/main-screen/academy.png',
+                        QR_LIVE_SAVER: '/main-screen/qr-live-saver.png',
+                        THREAT_MAP: '/main-screen/threat-map.png',
+                        WORK_LOG: '/main-screen/work-log.png',
+                        WORK_FOR_DPAL_COINS: '/main-screen/work-for-dpal-coins.png',
+                        SUPPORT_NODE: '/main-screen/support-node.png',
+                        STORAGE_QR: '/main-screen/storage-qr.png',
+                    };
+                    const tileImage = (label: string): string | undefined => TILE_IMAGES[label];
+                    return null as any;
+                })()}
                 <PrimaryNavModule 
                     icon={<Megaphone className="w-8 h-8" />}
                     label="FILE_A_REPORT"
                     subLabel="Initialize Genesis Accountability Shard"
                     status="READY"
                     colorClass="rose"
+                    bgImageUrl="/main-screen/file-a-report.png"
                     onClick={() => onNavigate('categorySelection')}
                 />
 
@@ -163,6 +210,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Open the new reporting command dashboard"
                     status="NEW"
                     colorClass="cyan"
+                    bgImageUrl="/main-screen/report-dashboard.png"
                     onClick={() => onNavigate('reportDashboard')}
                 />
 
@@ -172,6 +220,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="View All Peer-Verified Shards"
                     status="LIVE_SYNC"
                     colorClass="emerald"
+                    bgImageUrl="/main-screen/public-ledger.png"
                     onClick={() => onNavigate('transparencyDatabase')}
                 />
 
@@ -181,6 +230,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Your Personal History & Impact Logs"
                     status="SECURE"
                     colorClass="cyan"
+                    bgImageUrl="/main-screen/my-reports.png"
                     onClick={() => onNavigate('hub', undefined, 'my_reports')}
                 />
 
@@ -190,6 +240,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Active Regional Tasks & Directives"
                     status="ACTIVE"
                     colorClass="amber"
+                    bgImageUrl="/main-screen/field-missions.png"
                     onClick={() => onNavigate('liveIntelligence')}
                 />
 
@@ -199,6 +250,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="View Shard Evidence & Milestone Badges"
                     status="SECURE"
                     colorClass="emerald"
+                    bgImageUrl="/main-screen/asset-archive.png"
                     onClick={() => onNavigate('heroHub', undefined, 'collection')}
                 />
 
@@ -208,6 +260,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Manage P2P Resource & Token Transfers"
                     status="ACTIVE"
                     colorClass="amber"
+                    bgImageUrl="/main-screen/coin-exchange.png"
                     onClick={() => onNavigate('heroHub', undefined, 'vault')}
                 />
 
@@ -217,6 +270,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Live face + fingerprint verification for P2P escrow"
                     status="KYC"
                     colorClass="cyan"
+                    bgImageUrl="/main-screen/escrow-service.png"
                     onClick={() => onNavigate('escrowService')}
                 />
 
@@ -226,6 +280,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Locate lost people, pets, and items (GPS + photo + voice)"
                     status="LIVE"
                     colorClass="emerald"
+                    bgImageUrl="/main-screen/dpal-locator.png"
                     onClick={() => onNavigate('dpalLocator')}
                 />
 
@@ -235,6 +290,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Play mission modes, earn progress, and boost civic impact"
                     status="BETA"
                     colorClass="purple"
+                    bgImageUrl="/main-screen/dpal-game-hub.png"
                     onClick={() => onNavigate('gameHub')}
                 />
 
