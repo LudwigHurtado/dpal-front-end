@@ -10,6 +10,7 @@ import { FORM_BUNDLE, CATEGORIES_WITH_ICONS } from '../constants';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { ForensicField } from './ForensicField';
 import AllergyQuestionDeck from './AllergyQuestionDeck';
+import AudioReportModal from './AudioReportModal';
 
 interface SubmissionPanelProps {
   addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>, audioUrl?: string) => void;
@@ -61,6 +62,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
   const [isDictating, setIsDictating] = useState(false);
+  const [audioModalOpen, setAudioModalOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -94,6 +96,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
   const isEscrowCategory = category === Category.P2PEscrowVerification || category === Category.ProofOfLifeBiometric;
   const dictationSupported = typeof window !== 'undefined' && Boolean((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+  const audioOverrideEnabled = category === Category.Allergies;
 
   useEffect(() => {
     const onResize = () => {
@@ -298,6 +301,10 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
   }, [markerKind, locationMapStatus]);
 
   const toggleDictation = () => {
+    if (audioOverrideEnabled) {
+      setAudioModalOpen(true);
+      return;
+    }
     if (!dictationSupported) return;
 
     if (isDictating) {
@@ -594,10 +601,42 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
           return (
             <div className="space-y-8 animate-fade-in">
               <div className="text-center">
-                <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Situation</h3>
+                <h3 className="text-2xl font-black uppercase text-white tracking-tighter">Allergy intake</h3>
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-2 max-w-xl mx-auto leading-relaxed">
-                  One focused card at a time — built for clarity under stress. Finish the cards, then add your story.
+                  Choose your path: fast audio capture, or structured cards. You can do both.
                 </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setAudioModalOpen(true)}
+                  className="rounded-[2.5rem] border-2 border-rose-500/40 bg-gradient-to-br from-rose-950/40 via-zinc-950 to-cyan-950/20 p-6 text-left shadow-2xl hover:border-rose-400/70 transition-all active:scale-[0.99]"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-[0.35em] text-rose-200/70">Override</p>
+                      <p className="text-lg font-black uppercase tracking-tight text-white">Report by audio</p>
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 leading-relaxed">
+                        Record now. We’ll attach audio + optional transcript.
+                      </p>
+                    </div>
+                    <div className="p-4 rounded-[1.5rem] bg-rose-600/20 border border-rose-500/30">
+                      <Mic className="w-6 h-6 text-rose-200" />
+                    </div>
+                  </div>
+                </button>
+
+                <div className="rounded-[2.5rem] border-2 border-zinc-800 bg-zinc-950/60 p-6 shadow-inner">
+                  <p className="text-[9px] font-black uppercase tracking-[0.35em] text-zinc-500">Quality</p>
+                  <p className="mt-2 text-lg font-black uppercase tracking-tight text-white">Structured cards</p>
+                  <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-500 leading-relaxed">
+                    One focused card at a time — built for clarity under stress.
+                  </p>
+                  <div className="mt-4 h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-rose-500 to-cyan-500" style={{ width: `${Math.min(100, Math.max(8, Math.round((Object.keys(answers).length / Math.max(1, allergyQuestions.length)) * 100)))}%` }} />
+                  </div>
+                </div>
               </div>
 
               <AllergyQuestionDeck
@@ -606,41 +645,35 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
                 onAnswerChange={(id, value) => setAnswers((prev) => ({ ...prev, [id]: value }))}
               />
 
-              <div className="space-y-3 pt-2 border-t border-zinc-800">
+              <div className="rounded-[2.5rem] border-2 border-zinc-800 bg-zinc-950/60 p-6 shadow-inner space-y-3">
                 <div className="flex items-center justify-between gap-3">
-                  <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest ml-2">Your story</label>
+                  <label className="text-[10px] font-black text-cyan-400 uppercase tracking-widest ml-1">Your story (optional)</label>
                   <button
                     type="button"
-                    onClick={toggleDictation}
-                    disabled={!dictationSupported}
-                    className={`px-3 py-1.5 rounded-xl border text-[9px] font-black uppercase tracking-widest flex items-center gap-2 ${
-                      dictationSupported
-                        ? (isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white')
-                        : 'bg-zinc-950 border-zinc-900 text-zinc-600 cursor-not-allowed opacity-60'
-                    }`}
-                    aria-label="Voice to text for summary"
-                    title={dictationSupported ? (isDictating ? 'Stop voice-to-text' : 'Voice-to-text') : 'Voice input not supported'}
+                    onClick={() => setAudioModalOpen(true)}
+                    className="px-3 py-1.5 rounded-xl border border-rose-500/30 bg-rose-950/30 text-[9px] font-black uppercase tracking-widest flex items-center gap-2 text-rose-200 hover:text-white"
+                    aria-label="Open audio report modal"
                   >
-                    {isDictating ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                    Voice
+                    <Mic className="w-3.5 h-3.5" />
+                    Audio
                   </button>
                 </div>
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-900 min-h-[120px] resize-none leading-relaxed"
-                  placeholder="In your own words: what happened, who was involved, and what you need others to know (names optional)."
+                  className="w-full bg-zinc-950 border-2 border-zinc-800 p-6 rounded-[2rem] text-sm font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-700 min-h-[120px] resize-none leading-relaxed"
+                  placeholder="Add any extra details (names optional)."
                 />
                 {!allergyIntakeComplete && (
                   <p className="text-[9px] font-bold text-amber-400/90 uppercase tracking-widest text-center">
-                    Complete the cards above — required fields must be filled.
+                    Complete the required cards above before continuing.
                   </p>
                 )}
               </div>
 
               <button
                 onClick={handleNext}
-                disabled={description.length < 10 || !allergyIntakeComplete}
+                disabled={!allergyIntakeComplete}
                 className="w-full bg-white text-black font-black py-5 rounded-2xl uppercase tracking-widest text-xs shadow-xl active:scale-95 disabled:opacity-20 transition-all"
               >
                 Continue
@@ -804,6 +837,29 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
 
   return (
     <div className="font-mono max-w-5xl mx-auto flex flex-col lg:flex-row gap-12 pb-32">
+      <AudioReportModal
+        open={audioModalOpen}
+        category={Category.Allergies}
+        initialLocationText={location}
+        initialSeverity={severity}
+        onClose={() => setAudioModalOpen(false)}
+        onSubmit={({ audioFile, transcript, locationText, severity: sev }) => {
+          setAudioModalOpen(false);
+          const desc = transcript?.trim() || 'Audio report submitted. See attached audio evidence.';
+          addReport({
+            title: `Allergy_Audio_${Date.now().toString().slice(-4)}`,
+            description: desc,
+            category: Category.Allergies,
+            location: locationText || location || 'GEO_STAMPED_NODE',
+            trustScore: 75,
+            severity: sev,
+            isActionable: true,
+            attachments: [audioFile, ...attachments.map((a) => a.file)],
+            structuredData: { ...answers, audio_transcript: transcript || '', mode: 'audio_override', safety_checked: safetyConfirmed },
+          });
+          localStorage.removeItem(DRAFT_KEY);
+        }}
+      />
       {/* SIDEBAR: Report progress + How to file a strong report */}
       <aside className="lg:w-72 flex-shrink-0 order-2 lg:order-1">
           <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[3rem] sticky top-32 space-y-10 shadow-2xl">
@@ -894,16 +950,18 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
               <div className="mb-6 p-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/20 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                   <div>
                     <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300">Voice input</p>
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Speak to fill in the description.</p>
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                      {audioOverrideEnabled ? 'Record an audio report (takes over the flow).' : 'Speak to fill in the description.'}
+                    </p>
                   </div>
                   {dictationSupported ? (
                     <button
                       type="button"
-                      onClick={toggleDictation}
+                      onClick={() => (audioOverrideEnabled ? setAudioModalOpen(true) : toggleDictation())}
                       className={`px-4 py-2 rounded-xl border text-[10px] font-black uppercase tracking-widest flex items-center gap-2 self-start md:self-auto ${isDictating ? 'bg-rose-600 border-rose-400 text-white' : 'bg-zinc-950 border-zinc-800 text-zinc-300 hover:text-white'}`}
                     >
                       {isDictating ? <Square className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                      {isDictating ? 'Stop' : 'Start voice input'}
+                      {audioOverrideEnabled ? 'Audio report' : isDictating ? 'Stop' : 'Start voice input'}
                     </button>
                   ) : (
                     <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Voice input not supported in this browser</span>
