@@ -1,7 +1,15 @@
 let loaderPromise: Promise<typeof google> | undefined;
 
-const getApiKey = (): string | undefined =>
-  (import.meta as any).env?.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+const getApiKey = (): string | undefined => {
+  const env = (import.meta as any).env || {};
+  const isLocalHost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)$/i.test(window.location.hostname);
+  const localKey = (env.VITE_GOOGLE_MAPS_API_KEY_LOCAL as string | undefined)?.trim();
+  const primaryKey = (env.VITE_GOOGLE_MAPS_API_KEY as string | undefined)?.trim();
+
+  // On local dev we optionally allow a separate key (often with localhost-only referrer rules).
+  if (isLocalHost && localKey) return localKey;
+  return primaryKey;
+};
 
 const injectScript = (apiKey: string): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -42,6 +50,10 @@ export function loadGoogleMaps(): Promise<typeof google> {
     return g;
   })();
 
-  return loaderPromise;
+  return loaderPromise.catch((err) => {
+    // Allow retry after a failed load (e.g. key restrictions updated).
+    loaderPromise = undefined;
+    throw err;
+  });
 }
 
