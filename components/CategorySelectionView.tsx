@@ -33,6 +33,25 @@ const categoryImageSlug = (value: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+const categoryImageByType: Partial<Record<Category, string>> = {
+  [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
+  [Category.Allergies]: '/category-cards/allergies.png',
+  [Category.CivicDuty]: '/category-cards/civic-duty.png',
+  [Category.Clergy]: '/category-cards/clergy.png',
+  [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
+  [Category.Education]: '/category-cards/education.png',
+  [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
+  [Category.Events]: '/category-cards/event-transparency.png',
+  [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
+  [Category.HousingIssues]: '/category-cards/housing-issues.png',
+  [Category.Infrastructure]: '/category-cards/infrastructure.png',
+  [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
+  [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
+  [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
+  [Category.NonProfit]: '/category-cards/Non-Profit.png',
+  [Category.Other]: '/category-cards/Independent Discoveries.png',
+};
+
 type SpritePos = { x: number; y: number };
 
 // Sprite sheet support: one collage image sliced per category card.
@@ -116,7 +135,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
 
                             {!hiddenCategoryImages[cat.value] && (
                                 <img
-                                    src={`/category-cards/${categoryImageSlug(cat.value)}.png`}
+                                    src={categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`}
                                     alt=""
                                     className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
                                     onError={() =>

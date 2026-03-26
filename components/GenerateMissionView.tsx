@@ -27,6 +27,13 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
     [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
     [Category.HousingIssues]: '/category-cards/housing-issues.png',
     [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
+    [Category.Education]: '/category-cards/education.png',
+    [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
+    [Category.Events]: '/category-cards/event-transparency.png',
+    [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
+    [Category.Infrastructure]: '/category-cards/infrastructure.png',
+    [Category.NonProfit]: '/category-cards/Non-Profit.png',
+    [Category.Other]: '/category-cards/Independent Discoveries.png',
   };
   const missionHero = categoryHeroByType[intelItem.category] || `https://picsum.photos/seed/${(categoryInfo?.imageSeed || 'intel') + '-mission'}/1200/500`;
 
