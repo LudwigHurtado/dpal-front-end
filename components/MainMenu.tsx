@@ -157,6 +157,15 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     onClick={() => onNavigate('categorySelection')}
                 />
 
+                <PrimaryNavModule
+                    icon={<Monitor className="w-8 h-8" />}
+                    label="REPORT_DASHBOARD"
+                    subLabel="Open the new reporting command dashboard"
+                    status="NEW"
+                    colorClass="cyan"
+                    onClick={() => onNavigate('reportDashboard')}
+                />
+
                 <PrimaryNavModule 
                     icon={<Database className="w-8 h-8" />}
                     label="PUBLIC_LEDGER"

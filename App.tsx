@@ -38,7 +38,6 @@ import StorageView from './components/StorageView';
 import PoliticianTransparencyView from './components/PoliticianTransparencyView';
 import LocatorPage from './components/LocatorPage';
 import DpalGameHubView from './components/DpalGameHubView';
-import MissionGatewayModal from './components/MissionGatewayModal';
 import ReportProtectPage from './components/ReportProtectPage';
 import ReportMainControlPanel from './components/ReportMainControlPanel';
 import ReportWorkPanel from './components/ReportWorkPanel';
@@ -201,7 +200,6 @@ const getInitialHero = (): Hero => {
 };
 
 const App: React.FC = () => {
-  const GATEWAY_PREF_KEY = 'dpal-mission-gateway-choice-v1';
   const [reports, setReports] = useState<Report[]>(getInitialReports);
   const [currentView, setCurrentView] = useState<View>(() => {
     if (typeof window === 'undefined') return 'reportDashboard';
@@ -220,9 +218,6 @@ const App: React.FC = () => {
   });
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
-  const [showMissionGateway, setShowMissionGateway] = useState(false);
-  const [rememberMissionChoice, setRememberMissionChoice] = useState(false);
-  const [gatewayCheckedPreference, setGatewayCheckedPreference] = useState(false);
 
   const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(null);
   const [submissionPrefill, setSubmissionPrefill] = useState<string>('');
@@ -271,21 +266,6 @@ const App: React.FC = () => {
 
   useEffect(() => { setScopedItem('offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
-  useEffect(() => {
-    if (gatewayCheckedPreference) return;
-    if (currentView !== 'mainMenu') return;
-    try {
-      const pref = localStorage.getItem(GATEWAY_PREF_KEY);
-      // Always show the gateway first on main entry.
-      // If a preference exists, keep "remember my choice" checked so the user can keep or change it.
-      if (pref === 'gameHub' || pref === 'reporting') setRememberMissionChoice(true);
-      setShowMissionGateway(true);
-    } catch {
-      setShowMissionGateway(true);
-    } finally {
-      setGatewayCheckedPreference(true);
-    }
-  }, [currentView, gatewayCheckedPreference]);
 
   useEffect(() => {
     document.documentElement.classList.remove('scale-standard', 'scale-large', 'scale-ultra', 'scale-magnified');
@@ -453,29 +433,6 @@ const App: React.FC = () => {
       setCurrentView(target);
       return next;
     });
-  };
-
-  const handleGatewaySelect = (choice: 'reporting' | 'gameHub') => {
-    if (rememberMissionChoice) {
-      try {
-        localStorage.setItem(GATEWAY_PREF_KEY, choice);
-      } catch {
-        // ignore storage failures
-      }
-    } else {
-      try {
-        localStorage.removeItem(GATEWAY_PREF_KEY);
-      } catch {
-        // ignore storage failures
-      }
-    }
-    setShowMissionGateway(false);
-    setCurrentView(choice === 'reporting' ? 'reportProtect' : 'gameHub');
-  };
-
-  const handleGatewaySkip = () => {
-    setShowMissionGateway(false);
-    setCurrentView('mainMenu');
   };
 
   const handleCompleteMissionStep = (m: Mission) => {
@@ -1035,39 +992,6 @@ const App: React.FC = () => {
         <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
       )}
 
-      <MissionGatewayModal
-        open={currentView === 'mainMenu' && showMissionGateway}
-        rememberChoice={rememberMissionChoice}
-        onRememberChoiceChange={setRememberMissionChoice}
-        onSelectMainPanel={() => {
-          if (rememberMissionChoice) {
-            try { localStorage.setItem(GATEWAY_PREF_KEY, 'mainMenu'); } catch { /* ignore */ }
-          } else {
-            try { localStorage.removeItem(GATEWAY_PREF_KEY); } catch { /* ignore */ }
-          }
-          setShowMissionGateway(false);
-          setCurrentView('mainMenu');
-        }}
-        onSelectReportProtect={() => {
-          if (rememberMissionChoice) {
-            try { localStorage.setItem(GATEWAY_PREF_KEY, 'reporting'); } catch { /* ignore */ }
-          } else {
-            try { localStorage.removeItem(GATEWAY_PREF_KEY); } catch { /* ignore */ }
-          }
-          setShowMissionGateway(false);
-          setCurrentView('reportProtect');
-        }}
-        onSelectReportDashboard={() => {
-          setShowMissionGateway(false);
-          setCurrentView('reportDashboard');
-        }}
-        onSelectWorkPanel={() => {
-          setShowMissionGateway(false);
-          setCurrentView('reportWorkPanel');
-        }}
-        onSelectPlayDoGood={() => handleGatewaySelect('gameHub')}
-        onSkip={handleGatewaySkip}
-      />
     </div>
     </ActiveLayout>
   );
