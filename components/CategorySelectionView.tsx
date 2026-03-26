@@ -26,9 +26,17 @@ const BorderPulse: React.FC<{ color: string }> = ({ color }) => (
     </svg>
 );
 
+const categoryImageSlug = (value: string): string =>
+  value
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
 const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onReturnToHub }) => {
     const { t } = useTranslations();
     const [searchQuery, setSearchQuery] = useState('');
+    const [hiddenCategoryImages, setHiddenCategoryImages] = useState<Record<string, boolean>>({});
 
     const filteredCategories = useMemo(() => {
         const sorted = [...CATEGORIES_WITH_ICONS].sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
@@ -90,6 +98,21 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                         >
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
+
+                            {!hiddenCategoryImages[cat.value] && (
+                                <img
+                                    src={`/category-cards/${categoryImageSlug(cat.value)}.png`}
+                                    alt=""
+                                    className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
+                                    onError={() =>
+                                        setHiddenCategoryImages((prev) => ({
+                                            ...prev,
+                                            [cat.value]: true,
+                                        }))
+                                    }
+                                />
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-zinc-950/55 to-zinc-950/95" />
                             
                             <div className="flex flex-col items-center text-center mb-8 relative z-10">
                                 <div className="text-6xl mb-6 transition-transform duration-500 group-hover:scale-110">
