@@ -145,7 +145,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                 <img
                                     src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
                                     alt=""
-                                    className="absolute left-0 right-0 bottom-0 top-24 w-full h-full object-contain p-0 opacity-100 transition-opacity"
+                                    className="absolute left-0 right-0 bottom-32 top-24 w-full h-full object-contain p-0 opacity-100 transition-opacity"
                                     onError={() =>
                                         setHiddenCategoryImages((prev) => ({
                                             ...prev,
@@ -157,7 +157,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
 
                             {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
                                 <div
-                                    className="absolute left-0 right-0 bottom-0 top-24 opacity-35 group-hover:opacity-45 transition-opacity"
+                                    className="absolute left-0 right-0 bottom-32 top-24 opacity-35 group-hover:opacity-45 transition-opacity"
                                     style={{
                                         backgroundImage: `url(${SPRITE_SRC})`,
                                         backgroundSize: '300% 200%',
@@ -178,17 +178,15 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <div className="mt-auto space-y-3 relative z-10">
                                  <button
                                     onClick={() => onSelectCategory(cat.value)}
-                                    className="w-full flex items-center justify-center space-x-3 bg-white text-black font-black py-4 px-4 rounded-2xl hover:bg-zinc-200 transition-all uppercase text-[10px] tracking-widest shadow-lg"
+                                    className="w-full flex items-center justify-center bg-white text-black font-black py-4 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg"
                                 >
-                                    <Megaphone className="w-4 h-4" />
-                                    <span>File_Report</span>
+                                    <span className="sr-only">FILE_REPORT</span>
                                 </button>
                                 <button
                                     onClick={() => onSelectMissions(cat.value)}
-                                    className="w-full flex items-center justify-center space-x-3 bg-cyan-600 text-white font-black py-4 px-4 rounded-2xl hover:bg-cyan-500 transition-all uppercase text-[10px] tracking-widest shadow-lg"
+                                    className="w-full flex items-center justify-center bg-cyan-600 text-white font-black py-4 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
                                 >
-                                    <Zap className="w-4 h-4 fill-current" />
-                                    <span>Tactical_Missions</span>
+                                    <span className="sr-only">TACTICAL_MISSIONS</span>
                                 </button>
                             </div>
                         </div>
