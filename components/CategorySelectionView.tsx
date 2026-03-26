@@ -146,6 +146,13 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
+                            {/* CATEGORY TITLE (above image, never on top of it) */}
+                            <div className="relative z-10 text-center pb-4">
+                                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">
+                                    {t(cat.translationKey)}
+                                </div>
+                            </div>
+
                             {/* HERO IMAGE REGION (separate from buttons) */}
                             <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
                                 {!hiddenCategoryImages[cat.value] && (
@@ -175,13 +182,6 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                 )}
 
                                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
-                            </div>
-
-                            {/* CATEGORY NAME (below image, never on top of it) */}
-                            <div className="mt-4 text-center relative z-10">
-                                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">
-                                    {t(cat.translationKey)}
-                                </div>
                             </div>
 
                             {/* ACTION BAR: Report | Icon | Actions (menu) */}
