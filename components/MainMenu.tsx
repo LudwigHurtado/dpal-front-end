@@ -83,9 +83,8 @@ const PrimaryNavModule: React.FC<{
                         src={encodeURI(bgImageUrl)}
                         alt=""
                         draggable={false}
-                        className="absolute inset-0 w-full h-full object-cover opacity-35"
+                        className="absolute inset-0 w-full h-full object-cover opacity-100"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/55 to-black/85" />
                 </>
             )}
             
