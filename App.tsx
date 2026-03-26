@@ -736,6 +736,9 @@ const App: React.FC = () => {
           <CategorySelectionView 
             onSelectCategory={(cat) => handleNavigate('reportSubmission', cat)} 
             onSelectMissions={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} 
+            onSelectWork={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }}
+            onSelectPlay={() => handleNavigate('gameHub')}
+            onSelectHelp={() => handleNavigate('trainingHolodeck')}
             onReturnToHub={() => goBack('mainMenu')} 
           />
         )}

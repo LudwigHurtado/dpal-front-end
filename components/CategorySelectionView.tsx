@@ -8,6 +8,9 @@ import { ArrowLeft, ShieldCheck, Search, X, AlertTriangle } from './icons';
 interface CategorySelectionViewProps {
   onSelectCategory: (category: Category) => void;
   onSelectMissions: (category: Category) => void;
+  onSelectWork?: (category: Category) => void;
+  onSelectPlay?: () => void;
+  onSelectHelp?: () => void;
   onReturnToHub: () => void;
 }
 
@@ -44,10 +47,11 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
   [Category.Events]: '/category-cards/event-transparency.png',
   [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
+  [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
   [Category.Environment]: '/category-cards/environment.png',
   [Category.HousingIssues]: '/category-cards/housing-issues.png',
   [Category.Infrastructure]: '/category-cards/infrastructure.png',
-  [Category.WorkplaceIssues]: '/category-cards/workplace issues.png',
+  [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',
   [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
   [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
   [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
@@ -56,6 +60,7 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.NonProfit]: '/category-cards/Non-Profit.png',
   [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
   [Category.PublicTransport]: '/category-cards/public transport.png',
+  [Category.Travel]: '/category-cards/travel.png',
   [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
   [Category.Other]: '/category-cards/Independent Discoveries.png',
 };
@@ -75,7 +80,7 @@ const CATEGORY_SPRITE_POSITIONS: Partial<Record<Category, SpritePos>> = {
 
 const SPRITE_SRC = '/category-cards/category-collage.png';
 
-const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onReturnToHub }) => {
+const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onSelectWork, onSelectPlay, onSelectHelp, onReturnToHub }) => {
     const { t } = useTranslations();
     const [searchQuery, setSearchQuery] = useState('');
     const [hiddenCategoryImages, setHiddenCategoryImages] = useState<Record<string, boolean>>({});
@@ -141,20 +146,13 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-                            {/* ICON (above image so it never blocks/covers baked-in art text) */}
-                            <div className="relative z-10 flex items-start justify-center pt-1 pb-3">
-                                <div className="text-6xl transition-transform duration-500 group-hover:scale-110">
-                                    {cat.icon}
-                                </div>
-                            </div>
-
                             {/* HERO IMAGE REGION (separate from buttons) */}
-                            <div className="relative flex-1 min-h-[120px]">
+                            <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
                                 {!hiddenCategoryImages[cat.value] && (
                                     <img
                                         src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
                                         alt=""
-                                        className="absolute inset-0 w-full h-full object-contain p-0 opacity-100 transition-opacity"
+                                        className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
                                         onError={() =>
                                             setHiddenCategoryImages((prev) => ({
                                                 ...prev,
@@ -179,20 +177,74 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                 <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
                             </div>
 
-                            {/* ACTION BUTTONS (only 2 actions, so layout feels strong) */}
-                            <div className="mt-6 flex gap-3 relative z-10">
+                            {/* CATEGORY NAME (below image, never on top of it) */}
+                            <div className="mt-4 text-center relative z-10">
+                                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">
+                                    {t(cat.translationKey)}
+                                </div>
+                            </div>
+
+                            {/* ACTION BAR: Report | Icon | Actions (menu) */}
+                            <div className="mt-5 relative z-20 flex items-center gap-3">
                                 <button
+                                    type="button"
                                     onClick={() => onSelectCategory(cat.value)}
-                                    className="flex-[1.4] w-full flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg"
+                                    className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
                                 >
-                                    <span className="text-[10px] font-black uppercase tracking-widest">FILE_REPORT</span>
+                                    Report
                                 </button>
-                                <button
-                                    onClick={() => onSelectMissions(cat.value)}
-                                    className="flex-[1] w-full flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg"
-                                >
-                                    <span className="text-[10px] font-black uppercase tracking-widest">TACTICAL_MISSIONS</span>
-                                </button>
+
+                                <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
+                                    <span className="text-3xl leading-none">{cat.icon}</span>
+                                </div>
+
+                                <div className="relative flex-1 group/actions">
+                                    <button
+                                        type="button"
+                                        className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+                                        aria-haspopup="menu"
+                                    >
+                                        Actions
+                                    </button>
+
+                                    <div
+                                        className="absolute right-0 left-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden opacity-0 pointer-events-none translate-y-1 transition-all duration-150 group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto group-hover/actions:translate-y-0"
+                                        role="menu"
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => onSelectPlay?.()}
+                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                                            role="menuitem"
+                                        >
+                                            Play
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onSelectHelp?.()}
+                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                                            role="menuitem"
+                                        >
+                                            Help
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => (onSelectWork || onSelectMissions)(cat.value)}
+                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                                            role="menuitem"
+                                        >
+                                            Work
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => onSelectCategory(cat.value)}
+                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                                            role="menuitem"
+                                        >
+                                            Report
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ))}
