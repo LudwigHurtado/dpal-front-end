@@ -135,10 +135,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
         <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
             <header className="mb-12 text-center flex flex-col items-center relative pt-8">
                 <div className="relative z-10 space-y-6 md:space-y-8 flex flex-col items-center w-full px-1">
-                    <h1 className="text-5xl md:text-7xl font-black tracking-tighter uppercase neon-glimmer max-w-5xl leading-[0.9] md:leading-none px-4">
-                        Decentralized Public Accountability Ledger
-                    </h1>
-
                     {/* Main panel visual series — same neon home hero, not the report dashboard */}
                     <MainPanelHeroCarousel variant="home" className="w-full max-w-5xl" />
 
