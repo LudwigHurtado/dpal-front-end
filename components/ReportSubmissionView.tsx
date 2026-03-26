@@ -158,7 +158,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
             {isAccidents ? (
                 <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
                     <div
-                        className="absolute inset-0 bg-cover bg-center brightness-110 contrast-105 saturate-110"
+                        className="absolute inset-0 bg-contain bg-center bg-no-repeat brightness-110 contrast-105 saturate-110"
                         style={{ backgroundImage: `url(${imageUrl})` }}
                     />
                     <div className="relative h-full p-6 md:p-8 flex items-start">
@@ -174,7 +174,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
             ) : (
                 <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl group">
                     <div 
-                        className="absolute inset-0 bg-cover bg-center grayscale contrast-125 brightness-50 transition-all duration-1000 group-hover:scale-105"
+                        className="absolute inset-0 bg-contain bg-center bg-no-repeat grayscale contrast-125 brightness-50 transition-all duration-1000 group-hover:scale-105"
                         style={{ backgroundImage: `url(${imageUrl})` }}
                     ></div>
                     <div className="absolute inset-0 bg-cyan-600/10 mix-blend-color opacity-30"></div>

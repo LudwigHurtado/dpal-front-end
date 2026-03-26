@@ -75,7 +75,7 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
             <div className="lg:col-span-4 space-y-8">
                 <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
                     <div
-                        className="absolute inset-0 bg-cover bg-center opacity-30"
+                        className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-30"
                         style={{ backgroundImage: `url(${missionHero})` }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-zinc-950/60 to-zinc-950/90" />

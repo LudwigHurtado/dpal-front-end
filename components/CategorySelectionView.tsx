@@ -137,7 +137,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                 <img
                                     src={categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`}
                                     alt=""
-                                    className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
+                                    className="absolute inset-0 w-full h-full object-contain p-3 opacity-35 group-hover:opacity-45 transition-opacity"
                                     onError={() =>
                                         setHiddenCategoryImages((prev) => ({
                                             ...prev,
