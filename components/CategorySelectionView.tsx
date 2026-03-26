@@ -114,7 +114,21 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-                            {CATEGORY_SPRITE_POSITIONS[cat.value] ? (
+                            {!hiddenCategoryImages[cat.value] && (
+                                <img
+                                    src={`/category-cards/${categoryImageSlug(cat.value)}.png`}
+                                    alt=""
+                                    className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
+                                    onError={() =>
+                                        setHiddenCategoryImages((prev) => ({
+                                            ...prev,
+                                            [cat.value]: true,
+                                        }))
+                                    }
+                                />
+                            )}
+
+                            {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
                                 <div
                                     className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
                                     style={{
@@ -124,20 +138,6 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                         backgroundRepeat: 'no-repeat',
                                     }}
                                 />
-                            ) : (
-                                !hiddenCategoryImages[cat.value] && (
-                                    <img
-                                        src={`/category-cards/${categoryImageSlug(cat.value)}.png`}
-                                        alt=""
-                                        className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
-                                        onError={() =>
-                                            setHiddenCategoryImages((prev) => ({
-                                                ...prev,
-                                                [cat.value]: true,
-                                            }))
-                                        }
-                                    />
-                                )
                             )}
                             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-zinc-950/55 to-zinc-950/95" />
                             

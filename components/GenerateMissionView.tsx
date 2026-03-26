@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslations } from '../i18n';
-import { type IntelItem, MissionApproach, MissionGoal } from '../types';
+import { Category, type IntelItem, MissionApproach, MissionGoal } from '../types';
 import { ArrowLeft, CheckCircle, Circle, Loader, MapPin, Link as LinkIcon, Zap, ShieldCheck, Activity, Target, User, Scale, Box, ArrowRight, Broadcast, Sparkles } from './icons';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 
@@ -16,6 +16,14 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
   const [approach, setApproach] = useState<MissionApproach | null>(null);
   const [goal, setGoal] = useState<MissionGoal | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
+  const categoryInfo = CATEGORIES_WITH_ICONS.find((c) => c.value === intelItem.category);
+  const categoryHeroByType: Partial<Record<Category, string>> = {
+    [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
+    [Category.Allergies]: '/category-cards/allergies.png',
+    [Category.CivicDuty]: '/category-cards/civic-duty.png',
+    [Category.Clergy]: '/category-cards/clergy.png',
+  };
+  const missionHero = categoryHeroByType[intelItem.category] || `https://picsum.photos/seed/${(categoryInfo?.imageSeed || 'intel') + '-mission'}/1200/500`;
 
   const handleAccept = async () => {
       if (!approach || !goal) return;
@@ -54,13 +62,18 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
             {/* Intel Sidebar */}
             <div className="lg:col-span-4 space-y-8">
                 <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
+                    <div
+                        className="absolute inset-0 bg-cover bg-center opacity-30"
+                        style={{ backgroundImage: `url(${missionHero})` }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-zinc-950/60 to-zinc-950/90" />
                     <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-cyan-400"/></div>
-                    <div className="flex items-center space-x-4 mb-6">
+                    <div className="relative z-10 flex items-center space-x-4 mb-6">
                         <span className="bg-cyan-950/40 text-cyan-400 px-3 py-1 rounded-full border border-cyan-900/50 text-[8px] font-black uppercase tracking-widest">ASSIGNMENT_ROOT</span>
                     </div>
-                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-4">{intelItem.title}</h2>
-                    <p className="text-xs text-zinc-500 leading-relaxed italic">"{intelItem.summary}"</p>
-                    <div className="mt-8 pt-8 border-t border-zinc-800 space-y-4">
+                    <h2 className="relative z-10 text-2xl font-black text-white uppercase tracking-tighter mb-4">{intelItem.title}</h2>
+                    <p className="relative z-10 text-xs text-zinc-400 leading-relaxed italic">"{intelItem.summary}"</p>
+                    <div className="relative z-10 mt-8 pt-8 border-t border-zinc-800 space-y-4">
                         <div className="flex items-center space-x-3 text-[10px] text-zinc-400">
                             <MapPin className="w-4 h-4 text-rose-500" />
                             <span>{intelItem.location}</span>

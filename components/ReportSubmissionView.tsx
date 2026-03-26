@@ -19,10 +19,13 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     const { t } = useTranslations();
     const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === category)!;
     const roleInfo = role ? EDUCATION_ROLES.find(r => r.value === role) : null;
-    const imageUrl =
-        category === Category.AccidentsRoadHazards
-            ? `/reports/accidents-road-hazards-hero.png`
-            : `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`;
+    const categoryHeroByType: Partial<Record<Category, string>> = {
+        [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
+        [Category.Allergies]: '/category-cards/allergies.png',
+        [Category.CivicDuty]: '/category-cards/civic-duty.png',
+        [Category.Clergy]: '/category-cards/clergy.png',
+    };
+    const imageUrl = categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`;
 
     const isAccidents = category === Category.AccidentsRoadHazards;
     const guideSlides = useMemo(() => ([
