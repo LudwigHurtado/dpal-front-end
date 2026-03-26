@@ -30,7 +30,7 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.NonProfit]: ["nonprofit", "charity accountability", "charity fraud"],
   [Category.Events]: ["public event safety", "event transparency", "crowd safety"],
   [Category.PoliceMisconduct]: ["police misconduct", "civil rights", "use of force"],
-  [Category.Housing]: ["housing violations", "tenant rights", "eviction abuse"],
+  [Category.HousingIssues]: ["housing violations", "tenant rights", "unsafe living conditions"],
   [Category.MedicalNegligence]: ["medical negligence", "hospital safety", "care failures"],
   [Category.ConsumerScams]: ["consumer scam", "fraud alert", "deceptive practices"],
   [Category.Education]: ["school safety", "education policy", "campus misconduct"],
@@ -49,6 +49,8 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.MedicalEmergencies]: ["medical emergency", "public health alert", "urgent care incident"],
   [Category.FireEnvironmentalHazards]: ["fire hazard", "wildfire risk", "chemical spill"],
   [Category.PublicSafetyAlerts]: ["public safety alert", "active incident", "urgent warning"],
+  [Category.MarketplaceTransactionsEscrow]: ["marketplace transaction dispute", "escrow verification", "online sale fraud"],
+  [Category.StolenPropertyRegistry]: ["stolen property registry", "ownership verification", "theft report"],
   [Category.P2PEscrowVerification]: ["escrow dispute", "p2p fraud", "transaction verification"],
   [Category.ProofOfLifeBiometric]: ["biometric verification", "identity check", "proof of life"],
 };

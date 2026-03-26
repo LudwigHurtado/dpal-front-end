@@ -56,7 +56,6 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.ConsumerScams, translationKey: "categories.consumerScams", icon: "💳", imageSeed: "digital-terminal-encryption", headline: "Expose Consumer Scams" },
   { value: Category.Education, translationKey: "categories.education", icon: "🎓", imageSeed: "university-hallway-cinematic", headline: "Advocate for Better Education" },
   { value: Category.Environment, translationKey: "categories.environment", icon: "🌳", imageSeed: "industrial-pollution-wasteland", headline: "Protect Our Environment" },
-  { value: Category.Housing, translationKey: "categories.housing", icon: "🏠", imageSeed: "urban-apartment-decay", headline: "Secure Safe Housing For All" },
   { value: Category.Infrastructure, translationKey: "categories.infrastructure", icon: "🏗️", imageSeed: "bridge-construction-night", headline: "Improve Public Infrastructure" },
   { value: Category.InsuranceFraud, translationKey: "categories.insuranceFraud", icon: "🚗", imageSeed: "vehicle-accident-forensics", headline: "Combat Insurance Fraud" },
   { value: Category.MedicalNegligence, translationKey: "categories.medicalNegligence", icon: "⚕️", imageSeed: "hospital-technology-medical", headline: "Demand Patient Safety" },
@@ -71,7 +70,6 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.MedicalEmergencies, translationKey: "categories.medicalEmergencies", icon: "🚑", imageSeed: "emergency-room-busy", headline: "Medical Emergencies" },
   { value: Category.FireEnvironmentalHazards, translationKey: "categories.fireEnvironmentalHazards", icon: "🔥", imageSeed: "forest-fire-smoke-plume", headline: "Fire & Environmental Hazards" },
   { value: Category.PublicSafetyAlerts, translationKey: "categories.publicSafetyAlerts", icon: "⚠️", imageSeed: "public-safety-warning-sign", headline: "Public Safety Alerts" },
-  { value: Category.MarketplaceOnlineSalesIssues, translationKey: "categories.marketplaceOnlineSalesIssues", icon: "🛒", imageSeed: "online-marketplace-delivery-box", headline: "Marketplace & Online Sales Issues" },
   { value: Category.MarketplaceTransactionsEscrow, translationKey: "categories.marketplaceTransactionsEscrow", icon: "🤝", imageSeed: "p2p-escrow-exchange-handoff", headline: "Marketplace Transactions (Escrow)" },
   { value: Category.StolenPropertyRegistry, translationKey: "categories.stolenPropertyRegistry", icon: "🔒", imageSeed: "stolen-property-registry-police-ledger", headline: "Stolen Property Registry" },
   { value: Category.HousingIssues, translationKey: "categories.housingIssues", icon: "🏚️", imageSeed: "unsafe-housing-repair-violation", headline: "Housing Issues" },
@@ -246,21 +244,6 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
                 { id: "SCM_DD_02", section: "Evidence & Chain-of-Custody", label: "Evidence Type", required: false, answer_type: "multi_select", options: ["Screenshots", "Emails", "Transaction proof", "Call recording", "None"] }
             ]
         },
-        [Category.MarketplaceOnlineSalesIssues]: {
-            core_questions: [
-                ...GLOBAL_CORE,
-                { id: "MKT_01", section: "Event Context", label: "Marketplace platform", required: true, answer_type: "single_select", options: ["Facebook Marketplace", "Craigslist", "eBay", "OfferUp", "Mercari", "Other"], institutional_value_tag: "financial_fraud" },
-                { id: "MKT_02", section: "Trade Context", label: "Issue type", required: true, answer_type: "single_select", options: ["Item never delivered", "Wrong item", "Counterfeit item", "Item not as described", "Seller disappeared", "Payment issue", "Other"], institutional_value_tag: "audit" },
-                { id: "MKT_03", section: "Trade Context", label: "Transaction stage", required: true, answer_type: "single_select", options: ["Pre-payment", "Paid not shipped", "In transit", "Delivered disputed", "In-person handoff"], institutional_value_tag: "audit" },
-                { id: "MKT_04", section: "Payment", label: "Payment method", required: true, answer_type: "single_select", options: ["Card", "Bank transfer", "Cash", "Payment app", "Crypto", "Other"], institutional_value_tag: "financial_fraud" },
-                { id: "MKT_05", section: "Impact & Severity", label: "Loss range", required: true, answer_type: "single_select", options: ["None", "<$100", "$100-$500", "$500-$5k", "$5k+", "Unknown"], institutional_value_tag: "financial_fraud" },
-                { id: "MKT_06", section: "Evidence & Chain-of-Custody", label: "Proof available", required: true, answer_type: "multi_select", options: ["Listing screenshot", "Chat logs", "Payment receipt", "Shipping label/tracking", "Item photos", "None"], institutional_value_tag: "audit" }
-            ],
-            deep_dive_questions: [
-                { id: "MKT_DD_01", section: "Actor Role & System Involved", label: "Seller identity confidence", required: false, answer_type: "single_select", options: ["Verified profile", "Likely real", "Suspicious", "Unknown"] },
-                { id: "MKT_DD_02", section: "Actions Taken / Notifications", label: "Platform report submitted?", required: false, answer_type: "single_select", options: ["Yes", "No", "In progress"] }
-            ]
-        },
         [Category.MarketplaceTransactionsEscrow]: {
             core_questions: [
                 ...GLOBAL_CORE,
@@ -350,22 +333,6 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             deep_dive_questions: [
                 { id: "EVT_DD_01", section: "Evidence & Chain-of-Custody", label: "Proof available", required: false, answer_type: "multi_select", options: ["Ticket screenshot", "Receipt", "Listing screenshot", "Venue communication", "None"] },
                 { id: "EVT_DD_02", section: "Evidence & Chain-of-Custody", label: "QR/hash captured?", required: false, answer_type: "single_select", options: ["Yes", "No", "Unknown"] }
-            ]
-        },
-        [Category.Housing]: {
-            core_questions: [
-                ...GLOBAL_CORE,
-                { id: "HSG_01", section: "Actor Role & System Involved", label: "Role", required: true, answer_type: "single_select", options: ["Tenant", "Owner", "Neighbor", "Advocate", "Other"], institutional_value_tag: "regulatory" },
-                { id: "HSG_02", section: "Failure Mechanism", label: "Issue type", required: true, answer_type: "multi_select", options: ["Mold/moisture", "Heat/AC", "Plumbing", "Electrical", "Pests", "Structural", "Fire safety", "Locks/security", "Other"], institutional_value_tag: "safety" },
-                { id: "HSG_03", section: "Event Context", label: "Duration", required: true, answer_type: "single_select", options: ["Days", "Weeks", "Months", ">6 months", "Unknown"], institutional_value_tag: "audit" },
-                { id: "HSG_04", section: "Actions Taken / Notifications", label: "Notice given", required: true, answer_type: "single_select", options: ["Yes (written)", "Yes (verbal)", "No", "Unknown"], institutional_value_tag: "regulatory" },
-                { id: "HSG_05", section: "Actions Taken / Notifications", label: "Repair attempt", required: true, answer_type: "single_select", options: ["Completed", "Partial", "None", "Unknown"], institutional_value_tag: "audit" },
-                { id: "HSG_06", section: "Impact & Severity", label: "Health impact present", required: true, answer_type: "single_select", options: ["Yes", "No", "Unknown"], institutional_value_tag: "public_health" },
-                { id: "HSG_07", section: "Impact & Severity", label: "Vulnerable occupants", required: true, answer_type: "multi_select", options: ["Children", "Elderly", "Disabled", "None", "Unknown"], institutional_value_tag: "safety" }
-            ],
-            deep_dive_questions: [
-                { id: "HSG_DD_01", section: "Impact & Severity", label: "Displacement risk", required: false, answer_type: "single_select", options: ["No", "Threatened", "Evicted", "Unknown"] },
-                { id: "HSG_DD_02", section: "Evidence & Chain-of-Custody", label: "Evidence Type", required: false, answer_type: "multi_select", options: ["Photos", "Repair requests", "Inspections", "Medical notes", "None"] }
             ]
         },
         [Category.HousingIssues]: {
@@ -700,7 +667,7 @@ export const MOCK_REPORTS: Report[] = [
         id: 'rep-002',
         title: 'ALGORITHMIC RENT HIKING',
         description: 'Detected a 35% automated rent increase across properties owned by the Vertex Group. Trace data shows the price-fixing packets originating from a single central server node disguised as P2P market adjustments, redlining low-income sectors.',
-        category: Category.Housing,
+        category: Category.HousingIssues,
         location: 'Riverside District, Units 101-112',
         timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
         hash: '0xe88aff4392c1002d',
