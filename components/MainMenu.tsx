@@ -58,7 +58,7 @@ const PrimaryNavModule: React.FC<{
     colorClass: string;
     status: string;
     bgImageUrl?: string;
-}> = ({ icon, label, subLabel, onClick, colorClass, status }) => {
+}> = ({ icon, label, subLabel, onClick, colorClass, status, bgImageUrl }) => {
     const hexMap: Record<string, string> = {
         rose: '#f43f5e',
         cyan: '#22d3ee',
