@@ -33,6 +33,21 @@ const categoryImageSlug = (value: string): string =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
+type SpritePos = { x: number; y: number };
+
+// Sprite sheet support: one collage image sliced per category card.
+// Grid is 3 columns x 2 rows in the provided collage.
+const CATEGORY_SPRITE_POSITIONS: Partial<Record<Category, SpritePos>> = {
+  [Category.AccidentsRoadHazards]: { x: 0, y: 0 },
+  [Category.Allergies]: { x: 1, y: 0 },
+  [Category.CivicDuty]: { x: 2, y: 0 },
+  [Category.Clergy]: { x: 0, y: 1 },
+  [Category.ConsumerScams]: { x: 1, y: 1 },
+  [Category.ElderlyCare]: { x: 2, y: 1 },
+};
+
+const SPRITE_SRC = '/category-cards/category-collage.png';
+
 const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onReturnToHub }) => {
     const { t } = useTranslations();
     const [searchQuery, setSearchQuery] = useState('');
@@ -99,18 +114,30 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             <BorderPulse color="#06b6d4" />
                             <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-                            {!hiddenCategoryImages[cat.value] && (
-                                <img
-                                    src={`/category-cards/${categoryImageSlug(cat.value)}.png`}
-                                    alt=""
-                                    className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
-                                    onError={() =>
-                                        setHiddenCategoryImages((prev) => ({
-                                            ...prev,
-                                            [cat.value]: true,
-                                        }))
-                                    }
+                            {CATEGORY_SPRITE_POSITIONS[cat.value] ? (
+                                <div
+                                    className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
+                                    style={{
+                                        backgroundImage: `url(${SPRITE_SRC})`,
+                                        backgroundSize: '300% 200%',
+                                        backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
+                                        backgroundRepeat: 'no-repeat',
+                                    }}
                                 />
+                            ) : (
+                                !hiddenCategoryImages[cat.value] && (
+                                    <img
+                                        src={`/category-cards/${categoryImageSlug(cat.value)}.png`}
+                                        alt=""
+                                        className="absolute inset-0 w-full h-full object-cover opacity-35 group-hover:opacity-45 transition-opacity"
+                                        onError={() =>
+                                            setHiddenCategoryImages((prev) => ({
+                                                ...prev,
+                                                [cat.value]: true,
+                                            }))
+                                        }
+                                    />
+                                )
                             )}
                             <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-zinc-950/55 to-zinc-950/95" />
                             
