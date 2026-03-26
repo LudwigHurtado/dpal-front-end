@@ -601,7 +601,6 @@ export const translations = {
       other: "Other",
       civicDuty: "Civic Duty",
       accidentsRoadHazards: "Accidents & Road Hazards",
-      medicalEmergencies: "Medical Emergencies",
       fireEnvironmentalHazards: "Fire & Environmental Hazards",
       publicSafetyAlerts: "Public Safety Alerts",
       marketplaceOnlineSalesIssues: "Marketplace & Online Sales Issues",

@@ -22,7 +22,6 @@ export enum Category {
     Other = 'Other',
     CivicDuty = 'Civic Duty',
     AccidentsRoadHazards = 'Accidents & Road Hazards',
-    MedicalEmergencies = 'Medical Emergencies',
     FireEnvironmentalHazards = 'Fire & Environmental Hazards',
     PublicSafetyAlerts = 'Public Safety Alerts',
     MarketplaceTransactionsEscrow = 'Marketplace Transactions (Escrow)',

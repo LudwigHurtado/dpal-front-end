@@ -46,7 +46,6 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.Other]: ["community safety", "local incident", "public accountability"],
   [Category.CivicDuty]: ["civic duty", "community action", "public participation"],
   [Category.AccidentsRoadHazards]: ["traffic collision", "road hazard", "street safety"],
-  [Category.MedicalEmergencies]: ["medical emergency", "public health alert", "urgent care incident"],
   [Category.FireEnvironmentalHazards]: ["fire hazard", "wildfire risk", "chemical spill"],
   [Category.PublicSafetyAlerts]: ["public safety alert", "active incident", "urgent warning"],
   [Category.MarketplaceTransactionsEscrow]: ["marketplace transaction dispute", "escrow verification", "online sale fraud"],

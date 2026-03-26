@@ -67,7 +67,6 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.WorkplaceIssues, translationKey: "categories.workplaceIssues", icon: "🏢", imageSeed: "corporate-office-tower", headline: "Champion Fair Workplaces" },
   { value: Category.CivicDuty, translationKey: "categories.civicDuty", icon: "⚖️", imageSeed: "government-hall-columns", headline: "Monitor Civic Duty Compliance" },
   { value: Category.AccidentsRoadHazards, translationKey: "categories.accidentsRoadHazards", icon: "🚨", imageSeed: "car-crash-highway-rain", headline: "Accidents & Road Hazards" },
-  { value: Category.MedicalEmergencies, translationKey: "categories.medicalEmergencies", icon: "🚑", imageSeed: "emergency-room-busy", headline: "Medical Emergencies" },
   { value: Category.FireEnvironmentalHazards, translationKey: "categories.fireEnvironmentalHazards", icon: "🔥", imageSeed: "forest-fire-smoke-plume", headline: "Fire & Environmental Hazards" },
   { value: Category.PublicSafetyAlerts, translationKey: "categories.publicSafetyAlerts", icon: "⚠️", imageSeed: "public-safety-warning-sign", headline: "Public Safety Alerts" },
   { value: Category.MarketplaceTransactionsEscrow, translationKey: "categories.marketplaceTransactionsEscrow", icon: "🤝", imageSeed: "p2p-escrow-exchange-handoff", headline: "Marketplace Transactions (Escrow)" },
@@ -116,18 +115,6 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             ],
             deep_dive_questions: [
                 { id: "ACC_DD_01", section: "Emergency Response", label: "Estimated Responders Needed", required: false, answer_type: "multi_select", options: ["Ambulance", "Fire Engine", "Police", "Tow Truck", "Hazardous Mat Squad"] }
-            ]
-        },
-        [Category.MedicalEmergencies]: {
-            core_questions: [
-                ...GLOBAL_CORE,
-                { id: "MED_EM_01", section: "Tactical Data", label: "Patient Conscious?", required: true, answer_type: "single_select", options: ["Yes", "No", "Intermittent/Fading"], institutional_value_tag: "critical_care" },
-                { id: "MED_EM_02", section: "Tactical Data", label: "Breathing Status", required: true, answer_type: "single_select", options: ["Normal", "Struggling/Gasping", "Not Breathing", "Choking"], institutional_value_tag: "critical_care" },
-                { id: "MED_EM_03", section: "Tactical Data", label: "Primary Symptom", required: true, answer_type: "single_select", options: ["Chest Pain", "Trauma/Major Bleeding", "Seizure", "Allergic Reaction", "Stroke Symptoms", "Other"], institutional_value_tag: "critical_care" },
-                { id: "MED_EM_04", section: "Context", label: "Patient Age Group", required: true, answer_type: "single_select", options: ["Infant", "Child", "Adult", "Elderly"], institutional_value_tag: "care_triage" }
-            ],
-            deep_dive_questions: [
-                { id: "MED_DD_01", section: "Site Intel", label: "AED/Defibrillator Nearby?", required: false, answer_type: "single_select", options: ["Yes - Retrieved", "Yes - Visible", "No", "Unknown"] }
             ]
         },
         [Category.FireEnvironmentalHazards]: {

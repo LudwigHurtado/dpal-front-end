@@ -29,7 +29,7 @@ function isVerified(report: ReportType): boolean {
 const FEED_TABS = ['All', 'Safety', 'Environment', 'Community'] as const;
 const TAB_TO_CATEGORIES: Record<string, Category[]> = {
   All: [],
-  Safety: [Category.PublicSafetyAlerts, Category.AccidentsRoadHazards, Category.MedicalEmergencies],
+  Safety: [Category.PublicSafetyAlerts, Category.AccidentsRoadHazards],
   Environment: [Category.Environment, Category.FireEnvironmentalHazards, Category.WaterViolations],
   Community: [Category.CivicDuty, Category.NonProfit, Category.Education],
 };
