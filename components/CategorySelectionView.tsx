@@ -39,16 +39,19 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.CivicDuty]: '/category-cards/civic-duty.png',
   [Category.Clergy]: '/category-cards/clergy.png',
   [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
+  [Category.MedicalNegligence]: '/category-cards/medical-negligence.png',
   [Category.Education]: '/category-cards/education.png',
   [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
   [Category.Events]: '/category-cards/event-transparency.png',
   [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
   [Category.HousingIssues]: '/category-cards/housing-issues.png',
   [Category.Infrastructure]: '/category-cards/infrastructure.png',
+  [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
   [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
   [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
   [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
   [Category.NonProfit]: '/category-cards/Non-Profit.png',
+  [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
   [Category.Other]: '/category-cards/Independent Discoveries.png',
 };
 
@@ -135,9 +138,9 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
 
                             {!hiddenCategoryImages[cat.value] && (
                                 <img
-                                    src={categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`}
+                                    src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
                                     alt=""
-                                    className="absolute inset-0 w-full h-full object-contain p-3 opacity-35 group-hover:opacity-45 transition-opacity"
+                                    className="absolute inset-0 w-full h-full object-contain p-0 opacity-100 transition-opacity"
                                     onError={() =>
                                         setHiddenCategoryImages((prev) => ({
                                             ...prev,
@@ -158,7 +161,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                     }}
                                 />
                             )}
-                            <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-zinc-950/55 to-zinc-950/95" />
+                            <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
                             
                             <div className="flex flex-col items-center text-center mb-8 relative z-10">
                                 <div className="text-6xl mb-6 transition-transform duration-500 group-hover:scale-110">

@@ -23,6 +23,7 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
     [Category.CivicDuty]: '/category-cards/civic-duty.png',
     [Category.Clergy]: '/category-cards/clergy.png',
     [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
+    [Category.MedicalNegligence]: '/category-cards/medical-negligence.png',
     [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
     [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
     [Category.HousingIssues]: '/category-cards/housing-issues.png',
@@ -32,10 +33,12 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
     [Category.Events]: '/category-cards/event-transparency.png',
     [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
     [Category.Infrastructure]: '/category-cards/infrastructure.png',
+    [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
     [Category.NonProfit]: '/category-cards/Non-Profit.png',
+    [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
     [Category.Other]: '/category-cards/Independent Discoveries.png',
   };
-  const missionHero = categoryHeroByType[intelItem.category] || `https://picsum.photos/seed/${(categoryInfo?.imageSeed || 'intel') + '-mission'}/1200/500`;
+  const missionHero = encodeURI(categoryHeroByType[intelItem.category] || `https://picsum.photos/seed/${(categoryInfo?.imageSeed || 'intel') + '-mission'}/1200/500`);
 
   const handleAccept = async () => {
       if (!approach || !goal) return;
@@ -63,8 +66,6 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
 
   return (
     <div className="bg-zinc-950 text-white p-8 rounded-[3rem] animate-fade-in min-h-[85vh] border border-zinc-800 shadow-4xl font-mono relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(6,182,212,0.02),transparent)] pointer-events-none"></div>
-        
         <button onClick={onReturn} className="inline-flex items-center space-x-3 text-xs font-black uppercase text-zinc-500 hover:text-cyan-400 transition-colors mb-8 group">
             <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
             <span>Return_To_Intel</span>
@@ -75,10 +76,9 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
             <div className="lg:col-span-4 space-y-8">
                 <div className="bg-zinc-900 border border-zinc-800 p-8 rounded-[2.5rem] shadow-xl relative overflow-hidden">
                     <div
-                        className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-30"
+                        className="absolute inset-0 bg-contain bg-center bg-no-repeat opacity-100"
                         style={{ backgroundImage: `url(${missionHero})` }}
                     />
-                    <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-zinc-950/60 to-zinc-950/90" />
                     <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-cyan-400"/></div>
                     <div className="relative z-10 flex items-center space-x-4 mb-6">
                         <span className="bg-cyan-950/40 text-cyan-400 px-3 py-1 rounded-full border border-cyan-900/50 text-[8px] font-black uppercase tracking-widest">ASSIGNMENT_ROOT</span>

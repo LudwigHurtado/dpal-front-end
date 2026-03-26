@@ -25,6 +25,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.CivicDuty]: '/category-cards/civic-duty.png',
         [Category.Clergy]: '/category-cards/clergy.png',
         [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
+        [Category.MedicalNegligence]: '/category-cards/medical-negligence.png',
         [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
         [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
         [Category.HousingIssues]: '/category-cards/housing-issues.png',
@@ -34,10 +35,12 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.Events]: '/category-cards/event-transparency.png',
         [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
         [Category.Infrastructure]: '/category-cards/infrastructure.png',
+        [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
         [Category.NonProfit]: '/category-cards/Non-Profit.png',
+        [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
         [Category.Other]: '/category-cards/Independent Discoveries.png',
     };
-    const imageUrl = categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`;
+    const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
 
     const isAccidents = category === Category.AccidentsRoadHazards;
     const guideSlides = useMemo(() => ([
@@ -158,7 +161,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
             {isAccidents ? (
                 <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
                     <div
-                        className="absolute inset-0 bg-contain bg-center bg-no-repeat brightness-110 contrast-105 saturate-110"
+                        className="absolute inset-0 bg-contain bg-center bg-no-repeat"
                         style={{ backgroundImage: `url(${imageUrl})` }}
                     />
                     <div className="relative h-full p-6 md:p-8 flex items-start">
@@ -174,12 +177,9 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
             ) : (
                 <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl group">
                     <div 
-                        className="absolute inset-0 bg-contain bg-center bg-no-repeat grayscale contrast-125 brightness-50 transition-all duration-1000 group-hover:scale-105"
+                        className="absolute inset-0 bg-contain bg-center bg-no-repeat"
                         style={{ backgroundImage: `url(${imageUrl})` }}
                     ></div>
-                    <div className="absolute inset-0 bg-cyan-600/10 mix-blend-color opacity-30"></div>
-                    <div className="absolute inset-0 scanline-overlay"></div>
-                    <div className="absolute inset-0 dispatch-gradient"></div>
                     
                     <div className="relative h-full flex flex-col justify-between p-10 md:p-16">
                         <button
