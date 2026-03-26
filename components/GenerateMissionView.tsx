@@ -33,6 +33,7 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
     [Category.Events]: '/category-cards/event-transparency.png',
     [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
     [Category.Environment]: '/category-cards/environment.png',
+    [Category.WorkplaceIssues]: '/category-cards/workplace issues.png',
     [Category.Infrastructure]: '/category-cards/infrastructure.png',
     [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
     [Category.ProfessionalServices]: '/category-cards/profesional-services.png',

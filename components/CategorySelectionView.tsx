@@ -47,6 +47,7 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.Environment]: '/category-cards/environment.png',
   [Category.HousingIssues]: '/category-cards/housing-issues.png',
   [Category.Infrastructure]: '/category-cards/infrastructure.png',
+  [Category.WorkplaceIssues]: '/category-cards/workplace issues.png',
   [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
   [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
   [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
@@ -144,7 +145,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                                 <img
                                     src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
                                     alt=""
-                                    className="absolute inset-0 w-full h-full object-contain p-0 opacity-100 transition-opacity"
+                                    className="absolute left-0 right-0 bottom-0 top-24 w-full h-full object-contain p-0 opacity-100 transition-opacity"
                                     onError={() =>
                                         setHiddenCategoryImages((prev) => ({
                                             ...prev,
@@ -156,7 +157,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
 
                             {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
                                 <div
-                                    className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
+                                    className="absolute left-0 right-0 bottom-0 top-24 opacity-35 group-hover:opacity-45 transition-opacity"
                                     style={{
                                         backgroundImage: `url(${SPRITE_SRC})`,
                                         backgroundSize: '300% 200%',
@@ -167,13 +168,11 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                             )}
                             <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
                             
-                            <div className="flex flex-col items-center text-center mb-8 relative z-10">
-                                <div className="text-6xl mb-6 transition-transform duration-500 group-hover:scale-110">
+                            {/* Icon-only header so it doesn't overlap baked-in image text */}
+                            <div className="absolute top-8 left-0 right-0 flex justify-center z-10 pointer-events-none">
+                                <div className="text-6xl transition-transform duration-500 group-hover:scale-110">
                                     {cat.icon}
                                 </div>
-                                <span className="text-lg font-black text-white transition-colors uppercase tracking-tight">
-                                    {t(cat.translationKey)}
-                                </span>
                             </div>
 
                             <div className="mt-auto space-y-3 relative z-10">
