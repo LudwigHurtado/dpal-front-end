@@ -54,7 +54,7 @@ const categoryImageByType: Partial<Record<Category, string>> = {
   [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',
   [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
   [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
-  [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
+  [Category.P2PEscrowVerification]: '/category-cards/marketplace-transactions-escrow.png',
   [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
   [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
   [Category.NonProfit]: '/category-cards/Non-Profit.png',

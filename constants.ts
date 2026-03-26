@@ -70,7 +70,6 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.AccidentsRoadHazards, translationKey: "categories.accidentsRoadHazards", icon: "🚨", imageSeed: "car-crash-highway-rain", headline: "Accidents & Road Hazards" },
   { value: Category.FireEnvironmentalHazards, translationKey: "categories.fireEnvironmentalHazards", icon: "🔥", imageSeed: "forest-fire-smoke-plume", headline: "Fire & Environmental Hazards" },
   { value: Category.PublicSafetyAlerts, translationKey: "categories.publicSafetyAlerts", icon: "⚠️", imageSeed: "public-safety-warning-sign", headline: "Public Safety Alerts" },
-  { value: Category.MarketplaceTransactionsEscrow, translationKey: "categories.marketplaceTransactionsEscrow", icon: "🤝", imageSeed: "p2p-escrow-exchange-handoff", headline: "Marketplace Transactions (Escrow)" },
   { value: Category.StolenPropertyRegistry, translationKey: "categories.stolenPropertyRegistry", icon: "🔒", imageSeed: "stolen-property-registry-police-ledger", headline: "Stolen Property Registry" },
   { value: Category.HousingIssues, translationKey: "categories.housingIssues", icon: "🏚️", imageSeed: "unsafe-housing-repair-violation", headline: "Housing Issues" },
   { value: Category.P2PEscrowVerification, translationKey: "categories.p2pEscrowVerification", icon: "🤝", imageSeed: "digital-contract-signature-secure", headline: "P2P Escrow & Document Verification" },
@@ -230,21 +229,6 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             deep_dive_questions: [
                 { id: "SCM_DD_01", section: "Failure Mechanism", label: "Tactics used", required: false, answer_type: "multi_select", options: ["Urgency", "Threats", "Fake authority", "Fake support", "Fake tracking", "Other"] },
                 { id: "SCM_DD_02", section: "Evidence & Chain-of-Custody", label: "Evidence Type", required: false, answer_type: "multi_select", options: ["Screenshots", "Emails", "Transaction proof", "Call recording", "None"] }
-            ]
-        },
-        [Category.MarketplaceTransactionsEscrow]: {
-            core_questions: [
-                ...GLOBAL_CORE,
-                { id: "MKE_01", section: "Trade Context", label: "Escrow flow stage", required: true, answer_type: "single_select", options: ["Deal created", "Funded", "Inspection period", "Release requested", "Dispute opened"], institutional_value_tag: "audit" },
-                { id: "MKE_02", section: "Item Details", label: "Item class", required: true, answer_type: "single_select", options: ["Electronics", "Vehicle", "Tools", "Jewelry", "Collectible", "Business equipment", "Other"], institutional_value_tag: "audit" },
-                { id: "MKE_03", section: "Item Details", label: "Ownership proof type", required: true, answer_type: "multi_select", options: ["Receipt", "Serial number", "Transfer document", "Warranty/registration", "No proof"], institutional_value_tag: "regulatory" },
-                { id: "MKE_04", section: "Verification", label: "Identity verification level", required: true, answer_type: "single_select", options: ["Basic", "ID verified", "Biometric verified", "Unknown"], institutional_value_tag: "safety" },
-                { id: "MKE_05", section: "Impact & Severity", label: "Current escrow risk", required: true, answer_type: "single_select", options: ["No risk", "Mismatch in evidence", "Ownership conflict", "Fraud suspected", "High risk"], institutional_value_tag: "financial_fraud" },
-                { id: "MKE_06", section: "Evidence & Chain-of-Custody", label: "Transfer evidence attached", required: true, answer_type: "multi_select", options: ["Handoff photos", "Condition photos", "Packaging photos", "Video proof", "Digital signatures", "None"], institutional_value_tag: "audit" }
-            ],
-            deep_dive_questions: [
-                { id: "MKE_DD_01", section: "Dispute", label: "Dispute reason", required: false, answer_type: "single_select", options: ["Non-delivery", "Condition mismatch", "Ownership dispute", "Fraud identity", "Payment mismatch", "Other"] },
-                { id: "MKE_DD_02", section: "Actions Taken / Notifications", label: "Resolution path", required: false, answer_type: "single_select", options: ["Release", "Partial refund", "Return & refund", "Escalated review"] }
             ]
         },
         [Category.StolenPropertyRegistry]: {

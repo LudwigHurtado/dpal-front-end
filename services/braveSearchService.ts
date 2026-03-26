@@ -49,7 +49,6 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.AccidentsRoadHazards]: ["traffic collision", "road hazard", "street safety"],
   [Category.FireEnvironmentalHazards]: ["fire hazard", "wildfire risk", "chemical spill"],
   [Category.PublicSafetyAlerts]: ["public safety alert", "active incident", "urgent warning"],
-  [Category.MarketplaceTransactionsEscrow]: ["marketplace transaction dispute", "escrow verification", "online sale fraud"],
   [Category.StolenPropertyRegistry]: ["stolen property registry", "ownership verification", "theft report"],
   [Category.P2PEscrowVerification]: ["escrow dispute", "p2p fraud", "transaction verification"],
   [Category.ProofOfLifeBiometric]: ["biometric verification", "identity check", "proof of life"],

@@ -29,7 +29,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
         [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
         [Category.HousingIssues]: '/category-cards/housing-issues.png',
-        [Category.MarketplaceTransactionsEscrow]: '/category-cards/marketplace-transactions-escrow.png',
+        [Category.P2PEscrowVerification]: '/category-cards/marketplace-transactions-escrow.png',
         [Category.Education]: '/category-cards/education.png',
         [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
         [Category.Events]: '/category-cards/event-transparency.png',

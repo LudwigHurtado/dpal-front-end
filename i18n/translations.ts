@@ -605,7 +605,6 @@ export const translations = {
       fireEnvironmentalHazards: "Fire & Environmental Hazards",
       publicSafetyAlerts: "Public Safety Alerts",
       marketplaceOnlineSalesIssues: "Marketplace & Online Sales Issues",
-      marketplaceTransactionsEscrow: "Marketplace Transactions (Escrow)",
       stolenPropertyRegistry: "Stolen Property Registry",
       housingIssues: "Housing Issues",
       p2pEscrowVerification: "P2P Escrow & Document Verification",

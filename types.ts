@@ -25,7 +25,6 @@ export enum Category {
     AccidentsRoadHazards = 'Accidents & Road Hazards',
     FireEnvironmentalHazards = 'Fire & Environmental Hazards',
     PublicSafetyAlerts = 'Public Safety Alerts',
-    MarketplaceTransactionsEscrow = 'Marketplace Transactions (Escrow)',
     StolenPropertyRegistry = 'Stolen Property Registry',
     HousingIssues = 'Housing Issues',
     P2PEscrowVerification = 'P2P Escrow & Document Verification',
