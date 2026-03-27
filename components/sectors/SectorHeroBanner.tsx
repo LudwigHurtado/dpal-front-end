@@ -12,9 +12,9 @@ const SectorHeroBanner: React.FC<SectorHeroBannerProps> = ({ sector, imageSrc })
       <img
         src={imageSrc}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover opacity-55"
+        className="absolute inset-0 h-full w-full object-cover opacity-100 saturate-[1.06]"
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/70 to-black/40" />
+      <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/65 via-zinc-950/25 to-transparent" />
       <div className="relative p-6 md:p-8">
         <p className="text-[10px] font-black tracking-[0.28em] uppercase text-cyan-300">Next View Active</p>
         <h2 className="mt-3 text-2xl md:text-3xl font-black uppercase tracking-tight text-white">

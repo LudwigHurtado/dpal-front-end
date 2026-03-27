@@ -84,11 +84,11 @@ export const CATEGORY_MAPPINGS: CategoryMappingRow[] = [
 ];
 
 export const SECTOR_HERO_ASSET: Record<SectorKey, string> = {
-  safety: '/main-screen/field-missions.png',
-  financial: '/main-screen/escrow-service.png',
-  health: '/main-screen/my-reports.png',
+  safety: '/next-view/sector-safety.png',
+  financial: '/next-view/sector-financial.png',
+  health: '/next-view/sector-health.png',
   government: '/main-screen/public-ledger.png',
-  property: '/main-screen/file-a-report.png',
-  digital: '/main-screen/dashboard.png',
-  community: '/main-screen/asset-archive.png',
+  property: '/next-view/sector-property.png',
+  digital: '/next-view/sector-dpal-coin.png',
+  community: '/next-view/sector-community.png',
 };

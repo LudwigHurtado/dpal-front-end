@@ -180,7 +180,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                         MINT_STATION: '/main-screen/mint-station.png',
                         QR_LIVE_SAVER: '/main-screen/qr-live-saver.png',
                         WORK_LOG: '/main-screen/weekly-work-log.png',
-                        WORK_FOR_DPAL_COINS: '/main-screen/work-for-dpal-coins.png',
+                        WORK_FOR_DPAL_COINS: '/next-view/sector-dpal-coin.png',
                         STORAGE_QR: '/main-screen/storage-qr.png',
                     };
                     const tileImage = (label: string): string | undefined => TILE_IMAGES[label];
@@ -352,6 +352,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="No money value. Earn via cards, NFTs, and DPAL coins."
                     status="REWARDS"
                     colorClass="amber"
+                    bgImageUrl="/next-view/sector-dpal-coin.png"
                     onClick={() => onNavigate('reportWorkPanel')}
                 />
 

@@ -272,7 +272,13 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
             />
           )}
 
-          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
+          <div
+            className={
+              prioritizeActions
+                ? 'absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-black/0 to-black/18'
+                : 'absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30'
+            }
+          />
           <div className="absolute inset-x-0 bottom-3 px-4 pointer-events-none">
             <div
               className="text-center text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
