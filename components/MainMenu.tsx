@@ -296,6 +296,16 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     onClick={() => onNavigate('politicianTransparency')}
                 />
 
+                <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
+                    label="OFFSET_MARKETPLACE"
+                    subLabel="Verified carbon projects & traceable impact credits"
+                    status="MARKET"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/offset-marketplace.png"
+                    onClick={() => onNavigate('sustainmentCenter')}
+                />
+
                 <PrimaryNavModule 
                     icon={<Phone className="w-8 h-8" />}
                     label="ESCALATION_HUB"
