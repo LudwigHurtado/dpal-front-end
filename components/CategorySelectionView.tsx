@@ -163,13 +163,87 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
         );
       }) as (typeof CATEGORIES_WITH_ICONS);
 
-    const renderCategoryCard = (cat: (typeof CATEGORIES_WITH_ICONS)[number]) => (
+    const renderCategoryCard = (cat: (typeof CATEGORIES_WITH_ICONS)[number], prioritizeActions = false) => (
       <div
         key={cat.value}
         className="group flex flex-col bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 hover:border-zinc-600 transition-all duration-500 relative overflow-hidden shadow-2xl p-8"
       >
         <BorderPulse color="#06b6d4" />
         <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
+
+        {prioritizeActions && (
+          <div className="mb-5 relative z-20 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => onSelectCategory(cat.value)}
+              className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+            >
+              Report
+            </button>
+
+            <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
+              <span className="text-3xl leading-none">{cat.icon}</span>
+            </div>
+
+            <div className="relative flex-1 group/actions">
+              <button
+                type="button"
+                className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+                aria-haspopup="menu"
+              >
+                Actions
+              </button>
+
+              <div
+                className="absolute right-0 left-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden opacity-0 pointer-events-none translate-y-1 transition-all duration-150 group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto group-hover/actions:translate-y-0"
+                role="menu"
+              >
+                <button
+                  type="button"
+                  onClick={() => onSelectPlay?.()}
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                  role="menuitem"
+                >
+                  Play
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectHelp?.()}
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                  role="menuitem"
+                >
+                  Help
+                </button>
+                <button
+                  type="button"
+                  onClick={() => (onSelectWork || onSelectMissions)(cat.value)}
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                  role="menuitem"
+                >
+                  Work
+                </button>
+                {cat.value === Category.GoodDeeds && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectMissions(cat.value)}
+                    className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                    role="menuitem"
+                  >
+                    Good Deed Missions
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onSelectCategory(cat.value)}
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                  role="menuitem"
+                >
+                  Report
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
           {!hiddenCategoryImages[cat.value] && (
@@ -209,6 +283,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
           </div>
         </div>
 
+        {!prioritizeActions && (
         <div className="mt-5 relative z-20 flex items-center gap-3">
           <button
             type="button"
@@ -280,6 +355,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
             </div>
           </div>
         </div>
+        )}
       </div>
     );
 
@@ -372,7 +448,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
 
             {(viewMode === 'classic' ? filteredCategories.length > 0 : activeSectorCategories.length > 0) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {(viewMode === 'classic' ? filteredCategories : activeSectorCategories).map((cat) => renderCategoryCard(cat))}
+                    {(viewMode === 'classic' ? filteredCategories : activeSectorCategories).map((cat) => renderCategoryCard(cat, viewMode === 'next'))}
                 </div>
             ) : (
                 <div className="py-32 text-center space-y-8 animate-fade-in">

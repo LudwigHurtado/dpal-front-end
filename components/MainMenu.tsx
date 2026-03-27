@@ -57,7 +57,8 @@ const PrimaryNavModule: React.FC<{
     colorClass: string;
     status: string;
     bgImageUrl?: string;
-}> = ({ icon, label, subLabel, onClick, colorClass, status, bgImageUrl }) => {
+    bgImageUrls?: string[];
+}> = ({ icon, label, subLabel, onClick, colorClass, status, bgImageUrl, bgImageUrls }) => {
     const hexMap: Record<string, string> = {
         rose: '#f43f5e',
         cyan: '#22d3ee',
@@ -66,6 +67,24 @@ const PrimaryNavModule: React.FC<{
         blue: '#3b82f6',
         purple: '#a855f7'
     };
+    const imageSources = (bgImageUrls && bgImageUrls.length > 0)
+      ? bgImageUrls
+      : (bgImageUrl ? [bgImageUrl] : []);
+    const [imageIndex, setImageIndex] = useState(0);
+
+    useEffect(() => {
+        if (imageSources.length <= 1) return;
+        const interval = setInterval(() => {
+            setImageIndex((prev) => (prev + 1) % imageSources.length);
+        }, 4500);
+        return () => clearInterval(interval);
+    }, [imageSources.length]);
+
+    useEffect(() => {
+        setImageIndex(0);
+    }, [imageSources.length, label]);
+
+    const currentImage = imageSources[imageIndex];
 
     return (
         <button 
@@ -76,10 +95,10 @@ const PrimaryNavModule: React.FC<{
             
             <div className={`absolute top-0 right-0 w-32 h-32 bg-${colorClass}-500/10 blur-3xl group-hover:bg-${colorClass}-500/20 transition-colors`}></div>
 
-            {bgImageUrl && (
+            {currentImage && (
                 <>
                     <img
-                        src={encodeURI(bgImageUrl)}
+                        src={encodeURI(currentImage)}
                         alt=""
                         draggable={false}
                         className="absolute inset-0 w-full h-full object-cover opacity-100"
@@ -154,7 +173,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                         ASSET_ARCHIVE: '/main-screen/asset-archive.png',
                         COIN_EXCHANGE: '/main-screen/coin-exchange.png',
                         ESCROW_SERVICE: '/main-screen/escrow-service.png',
-                        DPAL_LOCATOR: '/main-screen/dpal-locator.png',
+                        DPAL_LOCATOR: '/main-screen/dpa-locator.png',
                         DPAL_GAME_HUB: '/main-screen/dpal-game-hub.png',
                         POLITICIAN_VIEWPOINTS: '/main-screen/politician-viewpoints.png',
                         BADGE_REGISTRY: '/main-screen/badge-registry.png',
@@ -258,7 +277,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Locate lost people, pets, and items (GPS + photo + voice)"
                     status="LIVE"
                     colorClass="emerald"
-                    bgImageUrl="/main-screen/dpal-locator.png"
+                    bgImageUrl="/main-screen/dpa-locator.png"
                     onClick={() => onNavigate('dpalLocator')}
                 />
 
@@ -268,7 +287,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Play mission modes, earn progress, and boost civic impact"
                     status="BETA"
                     colorClass="purple"
-                    bgImageUrl="/main-screen/dpal-game-hub.png"
+                    bgImageUrls={["/main-screen/dpal-game-hub.png", "/main-screen/dpal-game-hub 2.png"]}
                     onClick={() => onNavigate('gameHub')}
                 />
 

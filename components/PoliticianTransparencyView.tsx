@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useTranslations } from '../i18n';
 import type { Hero } from '../types';
-import { Search, ArrowLeft, ShieldCheck, Map, Filter, Info, User as UserIcon, FileText } from './icons';
+import { Search, ArrowLeft, ShieldCheck, Filter, Info, User as UserIcon, FileText, Upload, CheckCircle, Coins } from './icons';
 
 export interface PoliticianPosition {
   id: string;
@@ -68,6 +68,9 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   const { t } = useTranslations();
   const [search, setSearch] = useState('');
   const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
+  const [proofFiles, setProofFiles] = useState<File[]>([]);
+  const [proofNote, setProofNote] = useState('');
+  const [proofSubmitted, setProofSubmitted] = useState(false);
 
   const politicians = MOCK_POLITICIANS;
 
@@ -113,14 +116,152 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
         <span>Return</span>
       </button>
 
-      <header className="mb-10 text-center space-y-4">
-        <h1 className="text-4xl md:text-5xl font-black tracking-tight uppercase leading-tight">
-          Politician Transparency Registry
-        </h1>
-        <p className="text-xs md:text-sm text-zinc-400 font-semibold uppercase tracking-[0.35em] max-w-3xl mx-auto">
-          One clean pane to see what leaders say they will support—before charters, laws, and propositions are enacted.
-        </p>
+      <header className="mb-10 space-y-5">
+        <div className="relative overflow-hidden rounded-[2.5rem] border border-zinc-800 bg-zinc-950">
+          <img
+            src="/politician-viewpoints/decentralized-window.png"
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-55"
+            draggable={false}
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/55 to-black/85" />
+          <div className="relative p-6 md:p-8">
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-300">
+              Decentralized Window
+            </p>
+            <h1 className="mt-2 text-3xl md:text-5xl font-black tracking-tight uppercase leading-tight text-white">
+              Politician Viewpoints
+            </h1>
+            <p className="mt-3 text-xs md:text-sm text-zinc-200 font-semibold uppercase tracking-[0.28em] max-w-3xl">
+              Compare what they SAID vs what they DID. Submit proof, get verified, earn token rewards.
+            </p>
+            <div className="mt-5 flex flex-wrap gap-3">
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 text-xs font-black uppercase tracking-[0.2em]">
+                <ShieldCheck className="w-4 h-4" />
+                Verification Layer
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 text-xs font-black uppercase tracking-[0.2em]">
+                <Coins className="w-4 h-4" />
+                Rewards Enabled
+              </div>
+              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-sky-500/40 bg-sky-500/10 text-sky-200 text-xs font-black uppercase tracking-[0.2em]">
+                <Upload className="w-4 h-4" />
+                Proof Upload
+              </div>
+            </div>
+          </div>
+        </div>
       </header>
+
+      <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
+        <div className="lg:col-span-2 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 md:p-6">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Submit Proof</p>
+              <h2 className="text-xl font-black uppercase tracking-tight">Said vs Did Evidence</h2>
+            </div>
+            <span
+              className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                proofSubmitted ? 'border-emerald-500 text-emerald-300 bg-emerald-500/10' : 'border-zinc-700 text-zinc-400'
+              }`}
+            >
+              {proofSubmitted ? 'Evidence Submitted' : 'Ready'}
+            </span>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-300 mb-2">This is what they SAID</p>
+              <p className="text-sm text-zinc-200">
+                Paste the statement, campaign promise, quote, or policy commitment that should be matched later.
+              </p>
+              <div className="mt-3 rounded-xl border border-zinc-800 bg-black/30 p-3 text-xs text-zinc-400">
+                Example: “We will create new jobs & clean communities.”
+              </div>
+            </div>
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-rose-300 mb-2">This is what they DID</p>
+              <p className="text-sm text-zinc-200">
+                Add proof of actions: closures, votes, contracts, violations, receipts, or verified reporting.
+              </p>
+              <div className="mt-3 rounded-xl border border-zinc-800 bg-black/30 p-3 text-xs text-zinc-400">
+                Example: “Facility closed” + links/documents.
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto] items-start">
+            <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-2">Evidence Notes</p>
+              <textarea
+                value={proofNote}
+                onChange={(e) => setProofNote(e.target.value)}
+                placeholder="Add context: who, what, when, where, and links…"
+                className="w-full min-h-[96px] rounded-xl border border-zinc-800 bg-black/30 p-3 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-cyan-500"
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:border-zinc-500 transition-colors cursor-pointer text-xs font-black uppercase tracking-[0.2em] text-zinc-200">
+                  <Upload className="w-4 h-4" />
+                  Upload Proof
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const next = Array.from(e.target.files || []);
+                      setProofFiles(next);
+                      setProofSubmitted(false);
+                    }}
+                  />
+                </label>
+                <span className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">
+                  {proofFiles.length ? `${proofFiles.length} file(s) selected` : 'No files selected'}
+                </span>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-200">Reward Engine</p>
+              <p className="mt-2 text-sm text-amber-100">
+                Verified evidence earns DPAL coins and boosts civic trust scoring.
+              </p>
+              <button
+                type="button"
+                onClick={() => setProofSubmitted(true)}
+                className="mt-4 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white text-black font-black uppercase tracking-wider hover:bg-zinc-200 transition-colors"
+              >
+                <CheckCircle className="w-4 h-4" />
+                Submit Evidence
+              </button>
+              <div className="mt-3 text-[10px] uppercase tracking-[0.25em] text-amber-200/80">
+                Status: {proofSubmitted ? 'Pending verification' : 'Not submitted'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 md:p-6">
+          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 mb-2">Your Node</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.25em] text-zinc-400">Operative</p>
+              <p className="text-lg font-black uppercase tracking-tight text-white">{hero.name}</p>
+            </div>
+            <div className="rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-right">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Wallet</p>
+              <p className="text-sm font-black text-amber-300">{hero.heroCredits.toLocaleString()} HC</p>
+            </div>
+          </div>
+          <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">How it works</p>
+            <div className="mt-3 space-y-2 text-sm text-zinc-200">
+              <div className="flex items-start gap-2"><span className="text-emerald-300">1.</span><span>Submit evidence that connects promises to outcomes.</span></div>
+              <div className="flex items-start gap-2"><span className="text-sky-300">2.</span><span>Community verifies or disputes with additional proof.</span></div>
+              <div className="flex items-start gap-2"><span className="text-amber-300">3.</span><span>Verified entries earn rewards and feed the registry below.</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
         <div className="lg:col-span-2 bg-zinc-900 border border-zinc-800 rounded-3xl px-5 py-4 flex items-center gap-3">
