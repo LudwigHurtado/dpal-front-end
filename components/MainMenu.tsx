@@ -326,6 +326,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Forge Permanent Truth Artifacts"
                     status="ACTIVE"
                     colorClass="amber"
+                    bgImageUrl="/main-screen/mint-station.png"
                     onClick={() => onNavigate('heroHub', undefined, 'mint')}
                 />
 
