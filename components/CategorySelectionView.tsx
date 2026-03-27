@@ -17,6 +17,11 @@ import {
   type ViewMode,
   type SectorKey,
 } from './sectors/sectorDefinitions';
+import {
+  CATEGORY_SPRITE_POSITIONS,
+  CATEGORY_SPRITE_SHEET_SRC,
+  getCategoryCardImageSrc,
+} from '../categoryCardAssets';
 
 interface CategorySelectionViewProps {
   onSelectCategory: (category: Category) => void;
@@ -41,60 +46,6 @@ const BorderPulse: React.FC<{ color: string }> = ({ color }) => (
         />
     </svg>
 );
-
-const categoryImageSlug = (value: string): string =>
-  value
-    .toLowerCase()
-    .replace(/&/g, 'and')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-
-const categoryImageByType: Partial<Record<Category, string>> = {
-  [Category.GoodDeeds]: '/category-cards/good-deeds.png',
-  [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
-  [Category.Allergies]: '/category-cards/allergies.png',
-  [Category.CivicDuty]: '/category-cards/civic-duty.png',
-  [Category.Clergy]: '/category-cards/clergy.png',
-  [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
-  [Category.MedicalNegligence]: '/category-cards/medical-negligence.png',
-  [Category.Education]: '/category-cards/education.png',
-  [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
-  [Category.Events]: '/category-cards/event-transparency.png',
-  [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
-  [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
-  [Category.Environment]: '/category-cards/environment.png',
-  [Category.WaterViolations]: '/category-cards/water-related.png',
-  [Category.HousingIssues]: '/category-cards/housing-issues.png',
-  [Category.Infrastructure]: '/category-cards/infrastructure.png',
-  [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',
-  [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
-  [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
-  [Category.P2PEscrowVerification]: '/category-cards/marketplace-transactions-escrow.png',
-  [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
-  [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
-  [Category.NonProfit]: '/category-cards/Non-Profit.png',
-  [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
-  [Category.PublicTransport]: '/category-cards/public transport.png',
-  [Category.Travel]: '/category-cards/travel.png',
-  [Category.VeteransServices]: '/category-cards/veterans-services.png',
-  [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
-  [Category.Other]: '/category-cards/Independent Discoveries.png',
-};
-
-type SpritePos = { x: number; y: number };
-
-// Sprite sheet support: one collage image sliced per category card.
-// Grid is 3 columns x 2 rows in the provided collage.
-const CATEGORY_SPRITE_POSITIONS: Partial<Record<Category, SpritePos>> = {
-  [Category.AccidentsRoadHazards]: { x: 0, y: 0 },
-  [Category.Allergies]: { x: 1, y: 0 },
-  [Category.CivicDuty]: { x: 2, y: 0 },
-  [Category.Clergy]: { x: 0, y: 1 },
-  [Category.ConsumerScams]: { x: 1, y: 1 },
-  [Category.ElderlyCare]: { x: 2, y: 1 },
-};
-
-const SPRITE_SRC = '/category-cards/category-collage.png';
 
 const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onSelectWork, onSelectPlay, onSelectHelp, onReturnToHub }) => {
     const { t } = useTranslations();
@@ -248,7 +199,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
         <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
           {!hiddenCategoryImages[cat.value] && (
             <img
-              src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
+              src={getCategoryCardImageSrc(cat.value)}
               alt=""
               className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
               onError={() =>
@@ -264,7 +215,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
             <div
               className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
               style={{
-                backgroundImage: `url(${SPRITE_SRC})`,
+                backgroundImage: `url(${CATEGORY_SPRITE_SHEET_SRC})`,
                 backgroundSize: '300% 200%',
                 backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
                 backgroundRepeat: 'no-repeat',

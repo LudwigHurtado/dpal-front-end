@@ -1,9 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from '../i18n';
 import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint } from './icons';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS } from '../constants';
+import {
+  CATEGORY_SPRITE_POSITIONS,
+  CATEGORY_SPRITE_SHEET_SRC,
+  getCategoryCardImageSrc,
+} from '../categoryCardAssets';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
 import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
@@ -136,6 +141,17 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
     const { t } = useTranslations();
     const [categorySearch, setCategorySearch] = useState('');
     const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+    const [hiddenDispatchCategoryImages, setHiddenDispatchCategoryImages] = useState<Record<string, boolean>>({});
+
+    const filteredDispatchCategories = useMemo(() => {
+        const sorted = [...CATEGORIES_WITH_ICONS].sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
+        const query = categorySearch.trim().toLowerCase();
+        if (!query) return sorted;
+        return sorted.filter(
+            (cat) =>
+                t(cat.translationKey).toLowerCase().includes(query) || cat.value.toLowerCase().includes(query)
+        );
+    }, [categorySearch, t]);
     
     const [colorIndex, setColorIndex] = useState(0);
     const [showPerimeter, setShowPerimeter] = useState(false);
@@ -430,10 +446,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 
                 <div className="bg-black/40 rounded-[3.4rem] p-8 md:p-12 border border-zinc-900 relative z-10">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                        {[...CATEGORIES_WITH_ICONS]
-                          .sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)))
-                          .filter(cat => t(cat.translationKey).toLowerCase().includes(categorySearch.toLowerCase()))
-                          .map((cat) => (
+                        {filteredDispatchCategories.map((cat) => (
                             <div
                                 key={cat.value}
                                 className={`group/card relative rounded-[2.5rem] overflow-hidden transition-all duration-300 border-2 ${activeCategory === cat.value ? 'bg-zinc-900 border-cyan-500 shadow-2xl scale-[1.03] z-20' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600 shadow-lg'}`}
@@ -441,14 +454,44 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                                 <DualCometBorder color="#06b6d4" radius="2.5rem" hoverable={true} />
                                 <button
                                     onClick={() => setActiveCategory(activeCategory === cat.value ? null : cat.value)}
-                                    className="w-full flex flex-col items-center justify-center text-center p-10 min-h-[200px]"
+                                    type="button"
+                                    className="w-full flex flex-col items-stretch text-center p-0"
                                 >
-                                    <div className="text-6xl mb-6 transition-transform duration-500 group-hover/card:scale-110">
-                                    {cat.icon}
+                                    <div className="relative overflow-hidden min-h-[220px] w-full border-b border-white/10 bg-black/20">
+                                        {!hiddenDispatchCategoryImages[cat.value] && (
+                                            <img
+                                                src={getCategoryCardImageSrc(cat.value)}
+                                                alt=""
+                                                className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
+                                                onError={() =>
+                                                    setHiddenDispatchCategoryImages((prev) => ({
+                                                        ...prev,
+                                                        [cat.value]: true,
+                                                    }))
+                                                }
+                                            />
+                                        )}
+                                        {hiddenDispatchCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
+                                            <div
+                                                className="absolute inset-0 opacity-35 group-hover/card:opacity-45 transition-opacity"
+                                                style={{
+                                                    backgroundImage: `url(${CATEGORY_SPRITE_SHEET_SRC})`,
+                                                    backgroundSize: '300% 200%',
+                                                    backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
+                                                    backgroundRepeat: 'no-repeat',
+                                                }}
+                                            />
+                                        )}
+                                        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
+                                        <div className="absolute inset-x-0 bottom-3 px-4 pointer-events-none">
+                                            <div
+                                                className="text-center text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+                                                style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+                                            >
+                                                {t(cat.translationKey)}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <span className="font-black text-lg text-white transition-colors tracking-tight uppercase">
-                                    {t(cat.translationKey)}
-                                    </span>
                                 </button>
                                 {activeCategory === cat.value && (
                                     <div className="p-8 border-t border-zinc-800 animate-fade-in-fast flex flex-col gap-4 bg-zinc-950">
