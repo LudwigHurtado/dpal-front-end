@@ -297,6 +297,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="See where local officials stand on upcoming measures"
                     status="CIVIC"
                     colorClass="blue"
+                    bgImageUrl="/main-screen/politician-viewpoints.png"
                     onClick={() => onNavigate('politicianTransparency')}
                 />
 

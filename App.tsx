@@ -767,7 +767,11 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'politicianTransparency' && (
-          <PoliticianTransparencyView hero={heroWithRank} onReturn={() => goBack('mainMenu')} />
+          <PoliticianTransparencyView
+            hero={heroWithRank}
+            onReturn={() => goBack('mainMenu')}
+            createReport={(rep, opts) => void handleAddReport(rep, opts)}
+          />
         )}
 
         {currentView === 'dpalLocator' && (
