@@ -713,7 +713,30 @@ const App: React.FC = () => {
         )}
         
         {currentView === 'mainMenu' && (
-          <MainMenu onNavigate={handleNavigate} totalReports={reports.length} latestHash={latestAnchoredReport?.hash || latestAnchoredReport?.txHash} latestBlockNumber={latestAnchoredReport?.blockNumber} onGenerateMissionForCategory={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} />
+          <MainMenu
+            onNavigate={handleNavigate}
+            totalReports={reports.length}
+            latestHash={latestAnchoredReport?.hash || latestAnchoredReport?.txHash}
+            latestBlockNumber={latestAnchoredReport?.blockNumber}
+            onGenerateMissionForCategory={(cat) => {
+              setInitialCategoriesForIntel([cat]);
+              handleNavigate('liveIntelligence');
+            }}
+            onDispatchPlay={() => handleNavigate('gameHub')}
+            onDispatchHelp={() => handleNavigate('trainingHolodeck')}
+            onDispatchWork={(cat) => {
+              setInitialCategoriesForIntel([cat]);
+              handleNavigate('liveIntelligence');
+            }}
+            onDispatchMissions={(cat) => {
+              if (cat === Category.GoodDeeds) {
+                handleNavigate('goodDeedsMissions');
+                return;
+              }
+              setInitialCategoriesForIntel([cat]);
+              handleNavigate('liveIntelligence');
+            }}
+          />
         )}
 
         {currentView === 'reportProtect' && (

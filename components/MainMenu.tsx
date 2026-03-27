@@ -20,6 +20,11 @@ interface MainMenuProps {
     latestHash?: string;
     latestBlockNumber?: number;
     onGenerateMissionForCategory: (category: Category) => void;
+    /** Dispatch Directory Actions menu — same behavior as category picker when provided. */
+    onDispatchPlay?: () => void;
+    onDispatchHelp?: () => void;
+    onDispatchWork?: (category: Category) => void;
+    onDispatchMissions?: (category: Category) => void;
 }
 
 const PERIMETER_COLORS = ['#06b6d4', '#f43f5e', '#f59e0b', '#10b981', '#a855f7', '#3b82f6'];
@@ -137,11 +142,33 @@ const PrimaryNavModule: React.FC<{
     );
 };
 
-const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHash, latestBlockNumber, onGenerateMissionForCategory }) => {
+const MainMenu: React.FC<MainMenuProps> = ({
+    onNavigate,
+    totalReports,
+    latestHash,
+    latestBlockNumber,
+    onGenerateMissionForCategory,
+    onDispatchPlay,
+    onDispatchHelp,
+    onDispatchWork,
+    onDispatchMissions,
+}) => {
     const { t } = useTranslations();
     const [categorySearch, setCategorySearch] = useState('');
-    const [activeCategory, setActiveCategory] = useState<Category | null>(null);
+    const [openDispatchActionsCategory, setOpenDispatchActionsCategory] = useState<Category | null>(null);
     const [hiddenDispatchCategoryImages, setHiddenDispatchCategoryImages] = useState<Record<string, boolean>>({});
+
+    useEffect(() => {
+        if (openDispatchActionsCategory === null) return;
+        const close = () => setOpenDispatchActionsCategory(null);
+        const id = window.setTimeout(() => {
+            document.addEventListener('click', close);
+        }, 0);
+        return () => {
+            clearTimeout(id);
+            document.removeEventListener('click', close);
+        };
+    }, [openDispatchActionsCategory]);
 
     const filteredDispatchCategories = useMemo(() => {
         const sorted = [...CATEGORIES_WITH_ICONS].sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
@@ -446,18 +473,35 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 
                 <div className="bg-black/40 rounded-[3.4rem] p-8 md:p-12 border border-zinc-900 relative z-10">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                        {filteredDispatchCategories.map((cat) => (
+                        {filteredDispatchCategories.map((cat) => {
+                            const isActionsOpen = openDispatchActionsCategory === cat.value;
+                            const runPlay = () => {
+                                setOpenDispatchActionsCategory(null);
+                                if (onDispatchPlay) onDispatchPlay();
+                                else onNavigate('gameHub');
+                            };
+                            const runHelp = () => {
+                                setOpenDispatchActionsCategory(null);
+                                if (onDispatchHelp) onDispatchHelp();
+                                else onNavigate('trainingHolodeck');
+                            };
+                            const runWork = () => {
+                                setOpenDispatchActionsCategory(null);
+                                (onDispatchWork ?? onGenerateMissionForCategory)(cat.value);
+                            };
+                            const runMissions = () => {
+                                setOpenDispatchActionsCategory(null);
+                                if (onDispatchMissions) onDispatchMissions(cat.value);
+                                else onGenerateMissionForCategory(cat.value);
+                            };
+                            return (
                             <div
                                 key={cat.value}
-                                className={`group/card relative rounded-[2.5rem] overflow-hidden transition-all duration-300 border-2 ${activeCategory === cat.value ? 'bg-zinc-900 border-cyan-500 shadow-2xl scale-[1.03] z-20' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600 shadow-lg'}`}
+                                className={`group/card relative rounded-[2.5rem] overflow-visible transition-all duration-300 border-2 bg-zinc-900/50 ${isActionsOpen ? 'border-cyan-500/80 z-30 shadow-2xl' : 'border-zinc-800 hover:border-zinc-600 shadow-lg'}`}
                             >
                                 <DualCometBorder color="#06b6d4" radius="2.5rem" hoverable={true} />
-                                <button
-                                    onClick={() => setActiveCategory(activeCategory === cat.value ? null : cat.value)}
-                                    type="button"
-                                    className="w-full flex flex-col items-stretch text-center p-0"
-                                >
-                                    <div className="relative overflow-hidden min-h-[220px] w-full border-b border-white/10 bg-black/20">
+                                <div className="flex flex-col p-6 md:p-8">
+                                    <div className="relative overflow-hidden min-h-[220px] w-full rounded-[2rem] border border-white/10 bg-black/20">
                                         {!hiddenDispatchCategoryImages[cat.value] && (
                                             <img
                                                 src={getCategoryCardImageSrc(cat.value)}
@@ -483,38 +527,74 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                                             />
                                         )}
                                         <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
-                                        <div className="absolute inset-x-0 bottom-3 px-4 pointer-events-none">
-                                            <div
-                                                className="text-center text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-                                                style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+                                    </div>
+
+                                    <div className="mt-5 relative z-20 flex items-center gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => onNavigate('reportSubmission', cat.value)}
+                                            className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+                                        >
+                                            Report
+                                        </button>
+                                        <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
+                                            <span className="text-3xl leading-none">{cat.icon}</span>
+                                        </div>
+                                        <div className="relative flex-1">
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setOpenDispatchActionsCategory((prev) => (prev === cat.value ? null : cat.value));
+                                                }}
+                                                className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+                                                aria-haspopup="menu"
+                                                aria-expanded={isActionsOpen}
                                             >
-                                                {t(cat.translationKey)}
+                                                Actions
+                                            </button>
+                                            <div
+                                                className={`absolute right-0 left-0 mt-2 z-40 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden transition-all duration-150 ${
+                                                    isActionsOpen
+                                                        ? 'opacity-100 pointer-events-auto translate-y-0'
+                                                        : 'opacity-0 pointer-events-none translate-y-1'
+                                                }`}
+                                                role="menu"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <button type="button" onClick={runPlay} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Play</button>
+                                                <button type="button" onClick={runHelp} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Help</button>
+                                                <button type="button" onClick={runWork} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Work</button>
+                                                {cat.value === Category.GoodDeeds && (
+                                                    <button type="button" onClick={runMissions} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Good Deed Missions</button>
+                                                )}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setOpenDispatchActionsCategory(null);
+                                                        onNavigate('reportSubmission', cat.value);
+                                                    }}
+                                                    className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                                                    role="menuitem"
+                                                >
+                                                    Report
+                                                </button>
                                             </div>
                                         </div>
                                     </div>
-                                </button>
-                                {activeCategory === cat.value && (
-                                    <div className="p-8 border-t border-zinc-800 animate-fade-in-fast flex flex-col gap-4 bg-zinc-950">
-                                        <button
-                                            onClick={() => onNavigate('reportSubmission', cat.value)}
-                                            className="group/btn relative w-full flex items-center justify-center space-x-4 bg-white text-black font-black py-5 px-6 rounded-2xl hover:bg-rose-50 transition-all uppercase text-xs tracking-widest shadow-xl active:scale-95 overflow-hidden border-2 border-transparent hover:border-rose-500/50"
+
+                                    <div className="mt-5 relative z-10 text-center px-1 pb-1">
+                                        <div
+                                            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+                                            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
                                         >
-                                            <DualCometBorder color="#f43f5e" radius="1rem" hoverable={true} />
-                                            <Megaphone className="w-5 h-5 relative z-10 text-rose-600" />
-                                            <span className="relative z-10">File_A_Report</span>
-                                        </button>
-                                        <button
-                                            onClick={() => onGenerateMissionForCategory(cat.value)}
-                                            className="group/btn relative w-full flex items-center justify-center space-x-4 bg-cyan-600 text-white font-black py-5 px-6 rounded-2xl hover:bg-cyan-500 transition-all uppercase text-xs tracking-widest shadow-xl active:scale-95 overflow-hidden border-2 border-transparent hover:border-cyan-300/50"
-                                        >
-                                            <DualCometBorder color="#ffffff" radius="1rem" hoverable={true} />
-                                            <Zap className="w-5 h-5 fill-current relative z-10" />
-                                            <span className="relative z-10">Tactical_Missions</span>
-                                        </button>
+                                            {t(cat.translationKey)}
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </div>
