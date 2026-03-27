@@ -42,7 +42,7 @@ const PARCELS: ParcelItem[] = [
     units: 1250,
     status: 'Verified',
     mission: 'Tree Health Check',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace.png',
+    imageUrl: '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
   },
   {
     id: 'parcel-cr-14528',
@@ -54,7 +54,7 @@ const PARCELS: ParcelItem[] = [
     units: 620,
     status: 'In Progress',
     mission: 'Biodiversity Survey',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace 2.png',
+    imageUrl: '/main-screen/Offset-Marketplace/parcel-satellite-parcel-overlay.png',
   },
   {
     id: 'parcel-cr-14529',
@@ -66,7 +66,7 @@ const PARCELS: ParcelItem[] = [
     units: 910,
     status: 'Needs Review',
     mission: 'Methane Reduction Audit',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace 3.png',
+    imageUrl: '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
   },
   {
     id: 'parcel-cr-14530',
@@ -78,7 +78,7 @@ const PARCELS: ParcelItem[] = [
     units: 1430,
     status: 'Verified',
     mission: 'Canopy Growth Verification',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace 4.png',
+    imageUrl: '/main-screen/Offset-Marketplace/parcel-biome-land-use-analytics.png',
   },
   {
     id: 'parcel-cr-14531',
@@ -90,7 +90,7 @@ const PARCELS: ParcelItem[] = [
     units: 540,
     status: 'In Progress',
     mission: 'Waterline & Soil Carbon Check',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace 2.png',
+    imageUrl: '/main-screen/Offset-Marketplace/parcel-dual-parcel-aerial.png',
   },
   {
     id: 'parcel-cr-14532',
@@ -102,7 +102,7 @@ const PARCELS: ParcelItem[] = [
     units: 780,
     status: 'Verified',
     mission: 'Clean Cookstove Usage Validation',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace 3.png',
+    imageUrl: '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
   },
   {
     id: 'parcel-cr-14533',
@@ -114,7 +114,7 @@ const PARCELS: ParcelItem[] = [
     units: 860,
     status: 'Needs Review',
     mission: 'Digestor Output Measurement',
-    imageUrl: '/main-screen/Offset-Marketplace/offset-marketplace 4.png',
+    imageUrl: '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
   },
 ];
 
@@ -167,10 +167,14 @@ const REPORTING_ENTRIES: ReportingEntry[] = [
 ];
 
 const OFFSET_MARKETPLACE_ROTATION = [
-  '/main-screen/Offset-Marketplace/offset-marketplace.png',
-  '/main-screen/Offset-Marketplace/offset-marketplace 2.png',
-  '/main-screen/Offset-Marketplace/offset-marketplace 3.png',
-  '/main-screen/Offset-Marketplace/offset-marketplace 4.png',
+  '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
+  '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
+  '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
+  '/main-screen/Offset-Marketplace/parcel-satellite-parcel-overlay.png',
+  '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
+  '/main-screen/Offset-Marketplace/parcel-dual-parcel-aerial.png',
+  '/main-screen/Offset-Marketplace/parcel-biome-land-use-analytics.png',
+  '/main-screen/Offset-Marketplace/reference-land-credits-marketplace.png',
 ];
 
 const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn }) => {

@@ -302,7 +302,12 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Verified carbon projects & traceable impact credits"
                     status="MARKET"
                     colorClass="emerald"
-                    bgImageUrl="/main-screen/Offset-Marketplace/offset-marketplace.png"
+                    bgImageUrls={[
+                        '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
+                        '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
+                        '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
+                        '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
+                    ]}
                     onClick={() => onNavigate('offsetMarketplace')}
                 />
 
