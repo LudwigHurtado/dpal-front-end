@@ -89,6 +89,6 @@ export const SECTOR_HERO_ASSET: Record<SectorKey, string> = {
   health: '/next-view/sector-health.png',
   government: '/main-screen/public-ledger.png',
   property: '/next-view/sector-property.png',
-  digital: '/next-view/sector-dpal-coin.png',
+  digital: '/next-view/sector-digital.png',
   community: '/next-view/sector-community.png',
 };
