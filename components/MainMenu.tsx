@@ -179,7 +179,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                         ESCALATION_HUB: '/main-screen/escalation-hub.png',
                         MINT_STATION: '/main-screen/mint-station.png',
                         QR_LIVE_SAVER: '/main-screen/qr-live-saver.png',
-                        WORK_LOG: '/main-screen/work-log.png',
+                        WORK_LOG: '/main-screen/weekly-work-log.png',
                         WORK_FOR_DPAL_COINS: '/main-screen/work-for-dpal-coins.png',
                         STORAGE_QR: '/main-screen/storage-qr.png',
                     };
@@ -353,6 +353,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Community Contribution Feed"
                     status="LOGGING"
                     colorClass="blue"
+                    bgImageUrl="/main-screen/weekly-work-log.png"
                     onClick={() => onNavigate('hub', undefined, 'work_feed')}
                 />
 
