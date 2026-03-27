@@ -303,10 +303,10 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     status="MARKET"
                     colorClass="emerald"
                     bgImageUrls={[
+                        '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
+                        '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
+                        '/main-screen/Offset-Marketplace/edu-carbon-credit-forest.png',
                         '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
-                        '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
-                        '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
-                        '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
                     ]}
                     onClick={() => onNavigate('offsetMarketplace')}
                 />

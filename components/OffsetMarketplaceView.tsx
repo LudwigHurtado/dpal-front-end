@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, MapPin, QrCode, CheckCircle, Upload, Search } from './icons';
+import { ArrowLeft, MapPin, QrCode, CheckCircle, Upload, Search, Book, ChevronDown, ChevronUp } from './icons';
 import QrCodeDisplay from './QrCodeDisplay';
 
 interface OffsetMarketplaceViewProps {
@@ -166,15 +166,87 @@ const REPORTING_ENTRIES: ReportingEntry[] = [
   },
 ];
 
-const OFFSET_MARKETPLACE_ROTATION = [
+const HERO_ROTATION = [
+  '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
+  '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
+  '/main-screen/Offset-Marketplace/edu-carbon-credit-forest.png',
+  '/main-screen/Offset-Marketplace/edu-measured-valued.png',
   '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
   '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
+  '/main-screen/Offset-Marketplace/edu-landholders-benefit.png',
   '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
-  '/main-screen/Offset-Marketplace/parcel-satellite-parcel-overlay.png',
-  '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
-  '/main-screen/Offset-Marketplace/parcel-dual-parcel-aerial.png',
-  '/main-screen/Offset-Marketplace/parcel-biome-land-use-analytics.png',
+  '/main-screen/Offset-Marketplace/edu-carbon-cycle-infographic.png',
   '/main-screen/Offset-Marketplace/reference-land-credits-marketplace.png',
+] as const;
+
+interface EduSlide {
+  id: string;
+  title: string;
+  caption: string;
+  image: string;
+}
+
+const EDU_SLIDES: EduSlide[] = [
+  {
+    id: 'cycle',
+    title: 'Credit cycle',
+    caption: 'How value moves between industry, regulation, and conservation projects.',
+    image: '/main-screen/Offset-Marketplace/edu-carbon-cycle-infographic.png',
+  },
+  {
+    id: 'stores',
+    title: 'Carbon on land',
+    caption: 'Illustrative stores: atmosphere, plant biomass, and soil (gigatons).',
+    image: '/main-screen/Offset-Marketplace/edu-carbon-stores-land.png',
+  },
+  {
+    id: 'quantified',
+    title: 'Removal quantified',
+    caption: 'From baseline and planting through verification to issued credits.',
+    image: '/main-screen/Offset-Marketplace/edu-removal-quantified.png',
+  },
+  {
+    id: 'what-are',
+    title: 'What are credits?',
+    caption: 'Avoidance vs removal pathways — simplified project logic.',
+    image: '/main-screen/Offset-Marketplace/edu-what-are-credits.png',
+  },
+  {
+    id: 'safeguards',
+    title: 'Community context',
+    caption: 'Why transparency, safeguards, and fair benefit-sharing matter.',
+    image: '/main-screen/Offset-Marketplace/edu-hidden-costs-communities.png',
+  },
+  {
+    id: 'forest-hero',
+    title: 'Forest carbon',
+    caption: 'Nature-based solutions in full color — credits tied to living landscapes.',
+    image: '/main-screen/Offset-Marketplace/edu-carbon-credit-forest.png',
+  },
+  {
+    id: 'future',
+    title: 'Future of credits',
+    caption: 'Stewardship, growth, and long-term land care.',
+    image: '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
+  },
+  {
+    id: 'measured',
+    title: 'Measured & valued',
+    caption: 'Linking emissions, projects, and value on the ground.',
+    image: '/main-screen/Offset-Marketplace/edu-measured-valued.png',
+  },
+  {
+    id: 'landholders',
+    title: 'Landholders',
+    caption: 'How nature-based crediting can support people on the land.',
+    image: '/main-screen/Offset-Marketplace/edu-landholders-benefit.png',
+  },
+  {
+    id: 'meadow',
+    title: 'Corridors',
+    caption: 'Open landscapes and forest lines — registry-scale stewardship.',
+    image: '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
+  },
 ];
 
 const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn }) => {
@@ -182,6 +254,9 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
   const [activeParcelId, setActiveParcelId] = useState<string | null>(PARCELS[0].id);
   const [showQr, setShowQr] = useState(false);
   const [rotationIndex, setRotationIndex] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+  const [activeEdu, setActiveEdu] = useState(0);
+  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [reportingScope, setReportingScope] = useState<'active' | 'network'>('active');
 
   const visible = useMemo(() => {
@@ -193,7 +268,7 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
   }, [query]);
 
   const activeParcel = PARCELS.find((p) => p.id === activeParcelId) || visible[0];
-  const rotatingImage = OFFSET_MARKETPLACE_ROTATION[rotationIndex % OFFSET_MARKETPLACE_ROTATION.length];
+  const rotatingImage = HERO_ROTATION[rotationIndex % HERO_ROTATION.length];
   const reportingTotals = useMemo(() => {
     const approved = REPORTING_ENTRIES.filter((r) => r.status === 'Approved').length;
     const pending = REPORTING_ENTRIES.filter((r) => r.status === 'Pending').length;
@@ -214,11 +289,12 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
   };
 
   useEffect(() => {
+    if (heroPaused) return;
     const timer = setInterval(() => {
-      setRotationIndex((prev) => (prev + 1) % OFFSET_MARKETPLACE_ROTATION.length);
-    }, 4200);
+      setRotationIndex((prev) => (prev + 1) % HERO_ROTATION.length);
+    }, 4800);
     return () => clearInterval(timer);
-  }, []);
+  }, [heroPaused]);
 
   const reportingRows = useMemo(
     () =>
@@ -239,52 +315,110 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
           Return
         </button>
 
-        <header className="relative overflow-hidden rounded-2xl border border-emerald-900/30 bg-zinc-900/50 shadow-lg shadow-black/20">
+        <header
+          className="relative min-h-[min(42vw,280px)] overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/20 shadow-xl shadow-emerald-950/30"
+          onMouseEnter={() => setHeroPaused(true)}
+          onMouseLeave={() => setHeroPaused(false)}
+        >
           <img
             src={rotatingImage}
             alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-[0.52] transition-opacity duration-700"
+            className="absolute inset-0 h-full w-full object-cover opacity-100 saturate-[1.05] transition-[transform,opacity] duration-700 ease-out"
+            style={{ transform: heroPaused ? 'scale(1.02)' : 'scale(1)' }}
             draggable={false}
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-emerald-950/35" />
-          <div className="relative px-5 py-6 md:px-8 md:py-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-              <div className="max-w-xl">
-                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-200/90">Offset Marketplace</p>
-                <h1 className="mt-1 text-3xl md:text-4xl font-black uppercase tracking-tight text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+          <div
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-emerald-950/25 via-transparent to-sky-100/10"
+            aria-hidden
+          />
+          <div className="relative z-10 flex flex-col gap-5 px-5 py-6 md:px-8 md:py-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <div className="max-w-xl rounded-2xl border border-white/25 bg-white/20 px-5 py-4 shadow-lg backdrop-blur-md md:px-6 md:py-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-900/90">Offset Marketplace</p>
+                <h1 className="mt-1 text-3xl md:text-4xl font-black uppercase tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
                   Carbon Operations MVP
                 </h1>
-                <p className="mt-3 text-xs md:text-sm text-zinc-200/95 normal-case tracking-normal max-w-lg">
+                <p className="mt-3 text-xs md:text-sm text-white/95 normal-case tracking-normal max-w-lg [text-shadow:0_1px_8px_rgba(0,0,0,0.35)]">
                   Registry-grade parcel view: search projects, inspect missions, and follow verification activity in one flow.
                 </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2 md:justify-end">
-                {OFFSET_MARKETPLACE_ROTATION.map((_, idx) => (
-                  <span
-                    key={`rot-dot-${idx}`}
-                    className={`h-2 w-2 rounded-full transition-colors ${idx === rotationIndex ? 'bg-emerald-300' : 'bg-white/25'}`}
-                  />
-                ))}
-                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-300">Scene rotation</span>
+              <div className="flex flex-col items-stretch gap-0.5 rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 backdrop-blur-sm md:min-w-[200px]">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white/90">
+                  {heroPaused ? 'Paused — hover to explore' : 'Scene rotation'}
+                </span>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {HERO_ROTATION.map((src, idx) => (
+                    <button
+                      key={`hero-dot-${idx}`}
+                      type="button"
+                      aria-label={`Show scene ${idx + 1}`}
+                      onClick={() => setRotationIndex(idx)}
+                      className={`h-2.5 w-2.5 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${
+                        idx === rotationIndex % HERO_ROTATION.length
+                          ? 'scale-125 bg-white shadow-[0_0_0_2px_rgba(16,185,129,0.6)]'
+                          : 'bg-white/40 hover:bg-white/70'
+                      }`}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         </header>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3">
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-emerald-500/30">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Parcels live</p>
             <p className="text-2xl font-black text-white mt-0.5">{networkTotals.parcels}</p>
           </div>
-          <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/30 px-4 py-3">
+          <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/30 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-emerald-400/50">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200/80">Verified sites</p>
             <p className="text-2xl font-black text-emerald-100 mt-0.5">{networkTotals.verified}</p>
           </div>
-          <div className="rounded-2xl border border-amber-900/35 bg-amber-950/25 px-4 py-3">
+          <div className="rounded-2xl border border-amber-900/35 bg-amber-950/25 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-amber-400/50">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/80">Network tCO2e</p>
             <p className="text-2xl font-black text-amber-100 mt-0.5">{networkTotals.units.toLocaleString()}</p>
           </div>
         </div>
+
+        <section className="mt-6 rounded-3xl border border-emerald-800/30 bg-gradient-to-br from-emerald-950/40 via-zinc-900/80 to-zinc-950 p-4 sm:p-5">
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Book className="h-4 w-4 text-emerald-300" aria-hidden />
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-200/80">Learn</p>
+              <h2 className="text-lg font-black uppercase tracking-tight text-white">Carbon credits in context</h2>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {EDU_SLIDES.map((slide, idx) => (
+              <button
+                key={slide.id}
+                type="button"
+                onClick={() => setActiveEdu(idx)}
+                className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
+                  activeEdu === idx
+                    ? 'border-emerald-400 bg-emerald-500/25 text-white shadow-[0_0_0_1px_rgba(52,211,153,0.4)]'
+                    : 'border-zinc-600 bg-zinc-950/50 text-zinc-400 hover:border-emerald-600/50 hover:text-zinc-200'
+                }`}
+              >
+                {slide.title}
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950 shadow-inner">
+            <div className="relative max-h-[min(72vh,560px)] w-full overflow-auto bg-zinc-900/50">
+              <img
+                src={EDU_SLIDES[activeEdu]?.image}
+                alt=""
+                className="mx-auto w-full max-w-4xl object-contain object-top"
+                draggable={false}
+              />
+            </div>
+            <p className="border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-3 text-sm leading-relaxed text-zinc-300">
+              {EDU_SLIDES[activeEdu]?.caption}
+            </p>
+          </div>
+        </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)] lg:items-start">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
@@ -311,15 +445,19 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
                   key={p.id}
                   type="button"
                   onClick={() => setActiveParcelId(p.id)}
-                  className={`w-full text-left rounded-2xl border transition-colors ${
+                  className={`group w-full text-left rounded-2xl border transition-all duration-200 ${
                     p.id === activeParcel?.id
-                      ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20'
-                      : 'border-zinc-800 bg-zinc-950/50 hover:border-zinc-600'
+                      ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20 shadow-[0_0_24px_-8px_rgba(52,211,153,0.35)]'
+                      : 'border-zinc-800 bg-zinc-950/50 hover:border-emerald-600/40 hover:bg-zinc-900/80'
                   }`}
                 >
                   <div className="flex gap-3 p-3">
-                    <div className="relative h-[4.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
-                      <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />
+                    <div className="relative h-[4.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 ring-0 transition-[box-shadow] duration-200 group-hover:ring-2 group-hover:ring-emerald-500/30">
+                      <img
+                        src={p.imageUrl}
+                        alt=""
+                        className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-110"
+                      />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -355,8 +493,12 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
             <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
               {activeParcel ? (
                 <>
-                  <div className="overflow-hidden rounded-2xl border border-zinc-800 aspect-[16/10] max-h-56">
-                    <img src={activeParcel.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <div className="group overflow-hidden rounded-2xl border border-zinc-700 aspect-[16/10] max-h-56 bg-zinc-900 shadow-lg">
+                    <img
+                      src={activeParcel.imageUrl}
+                      alt=""
+                      className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.04]"
+                    />
                   </div>
                   <div className="mt-4">
                     <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Selected parcel</p>
@@ -453,15 +595,15 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 transition duration-200 hover:scale-[1.02] hover:border-emerald-400/50">
               <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-200">Approved</p>
               <p className="text-2xl font-black text-emerald-100 mt-1">{reportingTotals.approved}</p>
             </div>
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 transition duration-200 hover:scale-[1.02] hover:border-amber-400/50">
               <p className="text-[10px] uppercase tracking-[0.25em] text-amber-200">Pending</p>
               <p className="text-2xl font-black text-amber-100 mt-1">{reportingTotals.pending}</p>
             </div>
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 transition duration-200 hover:scale-[1.02] hover:border-rose-400/50">
               <p className="text-[10px] uppercase tracking-[0.25em] text-rose-200">Flagged</p>
               <p className="text-2xl font-black text-rose-100 mt-1">{reportingTotals.flagged}</p>
             </div>
@@ -475,37 +617,59 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
                   : 'No reporting records loaded.'}
               </div>
             ) : (
-              reportingRows.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="rounded-2xl border border-zinc-800/90 bg-zinc-950/50 p-4 hover:border-zinc-700/90 transition-colors"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-black text-white uppercase">{entry.reportType}</p>
-                      <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mt-1 font-mono">
-                        {entry.id} · {entry.projectId}
-                      </p>
-                    </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                        entry.status === 'Approved'
-                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                          : entry.status === 'Pending'
-                          ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                          : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
-                      }`}
+              reportingRows.map((entry) => {
+                const expanded = expandedReportId === entry.id;
+                return (
+                  <div
+                    key={entry.id}
+                    className="rounded-2xl border border-zinc-800/90 bg-zinc-950/50 transition-colors hover:border-emerald-700/40"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setExpandedReportId((prev) => (prev === entry.id ? null : entry.id))}
+                      className="flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left text-inherit focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 rounded-2xl"
                     >
-                      {entry.status}
-                    </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-black text-white uppercase">{entry.reportType}</p>
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mt-1 font-mono">
+                          {entry.id} · {entry.projectId}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                            entry.status === 'Approved'
+                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                              : entry.status === 'Pending'
+                              ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                              : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+                          }`}
+                        >
+                          {entry.status}
+                        </span>
+                        {expanded ? (
+                          <ChevronUp className="h-4 w-4 text-zinc-500" aria-hidden />
+                        ) : (
+                          <ChevronDown className="h-4 w-4 text-zinc-500" aria-hidden />
+                        )}
+                      </div>
+                    </button>
+                    <div className="px-4 pb-3">
+                      <p className="text-sm text-zinc-300 leading-relaxed">{entry.summary}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                        <span>Reviewer: {entry.reviewer}</span>
+                        <span>{new Date(entry.submittedAt).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    {expanded && (
+                      <div className="border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-3 text-xs leading-relaxed text-zinc-400">
+                        Demo row: in production this expands to signer hashes, methodology link, and immutable audit references
+                        for project {entry.projectId}.
+                      </div>
+                    )}
                   </div>
-                  <p className="mt-3 text-sm text-zinc-300 leading-relaxed">{entry.summary}</p>
-                  <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                    <span>Reviewer: {entry.reviewer}</span>
-                    <span>{new Date(entry.submittedAt).toLocaleString()}</span>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>
