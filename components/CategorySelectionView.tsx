@@ -29,6 +29,8 @@ interface CategorySelectionViewProps {
   onSelectWork?: (category: Category) => void;
   onSelectPlay?: () => void;
   onSelectHelp?: () => void;
+  /** Actions menu "Report" — defaults to filing a report if omitted. */
+  onSelectActionsReport?: () => void;
   onReturnToHub: () => void;
 }
 
@@ -47,7 +49,15 @@ const BorderPulse: React.FC<{ color: string }> = ({ color }) => (
     </svg>
 );
 
-const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onSelectWork, onSelectPlay, onSelectHelp, onReturnToHub }) => {
+const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
+  onSelectCategory,
+  onSelectMissions,
+  onSelectWork,
+  onSelectPlay,
+  onSelectHelp,
+  onSelectActionsReport,
+  onReturnToHub,
+}) => {
     const { t } = useTranslations();
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (typeof window === 'undefined') return 'classic';
@@ -268,7 +278,8 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                 type="button"
                 onClick={() => {
                   setOpenActionsCategory(null);
-                  onSelectCategory(cat.value);
+                  if (onSelectActionsReport) onSelectActionsReport();
+                  else onSelectCategory(cat.value);
                 }}
                 className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                 role="menuitem"

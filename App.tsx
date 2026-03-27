@@ -723,11 +723,8 @@ const App: React.FC = () => {
               handleNavigate('liveIntelligence');
             }}
             onDispatchPlay={() => handleNavigate('gameHub')}
-            onDispatchHelp={() => handleNavigate('trainingHolodeck')}
-            onDispatchWork={(cat) => {
-              setInitialCategoriesForIntel([cat]);
-              handleNavigate('liveIntelligence');
-            }}
+            onDispatchHelp={() => handleNavigate('categorySelection')}
+            onDispatchWork={() => handleNavigate('fieldMissions')}
             onDispatchMissions={(cat) => {
               if (cat === Category.GoodDeeds) {
                 handleNavigate('goodDeedsMissions');
@@ -736,6 +733,7 @@ const App: React.FC = () => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');
             }}
+            onDispatchActionsReport={() => handleNavigate('reportDashboard')}
           />
         )}
 
@@ -768,9 +766,10 @@ const App: React.FC = () => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');
             }} 
-            onSelectWork={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }}
+            onSelectWork={() => handleNavigate('fieldMissions')}
             onSelectPlay={() => handleNavigate('gameHub')}
-            onSelectHelp={() => handleNavigate('trainingHolodeck')}
+            onSelectHelp={() => handleNavigate('categorySelection')}
+            onSelectActionsReport={() => handleNavigate('reportDashboard')}
             onReturnToHub={() => goBack('mainMenu')} 
           />
         )}

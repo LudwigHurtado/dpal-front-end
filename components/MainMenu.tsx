@@ -25,6 +25,8 @@ interface MainMenuProps {
     onDispatchHelp?: () => void;
     onDispatchWork?: (category: Category) => void;
     onDispatchMissions?: (category: Category) => void;
+    /** Actions menu "Report" — reporting dashboard when provided. */
+    onDispatchActionsReport?: () => void;
 }
 
 const PERIMETER_COLORS = ['#06b6d4', '#f43f5e', '#f59e0b', '#10b981', '#a855f7', '#3b82f6'];
@@ -152,6 +154,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     onDispatchHelp,
     onDispatchWork,
     onDispatchMissions,
+    onDispatchActionsReport,
 }) => {
     const { t } = useTranslations();
     const [categorySearch, setCategorySearch] = useState('');
@@ -483,11 +486,12 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             const runHelp = () => {
                                 setOpenDispatchActionsCategory(null);
                                 if (onDispatchHelp) onDispatchHelp();
-                                else onNavigate('trainingHolodeck');
+                                else onNavigate('categorySelection');
                             };
                             const runWork = () => {
                                 setOpenDispatchActionsCategory(null);
-                                (onDispatchWork ?? onGenerateMissionForCategory)(cat.value);
+                                if (onDispatchWork) onDispatchWork(cat.value);
+                                else onNavigate('fieldMissions');
                             };
                             const runMissions = () => {
                                 setOpenDispatchActionsCategory(null);
@@ -580,7 +584,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                     type="button"
                                                     onClick={() => {
                                                         setOpenDispatchActionsCategory(null);
-                                                        onNavigate('reportSubmission', cat.value);
+                                                        if (onDispatchActionsReport) onDispatchActionsReport();
+                                                        else onNavigate('reportSubmission', cat.value);
                                                     }}
                                                     className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                                                     role="menuitem"
