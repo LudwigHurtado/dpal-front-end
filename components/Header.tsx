@@ -142,6 +142,13 @@ const Header: React.FC<HeaderProps> = ({
     else setTextScale('standard');
   };
 
+  const openViewModeSetup = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('dpal-open-view-mode-setup'));
+    }
+    onNavigate('categorySelection');
+  };
+
   const handleScroll = () => {
     if (navScrollRef.current) {
         const { scrollLeft, scrollWidth, clientWidth } = navScrollRef.current;
@@ -235,6 +242,14 @@ const Header: React.FC<HeaderProps> = ({
                     </div>
                 </button>
                 <div className="hidden sm:block w-px h-5 bg-zinc-800 mx-1"></div>
+                <button
+                    onClick={openViewModeSetup}
+                    className="hidden sm:flex items-center space-x-1 text-zinc-500 hover:text-cyan-300 transition-colors"
+                    title="View Mode Setup"
+                >
+                    <Monitor className="w-3.5 h-3.5" />
+                    <span className="text-[7px] font-black uppercase tracking-widest">Mode</span>
+                </button>
                 <button onClick={toggleScale} className="hidden sm:block text-zinc-600 hover:text-white transition-colors" title="Interface Scale">
                     <Maximize2 className="w-3.5 h-3.5" />
                 </button>

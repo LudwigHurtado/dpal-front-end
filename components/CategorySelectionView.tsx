@@ -1,9 +1,22 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { Category } from '../types';
 import { useTranslations } from '../i18n';
 import { ArrowLeft, ShieldCheck, Search, X, AlertTriangle } from './icons';
+import SectorGatewayGrid from './sectors/SectorGatewayGrid';
+import CategoryMappingPanel from './sectors/CategoryMappingPanel';
+import SectorHeroBanner from './sectors/SectorHeroBanner';
+import ViewModeOnboardingPrompt from './sectors/ViewModeOnboardingPrompt';
+import {
+  CATEGORY_MAPPINGS,
+  SECTOR_HERO_ASSET,
+  SECTORS,
+  VIEW_MODE_ONBOARDING_SEEN_KEY,
+  VIEW_MODE_STORAGE_KEY,
+  type ViewMode,
+  type SectorKey,
+} from './sectors/sectorDefinitions';
 
 interface CategorySelectionViewProps {
   onSelectCategory: (category: Category) => void;
@@ -84,8 +97,44 @@ const SPRITE_SRC = '/category-cards/category-collage.png';
 
 const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectCategory, onSelectMissions, onSelectWork, onSelectPlay, onSelectHelp, onReturnToHub }) => {
     const { t } = useTranslations();
+    const [viewMode, setViewMode] = useState<ViewMode>(() => {
+        if (typeof window === 'undefined') return 'classic';
+        const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
+        return saved === 'next' ? 'next' : 'classic';
+    });
     const [searchQuery, setSearchQuery] = useState('');
+    const [activeSector, setActiveSector] = useState<SectorKey>(SECTORS[0].key);
     const [hiddenCategoryImages, setHiddenCategoryImages] = useState<Record<string, boolean>>({});
+    const [showViewOnboarding, setShowViewOnboarding] = useState(false);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
+    }, [viewMode]);
+
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      const seen = window.localStorage.getItem(VIEW_MODE_ONBOARDING_SEEN_KEY) === '1';
+      if (!seen) setShowViewOnboarding(true);
+    }, []);
+
+    useEffect(() => {
+      if (typeof window === 'undefined') return;
+      const handleOpenViewSetup = () => setShowViewOnboarding(true);
+      window.addEventListener('dpal-open-view-mode-setup', handleOpenViewSetup);
+      return () => window.removeEventListener('dpal-open-view-mode-setup', handleOpenViewSetup);
+    }, []);
+
+    const categoryByValue = useMemo(() => {
+        const map = new Map<Category, (typeof CATEGORIES_WITH_ICONS)[number]>();
+        CATEGORIES_WITH_ICONS.forEach((cat) => map.set(cat.value, cat));
+        return map;
+    }, []);
+
+    const getClassicLabel = (classicCategory: Category): string => {
+      const categoryItem = categoryByValue.get(classicCategory);
+      return categoryItem ? t(categoryItem.translationKey) : classicCategory;
+    };
 
     const filteredCategories = useMemo(() => {
         const sorted = [...CATEGORIES_WITH_ICONS].sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
@@ -98,8 +147,147 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
         );
     }, [searchQuery, t]);
 
+    const normalizedSearch = searchQuery.trim().toLowerCase();
+    const activeSectorDef = SECTORS.find((sector) => sector.key === activeSector) || SECTORS[0];
+    const activeSectorHeroImage = SECTOR_HERO_ASSET[activeSector];
+    const activeSectorCategories = activeSectorDef.categories
+      .map((category) => categoryByValue.get(category))
+      .filter(Boolean)
+      .filter((cat) => {
+        if (!cat) return false;
+        if (!normalizedSearch) return true;
+        return (
+          t(cat.translationKey).toLowerCase().includes(normalizedSearch) ||
+          cat.value.toLowerCase().includes(normalizedSearch)
+        );
+      }) as (typeof CATEGORIES_WITH_ICONS);
+
+    const renderCategoryCard = (cat: (typeof CATEGORIES_WITH_ICONS)[number]) => (
+      <div
+        key={cat.value}
+        className="group flex flex-col bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 hover:border-zinc-600 transition-all duration-500 relative overflow-hidden shadow-2xl p-8"
+      >
+        <BorderPulse color="#06b6d4" />
+        <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
+
+        <div className="relative z-10 text-center pb-4">
+          <div className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">{t(cat.translationKey)}</div>
+        </div>
+
+        <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
+          {!hiddenCategoryImages[cat.value] && (
+            <img
+              src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
+              onError={() =>
+                setHiddenCategoryImages((prev) => ({
+                  ...prev,
+                  [cat.value]: true,
+                }))
+              }
+            />
+          )}
+
+          {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
+            <div
+              className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
+              style={{
+                backgroundImage: `url(${SPRITE_SRC})`,
+                backgroundSize: '300% 200%',
+                backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
+                backgroundRepeat: 'no-repeat',
+              }}
+            />
+          )}
+
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
+        </div>
+
+        <div className="mt-5 relative z-20 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => onSelectCategory(cat.value)}
+            className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+          >
+            Report
+          </button>
+
+          <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
+            <span className="text-3xl leading-none">{cat.icon}</span>
+          </div>
+
+          <div className="relative flex-1 group/actions">
+            <button
+              type="button"
+              className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+              aria-haspopup="menu"
+            >
+              Actions
+            </button>
+
+            <div
+              className="absolute right-0 left-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden opacity-0 pointer-events-none translate-y-1 transition-all duration-150 group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto group-hover/actions:translate-y-0"
+              role="menu"
+            >
+              <button
+                type="button"
+                onClick={() => onSelectPlay?.()}
+                className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                role="menuitem"
+              >
+                Play
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectHelp?.()}
+                className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                role="menuitem"
+              >
+                Help
+              </button>
+              <button
+                type="button"
+                onClick={() => (onSelectWork || onSelectMissions)(cat.value)}
+                className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                role="menuitem"
+              >
+                Work
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectCategory(cat.value)}
+                className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                role="menuitem"
+              >
+                Report
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    const handleOnboardingSelect = (mode: ViewMode) => {
+      setViewMode(mode);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(VIEW_MODE_ONBOARDING_SEEN_KEY, '1');
+      }
+      setShowViewOnboarding(false);
+    };
+
+    const handleOnboardingDismiss = () => {
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(VIEW_MODE_ONBOARDING_SEEN_KEY, '1');
+      }
+      setShowViewOnboarding(false);
+    };
+
     return (
         <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto px-4 pb-20">
+            {showViewOnboarding && (
+              <ViewModeOnboardingPrompt onSelect={handleOnboardingSelect} onDismiss={handleOnboardingDismiss} />
+            )}
             <button
                 onClick={onReturnToHub}
                 className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors mb-12 group"
@@ -113,7 +301,24 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                     <ShieldCheck className="w-10 h-10 text-cyan-500" />
                     <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase">Category_Picker</h1>
                 </div>
-                <p className="text-zinc-500 text-xs font-bold tracking-[0.4em] uppercase mb-10">Select target domain for field reporting or tactical missions</p>
+                <p className="text-zinc-500 text-xs font-bold tracking-[0.4em] uppercase mb-8">Select target domain for field reporting or tactical missions</p>
+
+                <div className="max-w-xl mx-auto mb-8 p-1 rounded-2xl border border-zinc-800 bg-zinc-900/70 grid grid-cols-2 gap-1">
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('classic')}
+                        className={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.22em] transition-all ${viewMode === 'classic' ? 'bg-white text-black' : 'text-zinc-300 hover:bg-zinc-800'}`}
+                    >
+                        Classic View
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setViewMode('next')}
+                        className={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.22em] transition-all ${viewMode === 'next' ? 'bg-cyan-500 text-black' : 'text-zinc-300 hover:bg-zinc-800'}`}
+                    >
+                        Next View
+                    </button>
+                </div>
 
                 {/* Tactical Search Field */}
                 <div className="max-w-2xl mx-auto relative group">
@@ -138,118 +343,21 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                 </div>
             </header>
 
-            {filteredCategories.length > 0 ? (
+            {viewMode === 'next' && (
+                <section className="mb-10 space-y-6">
+                    <SectorHeroBanner sector={activeSectorDef} imageSrc={activeSectorHeroImage} />
+                    <SectorGatewayGrid sectors={SECTORS} activeSector={activeSector} onSelectSector={setActiveSector} />
+                    <CategoryMappingPanel
+                      rows={CATEGORY_MAPPINGS}
+                      sectors={SECTORS}
+                      getClassicLabel={(row) => getClassicLabel(row.classicCategory)}
+                    />
+                </section>
+            )}
+
+            {(viewMode === 'classic' ? filteredCategories.length > 0 : activeSectorCategories.length > 0) ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                    {filteredCategories.map((cat) => (
-                        <div
-                            key={cat.value}
-                            className="group flex flex-col bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 hover:border-zinc-600 transition-all duration-500 relative overflow-hidden shadow-2xl p-8"
-                        >
-                            <BorderPulse color="#06b6d4" />
-                            <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
-
-                            {/* CATEGORY TITLE (above image, never on top of it) */}
-                            <div className="relative z-10 text-center pb-4">
-                                <div className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">
-                                    {t(cat.translationKey)}
-                                </div>
-                            </div>
-
-                            {/* HERO IMAGE REGION (separate from buttons) */}
-                            <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
-                                {!hiddenCategoryImages[cat.value] && (
-                                    <img
-                                        src={encodeURI(categoryImageByType[cat.value] || `/category-cards/${categoryImageSlug(cat.value)}.png`)}
-                                        alt=""
-                                        className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
-                                        onError={() =>
-                                            setHiddenCategoryImages((prev) => ({
-                                                ...prev,
-                                                [cat.value]: true,
-                                            }))
-                                        }
-                                    />
-                                )}
-
-                                {hiddenCategoryImages[cat.value] && CATEGORY_SPRITE_POSITIONS[cat.value] && (
-                                    <div
-                                        className="absolute inset-0 opacity-35 group-hover:opacity-45 transition-opacity"
-                                        style={{
-                                            backgroundImage: `url(${SPRITE_SRC})`,
-                                            backgroundSize: '300% 200%',
-                                            backgroundPosition: `${(CATEGORY_SPRITE_POSITIONS[cat.value]!.x * 100) / 2}% ${(CATEGORY_SPRITE_POSITIONS[cat.value]!.y * 100)}%`,
-                                            backgroundRepeat: 'no-repeat',
-                                        }}
-                                    />
-                                )}
-
-                                <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
-                            </div>
-
-                            {/* ACTION BAR: Report | Icon | Actions (menu) */}
-                            <div className="mt-5 relative z-20 flex items-center gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => onSelectCategory(cat.value)}
-                                    className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
-                                >
-                                    Report
-                                </button>
-
-                                <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
-                                    <span className="text-3xl leading-none">{cat.icon}</span>
-                                </div>
-
-                                <div className="relative flex-1 group/actions">
-                                    <button
-                                        type="button"
-                                        className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
-                                        aria-haspopup="menu"
-                                    >
-                                        Actions
-                                    </button>
-
-                                    <div
-                                        className="absolute right-0 left-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden opacity-0 pointer-events-none translate-y-1 transition-all duration-150 group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto group-hover/actions:translate-y-0"
-                                        role="menu"
-                                    >
-                                        <button
-                                            type="button"
-                                            onClick={() => onSelectPlay?.()}
-                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                                            role="menuitem"
-                                        >
-                                            Play
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => onSelectHelp?.()}
-                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                                            role="menuitem"
-                                        >
-                                            Help
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => (onSelectWork || onSelectMissions)(cat.value)}
-                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                                            role="menuitem"
-                                        >
-                                            Work
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => onSelectCategory(cat.value)}
-                                            className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                                            role="menuitem"
-                                        >
-                                            Report
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
+                    {(viewMode === 'classic' ? filteredCategories : activeSectorCategories).map((cat) => renderCategoryCard(cat))}
                 </div>
             ) : (
                 <div className="py-32 text-center space-y-8 animate-fade-in">
@@ -258,7 +366,11 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                     </div>
                     <div>
                         <h3 className="text-3xl font-black uppercase text-zinc-700 tracking-tighter">Null_Set_Detected</h3>
-                        <p className="text-zinc-600 text-xs font-bold uppercase tracking-widest mt-2">No categories matching "{searchQuery}" in local blocks.</p>
+                        <p className="text-zinc-600 text-xs font-bold uppercase tracking-widest mt-2">
+                            {viewMode === 'classic'
+                              ? `No categories matching "${searchQuery}" in local blocks.`
+                              : `No categories in ${activeSectorDef.label} matching "${searchQuery}".`}
+                        </p>
                     </div>
                     <button 
                         onClick={() => setSearchQuery('')}
