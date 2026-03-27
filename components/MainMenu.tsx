@@ -176,16 +176,11 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                         DPAL_LOCATOR: '/main-screen/dpa-locator.png',
                         DPAL_GAME_HUB: '/main-screen/dpal-game-hub.png',
                         POLITICIAN_VIEWPOINTS: '/main-screen/politician-viewpoints.png',
-                        BADGE_REGISTRY: '/main-screen/badge-registry.png',
-                        ECOSYSTEM: '/main-screen/ecosystem.png',
                         ESCALATION_HUB: '/main-screen/escalation-hub.png',
                         MINT_STATION: '/main-screen/mint-station.png',
-                        ACADEMY: '/main-screen/academy.png',
                         QR_LIVE_SAVER: '/main-screen/qr-live-saver.png',
-                        THREAT_MAP: '/main-screen/threat-map.png',
                         WORK_LOG: '/main-screen/work-log.png',
                         WORK_FOR_DPAL_COINS: '/main-screen/work-for-dpal-coins.png',
-                        SUPPORT_NODE: '/main-screen/support-node.png',
                         STORAGE_QR: '/main-screen/storage-qr.png',
                     };
                     const tileImage = (label: string): string | undefined => TILE_IMAGES[label];
@@ -302,35 +297,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 />
 
                 <PrimaryNavModule 
-                    icon={<Award className="w-8 h-8" />}
-                    label="BADGE_REGISTRY"
-                    subLabel="Monitor Accreditation & Rank Progress"
-                    status="SYNCED"
-                    colorClass="cyan"
-                    onClick={() => onNavigate('heroHub', undefined, 'profile')}
-                />
-
-                <PrimaryNavModule 
-                    icon={<Globe className="w-8 h-8" />}
-                    label="ECOSYSTEM"
-                    subLabel="Circular Economy & Token Governance"
-                    status="VERIFIED"
-                    colorClass="blue"
-                    onClick={() => onNavigate('ecosystem')}
-                />
-
-                {featureFlags.governanceEnabled && (
-                    <PrimaryNavModule 
-                        icon={<Coins className="w-8 h-8" />}
-                        label="COIN_LAUNCH"
-                        subLabel="Launch utility actions and store immutable token records"
-                        status="LEDGER"
-                        colorClass="emerald"
-                        onClick={() => onNavigate('coinLaunch')}
-                    />
-                )}
-
-                <PrimaryNavModule 
                     icon={<Phone className="w-8 h-8" />}
                     label="ESCALATION_HUB"
                     subLabel="Automated AI Vox & Live Field Queue"
@@ -349,15 +315,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 />
 
                 <PrimaryNavModule 
-                    icon={<Award className="w-8 h-8" />}
-                    label="ACADEMY"
-                    subLabel="Accreditation & Logic Training"
-                    status="OPEN"
-                    colorClass="emerald"
-                    onClick={() => onNavigate('academy')}
-                />
-
-                <PrimaryNavModule 
                     icon={<Activity className="w-8 h-8" />}
                     label="QR_LIVE_SAVER"
                     subLabel="Sync Life-Line Medical Shards"
@@ -367,30 +324,12 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 />
 
                 <PrimaryNavModule 
-                    icon={<Map className="w-8 h-8" />}
-                    label="THREAT_MAP"
-                    subLabel="Visual Heatmap of Global Incidents"
-                    status="SYNCED"
-                    colorClass="cyan"
-                    onClick={() => onNavigate('threatMap')}
-                />
-
-                <PrimaryNavModule 
                     icon={<Broadcast className="w-8 h-8" />}
                     label="FIELD_MISSIONS"
                     subLabel="Beacon, Map & Help Requests — Join or Offer Help"
                     status="LIVE"
                     colorClass="emerald"
                     onClick={() => onNavigate('fieldMissions')}
-                />
-
-                <PrimaryNavModule 
-                    icon={<Scale className="w-8 h-8" />}
-                    label="AI_REGULATION"
-                    subLabel="Oversight Protocols for Rogue Nodes"
-                    status="OVERSIGHT"
-                    colorClass="purple"
-                    onClick={() => onNavigate('aiRegulationHub')}
                 />
 
                 <PrimaryNavModule 
@@ -412,15 +351,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 />
 
                 <PrimaryNavModule 
-                    icon={<Heart className="w-8 h-8" />}
-                    label="SUPPORT_NODE"
-                    subLabel="Watch Ads or Donate to Sustain Nodes"
-                    status="SUSTAIN"
-                    colorClass="purple"
-                    onClick={() => onNavigate('sustainmentCenter')}
-                />
-
-                <PrimaryNavModule 
                     icon={<Database className="w-8 h-8" />}
                     label="STORAGE_QR"
                     subLabel="MongoDB data location & QR link to this page"
@@ -432,7 +362,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
 
             <div className="flex justify-end mb-12">
                 <button
-                    onClick={() => onNavigate('ecosystem')}
+                    onClick={() => onNavigate('outreachEscalation')}
                     className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-emerald-500/40 bg-zinc-950 hover:border-emerald-400 transition-all text-emerald-300 font-black text-xs uppercase tracking-[0.2em]"
                 >
                     <Globe className="w-4 h-4" />
