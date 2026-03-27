@@ -50,6 +50,7 @@ const categoryImageSlug = (value: string): string =>
     .replace(/^-+|-+$/g, '');
 
 const categoryImageByType: Partial<Record<Category, string>> = {
+  [Category.GoodDeeds]: '/category-cards/good-deeds.png',
   [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
   [Category.Allergies]: '/category-cards/allergies.png',
   [Category.CivicDuty]: '/category-cards/civic-duty.png',
@@ -170,10 +171,6 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
         <BorderPulse color="#06b6d4" />
         <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-        <div className="relative z-10 text-center pb-4">
-          <div className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">{t(cat.translationKey)}</div>
-        </div>
-
         <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
           {!hiddenCategoryImages[cat.value] && (
             <img
@@ -202,6 +199,14 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
           )}
 
           <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
+          <div className="absolute inset-x-0 bottom-3 px-4 pointer-events-none">
+            <div
+              className="text-center text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+              style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+            >
+              {t(cat.translationKey)}
+            </div>
+          </div>
         </div>
 
         <div className="mt-5 relative z-20 flex items-center gap-3">
@@ -254,6 +259,16 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
               >
                 Work
               </button>
+              {cat.value === Category.GoodDeeds && (
+                <button
+                  type="button"
+                  onClick={() => onSelectMissions(cat.value)}
+                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                  role="menuitem"
+                >
+                  Good Deed Missions
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => onSelectCategory(cat.value)}

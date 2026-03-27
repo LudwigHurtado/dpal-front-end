@@ -33,6 +33,7 @@ import SustainmentCenter from './components/SustainmentCenter';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
 import FieldMissionsView from './components/FieldMissionsView';
+import GoodDeedsMissionsView from './components/GoodDeedsMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
 import StorageView from './components/StorageView';
 import PoliticianTransparencyView from './components/PoliticianTransparencyView';
@@ -56,7 +57,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
+export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -735,7 +736,14 @@ const App: React.FC = () => {
         {currentView === 'categorySelection' && (
           <CategorySelectionView 
             onSelectCategory={(cat) => handleNavigate('reportSubmission', cat)} 
-            onSelectMissions={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }} 
+            onSelectMissions={(cat) => {
+              if (cat === Category.GoodDeeds) {
+                handleNavigate('goodDeedsMissions');
+                return;
+              }
+              setInitialCategoriesForIntel([cat]);
+              handleNavigate('liveIntelligence');
+            }} 
             onSelectWork={(cat) => { setInitialCategoriesForIntel([cat]); handleNavigate('liveIntelligence'); }}
             onSelectPlay={() => handleNavigate('gameHub')}
             onSelectHelp={() => handleNavigate('trainingHolodeck')}
@@ -937,6 +945,10 @@ const App: React.FC = () => {
               ]);
             }}
           />
+        )}
+
+        {currentView === 'goodDeedsMissions' && (
+          <GoodDeedsMissionsView onReturn={() => goBack('categorySelection')} />
         )}
 
         {currentView === 'trainingHolodeck' && (

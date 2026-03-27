@@ -100,17 +100,11 @@ const PrimaryNavModule: React.FC<{
 
             <div className="relative mt-auto w-full">
                 <h3
-                    className="text-lg font-black text-white uppercase tracking-tighter leading-none mb-2 break-words drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-                    style={{ WebkitTextStroke: '1px rgba(0,0,0,0.9)' }}
+                    className="text-lg font-black text-white uppercase tracking-tighter leading-none break-words drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] translate-y-2"
+                    style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
                 >
                     {label}
                 </h3>
-                <p
-                    className="text-[10px] text-white/95 font-bold uppercase tracking-widest leading-tight line-clamp-2 drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-                    style={{ WebkitTextStroke: '0.7px rgba(0,0,0,0.85)' }}
-                >
-                    {subLabel}
-                </p>
             </div>
 
             <div className={`absolute bottom-6 right-6 text-${colorClass}-500 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 duration-500`}>

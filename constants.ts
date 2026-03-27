@@ -46,6 +46,7 @@ export const getStoredHomeLayout = (): HomeLayout => {
 export const CATEGORIES = Object.values(Category);
 
 export const CATEGORIES_WITH_ICONS = [
+  { value: Category.GoodDeeds, translationKey: "categories.goodDeeds", icon: "❤️", imageSeed: "community-kindness-missions", headline: "Track and Join Good Deed Missions" },
   { value: Category.Travel, translationKey: "categories.travel", icon: "✈️", imageSeed: "airport-terminal-overcast", headline: "Report a Travel Disruption" },
   { value: Category.ElderlyCare, translationKey: "categories.elderlyCare", icon: "👵", imageSeed: "nursing-home-interior", headline: "Elderly Care Accountability" },
   { value: Category.ProfessionalServices, translationKey: "categories.professionalServices", icon: "💼", imageSeed: "modern-office-justice", headline: "Professional Service Audit" },

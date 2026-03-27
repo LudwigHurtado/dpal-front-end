@@ -579,6 +579,7 @@ export const translations = {
       fantasy_justice_desc: "A testament to your unwavering pursuit of justice within the mystical realms, earned by repeatedly holding power accountable",
     },
     categories: {
+      goodDeeds: "Good Deeds",
       travel: "Travel",
       elderlyCare: "Elderly Care",
       professionalServices: "Professional Services",

@@ -1,6 +1,7 @@
 // Complete types for DPAL application
 
 export enum Category {
+    GoodDeeds = 'Good Deeds',
     Travel = 'Travel',
     ElderlyCare = 'Elderly Care',
     ProfessionalServices = 'Professional Services',

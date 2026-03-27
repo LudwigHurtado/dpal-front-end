@@ -68,7 +68,7 @@ export const SECTORS: SectorDefinition[] = [
     label: 'Community',
     subtitle: 'Education, work life, and social accountability',
     emoji: '🐾',
-    categories: [Category.Education, Category.WorkplaceIssues, Category.ElderlyCare, Category.Events, Category.NonProfit, Category.Other],
+    categories: [Category.GoodDeeds, Category.Education, Category.WorkplaceIssues, Category.ElderlyCare, Category.Events, Category.NonProfit, Category.Other],
   },
 ];
 
@@ -80,6 +80,7 @@ export const CATEGORY_MAPPINGS: CategoryMappingRow[] = [
   { classicCategory: Category.MedicalNegligence, sector: 'health', nextCategory: 'Care Denial and Negligence' },
   { classicCategory: Category.CivicDuty, sector: 'government', nextCategory: 'Public Process Violations' },
   { classicCategory: Category.WorkplaceIssues, sector: 'community', nextCategory: 'Workplace Rights and Abuse' },
+  { classicCategory: Category.GoodDeeds, sector: 'community', nextCategory: 'Kindness and Volunteer Missions' },
 ];
 
 export const SECTOR_HERO_ASSET: Record<SectorKey, string> = {
