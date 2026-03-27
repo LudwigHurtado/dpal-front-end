@@ -166,8 +166,11 @@ const REPORTING_ENTRIES: ReportingEntry[] = [
   },
 ];
 
+const SUSTAINABILITY_COLLAGE = '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png';
+
 const HERO_ROTATION = [
   '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
+  SUSTAINABILITY_COLLAGE,
   '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
   '/main-screen/Offset-Marketplace/edu-carbon-credit-forest.png',
   '/main-screen/Offset-Marketplace/edu-measured-valued.png',
@@ -187,6 +190,13 @@ interface EduSlide {
 }
 
 const EDU_SLIDES: EduSlide[] = [
+  {
+    id: 'dpal-sustainability',
+    title: 'DPAL network',
+    caption:
+      'Renewable energy, community agriculture, stewardship, clean cooking, and water — full-color field mosaic.',
+    image: SUSTAINABILITY_COLLAGE,
+  },
   {
     id: 'cycle',
     title: 'Credit cycle',
@@ -365,6 +375,18 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
             </div>
           </div>
         </header>
+
+        <section
+          className="group relative mt-4 overflow-hidden rounded-2xl border border-emerald-200/25 bg-zinc-950 shadow-lg"
+          aria-label="DPAL sustainability and community impact"
+        >
+          <img
+            src={SUSTAINABILITY_COLLAGE}
+            alt=""
+            className="w-full max-h-[min(72vh,680px)] object-contain object-center transition duration-500 ease-out group-hover:scale-[1.01]"
+            draggable={false}
+          />
+        </section>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-emerald-500/30">
