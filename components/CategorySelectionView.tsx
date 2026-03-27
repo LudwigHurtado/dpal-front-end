@@ -58,11 +58,24 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
     const [activeSector, setActiveSector] = useState<SectorKey>(SECTORS[0].key);
     const [hiddenCategoryImages, setHiddenCategoryImages] = useState<Record<string, boolean>>({});
     const [showViewOnboarding, setShowViewOnboarding] = useState(false);
+    const [openActionsCategory, setOpenActionsCategory] = useState<Category | null>(null);
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
         window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
     }, [viewMode]);
+
+    useEffect(() => {
+        if (openActionsCategory === null) return;
+        const close = () => setOpenActionsCategory(null);
+        const id = window.setTimeout(() => {
+            document.addEventListener('click', close);
+        }, 0);
+        return () => {
+            clearTimeout(id);
+            document.removeEventListener('click', close);
+        };
+    }, [openActionsCategory]);
 
     useEffect(() => {
       if (typeof window === 'undefined') return;
@@ -114,87 +127,15 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
         );
       }) as (typeof CATEGORIES_WITH_ICONS);
 
-    const renderCategoryCard = (cat: (typeof CATEGORIES_WITH_ICONS)[number], prioritizeActions = false) => (
+    const renderCategoryCard = (cat: (typeof CATEGORIES_WITH_ICONS)[number], prioritizeActions = false) => {
+      const isActionsOpen = openActionsCategory === cat.value;
+      return (
       <div
         key={cat.value}
-        className="group flex flex-col bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 hover:border-zinc-600 transition-all duration-500 relative overflow-hidden shadow-2xl p-8"
+        className="group flex flex-col bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 hover:border-zinc-600 transition-all duration-500 relative overflow-visible shadow-2xl p-8"
       >
         <BorderPulse color="#06b6d4" />
         <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
-
-        {prioritizeActions && (
-          <div className="mb-5 relative z-20 flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => onSelectCategory(cat.value)}
-              className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
-            >
-              Report
-            </button>
-
-            <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
-              <span className="text-3xl leading-none">{cat.icon}</span>
-            </div>
-
-            <div className="relative flex-1 group/actions">
-              <button
-                type="button"
-                className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
-                aria-haspopup="menu"
-              >
-                Actions
-              </button>
-
-              <div
-                className="absolute right-0 left-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden opacity-0 pointer-events-none translate-y-1 transition-all duration-150 group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto group-hover/actions:translate-y-0"
-                role="menu"
-              >
-                <button
-                  type="button"
-                  onClick={() => onSelectPlay?.()}
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                  role="menuitem"
-                >
-                  Play
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onSelectHelp?.()}
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                  role="menuitem"
-                >
-                  Help
-                </button>
-                <button
-                  type="button"
-                  onClick={() => (onSelectWork || onSelectMissions)(cat.value)}
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                  role="menuitem"
-                >
-                  Work
-                </button>
-                {cat.value === Category.GoodDeeds && (
-                  <button
-                    type="button"
-                    onClick={() => onSelectMissions(cat.value)}
-                    className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                    role="menuitem"
-                  >
-                    Good Deed Missions
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => onSelectCategory(cat.value)}
-                  className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
-                  role="menuitem"
-                >
-                  Report
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
           {!hiddenCategoryImages[cat.value] && (
@@ -230,17 +171,8 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                 : 'absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30'
             }
           />
-          <div className="absolute inset-x-0 bottom-3 px-4 pointer-events-none">
-            <div
-              className="text-center text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-              style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
-            >
-              {t(cat.translationKey)}
-            </div>
-          </div>
         </div>
 
-        {!prioritizeActions && (
         <div className="mt-5 relative z-20 flex items-center gap-3">
           <button
             type="button"
@@ -254,22 +186,35 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
             <span className="text-3xl leading-none">{cat.icon}</span>
           </div>
 
-          <div className="relative flex-1 group/actions">
+          <div className="relative flex-1">
             <button
               type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpenActionsCategory((prev) => (prev === cat.value ? null : cat.value));
+              }}
               className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
               aria-haspopup="menu"
+              aria-expanded={isActionsOpen}
             >
               Actions
             </button>
 
             <div
-              className="absolute right-0 left-0 mt-2 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden opacity-0 pointer-events-none translate-y-1 transition-all duration-150 group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto group-hover/actions:translate-y-0"
+              className={`absolute right-0 left-0 mt-2 z-30 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden transition-all duration-150 ${
+                isActionsOpen
+                  ? 'opacity-100 pointer-events-auto translate-y-0'
+                  : 'opacity-0 pointer-events-none translate-y-1'
+              }`}
               role="menu"
+              onClick={(e) => e.stopPropagation()}
             >
               <button
                 type="button"
-                onClick={() => onSelectPlay?.()}
+                onClick={() => {
+                  setOpenActionsCategory(null);
+                  onSelectPlay?.();
+                }}
                 className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                 role="menuitem"
               >
@@ -277,7 +222,10 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
               </button>
               <button
                 type="button"
-                onClick={() => onSelectHelp?.()}
+                onClick={() => {
+                  setOpenActionsCategory(null);
+                  onSelectHelp?.();
+                }}
                 className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                 role="menuitem"
               >
@@ -285,7 +233,10 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
               </button>
               <button
                 type="button"
-                onClick={() => (onSelectWork || onSelectMissions)(cat.value)}
+                onClick={() => {
+                  setOpenActionsCategory(null);
+                  (onSelectWork || onSelectMissions)(cat.value);
+                }}
                 className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                 role="menuitem"
               >
@@ -294,7 +245,10 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
               {cat.value === Category.GoodDeeds && (
                 <button
                   type="button"
-                  onClick={() => onSelectMissions(cat.value)}
+                  onClick={() => {
+                    setOpenActionsCategory(null);
+                    onSelectMissions(cat.value);
+                  }}
                   className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                   role="menuitem"
                 >
@@ -303,7 +257,10 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
               )}
               <button
                 type="button"
-                onClick={() => onSelectCategory(cat.value)}
+                onClick={() => {
+                  setOpenActionsCategory(null);
+                  onSelectCategory(cat.value);
+                }}
                 className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
                 role="menuitem"
               >
@@ -312,9 +269,18 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
             </div>
           </div>
         </div>
-        )}
+
+        <div className="mt-5 relative z-10 text-center px-1 pb-1">
+          <div
+            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+          >
+            {t(cat.translationKey)}
+          </div>
+        </div>
       </div>
-    );
+      );
+    };
 
     const handleOnboardingSelect = (mode: ViewMode) => {
       setViewMode(mode);
