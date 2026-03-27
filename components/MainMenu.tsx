@@ -5,7 +5,6 @@ import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Br
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import BlockchainStatusPanel from './BlockchainStatusPanel';
-import MainPanelHeroCarousel from './MainPanelHeroCarousel';
 import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
 import { featureFlags } from '../features/featureFlags';
@@ -137,27 +136,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
 
     return (
         <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
-            <header className="mb-12 text-center flex flex-col items-center relative pt-8">
-                <div className="relative z-10 space-y-6 md:space-y-8 flex flex-col items-center w-full px-1">
-                    {/* Main panel visual series — same neon home hero, not the report dashboard */}
-                    <MainPanelHeroCarousel variant="home" className="w-full max-w-5xl" />
-
-                    <button 
-                        onClick={() => onNavigate('ecosystem')}
-                        className="relative group p-1 rounded-3xl overflow-hidden transition-all active:scale-95"
-                    >
-                        <div className="absolute inset-0 bg-emerald-500/20 blur-[30px] animate-pulse group-hover:bg-emerald-500/40 transition-colors"></div>
-                        <div className="relative bg-zinc-950 border-2 border-emerald-500/40 px-10 py-4 rounded-2xl shadow-2xl backdrop-blur-xl group-hover:border-emerald-400 transition-all">
-                            <div className="flex items-center space-x-4">
-                                <Globe className="w-6 h-6 text-emerald-400 group-hover:rotate-12 transition-transform" />
-                                <p className="text-[11px] font-black text-emerald-400 uppercase tracking-[0.4em]">GOVERNANCE_PROTOCOL</p>
-                            </div>
-                        </div>
-                    </button>
-
-                    <p className="text-sm text-zinc-400 font-bold uppercase tracking-[0.5em] mt-4">Global Oversight & P2P Accountability Engine</p>
-                </div>
-            </header>
+            <header className="mb-8 text-center flex flex-col items-center relative pt-4" />
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 relative z-20">
                 {/*
@@ -429,6 +408,16 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     colorClass="cyan"
                     onClick={() => onNavigate('storage')}
                 />
+            </div>
+
+            <div className="flex justify-end mb-12">
+                <button
+                    onClick={() => onNavigate('ecosystem')}
+                    className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-emerald-500/40 bg-zinc-950 hover:border-emerald-400 transition-all text-emerald-300 font-black text-xs uppercase tracking-[0.2em]"
+                >
+                    <Globe className="w-4 h-4" />
+                    Governance Protocol
+                </button>
             </div>
 
             <BlockchainStatusPanel totalReports={totalReports} latestHash={latestHash} latestBlockNumber={latestBlockNumber} />
