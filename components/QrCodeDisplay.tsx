@@ -7,9 +7,12 @@ interface QrCodeDisplayProps {
     id: string;
     onClose: () => void;
     onJoinSitRep?: () => void;
+    /** Optional branding (e.g. “QR life saver” mark) shown under the scan area */
+    brandImageUrl?: string;
+    brandImageAlt?: string;
 }
 
-const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoinSitRep }) => {
+const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoinSitRep, brandImageUrl, brandImageAlt }) => {
     const baseUrl = window.location.origin;
     const queryParam = type === 'mission' ? 'missionId' : 'reportId';
     const deepLinkUrl = `${baseUrl}?${queryParam}=${encodeURIComponent(id)}`;
@@ -63,6 +66,18 @@ const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoin
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest leading-relaxed px-4">
                         Scan with DPAL scanner or system camera to synchronize terminal records.
                     </p>
+
+                    {brandImageUrl && (
+                        <div className="rounded-2xl border border-zinc-700 bg-white p-4 pt-3">
+                            <p className="text-[9px] font-black uppercase tracking-[0.25em] text-zinc-500 text-center mb-2">QR life saver</p>
+                            <img
+                                src={brandImageUrl}
+                                alt={brandImageAlt ?? ''}
+                                className="mx-auto max-h-36 w-auto object-contain"
+                                draggable={false}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
             <style>{`

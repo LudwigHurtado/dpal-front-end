@@ -168,6 +168,9 @@ const REPORTING_ENTRIES: ReportingEntry[] = [
 
 const SUSTAINABILITY_COLLAGE = '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png';
 
+/** “See my life” QR life saver mark — paired with Track QR */
+const QR_LIFE_SAVER_IMAGE = '/main-screen/Offset-Marketplace/qr-life-saver-see-my-life.png';
+
 const HERO_ROTATION = [
   '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
   SUSTAINABILITY_COLLAGE,
@@ -547,6 +550,19 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
                     </div>
                   </dl>
 
+                  <div className="mt-4 rounded-2xl border border-zinc-600 bg-white p-3 shadow-inner">
+                    <p className="text-center text-[9px] font-black uppercase tracking-[0.28em] text-zinc-600">QR life saver</p>
+                    <img
+                      src={QR_LIFE_SAVER_IMAGE}
+                      alt="See my life — QR life saver"
+                      className="mx-auto mt-2 max-h-44 w-full max-w-[220px] object-contain"
+                      draggable={false}
+                    />
+                    <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-700">
+                      See my life
+                    </p>
+                  </div>
+
                   <div className="mt-4 grid grid-cols-2 gap-2">
                     <button
                       type="button"
@@ -702,6 +718,8 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
           type="report"
           id={activeParcel.id}
           onClose={() => setShowQr(false)}
+          brandImageUrl={QR_LIFE_SAVER_IMAGE}
+          brandImageAlt="See my life — QR life saver"
         />
       )}
     </div>
