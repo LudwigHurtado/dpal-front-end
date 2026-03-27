@@ -176,6 +176,15 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                 </div>
             </header>
 
+            <div className="relative w-full shrink-0 overflow-hidden border-b border-zinc-800 no-print">
+                <img
+                    src="/main-screen/qr-live-saver.png"
+                    alt=""
+                    className="h-44 w-full object-cover object-center md:h-52"
+                    draggable={false}
+                />
+            </div>
+
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden p-8 lg:p-12 gap-12 bg-black">
                 <aside className="lg:col-span-3 space-y-10 no-print">
                     <div className="flex items-center justify-between px-4">

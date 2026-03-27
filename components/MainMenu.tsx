@@ -335,6 +335,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Sync Life-Line Medical Shards"
                     status="HEALTH"
                     colorClass="rose"
+                    bgImageUrl="/main-screen/qr-live-saver.png"
                     onClick={() => onNavigate('medicalOutpost')}
                 />
 
