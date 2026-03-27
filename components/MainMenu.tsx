@@ -229,11 +229,11 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                 <PrimaryNavModule 
                     icon={<Target className="w-8 h-8" />}
                     label="FIELD_MISSIONS"
-                    subLabel="Active Regional Tasks & Directives"
+                    subLabel="Beacons, map & help requests — join or offer help"
                     status="ACTIVE"
                     colorClass="amber"
                     bgImageUrl="/main-screen/field-missions.png"
-                    onClick={() => onNavigate('liveIntelligence')}
+                    onClick={() => onNavigate('fieldMissions')}
                 />
 
                 <PrimaryNavModule 
@@ -334,15 +334,6 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     colorClass="rose"
                     bgImageUrl="/main-screen/qr-live-saver.png"
                     onClick={() => onNavigate('medicalOutpost')}
-                />
-
-                <PrimaryNavModule 
-                    icon={<Broadcast className="w-8 h-8" />}
-                    label="FIELD_MISSIONS"
-                    subLabel="Beacon, Map & Help Requests — Join or Offer Help"
-                    status="LIVE"
-                    colorClass="emerald"
-                    onClick={() => onNavigate('fieldMissions')}
                 />
 
                 <PrimaryNavModule 
