@@ -1,6 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { type Report } from '../types';
+
+const ESCALATION_HUB_HERO = '/main-screen/escalation-hub.png';
 // FIX: Changed 'Users' to 'User' as 'Users' is not exported from ./icons
 import { Phone, Mail, ArrowLeft, Loader, Zap, ShieldCheck, Target, Activity, User, Send, CheckCircle, RefreshCw, Hash, Broadcast } from './icons';
 
@@ -96,6 +98,15 @@ const OutreachEscalationHub: React.FC<OutreachEscalationHubProps> = ({ reports, 
                     <span>Terminal_Exit</span>
                 </button>
             </header>
+
+            <div className="relative w-full shrink-0 overflow-hidden border-b border-zinc-800">
+                <img
+                    src={ESCALATION_HUB_HERO}
+                    alt=""
+                    className="h-44 w-full object-cover object-center md:h-52"
+                    draggable={false}
+                />
+            </div>
 
             <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden bg-black">
                 {/* Threat Selection Area */}

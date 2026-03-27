@@ -312,6 +312,7 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Automated AI Vox & Live Field Queue"
                     status="ALERT"
                     colorClass="rose"
+                    bgImageUrl="/main-screen/escalation-hub.png"
                     onClick={() => onNavigate('outreachEscalation')}
                 />
 
@@ -375,11 +376,20 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
 
             <div className="flex justify-end mb-12">
                 <button
+                    type="button"
                     onClick={() => onNavigate('outreachEscalation')}
-                    className="inline-flex items-center gap-3 px-6 py-3 rounded-xl border border-emerald-500/40 bg-zinc-950 hover:border-emerald-400 transition-all text-emerald-300 font-black text-xs uppercase tracking-[0.2em]"
+                    className="relative inline-flex items-center gap-3 overflow-hidden rounded-xl border border-emerald-500/40 px-6 py-3 font-black text-xs uppercase tracking-[0.2em] transition-all hover:border-emerald-400"
                 >
-                    <Globe className="w-4 h-4" />
-                    Governance Protocol
+                    <span
+                        className="absolute inset-0 bg-cover bg-center opacity-45"
+                        style={{ backgroundImage: "url('/main-screen/escalation-hub.png')" }}
+                        aria-hidden
+                    />
+                    <span className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/55" aria-hidden />
+                    <span className="relative z-10 flex items-center gap-3 text-emerald-200 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
+                        <Globe className="w-4 h-4 shrink-0" />
+                        Governance Protocol
+                    </span>
                 </button>
             </div>
 
