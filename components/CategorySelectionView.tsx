@@ -438,11 +438,6 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                 <section className="mb-10 space-y-6">
                     <SectorHeroBanner sector={activeSectorDef} imageSrc={activeSectorHeroImage} />
                     <SectorGatewayGrid sectors={SECTORS} activeSector={activeSector} onSelectSector={setActiveSector} />
-                    <CategoryMappingPanel
-                      rows={CATEGORY_MAPPINGS}
-                      sectors={SECTORS}
-                      getClassicLabel={(row) => getClassicLabel(row.classicCategory)}
-                    />
                 </section>
             )}
 
@@ -470,6 +465,16 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                         Clear Search Query
                     </button>
                 </div>
+            )}
+
+            {viewMode === 'next' && (
+              <section className="mt-10">
+                <CategoryMappingPanel
+                  rows={CATEGORY_MAPPINGS}
+                  sectors={SECTORS}
+                  getClassicLabel={(row) => getClassicLabel(row.classicCategory)}
+                />
+              </section>
             )}
 
             <style>{`

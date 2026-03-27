@@ -302,8 +302,8 @@ const MainMenu: React.FC<MainMenuProps> = ({ onNavigate, totalReports, latestHas
                     subLabel="Verified carbon projects & traceable impact credits"
                     status="MARKET"
                     colorClass="emerald"
-                    bgImageUrl="/main-screen/offset-marketplace.png"
-                    onClick={() => onNavigate('sustainmentCenter')}
+                    bgImageUrl="/main-screen/Offset-Marketplace/offset-marketplace.png"
+                    onClick={() => onNavigate('offsetMarketplace')}
                 />
 
                 <PrimaryNavModule 
