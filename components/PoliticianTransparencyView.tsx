@@ -312,10 +312,9 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
             </a>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 md:p-6">
+          <div className="rounded-3xl border border-amber-500/25 bg-gradient-to-b from-amber-500/15 via-amber-500/10 to-zinc-900/60 p-5 md:p-6">
             <div className="flex items-start justify-between gap-4 flex-wrap">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Free web search</p>
                 <h2 className="mt-1 text-lg font-black uppercase tracking-tight text-white">Politician Statements Finder</h2>
                 <p className="mt-2 text-xs text-zinc-400 uppercase tracking-[0.25em] max-w-3xl">
                   No API key required. Searches public sources and shows results here so you can share them.
