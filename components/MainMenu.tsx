@@ -501,7 +501,15 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             >
                                 <DualCometBorder color="#06b6d4" radius="2.5rem" hoverable={true} />
                                 <div className="flex flex-col p-6 md:p-8">
-                                    <div className="relative overflow-hidden min-h-[220px] w-full rounded-[2rem] border border-white/10 bg-black/20">
+                                    <div className="relative z-30 mb-5 text-center px-1">
+                                        <div
+                                            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+                                            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+                                        >
+                                            {t(cat.translationKey)}
+                                        </div>
+                                    </div>
+                                    <div className="relative z-0 overflow-hidden min-h-[220px] w-full rounded-[2rem] border border-white/10 bg-black/20">
                                         {!hiddenDispatchCategoryImages[cat.value] && (
                                             <img
                                                 src={getCategoryCardImageSrc(cat.value)}
@@ -580,15 +588,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                     Report
                                                 </button>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="mt-5 relative z-10 text-center px-1 pb-1">
-                                        <div
-                                            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-                                            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
-                                        >
-                                            {t(cat.translationKey)}
                                         </div>
                                     </div>
                                 </div>

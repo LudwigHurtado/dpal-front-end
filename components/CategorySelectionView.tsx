@@ -137,7 +137,16 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
         <BorderPulse color="#06b6d4" />
         <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
-        <div className="relative flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
+        <div className="relative z-30 mb-5 text-center px-1">
+          <div
+            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+          >
+            {t(cat.translationKey)}
+          </div>
+        </div>
+
+        <div className="relative z-0 flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
           {!hiddenCategoryImages[cat.value] && (
             <img
               src={getCategoryCardImageSrc(cat.value)}
@@ -201,7 +210,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
             </button>
 
             <div
-              className={`absolute right-0 left-0 mt-2 z-30 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden transition-all duration-150 ${
+              className={`absolute right-0 left-0 mt-2 z-50 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden transition-all duration-150 ${
                 isActionsOpen
                   ? 'opacity-100 pointer-events-auto translate-y-0'
                   : 'opacity-0 pointer-events-none translate-y-1'
@@ -267,15 +276,6 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({ onSelectC
                 Report
               </button>
             </div>
-          </div>
-        </div>
-
-        <div className="mt-5 relative z-10 text-center px-1 pb-1">
-          <div
-            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
-          >
-            {t(cat.translationKey)}
           </div>
         </div>
       </div>
