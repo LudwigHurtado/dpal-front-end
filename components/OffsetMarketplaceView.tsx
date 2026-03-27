@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, MapPin, QrCode, ShieldCheck, Coins, CheckCircle, Upload, Search } from './icons';
+import { ArrowLeft, MapPin, QrCode, CheckCircle, Upload, Search } from './icons';
 import QrCodeDisplay from './QrCodeDisplay';
 
 interface OffsetMarketplaceViewProps {
@@ -178,6 +178,7 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
   const [activeParcelId, setActiveParcelId] = useState<string | null>(PARCELS[0].id);
   const [showQr, setShowQr] = useState(false);
   const [rotationIndex, setRotationIndex] = useState(0);
+  const [reportingScope, setReportingScope] = useState<'active' | 'network'>('active');
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -189,15 +190,17 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
 
   const activeParcel = PARCELS.find((p) => p.id === activeParcelId) || visible[0];
   const rotatingImage = OFFSET_MARKETPLACE_ROTATION[rotationIndex % OFFSET_MARKETPLACE_ROTATION.length];
-  const reportingForActive = useMemo(
-    () => REPORTING_ENTRIES.filter((r) => r.projectId === activeParcel?.projectId),
-    [activeParcel?.projectId]
-  );
   const reportingTotals = useMemo(() => {
     const approved = REPORTING_ENTRIES.filter((r) => r.status === 'Approved').length;
     const pending = REPORTING_ENTRIES.filter((r) => r.status === 'Pending').length;
     const flagged = REPORTING_ENTRIES.filter((r) => r.status === 'Flagged').length;
     return { approved, pending, flagged };
+  }, []);
+
+  const networkTotals = useMemo(() => {
+    const units = PARCELS.reduce((sum, p) => sum + p.units, 0);
+    const verified = PARCELS.filter((p) => p.status === 'Verified').length;
+    return { parcels: PARCELS.length, units, verified };
   }, []);
 
   const statusStyle = (status: ParcelStatus) => {
@@ -213,204 +216,296 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
     return () => clearInterval(timer);
   }, []);
 
+  const reportingRows = useMemo(
+    () =>
+      reportingScope === 'active'
+        ? REPORTING_ENTRIES.filter((r) => r.projectId === activeParcel?.projectId)
+        : REPORTING_ENTRIES,
+    [reportingScope, activeParcel?.projectId]
+  );
+
   return (
-    <div className="animate-fade-in max-w-6xl mx-auto pb-24 font-mono text-zinc-100">
-      <button
-        onClick={onReturn}
-        className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors mb-6"
-      >
-        <ArrowLeft className="w-4 h-4" />
-        Return
-      </button>
+    <div className="animate-fade-in max-w-6xl mx-auto pb-24 text-zinc-100">
+      <div className="rounded-[2rem] border border-emerald-950/40 bg-gradient-to-b from-emerald-950/25 via-zinc-950/80 to-zinc-950 p-4 sm:p-6 md:p-8">
+        <button
+          onClick={onReturn}
+          className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-emerald-400 transition-colors mb-6"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Return
+        </button>
 
-      <header className="relative overflow-hidden rounded-[2.2rem] border border-zinc-800 bg-zinc-900/70 p-5 md:p-7 mb-6">
-        <img
-          src={rotatingImage}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover opacity-40 transition-opacity duration-700"
-          draggable={false}
-        />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/40 to-black/65" />
-        <div className="relative">
-          <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-300">Offset Marketplace</p>
-          <h1 className="mt-1 text-3xl md:text-4xl font-black uppercase tracking-tight text-white">Carbon Operations MVP</h1>
-          <p className="mt-3 text-xs md:text-sm text-zinc-200 uppercase tracking-[0.2em]">
-            Parcel registry, QR verification, mission monitoring, and traceable unit flow.
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-white/15 bg-black/25 px-3 py-1.5">
-            {OFFSET_MARKETPLACE_ROTATION.map((_, idx) => (
-              <span
-                key={`rot-dot-${idx}`}
-                className={`h-1.5 w-1.5 rounded-full ${idx === rotationIndex ? 'bg-cyan-300' : 'bg-zinc-500'}`}
-              />
-            ))}
-            <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-300">Live image rotation</span>
-          </div>
-        </div>
-      </header>
-
-      <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-          <div className="relative mb-4">
-            <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search parcel, project, mission..."
-              className="w-full rounded-xl border border-zinc-700 bg-zinc-950/60 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-cyan-500"
-            />
-          </div>
-
-          <div className="space-y-3">
-            {visible.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setActiveParcelId(p.id)}
-                className={`w-full text-left rounded-2xl border p-4 transition-colors ${
-                  p.id === activeParcel?.id ? 'border-cyan-500/40 bg-cyan-500/10' : 'border-zinc-800 bg-zinc-950/50 hover:border-zinc-600'
-                }`}
-              >
-                <div className="mb-3 rounded-xl overflow-hidden border border-zinc-800 h-28">
-                  <img src={p.imageUrl} alt="" className="w-full h-full object-cover opacity-90" />
-                </div>
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-white uppercase">{p.name}</p>
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mt-1">Project {p.projectId}</p>
-                  </div>
-                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${statusStyle(p.status)}`}>
-                    {p.status}
-                  </span>
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-zinc-300">
-                  <span className="inline-flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /> {p.location}</span>
-                  <span className="inline-flex items-center gap-1"><Coins className="w-3.5 h-3.5 text-amber-300" /> {p.units} tCO2e</span>
-                  <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-emerald-300" /> {p.mission}</span>
-                </div>
-                <div className="mt-2 text-[10px] uppercase tracking-[0.2em] text-zinc-500">{p.address}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 space-y-4">
-          {activeParcel ? (
-            <>
-              <div className="rounded-2xl overflow-hidden border border-zinc-800 h-44">
-                <img
-                  src={activeParcel.projectId === 'CR-14527' ? rotatingImage : activeParcel.imageUrl}
-                  alt=""
-                  className="w-full h-full object-cover transition-opacity duration-700"
-                />
+        <header className="relative overflow-hidden rounded-2xl border border-emerald-900/30 bg-zinc-900/50 shadow-lg shadow-black/20">
+          <img
+            src={rotatingImage}
+            alt=""
+            className="absolute inset-0 h-full w-full object-cover opacity-[0.52] transition-opacity duration-700"
+            draggable={false}
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/75 via-black/45 to-emerald-950/35" />
+          <div className="relative px-5 py-6 md:px-8 md:py-8">
+            <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-xl">
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-200/90">Offset Marketplace</p>
+                <h1 className="mt-1 text-3xl md:text-4xl font-black uppercase tracking-tight text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+                  Carbon Operations MVP
+                </h1>
+                <p className="mt-3 text-xs md:text-sm text-zinc-200/95 normal-case tracking-normal max-w-lg">
+                  Registry-grade parcel view: search projects, inspect missions, and follow verification activity in one flow.
+                </p>
               </div>
-              <div>
-                <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Selected Parcel</p>
-                <h2 className="text-xl font-black uppercase tracking-tight mt-1">{activeParcel.name}</h2>
+              <div className="flex flex-wrap items-center gap-2 md:justify-end">
+                {OFFSET_MARKETPLACE_ROTATION.map((_, idx) => (
+                  <span
+                    key={`rot-dot-${idx}`}
+                    className={`h-2 w-2 rounded-full transition-colors ${idx === rotationIndex ? 'bg-emerald-300' : 'bg-white/25'}`}
+                  />
+                ))}
+                <span className="text-[10px] uppercase tracking-[0.2em] text-zinc-300">Scene rotation</span>
               </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 space-y-2 text-sm">
-                <div className="flex items-center justify-between"><span className="text-zinc-400">Project ID</span><span className="font-black">{activeParcel.projectId}</span></div>
-                <div className="flex items-center justify-between"><span className="text-zinc-400">Location</span><span className="font-black">{activeParcel.location}</span></div>
-                <div className="flex items-center justify-between gap-3"><span className="text-zinc-400">Address</span><span className="font-black text-right">{activeParcel.address}</span></div>
-                <div className="flex items-center justify-between"><span className="text-zinc-400">Carbon Units</span><span className="font-black text-amber-300">{activeParcel.units} tCO2e</span></div>
-                <div className="flex items-center justify-between"><span className="text-zinc-400">Active Mission</span><span className="font-black">{activeParcel.mission}</span></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowQr(true)}
-                  className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 py-3 text-xs font-black uppercase tracking-wider hover:border-cyan-400 transition-colors"
-                >
-                  <QrCode className="w-4 h-4 inline mr-1" />
-                  Track QR
-                </button>
-                <button
-                  type="button"
-                  className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 py-3 text-xs font-black uppercase tracking-wider hover:border-emerald-400 transition-colors"
-                >
-                  <CheckCircle className="w-4 h-4 inline mr-1" />
-                  Verify
-                </button>
-                <button
-                  type="button"
-                  className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 py-3 text-xs font-black uppercase tracking-wider hover:border-amber-400 transition-colors"
-                >
-                  <Upload className="w-4 h-4 inline mr-1" />
-                  Upload Evidence
-                </button>
-                <button
-                  type="button"
-                  className="rounded-xl border border-zinc-700 bg-zinc-950/60 text-zinc-200 py-3 text-xs font-black uppercase tracking-wider hover:border-zinc-500 transition-colors"
-                  onClick={() => window.open(activeParcel.siteUrl, '_blank', 'noopener,noreferrer')}
-                >
-                  Open Site
-                </button>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center text-xs uppercase tracking-[0.2em] text-zinc-500">
-              No parcel selected
             </div>
-          )}
-        </div>
-      </section>
+          </div>
+        </header>
 
-      <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
-        <div className="flex items-center justify-between gap-3 mb-4">
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Official Reporting</p>
-            <h3 className="text-lg font-black uppercase tracking-tight">Verification & Registry Activity</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Parcels live</p>
+            <p className="text-2xl font-black text-white mt-0.5">{networkTotals.parcels}</p>
           </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-200">Approved</p>
-            <p className="text-2xl font-black text-emerald-100 mt-1">{reportingTotals.approved}</p>
+          <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/30 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200/80">Verified sites</p>
+            <p className="text-2xl font-black text-emerald-100 mt-0.5">{networkTotals.verified}</p>
           </div>
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-amber-200">Pending</p>
-            <p className="text-2xl font-black text-amber-100 mt-1">{reportingTotals.pending}</p>
-          </div>
-          <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
-            <p className="text-[10px] uppercase tracking-[0.25em] text-rose-200">Flagged</p>
-            <p className="text-2xl font-black text-rose-100 mt-1">{reportingTotals.flagged}</p>
+          <div className="rounded-2xl border border-amber-900/35 bg-amber-950/25 px-4 py-3">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/80">Network tCO2e</p>
+            <p className="text-2xl font-black text-amber-100 mt-0.5">{networkTotals.units.toLocaleString()}</p>
           </div>
         </div>
 
-        <div className="space-y-3">
-          {(reportingForActive.length ? reportingForActive : REPORTING_ENTRIES.slice(0, 3)).map((entry) => (
-            <div key={entry.id} className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-black text-white uppercase">{entry.reportType}</p>
-                  <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mt-1">
-                    Report {entry.id} · Project {entry.projectId}
-                  </p>
-                </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                    entry.status === 'Approved'
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                      : entry.status === 'Pending'
-                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                      : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)] lg:items-start">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Parcel registry</p>
+                <h2 className="text-lg font-black uppercase tracking-tight text-white">Projects & missions</h2>
+              </div>
+              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{visible.length} shown</p>
+            </div>
+            <div className="relative mb-4">
+              <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by ID, place, or mission..."
+                className="w-full rounded-xl border border-zinc-700 bg-zinc-950/60 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30"
+              />
+            </div>
+
+            <div className="max-h-[min(70vh,520px)] overflow-y-auto pr-1 space-y-2.5">
+              {visible.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setActiveParcelId(p.id)}
+                  className={`w-full text-left rounded-2xl border transition-colors ${
+                    p.id === activeParcel?.id
+                      ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20'
+                      : 'border-zinc-800 bg-zinc-950/50 hover:border-zinc-600'
                   }`}
                 >
-                  {entry.status}
-                </span>
-              </div>
-              <p className="mt-3 text-sm text-zinc-300">{entry.summary}</p>
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                <span>Reviewer: {entry.reviewer}</span>
-                <span>{new Date(entry.submittedAt).toLocaleString()}</span>
-              </div>
+                  <div className="flex gap-3 p-3">
+                    <div className="relative h-[4.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900">
+                      <img src={p.imageUrl} alt="" className="h-full w-full object-cover" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-black text-white uppercase truncate">{p.name}</p>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mt-0.5 font-mono">{p.projectId}</p>
+                        </div>
+                        <span
+                          className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusStyle(
+                            p.status
+                          )}`}
+                        >
+                          {p.status}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-[11px] text-zinc-400 line-clamp-1">
+                        <span className="inline-flex items-center gap-1">
+                          <MapPin className="w-3 h-3 shrink-0 text-zinc-500" />
+                          {p.location}
+                        </span>
+                        <span className="text-zinc-600 mx-1.5">·</span>
+                        <span className="text-amber-200/90">{p.units} tCO2e</span>
+                      </p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.15em] text-zinc-500 truncate">{p.mission}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+
+          <div className="lg:sticky lg:top-4 space-y-4">
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
+              {activeParcel ? (
+                <>
+                  <div className="overflow-hidden rounded-2xl border border-zinc-800 aspect-[16/10] max-h-56">
+                    <img src={activeParcel.imageUrl} alt="" className="h-full w-full object-cover" />
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Selected parcel</p>
+                    <h2 className="text-xl font-black uppercase tracking-tight mt-1 text-white">{activeParcel.name}</h2>
+                    <p className="text-[11px] text-zinc-400 mt-1 font-mono">{activeParcel.projectId}</p>
+                  </div>
+
+                  <dl className="mt-4 grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm">
+                    <div className="flex justify-between gap-3 border-b border-zinc-800/80 pb-2">
+                      <dt className="text-zinc-500">Location</dt>
+                      <dd className="font-semibold text-right text-zinc-100">{activeParcel.location}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3 border-b border-zinc-800/80 pb-2">
+                      <dt className="text-zinc-500">Carbon units</dt>
+                      <dd className="font-black text-amber-300">{activeParcel.units} tCO2e</dd>
+                    </div>
+                    <div className="flex justify-between gap-3 border-b border-zinc-800/80 pb-2">
+                      <dt className="text-zinc-500">Mission</dt>
+                      <dd className="font-semibold text-right text-emerald-200/90">{activeParcel.mission}</dd>
+                    </div>
+                    <div className="pt-1">
+                      <dt className="text-zinc-500 text-xs">Address</dt>
+                      <dd className="mt-1 text-xs text-zinc-300 leading-relaxed">{activeParcel.address}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowQr(true)}
+                      className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-cyan-400 transition-colors"
+                    >
+                      <QrCode className="w-4 h-4 inline mr-1 align-text-bottom" />
+                      Track QR
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-emerald-400 transition-colors"
+                    >
+                      <CheckCircle className="w-4 h-4 inline mr-1 align-text-bottom" />
+                      Verify
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-amber-400 transition-colors"
+                    >
+                      <Upload className="w-4 h-4 inline mr-1 align-text-bottom" />
+                      Evidence
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-xl border border-zinc-700 bg-zinc-950/60 text-zinc-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-zinc-500 transition-colors"
+                      onClick={() => window.open(activeParcel.siteUrl, '_blank', 'noopener,noreferrer')}
+                    >
+                      Open site
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center text-xs uppercase tracking-[0.2em] text-zinc-500">
+                  No parcel selected
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Official reporting</p>
+              <h3 className="text-lg font-black uppercase tracking-tight text-white">Verification & registry</h3>
+            </div>
+            <div className="inline-flex rounded-xl border border-zinc-700 bg-zinc-950/60 p-1 text-[10px] font-black uppercase tracking-wider">
+              <button
+                type="button"
+                onClick={() => setReportingScope('active')}
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  reportingScope === 'active' ? 'bg-emerald-600/40 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                This parcel
+              </button>
+              <button
+                type="button"
+                onClick={() => setReportingScope('network')}
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  reportingScope === 'network' ? 'bg-emerald-600/40 text-white' : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Full network
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-200">Approved</p>
+              <p className="text-2xl font-black text-emerald-100 mt-1">{reportingTotals.approved}</p>
+            </div>
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-amber-200">Pending</p>
+              <p className="text-2xl font-black text-amber-100 mt-1">{reportingTotals.pending}</p>
+            </div>
+            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-rose-200">Flagged</p>
+              <p className="text-2xl font-black text-rose-100 mt-1">{reportingTotals.flagged}</p>
+            </div>
+          </div>
+
+          <div className="space-y-2.5">
+            {reportingRows.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
+                {reportingScope === 'active'
+                  ? 'No verification reports are linked to this parcel in the demo dataset.'
+                  : 'No reporting records loaded.'}
+              </div>
+            ) : (
+              reportingRows.map((entry) => (
+                <div
+                  key={entry.id}
+                  className="rounded-2xl border border-zinc-800/90 bg-zinc-950/50 p-4 hover:border-zinc-700/90 transition-colors"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-black text-white uppercase">{entry.reportType}</p>
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mt-1 font-mono">
+                        {entry.id} · {entry.projectId}
+                      </p>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                        entry.status === 'Approved'
+                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                          : entry.status === 'Pending'
+                          ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                          : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
+                      }`}
+                    >
+                      {entry.status}
+                    </span>
+                  </div>
+                  <p className="mt-3 text-sm text-zinc-300 leading-relaxed">{entry.summary}</p>
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
+                    <span>Reviewer: {entry.reviewer}</span>
+                    <span>{new Date(entry.submittedAt).toLocaleString()}</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
 
       {showQr && activeParcel && (
         <QrCodeDisplay
