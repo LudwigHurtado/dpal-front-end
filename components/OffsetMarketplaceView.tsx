@@ -1,6 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, MapPin, QrCode, CheckCircle, Upload, Search, Book, ChevronDown, ChevronUp } from './icons';
+import { ArrowLeft, MapPin, QrCode, CheckCircle, Upload, Search, ChevronDown, ChevronUp } from './icons';
 import QrCodeDisplay from './QrCodeDisplay';
+
+/** Single high-resolution hero + parcel art (DPAL sustainability collage) */
+const SUSTAINABILITY_COLLAGE = '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png';
+const QR_LIFE_SAVER_IMAGE = '/main-screen/Offset-Marketplace/qr-life-saver-see-my-life.png';
+const HERO_ROTATION = [SUSTAINABILITY_COLLAGE] as const;
 
 interface OffsetMarketplaceViewProps {
   onReturn: () => void;
@@ -42,7 +47,7 @@ const PARCELS: ParcelItem[] = [
     units: 1250,
     status: 'Verified',
     mission: 'Tree Health Check',
-    imageUrl: '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
   {
     id: 'parcel-cr-14528',
@@ -54,7 +59,7 @@ const PARCELS: ParcelItem[] = [
     units: 620,
     status: 'In Progress',
     mission: 'Biodiversity Survey',
-    imageUrl: '/main-screen/Offset-Marketplace/parcel-satellite-parcel-overlay.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
   {
     id: 'parcel-cr-14529',
@@ -66,7 +71,7 @@ const PARCELS: ParcelItem[] = [
     units: 910,
     status: 'Needs Review',
     mission: 'Methane Reduction Audit',
-    imageUrl: '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
   {
     id: 'parcel-cr-14530',
@@ -78,7 +83,7 @@ const PARCELS: ParcelItem[] = [
     units: 1430,
     status: 'Verified',
     mission: 'Canopy Growth Verification',
-    imageUrl: '/main-screen/Offset-Marketplace/parcel-biome-land-use-analytics.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
   {
     id: 'parcel-cr-14531',
@@ -90,7 +95,7 @@ const PARCELS: ParcelItem[] = [
     units: 540,
     status: 'In Progress',
     mission: 'Waterline & Soil Carbon Check',
-    imageUrl: '/main-screen/Offset-Marketplace/parcel-dual-parcel-aerial.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
   {
     id: 'parcel-cr-14532',
@@ -102,7 +107,7 @@ const PARCELS: ParcelItem[] = [
     units: 780,
     status: 'Verified',
     mission: 'Clean Cookstove Usage Validation',
-    imageUrl: '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
   {
     id: 'parcel-cr-14533',
@@ -114,7 +119,7 @@ const PARCELS: ParcelItem[] = [
     units: 860,
     status: 'Needs Review',
     mission: 'Digestor Output Measurement',
-    imageUrl: '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
+    imageUrl: SUSTAINABILITY_COLLAGE,
   },
 ];
 
@@ -166,109 +171,12 @@ const REPORTING_ENTRIES: ReportingEntry[] = [
   },
 ];
 
-const SUSTAINABILITY_COLLAGE = '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png';
-
-/** “See my life” QR life saver mark — paired with Track QR */
-const QR_LIFE_SAVER_IMAGE = '/main-screen/Offset-Marketplace/qr-life-saver-see-my-life.png';
-
-const HERO_ROTATION = [
-  '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
-  SUSTAINABILITY_COLLAGE,
-  '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
-  '/main-screen/Offset-Marketplace/edu-carbon-credit-forest.png',
-  '/main-screen/Offset-Marketplace/edu-measured-valued.png',
-  '/main-screen/Offset-Marketplace/hero-dpal-community-collage.png',
-  '/main-screen/Offset-Marketplace/hero-community-carbon-banner.png',
-  '/main-screen/Offset-Marketplace/edu-landholders-benefit.png',
-  '/main-screen/Offset-Marketplace/parcel-nationwide-land-data.png',
-  '/main-screen/Offset-Marketplace/edu-carbon-cycle-infographic.png',
-  '/main-screen/Offset-Marketplace/reference-land-credits-marketplace.png',
-] as const;
-
-interface EduSlide {
-  id: string;
-  title: string;
-  caption: string;
-  image: string;
-}
-
-const EDU_SLIDES: EduSlide[] = [
-  {
-    id: 'dpal-sustainability',
-    title: 'DPAL network',
-    caption:
-      'Renewable energy, community agriculture, stewardship, clean cooking, and water — full-color field mosaic.',
-    image: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'cycle',
-    title: 'Credit cycle',
-    caption: 'How value moves between industry, regulation, and conservation projects.',
-    image: '/main-screen/Offset-Marketplace/edu-carbon-cycle-infographic.png',
-  },
-  {
-    id: 'stores',
-    title: 'Carbon on land',
-    caption: 'Illustrative stores: atmosphere, plant biomass, and soil (gigatons).',
-    image: '/main-screen/Offset-Marketplace/edu-carbon-stores-land.png',
-  },
-  {
-    id: 'quantified',
-    title: 'Removal quantified',
-    caption: 'From baseline and planting through verification to issued credits.',
-    image: '/main-screen/Offset-Marketplace/edu-removal-quantified.png',
-  },
-  {
-    id: 'what-are',
-    title: 'What are credits?',
-    caption: 'Avoidance vs removal pathways — simplified project logic.',
-    image: '/main-screen/Offset-Marketplace/edu-what-are-credits.png',
-  },
-  {
-    id: 'safeguards',
-    title: 'Community context',
-    caption: 'Why transparency, safeguards, and fair benefit-sharing matter.',
-    image: '/main-screen/Offset-Marketplace/edu-hidden-costs-communities.png',
-  },
-  {
-    id: 'forest-hero',
-    title: 'Forest carbon',
-    caption: 'Nature-based solutions in full color — credits tied to living landscapes.',
-    image: '/main-screen/Offset-Marketplace/edu-carbon-credit-forest.png',
-  },
-  {
-    id: 'future',
-    title: 'Future of credits',
-    caption: 'Stewardship, growth, and long-term land care.',
-    image: '/main-screen/Offset-Marketplace/hero-future-carbon-credits.png',
-  },
-  {
-    id: 'measured',
-    title: 'Measured & valued',
-    caption: 'Linking emissions, projects, and value on the ground.',
-    image: '/main-screen/Offset-Marketplace/edu-measured-valued.png',
-  },
-  {
-    id: 'landholders',
-    title: 'Landholders',
-    caption: 'How nature-based crediting can support people on the land.',
-    image: '/main-screen/Offset-Marketplace/edu-landholders-benefit.png',
-  },
-  {
-    id: 'meadow',
-    title: 'Corridors',
-    caption: 'Open landscapes and forest lines — registry-scale stewardship.',
-    image: '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
-  },
-];
-
 const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn }) => {
   const [query, setQuery] = useState('');
   const [activeParcelId, setActiveParcelId] = useState<string | null>(PARCELS[0].id);
   const [showQr, setShowQr] = useState(false);
   const [rotationIndex, setRotationIndex] = useState(0);
   const [heroPaused, setHeroPaused] = useState(false);
-  const [activeEdu, setActiveEdu] = useState(0);
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
   const [reportingScope, setReportingScope] = useState<'active' | 'network'>('active');
 
@@ -302,7 +210,7 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
   };
 
   useEffect(() => {
-    if (heroPaused) return;
+    if (heroPaused || HERO_ROTATION.length <= 1) return;
     const timer = setInterval(() => {
       setRotationIndex((prev) => (prev + 1) % HERO_ROTATION.length);
     }, 4800);
@@ -355,41 +263,36 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
                   Registry-grade parcel view: search projects, inspect missions, and follow verification activity in one flow.
                 </p>
               </div>
-              <div className="flex flex-col items-stretch gap-0.5 rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 backdrop-blur-sm md:min-w-[200px]">
-                <span className="text-[10px] uppercase tracking-[0.2em] text-white/90">
-                  {heroPaused ? 'Paused — hover to explore' : 'Scene rotation'}
-                </span>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {HERO_ROTATION.map((src, idx) => (
-                    <button
-                      key={`hero-dot-${idx}`}
-                      type="button"
-                      aria-label={`Show scene ${idx + 1}`}
-                      onClick={() => setRotationIndex(idx)}
-                      className={`h-2.5 w-2.5 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${
-                        idx === rotationIndex % HERO_ROTATION.length
-                          ? 'scale-125 bg-white shadow-[0_0_0_2px_rgba(16,185,129,0.6)]'
-                          : 'bg-white/40 hover:bg-white/70'
-                      }`}
-                    />
-                  ))}
+              {HERO_ROTATION.length > 1 && (
+                <div className="flex flex-col items-stretch gap-0.5 rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 backdrop-blur-sm md:min-w-[200px]">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/90">
+                    {heroPaused ? 'Paused — hover to explore' : 'Scene rotation'}
+                  </span>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {HERO_ROTATION.map((_, idx) => (
+                      <button
+                        key={`hero-dot-${idx}`}
+                        type="button"
+                        aria-label={`Show scene ${idx + 1}`}
+                        onClick={() => setRotationIndex(idx)}
+                        className={`h-2.5 w-2.5 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${
+                          idx === rotationIndex % HERO_ROTATION.length
+                            ? 'scale-125 bg-white shadow-[0_0_0_2px_rgba(16,185,129,0.6)]'
+                            : 'bg-white/40 hover:bg-white/70'
+                        }`}
+                      />
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
+              {HERO_ROTATION.length <= 1 && (
+                <div className="rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 backdrop-blur-sm md:min-w-[200px]">
+                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/90">High-resolution hero</span>
+                </div>
+              )}
             </div>
           </div>
         </header>
-
-        <section
-          className="group relative mt-4 overflow-hidden rounded-2xl border border-emerald-200/25 bg-zinc-950 shadow-lg"
-          aria-label="DPAL sustainability and community impact"
-        >
-          <img
-            src={SUSTAINABILITY_COLLAGE}
-            alt=""
-            className="w-full max-h-[min(72vh,680px)] object-contain object-center transition duration-500 ease-out group-hover:scale-[1.01]"
-            draggable={false}
-          />
-        </section>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-emerald-500/30">
@@ -405,45 +308,6 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
             <p className="text-2xl font-black text-amber-100 mt-0.5">{networkTotals.units.toLocaleString()}</p>
           </div>
         </div>
-
-        <section className="mt-6 rounded-3xl border border-emerald-800/30 bg-gradient-to-br from-emerald-950/40 via-zinc-900/80 to-zinc-950 p-4 sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <Book className="h-4 w-4 text-emerald-300" aria-hidden />
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-200/80">Learn</p>
-              <h2 className="text-lg font-black uppercase tracking-tight text-white">Carbon credits in context</h2>
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {EDU_SLIDES.map((slide, idx) => (
-              <button
-                key={slide.id}
-                type="button"
-                onClick={() => setActiveEdu(idx)}
-                className={`rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wider transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 ${
-                  activeEdu === idx
-                    ? 'border-emerald-400 bg-emerald-500/25 text-white shadow-[0_0_0_1px_rgba(52,211,153,0.4)]'
-                    : 'border-zinc-600 bg-zinc-950/50 text-zinc-400 hover:border-emerald-600/50 hover:text-zinc-200'
-                }`}
-              >
-                {slide.title}
-              </button>
-            ))}
-          </div>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-700/80 bg-zinc-950 shadow-inner">
-            <div className="relative max-h-[min(72vh,560px)] w-full overflow-auto bg-zinc-900/50">
-              <img
-                src={EDU_SLIDES[activeEdu]?.image}
-                alt=""
-                className="mx-auto w-full max-w-4xl object-contain object-top"
-                draggable={false}
-              />
-            </div>
-            <p className="border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-3 text-sm leading-relaxed text-zinc-300">
-              {EDU_SLIDES[activeEdu]?.caption}
-            </p>
-          </div>
-        </section>
 
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)] lg:items-start">
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
