@@ -65,6 +65,7 @@ import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
+import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { resolveReportByBlockNumber } from './services/blockchainLookupService';
 import { parseBlockNumberInput } from './utils/blockchainLookup';
@@ -414,12 +415,19 @@ const App: React.FC = () => {
     const load = async () => {
       try {
         const [msgs, rooms] = await Promise.all([fetchSituationMessages(roomId), fetchSituationRooms()]);
-        setSituationMessages(msgs);
+        const local = loadLocalSituationMessages(roomId);
+        setSituationMessages(mergeSituationMessages(msgs, local));
         setSituationRooms(rooms);
         setSituationError(null);
       } catch (error) {
         console.warn('Situation messages fetch failed:', error);
-        setSituationError('Chat sync failed. Check API/media persistence configuration.');
+        const local = loadLocalSituationMessages(roomId);
+        setSituationMessages(local);
+        setSituationError(
+          local.length
+            ? 'Chat sync failed; showing messages stored on this device for this report (same ID as your QR link).'
+            : 'Chat sync failed. Check API/media persistence configuration.'
+        );
       }
     };
 
@@ -430,6 +438,13 @@ const App: React.FC = () => {
       if (timer) clearInterval(timer);
     };
   }, [currentView, selectedReportForIncidentRoom?.id]);
+
+  /** Persist situation room thread per reportId (matches certificate / QR ?reportId=… & situation room). */
+  useEffect(() => {
+    const roomId = selectedReportForIncidentRoom?.id;
+    if (currentView !== 'incidentRoom' || !roomId) return;
+    saveLocalSituationMessages(roomId, situationMessages);
+  }, [situationMessages, selectedReportForIncidentRoom?.id, currentView]);
 
   useEffect(() => {
     if (viewRef.current === currentView) return;
@@ -788,9 +803,9 @@ const App: React.FC = () => {
           const upload = await uploadSituationMedia(roomId, 'image', imageUrl);
           finalImageUrl = upload.url;
         } catch (error) {
-          console.warn('Situation image upload failed:', error);
-          finalImageUrl = undefined;
-          setSituationError('Image upload failed; message sent without image. Configure persistent media.');
+          console.warn('Situation image upload failed; keeping image on this device for this report:', error);
+          finalImageUrl = imageUrl;
+          setSituationError('Image kept in chat on this device; server upload unavailable.');
         }
       }
 
@@ -799,23 +814,54 @@ const App: React.FC = () => {
           const upload = await uploadSituationMedia(roomId, 'audio', audioUrl);
           finalAudioUrl = upload.url;
         } catch (error) {
-          console.warn('Situation audio upload failed:', error);
-          finalAudioUrl = undefined;
-          setSituationError('Audio upload failed; message sent without audio. Configure persistent media.');
+          console.warn('Situation audio upload failed; keeping audio on this device for this report:', error);
+          finalAudioUrl = audioUrl;
+          setSituationError('Audio kept in chat on this device; server upload unavailable.');
         }
       }
 
-      const saved = await sendSituationMessage(roomId, {
+      const payload: { sender: string; text?: string; imageUrl?: string; audioUrl?: string } = {
         sender: heroWithRank.name,
-        text,
-        imageUrl: finalImageUrl,
-        audioUrl: finalAudioUrl,
-      });
-      setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), saved]);
+        text: text || undefined,
+      };
+      if (finalImageUrl && !finalImageUrl.startsWith('data:')) payload.imageUrl = finalImageUrl;
+      if (finalAudioUrl && !finalAudioUrl.startsWith('data:')) payload.audioUrl = finalAudioUrl;
+
+      let saved: ChatMessage;
+      try {
+        saved = await sendSituationMessage(roomId, payload);
+      } catch (sendErr) {
+        if (finalImageUrl?.startsWith('data:') || finalAudioUrl?.startsWith('data:')) {
+          const localOnly: ChatMessage = {
+            ...optimistic,
+            id: `local-${Date.now()}`,
+            imageUrl: finalImageUrl,
+            audioUrl: finalAudioUrl,
+          };
+          setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), localOnly]);
+          setSituationError('Server unavailable; message and media saved with this report on this device (same ID as QR).');
+          return;
+        }
+        throw sendErr;
+      }
+
+      const mergedSaved: ChatMessage = {
+        ...saved,
+        imageUrl: saved.imageUrl || (finalImageUrl?.startsWith('data:') ? finalImageUrl : undefined),
+        audioUrl: saved.audioUrl || (finalAudioUrl?.startsWith('data:') ? finalAudioUrl : undefined),
+      };
+      setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), mergedSaved]);
+      setSituationError(null);
     } catch (error) {
       console.warn('Situation send failed:', error);
-      setSituationMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
-      setSituationError('Message send failed. Verify API connectivity and room sync.');
+      const fallback: ChatMessage = {
+        ...optimistic,
+        id: `local-${Date.now()}`,
+        imageUrl,
+        audioUrl,
+      };
+      setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), fallback]);
+      setSituationError('Server sync pending; message kept on this device with this report (QR report ID).');
     }
   };
 
