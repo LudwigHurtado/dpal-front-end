@@ -71,6 +71,7 @@ import { resolveReportByBlockNumber, fetchReportFromApiById } from './services/b
 import { parseBlockNumberInput } from './utils/blockchainLookup';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
+import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
@@ -407,7 +408,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    const reportId = params.get('reportId');
+    const reportId = params.get('reportId') ?? params.get('roomId');
     if (reportId) {
       const found = reports.find((r) => r.id === reportId);
       if (found) {
@@ -492,6 +493,32 @@ const App: React.FC = () => {
       cancelled = true;
     };
   }, [reports]);
+
+  /** While a situation room is open, keep ?reportId=&situationRoom=1 in the address bar (copy/refresh/share = this room, not the bare homepage). */
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (currentView === 'incidentRoom' && selectedReportForIncidentRoom) {
+      const target = buildSituationRoomUrl(selectedReportForIncidentRoom.id);
+      if (!target) return;
+      const cur = window.location.href.split('#')[0];
+      const tgt = target.split('#')[0];
+      if (cur !== tgt) {
+        window.history.replaceState({}, '', target);
+      }
+    }
+  }, [currentView, selectedReportForIncidentRoom?.id]);
+
+  const prevViewForUrlRef = useRef<View | null>(null);
+  useLayoutEffect(() => {
+    const prev = prevViewForUrlRef.current;
+    if (prev === 'incidentRoom' && currentView !== 'incidentRoom') {
+      const p = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+      if (p.get('situationRoom') === '1' || p.get('situationRoom') === 'true') {
+        clearReportDeepLinkQuery();
+      }
+    }
+    prevViewForUrlRef.current = currentView;
+  }, [currentView]);
 
   useEffect(() => {
     setScopedItem('home-layout', homeLayout);
@@ -1471,9 +1498,21 @@ const App: React.FC = () => {
             onSendMessage={handleSendSituationMessage}
             roomsIndex={situationRooms}
             errorBanner={situationError}
-            onJoinRoom={(roomId) => {
-              const report = reports.find((r) => r.id === roomId);
-              if (report) setSelectedReportForIncidentRoom(report);
+            onJoinRoom={async (roomId) => {
+              const local = reports.find((r) => r.id === roomId);
+              if (local) {
+                setSelectedReportForIncidentRoom(local);
+                return;
+              }
+              try {
+                const remote = await fetchReportFromApiById(roomId);
+                if (remote) {
+                  setReports((prev) => (prev.some((r) => r.id === remote.id) ? prev : [remote, ...prev]));
+                  setSelectedReportForIncidentRoom(remote);
+                }
+              } catch {
+                /* ignore */
+              }
             }}
           />
         )}

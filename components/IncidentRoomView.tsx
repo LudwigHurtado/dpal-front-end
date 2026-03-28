@@ -2,10 +2,11 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, Monitor, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Crosshair, X, Maximize2, AlertTriangle, QrCode } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, Monitor, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Crosshair, X, Maximize2, AlertTriangle, QrCode, Link } from './icons';
 import MissionChatroom from './MissionChatroom';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { performIAReview } from '../services/geminiService';
+import { buildSituationRoomUrl } from '../utils/deepLinks';
 
 interface IncidentRoomViewProps {
     report: Report;
@@ -14,7 +15,7 @@ interface IncidentRoomViewProps {
     messages: ChatMessage[];
     onSendMessage: (text: string, imageUrl?: string, audioUrl?: string) => void;
     roomsIndex?: SituationRoomSummary[];
-    onJoinRoom?: (roomId: string) => void;
+    onJoinRoom?: (roomId: string) => void | Promise<void>;
     errorBanner?: string | null;
 }
 
@@ -64,6 +65,19 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
 
     const activeSector = useMemo(() => sectors.find(s => s.id === activeSectorId) || sectors[0], [sectors, activeSectorId]);
     const roomNumber = report.id.split('-').pop()?.toUpperCase() || '0000';
+    const roomShareUrl = useMemo(() => buildSituationRoomUrl(report.id), [report.id]);
+    const [copyRoomOk, setCopyRoomOk] = useState(false);
+
+    const copyRoomLink = async () => {
+        if (!roomShareUrl) return;
+        try {
+            await navigator.clipboard.writeText(roomShareUrl);
+            setCopyRoomOk(true);
+            window.setTimeout(() => setCopyRoomOk(false), 2000);
+        } catch {
+            /* ignore */
+        }
+    };
 
     const handleSummonBeacon = () => {
         if (isBeaconActive) {
@@ -141,6 +155,22 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     </button>
                 </div>
             </header>
+
+            <div className="border-b border-zinc-800 bg-zinc-950/90 px-4 md:px-10 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shrink-0">
+                <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <Link className="w-4 h-4 text-cyan-500 shrink-0" />
+                    <p className="text-[9px] font-mono text-zinc-400 break-all leading-snug min-w-0" title={roomShareUrl}>
+                        {roomShareUrl || '…'}
+                    </p>
+                </div>
+                <button
+                    type="button"
+                    onClick={() => void copyRoomLink()}
+                    className="shrink-0 px-4 py-2 rounded-xl bg-zinc-800 border border-zinc-600 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-600 transition-colors"
+                >
+                    {copyRoomOk ? 'Copied' : 'Copy room link'}
+                </button>
+            </div>
 
             <nav className="bg-zinc-900/50 border-b border-zinc-800/50 px-6 md:px-10 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto no-scrollbar flex-shrink-0">
                 {sectors.map(s => (

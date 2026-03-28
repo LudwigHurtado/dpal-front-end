@@ -14,8 +14,12 @@ interface QrCodeDisplayProps {
 
 const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoinSitRep, brandImageUrl, brandImageAlt }) => {
     const baseUrl = window.location.origin;
-    const queryParam = type === 'mission' ? 'missionId' : 'reportId';
-    const deepLinkUrl = `${baseUrl}?${queryParam}=${encodeURIComponent(id)}`;
+    const deepLinkUrl =
+        type === 'mission'
+            ? `${baseUrl}?missionId=${encodeURIComponent(id)}`
+            : type === 'report'
+              ? `${baseUrl}?reportId=${encodeURIComponent(id)}&situationRoom=1`
+              : `${baseUrl}?reportId=${encodeURIComponent(id)}`;
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(deepLinkUrl)}&bgcolor=000000&color=06b6d4&margin=20`;
 
     return (
