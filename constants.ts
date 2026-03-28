@@ -75,7 +75,7 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.HousingIssues, translationKey: "categories.housingIssues", icon: "🏚️", imageSeed: "unsafe-housing-repair-violation", headline: "Housing Issues" },
   { value: Category.P2PEscrowVerification, translationKey: "categories.p2pEscrowVerification", icon: "🤝", imageSeed: "digital-contract-signature-secure", headline: "P2P Escrow & Document Verification" },
   { value: Category.ProofOfLifeBiometric, translationKey: "categories.proofOfLifeBiometric", icon: "🧬", imageSeed: "biometric-fingerprint-face-scan", headline: "Proof of Life & Biometric Verification" },
-  { value: Category.DpalHelp, translationKey: "categories.dpalHelp", icon: "🛟", imageSeed: "dpal-help-missions-quests", headline: "DPAL Help — missions, daily quests, and guidance" },
+  { value: Category.DpalHelp, translationKey: "categories.dpalHelp", icon: "🛟", imageSeed: "dpal-help", headline: "Get help from DPAL" },
 ].sort((a, b) => a.value.localeCompare(b.value));
 
 const GLOBAL_CORE = [
@@ -519,11 +519,11 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
         [Category.DpalHelp]: {
             core_questions: [
                 ...GLOBAL_CORE,
-                { id: "DPH_01", section: "DPAL Help", label: "What do you need help with?", required: true, answer_type: "single_select", options: ["Mission or campaign step", "Daily quest", "Reporting / app flow", "Rewards or progress", "Something else"], institutional_value_tag: "audit" },
+                { id: "DPH_01", section: "DPAL Help", label: "What do you need help with?", required: true, answer_type: "single_select", options: ["Reporting / app flow", "Account or profile", "Resources or referrals", "Technical issue", "Something else"], institutional_value_tag: "audit" },
                 { id: "DPH_02", section: "DPAL Help", label: "Describe your question or blocker", required: true, answer_type: "short_text", institutional_value_tag: "audit" }
             ],
             deep_dive_questions: [
-                { id: "DPH_DD_01", section: "DPAL Help", label: "Mission, quest, or screen name (if known)", required: false, answer_type: "short_text" },
+                { id: "DPH_DD_01", section: "DPAL Help", label: "Screen or topic (if known)", required: false, answer_type: "short_text" },
                 { id: "DPH_DD_02", section: "DPAL Help", label: "What have you already tried?", required: false, answer_type: "short_text" }
             ]
         }

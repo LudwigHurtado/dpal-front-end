@@ -30,8 +30,8 @@ export enum Category {
     HousingIssues = 'Housing Issues',
     P2PEscrowVerification = 'P2P Escrow & Document Verification',
     ProofOfLifeBiometric = 'Proof of Life & Biometric Verification',
-    /** In-app help: missions, daily quests, and DPAL guidance */
-    DpalHelp = 'DPAL Help — Missions & Quests'
+    /** In-app help and community support */
+    DpalHelp = 'DPAL Help'
 }
 
 export enum SubscriptionTier {

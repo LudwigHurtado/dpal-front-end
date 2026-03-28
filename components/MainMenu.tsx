@@ -230,7 +230,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                         WORK_LOG: '/main-screen/weekly-work-log.png',
                         WORK_FOR_DPAL_COINS: '/next-view/sector-dpal-coin.png',
                         STORAGE_QR: '/main-screen/storage-qr.png',
-                        DPAL_HELP: '/category-cards/dpal-help.png',
+                        'DPAL HELP': '/category-cards/dpal-help.png',
                     };
                     const tileImage = (label: string): string | undefined => TILE_IMAGES[label];
                     return null as any;
@@ -247,8 +247,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Sparkles className="w-8 h-8" />}
-                    label="DPAL_HELP"
-                    subLabel="Missions, daily quests & guidance — DPAL help is here"
+                    label="DPAL HELP"
+                    subLabel="Guidance and support — DPAL help is here"
                     status="LIVE"
                     colorClass="cyan"
                     bgImageUrl="/category-cards/dpal-help.png"
