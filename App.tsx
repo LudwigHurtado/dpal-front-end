@@ -970,7 +970,9 @@ const App: React.FC = () => {
       if (imageUrl?.startsWith('data:')) {
         try {
           const upload = await uploadSituationMedia(roomId, 'image', imageUrl);
-          finalImageUrl = upload.url;
+          // Only store Cloudinary URLs on the message. Local /uploads/... URLs are lost on Railway redeploy
+          // and break other browsers; inline data URLs in Mongo survive and load everywhere.
+          finalImageUrl = upload.persistent && upload.url ? upload.url : imageUrl;
         } catch (error) {
           console.warn('Situation image upload failed; keeping image on this device for this report:', error);
           finalImageUrl = imageUrl;
@@ -981,7 +983,7 @@ const App: React.FC = () => {
       if (audioUrl?.startsWith('data:')) {
         try {
           const upload = await uploadSituationMedia(roomId, 'audio', audioUrl);
-          finalAudioUrl = upload.url;
+          finalAudioUrl = upload.persistent && upload.url ? upload.url : audioUrl;
         } catch (error) {
           console.warn('Situation audio upload failed; keeping audio on this device for this report:', error);
           finalAudioUrl = audioUrl;
