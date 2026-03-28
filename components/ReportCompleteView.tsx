@@ -1,5 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import QRCode from 'qrcode';
 import type { Report } from '../types';
 import { fetchEvidencePacket } from '../services/evidenceVaultService';
@@ -62,9 +63,28 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         };
     }, [report.id]);
 
-    const handlePrint = () => {
+    const handlePrint = useCallback(async () => {
+        if (typeof window === 'undefined') return;
+        const base = window.location.origin;
+        const verify = `${base}?reportId=${encodeURIComponent(report.id)}`;
+        const situation = `${base}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`;
+        const opts = { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
+        try {
+            const [v, s] = await Promise.all([QRCode.toDataURL(verify, opts), QRCode.toDataURL(situation, opts)]);
+            flushSync(() => {
+                setQrVerifyDataUrl(v);
+                setQrSituationDataUrl(s);
+            });
+        } catch {
+            /* keep existing QR state if generation fails */
+        }
+        await new Promise<void>((resolve) => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => resolve());
+            });
+        });
         window.print();
-    };
+    }, [report.id]);
 
     const handleShare = async () => {
         const shareData = {
@@ -185,7 +205,15 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         align-items: flex-start !important;
                         text-align: left !important;
                     }
-                    .cert-qr-img {
+                    .cert-qr-block {
+                        overflow: visible !important;
+                    }
+                    img.cert-qr-img {
+                        display: block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        max-width: 200px !important;
+                        height: auto !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
