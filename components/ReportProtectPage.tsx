@@ -19,17 +19,70 @@ interface ReportProtectPageProps {
   onOpenMainControlPanel: () => void;
 }
 
-const sidebarItems = [
-  { label: 'Current Alerts', count: 6, active: true, icon: AlertCircle },
-  { label: 'Verify Reports', count: 3, icon: ShieldCheck },
-  { label: 'Search Reports', icon: Search },
-  { label: 'Lost Pets', icon: Heart },
-  { label: 'Lost Persons', icon: User },
-  { label: 'Stolen Property', icon: Database },
-  { label: 'My Reports', icon: Home },
+type DashboardFilter = 'all' | 'hazard' | 'lost-pet' | 'lost-person' | 'stolen-property';
+
+const sidebarNav = [
+  { id: 'current-alerts', label: 'Current Alerts', count: 6, icon: AlertCircle },
+  { id: 'verify-reports', label: 'Verify Reports', count: 3, icon: ShieldCheck },
+  { id: 'search-reports', label: 'Search Reports', icon: Search },
+  { id: 'lost-pets', label: 'Lost Pets', icon: Heart },
+  { id: 'lost-persons', label: 'Lost Persons', icon: User },
+  { id: 'stolen-property', label: 'Stolen Property', icon: Database },
+  { id: 'my-reports', label: 'My Reports', icon: Home },
+] as const;
+
+const filterTabs: { id: DashboardFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'hazard', label: 'Hazard' },
+  { id: 'lost-pet', label: 'Lost Pet' },
+  { id: 'lost-person', label: 'Lost Person' },
+  { id: 'stolen-property', label: 'Stolen Property' },
 ];
 
-const topFilters = ['Hazard', 'Lost Pet', 'Lost Person', 'Stolen Property'];
+/** Sample feed rows — replace with API data when wired (see expert reference: search + filter state). */
+const dashboardFeedItems: {
+  id: string;
+  type: string;
+  title: string;
+  meta: string;
+  filter: Exclude<DashboardFilter, 'all'>;
+}[] = [
+  {
+    id: 'f1',
+    type: 'Hazard',
+    title: 'Downed Power Line Across Road',
+    meta: 'Observers · Urgent · Updated 8m ago',
+    filter: 'hazard',
+  },
+  {
+    id: 'f2',
+    type: 'Safety',
+    title: 'Suspicious Person Seen Lurking',
+    meta: 'Observers · Urgent · Updated 23m ago',
+    filter: 'hazard',
+  },
+  {
+    id: 'f3',
+    type: 'Lost Pet',
+    title: 'Lost Pet Alert - Riley',
+    meta: 'Observers · Open · Updated 30m ago',
+    filter: 'lost-pet',
+  },
+  {
+    id: 'f4',
+    type: 'Lost Person',
+    title: 'Wellness check requested — elderly walker',
+    meta: 'Community · Updated 1h ago',
+    filter: 'lost-person',
+  },
+  {
+    id: 'f5',
+    type: 'Stolen Property',
+    title: 'Bicycle taken from rack — serial on file',
+    meta: 'Filed · Updated 2h ago',
+    filter: 'stolen-property',
+  },
+];
 
 const statTiles = [
   { label: 'Active Alerts', value: 4, tone: 'bg-rose-600/20 border-rose-500/40 text-rose-300' },
@@ -65,17 +118,40 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
   const [mapError, setMapError] = useState<string | null>(null);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid'>('roadmap');
   const [markerKind, setMarkerKind] = useState<MarkerKindId>('hazard');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedFilter, setSelectedFilter] = useState<DashboardFilter>('all');
+  const [selectedSidebarId, setSelectedSidebarId] = useState<string>('current-alerts');
 
   useEffect(() => {
     markerKindRef.current = markerKind;
   }, [markerKind]);
 
-  const incidentPins = useMemo(() => ([
-    { title: 'Downed Power Line', lat: 39.3042, lng: -76.6163, color: '#f43f5e' },
-    { title: 'Lost Pet - Riley', lat: 39.2952, lng: -76.6224, color: '#10b981' },
-    { title: 'Missing Person Alert', lat: 39.2884, lng: -76.6144, color: '#3b82f6' },
-    { title: 'Stolen Property Report', lat: 39.2997, lng: -76.6097, color: '#f59e0b' },
-  ]), []);
+  const incidentPins = useMemo(
+    () =>
+      [
+        { title: 'Downed Power Line', lat: 39.3042, lng: -76.6163, color: '#f43f5e', filterKey: 'hazard' as const },
+        { title: 'Lost Pet - Riley', lat: 39.2952, lng: -76.6224, color: '#10b981', filterKey: 'lost-pet' as const },
+        { title: 'Missing Person Alert', lat: 39.2884, lng: -76.6144, color: '#3b82f6', filterKey: 'lost-person' as const },
+        { title: 'Stolen Property Report', lat: 39.2997, lng: -76.6097, color: '#f59e0b', filterKey: 'stolen-property' as const },
+      ] as const,
+    []
+  );
+
+  const visiblePins = useMemo(() => {
+    if (selectedFilter === 'all') return [...incidentPins];
+    return incidentPins.filter((p) => p.filterKey === selectedFilter);
+  }, [incidentPins, selectedFilter]);
+
+  const visibleFeedItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return dashboardFeedItems.filter((item) => {
+      const matchesQuery =
+        !q ||
+        [item.type, item.title, item.meta].join(' ').toLowerCase().includes(q);
+      const matchesFilter = selectedFilter === 'all' || item.filter === selectedFilter;
+      return matchesQuery && matchesFilter;
+    });
+  }, [searchQuery, selectedFilter]);
 
   const markerIconUrl = (kind: MarkerKindId): string => {
     const glyph = markerKinds.find((m) => m.id === kind)?.glyph || '📍';
@@ -91,8 +167,11 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
     let cancelled = false;
     const bootstrap = async () => {
       if (!mapDivRef.current) return;
-      setMapStatus('loading');
-      setMapError(null);
+      const isFirstMapInit = !mapRef.current;
+      if (isFirstMapInit) {
+        setMapStatus('loading');
+        setMapError(null);
+      }
       try {
         const g = await loadGoogleMaps();
         if (cancelled || !mapDivRef.current) return;
@@ -124,7 +203,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
         }
 
         markersRef.current.forEach((m) => m.setMap(null));
-        markersRef.current = incidentPins.map((pin) => (
+        markersRef.current = visiblePins.map((pin) => (
           new g.maps.Marker({
             map: mapRef.current!,
             position: { lat: pin.lat, lng: pin.lng },
@@ -149,7 +228,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
     };
     void bootstrap();
     return () => { cancelled = true; };
-  }, [incidentPins]);
+  }, [visiblePins]);
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -219,22 +298,27 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
           <h2 className="text-2xl font-bold tracking-tight">Reporting Dashboard</h2>
 
           <div className="space-y-2.5">
-            {sidebarItems.map((item) => (
-              <button
-                key={item.label}
-                className={`w-full text-left px-4 py-3.5 rounded-2xl border flex items-center justify-between transition-all ${
-                  item.active
-                    ? 'bg-cyan-500/20 border-cyan-300/40 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
-                    : 'bg-slate-900/80 border-white/10 text-slate-200 hover:bg-slate-800/90 hover:border-white/20'
-                }`}
-              >
-                <span className="inline-flex items-center gap-3 text-base font-medium">
-                  <item.icon className="w-4 h-4" />
-                  {item.label}
-                </span>
-                {item.count ? <span className="text-sm font-bold">{item.count}</span> : null}
-              </button>
-            ))}
+            {sidebarNav.map((item) => {
+              const active = selectedSidebarId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => setSelectedSidebarId(item.id)}
+                  className={`w-full text-left px-4 py-3.5 rounded-2xl border flex items-center justify-between transition-all ${
+                    active
+                      ? 'bg-cyan-500/20 border-cyan-300/40 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
+                      : 'bg-slate-900/80 border-white/10 text-slate-200 hover:bg-slate-800/90 hover:border-white/20'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-3 text-base font-medium">
+                    <item.icon className="w-4 h-4" />
+                    {item.label}
+                  </span>
+                  {item.count != null ? <span className="text-sm font-bold">{item.count}</span> : null}
+                </button>
+              );
+            })}
           </div>
 
           <div className="rounded-2xl border border-white/10 bg-slate-900/75 p-4">
@@ -261,23 +345,31 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
               <div className="flex-1 relative">
                 <Search className="w-5 h-5 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search DPAL Reports..."
                   className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-slate-300 bg-white/95 text-base text-slate-800 placeholder:text-slate-500"
+                  aria-label="Search reports"
                 />
               </div>
               <div className="flex flex-wrap gap-3">
-                {topFilters.map((f, idx) => (
-                  <button
-                    key={f}
-                    className={`px-4 py-3 rounded-2xl border text-sm font-semibold ${
-                      idx === 0
-                        ? 'bg-rose-100 border-rose-300 text-rose-700'
-                        : 'bg-white/90 border-slate-300 text-slate-700'
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
+                {filterTabs.map((tab) => {
+                  const active = selectedFilter === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setSelectedFilter(tab.id)}
+                      className={`px-4 py-3 rounded-2xl border text-sm font-semibold transition ${
+                        active
+                          ? 'bg-rose-100 border-rose-300 text-rose-700 shadow-sm'
+                          : 'bg-white/90 border-slate-300 text-slate-700 hover:border-slate-400'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -379,31 +471,36 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
                 <div className="text-sm text-slate-400">All · Urgent · Nearby · Unverified</div>
               </div>
               <div className="mt-4 space-y-4">
-                {[
-                  'Downed Power Line Across Road',
-                  'Suspicious Person Seen Lurking',
-                  'Lost Pet Alert - Riley',
-                ].map((item) => (
-                  <div key={item} className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-                    <div>
-                      <p className="text-lg font-semibold">{item}</p>
-                      <p className="text-sm text-slate-400 mt-1">Observers · Urgent · Updated 8m ago</p>
+                {visibleFeedItems.length === 0 ? (
+                  <p className="text-sm text-slate-400 py-4">No reports match your search or filter.</p>
+                ) : (
+                  visibleFeedItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="rounded-2xl border border-white/10 bg-slate-900/80 p-4 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4"
+                    >
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-sky-300/90">{item.type}</p>
+                        <p className="text-lg font-semibold mt-0.5">{item.title}</p>
+                        <p className="text-sm text-slate-400 mt-1">{item.meta}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2.5 justify-end">
+                        {quickActions.map((a, idx) => (
+                          <button
+                            key={a}
+                            type="button"
+                            className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold inline-flex items-center gap-2 ${
+                              idx === 0 ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-slate-700 hover:bg-slate-600'
+                            }`}
+                          >
+                            {a}
+                            <ArrowRight className="w-3 h-3" />
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex flex-wrap gap-2.5 justify-end">
-                      {quickActions.map((a, idx) => (
-                        <button
-                          key={a}
-                          className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold inline-flex items-center gap-2 ${
-                            idx === 0 ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-slate-700 hover:bg-slate-600'
-                          }`}
-                        >
-                          {a}
-                          <ArrowRight className="w-3 h-3" />
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
 
