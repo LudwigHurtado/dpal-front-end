@@ -80,7 +80,11 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
       });
     }
     if (filterWithEvidenceOnly) {
-      list = list.filter((r) => r.imageUrls?.length);
+      list = list.filter(
+        (r) =>
+          (r.imageUrls?.length ?? 0) > 0 ||
+          (r.evidenceVault?.records?.length ?? 0) > 0
+      );
     }
     return list;
   }, [reports, searchQuery, activeTab, filterWithEvidenceOnly]);

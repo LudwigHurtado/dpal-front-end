@@ -69,6 +69,7 @@ import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationM
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { resolveReportByBlockNumber } from './services/blockchainLookupService';
 import { parseBlockNumberInput } from './utils/blockchainLookup';
+import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
@@ -162,6 +163,9 @@ const getInitialReports = (): Report[] => {
       severity: r?.severity || 'Standard',
       status: r?.status || 'Submitted',
       trustScore: typeof r?.trustScore === 'number' ? r.trustScore : 70,
+      imageUrls: Array.isArray(r?.imageUrls)
+        ? r.imageUrls.filter((u: unknown) => typeof u === 'string' && u.length > 0)
+        : undefined,
     } as Report;
   };
 
@@ -753,6 +757,12 @@ const App: React.FC = () => {
       }
     }
 
+    const existingImageUrls: string[] = Array.isArray(rep?.imageUrls)
+      ? rep.imageUrls.filter((u: unknown) => typeof u === 'string' && u.length > 0)
+      : [];
+    const derivedFromAttachments = await deriveImageDataUrlsFromFiles(rawAttachments);
+    const mergedImageUrls = [...existingImageUrls, ...derivedFromAttachments].slice(0, 8);
+
     const finalReport: Report = {
       ...rep,
       id: reportId,
@@ -768,6 +778,8 @@ const App: React.FC = () => {
       evidenceVault: {
         records: evidenceRecords,
       },
+      imageUrls: mergedImageUrls.length > 0 ? mergedImageUrls : undefined,
+      attachments: undefined,
     };
 
     setReports(prev => [finalReport, ...prev]);

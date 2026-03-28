@@ -171,10 +171,25 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         }
     };
 
-    const handleEmail = () => {
-        const subject = encodeURIComponent(`DPAL_CERTIFIED_RECORD: ${report.title}`);
-        const body = encodeURIComponent(`This is a cryptographically verified record from the Decentralized Public Accountability Ledger.\n\nRECORD_ID: ${report.id}\nBLOCK_HASH: ${report.hash}\n\nDESCRIPTION:\n${report.description}\n\nVerify authenticity at: ${window.location.origin}`);
-        window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    const handleEmail = (e?: React.MouseEvent) => {
+        e?.preventDefault();
+        e?.stopPropagation();
+        if (typeof window === 'undefined') return;
+        const origin = window.location.origin;
+        const verifyLink = `${origin}?reportId=${encodeURIComponent(report.id)}`;
+        const subject = encodeURIComponent(`DPAL certified report: ${report.title}`);
+        const body = encodeURIComponent(
+            `DPAL accountability record\n\nTitle: ${report.title}\nReport ID: ${report.id}\nCategory: ${String(report.category)}\n\n${report.description}\n\nVerify on the ledger:\n${verifyLink}\n`
+        );
+        const mailto = `mailto:?subject=${subject}&body=${body}`;
+        const a = document.createElement('a');
+        a.href = mailto;
+        a.rel = 'noopener noreferrer';
+        a.target = '_blank';
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
     };
 
     const handleCopyLink = () => {
@@ -354,26 +369,27 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 <h3 className="text-sm font-black uppercase tracking-[0.3em] text-white">Operational_Dispatch_Hub</h3>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <button onClick={handlePrint} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
-                                    <Printer className="w-8 h-8 text-zinc-600 group-hover:text-white mb-3 transition-colors" />
-                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Print_Hardcopy</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:grid-cols-4 items-stretch">
+                                <button type="button" onClick={handlePrint} className="flex flex-col items-center justify-center gap-3 min-h-[140px] p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95 w-full">
+                                    <Printer className="w-8 h-8 text-zinc-600 group-hover:text-white shrink-0 transition-colors" />
+                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white text-center leading-tight">Print_Hardcopy</span>
                                 </button>
-                                <button onClick={handleDownloadEvidencePacket} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
-                                    <FileCode className="w-8 h-8 text-cyan-600 group-hover:text-white mb-3 transition-colors" />
-                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Certified_Evidence_Packet</span>
+                                <button type="button" onClick={handleDownloadEvidencePacket} className="flex flex-col items-center justify-center gap-3 min-h-[140px] p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95 w-full">
+                                    <FileCode className="w-8 h-8 text-cyan-600 group-hover:text-white shrink-0 transition-colors" />
+                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white text-center leading-tight">Certified_Evidence_Packet</span>
                                 </button>
-                                <button onClick={handleEmail} className="flex flex-col items-center justify-center p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95">
-                                    <Mail className="w-8 h-8 text-zinc-600 group-hover:text-white mb-3 transition-colors" />
-                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white">Email_Dispatch</span>
+                                <button type="button" onClick={handleEmail} className="flex flex-col items-center justify-center gap-3 min-h-[140px] p-6 bg-zinc-900 border border-zinc-800 rounded-3xl hover:border-cyan-500 transition-all group active:scale-95 w-full">
+                                    <Mail className="w-8 h-8 text-cyan-500 group-hover:text-white shrink-0 transition-colors" />
+                                    <span className="text-[10px] font-black uppercase text-zinc-500 group-hover:text-white text-center leading-tight">Email_Dispatch</span>
                                 </button>
                                 <button 
+                                    type="button"
                                     onClick={handleAgencyDispatch}
                                     disabled={dispatchStatus !== 'IDLE'}
-                                    className={`flex flex-col items-center justify-center p-6 border rounded-3xl transition-all group active:scale-95 ${dispatchStatus === 'SUCCESS' ? 'bg-emerald-950/20 border-emerald-500 text-emerald-400' : 'bg-rose-950/20 border-rose-900 hover:border-rose-500 text-rose-500'}`}
+                                    className={`flex flex-col items-center justify-center gap-3 min-h-[140px] p-6 border rounded-3xl transition-all group active:scale-95 w-full ${dispatchStatus === 'SUCCESS' ? 'bg-emerald-950/20 border-emerald-500 text-emerald-400' : 'bg-rose-950/20 border-rose-900 hover:border-rose-500 text-rose-500'}`}
                                 >
-                                    {dispatchStatus === 'SENDING' ? <Loader className="w-8 h-8 animate-spin mb-3" /> : dispatchStatus === 'SUCCESS' ? <CheckCircle className="w-8 h-8 mb-3" /> : <Scale className="w-8 h-8 mb-3" />}
-                                    <span className="text-[10px] font-black uppercase">{dispatchStatus === 'SENDING' ? 'SYNCING...' : dispatchStatus === 'SUCCESS' ? 'AGENCY_RECEIVED' : 'Regulatory_Oracle'}</span>
+                                    {dispatchStatus === 'SENDING' ? <Loader className="w-8 h-8 animate-spin shrink-0" /> : dispatchStatus === 'SUCCESS' ? <CheckCircle className="w-8 h-8 shrink-0" /> : <Scale className="w-8 h-8 shrink-0" />}
+                                    <span className="text-[10px] font-black uppercase text-center leading-tight">{dispatchStatus === 'SENDING' ? 'SYNCING...' : dispatchStatus === 'SUCCESS' ? 'AGENCY_RECEIVED' : 'Regulatory_Oracle'}</span>
                                 </button>
                             </div>
 
@@ -540,12 +556,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </button>
                     </div>
 
-                    <div className="flex items-center gap-4 w-full md:w-auto overflow-x-auto no-scrollbar pb-1 md:pb-0">
-                        <button onClick={handleEmail} className="flex-shrink-0 flex items-center space-x-3 text-[11px] font-black uppercase text-zinc-500 hover:text-white transition-colors bg-zinc-950 px-6 py-3 rounded-2xl border border-zinc-900">
-                             <Mail className="w-4 h-4" /> <span>Email_Dispatch</span>
+                    <div className="flex flex-wrap items-stretch justify-center md:justify-end gap-3 w-full md:w-auto">
+                        <button type="button" onClick={handleEmail} className="inline-flex items-center justify-center gap-2 min-h-[48px] text-[11px] font-black uppercase text-zinc-200 hover:text-white transition-colors bg-zinc-900 hover:bg-zinc-800 px-6 py-3 rounded-2xl border border-zinc-700">
+                             <Mail className="w-4 h-4 shrink-0" /> <span>Email_Dispatch</span>
                         </button>
-                        <button onClick={handleCopyLink} className="flex-shrink-0 flex items-center space-x-3 text-[11px] font-black uppercase text-zinc-500 hover:text-white transition-colors bg-zinc-950 px-6 py-3 rounded-2xl border border-zinc-900">
-                             <Globe className="w-4 h-4" /> <span>Copy_Ledger_URL</span>
+                        <button type="button" onClick={handleCopyLink} className="inline-flex items-center justify-center gap-2 min-h-[48px] text-[11px] font-black uppercase text-zinc-200 hover:text-white transition-colors bg-zinc-900 hover:bg-zinc-800 px-6 py-3 rounded-2xl border border-zinc-700">
+                             <Globe className="w-4 h-4 shrink-0" /> <span>Copy_Ledger_URL</span>
                         </button>
                     </div>
                 </div>
