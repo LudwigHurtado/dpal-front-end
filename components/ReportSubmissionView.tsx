@@ -3,6 +3,7 @@ import React from 'react';
 import { Category, Report, EducationRole } from '../types';
 import { CATEGORIES_WITH_ICONS, EDUCATION_ROLES } from '../constants';
 import SubmissionPanel from './SubmissionPanel';
+import EducationCaseboardReport from './reporting/EducationCaseboardReport';
 import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
 
@@ -53,6 +54,58 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
 
     const isAccidents = category === Category.AccidentsRoadHazards;
+    const isEducation = category === Category.Education;
+
+    if (isEducation) {
+        return (
+            <div className="animate-fade-in font-sans text-stone-900 max-w-7xl mx-auto pb-32 px-4">
+                <div className="rounded-[2rem] bg-gradient-to-br from-violet-100/95 via-stone-50 to-amber-50 border border-stone-200/90 shadow-md p-6 md:p-10 mb-8 relative overflow-hidden">
+                    <button
+                        type="button"
+                        onClick={onReturn}
+                        className="mb-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-800 bg-white/80 px-4 py-2 rounded-xl border border-violet-200/80 shadow-sm hover:bg-white"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        Back
+                    </button>
+                    <div className="flex flex-col md:flex-row md:items-center gap-6 relative z-10">
+                        <div className="text-5xl md:text-6xl drop-shadow-sm">{categoryInfo.icon}</div>
+                        <div>
+                            <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Education · Mission report</p>
+                            <h2 className="text-2xl md:text-4xl font-bold text-stone-900 tracking-tight mt-1">{categoryInfo.headline}</h2>
+                            <p className="text-stone-600 text-sm mt-2 max-w-2xl leading-relaxed">
+                                Assemble the case: pick how you want to enter, choose a report path and your role, then fill the caseboard — structured, serious, and built for accountability.
+                            </p>
+                        </div>
+                    </div>
+                    <img src={imageUrl} alt="" className="absolute right-0 bottom-0 w-56 md:w-72 opacity-[0.12] pointer-events-none select-none object-contain" draggable={false} />
+                </div>
+                <EducationCaseboardReport addReport={addReport} prefilledDescription={prefilledDescription} />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
+                    <div className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                        <div className="flex items-center gap-5">
+                            <div className="w-16 h-16 rounded-2xl bg-violet-100 border border-violet-200 flex items-center justify-center text-3xl">
+                                {roleInfo?.icon || '🛡️'}
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Hero role</p>
+                                <p className="text-lg font-bold text-stone-900">{roleInfo ? t(roleInfo.translationKey) : 'Standard citizen'}</p>
+                            </div>
+                        </div>
+                        <ShieldCheck className="w-10 h-10 text-emerald-500/30" />
+                    </div>
+                    <div className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1">Ledger volume</p>
+                            <p className="text-4xl font-bold text-stone-900 tabular-nums">{totalReports.toLocaleString()}</p>
+                            <p className="text-xs text-stone-500 mt-1">Reports indexed network-wide</p>
+                        </div>
+                        <Database className="w-10 h-10 text-violet-300" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-32 px-4">
