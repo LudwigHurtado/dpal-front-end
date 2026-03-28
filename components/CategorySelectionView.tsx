@@ -207,7 +207,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
             onClick={() => onSelectCategory(cat.value)}
             className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
           >
-            Report
+            Open hub
           </button>
 
           <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">

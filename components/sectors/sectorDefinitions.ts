@@ -83,6 +83,7 @@ export const CATEGORY_MAPPINGS: CategoryMappingRow[] = [
   { classicCategory: Category.GoodDeeds, sector: 'community', nextCategory: 'Kindness and Volunteer Missions' },
 ];
 
+/** Category hub + four-mode engine: see `categoryGatewayRegistry.ts` and `CategoryGatewayView.tsx`. */
 export const SECTOR_HERO_ASSET: Record<SectorKey, string> = {
   safety: '/next-view/sector-safety.png',
   financial: '/next-view/sector-financial.png',

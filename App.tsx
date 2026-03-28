@@ -9,6 +9,15 @@ import MainContentPanel from './components/MainContentPanel';
 import HeroHub from './components/HeroHub';
 import MainMenu from './components/MainMenu';
 import CategorySelectionView from './components/CategorySelectionView';
+import CategoryGatewayView from './components/CategoryGatewayView';
+import CategoryModeShell from './components/CategoryModeShell';
+import ReportModeEntry from './components/categoryMode/report/ReportModeEntry';
+import HelpPathSelectionView from './components/categoryMode/help/HelpPathSelectionView';
+import WorkMissionBoardView from './components/categoryMode/work/WorkMissionBoardView';
+import PlayHubView from './components/categoryMode/play/PlayHubView';
+import { getCategoryDefinition, categoryToGatewayId } from './components/sectors/categoryGatewayRegistry';
+import type { CategoryMode } from './types/categoryGateway';
+import { useDPALFlow } from './context/DPALFlowContext';
 import ReportSubmissionView from './components/ReportSubmissionView';
 import ReportCompleteView from './components/ReportCompleteView';
 import ReputationAndCurrencyView from './components/ReputationAndCurrencyView';
@@ -50,7 +59,7 @@ import LayoutV2 from './layouts/LayoutV2';
 import { featureFlags } from './features/featureFlags';
 import MobileCommunityFeedView from './components/mobile/MobileCommunityFeedView';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
-import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase } from './constants';
+import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase, CATEGORIES_WITH_ICONS } from './constants';
 import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
@@ -61,7 +70,7 @@ import { resolveReportByBlockNumber } from './services/blockchainLookupService';
 import { parseBlockNumberInput } from './utils/blockchainLookup';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -282,6 +291,12 @@ const App: React.FC = () => {
   /** Incremented when Help is chosen so category selection can focus Digital + Next (DPAL Help sector). */
   const [helpSectorFocusSignal, setHelpSectorFocusSignal] = useState(0);
 
+  const [gatewayCategory, setGatewayCategory] = useState<Category | null>(null);
+  const [modeShell, setModeShell] = useState<{ category: Category; mode: CategoryMode } | null>(null);
+
+  const { t } = useTranslations();
+  const { state: flowState, actions: flowActions } = useDPALFlow();
+
   /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
   useEffect(() => {
@@ -456,6 +471,47 @@ const App: React.FC = () => {
       return matchesKeyword && matchesCategory && matchesLocation;
     });
   }, [reports, filters]);
+
+  const gatewayDisplayTitle = useMemo(() => {
+    if (!gatewayCategory) return '';
+    const item = CATEGORIES_WITH_ICONS.find((c) => c.value === gatewayCategory);
+    return item ? t(item.translationKey) : String(gatewayCategory);
+  }, [gatewayCategory, t]);
+
+  const gatewayRecentActivity = useMemo(() => {
+    if (!gatewayCategory) return [];
+    return reports
+      .filter((r) => r.category === gatewayCategory)
+      .slice(0, 3)
+      .map((r) => ({
+        id: r.id,
+        title: r.title,
+        meta: `${r.status} · ${new Date(r.timestamp).toLocaleDateString()}`,
+      }));
+  }, [reports, gatewayCategory]);
+
+  const gatewayHasDraft = useMemo(() => {
+    if (!gatewayCategory) return false;
+    const id = categoryToGatewayId(gatewayCategory);
+    try {
+      if (flowState.reportDraft && flowState.categoryId === id) return true;
+      return Boolean(localStorage.getItem(`dpal-flow-report-${id}`));
+    } catch {
+      return false;
+    }
+  }, [gatewayCategory, flowState.reportDraft, flowState.categoryId]);
+
+  const modeShellDisplayTitle = useMemo(() => {
+    if (!modeShell) return '';
+    const item = CATEGORIES_WITH_ICONS.find((c) => c.value === modeShell.category);
+    return item ? t(item.translationKey) : String(modeShell.category);
+  }, [modeShell, t]);
+
+  useEffect(() => {
+    if (currentView === 'categoryGateway' && gatewayCategory) {
+      flowActions.setCategory(categoryToGatewayId(gatewayCategory));
+    }
+  }, [currentView, gatewayCategory, flowActions]);
 
   const handleNavigate = (
     view: View,
@@ -827,7 +883,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions', 'storage'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'fieldMissions', 'storage'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -879,7 +935,11 @@ const App: React.FC = () => {
         {currentView === 'categorySelection' && (
           <CategorySelectionView 
             helpSectorFocusSignal={helpSectorFocusSignal}
-            onSelectCategory={(cat) => handleNavigate('reportSubmission', cat)} 
+            onSelectCategory={(cat) => {
+              setGatewayCategory(cat);
+              setModeShell(null);
+              setCurrentView('categoryGateway');
+            }} 
             onSelectMissions={(cat) => {
               if (cat === Category.GoodDeeds) {
                 handleNavigate('goodDeedsMissions');
@@ -894,6 +954,106 @@ const App: React.FC = () => {
             onSelectActionsReport={() => handleNavigate('reportDashboard')}
             onReturnToHub={() => goBack('mainMenu')} 
           />
+        )}
+
+        {currentView === 'categoryGateway' && gatewayCategory && (
+          <CategoryGatewayView
+            category={gatewayCategory}
+            categoryId={categoryToGatewayId(gatewayCategory)}
+            categoryTitle={gatewayDisplayTitle}
+            definition={getCategoryDefinition(gatewayCategory, gatewayDisplayTitle)}
+            onBack={() => {
+              setGatewayCategory(null);
+              setModeShell(null);
+              goBack('categorySelection');
+            }}
+            onModeSelect={(_categoryId, mode) => {
+              setModeShell({ category: gatewayCategory, mode });
+              setCurrentView('categoryModeShell');
+            }}
+            recentActivity={gatewayRecentActivity}
+            userProgress={[
+              { label: 'Hero XP', value: heroWithRank.xp.toLocaleString() },
+              { label: 'Rank', value: String(heroWithRank.rank ?? '—') },
+            ]}
+            hasDraft={gatewayHasDraft}
+            onContinueDraft={() => {
+              setModeShell({ category: gatewayCategory, mode: 'report' });
+              setCurrentView('categoryModeShell');
+            }}
+          />
+        )}
+
+        {currentView === 'categoryModeShell' && modeShell && (
+          <CategoryModeShell
+            category={getCategoryDefinition(modeShell.category, modeShellDisplayTitle)}
+            mode={modeShell.mode}
+            categoryLabel={modeShellDisplayTitle}
+            onBack={() => {
+              setModeShell(null);
+              setCurrentView('categoryGateway');
+            }}
+            onSwitchMode={(m) => setModeShell((prev) => (prev ? { ...prev, mode: m } : prev))}
+          >
+            {modeShell.mode === 'report' && (
+              <ReportModeEntry
+                definition={getCategoryDefinition(modeShell.category, modeShellDisplayTitle)}
+                accent={getCategoryDefinition(modeShell.category, modeShellDisplayTitle).accentColor}
+                reportDraft={flowState.reportDraft}
+                onContinueFullReport={() => {
+                  setSelectedCategoryForSubmission(modeShell.category);
+                  setSubmissionPrefill('');
+                  setCurrentView('reportSubmission');
+                }}
+                onEditDraft={() => {
+                  setSelectedCategoryForSubmission(modeShell.category);
+                  setSubmissionPrefill('');
+                  setCurrentView('reportSubmission');
+                }}
+              />
+            )}
+            {modeShell.mode === 'help' && (
+              <HelpPathSelectionView
+                definition={getCategoryDefinition(modeShell.category, modeShellDisplayTitle)}
+                accent={getCategoryDefinition(modeShell.category, modeShellDisplayTitle).accentColor}
+                onRequestHelpContinue={() => {
+                  setInitialCategoriesForIntel([modeShell.category]);
+                  setModeShell(null);
+                  setGatewayCategory(null);
+                  handleNavigate('liveIntelligence');
+                }}
+                onOfferHelpContinue={() => {
+                  setInitialCategoriesForIntel([modeShell.category]);
+                  setModeShell(null);
+                  setGatewayCategory(null);
+                  handleNavigate('liveIntelligence');
+                }}
+              />
+            )}
+            {modeShell.mode === 'work' && (
+              <WorkMissionBoardView
+                definition={getCategoryDefinition(modeShell.category, modeShellDisplayTitle)}
+                accent={getCategoryDefinition(modeShell.category, modeShellDisplayTitle).accentColor}
+                onOpenMissionIntel={() => {
+                  setInitialCategoriesForIntel([modeShell.category]);
+                  setModeShell(null);
+                  setGatewayCategory(null);
+                  handleNavigate('liveIntelligence');
+                }}
+              />
+            )}
+            {modeShell.mode === 'play' && (
+              <PlayHubView
+                definition={getCategoryDefinition(modeShell.category, modeShellDisplayTitle)}
+                accent={getCategoryDefinition(modeShell.category, modeShellDisplayTitle).accentColor}
+                onOpenGameHub={() => {
+                  setModeShell(null);
+                  setGatewayCategory(null);
+                  setCurrentView('gameHub');
+                }}
+              />
+            )}
+          </CategoryModeShell>
         )}
 
         {currentView === 'escrowService' && (
@@ -1156,7 +1316,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {['mainMenu', 'hub', 'categorySelection', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && !(isMobileCommunityFeed) && (
+      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && !(isMobileCommunityFeed) && (
         <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
       )}
 

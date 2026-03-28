@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { LanguageProvider } from './i18n';
+import { DPALFlowProvider } from './context/DPALFlowContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 
 const rootElement = document.getElementById('root');
@@ -14,7 +15,9 @@ root.render(
   <React.StrictMode>
     <AppErrorBoundary>
       <LanguageProvider>
-        <App />
+        <DPALFlowProvider>
+          <App />
+        </DPALFlowProvider>
       </LanguageProvider>
     </AppErrorBoundary>
   </React.StrictMode>
