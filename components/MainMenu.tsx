@@ -174,7 +174,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
     }, [openDispatchActionsCategory]);
 
     const filteredDispatchCategories = useMemo(() => {
-        const sorted = [...CATEGORIES_WITH_ICONS].sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
+        const sorted = [...CATEGORIES_WITH_ICONS]
+            .filter((cat) => cat.value !== Category.DpalHelp)
+            .sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
         const query = categorySearch.trim().toLowerCase();
         if (!query) return sorted;
         return sorted.filter(
@@ -182,7 +184,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 t(cat.translationKey).toLowerCase().includes(query) || cat.value.toLowerCase().includes(query)
         );
     }, [categorySearch, t]);
-    
+
     const [colorIndex, setColorIndex] = useState(0);
     const [showPerimeter, setShowPerimeter] = useState(false);
 
@@ -228,6 +230,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                         WORK_LOG: '/main-screen/weekly-work-log.png',
                         WORK_FOR_DPAL_COINS: '/next-view/sector-dpal-coin.png',
                         STORAGE_QR: '/main-screen/storage-qr.png',
+                        DPAL_HELP: '/category-cards/dpal-help.png',
                     };
                     const tileImage = (label: string): string | undefined => TILE_IMAGES[label];
                     return null as any;
@@ -240,6 +243,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     colorClass="rose"
                     bgImageUrl="/main-screen/file-a-report.png"
                     onClick={() => onNavigate('categorySelection')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Sparkles className="w-8 h-8" />}
+                    label="DPAL_HELP"
+                    subLabel="Missions, daily quests & guidance — DPAL help is here"
+                    status="LIVE"
+                    colorClass="cyan"
+                    bgImageUrl="/category-cards/dpal-help.png"
+                    onClick={() => onNavigate('reportSubmission', Category.DpalHelp)}
                 />
 
                 <PrimaryNavModule
