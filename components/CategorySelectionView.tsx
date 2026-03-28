@@ -32,6 +32,8 @@ interface CategorySelectionViewProps {
   /** Actions menu "Report" — defaults to filing a report if omitted. */
   onSelectActionsReport?: () => void;
   onReturnToHub: () => void;
+  /** When > 0, switches to Next view and Digital sector (DPAL Help). Increments from parent on Help actions. */
+  helpSectorFocusSignal?: number;
 }
 
 const BorderPulse: React.FC<{ color: string }> = ({ color }) => (
@@ -57,6 +59,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
   onSelectHelp,
   onSelectActionsReport,
   onReturnToHub,
+  helpSectorFocusSignal = 0,
 }) => {
     const { t } = useTranslations();
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -74,6 +77,12 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
         if (typeof window === 'undefined') return;
         window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, viewMode);
     }, [viewMode]);
+
+    useEffect(() => {
+      if (!helpSectorFocusSignal) return;
+      setActiveSector('digital');
+      setViewMode('next');
+    }, [helpSectorFocusSignal]);
 
     useEffect(() => {
         if (openActionsCategory === null) return;

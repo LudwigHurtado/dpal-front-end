@@ -255,6 +255,8 @@ const App: React.FC = () => {
   const [viewHistory, setViewHistory] = useState<View[]>([]);
   const viewRef = useRef<View>('mainMenu');
   const backNavRef = useRef(false);
+  /** Incremented when Help is chosen so category selection can focus Digital + Next (DPAL Help sector). */
+  const [helpSectorFocusSignal, setHelpSectorFocusSignal] = useState(0);
 
   /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -299,6 +301,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (currentView !== 'hub') setFilterSheetOpen(false);
+  }, [currentView]);
+
+  useEffect(() => {
+    if (currentView !== 'categorySelection') setHelpSectorFocusSignal(0);
   }, [currentView]);
 
   useEffect(() => {
@@ -421,6 +427,11 @@ const App: React.FC = () => {
         }
         setCurrentView(view); 
     }
+  };
+
+  const goToCategorySelectionHelpSector = () => {
+    setHelpSectorFocusSignal((n) => n + 1);
+    handleNavigate('categorySelection');
   };
 
   const goBack = (fallback: View = 'mainMenu') => {
@@ -723,7 +734,7 @@ const App: React.FC = () => {
               handleNavigate('liveIntelligence');
             }}
             onDispatchPlay={() => handleNavigate('gameHub')}
-            onDispatchHelp={() => handleNavigate('categorySelection')}
+            onDispatchHelp={goToCategorySelectionHelpSector}
             onDispatchWork={() => handleNavigate('fieldMissions')}
             onDispatchMissions={(cat) => {
               if (cat === Category.GoodDeeds) {
@@ -757,6 +768,7 @@ const App: React.FC = () => {
 
         {currentView === 'categorySelection' && (
           <CategorySelectionView 
+            helpSectorFocusSignal={helpSectorFocusSignal}
             onSelectCategory={(cat) => handleNavigate('reportSubmission', cat)} 
             onSelectMissions={(cat) => {
               if (cat === Category.GoodDeeds) {
@@ -768,7 +780,7 @@ const App: React.FC = () => {
             }} 
             onSelectWork={() => handleNavigate('fieldMissions')}
             onSelectPlay={() => handleNavigate('gameHub')}
-            onSelectHelp={() => handleNavigate('categorySelection')}
+            onSelectHelp={goToCategorySelectionHelpSector}
             onSelectActionsReport={() => handleNavigate('reportDashboard')}
             onReturnToHub={() => goBack('mainMenu')} 
           />
