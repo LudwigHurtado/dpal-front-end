@@ -494,7 +494,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             const runPlay = () => {
                                 setOpenDispatchActionsCategory(null);
                                 if (onDispatchPlay) onDispatchPlay();
-                                else onNavigate('gameHub');
+                                else onNavigate('categorySelection');
                             };
                             const runHelp = () => {
                                 setOpenDispatchActionsCategory(null);
@@ -504,7 +504,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             const runWork = () => {
                                 setOpenDispatchActionsCategory(null);
                                 if (onDispatchWork) onDispatchWork(cat.value);
-                                else onNavigate('fieldMissions');
+                                else onNavigate('reportWorkPanel');
                             };
                             const runMissions = () => {
                                 setOpenDispatchActionsCategory(null);
