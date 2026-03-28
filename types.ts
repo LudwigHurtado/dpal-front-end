@@ -29,7 +29,9 @@ export enum Category {
     StolenPropertyRegistry = 'Stolen Property Registry',
     HousingIssues = 'Housing Issues',
     P2PEscrowVerification = 'P2P Escrow & Document Verification',
-    ProofOfLifeBiometric = 'Proof of Life & Biometric Verification'
+    ProofOfLifeBiometric = 'Proof of Life & Biometric Verification',
+    /** In-app help: missions, daily quests, and DPAL guidance */
+    DpalHelp = 'DPAL Help — Missions & Quests'
 }
 
 export enum SubscriptionTier {

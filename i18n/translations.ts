@@ -609,7 +609,8 @@ export const translations = {
       stolenPropertyRegistry: "Stolen Property Registry",
       housingIssues: "Housing Issues",
       p2pEscrowVerification: "P2P Escrow & Document Verification",
-      proofOfLifeBiometric: "Proof of Life & Biometric Verification"
+      proofOfLifeBiometric: "Proof of Life & Biometric Verification",
+      dpalHelp: "DPAL Help — Missions & Quests"
     },
     liveIntelligence: {
       title: "Live Intelligence",

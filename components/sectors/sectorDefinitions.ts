@@ -61,7 +61,7 @@ export const SECTORS: SectorDefinition[] = [
     label: 'Digital',
     subtitle: 'Identity, online abuse, and technology evidence trails',
     emoji: '🌐',
-    categories: [Category.Travel, Category.IndependentDiscoveries],
+    categories: [Category.Travel, Category.IndependentDiscoveries, Category.DpalHelp],
   },
   {
     key: 'community',
