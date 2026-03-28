@@ -15,6 +15,14 @@ interface ReportCompleteViewProps {
     onEnterSituationRoom?: (report: Report) => void;
 }
 
+/** Shared options for client-side QR generation (screen + print). */
+const REPORT_QR_OPTIONS = {
+    width: 220,
+    margin: 2,
+    errorCorrectionLevel: 'M' as const,
+    color: { dark: '#0a0a0a', light: '#ffffff' },
+};
+
 const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onReturn, onEnterSituationRoom }) => {
     const { t } = useTranslations();
     const [verificationStep, setVerificationStep] = useState(0);
@@ -23,6 +31,8 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
     const certificateRef = useRef<HTMLDivElement>(null);
     const [qrVerifyDataUrl, setQrVerifyDataUrl] = useState<string | null>(null);
     const [qrSituationDataUrl, setQrSituationDataUrl] = useState<string | null>(null);
+    const [qrLoading, setQrLoading] = useState(true);
+    const [qrError, setQrError] = useState(false);
 
     const blockRef = report.blockNumber ? `#${report.blockNumber}` : '#PENDING';
     const txRef = report.txHash || report.blockchainRef || report.hash;
@@ -43,34 +53,34 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         return () => clearInterval(interval);
     }, [logs.length]);
 
-    useEffect(() => {
-        if (typeof window === 'undefined') return;
+    const loadQrImages = useCallback(async (): Promise<[string, string]> => {
+        if (typeof window === 'undefined') return ['', ''];
         const base = window.location.origin;
         const verify = `${base}?reportId=${encodeURIComponent(report.id)}`;
         const situation = `${base}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`;
-        const opts = { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
-        let cancelled = false;
-        Promise.all([QRCode.toDataURL(verify, opts), QRCode.toDataURL(situation, opts)])
-            .then(([v, s]) => {
-                if (!cancelled) {
-                    setQrVerifyDataUrl(v);
-                    setQrSituationDataUrl(s);
-                }
-            })
-            .catch(() => {});
-        return () => {
-            cancelled = true;
-        };
+        return Promise.all([QRCode.toDataURL(verify, REPORT_QR_OPTIONS), QRCode.toDataURL(situation, REPORT_QR_OPTIONS)]);
     }, [report.id]);
+
+    const runQrLoad = useCallback(() => {
+        setQrLoading(true);
+        setQrError(false);
+        return loadQrImages()
+            .then(([v, s]) => {
+                setQrVerifyDataUrl(v);
+                setQrSituationDataUrl(s);
+            })
+            .catch(() => setQrError(true))
+            .finally(() => setQrLoading(false));
+    }, [loadQrImages]);
+
+    useEffect(() => {
+        runQrLoad();
+    }, [runQrLoad]);
 
     const handlePrint = useCallback(async () => {
         if (typeof window === 'undefined') return;
-        const base = window.location.origin;
-        const verify = `${base}?reportId=${encodeURIComponent(report.id)}`;
-        const situation = `${base}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`;
-        const opts = { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
         try {
-            const [v, s] = await Promise.all([QRCode.toDataURL(verify, opts), QRCode.toDataURL(situation, opts)]);
+            const [v, s] = await loadQrImages();
             flushSync(() => {
                 setQrVerifyDataUrl(v);
                 setQrSituationDataUrl(s);
@@ -84,7 +94,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
             });
         });
         window.print();
-    }, [report.id]);
+    }, [loadQrImages]);
 
     const handleShare = async () => {
         const shareData = {
@@ -155,8 +165,37 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         alert("Verification link copied to clipboard.");
     };
 
-    const baseUrl = window.location.origin;
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(`${baseUrl}?reportId=${report.id}`)}&bgcolor=ffffff&color=000000&margin=10`;
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+    const qrSlot = (dataUrl: string | null, alt: string) => {
+        const box = 'w-44 h-44 sm:w-48 sm:h-48';
+        if (dataUrl) {
+            return <img src={dataUrl} alt={alt} className={`cert-qr-img ${box} object-contain`} width={192} height={192} />;
+        }
+        if (qrLoading) {
+            return (
+                <div className={`${box} flex flex-col items-center justify-center gap-2 bg-zinc-100 rounded-xl border border-zinc-200`}>
+                    <Loader className="w-8 h-8 text-zinc-500 animate-spin" />
+                    <span className="text-[9px] font-bold text-zinc-500 uppercase text-center px-2">Generating QR…</span>
+                </div>
+            );
+        }
+        if (qrError) {
+            return (
+                <div className={`${box} flex flex-col items-center justify-center gap-2 bg-rose-50 rounded-xl border border-rose-200 p-2`}>
+                    <p className="text-[9px] font-bold text-rose-800 uppercase text-center">QR failed to render</p>
+                    <button
+                        type="button"
+                        onClick={() => runQrLoad()}
+                        className="text-[9px] font-black uppercase bg-rose-600 text-white px-3 py-1.5 rounded-lg"
+                    >
+                        Retry
+                    </button>
+                </div>
+            );
+        }
+        return <div className={`${box} bg-zinc-100 rounded-xl border border-zinc-200`} />;
+    };
 
     if (report.isGeneratingNft) {
         return (
@@ -318,6 +357,28 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                     <span className="text-[10px] font-black uppercase">{dispatchStatus === 'SENDING' ? 'SYNCING...' : dispatchStatus === 'SUCCESS' ? 'AGENCY_RECEIVED' : 'Regulatory_Oracle'}</span>
                                 </button>
                             </div>
+
+                            <div className="border-t border-zinc-800 pt-8 mt-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <QrCode className="w-5 h-5 text-cyan-400" />
+                                    <h4 className="text-xs font-black uppercase tracking-[0.2em] text-white">Ledger QR codes</h4>
+                                </div>
+                                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mb-4">
+                                    Same codes appear on your printable certificate below — scan to verify or open the situation room.
+                                </p>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                    <div className="bg-zinc-950/90 border border-zinc-700 rounded-2xl p-5 text-center">
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">{t('reportComplete.qrVerifyTitle')}</p>
+                                        <div className="inline-flex bg-white p-3 rounded-2xl border border-zinc-600 shadow-inner justify-center">{qrSlot(qrVerifyDataUrl, 'Verify this report')}</div>
+                                        <p className="text-[8px] font-mono text-zinc-500 break-all mt-3 px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
+                                    </div>
+                                    <div className="bg-zinc-950/90 border border-zinc-700 rounded-2xl p-5 text-center">
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">{t('reportComplete.qrSituationTitle')}</p>
+                                        <div className="inline-flex bg-white p-3 rounded-2xl border border-zinc-600 shadow-inner justify-center">{qrSlot(qrSituationDataUrl, 'Open situation room')}</div>
+                                        <p className="text-[8px] font-mono text-zinc-500 break-all mt-3 px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -402,11 +463,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[length:12px_12px] opacity-[0.03] no-print" />
                                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest relative z-10">{t('reportComplete.qrVerifyTitle')}</p>
                                 <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border border-zinc-100 mx-auto relative z-10">
-                                    {qrVerifyDataUrl ? (
-                                        <img src={qrVerifyDataUrl} alt="" className="cert-qr-img w-44 h-44 sm:w-48 sm:h-48 object-contain" width={192} height={192} />
-                                    ) : (
-                                        <img src={qrImageUrl} alt="" className="cert-qr-img w-44 h-44 sm:w-48 sm:h-48 object-contain" width={192} height={192} />
-                                    )}
+                                    {qrSlot(qrVerifyDataUrl, 'Verify this report')}
                                 </div>
                                 <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2 relative z-10">{t('reportComplete.qrSubtext')}</p>
                                 <p className="text-[8px] font-mono text-zinc-500 break-all px-1 relative z-10">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
@@ -415,11 +472,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             <div className="cert-qr-block bg-zinc-50 border-2 border-zinc-200 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 relative w-full print:border-black">
                                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t('reportComplete.qrSituationTitle')}</p>
                                 <div className="bg-white p-4 rounded-2xl inline-block border border-zinc-200 mx-auto">
-                                    {qrSituationDataUrl ? (
-                                        <img src={qrSituationDataUrl} alt="" className="cert-qr-img w-44 h-44 sm:w-48 sm:h-48 object-contain" width={192} height={192} />
-                                    ) : (
-                                        <div className="w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center text-[9px] text-zinc-400 font-bold uppercase p-2">Generating…</div>
-                                    )}
+                                    {qrSlot(qrSituationDataUrl, 'Situation room')}
                                 </div>
                                 <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2">{t('reportComplete.qrSituationSubtext')}</p>
                                 <p className="text-[8px] font-mono text-zinc-500 break-all px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>

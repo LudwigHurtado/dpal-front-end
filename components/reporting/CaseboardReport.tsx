@@ -309,7 +309,7 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
   const chipSource = config.chips;
 
   return (
-    <div className="max-w-4xl mx-auto pb-24 px-1 sm:px-2">
+    <div className="max-w-4xl mx-auto pb-24 px-1 sm:px-2 text-stone-900 [color-scheme:light]">
       <div className="mb-8 rounded-2xl bg-white border border-stone-200/80 shadow-sm p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Mission progress</p>
@@ -552,17 +552,23 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
                       <select
                         value={patternFreq}
                         onChange={(e) => setPatternFreq(e.target.value as typeof patternFreq)}
-                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"
+                        className="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm text-stone-900"
                       >
-                        <option value="One-time">One-time</option>
-                        <option value="Repeated">Repeated</option>
-                        <option value="Ongoing">Ongoing</option>
+                        <option className="text-stone-900 bg-white" value="One-time">
+                          One-time
+                        </option>
+                        <option className="text-stone-900 bg-white" value="Repeated">
+                          Repeated
+                        </option>
+                        <option className="text-stone-900 bg-white" value="Ongoing">
+                          Ongoing
+                        </option>
                       </select>
                       <textarea
                         value={patternNote}
                         onChange={(e) => setPatternNote(e.target.value)}
                         rows={2}
-                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm"
+                        className="w-full rounded-xl border border-stone-200 bg-stone-50 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-400"
                         placeholder="Same place, same people, or same type of issue?"
                       />
                     </div>
