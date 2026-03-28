@@ -358,12 +358,17 @@ const App: React.FC = () => {
     }
   }, [currentView, selectedCategoryForSubmission]);
 
+  /** Do not bounce off certificate view while a ?reportId= / ?roomId= link is resolving (async) — that produced a blank hub with no report UI. */
   useLayoutEffect(() => {
-    if (currentView === 'reportComplete' && !completedReport) {
-      setCurrentView('hub');
-      setHubTab('my_reports');
+    if (currentView !== 'reportComplete' || completedReport) return;
+    if (reportDeepLinkLoading) return;
+    if (typeof window !== 'undefined') {
+      const p = new URLSearchParams(window.location.search);
+      if (p.get('reportId')?.trim() || p.get('roomId')?.trim()) return;
     }
-  }, [currentView, completedReport]);
+    setCurrentView('hub');
+    setHubTab('my_reports');
+  }, [currentView, completedReport, reportDeepLinkLoading]);
 
   /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -433,18 +438,31 @@ const App: React.FC = () => {
       setReportDeepLinkError(null);
       setReportDeepLinkLoading(true);
       const fetchId = ++reportFetchGenerationRef.current;
+      const wantSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
       (async () => {
         try {
           const remote = await fetchReportFromApiById(reportId);
           if (fetchId !== reportFetchGenerationRef.current) return;
-          setReportDeepLinkLoading(false);
           if (remote) {
-            setReports((prev) => (prev.some((r) => r.id === remote.id) ? prev : [remote, ...prev]));
-          } else {
-            setReportDeepLinkError(
-              'This report link could not be loaded. It may exist only in the browser that submitted it until the ledger server stores it, or the ID may be invalid.'
-            );
+            flushSync(() => {
+              setReports((prev) => (prev.some((r) => r.id === remote.id) ? prev : [remote, ...prev]));
+              setReportDeepLinkLoading(false);
+              setReportDeepLinkError(null);
+              reportIdRemoteAttemptRef.current = null;
+              if (wantSituation) {
+                setSelectedReportForIncidentRoom(remote);
+                setCurrentView('incidentRoom');
+              } else {
+                setCompletedReport(remote);
+                setCurrentView('reportComplete');
+              }
+            });
+            return;
           }
+          setReportDeepLinkLoading(false);
+          setReportDeepLinkError(
+            'This report link could not be loaded. It may exist only in the browser that submitted it until the ledger server stores it, or the ID may be invalid.'
+          );
         } catch {
           if (fetchId !== reportFetchGenerationRef.current) return;
           setReportDeepLinkLoading(false);
