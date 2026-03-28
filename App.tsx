@@ -106,8 +106,10 @@ export type HubTab =
   | 'work_feed'
   | 'map';
 
-console.log("AI enabled?", Boolean(import.meta.env.VITE_GEMINI_API_KEY));
-console.log("API base:", import.meta.env.VITE_API_BASE);
+if (import.meta.env.DEV) {
+  console.log('AI enabled?', Boolean(import.meta.env.VITE_GEMINI_API_KEY));
+  console.log('API base:', import.meta.env.VITE_API_BASE);
+}
 
 const isMobileDeviceProfile = (): boolean => {
   if (typeof navigator === 'undefined') return false;
