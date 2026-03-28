@@ -290,6 +290,36 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
+                    /* Certificate stamps: preserve gold / red on PDF (override blanket grayscale rules below) */
+                    .certificate-frame .cert-stamp-dpal {
+                        background: linear-gradient(155deg, #fffbeb 0%, #fde68a 45%, #d97706 100%) !important;
+                        border: 6px double #92400e !important;
+                        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35) !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-brand {
+                        color: #78350f !important;
+                        text-shadow: 0 1px 0 rgba(255,255,255,0.35) !important;
+                    }
+                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-sub,
+                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-micro {
+                        color: #92400e !important;
+                    }
+                    .certificate-frame .cert-stamp-compliance {
+                        background: linear-gradient(160deg, #fecaca 0%, #dc2626 55%, #991b1b 100%) !important;
+                        border: 6px double #7f1d1d !important;
+                        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2) !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
+                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-title,
+                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-sub {
+                        color: #ffffff !important;
+                    }
+                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-micro {
+                        color: #fecaca !important;
+                    }
                     .certificate-frame { 
                         border: 3px solid #000 !important; 
                         color: black !important; 
@@ -474,19 +504,27 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 </div>
                             </section>
 
-                            {/* D. Verification Stamps */}
+                            {/* D. Verification Stamps — gold DPAL + red compliance (same URLs as sidebar QRs for all categories) */}
                             <section className="pt-8">
                                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">Certification Stamps</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div className="rounded-full border-[5px] border-zinc-900 w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-6">
-                                        <ShieldCheck className="w-10 h-10 text-zinc-900 mb-2" />
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-900">DPAL VERIFIED</p>
-                                        <p className="text-[8px] font-black uppercase tracking-wider text-zinc-500 mt-2">RSA-4096 STANDARD</p>
+                                    <div
+                                        className="cert-stamp-dpal rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-5 border-[6px] border-double border-amber-800 bg-gradient-to-br from-amber-50 via-amber-200 to-amber-600 shadow-inner"
+                                        aria-label="DPAL verified stamp"
+                                    >
+                                        <p className="cert-stamp-dpal-brand text-2xl font-black tracking-tighter text-amber-950 leading-none mb-1">DPAL</p>
+                                        <p className="cert-stamp-dpal-sub text-[9px] font-black uppercase tracking-[0.35em] text-amber-900">Verified</p>
+                                        <ShieldCheck className="w-9 h-9 text-amber-800 mt-2 mb-1 drop-shadow-sm" />
+                                        <p className="cert-stamp-dpal-micro text-[7px] font-black uppercase tracking-widest text-amber-900/90 mt-1">RSA-4096</p>
                                     </div>
-                                    <div className="rounded-full border-[5px] border-zinc-900 w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-6">
-                                        <Star className="w-10 h-10 text-zinc-900 mb-2" />
-                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-900">COMPLIANCE CERTIFIED</p>
-                                        <p className="text-[8px] font-black uppercase tracking-wider text-zinc-500 mt-2">AUTOMATED VERIFICATION</p>
+                                    <div
+                                        className="cert-stamp-compliance rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-5 border-[6px] border-double border-red-900 bg-gradient-to-br from-red-300 via-red-600 to-red-900 shadow-inner"
+                                        aria-label="Compliance certified stamp"
+                                    >
+                                        <Star className="w-11 h-11 text-white mb-2 drop-shadow-md" />
+                                        <p className="cert-stamp-compliance-title text-[9px] font-black uppercase tracking-[0.28em] text-white leading-tight">Compliance</p>
+                                        <p className="cert-stamp-compliance-sub text-[9px] font-black uppercase tracking-[0.28em] text-white leading-tight mt-0.5">Certified</p>
+                                        <p className="cert-stamp-compliance-micro text-[7px] font-black uppercase tracking-widest text-red-100 mt-2">Auto verification</p>
                                     </div>
                                 </div>
                             </section>
