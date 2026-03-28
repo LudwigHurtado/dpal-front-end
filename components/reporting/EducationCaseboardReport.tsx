@@ -63,6 +63,7 @@ const CASEBOARD_IDS = [
   { id: 'pattern', title: 'Pattern / repeated issue', hint: 'Has this happened before?' },
   { id: 'severity', title: 'Severity', hint: 'How serious is the impact?' },
   { id: 'followup', title: 'Suggested follow-up', hint: 'What should happen next?' },
+  { id: 'school', title: 'School context (structured)', hint: 'Setting, admin notification, and response quality.' },
 ] as const;
 
 const DRAFT_KEY = 'dpal-education-caseboard-draft-v1';
@@ -116,6 +117,9 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
       if (d.pathLabel) setPathLabel(d.pathLabel);
       if (d.pathEdu02) setPathEdu02(d.pathEdu02);
       if (d.phase) setPhase(d.phase);
+      if (typeof d.setting === 'string') setSetting(d.setting);
+      if (typeof d.adminNotified === 'string') setAdminNotified(d.adminNotified);
+      if (typeof d.adminResponse === 'string') setAdminResponse(d.adminResponse);
     } catch {
       /* ignore */
     }
@@ -130,6 +134,9 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
       pathLabel,
       pathEdu02,
       phase,
+      setting,
+      adminNotified,
+      adminResponse,
       updatedAt: Date.now(),
     };
     try {
@@ -137,7 +144,7 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
     } catch {
       /* ignore */
     }
-  }, [what, where, when, who, pathLabel, pathEdu02, phase]);
+  }, [what, where, when, who, pathLabel, pathEdu02, phase, setting, adminNotified, adminResponse]);
 
   const strengthScore = useMemo(() => {
     let s = 0;
@@ -179,9 +186,13 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
       pattern: patternNote.trim().length > 5 || patternFreq !== 'One-time',
       severity: true,
       followup: followUp.trim().length > 5,
+      /** Structured selects always have a value; section is complete for review/QR flow. */
+      school: Boolean(setting && adminNotified && adminResponse),
     }),
-    [what, where, when, who, attachments, patternNote, patternFreq, followUp]
+    [what, where, when, who, attachments, patternNote, patternFreq, followUp, setting, adminNotified, adminResponse]
   );
+
+  const canReviewCaseboard = what.trim().length > 0 && where.trim().length > 0;
 
   const toggleChip = (c: string) => {
     setChips((prev) => (prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c]));
@@ -543,45 +554,55 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
                       placeholder="What outcome or follow-up do you suggest?"
                     />
                   )}
+                  {card.id === 'school' && (
+                    <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                      <label className="block">
+                        <span className="text-stone-500 text-xs">Setting</span>
+                        <select
+                          value={setting}
+                          onChange={(e) => setSetting(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-stone-800"
+                        >
+                          {['Public', 'Private', 'Charter', 'University', 'Daycare', 'Other'].map((o) => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block">
+                        <span className="text-stone-500 text-xs">Admin notified?</span>
+                        <select
+                          value={adminNotified}
+                          onChange={(e) => setAdminNotified(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-stone-800"
+                        >
+                          {['Yes', 'No', 'Unsafe', 'Unknown'].map((o) => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block sm:col-span-2">
+                        <span className="text-stone-500 text-xs">Response quality</span>
+                        <select
+                          value={adminResponse}
+                          onChange={(e) => setAdminResponse(e.target.value)}
+                          className="mt-1 w-full rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-stone-800"
+                        >
+                          {['Adequate', 'Inadequate', 'None', 'Unknown'].map((o) => (
+                            <option key={o} value={o}>
+                              {o}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
                 </div>
               );
             })}
-          </div>
-
-          <div className="rounded-2xl border border-stone-200 bg-white p-4 space-y-3">
-            <p className="text-xs font-semibold text-stone-500 uppercase">School context (structured)</p>
-            <div className="grid sm:grid-cols-2 gap-3 text-sm">
-              <label className="block">
-                <span className="text-stone-500 text-xs">Setting</span>
-                <select value={setting} onChange={(e) => setSetting(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-200 px-2 py-1.5">
-                  {['Public', 'Private', 'Charter', 'University', 'Daycare', 'Other'].map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-stone-500 text-xs">Admin notified?</span>
-                <select value={adminNotified} onChange={(e) => setAdminNotified(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-200 px-2 py-1.5">
-                  {['Yes', 'No', 'Unsafe', 'Unknown'].map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block sm:col-span-2">
-                <span className="text-stone-500 text-xs">Response quality</span>
-                <select value={adminResponse} onChange={(e) => setAdminResponse(e.target.value)} className="mt-1 w-full rounded-lg border border-stone-200 px-2 py-1.5">
-                  {['Adequate', 'Inadequate', 'None', 'Unknown'].map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -591,7 +612,7 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
             <button
               type="button"
               onClick={() => setPhase('review')}
-              disabled={!what.trim() || !where.trim()}
+              disabled={!canReviewCaseboard}
               className="ml-auto rounded-xl bg-violet-600 text-white px-5 py-2.5 text-sm font-semibold shadow hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Review caseboard
@@ -632,6 +653,13 @@ const EducationCaseboardReport: React.FC<EducationCaseboardReportProps> = ({ add
                 <div className="flex flex-wrap gap-1">{badges.map((b) => <span key={b} className="text-xs bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded-md">{b}</span>)}</div>
               </div>
             )}
+            <div className="rounded-xl border border-stone-100 bg-stone-50/80 p-3 text-sm">
+              <p className="text-[10px] font-semibold text-stone-400 uppercase mb-2">School context</p>
+              <p className="text-stone-700">
+                <span className="text-stone-500">Setting:</span> {setting} · <span className="text-stone-500">Admin notified:</span> {adminNotified} ·{' '}
+                <span className="text-stone-500">Response:</span> {adminResponse}
+              </p>
+            </div>
           </div>
 
           <button
