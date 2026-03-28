@@ -993,8 +993,9 @@ const App: React.FC = () => {
         sender: heroWithRank.name,
         text: text || undefined,
       };
-      if (finalImageUrl && !finalImageUrl.startsWith('data:')) payload.imageUrl = finalImageUrl;
-      if (finalAudioUrl && !finalAudioUrl.startsWith('data:')) payload.audioUrl = finalAudioUrl;
+      /** Persist http(s) URLs from upload or inline data: URLs so other browsers load media from Mongo. */
+      if (finalImageUrl) payload.imageUrl = finalImageUrl;
+      if (finalAudioUrl) payload.audioUrl = finalAudioUrl;
 
       let saved: ChatMessage;
       try {
