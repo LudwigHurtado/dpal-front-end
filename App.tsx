@@ -67,7 +67,7 @@ import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails,
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
 import { createEvidenceRecords } from './services/evidenceVaultService';
-import { resolveReportByBlockNumber } from './services/blockchainLookupService';
+import { resolveReportByBlockNumber, fetchReportFromApiById } from './services/blockchainLookupService';
 import { parseBlockNumberInput } from './utils/blockchainLookup';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
@@ -331,6 +331,12 @@ const App: React.FC = () => {
     return Boolean(nav && (nav.viewHistory?.length ?? 0) > 0);
   });
 
+  /** Avoid duplicate GET /api/reports/:id; stale async completions ignored via generation counter. */
+  const reportIdRemoteAttemptRef = useRef<string | null>(null);
+  const reportFetchGenerationRef = useRef(0);
+  const [reportDeepLinkError, setReportDeepLinkError] = useState<string | null>(null);
+  const [reportDeepLinkLoading, setReportDeepLinkLoading] = useState(false);
+
   const { t } = useTranslations();
   const { state: flowState, actions: flowActions } = useDPALFlow();
 
@@ -396,25 +402,60 @@ const App: React.FC = () => {
     setScopedItem('directives', JSON.stringify(directives));
   }, [hero, reports, missions, directives]);
 
-  // Deep-link: ?reportId=<id> → certified report; ?blockNumber=<n> or ?block=<n> → same via ledger index;
-  // add &situationRoom=1 → incident room when record exists locally (or after block resolves).
+  // Deep-link: ?reportId=<id> → certified report (local list first, then GET /api/reports/:id for public QR/PDF links);
+  // ?blockNumber=<n> or ?block=<n> → same via ledger index; &situationRoom=1 → incident room when record exists.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const reportId = params.get('reportId');
     if (reportId) {
       const found = reports.find((r) => r.id === reportId);
-      if (!found) return;
-      const openSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
-      if (openSituation) {
-        setSelectedReportForIncidentRoom(found);
-        setCurrentView('incidentRoom');
+      if (found) {
+        reportIdRemoteAttemptRef.current = null;
+        setReportDeepLinkError(null);
+        setReportDeepLinkLoading(false);
+        const openSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
+        if (openSituation) {
+          setSelectedReportForIncidentRoom(found);
+          setCurrentView('incidentRoom');
+          return;
+        }
+        setCompletedReport(found);
+        setCurrentView('reportComplete');
         return;
       }
-      setCompletedReport(found);
-      setCurrentView('reportComplete');
+
+      if (reportIdRemoteAttemptRef.current === reportId) {
+        return;
+      }
+      reportIdRemoteAttemptRef.current = reportId;
+      setReportDeepLinkError(null);
+      setReportDeepLinkLoading(true);
+      const fetchId = ++reportFetchGenerationRef.current;
+      (async () => {
+        try {
+          const remote = await fetchReportFromApiById(reportId);
+          if (fetchId !== reportFetchGenerationRef.current) return;
+          setReportDeepLinkLoading(false);
+          if (remote) {
+            setReports((prev) => (prev.some((r) => r.id === remote.id) ? prev : [remote, ...prev]));
+          } else {
+            setReportDeepLinkError(
+              'This report link could not be loaded. It may exist only in the browser that submitted it until the ledger server stores it, or the ID may be invalid.'
+            );
+          }
+        } catch {
+          if (fetchId !== reportFetchGenerationRef.current) return;
+          setReportDeepLinkLoading(false);
+          setReportDeepLinkError('Could not reach the report server. Check your connection or try again later.');
+        }
+      })();
       return;
     }
+
+    reportIdRemoteAttemptRef.current = null;
+    setReportDeepLinkError(null);
+    setReportDeepLinkLoading(false);
 
     const blockParam = params.get('blockNumber') ?? params.get('block');
     if (!blockParam) return;
@@ -998,6 +1039,32 @@ const App: React.FC = () => {
             onClick={() => setShowNavRestoreTip(false)}
           >
             OK
+          </button>
+        </div>
+      )}
+      {reportDeepLinkLoading && (
+        <div
+          role="status"
+          className="sticky top-0 z-[199] px-4 py-2.5 bg-zinc-900/95 border-b border-zinc-700 text-zinc-200 text-[11px] sm:text-xs font-semibold"
+        >
+          Loading report from ledger…
+        </div>
+      )}
+      {reportDeepLinkError && (
+        <div
+          role="alert"
+          className="sticky top-0 z-[199] flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-rose-950/95 border-b border-rose-800 text-rose-50 text-[11px] sm:text-xs font-semibold leading-snug"
+        >
+          <span className="min-w-0 flex-1">{reportDeepLinkError}</span>
+          <button
+            type="button"
+            className="shrink-0 px-3 py-1.5 rounded-xl bg-rose-800 hover:bg-rose-700 text-white text-[10px] font-black uppercase tracking-wide"
+            onClick={() => {
+              setReportDeepLinkError(null);
+              reportIdRemoteAttemptRef.current = null;
+            }}
+          >
+            Dismiss
           </button>
         </div>
       )}

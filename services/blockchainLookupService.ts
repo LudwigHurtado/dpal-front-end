@@ -21,9 +21,12 @@ export async function fetchReportIdByBlockNumber(blockNumber: number): Promise<s
   }
 }
 
-/** Optional: full report for a filing when this device does not have it in localStorage yet. */
+/**
+ * Full report for a filing when this device does not have it in localStorage yet.
+ * Used for public ?reportId= deep links (QR / PDF) — not gated by blockchainAnchorEnabled
+ * so shared links work whenever the backend exposes GET /api/reports/:id.
+ */
 export async function fetchReportFromApiById(reportId: string): Promise<Report | null> {
-  if (!featureFlags.blockchainAnchorEnabled) return null;
   try {
     const apiBase = getApiBase();
     const res = await fetch(`${apiBase}/api/reports/${encodeURIComponent(reportId)}`);
