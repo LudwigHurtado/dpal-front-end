@@ -67,6 +67,7 @@ import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails,
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
 import { createEvidenceRecords } from './services/evidenceVaultService';
+import { persistReportForPublicLookup } from './services/reportPersistenceService';
 import { resolveReportByBlockNumber, fetchReportFromApiById } from './services/blockchainLookupService';
 import { parseBlockNumberInput } from './utils/blockchainLookup';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
@@ -924,7 +925,21 @@ const App: React.FC = () => {
       attachments: undefined,
     };
 
-    setReports(prev => [finalReport, ...prev]);
+    setReports((prev) => [finalReport, ...prev]);
+
+    /** Store on ledger API so ?reportId= works on any browser (not only this device’s localStorage). */
+    const persistResult = await Promise.race([
+      persistReportForPublicLookup(finalReport),
+      new Promise<{ ok: false; status: number }>((resolve) =>
+        setTimeout(() => resolve({ ok: false, status: 504 }), 15000)
+      ),
+    ]);
+    if (!persistResult.ok) {
+      console.warn(
+        'Could not persist report to ledger server (HTTP %s). Shared ?reportId= links may only work on this browser until POST /api/reports or /api/reports/anchor succeeds.',
+        String(persistResult.status ?? 'offline')
+      );
+    }
 
     const shouldNavigate = opts?.navigateAfterSubmit !== false;
     if (shouldNavigate) {
