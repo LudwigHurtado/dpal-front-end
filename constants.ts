@@ -29,6 +29,8 @@ export const API_ROUTES = {
   assets: (tokenId: string) => `/api/assets/${tokenId}.png`,
   ESCROW_CREATE: '/api/escrow/create',
   ESCROW_LIST: '/api/escrow/list',
+  /** POST JSON report body; enables GET /api/reports/:id for shared links on any device. */
+  REPORTS_UPSERT: '/api/reports',
 } as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
