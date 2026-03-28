@@ -2,6 +2,7 @@
 
 import './styles/mobile-theme.css';
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import MainContentPanel from './components/MainContentPanel';
@@ -56,6 +57,8 @@ import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { createEvidenceRecords } from './services/evidenceVaultService';
+import { resolveReportByBlockNumber } from './services/blockchainLookupService';
+import { parseBlockNumberInput } from './utils/blockchainLookup';
 import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
@@ -317,22 +320,60 @@ const App: React.FC = () => {
     setScopedItem('directives', JSON.stringify(directives));
   }, [hero, reports, missions, directives]);
 
-  // Deep-link: ?reportId=<id> → certified report; add &situationRoom=1 → incident room when record exists locally.
+  // Deep-link: ?reportId=<id> → certified report; ?blockNumber=<n> or ?block=<n> → same via ledger index;
+  // add &situationRoom=1 → incident room when record exists locally (or after block resolves).
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const reportId = params.get('reportId');
-    if (!reportId) return;
-    const found = reports.find((r) => r.id === reportId);
-    if (!found) return;
-    const openSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
-    if (openSituation) {
-      setSelectedReportForIncidentRoom(found);
-      setCurrentView('incidentRoom');
+    if (reportId) {
+      const found = reports.find((r) => r.id === reportId);
+      if (!found) return;
+      const openSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
+      if (openSituation) {
+        setSelectedReportForIncidentRoom(found);
+        setCurrentView('incidentRoom');
+        return;
+      }
+      setCompletedReport(found);
+      setCurrentView('reportComplete');
       return;
     }
-    setCompletedReport(found);
-    setCurrentView('reportComplete');
+
+    const blockParam = params.get('blockNumber') ?? params.get('block');
+    if (!blockParam) return;
+    const n = parseBlockNumberInput(blockParam);
+    if (n === null) return;
+
+    let cancelled = false;
+    (async () => {
+      const resolved = await resolveReportByBlockNumber(n, reports);
+      if (cancelled || !resolved) return;
+      if (!reports.some((r) => r.id === resolved.id)) {
+        setReports((prev) => (prev.some((r) => r.id === resolved.id) ? prev : [resolved, ...prev]));
+      }
+      const openSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
+      try {
+        const path = window.location.pathname;
+        const next = new URLSearchParams();
+        next.set('reportId', resolved.id);
+        if (openSituation) next.set('situationRoom', '1');
+        window.history.replaceState({}, '', `${path}?${next.toString()}`);
+      } catch {
+        /* ignore */
+      }
+      if (openSituation) {
+        setSelectedReportForIncidentRoom(resolved);
+        setCurrentView('incidentRoom');
+        return;
+      }
+      setCompletedReport(resolved);
+      setCurrentView('reportComplete');
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [reports]);
 
   useEffect(() => {
@@ -473,6 +514,34 @@ const App: React.FC = () => {
     setHelpSectorFocusSignal((n) => n + 1);
     handleNavigate('categorySelection');
   };
+
+  type BlockLookupResult = { ok: true } | { ok: false; reason: 'invalid' | 'not_found' };
+
+  const handleOpenReportByBlock = useCallback(
+    async (raw: string): Promise<BlockLookupResult> => {
+      const n = parseBlockNumberInput(raw);
+      if (n === null) return { ok: false, reason: 'invalid' };
+      const resolved = await resolveReportByBlockNumber(n, reports);
+      if (!resolved) return { ok: false, reason: 'not_found' };
+      if (!reports.some((r) => r.id === resolved.id)) {
+        flushSync(() => {
+          setReports((prev) => (prev.some((r) => r.id === resolved.id) ? prev : [resolved, ...prev]));
+        });
+      }
+      try {
+        const path = window.location.pathname;
+        const next = new URLSearchParams();
+        next.set('reportId', resolved.id);
+        window.history.replaceState({}, '', `${path}?${next.toString()}`);
+      } catch {
+        /* ignore */
+      }
+      setCompletedReport(resolved);
+      setCurrentView('reportComplete');
+      return { ok: true };
+    },
+    [reports]
+  );
 
   const goBack = (fallback: View = 'mainMenu') => {
     setViewHistory((prev) => {
@@ -769,6 +838,7 @@ const App: React.FC = () => {
             totalReports={reports.length}
             latestHash={latestAnchoredReport?.hash || latestAnchoredReport?.txHash}
             latestBlockNumber={latestAnchoredReport?.blockNumber}
+            onOpenReportByBlock={handleOpenReportByBlock}
             onGenerateMissionForCategory={(cat) => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');

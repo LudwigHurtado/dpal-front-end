@@ -14,11 +14,15 @@ import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
 import { featureFlags } from '../features/featureFlags';
 
+type BlockLookupResult = { ok: true } | { ok: false; reason: 'invalid' | 'not_found' };
+
 interface MainMenuProps {
     onNavigate: (view: View, category?: Category, targetTab?: HeroHubTab | HubTab) => void;
     totalReports: number;
     latestHash?: string;
     latestBlockNumber?: number;
+    /** Resolve a ledger block height to the certified filing (local + API when configured). */
+    onOpenReportByBlock?: (raw: string) => Promise<BlockLookupResult>;
     onGenerateMissionForCategory: (category: Category) => void;
     /** Dispatch Directory Actions menu — same behavior as category picker when provided. */
     onDispatchPlay?: () => void;
@@ -149,6 +153,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     totalReports,
     latestHash,
     latestBlockNumber,
+    onOpenReportByBlock,
     onGenerateMissionForCategory,
     onDispatchPlay,
     onDispatchHelp,
@@ -444,7 +449,12 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 </button>
             </div>
 
-            <BlockchainStatusPanel totalReports={totalReports} latestHash={latestHash} latestBlockNumber={latestBlockNumber} />
+            <BlockchainStatusPanel
+                totalReports={totalReports}
+                latestHash={latestHash}
+                latestBlockNumber={latestBlockNumber}
+                onOpenReportByBlock={onOpenReportByBlock}
+            />
 
             <div className="my-8 bg-zinc-900/70 border border-zinc-800 rounded-3xl p-4 md:p-6">
                 <div className="flex items-center justify-between mb-3">

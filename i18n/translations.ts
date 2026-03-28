@@ -41,6 +41,14 @@ export const translations = {
       statusOperational: "Operational",
       latestHash: "Latest Block Hash"
     },
+    blockchainLookup: {
+      title: "Ledger block search",
+      description: "Paste the block number from your certificate or explorer. Opens the certified filing when it is anchored on this device or returned by the ledger API.",
+      placeholder: "e.g. 6843021 or #6843021",
+      openFiling: "Open filing",
+      invalidBlock: "Enter a valid block number (digits only).",
+      notFound: "No filing found for that block on this device. If your backend indexes blocks, ensure /api/reports/lookup is deployed; otherwise open the verification link from your certificate."
+    },
     filterPanel: {
       title: "Filter & Search Reports",
       expandAria: "Expand filter panel",

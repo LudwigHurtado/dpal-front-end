@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Hash, Loader, Zap, ShieldCheck, Activity, Search, ArrowRight, Sparkles } from './icons';
 import { type Report } from '../types';
+import { findReportByBlockNumber, parseBlockNumberInput } from '../utils/blockchainLookup';
 
 interface LedgerScannerProps {
     reports: Report[];
@@ -43,7 +44,9 @@ const LedgerScanner: React.FC<LedgerScannerProps> = ({ reports, onTargetFound })
 
         // The "MRI" Scan Simulation
         setTimeout(() => {
-            const found = reports.find(r => 
+            const blockNum = parseBlockNumberInput(inputId);
+            const byBlock = blockNum !== null ? findReportByBlockNumber(reports, blockNum) : undefined;
+            const found = byBlock || reports.find(r => 
                 r.id.toLowerCase() === inputId.toLowerCase() || 
                 r.hash.toLowerCase().includes(inputId.toLowerCase())
             );
