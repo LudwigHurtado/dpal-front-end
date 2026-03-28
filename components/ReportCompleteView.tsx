@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import QRCode from 'qrcode';
 import type { Report } from '../types';
 import { fetchEvidencePacket } from '../services/evidenceVaultService';
 import { useTranslations } from '../i18n';
@@ -19,7 +20,9 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
     const [showTechnical, setShowTechnical] = useState(false);
     const [dispatchStatus, setDispatchStatus] = useState<'IDLE' | 'SENDING' | 'SUCCESS'>('IDLE');
     const certificateRef = useRef<HTMLDivElement>(null);
-    
+    const [qrVerifyDataUrl, setQrVerifyDataUrl] = useState<string | null>(null);
+    const [qrSituationDataUrl, setQrSituationDataUrl] = useState<string | null>(null);
+
     const blockRef = report.blockNumber ? `#${report.blockNumber}` : '#PENDING';
     const txRef = report.txHash || report.blockchainRef || report.hash;
 
@@ -38,6 +41,26 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         }, 600);
         return () => clearInterval(interval);
     }, [logs.length]);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const base = window.location.origin;
+        const verify = `${base}?reportId=${encodeURIComponent(report.id)}`;
+        const situation = `${base}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`;
+        const opts = { width: 200, margin: 2, color: { dark: '#000000', light: '#ffffff' } };
+        let cancelled = false;
+        Promise.all([QRCode.toDataURL(verify, opts), QRCode.toDataURL(situation, opts)])
+            .then(([v, s]) => {
+                if (!cancelled) {
+                    setQrVerifyDataUrl(v);
+                    setQrSituationDataUrl(s);
+                }
+            })
+            .catch(() => {});
+        return () => {
+            cancelled = true;
+        };
+    }, [report.id]);
 
     const handlePrint = () => {
         window.print();
@@ -134,7 +157,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         <div className="relative min-h-screen bg-black font-mono overflow-x-hidden pb-32">
             <style>{`
                 @media print {
-                    @page { size: A4; margin: 0; }
+                    @page { size: A4; margin: 14mm 12mm; }
                     body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
                     .no-print { display: none !important; }
                     .print-area { 
@@ -145,15 +168,40 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         border: none !important; 
                         box-shadow: none !important; 
                     }
+                    .cert-print-header {
+                        flex-direction: column !important;
+                        align-items: stretch !important;
+                        gap: 14px !important;
+                        padding-bottom: 16px !important;
+                        margin-bottom: 20px !important;
+                    }
+                    .cert-print-header-inner {
+                        flex-direction: column !important;
+                        align-items: flex-start !important;
+                        gap: 12px !important;
+                    }
+                    .cert-print-validation {
+                        width: 100% !important;
+                        align-items: flex-start !important;
+                        text-align: left !important;
+                    }
+                    .cert-qr-img {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
                     .certificate-frame { 
                         border: 3px solid #000 !important; 
                         color: black !important; 
                         margin: 0 !important; 
-                        padding: 60px !important;
-                        height: 100vh !important;
+                        padding: 12mm !important;
+                        min-height: auto !important;
+                        height: auto !important;
                         width: 100% !important;
+                        max-width: 100% !important;
                         display: flex !important;
                         flex-direction: column !important;
+                        page-break-inside: auto !important;
+                        overflow: visible !important;
                     }
                     .bg-zinc-950, .bg-zinc-900, .bg-black, .bg-zinc-50 { background: white !important; color: black !important; }
                     .text-white, .text-zinc-400, .text-zinc-500, .text-zinc-900 { color: black !important; }
@@ -254,22 +302,22 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                     <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-[length:24px_24px] opacity-10 no-print"></div>
                     <div className="absolute top-0 right-0 w-96 h-96 bg-zinc-50 rounded-full -mr-48 -mt-48 opacity-20 no-print"></div>
                     
-                    {/* A. Certificate Header */}
-                    <header className="border-b-[6px] border-zinc-900 pb-12 mb-16 flex flex-col md:flex-row justify-between items-center gap-10 relative z-10">
-                        <div className="flex items-center space-x-8">
-                             <div className="w-24 h-24 bg-zinc-950 flex items-center justify-center rounded-[2rem] shadow-xl">
-                                <ShieldCheck className="w-14 h-14 text-white" />
-                             </div>
-                             <div className="text-center md:text-left space-y-2">
-                                <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none">{t('reportComplete.certTitle')}</h1>
-                                <p className="text-[11px] font-black text-zinc-500 uppercase tracking-[0.5em]">{t('reportComplete.certSubtext')}</p>
-                             </div>
+                    {/* A. Certificate Header — stacked for print so validation badge is never clipped */}
+                    <header className="cert-print-header cert-print-header-inner border-b-[6px] border-zinc-900 pb-8 mb-10 md:pb-10 md:mb-12 flex flex-col gap-6 relative z-10">
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-6 min-w-0 w-full">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-zinc-950 flex items-center justify-center rounded-[2rem] shadow-xl shrink-0">
+                                <ShieldCheck className="w-11 h-11 sm:w-14 sm:h-14 text-white" />
+                            </div>
+                            <div className="text-left space-y-2 min-w-0 flex-1">
+                                <h1 className="text-2xl sm:text-3xl md:text-5xl font-black uppercase tracking-tighter leading-tight">{t('reportComplete.certTitle')}</h1>
+                                <p className="text-[10px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-[0.35em] sm:tracking-[0.5em] leading-snug">{t('reportComplete.certSubtext')}</p>
+                            </div>
                         </div>
-                        <div className="text-right flex flex-col items-center md:items-end space-y-3">
-                             <div className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">VALIDATION_STATE</div>
-                             <div className="bg-emerald-100 text-emerald-900 border-2 border-emerald-400 px-6 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm">
-                                 {t('reportComplete.statusValue')}
-                             </div>
+                        <div className="cert-print-validation flex flex-col gap-2 w-full border border-emerald-200 bg-emerald-50/80 rounded-2xl px-4 py-3 sm:px-5 sm:py-4">
+                            <div className="text-[9px] font-black text-emerald-800/80 uppercase tracking-widest">{t('reportComplete.statusLabel')}</div>
+                            <div className="text-[10px] sm:text-[11px] font-black text-emerald-900 uppercase tracking-wide leading-snug">
+                                {t('reportComplete.statusValue')}
+                            </div>
                         </div>
                     </header>
 
@@ -320,23 +368,37 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             </section>
                         </div>
 
-                        {/* E. Sidebar: QR & Official Seal */}
-                        <div className="md:col-span-4 flex flex-col items-center justify-between py-4">
-                            <div className="bg-white border-2 border-zinc-100 p-10 rounded-[3.5rem] text-center space-y-8 shadow-xl relative w-full overflow-hidden">
-                                <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[length:12px_12px] opacity-[0.03]"></div>
-                                <div className="space-y-4 relative z-10">
-                                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{t('reportComplete.qrLabel')}</p>
-                                    <div className="bg-white p-6 rounded-[2rem] inline-block shadow-inner border border-zinc-100">
-                                        <img src={qrImageUrl} alt="Entry QR" className="w-48 h-48" />
-                                    </div>
+                        {/* E. Sidebar: embedded QR (data URLs print reliably; external QR URLs often fail in PDF) */}
+                        <div className="md:col-span-4 flex flex-col items-stretch justify-start gap-8 py-4">
+                            <div className="cert-qr-block bg-white border-2 border-zinc-100 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 shadow-xl relative w-full overflow-hidden print:border-black print:shadow-none">
+                                <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[length:12px_12px] opacity-[0.03] no-print" />
+                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest relative z-10">{t('reportComplete.qrVerifyTitle')}</p>
+                                <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border border-zinc-100 mx-auto relative z-10">
+                                    {qrVerifyDataUrl ? (
+                                        <img src={qrVerifyDataUrl} alt="" className="cert-qr-img w-44 h-44 sm:w-48 sm:h-48 object-contain" width={192} height={192} />
+                                    ) : (
+                                        <img src={qrImageUrl} alt="" className="cert-qr-img w-44 h-44 sm:w-48 sm:h-48 object-contain" width={192} height={192} />
+                                    )}
                                 </div>
-                                <p className="text-[10px] text-zinc-500 font-bold uppercase leading-relaxed px-6 relative z-10">
-                                    {t('reportComplete.qrSubtext')}
-                                </p>
+                                <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2 relative z-10">{t('reportComplete.qrSubtext')}</p>
+                                <p className="text-[8px] font-mono text-zinc-500 break-all px-1 relative z-10">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
+                            </div>
+
+                            <div className="cert-qr-block bg-zinc-50 border-2 border-zinc-200 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 relative w-full print:border-black">
+                                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t('reportComplete.qrSituationTitle')}</p>
+                                <div className="bg-white p-4 rounded-2xl inline-block border border-zinc-200 mx-auto">
+                                    {qrSituationDataUrl ? (
+                                        <img src={qrSituationDataUrl} alt="" className="cert-qr-img w-44 h-44 sm:w-48 sm:h-48 object-contain" width={192} height={192} />
+                                    ) : (
+                                        <div className="w-44 h-44 sm:w-48 sm:h-48 flex items-center justify-center text-[9px] text-zinc-400 font-bold uppercase p-2">Generating…</div>
+                                    )}
+                                </div>
+                                <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2">{t('reportComplete.qrSituationSubtext')}</p>
+                                <p className="text-[8px] font-mono text-zinc-500 break-all px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>
                             </div>
 
                             {/* OFFICIAL SEAL VISUAL */}
-                            <div className="relative mt-20 no-print lg:block hidden">
+                            <div className="relative mt-4 no-print lg:block hidden">
                                 <div className="absolute inset-0 seal-ripple bg-zinc-900/5 rounded-full scale-[2]"></div>
                                 <div className="relative w-40 h-40 border-[8px] border-zinc-900 rounded-full flex flex-col items-center justify-center p-4">
                                      <Star className="w-12 h-12 text-zinc-950 mb-1" />

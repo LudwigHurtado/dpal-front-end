@@ -317,7 +317,7 @@ const App: React.FC = () => {
     setScopedItem('directives', JSON.stringify(directives));
   }, [hero, reports, missions, directives]);
 
-  // Deep-link support: ?reportId=<id> should open the certified report view.
+  // Deep-link: ?reportId=<id> → certified report; add &situationRoom=1 → incident room when record exists locally.
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -325,6 +325,12 @@ const App: React.FC = () => {
     if (!reportId) return;
     const found = reports.find((r) => r.id === reportId);
     if (!found) return;
+    const openSituation = params.get('situationRoom') === '1' || params.get('situationRoom') === 'true';
+    if (openSituation) {
+      setSelectedReportForIncidentRoom(found);
+      setCurrentView('incidentRoom');
+      return;
+    }
     setCompletedReport(found);
     setCurrentView('reportComplete');
   }, [reports]);
