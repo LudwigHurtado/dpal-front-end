@@ -150,9 +150,9 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                 ))}
             </nav>
 
-            <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-visible relative h-full">
+            <main className="flex-grow grid grid-cols-1 lg:grid-cols-12 lg:items-start gap-0 overflow-visible relative min-h-0">
                 {/* SIDEBAR: CASE DATA & FORENSICS */}
-                <div className={`transition-all duration-500 flex flex-col ${isSidebarCollapsed ? 'lg:col-span-0 opacity-0 w-0 pointer-events-none' : 'lg:col-span-4 border-r-4 border-zinc-800 bg-zinc-900/20 opacity-100'}`}>
+                <div className={`transition-all duration-500 flex flex-col min-h-0 ${isSidebarCollapsed ? 'lg:col-span-0 opacity-0 w-0 pointer-events-none' : 'lg:col-span-4 border-r-4 border-zinc-800 bg-zinc-900/20 opacity-100'}`}>
                     <div className="flex-grow overflow-y-auto custom-scrollbar p-6 md:p-10 space-y-8 md:space-y-12 h-full">
                         {/* CASE METADATA SECTION */}
                         <section className="space-y-6">
@@ -264,14 +264,18 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     </div>
                 </div>
 
-                {/* MAIN CHAT AREA */}
-                <div className={`transition-all duration-500 bg-black flex flex-col relative ${isSidebarCollapsed ? 'lg:col-span-12' : 'lg:col-span-8'}`}>
+                {/* MAIN CHAT AREA — capped to viewport so thread stays high in the window, not stretched below a tall sidebar */}
+                <div
+                    className={`transition-all duration-500 bg-black flex flex-col relative min-h-0 w-full lg:max-h-[calc(100vh-9.5rem)] lg:sticky lg:top-0 ${
+                        isSidebarCollapsed ? 'lg:col-span-12' : 'lg:col-span-8'
+                    }`}
+                >
                     {errorBanner && (
-                        <div className="m-4 p-3 rounded-xl border border-amber-600/40 bg-amber-950/30 text-amber-300 text-[10px] font-black uppercase tracking-wider">
+                        <div className="m-4 p-3 rounded-xl border border-amber-600/40 bg-amber-950/30 text-amber-300 text-[10px] font-black uppercase tracking-wider shrink-0">
                             {errorBanner}
                         </div>
                     )}
-                    <div className="flex-grow flex flex-col min-h-[600px] border-l-4 border-zinc-900 shadow-[inset_20px_0_60px_rgba(0,0,0,0.8)] h-full overflow-hidden">
+                    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden border-l-4 border-zinc-900 shadow-[inset_20px_0_60px_rgba(0,0,0,0.8)] max-h-[calc(100dvh-11rem)] sm:max-h-[calc(100dvh-10rem)] lg:max-h-full">
                         <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
                     </div>
                 </div>

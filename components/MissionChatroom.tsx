@@ -185,7 +185,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     };
 
     return (
-        <div className="flex flex-col min-h-[600px] h-full bg-zinc-950 font-mono relative">
+        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-zinc-950 font-mono relative">
             <style>{`
                 @keyframes waveform { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }
                 .animate-waveform { animation: waveform 0.8s ease-in-out infinite; }
@@ -217,10 +217,10 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                 )}
             </div>
 
-            {/* MESSAGES */}
-            <div ref={scrollRef} className="flex-grow p-8 space-y-8 overflow-y-auto custom-scrollbar">
+            {/* MESSAGES — flex-1 + min-h-0 keeps scroll region high in the panel */}
+            <div ref={scrollRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4 pt-3 md:space-y-8 md:px-6 md:pb-6 md:pt-4 custom-scrollbar">
                 {messages.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center min-h-[400px] opacity-10 space-y-6">
+                    <div className="flex min-h-[min(240px,40vh)] flex-col items-center justify-center opacity-10 space-y-4 py-8">
                         <Broadcast className="w-16 h-16 text-zinc-600" />
                         <p className="text-sm font-black uppercase tracking-[0.6em]">Establishing_Link...</p>
                     </div>
@@ -264,7 +264,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             </div>
 
             {/* INPUT FOOTER */}
-            <div className="p-8 bg-zinc-900 border-t border-zinc-800 flex-shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+            <div className="flex-shrink-0 border-t border-zinc-800 bg-zinc-900 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:p-6">
                 {uploadHint && (
                     <div className="mb-4 text-[10px] font-black uppercase tracking-widest text-cyan-400">
                         {uploadHint}
@@ -306,7 +306,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         placeholder={isRecording ? "Transcribing operative vox..." : isLocating ? "Awaiting GPS coordinates..." : "Input analytical broadcast data..."}
-                        className={`flex-grow bg-zinc-950 border-2 border-zinc-800 rounded-2xl px-8 py-5 text-base font-bold focus:outline-none focus:border-emerald-500 transition-all text-white placeholder:text-zinc-800 shadow-inner ${isRecording ? 'border-rose-500/30' : ''}`}
+                        className={`min-w-0 flex-1 rounded-2xl border-2 border-zinc-800 bg-zinc-950 px-5 py-3.5 text-base font-bold text-white shadow-inner transition-all placeholder:text-zinc-800 focus:border-emerald-500 focus:outline-none md:px-8 md:py-4 ${isRecording ? 'border-rose-500/30' : ''}`}
                     />
                     
                     <button type="submit" disabled={!inputText.trim() && !attachment && !audioAttachment} className="p-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl disabled:opacity-20 transition-all shadow-2xl active:scale-95 border-b-4 border-emerald-800">
