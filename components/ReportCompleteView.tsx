@@ -77,6 +77,25 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         runQrLoad();
     }, [runQrLoad]);
 
+    /** Best-effort refresh when user uses Ctrl+P / browser Print→PDF (not only the Print button). */
+    useEffect(() => {
+        const onBeforePrint = () => {
+            void loadQrImages()
+                .then(([v, s]) => {
+                    flushSync(() => {
+                        setQrVerifyDataUrl(v);
+                        setQrSituationDataUrl(s);
+                    });
+                })
+                .catch(() => {});
+        };
+        if (typeof window !== 'undefined') {
+            window.addEventListener('beforeprint', onBeforePrint);
+            return () => window.removeEventListener('beforeprint', onBeforePrint);
+        }
+        return undefined;
+    }, [loadQrImages]);
+
     const handlePrint = useCallback(async () => {
         if (typeof window === 'undefined') return;
         try {
