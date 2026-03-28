@@ -1,5 +1,4 @@
 import { getApiBase } from '../constants';
-import { featureFlags } from '../features/featureFlags';
 import { findReportByBlockNumber } from '../utils/blockchainLookup';
 import { Category, type Report } from '../types';
 
@@ -8,7 +7,6 @@ import { Category, type Report } from '../types';
  * Backend can implement: GET /api/reports/lookup?blockNumber=12345 → { reportId: "rep-..." }
  */
 export async function fetchReportIdByBlockNumber(blockNumber: number): Promise<string | null> {
-  if (!featureFlags.blockchainAnchorEnabled) return null;
   try {
     const apiBase = getApiBase();
     const res = await fetch(`${apiBase}/api/reports/lookup?blockNumber=${encodeURIComponent(String(blockNumber))}`);

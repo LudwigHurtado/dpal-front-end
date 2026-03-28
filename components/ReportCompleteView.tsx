@@ -34,7 +34,11 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
     const [qrLoading, setQrLoading] = useState(true);
     const [qrError, setQrError] = useState(false);
 
-    const blockRef = report.blockNumber ? `#${report.blockNumber}` : '#PENDING';
+    const blockRef = report.blockNumber != null ? `#${report.blockNumber}` : '#PENDING';
+    const ledgerBlockDigits =
+        report.blockNumber != null && Number.isFinite(Number(report.blockNumber))
+            ? String(report.blockNumber)
+            : null;
     const txRef = report.txHash || report.blockchainRef || report.hash;
 
     const logs = [
@@ -306,6 +310,11 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                     .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-micro {
                         color: #92400e !important;
                     }
+                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-blocknum {
+                        color: #451a03 !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
                     .certificate-frame .cert-stamp-compliance {
                         background: linear-gradient(160deg, #fecaca 0%, #dc2626 55%, #991b1b 100%) !important;
                         border: 6px double #7f1d1d !important;
@@ -319,6 +328,11 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                     }
                     .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-micro {
                         color: #fecaca !important;
+                    }
+                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-block {
+                        color: #ffffff !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
                     }
                     .certificate-frame { 
                         border: 3px solid #000 !important; 
@@ -509,13 +523,19 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">Certification Stamps</p>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                     <div
-                                        className="cert-stamp-dpal rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-5 border-[6px] border-double border-amber-800 bg-gradient-to-br from-amber-50 via-amber-200 to-amber-600 shadow-inner"
+                                        className="cert-stamp-dpal rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-4 border-[6px] border-double border-amber-800 bg-gradient-to-br from-amber-50 via-amber-200 to-amber-600 shadow-inner"
                                         aria-label="DPAL verified stamp"
                                     >
                                         <p className="cert-stamp-dpal-brand text-2xl font-black tracking-tighter text-amber-950 leading-none mb-1">DPAL</p>
                                         <p className="cert-stamp-dpal-sub text-[9px] font-black uppercase tracking-[0.35em] text-amber-900">Verified</p>
-                                        <ShieldCheck className="w-9 h-9 text-amber-800 mt-2 mb-1 drop-shadow-sm" />
-                                        <p className="cert-stamp-dpal-micro text-[7px] font-black uppercase tracking-widest text-amber-900/90 mt-1">RSA-4096</p>
+                                        <ShieldCheck className="w-8 h-8 text-amber-800 mt-1.5 mb-0.5 drop-shadow-sm" />
+                                        <p className="cert-stamp-dpal-micro text-[7px] font-black uppercase tracking-widest text-amber-900/90 mt-0.5">RSA-4096</p>
+                                        <p className="cert-stamp-dpal-micro text-[7px] font-black uppercase tracking-[0.2em] text-amber-900/80 mt-1">
+                                            {t('reportComplete.stampLedgerBlockLine')}
+                                        </p>
+                                        <p className="cert-stamp-dpal-blocknum font-mono text-sm font-black tabular-nums text-amber-950 leading-tight mt-0.5 px-1">
+                                            {ledgerBlockDigits ?? t('reportComplete.stampLedgerPending')}
+                                        </p>
                                     </div>
                                     <div
                                         className="cert-stamp-compliance rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-5 border-[6px] border-double border-red-900 bg-gradient-to-br from-red-300 via-red-600 to-red-900 shadow-inner"
@@ -524,7 +544,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                         <Star className="w-11 h-11 text-white mb-2 drop-shadow-md" />
                                         <p className="cert-stamp-compliance-title text-[9px] font-black uppercase tracking-[0.28em] text-white leading-tight">Compliance</p>
                                         <p className="cert-stamp-compliance-sub text-[9px] font-black uppercase tracking-[0.28em] text-white leading-tight mt-0.5">Certified</p>
-                                        <p className="cert-stamp-compliance-micro text-[7px] font-black uppercase tracking-widest text-red-100 mt-2">Auto verification</p>
+                                        <p className="cert-stamp-compliance-micro text-[7px] font-black uppercase tracking-widest text-red-100 mt-1">Auto verification</p>
+                                        {ledgerBlockDigits && (
+                                            <p className="cert-stamp-compliance-block font-mono text-[8px] font-black tabular-nums text-white/95 mt-1.5 px-1">
+                                                #{ledgerBlockDigits}
+                                            </p>
+                                        )}
                                     </div>
                                 </div>
                             </section>
@@ -566,9 +591,15 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                          <p className="text-[10px] text-zinc-500 font-bold uppercase max-w-2xl text-center md:text-left leading-relaxed tracking-wider">
                              {t('reportComplete.footerNote')}
                          </p>
-                         <div className="flex flex-col items-center md:items-end space-y-2">
+                         <div className="flex flex-col items-center md:items-end space-y-2 text-right max-w-md">
                             <p className="text-[11px] font-black uppercase tracking-widest text-zinc-950 leading-none">{t('reportComplete.digitallyCertified')}</p>
+                            {ledgerBlockDigits && (
+                                <p className="text-[9px] font-mono text-zinc-700 font-bold">LEDGER_BLOCK: {ledgerBlockDigits}</p>
+                            )}
                             <p className="text-[9px] font-mono text-zinc-400">LEDGER_ANCHOR: {report.hash.substring(0, 32).toUpperCase()}...</p>
+                            {ledgerBlockDigits && (
+                                <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide leading-snug">{t('reportComplete.stampLookupHint')}</p>
+                            )}
                          </div>
                     </footer>
                 </div>
