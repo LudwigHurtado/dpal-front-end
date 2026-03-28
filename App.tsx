@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
 import './styles/mobile-theme.css';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import FilterPanel from './components/FilterPanel';
 import MainContentPanel from './components/MainContentPanel';
@@ -100,6 +100,27 @@ const isMobileDeviceProfile = (): boolean => {
 
 const DEVICE_PROFILE = isMobileDeviceProfile() ? 'mobile' : 'desktop';
 const scopedKey = (key: string) => `dpal-${DEVICE_PROFILE}-${key}`;
+
+/** Rolling window so scroll-to-top on navigation is the default for at least 3 hours (survives refresh). */
+const SCROLL_TOP_SESSION_UNTIL_KEY = scopedKey('scroll-top-session-until');
+const SCROLL_TOP_SESSION_MS = 3 * 60 * 60 * 1000;
+
+function refreshScrollTopSessionWindow(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SCROLL_TOP_SESSION_UNTIL_KEY, String(Date.now() + SCROLL_TOP_SESSION_MS));
+  } catch {
+    /* ignore */
+  }
+}
+
+function scrollWindowToTop(): void {
+  if (typeof window === 'undefined') return;
+  window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
+  document.getElementById('root')?.scrollTo?.(0, 0);
+}
 
 const getScopedItem = (key: string, legacyKey?: string): string | null => {
   const next = localStorage.getItem(scopedKey(key));
@@ -267,6 +288,19 @@ const App: React.FC = () => {
   }, []);
   const useMobileLayout = isMobileViewport;
   const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'community';
+
+  useLayoutEffect(() => {
+    if (typeof window === 'undefined') return;
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    refreshScrollTopSessionWindow();
+    scrollWindowToTop();
+    const id = requestAnimationFrame(() => {
+      scrollWindowToTop();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [currentView]);
 
   useEffect(() => { setScopedItem('offline-mode', String(isOfflineMode)); }, [isOfflineMode]);
 
