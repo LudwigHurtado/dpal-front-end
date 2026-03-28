@@ -70,6 +70,7 @@ import { createEvidenceRecords } from './services/evidenceVaultService';
 import { resolveReportByBlockNumber } from './services/blockchainLookupService';
 import { parseBlockNumberInput } from './utils/blockchainLookup';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
+import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
 import { useTranslations } from './i18n';
 
 export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
@@ -239,14 +240,39 @@ const getInitialHero = (): Hero => {
   return base;
 };
 
+function getInitialCurrentView(): View {
+  if (typeof window === 'undefined') return 'mainMenu';
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('view') === 'storage') return 'storage';
+  const nav = readNavSession();
+  if (nav?.currentView) {
+    /** Completion views need in-memory payload; fall back to hub after refresh. */
+    if (nav.currentView === 'reportComplete') return 'hub';
+    return nav.currentView as View;
+  }
+  return 'mainMenu';
+}
+
+function getInitialViewHistory(): View[] {
+  if (typeof window === 'undefined') return [];
+  const nav = readNavSession();
+  if (!nav?.viewHistory?.length) return [];
+  return nav.viewHistory as View[];
+}
+
+function getInitialCategoryForSubmission(): Category | null {
+  if (typeof window === 'undefined') return null;
+  return categoryFromSession(readNavSession()?.selectedCategoryForSubmission ?? null);
+}
+
+function getInitialGatewayCategory(): Category | null {
+  if (typeof window === 'undefined') return null;
+  return categoryFromSession(readNavSession()?.gatewayCategory ?? null);
+}
+
 const App: React.FC = () => {
   const [reports, setReports] = useState<Report[]>(getInitialReports);
-  const [currentView, setCurrentView] = useState<View>(() => {
-    if (typeof window === 'undefined') return 'mainMenu';
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('view') === 'storage') return 'storage';
-    return 'mainMenu';
-  });
+  const [currentView, setCurrentView] = useState<View>(getInitialCurrentView);
   const [prevView, setPrevView] = useState<View>('mainMenu');
 
   const [heroHubTab, setHeroHubTab] = useState<HeroHubTab>('profile');
@@ -259,7 +285,7 @@ const App: React.FC = () => {
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const [filters, setFilters] = useState({ keyword: '', selectedCategories: [] as Category[], location: '', });
 
-  const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(null);
+  const [selectedCategoryForSubmission, setSelectedCategoryForSubmission] = useState<Category | null>(getInitialCategoryForSubmission);
   const [submissionPrefill, setSubmissionPrefill] = useState<string>('');
   const [selectedIntelForMission, setSelectedIntelForMission] = useState<IntelItem | null>(null);
   const [initialCategoriesForIntel, setInitialCategoriesForIntel] = useState<Category[]>([]);
@@ -290,17 +316,47 @@ const App: React.FC = () => {
     return [];
   });
 
-  const [viewHistory, setViewHistory] = useState<View[]>([]);
-  const viewRef = useRef<View>('mainMenu');
+  const [viewHistory, setViewHistory] = useState<View[]>(getInitialViewHistory);
+  const viewRef = useRef<View>(getInitialCurrentView());
   const backNavRef = useRef(false);
   /** Incremented when Help is chosen so category selection can focus Digital + Next (DPAL Help sector). */
   const [helpSectorFocusSignal, setHelpSectorFocusSignal] = useState(0);
 
-  const [gatewayCategory, setGatewayCategory] = useState<Category | null>(null);
+  const [gatewayCategory, setGatewayCategory] = useState<Category | null>(getInitialGatewayCategory);
   const [modeShell, setModeShell] = useState<{ category: Category; mode: CategoryMode } | null>(null);
+
+  const [showNavRestoreTip, setShowNavRestoreTip] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    const nav = readNavSession();
+    return Boolean(nav && (nav.viewHistory?.length ?? 0) > 0);
+  });
 
   const { t } = useTranslations();
   const { state: flowState, actions: flowActions } = useDPALFlow();
+
+  /** Persist navigation so refresh / reload returns to the reporting flow (not a blank or home-only state). */
+  useEffect(() => {
+    writeNavSession({
+      currentView,
+      viewHistory: viewHistory.map(String),
+      selectedCategoryForSubmission: selectedCategoryForSubmission ?? null,
+      gatewayCategory: gatewayCategory ?? null,
+    });
+  }, [currentView, viewHistory, selectedCategoryForSubmission, gatewayCategory]);
+
+  /** After refresh, avoid impossible routes (e.g. report form without a category). */
+  useLayoutEffect(() => {
+    if (currentView === 'reportSubmission' && !selectedCategoryForSubmission) {
+      setCurrentView('categorySelection');
+    }
+  }, [currentView, selectedCategoryForSubmission]);
+
+  useLayoutEffect(() => {
+    if (currentView === 'reportComplete' && !completedReport) {
+      setCurrentView('hub');
+      setHubTab('my_reports');
+    }
+  }, [currentView, completedReport]);
 
   /* Mobile: single layout for all viewports; hide header on small screens for space */
   const [isMobileViewport, setIsMobileViewport] = useState(() => typeof window !== 'undefined' && window.innerWidth < 768);
@@ -928,6 +984,23 @@ const App: React.FC = () => {
   return (
     <ActiveLayout>
     <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
+      {showNavRestoreTip && (
+        <div
+          role="status"
+          className="sticky top-0 z-[200] flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 bg-cyan-950/95 border-b border-cyan-800 text-cyan-50 text-[11px] sm:text-xs font-semibold leading-snug"
+        >
+          <span className="min-w-0 flex-1">
+            Session restored — use the app <strong className="font-black">Back</strong> buttons to return step by step. Browser Back can skip in-app history.
+          </span>
+          <button
+            type="button"
+            className="shrink-0 px-3 py-1.5 rounded-xl bg-cyan-800 hover:bg-cyan-700 text-white text-[10px] font-black uppercase tracking-wide"
+            onClick={() => setShowNavRestoreTip(false)}
+          >
+            OK
+          </button>
+        </div>
+      )}
       {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'reportWorkPanel' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 

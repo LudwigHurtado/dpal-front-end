@@ -94,6 +94,18 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
   const [safetyConfirmed, setSafetyConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const attachmentsRef = useRef<AttachedFile[]>([]);
+  attachmentsRef.current = attachments;
+
+  const MAX_EVIDENCE_FILES = 16;
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((a) => {
+        if (a.preview) URL.revokeObjectURL(a.preview);
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!config) return;
@@ -211,8 +223,21 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
       else if (file.type.startsWith('audio/')) type = 'audio';
       return { file, preview: type === 'image' ? URL.createObjectURL(file) : null, type };
     });
-    setAttachments((prev) => [...prev, ...next]);
+    setAttachments((prev) => {
+      const room = MAX_EVIDENCE_FILES - prev.length;
+      if (room <= 0) return prev;
+      const add = next.slice(0, room);
+      return [...prev, ...add];
+    });
     e.target.value = '';
+  };
+
+  const removeAttachmentAt = (i: number) => {
+    setAttachments((prev) => {
+      const removed = prev[i];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, j) => j !== i);
+    });
   };
 
   const submit = () => {
@@ -537,7 +562,7 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
                               <button
                                 type="button"
                                 className="absolute top-0 right-0 bg-black/60 text-white text-[10px] px-1"
-                                onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                                onClick={() => removeAttachmentAt(i)}
                               >
                                 ×
                               </button>
