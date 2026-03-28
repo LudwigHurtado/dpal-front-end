@@ -1,9 +1,9 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React from 'react';
 import { Category, Report, EducationRole } from '../types';
 import { CATEGORIES_WITH_ICONS, EDUCATION_ROLES } from '../constants';
 import SubmissionPanel from './SubmissionPanel';
-import { ArrowLeft, ChevronLeft, ChevronRight, Database, ShieldCheck, X } from './icons';
+import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
 
 interface ReportSubmissionViewProps {
@@ -53,36 +53,6 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
 
     const isAccidents = category === Category.AccidentsRoadHazards;
-    const guideSlides = useMemo(() => ([
-        { src: '/reports/guides/accidents-road-hazards/step-1.png', alt: 'Reporting guide step 1' },
-        { src: '/reports/guides/accidents-road-hazards/step-2.png', alt: 'Reporting guide step 2' },
-        { src: '/reports/guides/accidents-road-hazards/step-3.png', alt: 'Reporting guide step 3' },
-    ]), []);
-    const guideStorageKey = 'dpal-accidents-road-hazards-guide-dismissed-v1';
-    const [guideOpen, setGuideOpen] = useState(false);
-    const [guideIndex, setGuideIndex] = useState(0);
-
-    useEffect(() => {
-        if (!isAccidents) {
-            setGuideOpen(false);
-            return;
-        }
-        try {
-            const dismissed = localStorage.getItem(guideStorageKey) === '1';
-            setGuideOpen(!dismissed);
-            setGuideIndex(0);
-        } catch {
-            setGuideOpen(true);
-            setGuideIndex(0);
-        }
-    }, [isAccidents]);
-
-    const closeGuide = (persist: boolean) => {
-        if (persist) {
-            try { localStorage.setItem(guideStorageKey, '1'); } catch { /* ignore */ }
-        }
-        setGuideOpen(false);
-    };
 
     return (
         <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-32 px-4">
@@ -97,76 +67,6 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                 }
             `}</style>
 
-            {guideOpen && isAccidents && (
-                <div className="fixed inset-0 z-[300] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-5xl bg-zinc-950 border-2 border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                        <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
-                            <div>
-                                <div className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-400">DPAL · Reporting guide</div>
-                                <div className="text-sm font-black uppercase tracking-widest text-white mt-1">
-                                    Accidents & Road Hazards
-                                </div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => closeGuide(false)}
-                                className="p-2 rounded-2xl border border-zinc-800 hover:bg-zinc-900"
-                                aria-label="Close guide"
-                            >
-                                <X className="w-5 h-5 text-zinc-200" />
-                            </button>
-                        </div>
-
-                        <div className="bg-black">
-                            <img
-                                src={guideSlides[guideIndex]?.src}
-                                alt={guideSlides[guideIndex]?.alt}
-                                className="w-full h-auto select-none"
-                                draggable={false}
-                            />
-                        </div>
-
-                        <div className="px-5 py-4 border-t border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
-                                Step {guideIndex + 1} of {guideSlides.length}
-                            </div>
-
-                            <div className="flex items-center justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={() => setGuideIndex((i) => Math.max(0, i - 1))}
-                                    disabled={guideIndex === 0}
-                                    className="px-4 py-2 rounded-2xl border border-zinc-800 bg-zinc-950 text-zinc-200 hover:bg-zinc-900 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                                >
-                                    <ChevronLeft className="w-4 h-4" />
-                                    Back
-                                </button>
-
-                                {guideIndex < guideSlides.length - 1 ? (
-                                    <button
-                                        type="button"
-                                        onClick={() => setGuideIndex((i) => Math.min(guideSlides.length - 1, i + 1))}
-                                        className="px-4 py-2 rounded-2xl border border-cyan-500/50 bg-cyan-600 text-white hover:bg-cyan-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                                    >
-                                        Next
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => closeGuide(true)}
-                                        className="px-4 py-2 rounded-2xl border border-emerald-500/40 bg-emerald-600 text-white hover:bg-emerald-500 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
-                                    >
-                                        Start report
-                                        <ChevronRight className="w-4 h-4" />
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-            
             {/* Header */}
             {isAccidents ? (
                 <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
