@@ -165,12 +165,12 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
           </div>
         </div>
 
-        <div className="relative z-0 flex-1 min-h-[220px] rounded-[2rem] overflow-hidden border border-white/10 bg-black/20">
+        <div className="relative z-0 flex-1 min-h-[240px] sm:min-h-[260px] rounded-[2rem] overflow-hidden border border-white/10 bg-zinc-950/80">
           {!hiddenCategoryImages[cat.value] && (
             <img
               src={getCategoryCardImageSrc(cat.value)}
               alt=""
-              className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
+              className="absolute inset-0 w-full h-full object-contain object-center p-1 opacity-100 transition-opacity"
               onError={() =>
                 setHiddenCategoryImages((prev) => ({
                   ...prev,

@@ -8,13 +8,13 @@ interface SectorHeroBannerProps {
 
 const SectorHeroBanner: React.FC<SectorHeroBannerProps> = ({ sector, imageSrc }) => {
   return (
-    <div className="relative overflow-hidden rounded-[2rem] border border-zinc-800 min-h-[220px]">
+    <div className="relative overflow-hidden rounded-[2rem] border border-zinc-800 min-h-[260px] bg-zinc-950">
       <img
         src={imageSrc}
         alt=""
-        className="absolute inset-0 h-full w-full object-cover opacity-100 saturate-[1.06]"
+        className="absolute inset-0 h-full w-full object-contain object-center opacity-100 saturate-[1.06]"
       />
-      <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/65 via-zinc-950/25 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-zinc-950/70 via-zinc-950/30 to-transparent pointer-events-none" />
       <div className="relative p-6 md:p-8">
         <p className="text-[10px] font-black tracking-[0.28em] uppercase text-cyan-300">Next View Active</p>
         <h2 className="mt-3 text-2xl md:text-3xl font-black uppercase tracking-tight text-white">

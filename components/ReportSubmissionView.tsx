@@ -59,50 +59,71 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     if (isEducation) {
         return (
             <div className="animate-fade-in font-sans text-stone-900 max-w-7xl mx-auto pb-32 px-4">
-                <div className="rounded-[2rem] bg-gradient-to-br from-violet-100/95 via-stone-50 to-amber-50 border border-stone-200/90 shadow-md p-6 md:p-10 mb-8 relative overflow-hidden">
-                    <button
-                        type="button"
-                        onClick={onReturn}
-                        className="mb-6 inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-800 bg-white/80 px-4 py-2 rounded-xl border border-violet-200/80 shadow-sm hover:bg-white"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back
-                    </button>
-                    <div className="flex flex-col md:flex-row md:items-center gap-6 relative z-10">
-                        <div className="text-5xl md:text-6xl drop-shadow-sm">{categoryInfo.icon}</div>
-                        <div>
-                            <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Education · Mission report</p>
-                            <h2 className="text-2xl md:text-4xl font-bold text-stone-900 tracking-tight mt-1">{categoryInfo.headline}</h2>
-                            <p className="text-stone-600 text-sm mt-2 max-w-2xl leading-relaxed">
-                                Assemble the case: pick how you want to enter, choose a report path and your role, then fill the caseboard — structured, serious, and built for accountability.
-                            </p>
+                <div className="rounded-[2rem] bg-gradient-to-br from-violet-100/95 via-stone-50 to-amber-50 border border-stone-200/90 shadow-md mb-8 overflow-hidden">
+                    <div className="p-6 md:p-8 pb-4">
+                        <button
+                            type="button"
+                            onClick={onReturn}
+                            className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-800 bg-white/90 px-4 py-2 rounded-xl border border-violet-200/80 shadow-sm hover:bg-white"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Back
+                        </button>
+                    </div>
+                    <div className="w-full bg-stone-200/40 border-y border-stone-200/80">
+                        <div className="mx-auto flex min-h-[min(52vh,520px)] max-h-[min(70vh,640px)] w-full items-center justify-center px-4 py-6 md:px-8 md:py-10">
+                            <img
+                                src={imageUrl}
+                                alt=""
+                                className="max-h-[min(52vh,520px)] w-full max-w-4xl object-contain object-center"
+                                draggable={false}
+                            />
                         </div>
                     </div>
-                    <img src={imageUrl} alt="" className="absolute right-0 bottom-0 w-56 md:w-72 opacity-[0.12] pointer-events-none select-none object-contain" draggable={false} />
+                    <div className="p-6 md:p-10 pt-6">
+                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                            <div className="text-5xl md:text-6xl shrink-0">{categoryInfo.icon}</div>
+                            <div>
+                                <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Education · Mission report</p>
+                                <h2 className="text-2xl md:text-4xl font-bold text-stone-900 tracking-tight mt-1">{categoryInfo.headline}</h2>
+                                <p className="text-stone-600 text-sm mt-2 max-w-2xl leading-relaxed">
+                                    Assemble the case: pick how you want to enter, choose a report path and your role, then fill the caseboard — structured, serious, and built for accountability.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <EducationCaseboardReport addReport={addReport} prefilledDescription={prefilledDescription} />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
-                    <div className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between">
-                        <div className="flex items-center gap-5">
-                            <div className="w-16 h-16 rounded-2xl bg-violet-100 border border-violet-200 flex items-center justify-center text-3xl">
+                <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12" aria-label="Session statistics">
+                    <div
+                        role="status"
+                        className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
+                    >
+                        <div className="flex items-center gap-5 min-w-0">
+                            <div className="w-16 h-16 rounded-2xl bg-violet-100 border border-violet-200 flex items-center justify-center text-3xl shrink-0" aria-hidden>
                                 {roleInfo?.icon || '🛡️'}
                             </div>
                             <div>
-                                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Hero role</p>
+                                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Hero role (from your profile)</p>
                                 <p className="text-lg font-bold text-stone-900">{roleInfo ? t(roleInfo.translationKey) : 'Standard citizen'}</p>
+                                <p className="text-xs text-stone-400 mt-1">Informational only — not a button.</p>
                             </div>
                         </div>
-                        <ShieldCheck className="w-10 h-10 text-emerald-500/30" />
+                        <ShieldCheck className="w-10 h-10 text-emerald-500/30 shrink-0 pointer-events-none" aria-hidden />
                     </div>
-                    <div className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                    <div
+                        role="status"
+                        className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
+                    >
                         <div>
-                            <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1">Ledger volume</p>
+                            <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1">Ledger volume (live count)</p>
                             <p className="text-4xl font-bold text-stone-900 tabular-nums">{totalReports.toLocaleString()}</p>
-                            <p className="text-xs text-stone-500 mt-1">Reports indexed network-wide</p>
+                            <p className="text-xs text-stone-500 mt-1">Reports in this session index</p>
+                            <p className="text-xs text-stone-400 mt-1">Informational only — not a button.</p>
                         </div>
-                        <Database className="w-10 h-10 text-violet-300" />
+                        <Database className="w-10 h-10 text-violet-300 shrink-0 pointer-events-none" aria-hidden />
                     </div>
-                </div>
+                </section>
             </div>
         );
     }
@@ -122,18 +143,21 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
 
             {/* Header */}
             {isAccidents ? (
-                <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
-                    {/* BACKGROUND IMAGE */}
-                    <img src={imageUrl} alt="" draggable={false} className="absolute inset-0 w-full h-full object-contain" />
-
-                    {/* DARK OVERLAY */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20" />
-
-                    {/* CONTENT (inside hero) */}
-                    <div className="absolute inset-0 z-10 p-6 md:p-8 flex items-start">
+                <div className="relative mb-12 overflow-hidden rounded-[4rem] border-2 border-zinc-800 bg-black shadow-4xl">
+                    <div className="flex min-h-[280px] w-full items-center justify-center px-4 py-8 md:min-h-[min(48vh,480px)] md:px-8 md:py-12">
+                        <img
+                            src={imageUrl}
+                            alt=""
+                            draggable={false}
+                            className="max-h-[min(64vh,620px)] w-full max-w-6xl object-contain object-center"
+                        />
+                    </div>
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
+                    <div className="absolute inset-0 z-10 flex flex-col p-6 md:p-8">
                         <button
+                            type="button"
                             onClick={onReturn}
-                            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-white bg-black/50 px-5 py-2 rounded-2xl border border-white/10 backdrop-blur"
+                            className="pointer-events-auto flex w-fit items-center gap-2 rounded-2xl border border-white/10 bg-black/55 px-5 py-2 text-[10px] font-black uppercase tracking-[0.4em] text-white backdrop-blur"
                         >
                             <ArrowLeft className="w-5 h-5" />
                             <span>Back</span>
@@ -141,40 +165,35 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                     </div>
                 </div>
             ) : (
-                <div className="relative h-[15rem] md:h-[20rem] rounded-[4rem] overflow-hidden mb-12 border-2 border-zinc-800 shadow-4xl">
-                    {/* BACKGROUND IMAGE */}
-                    <img src={imageUrl} alt="" draggable={false} className="absolute inset-0 w-full h-full object-contain" />
-
-                    {/* DARK OVERLAY */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/45 to-black/20 pointer-events-none" />
-
-                    {/* CONTENT (inside hero) */}
-                    <div className="absolute inset-0 z-10 flex items-center px-6 md:px-10">
-                        <div className="flex items-center space-x-6">
-                            {/* ICON */}
-                            <div className="bg-cyan-500/10 border border-cyan-400/30 rounded-2xl p-5 backdrop-blur-xl flex-shrink-0">
-                                <span className="text-4xl md:text-5xl leading-none">{categoryInfo.icon}</span>
-                            </div>
-
-                            {/* TEXT */}
-                            <div>
-                                <p className="text-cyan-400 text-xs tracking-widest mb-1">FILE A REPORT</p>
-                                <h2 className="text-white text-2xl md:text-4xl font-black leading-tight uppercase">
-                                    {categoryInfo.headline}
-                                </h2>
-                            </div>
-                        </div>
+                <div className="relative mb-12 overflow-hidden rounded-[4rem] border-2 border-zinc-800 bg-black shadow-4xl">
+                    <div className="flex min-h-[280px] w-full items-center justify-center px-4 py-8 md:min-h-[min(48vh,480px)] md:px-8 md:py-12">
+                        <img
+                            src={imageUrl}
+                            alt=""
+                            draggable={false}
+                            className="max-h-[min(64vh,620px)] w-full max-w-6xl object-contain object-center"
+                        />
                     </div>
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/15" />
 
-                    {/* BACK BUTTON */}
-                    <div className="absolute top-6 left-6 z-20">
+                    <div className="absolute inset-0 z-10 flex flex-col justify-between p-6 md:p-8">
                         <button
+                            type="button"
                             onClick={onReturn}
-                            className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 bg-black/60 w-fit px-6 py-2 rounded-full border border-cyan-500/20 backdrop-blur-md"
+                            className="flex w-fit items-center space-x-3 rounded-full border border-cyan-500/25 bg-black/65 px-6 py-2 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 backdrop-blur-md"
                         >
                             <ArrowLeft className="w-5 h-5" />
                             <span>Back</span>
                         </button>
+                        <div className="flex max-w-xl items-center space-x-6">
+                            <div className="flex-shrink-0 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-5 backdrop-blur-xl">
+                                <span className="text-4xl md:text-5xl leading-none">{categoryInfo.icon}</span>
+                            </div>
+                            <div>
+                                <p className="mb-1 text-xs tracking-widest text-cyan-400">FILE A REPORT</p>
+                                <h2 className="text-2xl font-black uppercase leading-tight text-white md:text-4xl">{categoryInfo.headline}</h2>
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}
@@ -188,43 +207,42 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                 />
             </div>
 
-            {/* Bottom Metadata Shards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
-                <div className="bg-zinc-900/60 border-2 border-zinc-800 p-8 rounded-[3rem] shadow-xl backdrop-blur-sm flex items-center justify-between group">
-                    <div className="flex items-center space-x-8">
-                        <div className="w-20 h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center text-5xl border-2 border-zinc-800 flex-shrink-0 shadow-inner group-hover:border-cyan-500/30 transition-colors">
+            {/* Bottom: live stats only (not interactive) */}
+            <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12" aria-label="Session statistics">
+                <div role="status" className="bg-zinc-900/60 border-2 border-zinc-800 p-8 rounded-[3rem] shadow-xl backdrop-blur-sm flex items-center justify-between">
+                    <div className="flex items-center space-x-8 min-w-0">
+                        <div className="w-20 h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center text-5xl border-2 border-zinc-800 flex-shrink-0 shadow-inner" aria-hidden>
                             {roleInfo?.icon || '🛡️'}
                         </div>
                         <div>
                             <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Authorized_Role</p>
                             <p className="text-2xl font-black text-white uppercase tracking-tight">{roleInfo ? t(roleInfo.translationKey) : 'Standard_Citizen'}</p>
+                            <p className="text-[9px] text-zinc-500 mt-1 uppercase tracking-wide">Informational · not a control</p>
                         </div>
                     </div>
-                    <ShieldCheck className="w-12 h-12 text-emerald-500/20 group-hover:text-emerald-500/50 transition-colors" />
+                    <ShieldCheck className="w-12 h-12 text-emerald-500/20 shrink-0 pointer-events-none" aria-hidden />
                 </div>
 
-                <div className="bg-zinc-950 border-2 border-zinc-900 p-8 rounded-[3rem] shadow-inner flex items-center justify-between group">
-                    <div className="flex items-end space-x-10">
+                <div role="status" className="bg-zinc-950 border-2 border-zinc-900 p-8 rounded-[3rem] shadow-inner flex items-center justify-between">
+                    <div className="flex items-end space-x-10 min-w-0">
                         <div className="min-w-0">
                             <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.4em] mb-3">Ledger_Volume</h3>
                             <div className="flex items-end space-x-4">
                                 <span className="text-6xl font-black text-white tracking-tighter leading-none">{totalReports.toLocaleString()}</span>
-                                <span className="text-[10px] font-black text-zinc-800 uppercase tracking-widest mb-1 group-hover:text-cyan-900 transition-colors">Total_Shards</span>
+                                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total_Shards</span>
                             </div>
+                            <p className="text-[9px] text-zinc-500 mt-2 uppercase tracking-wide">Live count · not a button</p>
                         </div>
-                        <div className="flex flex-col space-y-2">
+                        <div className="flex flex-col space-y-2 hidden sm:flex">
                             <div className="flex items-center space-x-3 text-emerald-500 text-[10px] font-black">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_emerald]"></div>
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_emerald]" />
                                 <span className="tracking-[0.2em]">P2P_SYNC_READY</span>
                             </div>
-                            <p className="text-[9px] text-zinc-800 font-bold uppercase italic whitespace-nowrap">
-                                "Awaiting cryptographic handshake..."
-                            </p>
                         </div>
                     </div>
-                    <Database className="w-12 h-12 text-zinc-900 group-hover:text-cyan-900 transition-colors" />
+                    <Database className="w-12 h-12 text-zinc-900 shrink-0 pointer-events-none" aria-hidden />
                 </div>
-            </div>
+            </section>
         </div>
     );
 };

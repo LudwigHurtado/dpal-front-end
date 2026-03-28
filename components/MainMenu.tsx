@@ -113,7 +113,7 @@ const PrimaryNavModule: React.FC<{
                         src={encodeURI(currentImage)}
                         alt=""
                         draggable={false}
-                        className="absolute inset-0 w-full h-full object-cover opacity-100"
+                        className="absolute inset-0 w-full h-full object-contain object-center opacity-100 bg-zinc-950"
                     />
                 </>
             )}
@@ -526,12 +526,12 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                             {t(cat.translationKey)}
                                         </div>
                                     </div>
-                                    <div className="relative z-0 overflow-hidden min-h-[220px] w-full rounded-[2rem] border border-white/10 bg-black/20">
+                                    <div className="relative z-0 overflow-hidden min-h-[240px] w-full rounded-[2rem] border border-white/10 bg-zinc-950/80">
                                         {!hiddenDispatchCategoryImages[cat.value] && (
                                             <img
                                                 src={getCategoryCardImageSrc(cat.value)}
                                                 alt=""
-                                                className="absolute inset-0 w-full h-full object-cover object-center opacity-100 transition-opacity"
+                                                className="absolute inset-0 w-full h-full object-contain object-center p-1 opacity-100 transition-opacity"
                                                 onError={() =>
                                                     setHiddenDispatchCategoryImages((prev) => ({
                                                         ...prev,
