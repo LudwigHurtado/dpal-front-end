@@ -105,7 +105,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                     <Megaphone className="w-6 h-6 group-hover/add:scale-110 transition-transform" />
                     <span className="uppercase text-xs tracking-[0.2em]">Start a New Report</span>
                 </div>
-                <p className="text-[8px] font-bold text-cyan-200 uppercase tracking-widest opacity-60">Sync new evidence to ledger</p>
+                <p className="text-[8px] font-medium text-cyan-100/90 tracking-wide opacity-80">Add details to strengthen your community record</p>
             </button>
           )}
 
@@ -126,18 +126,18 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                             <Crosshair className="w-6 h-6 text-zinc-800" />
                         </div>
                     </div>
-                    <p className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.4em] text-center px-4 leading-relaxed">Awaiting_Geospatial_Focus</p>
+                    <p className="text-center px-4 text-[10px] font-medium leading-relaxed tracking-wide text-zinc-500">Add a place to see the map</p>
                 </div>
             )}
             <div className="absolute top-4 left-4 flex items-center space-x-3 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-xl border border-white/5 text-[9px] font-black uppercase text-cyan-400">
                 <div className="w-1.5 h-1.5 bg-cyan-500 animate-ping rounded-full"></div>
-                <span>Scanning Sector</span>
+                <span>Map preview</span>
             </div>
           </div>
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] pl-2">01_Query_String</label>
+              <label className="pl-2 text-[10px] font-semibold tracking-wide text-zinc-400">Search words</label>
               <div className="relative group">
                 <Search className="h-5 w-5 text-zinc-700 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-cyan-500 transition-colors" />
                 <input
@@ -151,7 +151,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
             </div>
             
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] pl-2">02_Geospatial_Lock</label>
+              <label className="pl-2 text-[10px] font-semibold tracking-wide text-zinc-400">Place or neighborhood</label>
               <div className="relative">
                 <MapPin className="h-5 w-5 text-rose-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
@@ -167,7 +167,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
 
           <div className="space-y-4">
             <div className="flex justify-between items-center px-2">
-                <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em]">03_Sector_Triage</label>
+                <label className="text-[10px] font-semibold tracking-wide text-zinc-400">Topics that matter to you</label>
                 <button onClick={() => setIsTriageExpanded(true)} className="text-zinc-700 hover:text-cyan-400 transition-colors">
                     <Maximize2 className="w-4 h-4" />
                 </button>
@@ -211,8 +211,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                                     <ListFilter className="w-8 h-8 text-emerald-400" />
                                 </div>
                                 <div>
-                                    <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Advanced_Sector_Triage</h2>
-                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.4em] mt-2">Filter Network Logs by Domain Node</p>
+                                    <h2 className="text-3xl font-bold tracking-tight text-white">Choose topics</h2>
+                                    <p className="mt-2 text-[10px] font-medium text-emerald-300/90">Pick the kinds of stories you want in your feed</p>
                                 </div>
                             </div>
 
@@ -243,8 +243,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                             </div>
 
                             <div className="flex gap-4">
-                                <button onClick={() => setFilters(prev => ({ ...prev, selectedCategories: [] }))} className="px-10 py-5 bg-zinc-800 rounded-2xl text-[10px] font-black uppercase text-zinc-400 hover:text-white transition-all">Clear_All</button>
-                                <button onClick={() => setIsTriageExpanded(false)} className="flex-grow bg-white text-black font-black py-5 rounded-2xl text-xs uppercase tracking-widest shadow-2xl active:scale-95 transition-all">Apply_Triage_Filters</button>
+                                <button onClick={() => setFilters(prev => ({ ...prev, selectedCategories: [] }))} className="rounded-2xl bg-zinc-800 px-10 py-5 text-[10px] font-semibold text-zinc-400 transition-all hover:text-white">Clear all</button>
+                                <button onClick={() => setIsTriageExpanded(false)} className="flex-grow rounded-2xl bg-white py-5 text-xs font-bold tracking-wide text-black shadow-2xl transition-all active:scale-95">Apply choices</button>
                             </div>
                         </div>
                   </div>
@@ -254,7 +254,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
           {filters.selectedCategories.length > 0 && (
             <div className="space-y-5 pt-6 border-t border-zinc-800 animate-fade-in">
                 <div className="flex justify-between items-center px-2">
-                    <label className="text-[10px] font-black uppercase text-emerald-500 tracking-[0.3em]">Operational_Signals</label>
+                    <label className="text-[10px] font-semibold tracking-wide text-emerald-400">Stories that match</label>
                     <span className="text-[9px] font-mono text-zinc-700">{matchingSignals.length} Active</span>
                 </div>
                 <div className="space-y-3">
@@ -279,7 +279,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                         ))
                     ) : (
                         <div className="py-8 text-center bg-black/20 rounded-[2rem] border border-zinc-900 border-dashed">
-                             <p className="text-[10px] text-zinc-800 font-black uppercase tracking-[0.4em] italic">Scanning_Empty_Sector...</p>
+                             <p className="text-[10px] font-medium italic tracking-wide text-zinc-600">Nothing here yet — try another topic</p>
                         </div>
                     )}
                 </div>
@@ -293,7 +293,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                 className="w-full flex items-center justify-center space-x-4 px-6 py-6 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs font-black uppercase text-zinc-400 hover:text-white hover:border-purple-500/50 transition-all shadow-xl group disabled:opacity-30 active:scale-95"
               >
                 {isAnalyzing ? <Loader className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />}
-                <span className="tracking-[0.2em]">{isAnalyzing ? 'SYNTHESIZING...' : 'ANALYZE_NODES'}</span>
+                <span className="tracking-wide">{isAnalyzing ? 'Thinking…' : 'Explore insights'}</span>
               </button>
           </div>
       </div>

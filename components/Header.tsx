@@ -31,9 +31,9 @@ const AiStatusIndicator: React.FC = () => {
     }, []);
 
     const config = {
-        ONLINE: { label: 'AI_ON', color: 'text-emerald-400', dot: 'bg-emerald-500', bg: 'bg-emerald-950/20', border: 'border-emerald-500/30' },
-        OFFLINE: { label: 'AI_OFF', color: 'text-zinc-600', dot: 'bg-zinc-700', bg: 'bg-zinc-900', border: 'border-zinc-800' },
-        DEGRADED: { label: 'AI_DEGRADED', color: 'text-rose-400', dot: 'bg-rose-500', bg: 'bg-rose-950/20', border: 'border-rose-500/30' }
+        ONLINE: { label: 'Here', color: 'text-emerald-400', dot: 'bg-emerald-500', bg: 'bg-emerald-950/20', border: 'border-emerald-500/30' },
+        OFFLINE: { label: 'Rest', color: 'text-zinc-600', dot: 'bg-zinc-700', bg: 'bg-zinc-900', border: 'border-zinc-800' },
+        DEGRADED: { label: 'Limited', color: 'text-rose-400', dot: 'bg-rose-500', bg: 'bg-rose-950/20', border: 'border-rose-500/30' }
     }[status];
 
     return (
@@ -42,7 +42,7 @@ const AiStatusIndicator: React.FC = () => {
                 <div className={`w-1.5 h-1.5 rounded-full ${config.dot} ${status !== 'OFFLINE' ? 'animate-pulse shadow-[0_0_8px_currentColor]' : ''}`}></div>
                 {status === 'ONLINE' && <div className="absolute inset-0 bg-emerald-500 rounded-full animate-ping opacity-20"></div>}
             </div>
-            <span className={`text-[8px] font-black uppercase tracking-widest ${config.color}`}>
+            <span className={`text-[8px] font-semibold tracking-wide ${config.color}`} title={status === 'ONLINE' ? 'Assistant available' : status === 'OFFLINE' ? 'Assistant paused' : 'Assistant limited'}>
                 {config.label}
             </span>
             {status === 'ONLINE' ? <Sparkles className="w-2.5 h-2.5 text-emerald-500" /> : <AlertTriangle className={`w-2.5 h-2.5 ${config.color}`} />}
@@ -77,13 +77,10 @@ const DualCometBorder: React.FC<{ color: string }> = ({ color }) => (
 
 const SystemTicker: React.FC = () => {
     const messages = [
-        "DPAL_CREDIT (Utility): $0.005 // THE FUEL FOR ACCOUNTABILITY. USE TO FILE REPORTS AND INITIATE P2P AUDITS.",
-        "IMPACT_TOKEN (Proof): VALUE_PRICELESS // NON-TRADABLE ACCREDITATION EARNED VIA VERIFIED FIELD RESOLUTIONS.",
-        "IMPACT_SHARD (Consensus): MULTI-BLOCK AGGREGATION. REQUIRED FOR SENTINEL-CLASS PROMOTION AND VOTE WEIGHT.",
-        "DPAL_COIN (Governance): NETWORK ANCHOR. VOTE ON PROTOCOL UPGRADES AND SECTOR FUNDING ALLOCATIONS.",
-        "MARKET_SNAPSHOT: DPAL_CREDIT @ $0.005 (+0.12%) // NETWORK_STABILITY: 99.8% // ACTIVE_NODES: 12,405",
-        "NEW_HERO_MILESTONE: SECTOR_7_INFRASTRUCTURE_RESTORED // POSITIVE_CIVIC_IMPACT: +12%",
-        "OPERATIVE_XP_BONUS_ACTIVE: FIELD_REPORTING_IN_PROGRESS // DPAL_REWARD_POOL: +50,000 HC REFRESHED"
+        "Every report can protect a family — thank you for caring for your community.",
+        "Hope grows when neighbors share truth with kindness and show up for each other.",
+        "Your contributions build safer streets, stronger schools, and a ledger we can all trust.",
+        "Small acts of civic courage add up — keep going; you are making a difference.",
     ];
 
     return (
@@ -95,7 +92,7 @@ const SystemTicker: React.FC = () => {
                 {[...messages, ...messages].map((msg, idx) => (
                     <div key={idx} className="flex items-center space-x-4">
                         <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,1)] animate-pulse"></div>
-                        <span className="text-[9px] font-black text-cyan-400 uppercase tracking-[0.2em] transition-all duration-500 group-hover:text-white">
+                        <span className="text-[9px] font-medium italic text-cyan-300/90 transition-all duration-500 group-hover:text-white">
                             {msg}
                         </span>
                     </div>
@@ -267,15 +264,15 @@ const Header: React.FC<HeaderProps> = ({
             className="w-full overflow-x-auto no-scrollbar scroll-smooth flex justify-start md:justify-center"
         >
             <div className="flex items-center space-x-6 md:space-x-12 py-3 px-10 md:px-12 min-w-max mx-auto">
-                <NavIcon label="TERMINAL_HOME" color="cyan" icon={<Home className="w-5 h-5"/>} onClick={onNavigateHome} />
-                <NavIcon label="FILE_REPORT" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
-                <NavIcon label="COMMUNITY_FEED" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
-                <NavIcon label="PUBLIC_LEDGER" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
-                <NavIcon label="FIELD_MISSIONS" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
-                <NavIcon label="HOLODECK" color="purple" icon={<Monitor className="w-5 h-5"/>} onClick={() => onNavigate('trainingHolodeck')} />
-                <NavIcon label="ASSET_ARCHIVE" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
-                <NavIcon label="COIN_EXCHANGE" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
-                <NavIcon label="BADGE_REGISTRY" color="cyan" icon={<Award className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'profile')} />
+                <NavIcon label="Home" color="cyan" icon={<Home className="w-5 h-5"/>} onClick={onNavigateHome} />
+                <NavIcon label="Share a report" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
+                <NavIcon label="Community stories" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
+                <NavIcon label="Public record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
+                <NavIcon label="Neighbors & missions" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
+                <NavIcon label="Learning lab" color="purple" icon={<Monitor className="w-5 h-5"/>} onClick={() => onNavigate('trainingHolodeck')} />
+                <NavIcon label="My collection" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
+                <NavIcon label="Wallet & coins" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
+                <NavIcon label="Profile & badges" color="cyan" icon={<Award className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'profile')} />
             </div>
         </div>
 
@@ -347,7 +344,7 @@ const NavIcon: React.FC<{ icon: React.ReactNode, label: string, color: string, o
                     </div>
                 </div>
             </div>
-            <span className="text-[6px] md:text-[7px] font-black uppercase tracking-[0.2em] md:tracking-[0.3em] text-zinc-500 group-hover:text-white transition-colors text-center w-max">
+            <span className="max-w-[72px] text-center text-[6px] font-semibold leading-tight tracking-wide text-zinc-500 transition-colors group-hover:text-white md:text-[7px] md:max-w-[88px]">
                 {label}
             </span>
         </button>

@@ -140,14 +140,14 @@ const CommunityWorkFeed: React.FC = () => {
                     </div>
                     <div>
                         <h3 className="text-[10px] font-black uppercase text-white tracking-[0.3em]">Community Timeline</h3>
-                        <p className="text-[7px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Contributions & proof of work</p>
+                        <p className="mt-0.5 text-[7px] font-medium text-zinc-500">Good deeds neighbors can see</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                    <span className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.3em] hidden sm:inline">"ROME WAS NOT BUILT BY ONE ROMAN"</span>
+                    <span className="hidden text-[8px] font-medium italic text-zinc-500 sm:inline">Many hands make light work</span>
                     <div className="bg-black/40 px-4 py-1.5 rounded-full border border-zinc-800 flex items-center space-x-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></div>
-                        <span className="text-[8px] font-black text-emerald-500 uppercase">SYNC_ACTIVE</span>
+                        <span className="text-[8px] font-semibold text-emerald-400">Live updates</span>
                     </div>
                 </div>
             </div>
@@ -202,7 +202,7 @@ const CommunityWorkFeed: React.FC = () => {
                                 </div>
                                 <div className={`flex items-center space-x-2 px-4 py-1.5 rounded-full border ${item.status === 'FINALIZED' ? 'bg-emerald-950/20 border-emerald-900/50 text-emerald-400' : 'bg-cyan-950/20 border-cyan-900/50 text-cyan-400 animate-pulse'}`}>
                                     {item.status === 'FINALIZED' ? <CheckCircle className="w-3 h-3" /> : <Activity className="w-3 h-3" />}
-                                    <span className="text-[8px] font-black uppercase tracking-widest">{item.status}</span>
+                                    <span className="text-[8px] font-semibold uppercase tracking-wide">{item.status === 'FINALIZED' ? 'Complete' : 'In progress'}</span>
                                 </div>
                                 <div className="flex items-center space-x-2 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30">
                                     <span className="text-[9px] font-black text-amber-500">+{item.reward} HC</span>
@@ -229,10 +229,10 @@ const CommunityWorkFeed: React.FC = () => {
                                 </div>
                                 <div>
                                     <div className="flex items-center space-x-3 mb-1">
-                                        <h2 className="text-2xl font-black uppercase tracking-tighter text-white">Work_Audit: {selectedEntry.id}</h2>
-                                        <span className={`px-3 py-0.5 rounded text-[8px] font-black border ${selectedEntry.status === 'FINALIZED' ? 'border-emerald-500 text-emerald-500' : 'border-cyan-500 text-cyan-500'}`}>{selectedEntry.status}</span>
+                                        <h2 className="text-2xl font-black uppercase tracking-tighter text-white">Contribution · {selectedEntry.id}</h2>
+                                        <span className={`px-3 py-0.5 rounded text-[8px] font-black border ${selectedEntry.status === 'FINALIZED' ? 'border-emerald-500 text-emerald-500' : 'border-cyan-500 text-cyan-500'}`}>{selectedEntry.status === 'FINALIZED' ? 'Complete' : 'In progress'}</span>
                                     </div>
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Shard_Hash: 0x{selectedEntry.id.replace('-', '')}{selectedEntry.timestamp.toString(16).slice(-8)}</p>
+                                    <p className="text-[10px] font-medium tracking-wide text-zinc-500">Record ID · 0x{selectedEntry.id.replace('-', '')}{selectedEntry.timestamp.toString(16).slice(-8)}</p>
                                 </div>
                             </div>
                             <button onClick={() => setSelectedEntry(null)} className="p-4 bg-zinc-900 hover:bg-rose-950 text-zinc-500 hover:text-rose-500 rounded-2xl transition-all">
@@ -245,15 +245,15 @@ const CommunityWorkFeed: React.FC = () => {
                             <div className="lg:col-span-7 space-y-10">
                                 <div className="rounded-[2rem] overflow-hidden border-4 border-zinc-800 relative group/img shadow-2xl">
                                     <img src={selectedEntry.proofImage} alt="Proof" className="w-full aspect-video object-cover grayscale opacity-80 group-hover/img:grayscale-0 group-hover/img:opacity-100 transition-all duration-700" />
-                                    <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-[10px] font-black uppercase tracking-widest text-cyan-400">
-                                        P2P_Visual_Telemetry_Certified
+                                    <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-[10px] font-semibold tracking-wide text-cyan-300">
+                                        Photo shared in trust
                                     </div>
                                 </div>
 
                                 <div className="space-y-6">
                                     <h3 className="text-xs font-black uppercase text-zinc-600 tracking-[0.4em] flex items-center space-x-3">
                                         <Activity className="w-4 h-4" />
-                                        <span>Action_Narrative</span>
+                                        <span>What happened</span>
                                     </h3>
                                     <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-[2.5rem] relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-cyan-500"/></div>
@@ -287,9 +287,9 @@ const CommunityWorkFeed: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                         <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
                                             <UserCircle className="w-5 h-5 text-emerald-500" />
-                                            <span>Active_Collaborators</span>
+                                            <span>Neighbors helping</span>
                                         </h3>
-                                        <span className="bg-emerald-500/10 text-emerald-500 px-3 py-0.5 rounded-full text-[9px] font-black border border-emerald-500/20">{selectedEntry.contributors.length} NODES</span>
+                                        <span className="bg-emerald-500/10 text-emerald-500 px-3 py-0.5 rounded-full text-[9px] font-black border border-emerald-500/20">{selectedEntry.contributors.length} people</span>
                                     </div>
 
                                     <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar pr-2">
@@ -301,7 +301,7 @@ const CommunityWorkFeed: React.FC = () => {
                                                     </div>
                                                     <div>
                                                         <p className="text-[10px] font-black text-white uppercase">{c}</p>
-                                                        <p className="text-[8px] text-zinc-600 font-bold uppercase tracking-widest">{i === 0 ? 'Lead_Node' : 'Collaborative_Node'}</p>
+                                                        <p className="text-[8px] font-medium uppercase tracking-wide text-zinc-600">{i === 0 ? 'Lead' : 'Helper'}</p>
                                                     </div>
                                                 </div>
                                                 {c === 'Operative_Prime' && <Sparkles className="w-4 h-4 text-cyan-400" />}
@@ -316,7 +316,7 @@ const CommunityWorkFeed: React.FC = () => {
                                             className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-black py-5 rounded-2xl uppercase tracking-[0.3em] text-[10px] shadow-2xl active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center space-x-3"
                                         >
                                             {isJoining ? <Loader className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                            <span>{selectedEntry.contributors.includes('Operative_Prime') ? 'ALREADY_SYNCED' : 'JOIN_COLLABORATION'}</span>
+                                            <span>{selectedEntry.contributors.includes('Operative_Prime') ? 'You are in' : 'Join this effort'}</span>
                                         </button>
                                     )}
                                 </div>
@@ -325,7 +325,7 @@ const CommunityWorkFeed: React.FC = () => {
                                     <div className="flex items-center justify-between">
                                          <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
                                             <ShieldCheck className="w-5 h-5 text-amber-500" />
-                                            <span>Validation_Index</span>
+                                            <span>Community trust</span>
                                         </h3>
                                         <span className="text-xl font-black text-amber-400">{selectedEntry.trustScore}%</span>
                                     </div>
@@ -340,12 +340,12 @@ const CommunityWorkFeed: React.FC = () => {
                                         className="w-full bg-white hover:bg-amber-50 text-black font-black py-4 rounded-2xl uppercase tracking-[0.3em] text-[9px] transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center space-x-3 border border-amber-900/30 shadow-xl"
                                     >
                                         {isVerifying ? <Loader className="w-3 h-3 animate-spin" /> : <Award className="w-3 h-3" />}
-                                        <span>Verify_Field_Work</span>
+                                        <span>Cheer this work</span>
                                     </button>
                                 </div>
 
                                 <div className="p-6 bg-emerald-950/10 border border-emerald-500/20 rounded-[2rem] text-center">
-                                     <p className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-2">Reward_Allocation</p>
+                                     <p className="mb-2 text-[10px] font-semibold tracking-wide text-emerald-400">Recognition</p>
                                      <div className="flex items-center justify-center space-x-2 text-2xl font-black text-white tracking-tighter">
                                          <span>{selectedEntry.reward}</span>
                                          <Coins className="w-6 h-6 text-amber-500" />
@@ -358,10 +358,10 @@ const CommunityWorkFeed: React.FC = () => {
                         <footer className="bg-zinc-950 border-t border-zinc-800 p-8 flex flex-col sm:flex-row justify-between items-center gap-6">
                             <div className="flex items-center space-x-3 text-zinc-600">
                                 <ShieldCheck className="w-4 h-4" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.2em]">Block_Height_Sync: #6843{selectedEntry.timestamp.toString().slice(-3)}</span>
+                                <span className="text-[10px] font-medium tracking-wide">Timeline ref · #6843{selectedEntry.timestamp.toString().slice(-3)}</span>
                             </div>
                             <div className="flex items-center gap-4">
-                                <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Protocol: V3.1_DISTRIBUTED_LABOR</span>
+                                <span className="text-[9px] font-medium tracking-wide text-zinc-500">DPAL community tools · v3.1</span>
                             </div>
                         </footer>
                     </div>

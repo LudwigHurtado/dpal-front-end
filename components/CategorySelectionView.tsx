@@ -327,15 +327,15 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
                 className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors mb-12 group"
             >
                 <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-                <span>TERMINAL_RETURN</span>
+                <span>Return Home</span>
             </button>
 
             <header className="mb-12 text-center">
                 <div className="flex items-center justify-center space-x-4 mb-4">
                     <ShieldCheck className="w-10 h-10 text-cyan-500" />
-                    <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase">Category_Picker</h1>
+                    <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase">Choose a topic</h1>
                 </div>
-                <p className="text-zinc-500 text-xs font-bold tracking-[0.4em] uppercase mb-8">Select target domain for field reporting or tactical missions</p>
+                <p className="mb-8 text-xs font-medium tracking-wide text-zinc-400">Pick what fits — we will guide you with care</p>
 
                 <div className="max-w-xl mx-auto mb-8 p-1 rounded-2xl border border-zinc-800 bg-zinc-900/70 grid grid-cols-2 gap-1">
                     <button

@@ -24,7 +24,7 @@ const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilte
           className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors group"
         >
           <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-          <span>TERMINAL_EXIT</span>
+          <span>Return Home</span>
         </button>
         {onOpenFilters && (
           <button

@@ -198,7 +198,7 @@ const MobileCommunityFeedView: React.FC<MobileCommunityFeedViewProps> = ({
           className="w-[148px] h-[38px] rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-100 font-black text-[12px] touch-manipulation shadow-[0_0_18px_rgba(16,185,129,0.18)]"
           aria-current="page"
         >
-          Community Feed
+          Community Stories
         </button>
 
         <button

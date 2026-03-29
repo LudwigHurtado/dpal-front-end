@@ -128,14 +128,14 @@ const PrimaryNavModule: React.FC<{
                 </div>
                 <div className="flex items-center space-x-2 bg-black/60 px-3 py-1 rounded-lg border border-zinc-800">
                     <div className={`w-1.5 h-1.5 rounded-full bg-${colorClass}-500 animate-pulse shadow-[0_0_8px_${colorClass}]`}></div>
-                    <span className={`text-[8px] font-black uppercase tracking-widest text-${colorClass}-500`}>{status}</span>
+                    <span className={`text-[8px] font-semibold tracking-wide text-${colorClass}-400`}>{status}</span>
                 </div>
             </div>
 
             <div className="relative mt-auto w-full">
                 <h3
-                    className="text-lg font-black text-white uppercase tracking-tighter leading-none break-words drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] translate-y-2"
-                    style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+                    className="translate-y-2 text-lg font-bold leading-snug tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] break-words"
+                    style={{ WebkitTextStroke: '1px rgba(0,0,0,0.85)' }}
                 >
                     {label}
                 </h3>
@@ -244,9 +244,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 })()}
                 <PrimaryNavModule 
                     icon={<Megaphone className="w-8 h-8" />}
-                    label="FILE_A_REPORT"
-                    subLabel="Start a New Report"
-                    status="READY"
+                    label="Share a Report"
+                    subLabel="Speak up for neighbors with kindness"
+                    status="Ready"
                     colorClass="rose"
                     bgImageUrl="/main-screen/file-a-report.png"
                     onClick={() => onNavigate('categorySelection')}
@@ -254,9 +254,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Sparkles className="w-8 h-8" />}
-                    label="DPAL HELP"
-                    subLabel="Guidance and support — DPAL help is here"
-                    status="LIVE"
+                    label="Help Center"
+                    subLabel="Guidance when you need it"
+                    status="Here"
                     colorClass="cyan"
                     bgImageUrl="/category-cards/dpal-help.png"
                     onClick={() => onNavigate('reportSubmission', Category.DpalHelp)}
@@ -264,9 +264,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Monitor className="w-8 h-8" />}
-                    label="REPORT_DASHBOARD"
-                    subLabel="Open the new reporting command dashboard"
-                    status="NEW"
+                    label="Report Center"
+                    subLabel="A calmer place to plan what to file"
+                    status="New"
                     colorClass="cyan"
                     bgImageUrl="/main-screen/dashboard.png"
                     onClick={() => onNavigate('reportDashboard')}
@@ -274,9 +274,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Database className="w-8 h-8" />}
-                    label="PUBLIC_LEDGER"
-                    subLabel="View All Peer-Verified Shards"
-                    status="LIVE_SYNC"
+                    label="Public Record"
+                    subLabel="See what the community has verified together"
+                    status="Connected"
                     colorClass="emerald"
                     bgImageUrl="/main-screen/public-ledger.png"
                     onClick={() => onNavigate('transparencyDatabase')}
@@ -284,9 +284,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Activity className="w-8 h-8" />}
-                    label="MY_CONTRIBUTIONS"
-                    subLabel="Your Personal History & Impact Logs"
-                    status="SECURE"
+                    label="My Contributions"
+                    subLabel="Your personal story of care and impact"
+                    status="Safe"
                     colorClass="cyan"
                     bgImageUrl="/main-screen/my-reports.png"
                     onClick={() => onNavigate('hub', undefined, 'my_reports')}
@@ -294,9 +294,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Target className="w-8 h-8" />}
-                    label="FIELD_MISSIONS"
-                    subLabel="Beacons, map & help requests — join or offer help"
-                    status="ACTIVE"
+                    label="Neighbors & Missions"
+                    subLabel="Offer a hand or ask for help nearby"
+                    status="Active"
                     colorClass="amber"
                     bgImageUrl="/main-screen/field-missions.png"
                     onClick={() => onNavigate('fieldMissions')}
@@ -304,9 +304,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Package className="w-8 h-8" />}
-                    label="ASSET_ARCHIVE"
-                    subLabel="View Shard Evidence & Milestone Badges"
-                    status="SECURE"
+                    label="My Collection"
+                    subLabel="Evidence, badges, and milestones you earned"
+                    status="Yours"
                     colorClass="emerald"
                     bgImageUrl="/main-screen/asset-archive.png"
                     onClick={() => onNavigate('heroHub', undefined, 'collection')}
@@ -314,9 +314,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Coins className="w-8 h-8" />}
-                    label="COIN_EXCHANGE"
-                    subLabel="Manage P2P Resource & Token Transfers"
-                    status="ACTIVE"
+                    label="Wallet & Coins"
+                    subLabel="Share resources with people you trust"
+                    status="Open"
                     colorClass="amber"
                     bgImageUrl="/main-screen/coin-exchange.png"
                     onClick={() => onNavigate('heroHub', undefined, 'vault')}
@@ -324,9 +324,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Fingerprint className="w-8 h-8" />}
-                    label="ESCROW_SERVICE"
-                    subLabel="Live face + fingerprint verification for P2P escrow"
-                    status="KYC"
+                    label="Trusted Escrow"
+                    subLabel="Face-to-face verification for safer trades"
+                    status="Verified"
                     colorClass="cyan"
                     bgImageUrl="/main-screen/escrow-service.png"
                     onClick={() => onNavigate('escrowService')}
@@ -334,9 +334,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Map className="w-8 h-8" />}
-                    label="DPAL_LOCATOR"
-                    subLabel="Locate lost people, pets, and items (GPS + photo + voice)"
-                    status="LIVE"
+                    label="Family Locator"
+                    subLabel="Find loved ones, pets, and precious things"
+                    status="Live"
                     colorClass="emerald"
                     bgImageUrl="/main-screen/dpa-locator.png"
                     onClick={() => onNavigate('dpalLocator')}
@@ -344,9 +344,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Zap className="w-8 h-8" />}
-                    label="DPAL_GAME_HUB"
-                    subLabel="Play mission modes, earn progress, and boost civic impact"
-                    status="BETA"
+                    label="Play & Learn"
+                    subLabel="Games that celebrate doing good together"
+                    status="Beta"
                     colorClass="purple"
                     bgImageUrls={["/main-screen/dpal-game-hub.png", "/main-screen/dpal-game-hub 2.png"]}
                     onClick={() => onNavigate('gameHub')}
@@ -354,9 +354,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Scale className="w-8 h-8" />}
-                    label="POLITICIAN_VIEWPOINTS"
-                    subLabel="See where local officials stand on upcoming measures"
-                    status="CIVIC"
+                    label="Local Leaders"
+                    subLabel="See where officials stand — with clarity"
+                    status="Civic"
                     colorClass="blue"
                     bgImageUrl="/main-screen/politician-viewpoints.png"
                     onClick={() => onNavigate('politicianTransparency')}
@@ -364,9 +364,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Globe className="w-8 h-8" />}
-                    label="OFFSET_MARKETPLACE"
-                    subLabel="Verified carbon projects & traceable impact credits"
-                    status="MARKET"
+                    label="Green Impact"
+                    subLabel="Climate projects you can follow with confidence"
+                    status="Open"
                     colorClass="emerald"
                     bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
                     onClick={() => onNavigate('offsetMarketplace')}
@@ -374,9 +374,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Phone className="w-8 h-8" />}
-                    label="ESCALATION_HUB"
-                    subLabel="Automated AI Vox & Live Field Queue"
-                    status="ALERT"
+                    label="Urgent Help Line"
+                    subLabel="Reach caring support when minutes matter"
+                    status="Here"
                     colorClass="rose"
                     bgImageUrl="/main-screen/escalation-hub.png"
                     onClick={() => onNavigate('outreachEscalation')}
@@ -384,9 +384,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Gem className="w-8 h-8" />}
-                    label="MINT_STATION"
-                    subLabel="Forge Permanent Truth Artifacts"
-                    status="ACTIVE"
+                    label="Keepsake Studio"
+                    subLabel="Turn verified truth into lasting mementos"
+                    status="Bright"
                     colorClass="amber"
                     bgImageUrl="/main-screen/mint-station.png"
                     onClick={() => onNavigate('heroHub', undefined, 'mint')}
@@ -394,9 +394,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Activity className="w-8 h-8" />}
-                    label="QR_LIVE_SAVER"
-                    subLabel="Sync Life-Line Medical Shards"
-                    status="HEALTH"
+                    label="Health Lifeline"
+                    subLabel="Medical QR that stays with you"
+                    status="Care"
                     colorClass="rose"
                     bgImageUrl="/main-screen/qr-live-saver.png"
                     onClick={() => onNavigate('medicalOutpost')}
@@ -404,9 +404,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Activity className="w-8 h-8" />}
-                    label="COMMUNITY_TIMELINE"
-                    subLabel="Community Contribution Feed"
-                    status="LOGGING"
+                    label="Community Timeline"
+                    subLabel="Good news and honest work from neighbors"
+                    status="Sharing"
                     colorClass="blue"
                     bgImageUrl="/main-screen/weekly-work-log.png"
                     onClick={() => onNavigate('hub', undefined, 'work_feed')}
@@ -414,9 +414,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Coins className="w-8 h-8" />}
-                    label="WORK_FOR_DPAL_COINS"
-                    subLabel="No money value. Earn via cards, NFTs, and DPAL coins."
-                    status="REWARDS"
+                    label="Earn & Shine"
+                    subLabel="Recognition for care — not cash value"
+                    status="Bright"
                     colorClass="amber"
                     bgImageUrl="/next-view/sector-dpal-coin.png"
                     onClick={() => onNavigate('reportWorkPanel')}
@@ -424,9 +424,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Database className="w-8 h-8" />}
-                    label="STORAGE_QR"
-                    subLabel="MongoDB data location & QR link to this page"
-                    status="NODE"
+                    label="Saved Data"
+                    subLabel="Your backup link and storage snapshot"
+                    status="Saved"
                     colorClass="cyan"
                     onClick={() => onNavigate('storage')}
                 />
@@ -446,7 +446,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     <span className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/55" aria-hidden />
                     <span className="relative z-10 flex items-center gap-3 text-emerald-200 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
                         <Globe className="w-4 h-4 shrink-0" />
-                        Governance Protocol
+                        Community care & outreach
                     </span>
                 </button>
             </div>
@@ -474,7 +474,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
             <div className="my-20 border-t border-zinc-900"></div>
             
             <div className="flex flex-col items-center gap-8 mb-16 max-w-4xl mx-auto relative z-20">
-                <h2 className="text-3xl font-black text-white tracking-tighter text-center uppercase leading-none">Dispatch_Directory</h2>
+                <h2 className="text-center text-3xl font-bold leading-tight tracking-tight text-white">Find your cause</h2>
                 <div className="w-full">
                      <div className="relative group">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-8">
@@ -484,7 +484,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                           type="text"
                           value={categorySearch}
                           onChange={(e) => setCategorySearch(e.target.value)}
-                          placeholder="Filter targets by domain..."
+                          placeholder="Search categories you care about…"
                           className="w-full pl-20 pr-20 py-6 bg-zinc-950 border-2 border-zinc-800 rounded-[2.5rem] focus:ring-4 focus:ring-cyan-500/10 focus:border-cyan-500 transition-all text-white font-bold tracking-tight text-xl shadow-inner uppercase placeholder:text-zinc-900"
                         />
                     </div>
