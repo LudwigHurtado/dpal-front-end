@@ -48,14 +48,29 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     const [uploadHint, setUploadHint] = useState<string | null>(null);
     
     const scrollRef = useRef<HTMLDivElement>(null);
+    /** When true, new messages / image loads keep the thread pinned to the latest. False after user scrolls up to read history. */
+    const stickToBottomRef = useRef(true);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const recognitionRef = useRef<any>(null);
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
 
+    const scrollToBottomIfPinned = () => {
+        const el = scrollRef.current;
+        if (!el || !stickToBottomRef.current) return;
+        el.scrollTop = el.scrollHeight;
+    };
+
     useEffect(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+        scrollToBottomIfPinned();
     }, [messages]);
+
+    const handleMessagesScroll = () => {
+        const el = scrollRef.current;
+        if (!el) return;
+        const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+        stickToBottomRef.current = nearBottom;
+    };
 
     const startRecording = async () => {
         try {
@@ -120,6 +135,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     const handleSend = (e: React.FormEvent) => {
         e.preventDefault();
         if (!inputText.trim() && !attachment && !audioAttachment) return;
+        stickToBottomRef.current = true;
         onSendMessage(inputText.trim(), attachment || undefined, audioAttachment || undefined);
         setInputText('');
         setAttachment(null);
@@ -133,6 +149,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const text = `[GEOSPATIAL_SIGNAL]: Lat: ${pos.coords.latitude.toFixed(5)}, Lng: ${pos.coords.longitude.toFixed(5)} // Verified by Device_OS.`;
+                stickToBottomRef.current = true;
                 onSendMessage(text);
                 setIsLocating(false);
             },
@@ -218,7 +235,11 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             </div>
 
             {/* MESSAGES — flex-1 + min-h-0 keeps scroll region high in the panel */}
-            <div ref={scrollRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-4 pt-3 md:space-y-8 md:px-6 md:pb-6 md:pt-4 custom-scrollbar">
+            <div
+                ref={scrollRef}
+                onScroll={handleMessagesScroll}
+                className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-3 md:space-y-8 md:px-6 md:pb-6 md:pt-4 custom-scrollbar"
+            >
                 {messages.length === 0 ? (
                     <div className="flex min-h-[min(240px,40vh)] flex-col items-center justify-center opacity-10 space-y-4 py-8">
                         <Broadcast className="w-16 h-16 text-zinc-600" />
@@ -247,7 +268,12 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                                 }`}>
                                     {msg.imageUrl && (
                                         <div className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 shadow-xl cursor-zoom-in group-hover:border-emerald-500/50 transition-colors" onClick={() => setSelectedImage(msg.imageUrl || null)}>
-                                            <img src={msg.imageUrl} alt="Artifact" className="w-full h-auto object-cover opacity-90 grayscale group-hover:grayscale-0 transition-all duration-700" />
+                                            <img
+                                                src={msg.imageUrl}
+                                                alt="Artifact"
+                                                className="h-auto w-full max-h-[min(70vh,560px)] object-contain object-top opacity-90 grayscale transition-all duration-700 group-hover:grayscale-0"
+                                                onLoad={scrollToBottomIfPinned}
+                                            />
                                         </div>
                                     )}
                                     {msg.audioUrl && <div className="mb-4"><AudioPlayer url={msg.audioUrl} /></div>}
