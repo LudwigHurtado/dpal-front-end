@@ -470,7 +470,7 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
         <section className="mb-12 overflow-hidden rounded-[2rem] border border-slate-200/90 bg-white shadow-lg shadow-slate-200/50 md:rounded-[2.5rem]">
           <div className="grid min-h-[220px] md:min-h-[280px] md:grid-cols-2">
             <div className="relative flex flex-col justify-end border-b border-sky-200/80 bg-gradient-to-br from-sky-100/90 via-white to-sky-50/50 p-6 md:border-b-0 md:border-r md:p-10">
-              <div className="absolute inset-0 bg-[url('/politician-viewpoints/decentralized-window.png')] bg-cover bg-center opacity-[0.12] mix-blend-multiply" />
+              <div className="absolute inset-0 bg-[url('/politician-viewpoints/decentralized-window.png')] bg-cover bg-center opacity-35 mix-blend-multiply" />
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
                 <span className="rounded-lg border border-sky-200 bg-white/90 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-sky-700 shadow-sm backdrop-blur-sm">
                   Public truth
@@ -486,20 +486,33 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 </p>
               </div>
             </div>
-            <div className="relative flex flex-col justify-end border-t border-emerald-200/80 bg-gradient-to-bl from-emerald-50/95 via-white to-teal-50/40 p-6 md:border-t-0 md:border-l md:p-10">
-              <div className="absolute inset-0 bg-gradient-to-t from-white/90 to-transparent" />
-              <div className="absolute right-4 top-4 flex flex-wrap justify-end gap-2">
-                <span className="rounded-lg border border-teal-200 bg-white/90 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-teal-800 shadow-sm backdrop-blur-sm">
+            <div className="relative flex flex-col gap-4 border-t border-emerald-200/80 bg-gradient-to-bl from-emerald-50/95 via-white to-teal-50/40 p-6 md:border-t-0 md:border-l md:p-8">
+              <div className="absolute right-4 top-4 z-20 flex flex-wrap justify-end gap-2">
+                <span className="rounded-lg border border-teal-200 bg-white/95 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-teal-800 shadow-sm">
                   Timeline
                 </span>
-                <span className="rounded-lg border border-amber-200 bg-amber-50/95 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-amber-900 shadow-sm backdrop-blur-sm">
+                <span className="rounded-lg border border-amber-200 bg-amber-50/95 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-amber-900 shadow-sm">
                   Compare & verify
                 </span>
               </div>
-              <div className="relative z-10">
+              <div className="relative z-10 pt-8 md:pt-10">
                 <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-teal-800">What the record shows</p>
-                <p className="mt-2 max-w-md text-sm font-semibold leading-relaxed text-slate-700">
+                <p className="mt-2 max-w-xl text-sm font-semibold leading-relaxed text-slate-700">
                   Votes, actions, and outcomes — documented with care so we can improve accountability together.
+                </p>
+              </div>
+              <div className="relative z-10 mt-1 overflow-hidden rounded-2xl border border-teal-200/90 bg-white shadow-md ring-1 ring-teal-100">
+                <img
+                  src="/politician-viewpoints/what-record-shows.png"
+                  alt="Said vs Did — search, evidence, and public record dashboard"
+                  className="mx-auto block h-auto w-full max-h-[min(520px,62vh)] object-contain object-top"
+                  width={1200}
+                  height={680}
+                  loading="eager"
+                  decoding="async"
+                />
+                <p className="border-t border-slate-100 bg-slate-50/90 px-3 py-2 text-center text-[9px] font-medium text-slate-500">
+                  Visual preview — Said vs Did, search and discover, and record feed
                 </p>
               </div>
             </div>
