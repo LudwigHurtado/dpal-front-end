@@ -92,7 +92,8 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
         </header>
 
         <div className="flex-grow min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-            <aside className="lg:col-span-3 border-r border-zinc-800 bg-black/40 overflow-y-auto custom-scrollbar p-8 min-h-0">
+            {/* Mobile: results first (order-1); desktop: sidebar left (lg:order-1) */}
+            <aside className="order-2 lg:order-1 lg:col-span-3 border-r border-zinc-800 border-t lg:border-t-0 bg-black/40 overflow-y-auto custom-scrollbar p-4 sm:p-8 min-h-0">
                 <div className="space-y-6">
                     <OperationalConfidencePanel />
                     <LiveTransparencyMetricsCard />
@@ -151,19 +152,19 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                 </div>
             </aside>
 
-            <main className="lg:col-span-9 bg-black overflow-y-auto custom-scrollbar p-8 lg:p-12 min-h-0">
-                <div className="max-w-4xl mx-auto space-y-10">
-                    <div className="flex justify-between items-end border-b border-zinc-900 pb-10">
-                        <div>
-                            <h3 className="text-4xl font-black uppercase tracking-tighter text-white">QueryResult_Set</h3>
-                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.4em] mt-4">Database: PROD_LEDGER // Cluster: STABLE</p>
+            <main className="order-1 lg:order-2 lg:col-span-9 bg-black overflow-y-auto custom-scrollbar p-4 pt-4 sm:p-8 lg:p-12 min-h-0">
+                <div className="max-w-4xl mx-auto space-y-6 sm:space-y-10">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end border-b border-zinc-900 pb-4 sm:pb-10">
+                        <div className="min-w-0">
+                            <h3 className="text-2xl sm:text-4xl font-black uppercase tracking-tighter text-white">QueryResult_Set</h3>
+                            <p className="text-[9px] sm:text-[10px] font-bold text-zinc-500 uppercase tracking-[0.35em] mt-2 sm:mt-4 leading-relaxed">Database: PROD_LEDGER // Cluster: STABLE</p>
                         </div>
-                        <div className="bg-zinc-900/60 border border-zinc-800 px-6 py-2 rounded-2xl">
+                        <div className="bg-zinc-900/60 border border-zinc-800 px-4 py-2 sm:px-6 rounded-2xl shrink-0 self-start sm:self-auto">
                             <span className="text-[10px] font-black text-emerald-500">{filteredReports.length} Records In Sync</span>
                         </div>
                     </div>
 
-                    <div className="space-y-10 pb-20">
+                    <div className="space-y-6 sm:space-y-10 pb-12 sm:pb-20">
                         {filteredReports.length > 0 ? (
                             filteredReports.map(report => (
                                 /* FIX: Changed onJoinReportChat to onJoinChat to satisfy ReportCardProps interface */

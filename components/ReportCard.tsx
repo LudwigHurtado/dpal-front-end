@@ -73,11 +73,11 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
       )}
 
       {/* Ledger Fragment Header */}
-      <div className="bg-zinc-900/80 border-b border-zinc-800 px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-              <div className={`w-2 h-2 rounded-full animate-ping ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'bg-rose-500 shadow-[0_0_10px_rose]' : 'bg-cyan-500'}`}></div>
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/80">Shard_#{safeId.split('-').pop()}</span>
-              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'text-rose-500 border-rose-900/50 bg-rose-950/20' : 'text-zinc-500 border-zinc-800'}`}>SEV: {safeSeverity.toUpperCase()}</span>
+      <div className="bg-zinc-900/80 border-b border-zinc-800 px-4 py-4 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
+              <div className={`w-2 h-2 rounded-full animate-ping shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'bg-rose-500 shadow-[0_0_10px_rose]' : 'bg-cyan-500'}`}></div>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/80 truncate">Shard_#{safeId.split('-').pop()}</span>
+              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'text-rose-500 border-rose-900/50 bg-rose-950/20' : 'text-zinc-500 border-zinc-800'}`}>SEV: {safeSeverity.toUpperCase()}</span>
           </div>
           <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-[10px] font-black text-zinc-500 uppercase bg-black/40 px-3 py-1 rounded-lg border border-zinc-800">
@@ -87,46 +87,59 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
           </div>
       </div>
 
-      {/* TOP IMAGE VIEWER */}
-      <div className="relative w-full aspect-[21/8] bg-black border-b border-zinc-800 overflow-hidden">
-          {imageUrlsToDisplay.length > 0 ? (
-              <img src={imageUrlsToDisplay[currentImageIndex]} alt={safeTitle} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-1000 grayscale group-hover:grayscale-0" />
-          ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-zinc-800 opacity-20">
-                  <div className="text-6xl mb-4">{categoryInfo?.icon || '📄'}</div>
-                  <p className="text-[10px] font-black uppercase tracking-[0.5em]">Forensic_Telemetry_Missing</p>
-              </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
-          {/* HUD scan overlay */}
-          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(rgba(34,211,238,0.1)_1px,transparent_0)] bg-[length:30px_30px] opacity-20"></div>
-      </div>
-
-      <div className="p-8 space-y-8">
-          <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
-              <div className="space-y-4 flex-grow min-w-0">
-                  <div className="flex flex-wrap items-center gap-4">
-                      <div className="bg-cyan-950/40 text-cyan-400 px-4 py-1.5 rounded-full border border-cyan-800/50 flex items-center space-x-2">
-                          <span className="text-lg">{categoryInfo?.icon}</span>
-                          <span className="text-[10px] font-black uppercase tracking-widest">{safeCategory.toUpperCase()}</span>
+      {/* Mobile: content first, image below (flex-col). Desktop: image first (md:flex-col-reverse with [content, image] in DOM). */}
+      <div className="flex flex-col md:flex-col-reverse">
+      <div className="p-4 sm:p-8 space-y-6 md:space-y-8">
+          <div className="flex flex-col gap-4 md:gap-6">
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
+                  <div className="space-y-3 md:space-y-4 flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-3 md:gap-4">
+                          <div className="bg-cyan-950/40 text-cyan-400 px-3 sm:px-4 py-1.5 rounded-full border border-cyan-800/50 flex items-center space-x-2">
+                              <span className="text-lg">{categoryInfo?.icon}</span>
+                              <span className="text-[10px] font-black uppercase tracking-widest">{safeCategory.toUpperCase()}</span>
+                          </div>
+                          <div className="flex items-center space-x-2 text-[10px] font-black text-zinc-500 uppercase min-w-0">
+                              <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
+                              <span className="truncate max-w-[min(100%,220px)] sm:max-w-[200px]">{safeLocation}</span>
+                          </div>
                       </div>
-                      <div className="flex items-center space-x-2 text-[10px] font-black text-zinc-500 uppercase">
-                          <MapPin className="w-4 h-4 text-rose-500" />
-                          <span className="truncate max-w-[200px]">{safeLocation}</span>
-                      </div>
+                      <h3 className="text-xl sm:text-2xl md:text-4xl font-black text-white leading-tight tracking-tighter uppercase group-hover:text-cyan-100 transition-colors">
+                        {safeTitle}
+                      </h3>
                   </div>
-                  <h3 className="text-2xl md:text-4xl font-black text-white leading-none tracking-tighter uppercase group-hover:text-cyan-100 transition-colors truncate">
-                    {safeTitle}
-                  </h3>
+
+                  <div className="hidden md:flex items-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-3xl border border-zinc-800 shadow-inner self-start">
+                      <div className="text-center">
+                          <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Trust_Index</p>
+                          <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{safeTrustScore}%</p>
+                      </div>
+                      <div className="w-px h-10 bg-zinc-800"></div>
+                      <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-zinc-700'}`} />
+                  </div>
               </div>
 
-              <div className="flex items-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-3xl border border-zinc-800 shadow-inner">
+              {/* Narrative before trust on phones; desktop duplicate lives below trust in row */}
+              <div className="md:hidden bg-zinc-950/50 border-l-4 border-zinc-800 pl-4 sm:pl-8 py-2 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
+                  <p className="text-zinc-300 text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
+                    "{safeDescription}"
+                  </p>
+              </div>
+
+              <div className="flex md:hidden items-center justify-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-2xl border border-zinc-800 shadow-inner w-full">
                   <div className="text-center">
                       <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Trust_Index</p>
                       <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{safeTrustScore}%</p>
                   </div>
                   <div className="w-px h-10 bg-zinc-800"></div>
                   <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-zinc-700'}`} />
+              </div>
+
+              <div className="hidden md:block bg-zinc-950/50 border-l-4 border-zinc-800 pl-8 py-2 relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
+                  <p className="text-zinc-400 text-sm leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
+                    "{safeDescription}"
+                  </p>
               </div>
           </div>
 
@@ -174,14 +187,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                )}
           </div>
 
-          <div className="bg-zinc-950/50 border-l-4 border-zinc-800 pl-8 py-2 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
-              <p className="text-zinc-400 text-sm leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
-                "{safeDescription}"
-              </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-6 pt-8 border-t border-zinc-800/50">
+          <div className="flex flex-wrap items-center justify-between gap-6 pt-6 md:pt-8 border-t border-zinc-800/50">
               <div className="flex items-center space-x-8">
                   <button onClick={() => setShowQr(true)} className="flex items-center space-x-3 text-[10px] font-black uppercase text-zinc-500 hover:text-cyan-400 transition-colors">
                       <QrCode className="w-5 h-5" />
@@ -205,6 +211,21 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                    )}
               </div>
           </div>
+      </div>
+
+      {/* TOP IMAGE VIEWER — below text on mobile; above on md+ */}
+      <div className="relative w-full aspect-[21/10] sm:aspect-[21/8] bg-black border-t md:border-t-0 md:border-b border-zinc-800 overflow-hidden">
+          {imageUrlsToDisplay.length > 0 ? (
+              <img src={imageUrlsToDisplay[currentImageIndex]} alt={safeTitle} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-1000 grayscale group-hover:grayscale-0" />
+          ) : (
+              <div className="w-full h-full flex flex-col items-center justify-center text-zinc-800 opacity-20">
+                  <div className="text-5xl sm:text-6xl mb-4">{categoryInfo?.icon || '📄'}</div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.5em]">Forensic_Telemetry_Missing</p>
+              </div>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent"></div>
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(rgba(34,211,238,0.1)_1px,transparent_0)] bg-[length:30px_30px] opacity-20"></div>
+      </div>
       </div>
       {showQr && <QrCodeDisplay type="report" id={report.id} onClose={() => setShowQr(false)} />}
     </div>
