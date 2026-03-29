@@ -128,6 +128,41 @@ const ISSUE_CHIPS = [
   'Promise Tracker',
 ] as const;
 
+/** One-tap additions for free “politician + misconduct” style discovery (DuckDuckGo). */
+const MISCONDUCT_CHIPS = [
+  'Political misconduct',
+  'Ethics violation',
+  'Abuse of office',
+  'Oversight investigation',
+  'Campaign finance',
+  'FEC complaint',
+] as const;
+
+function buildFreePoliticianSearchQuery(raw: string): string {
+  const q = raw.trim();
+  if (!q) return '';
+  const lower = q.toLowerCase();
+  const misconductIntent =
+    /\b(misconduct|ethics|bribe|corruption|violation|complaint|abuse|fraud|scandal|fec|lobby|oversight|investigation|malfeasance)\b/i.test(q) ||
+    MISCONDUCT_CHIPS.some((c) => lower.includes(c.toLowerCase()));
+  const politicianIntent =
+    /\b(senator|representative|mayor|council|governor|congress|legislature|politician|official|candidate)\b/i.test(q);
+
+  const parts = [
+    q,
+    'statement',
+    'quote',
+    'campaign promise',
+    'vote record',
+    'source',
+    misconductIntent ? 'ethics oversight investigation complaint news' : '',
+    politicianIntent ? 'public office elected' : '',
+    'site:ballotpedia.org OR site:opensecrets.org OR site:fec.gov OR site:.gov',
+  ].filter(Boolean);
+
+  return parts.join(' ');
+}
+
 const CONTRADICTION_TYPES = [
   'Broken Promise',
   'Opposite Vote',
@@ -378,6 +413,45 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
     return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(reportDeepLink)}&bgcolor=ffffff&color=0f172a&margin=12`;
   }, [reportDeepLink]);
 
+  const runPublicSearch = () => {
+    const q = aiQuery.trim();
+    if (!q) return;
+    const smart = buildFreePoliticianSearchQuery(q);
+
+    setWebError(null);
+    setWebLoading(true);
+    setWebResults([]);
+
+    fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(smart)}&format=json&no_redirect=1&no_html=1`)
+      .then((r) => r.json())
+      .then((data) => {
+        const out: Array<{ title: string; url: string; snippet?: string; source?: string }> = [];
+        if (data?.AbstractURL && data?.AbstractText) {
+          out.push({
+            title: data.Heading || 'Overview',
+            url: data.AbstractURL,
+            snippet: data.AbstractText,
+            source: data.AbstractSource || 'DuckDuckGo',
+          });
+        }
+        const addTopic = (x: any) => {
+          if (!x) return;
+          if (typeof x?.FirstURL === 'string' && typeof x?.Text === 'string') {
+            out.push({ title: x.Text, url: x.FirstURL, source: 'DuckDuckGo' });
+          }
+        };
+        const related = Array.isArray(data?.RelatedTopics) ? data.RelatedTopics : [];
+        related.forEach((rt: any) => {
+          if (Array.isArray(rt?.Topics)) rt.Topics.forEach(addTopic);
+          else addTopic(rt);
+        });
+        setWebResults(out.slice(0, 12));
+        if (out.length === 0) setWebError('No results returned. Try a name + state, or different misconduct keywords.');
+      })
+      .catch(() => setWebError('Search failed. Check your connection and try again.'))
+      .finally(() => setWebLoading(false));
+  };
+
   return (
     <div className="animate-fade-in min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50/40 pb-32 font-sans text-slate-800 antialiased">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(56,189,248,0.14),transparent),radial-gradient(ellipse_70%_50%_at_100%_20%,rgba(16,185,129,0.08),transparent)]" />
@@ -511,7 +585,8 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-sky-600">Community truth engine</p>
                 <h2 className="mt-1 text-xl font-extrabold uppercase tracking-tight text-slate-900 md:text-2xl">Search & discover</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-                  Find officials, bills, votes, and public sources — then connect what you find to a transparent evidence packet.
+                  <span className="font-semibold text-slate-800">Free web search</span> — look up politicians, offices, misconduct, ethics, and public records
+                  (no API key). Results open in your packet workflow below.
                 </p>
               </div>
               <button
@@ -530,10 +605,21 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 <input
                   value={aiQuery}
                   onChange={(e) => setAiQuery(e.target.value)}
-                  placeholder="Name, office, state, bill, vote, donor, contract, statement, topic…"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      runPublicSearch();
+                    }
+                  }}
+                  placeholder="e.g. Senator name + state, or “mayor ethics investigation”, misconduct, vote record…"
                   className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-4 pl-12 pr-4 text-sm text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                  aria-label="Free search: politicians, misconduct, public records"
                 />
               </div>
+              <p className="mt-3 text-[11px] font-medium text-slate-600">
+                <span className="font-semibold text-slate-700">Politician & misconduct:</span> type any name, office, or ethics keywords — we broaden the query toward
+                public sources when those topics appear.
+              </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {ISSUE_CHIPS.map((chip) => (
                   <button
@@ -546,60 +632,30 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                   </button>
                 ))}
               </div>
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Misconduct & ethics shortcuts</p>
+                <div className="flex flex-wrap gap-2">
+                  {MISCONDUCT_CHIPS.map((chip) => (
+                    <button
+                      key={chip}
+                      type="button"
+                      onClick={() => setAiQuery((prev) => (prev ? `${prev} ${chip}` : chip))}
+                      className="rounded-full border border-rose-100 bg-rose-50/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-rose-900/90 shadow-sm transition hover:border-rose-200 hover:bg-rose-100"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="button"
-                  onClick={() => {
-                    const q = aiQuery.trim();
-                    if (!q) return;
-                    const smart = [
-                      q,
-                      'statement',
-                      'quote',
-                      'campaign promise',
-                      'vote record',
-                      'source',
-                      'site:ballotpedia.org OR site:opensecrets.org OR site:.gov',
-                    ].join(' ');
-
-                    setWebError(null);
-                    setWebLoading(true);
-                    setWebResults([]);
-
-                    fetch(`https://api.duckduckgo.com/?q=${encodeURIComponent(smart)}&format=json&no_redirect=1&no_html=1`)
-                      .then((r) => r.json())
-                      .then((data) => {
-                        const out: Array<{ title: string; url: string; snippet?: string; source?: string }> = [];
-                        if (data?.AbstractURL && data?.AbstractText) {
-                          out.push({
-                            title: data.Heading || 'Overview',
-                            url: data.AbstractURL,
-                            snippet: data.AbstractText,
-                            source: data.AbstractSource || 'DuckDuckGo',
-                          });
-                        }
-                        const addTopic = (x: any) => {
-                          if (!x) return;
-                          if (typeof x?.FirstURL === 'string' && typeof x?.Text === 'string') {
-                            out.push({ title: x.Text, url: x.FirstURL, source: 'DuckDuckGo' });
-                          }
-                        };
-                        const related = Array.isArray(data?.RelatedTopics) ? data.RelatedTopics : [];
-                        related.forEach((rt: any) => {
-                          if (Array.isArray(rt?.Topics)) rt.Topics.forEach(addTopic);
-                          else addTopic(rt);
-                        });
-                        setWebResults(out.slice(0, 12));
-                        if (out.length === 0) setWebError('No results returned. Try a more specific name + city/state.');
-                      })
-                      .catch(() => setWebError('Search failed. Check your connection and try again.'))
-                      .finally(() => setWebLoading(false));
-                  }}
+                  onClick={runPublicSearch}
                   className="rounded-2xl bg-sky-600 px-8 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-sky-200/60 transition hover:bg-sky-700"
                 >
                   {webLoading ? 'Searching…' : 'Run search'}
                 </button>
-                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500">Public sources · best-effort results</p>
+                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500">DuckDuckGo · free · best-effort</p>
               </div>
             </div>
 
@@ -610,7 +666,11 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      const lines = [`DPAL Politician Search`, `Query: ${aiQuery.trim()}`, ...webResults.map((r) => `- ${r.title}\n  ${r.url}`)].join('\n');
+                      const lines = [
+                        `DPAL free search (politician / misconduct / records)`,
+                        `Query: ${aiQuery.trim()}`,
+                        ...webResults.map((r) => `- ${r.title}\n  ${r.url}`),
+                      ].join('\n');
                       try {
                         if (navigator.share) {
                           await navigator.share({ title: 'DPAL Politician Search', text: lines });
