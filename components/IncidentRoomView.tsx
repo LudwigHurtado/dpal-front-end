@@ -1,12 +1,21 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, Monitor, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Crosshair, X, Maximize2, AlertTriangle, QrCode, Link } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, Monitor, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Crosshair, X, Maximize2, AlertTriangle, Link } from './icons';
 import MissionChatroom from './MissionChatroom';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { performIAReview } from '../services/geminiService';
-import { buildSituationRoomUrl } from '../utils/deepLinks';
+import { buildReportVerifyUrl, buildSituationRoomUrl } from '../utils/deepLinks';
+
+/** Matches certificate / print-to-PDF QR generation so scans from the room match the document. */
+const CERTIFICATE_QR_OPTIONS = {
+    width: 168,
+    margin: 2,
+    errorCorrectionLevel: 'M' as const,
+    color: { dark: '#0a0a0a', light: '#ffffff' },
+};
 
 interface IncidentRoomViewProps {
     report: Report;
@@ -65,8 +74,44 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
 
     const activeSector = useMemo(() => sectors.find(s => s.id === activeSectorId) || sectors[0], [sectors, activeSectorId]);
     const roomNumber = report.id.split('-').pop()?.toUpperCase() || '0000';
+    const verifyUrl = useMemo(() => buildReportVerifyUrl(report.id), [report.id]);
     const roomShareUrl = useMemo(() => buildSituationRoomUrl(report.id), [report.id]);
+    const [copyVerifyOk, setCopyVerifyOk] = useState(false);
     const [copyRoomOk, setCopyRoomOk] = useState(false);
+    const [qrVerifyDataUrl, setQrVerifyDataUrl] = useState<string | null>(null);
+    const [qrSituationDataUrl, setQrSituationDataUrl] = useState<string | null>(null);
+    const [qrLoading, setQrLoading] = useState(true);
+    const [qrError, setQrError] = useState(false);
+
+    const loadCertificateQrs = useCallback(async () => {
+        if (typeof window === 'undefined') return ['', ''] as [string, string];
+        const v = buildReportVerifyUrl(report.id);
+        const s = buildSituationRoomUrl(report.id);
+        return Promise.all([QRCode.toDataURL(v, CERTIFICATE_QR_OPTIONS), QRCode.toDataURL(s, CERTIFICATE_QR_OPTIONS)]);
+    }, [report.id]);
+
+    useEffect(() => {
+        setQrLoading(true);
+        setQrError(false);
+        loadCertificateQrs()
+            .then(([a, b]) => {
+                setQrVerifyDataUrl(a);
+                setQrSituationDataUrl(b);
+            })
+            .catch(() => setQrError(true))
+            .finally(() => setQrLoading(false));
+    }, [loadCertificateQrs]);
+
+    const copyVerifyLink = async () => {
+        if (!verifyUrl) return;
+        try {
+            await navigator.clipboard.writeText(verifyUrl);
+            setCopyVerifyOk(true);
+            window.setTimeout(() => setCopyVerifyOk(false), 2000);
+        } catch {
+            /* ignore */
+        }
+    };
 
     const copyRoomLink = async () => {
         if (!roomShareUrl) return;
@@ -156,20 +201,89 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                 </div>
             </header>
 
-            <div className="border-b border-zinc-800 bg-zinc-950/90 px-4 md:px-10 py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 shrink-0">
-                <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <Link className="w-4 h-4 text-cyan-500 shrink-0" />
-                    <p className="text-[9px] font-mono text-zinc-400 break-all leading-snug min-w-0" title={roomShareUrl}>
-                        {roomShareUrl || '…'}
+            <div className="border-b border-zinc-800 bg-zinc-950/90 px-4 md:px-10 py-4 shrink-0 space-y-3">
+                <div className="flex items-center gap-2 text-zinc-500">
+                    <FileText className="w-4 h-4 text-cyan-500 shrink-0" />
+                    <p className="text-[10px] font-black uppercase tracking-[0.25em]">
+                        Printable certificate & PDF — same QR payloads as your report
                     </p>
                 </div>
-                <button
-                    type="button"
-                    onClick={() => void copyRoomLink()}
-                    className="shrink-0 px-4 py-2 rounded-xl bg-zinc-800 border border-zinc-600 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-600 transition-colors"
-                >
-                    {copyRoomOk ? 'Copied' : 'Copy room link'}
-                </button>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 min-w-0">
+                        <div className="shrink-0 w-[88px] h-[88px] sm:w-[100px] sm:h-[100px] rounded-xl border border-zinc-600 bg-white flex items-center justify-center p-1.5">
+                            {qrLoading ? (
+                                <Loader className="w-8 h-8 text-zinc-400 animate-spin" />
+                            ) : qrError ? (
+                                <span className="text-[8px] font-bold text-rose-400 text-center px-1">QR error</span>
+                            ) : qrVerifyDataUrl ? (
+                                <img src={qrVerifyDataUrl} alt="Ledger verification QR — same as PDF certificate" className="w-full h-full object-contain" width={100} height={100} />
+                            ) : null}
+                        </div>
+                        <div className="min-w-0 flex-1 flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Ledger verification (PDF QR)</p>
+                            </div>
+                            <p className="text-[9px] font-mono text-zinc-400 break-all leading-snug" title={verifyUrl}>
+                                {verifyUrl || '…'}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-auto pt-1">
+                                <a
+                                    href={verifyUrl || undefined}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-600 text-[10px] font-black uppercase tracking-widest text-cyan-400 hover:bg-zinc-700 transition-colors"
+                                >
+                                    Open report
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => void copyVerifyLink()}
+                                    className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-600 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-600 transition-colors"
+                                >
+                                    {copyVerifyOk ? 'Copied' : 'Copy link'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex gap-3 rounded-2xl border border-zinc-800 bg-zinc-900/50 p-3 min-w-0">
+                        <div className="shrink-0 w-[88px] h-[88px] sm:w-[100px] sm:h-[100px] rounded-xl border border-zinc-600 bg-white flex items-center justify-center p-1.5">
+                            {qrLoading ? (
+                                <Loader className="w-8 h-8 text-zinc-400 animate-spin" />
+                            ) : qrError ? (
+                                <span className="text-[8px] font-bold text-rose-400 text-center px-1">QR error</span>
+                            ) : qrSituationDataUrl ? (
+                                <img src={qrSituationDataUrl} alt="Situation room QR — same as PDF certificate" className="w-full h-full object-contain" width={100} height={100} />
+                            ) : null}
+                        </div>
+                        <div className="min-w-0 flex-1 flex flex-col gap-2">
+                            <div className="flex items-center gap-2">
+                                <Link className="w-4 h-4 text-cyan-500 shrink-0" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-cyan-400">Situation room (share link)</p>
+                            </div>
+                            <p className="text-[9px] font-mono text-zinc-400 break-all leading-snug" title={roomShareUrl}>
+                                {roomShareUrl || '…'}
+                            </p>
+                            <div className="flex flex-wrap gap-2 mt-auto pt-1">
+                                <a
+                                    href={roomShareUrl || undefined}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-600 text-[10px] font-black uppercase tracking-widest text-cyan-400 hover:bg-zinc-700 transition-colors"
+                                >
+                                    Open room
+                                </a>
+                                <button
+                                    type="button"
+                                    onClick={() => void copyRoomLink()}
+                                    className="px-3 py-1.5 rounded-lg bg-zinc-800 border border-zinc-600 text-[10px] font-black uppercase tracking-widest text-emerald-400 hover:bg-emerald-950/40 hover:border-emerald-600 transition-colors"
+                                >
+                                    {copyRoomOk ? 'Copied' : 'Copy link'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <nav className="bg-zinc-900/50 border-b border-zinc-800/50 px-6 md:px-10 flex items-center justify-start lg:justify-center gap-2 overflow-x-auto no-scrollbar flex-shrink-0">

@@ -3,6 +3,22 @@
  * Situation room chat uses report id as the API room id (`/api/situation/:reportId/...`).
  */
 
+/** Same URL encoded in the “Ledger verification” QR on the printable certificate / PDF. */
+export function buildReportVerifyUrl(reportId: string): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const u = new URL(window.location.href);
+    u.hash = '';
+    const q = new URLSearchParams();
+    q.set('reportId', reportId);
+    u.search = q.toString();
+    return u.toString();
+  } catch {
+    const origin = window.location.origin;
+    return `${origin}/?reportId=${encodeURIComponent(reportId)}`;
+  }
+}
+
 export function buildSituationRoomUrl(reportId: string): string {
   if (typeof window === 'undefined') return '';
   try {
