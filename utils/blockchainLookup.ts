@@ -1,5 +1,18 @@
 import type { Report } from '../types';
 
+/**
+ * When the anchor API does not return a block height, derive a stable numeric value from the report id
+ * so every record stays searchable and shows a consistent “block” in the public index.
+ */
+export function deriveStableBlockNumber(reportId: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < reportId.length; i++) {
+    h ^= reportId.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return 1_000_000 + (Math.abs(h) % 8_999_000);
+}
+
 /** Accepts e.g. "6843021", "#6843021", "6,843,021". */
 export function parseBlockNumberInput(raw: string): number | null {
   const s = raw.trim().replace(/^#/, '').replace(/,/g, '');

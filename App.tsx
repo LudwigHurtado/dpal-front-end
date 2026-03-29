@@ -69,7 +69,8 @@ import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationM
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { persistReportForPublicLookup } from './services/reportPersistenceService';
 import { resolveReportByBlockNumber, fetchReportFromApiById } from './services/blockchainLookupService';
-import { parseBlockNumberInput } from './utils/blockchainLookup';
+import { parseBlockNumberInput, deriveStableBlockNumber } from './utils/blockchainLookup';
+import { reportMatchesKeywordFilter } from './utils/reportSearch';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
@@ -620,15 +621,13 @@ const App: React.FC = () => {
   }, [reports]);
 
   const filteredReports = useMemo(() => {
-    return reports.filter(report => {
-      const title = (report.title || '').toString().toLowerCase();
-      const description = (report.description || '').toString().toLowerCase();
+    return reports.filter((report) => {
       const location = (report.location || '').toString().toLowerCase();
 
       const keyword = (filters.keyword || '').toLowerCase();
       const locationFilter = (filters.location || '').toLowerCase();
 
-      const matchesKeyword = !keyword || title.includes(keyword) || description.includes(keyword);
+      const matchesKeyword = !keyword || reportMatchesKeywordFilter(report, filters.keyword || '');
       const matchesCategory = filters.selectedCategories.length === 0 || filters.selectedCategories.includes(report.category);
       const matchesLocation = !locationFilter || location.includes(locationFilter);
 
@@ -915,7 +914,7 @@ const App: React.FC = () => {
       hash: anchored.reportHash || `0x${Math.random().toString(16).slice(2)}`,
       blockchainRef: chainRefId,
       txHash: chainRefId,
-      blockNumber: anchored.blockNumber,
+      blockNumber: anchored.blockNumber ?? deriveStableBlockNumber(reportId),
       chain: anchored.chain || 'DPAL_INTERNAL',
       anchoredAt: anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
       isAuthor: true,
@@ -1509,7 +1508,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'transparencyDatabase' && (
-          <TransparencyDatabaseView onReturn={() => goBack('mainMenu')} hero={heroWithRank} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <TransparencyDatabaseView onReturn={() => goBack('mainMenu')} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
         )}
 
         {currentView === 'fieldMissions' && (
