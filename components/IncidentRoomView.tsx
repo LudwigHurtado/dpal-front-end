@@ -1,9 +1,9 @@
 
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import QRCode from 'qrcode';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, AlertTriangle, Link, ChevronDown } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
 import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
@@ -48,6 +48,25 @@ interface Finding {
     value: string;
     status: 'VERIFIED' | 'ANOMALY' | 'MATCHED';
     hash: string;
+}
+
+const SITUATION_CHAT_HEIGHT_STORAGE_KEY = 'dpal-situation-chat-height-px';
+const CHAT_HEIGHT_DEFAULT_PX = 440;
+const CHAT_HEIGHT_MIN_PX = 280;
+const CHAT_HEIGHT_COMPACT_PX = 360;
+
+function readStoredChatHeightPx(): number {
+    if (typeof window === 'undefined') return CHAT_HEIGHT_DEFAULT_PX;
+    try {
+        const raw = localStorage.getItem(SITUATION_CHAT_HEIGHT_STORAGE_KEY);
+        if (raw) {
+            const n = parseInt(raw, 10);
+            if (!Number.isNaN(n)) return n;
+        }
+    } catch {
+        /* ignore */
+    }
+    return CHAT_HEIGHT_DEFAULT_PX;
 }
 
 const DEFAULT_SECTORS: AnalyticalSector[] = [
@@ -95,6 +114,72 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
     const [qrSituationDataUrl, setQrSituationDataUrl] = useState<string | null>(null);
     const [qrLoading, setQrLoading] = useState(true);
     const [qrError, setQrError] = useState(false);
+
+    const [chatHeightPx, setChatHeightPx] = useState(readStoredChatHeightPx);
+    const [maxChatHeightPx, setMaxChatHeightPx] = useState(() =>
+        typeof window !== 'undefined' ? Math.min(Math.floor(window.innerHeight * 0.82), 920) : 920
+    );
+    const chatHeightDuringDragRef = useRef(chatHeightPx);
+
+    useEffect(() => {
+        chatHeightDuringDragRef.current = chatHeightPx;
+    }, [chatHeightPx]);
+
+    useEffect(() => {
+        const updateMax = () => {
+            const m = Math.min(Math.floor(window.innerHeight * 0.82), 920);
+            setMaxChatHeightPx(m);
+            setChatHeightPx((h) => Math.min(Math.max(h, CHAT_HEIGHT_MIN_PX), m));
+        };
+        updateMax();
+        window.addEventListener('resize', updateMax);
+        return () => window.removeEventListener('resize', updateMax);
+    }, []);
+
+    const persistChatHeight = useCallback((px: number) => {
+        try {
+            localStorage.setItem(SITUATION_CHAT_HEIGHT_STORAGE_KEY, String(px));
+        } catch {
+            /* ignore */
+        }
+    }, []);
+
+    const clampChatHeight = useCallback(
+        (px: number) => Math.min(Math.max(Math.round(px), CHAT_HEIGHT_MIN_PX), maxChatHeightPx),
+        [maxChatHeightPx]
+    );
+
+    const onChatResizePointerDown = useCallback(
+        (e: React.PointerEvent<HTMLButtonElement>) => {
+            e.preventDefault();
+            const el = e.currentTarget;
+            el.setPointerCapture(e.pointerId);
+            const startY = e.clientY;
+            const startH = chatHeightDuringDragRef.current;
+
+            const onMove = (ev: PointerEvent) => {
+                const dy = ev.clientY - startY;
+                const next = clampChatHeight(startH + dy);
+                chatHeightDuringDragRef.current = next;
+                setChatHeightPx(next);
+            };
+            const onUp = (ev: PointerEvent) => {
+                window.removeEventListener('pointermove', onMove);
+                window.removeEventListener('pointerup', onUp);
+                window.removeEventListener('pointercancel', onUp);
+                try {
+                    el.releasePointerCapture(ev.pointerId);
+                } catch {
+                    /* ignore */
+                }
+                persistChatHeight(chatHeightDuringDragRef.current);
+            };
+            window.addEventListener('pointermove', onMove);
+            window.addEventListener('pointerup', onUp);
+            window.addEventListener('pointercancel', onUp);
+        },
+        [clampChatHeight, persistChatHeight]
+    );
 
     const loadCertificateQrs = useCallback(async () => {
         if (typeof window === 'undefined') return ['', ''] as [string, string];
@@ -398,12 +483,66 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     </div>
                 )}
 
-                {/* Chat — dark page chrome only; single rounded light surface (no full-width slate strip) */}
-                <section id="situation-chat" className="flex flex-col min-h-0 flex-1 scroll-mt-4 border-b border-zinc-800/80 bg-zinc-950 px-3 pb-3 pt-2 md:px-6 md:pb-4 md:pt-3">
+                {/* Chat — user-resizable height (drag handle + presets), persisted in localStorage */}
+                <section id="situation-chat" className="flex shrink-0 flex-col scroll-mt-4 border-b border-zinc-800/80 bg-zinc-950 px-3 pb-3 pt-2 md:px-6 md:pb-4 md:pt-3">
+                    <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">Live coordination — drag edge to resize</p>
+                        <div className="flex items-center gap-1.5">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const v = clampChatHeight(CHAT_HEIGHT_COMPACT_PX);
+                                    setChatHeightPx(v);
+                                    persistChatHeight(v);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900/80 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
+                                title="Shorter chat"
+                            >
+                                <Minimize2 className="h-3.5 w-3.5" aria-hidden />
+                                <span className="hidden sm:inline">Short</span>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const v = clampChatHeight(CHAT_HEIGHT_DEFAULT_PX);
+                                    setChatHeightPx(v);
+                                    persistChatHeight(v);
+                                }}
+                                className="inline-flex items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900/80 px-3 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
+                                title="Default height"
+                            >
+                                Default
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    const v = clampChatHeight(maxChatHeightPx);
+                                    setChatHeightPx(v);
+                                    persistChatHeight(v);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900/80 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-zinc-400 transition-colors hover:border-zinc-500 hover:text-zinc-200"
+                                title="Tall as fits on screen"
+                            >
+                                <Maximize2 className="h-3.5 w-3.5" aria-hidden />
+                                <span className="hidden sm:inline">Tall</span>
+                            </button>
+                        </div>
+                    </div>
                     <div
-                        className={`flex h-full min-h-[min(420px,55vh)] max-h-[min(560px,60vh)] w-full flex-col overflow-hidden ${CHAT_SURFACE_CLASS} border border-slate-200/90 bg-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_48px_-16px_rgba(0,0,0,0.45)]`}
+                        className={`flex w-full flex-col overflow-hidden ${CHAT_SURFACE_CLASS} border border-slate-200/90 bg-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_48px_-16px_rgba(0,0,0,0.45)]`}
+                        style={{ height: chatHeightPx }}
                     >
-                        <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
+                        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                            <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
+                        </div>
+                        <button
+                            type="button"
+                            aria-label={`Drag to resize chat height. Current height ${chatHeightPx} pixels.`}
+                            onPointerDown={onChatResizePointerDown}
+                            className="flex w-full shrink-0 cursor-ns-resize touch-none select-none items-center justify-center gap-0.5 border-t border-slate-200/90 bg-slate-200/70 py-2.5 text-slate-500 transition-colors hover:bg-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-100"
+                        >
+                            <GripVertical className="h-4 w-4 rotate-90 opacity-70" aria-hidden />
+                        </button>
                     </div>
                 </section>
 
