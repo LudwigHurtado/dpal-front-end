@@ -21,17 +21,17 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
     };
 
     return (
-        <div className="flex items-center space-x-4 bg-black/40 p-4 rounded-2xl border border-emerald-500/20 w-full max-w-[280px]">
-            <button type="button" onClick={togglePlay} className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white hover:bg-emerald-500 transition-all shadow-xl active:scale-95">
+        <div className="flex items-center space-x-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm w-full max-w-[280px]">
+            <button type="button" onClick={togglePlay} className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white hover:bg-emerald-500 transition-all shadow-md active:scale-95">
                 {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}
             </button>
             <div className="flex-grow space-y-2">
                 <div className="flex items-end justify-between gap-1 h-4">
                     {[...Array(12)].map((_, i) => (
-                        <div key={i} className={`w-1 rounded-full bg-emerald-500/40 ${isPlaying ? 'animate-waveform' : ''}`} style={{ height: `${Math.random() * 100}%`, animationDelay: `${i * 0.1}s` }}/>
+                        <div key={i} className={`w-1 rounded-full bg-emerald-400/70 ${isPlaying ? 'animate-waveform' : ''}`} style={{ height: `${Math.random() * 100}%`, animationDelay: `${i * 0.1}s` }}/>
                     ))}
                 </div>
-                <p className="text-[8px] font-black text-emerald-500/60 uppercase tracking-[0.2em]">AUDIO_LOG_SHARD</p>
+                <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Voice message</p>
             </div>
             <audio ref={audioRef} src={url} onPlay={() => setIsPlaying(true)} onPause={() => setIsPlaying(false)} onEnded={() => setIsPlaying(false)} className="hidden"/>
         </div>
@@ -202,11 +202,11 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     };
 
     return (
-        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-zinc-950 font-mono relative">
+        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 rounded-b-2xl md:rounded-b-3xl overflow-hidden">
             <style>{`
                 @keyframes waveform { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }
                 .animate-waveform { animation: waveform 0.8s ease-in-out infinite; }
-                @keyframes mic-pulse { 0% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(244, 63, 94, 0); } 100% { box-shadow: 0 0 0 0 rgba(244, 63, 94, 0); } }
+                @keyframes mic-pulse { 0% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.45); } 70% { box-shadow: 0 0 0 12px rgba(14, 165, 233, 0); } 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0); } }
                 .animate-mic-pulse { animation: mic-pulse 2s infinite; }
             `}</style>
 
@@ -221,15 +221,18 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             )}
 
             {/* CHANNEL INFO */}
-            <div className="bg-zinc-900/60 border-b border-zinc-800 px-8 py-3 flex items-center justify-between flex-shrink-0">
-                <div className="flex items-center space-x-3">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.4em] text-white/60">CHANNEL_SYNC: {missionId.substring(0, 8).toUpperCase()}</span>
+            <div className="bg-white border-b border-slate-200 px-4 py-3.5 md:px-6 flex items-center justify-between flex-shrink-0 shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0 ring-4 ring-emerald-500/20" aria-hidden />
+                    <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-800 truncate">Live coordination</p>
+                        <p className="text-[11px] text-slate-500 font-mono truncate">Room · {missionId.substring(0, 12)}…</p>
+                    </div>
                 </div>
                 {isRecording && (
-                    <div className="flex items-center space-x-2 text-rose-500 text-[10px] font-black uppercase animate-pulse">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500"></div>
-                        <span>Recording_Vox...</span>
+                    <div className="flex items-center gap-2 text-sky-700 text-xs font-semibold shrink-0">
+                        <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75" /><span className="relative inline-flex rounded-full h-2 w-2 bg-sky-600" /></span>
+                        Recording…
                     </div>
                 )}
             </div>
@@ -238,49 +241,54 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             <div
                 ref={scrollRef}
                 onScroll={handleMessagesScroll}
-                className="min-h-0 flex-1 space-y-6 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-3 md:space-y-8 md:px-6 md:pb-6 md:pt-4 custom-scrollbar"
+                className="min-h-0 flex-1 space-y-5 overflow-y-auto overflow-x-hidden px-4 pb-4 pt-4 md:space-y-6 md:px-6 md:pb-6 md:pt-5 custom-scrollbar"
             >
                 {messages.length === 0 ? (
-                    <div className="flex min-h-[min(240px,40vh)] flex-col items-center justify-center opacity-10 space-y-4 py-8">
-                        <Broadcast className="w-16 h-16 text-zinc-600" />
-                        <p className="text-sm font-black uppercase tracking-[0.6em]">Establishing_Link...</p>
+                    <div className="flex min-h-[min(220px,38vh)] flex-col items-center justify-center gap-3 py-10 px-4 text-center">
+                        <div className="rounded-2xl bg-white p-4 shadow-md border border-slate-200">
+                            <Broadcast className="w-10 h-10 text-sky-600 mx-auto" />
+                        </div>
+                        <p className="text-sm font-semibold text-slate-700">No messages yet</p>
+                        <p className="text-xs text-slate-500 max-w-sm leading-relaxed">Say hello, share an update, or attach a photo. Everything here stays in this room’s thread.</p>
                     </div>
                 ) : (
                     messages.map((msg) => {
                         const isSelf = msg.sender === hero.name;
                         if (msg.isSystem) {
                             return (
-                                <div key={msg.id} className="flex justify-center my-6">
-                                    <div className="bg-zinc-900/60 px-6 py-2 rounded-full border border-zinc-800/80 shadow-xl">
-                                        <span className="text-[10px] font-black text-amber-500 uppercase tracking-widest">{msg.text}</span>
+                                <div key={msg.id} className="flex justify-center my-4">
+                                    <div className="bg-amber-50 px-4 py-2.5 rounded-2xl border border-amber-200/90 shadow-sm max-w-[95%]">
+                                        <span className="text-xs font-medium text-amber-900/90 leading-snug">{msg.text}</span>
                                     </div>
                                 </div>
                             );
                         }
                         return (
-                            <div key={msg.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} space-y-2`}>
-                                <div className="flex items-center space-x-3 text-[10px] font-black text-zinc-600 uppercase px-3">
-                                    {!isSelf && <span className="text-cyan-600">OP_{msg.sender.substring(0, 10)}</span>}
-                                    <span className="opacity-40">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                            <div key={msg.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} gap-1.5`}>
+                                <div className="flex items-center gap-2 text-[11px] font-medium text-slate-500 px-1">
+                                    {!isSelf && <span className="text-sky-700">{msg.sender.length > 14 ? `${msg.sender.slice(0, 14)}…` : msg.sender}</span>}
+                                    <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
-                                <div className={`max-w-[80%] p-6 rounded-[2rem] text-sm relative group transition-all duration-300 shadow-2xl border-2 ${
-                                    isSelf ? 'bg-emerald-950/20 border-emerald-500/30 text-white' : 'bg-zinc-900 border-zinc-800 text-zinc-200'
+                                <div className={`max-w-[min(92%,28rem)] p-4 md:p-5 rounded-2xl text-sm relative group transition-shadow border shadow-md ${
+                                    isSelf
+                                        ? 'bg-emerald-600 text-white border-emerald-700/30'
+                                        : 'bg-white text-slate-800 border-slate-200'
                                 }`}>
                                     {msg.imageUrl && (
-                                        <div className="mb-4 rounded-2xl overflow-hidden border border-zinc-800 shadow-xl cursor-zoom-in group-hover:border-emerald-500/50 transition-colors" onClick={() => setSelectedImage(msg.imageUrl || null)}>
+                                        <div className="mb-3 rounded-xl overflow-hidden border border-slate-200/80 cursor-zoom-in shadow-sm" onClick={() => setSelectedImage(msg.imageUrl || null)}>
                                             <img
                                                 src={msg.imageUrl}
-                                                alt="Artifact"
-                                                className="h-auto w-full max-h-[min(70vh,560px)] object-contain object-top opacity-90 grayscale transition-all duration-700 group-hover:grayscale-0"
+                                                alt="Attachment"
+                                                className="h-auto w-full max-h-[min(70vh,560px)] object-contain object-top"
                                                 onLoad={scrollToBottomIfPinned}
                                             />
                                         </div>
                                     )}
-                                    {msg.audioUrl && <div className="mb-4"><AudioPlayer url={msg.audioUrl} /></div>}
-                                    {msg.text && <p className="leading-relaxed whitespace-pre-wrap font-medium text-base">{msg.text}</p>}
-                                    <div className={`absolute bottom-[-22px] ${isSelf ? 'right-4' : 'left-4'} opacity-0 group-hover:opacity-100 transition-all flex items-center space-x-2 bg-black px-3 py-1 rounded-lg border border-zinc-800 z-10`}>
-                                        <ShieldCheck className="w-3 h-3 text-emerald-500" />
-                                        <span className="text-[8px] font-mono text-emerald-700 uppercase font-black tracking-widest">VERIFIED_BLOCK_HASH: {msg.ledgerProof.substring(0, 12)}</span>
+                                    {msg.audioUrl && <div className="mb-3"><AudioPlayer url={msg.audioUrl} /></div>}
+                                    {msg.text && <p className={`leading-relaxed whitespace-pre-wrap text-[15px] md:text-base ${isSelf ? 'text-white/95' : 'text-slate-800'}`}>{msg.text}</p>}
+                                    <div className={`mt-2 pt-2 border-t flex items-center gap-2 ${isSelf ? 'border-white/20' : 'border-slate-100'}`}>
+                                        <ShieldCheck className={`w-3.5 h-3.5 shrink-0 ${isSelf ? 'text-emerald-200' : 'text-emerald-600'}`} />
+                                        <span className={`text-[10px] font-mono tracking-tight ${isSelf ? 'text-emerald-100/90' : 'text-slate-500'}`}>Record · {msg.ledgerProof.substring(0, 12)}…</span>
                                     </div>
                                 </div>
                             </div>
@@ -289,54 +297,79 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                 )}
             </div>
 
-            {/* INPUT FOOTER */}
-            <div className="flex-shrink-0 border-t border-zinc-800 bg-zinc-900 p-4 shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:p-6">
+            {/* INPUT FOOTER — high-contrast, pro toolbar */}
+            <div className="flex-shrink-0 border-t border-slate-200 bg-white p-3 md:p-4 shadow-[0_-4px_24px_rgba(15,23,42,0.06)]">
                 {uploadHint && (
-                    <div className="mb-4 text-[10px] font-black uppercase tracking-widest text-cyan-400">
+                    <div className="mb-3 text-xs font-medium text-sky-700 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2">
                         {uploadHint}
                     </div>
                 )}
                 {(attachment || audioAttachment) && (
-                    <div className="flex items-center space-x-4 p-4 bg-zinc-950 rounded-2xl border border-emerald-500/40 mb-6 animate-fade-in shadow-inner">
-                        <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-900 border border-emerald-500/20 flex items-center justify-center">
-                            {attachment ? <img src={attachment} alt="P" className="w-full h-full object-cover" /> : <Volume2 className="w-6 h-6 text-emerald-400"/>}
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 mb-3">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                            {attachment ? <img src={attachment} alt="" className="w-full h-full object-cover" /> : <Volume2 className="w-6 h-6 text-sky-600"/>}
                         </div>
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">{attachment ? 'IMAGE_ARTIFACT_QUEUED' : 'AUDIO_PACKET_BUFFERED'}</span>
-                        <button type="button" onClick={() => { setAttachment(null); setAudioAttachment(null); }} className="ml-auto p-2 text-zinc-500 hover:text-rose-500 transition-colors"><X className="w-6 h-6"/></button>
+                        <span className="text-xs font-semibold text-slate-700">{attachment ? 'Image ready to send' : 'Voice note ready'}</span>
+                        <button type="button" onClick={() => { setAttachment(null); setAudioAttachment(null); }} className="ml-auto p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors" aria-label="Remove attachment">
+                            <X className="w-5 h-5"/>
+                        </button>
                     </div>
                 )}
                 
-                <form onSubmit={handleSend} className="flex items-center gap-4 w-full">
-                    <button type="button" onClick={() => fileInputRef.current?.click()} className="p-4 rounded-2xl border-2 border-zinc-800 text-zinc-500 hover:text-cyan-400 hover:border-cyan-500/50 transition-all shadow-xl active:scale-90" title="Attach Shard">
-                        <Paperclip className="w-6 h-6" />
-                    </button>
-                    <button type="button" onClick={handleShareLocation} disabled={isLocating} className={`p-4 rounded-2xl border-2 border-zinc-800 text-zinc-500 hover:text-rose-400 hover:border-rose-500/50 transition-all shadow-xl active:scale-90 ${isLocating ? 'animate-pulse text-emerald-400' : ''}`} title="Share Location">
-                        <MapPin className="w-6 h-6" />
-                    </button>
+                <form onSubmit={handleSend} className="flex flex-nowrap items-center gap-2 md:gap-3 w-full min-w-0">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-xl bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-sky-50 hover:border-sky-400 hover:text-sky-800 active:scale-[0.97] transition-all"
+                            title="Attach image"
+                            aria-label="Attach image"
+                        >
+                            <Paperclip className="w-[22px] h-[22px] stroke-[2.5]" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleShareLocation}
+                            disabled={isLocating}
+                            className={`inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-xl bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-violet-50 hover:border-violet-400 hover:text-violet-900 active:scale-[0.97] transition-all disabled:opacity-60 ${isLocating ? 'ring-2 ring-sky-400 border-sky-400' : ''}`}
+                            title="Share your location"
+                            aria-label="Share location"
+                        >
+                            <MapPin className="w-[22px] h-[22px] stroke-[2.5]" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleVoiceToggle}
+                            className={`inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-xl border-2 shadow-sm active:scale-[0.97] transition-all ${
+                                isRecording
+                                    ? 'bg-sky-600 border-sky-700 text-white animate-mic-pulse'
+                                    : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'
+                            }`}
+                            title={isRecording ? 'Stop recording' : 'Voice note'}
+                            aria-label={isRecording ? 'Stop recording' : 'Record voice note'}
+                        >
+                            {isRecording ? <Square className="w-5 h-5 fill-current" /> : <Mic className="w-[22px] h-[22px] stroke-[2.5]" />}
+                        </button>
+                    </div>
 
-                    <div className="w-px h-10 bg-zinc-800 mx-1"></div>
-
-                    <button 
-                        type="button" 
-                        onClick={handleVoiceToggle}
-                        className={`p-4 rounded-2xl border-2 transition-all shadow-xl active:scale-90 ${isRecording ? 'bg-rose-600 border-rose-400 text-white animate-mic-pulse' : 'border-zinc-800 text-zinc-500 hover:text-rose-500'}`} 
-                        title={isRecording ? "Stop Recording" : "Record Voice Note"}
-                    >
-                        {isRecording ? <Square className="w-6 h-6 fill-current" /> : <Mic className="w-6 h-6" />}
-                    </button>
-                    
                     <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                     
                     <input 
                         type="text" 
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
-                        placeholder={isRecording ? "Transcribing operative vox..." : isLocating ? "Awaiting GPS coordinates..." : "Input analytical broadcast data..."}
-                        className={`min-w-0 flex-1 rounded-2xl border-2 border-zinc-800 bg-zinc-950 px-5 py-3.5 text-base font-bold text-white shadow-inner transition-all placeholder:text-zinc-800 focus:border-emerald-500 focus:outline-none md:px-8 md:py-4 ${isRecording ? 'border-rose-500/30' : ''}`}
+                        placeholder={isRecording ? 'Listening… speak or type below.' : isLocating ? 'Getting your location…' : 'Type a message…'}
+                        className={`min-w-0 flex-1 min-h-[48px] rounded-xl border-2 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 shadow-inner transition-all focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25 md:min-h-[44px] ${isRecording ? 'border-sky-400 ring-1 ring-sky-200' : 'border-slate-200'}`}
                     />
                     
-                    <button type="submit" disabled={!inputText.trim() && !attachment && !audioAttachment} className="p-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl disabled:opacity-20 transition-all shadow-2xl active:scale-95 border-b-4 border-emerald-800">
-                        <Send className="w-7 h-7" />
+                    <button
+                        type="submit"
+                        disabled={!inputText.trim() && !attachment && !audioAttachment}
+                        className="inline-flex h-12 min-w-[52px] md:min-w-[56px] items-center justify-center rounded-xl bg-sky-600 text-white shadow-md hover:bg-sky-700 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-sky-600 active:scale-[0.98] transition-all border border-sky-700/30"
+                        title="Send"
+                        aria-label="Send message"
+                    >
+                        <Send className="w-6 h-6 md:w-[26px] md:h-[26px]" />
                     </button>
                 </form>
             </div>
