@@ -53,10 +53,8 @@ export const getStoredHomeLayout = (): HomeLayout => {
  */
 export const COORDINATION_SURFACE_RADIUS = 'rounded-[2rem] md:rounded-[2.5rem]';
 
-/**
- * Live chat panels (MissionChatroom) — square outer frame and chrome; use with beacon rounded style for clear contrast.
- */
-export const CHAT_SURFACE_CLASS = 'rounded-none';
+/** Live chat panels — same radius as Deploy Beacon / coordination surfaces. */
+export const CHAT_SURFACE_CLASS = COORDINATION_SURFACE_RADIUS;
 
 export const CATEGORIES = Object.values(Category);
 

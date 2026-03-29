@@ -443,7 +443,7 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     )}
                 </section>
 
-                {/* Deploy Beacon + map — rounded panel (COORDINATION_SURFACE_RADIUS); chat above uses square CHAT_SURFACE_CLASS */}
+                {/* Deploy Beacon + map — same corner radius as live chat above */}
                 <section className="px-2 md:px-4 pb-8 md:pb-12 pt-2 md:pt-4">
                     <DeployBeaconPanel
                         report={report}
