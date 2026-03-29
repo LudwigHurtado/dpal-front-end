@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { CHAT_SURFACE_CLASS } from '../constants';
 import type { ChatMessage, Hero } from '../types';
 import { Send, ShieldCheck, User, Zap, Loader, Camera, X, Broadcast, Maximize2, Mic, Play, Square, Volume2, Paperclip, MapPin } from './icons';
 
@@ -21,7 +22,7 @@ const AudioPlayer: React.FC<{ url: string }> = ({ url }) => {
     };
 
     return (
-        <div className="flex items-center space-x-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm w-full max-w-[280px]">
+        <div className="flex items-center space-x-4 bg-white p-4 rounded-none border border-slate-200 shadow-sm w-full max-w-[280px]">
             <button type="button" onClick={togglePlay} className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center text-white hover:bg-emerald-500 transition-all shadow-md active:scale-95">
                 {isPlaying ? <Square className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current translate-x-0.5" />}
             </button>
@@ -202,7 +203,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     };
 
     return (
-        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 overflow-hidden rounded-none">
+        <div className={`flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 overflow-hidden ${CHAT_SURFACE_CLASS}`}>
             <style>{`
                 @keyframes waveform { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }
                 .animate-waveform { animation: waveform 0.8s ease-in-out infinite; }
@@ -214,7 +215,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             {selectedImage && (
                 <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-6 animate-fade-in" onClick={() => setSelectedImage(null)}>
                     <button type="button" className="absolute top-10 right-10 p-4 bg-zinc-900 rounded-full text-white border border-zinc-800 shadow-2xl hover:bg-zinc-800 transition-all"><X className="w-8 h-8"/></button>
-                    <div className="relative max-w-full max-h-full rounded-3xl overflow-hidden border-2 border-zinc-800 shadow-[0_0_100px_rgba(6,182,212,0.2)]">
+                    <div className="relative max-w-full max-h-full rounded-none overflow-hidden border-2 border-zinc-800 shadow-[0_0_100px_rgba(6,182,212,0.2)]">
                         <img src={selectedImage} alt="Shard Preview" className="max-w-full max-h-[85vh] object-contain" onClick={(e) => e.stopPropagation()} />
                     </div>
                 </div>
@@ -245,7 +246,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             >
                 {messages.length === 0 ? (
                     <div className="flex min-h-[min(220px,38vh)] flex-col items-center justify-center gap-3 py-10 px-4 text-center">
-                        <div className="rounded-2xl bg-white p-4 shadow-md border border-slate-200">
+                        <div className="rounded-none bg-white p-4 shadow-md border border-slate-200">
                             <Broadcast className="w-10 h-10 text-sky-600 mx-auto" />
                         </div>
                         <p className="text-sm font-semibold text-slate-700">No messages yet</p>
@@ -257,7 +258,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                         if (msg.isSystem) {
                             return (
                                 <div key={msg.id} className="flex justify-center my-4">
-                                    <div className="bg-amber-50 px-4 py-2.5 rounded-2xl border border-amber-200/90 shadow-sm max-w-[95%]">
+                                    <div className="bg-amber-50 px-4 py-2.5 rounded-none border border-amber-200/90 shadow-sm max-w-[95%]">
                                         <span className="text-xs font-medium text-amber-900/90 leading-snug">{msg.text}</span>
                                     </div>
                                 </div>
@@ -269,13 +270,13 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                                     {!isSelf && <span className="text-sky-700">{msg.sender.length > 14 ? `${msg.sender.slice(0, 14)}…` : msg.sender}</span>}
                                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
-                                <div className={`max-w-[min(92%,28rem)] p-4 md:p-5 rounded-2xl text-sm relative group transition-shadow border shadow-md ${
+                                <div className={`max-w-[min(92%,28rem)] p-4 md:p-5 rounded-none text-sm relative group transition-shadow border shadow-md ${
                                     isSelf
                                         ? 'bg-emerald-600 text-white border-emerald-700/30'
                                         : 'bg-white text-slate-800 border-slate-200'
                                 }`}>
                                     {msg.imageUrl && (
-                                        <div className="mb-3 rounded-xl overflow-hidden border border-slate-200/80 cursor-zoom-in shadow-sm" onClick={() => setSelectedImage(msg.imageUrl || null)}>
+                                        <div className="mb-3 rounded-none overflow-hidden border border-slate-200/80 cursor-zoom-in shadow-sm" onClick={() => setSelectedImage(msg.imageUrl || null)}>
                                             <img
                                                 src={msg.imageUrl}
                                                 alt="Attachment"
@@ -300,17 +301,17 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
             {/* INPUT FOOTER — high-contrast, pro toolbar */}
             <div className="flex-shrink-0 border-t border-slate-200 bg-white p-3 md:p-4 shadow-[0_-4px_24px_rgba(15,23,42,0.06)]">
                 {uploadHint && (
-                    <div className="mb-3 text-xs font-medium text-sky-700 bg-sky-50 border border-sky-100 rounded-xl px-3 py-2">
+                    <div className="mb-3 text-xs font-medium text-sky-700 bg-sky-50 border border-sky-100 rounded-none px-3 py-2">
                         {uploadHint}
                     </div>
                 )}
                 {(attachment || audioAttachment) && (
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200 mb-3">
-                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0">
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-none border border-slate-200 mb-3">
+                        <div className="w-12 h-12 rounded-none overflow-hidden bg-white border border-slate-200 flex items-center justify-center shrink-0">
                             {attachment ? <img src={attachment} alt="" className="w-full h-full object-cover" /> : <Volume2 className="w-6 h-6 text-sky-600"/>}
                         </div>
                         <span className="text-xs font-semibold text-slate-700">{attachment ? 'Image ready to send' : 'Voice note ready'}</span>
-                        <button type="button" onClick={() => { setAttachment(null); setAudioAttachment(null); }} className="ml-auto p-2 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors" aria-label="Remove attachment">
+                        <button type="button" onClick={() => { setAttachment(null); setAudioAttachment(null); }} className="ml-auto p-2 rounded-none text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors" aria-label="Remove attachment">
                             <X className="w-5 h-5"/>
                         </button>
                     </div>
@@ -321,7 +322,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-xl bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-sky-50 hover:border-sky-400 hover:text-sky-800 active:scale-[0.97] transition-all"
+                            className="inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-none bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-sky-50 hover:border-sky-400 hover:text-sky-800 active:scale-[0.97] transition-all"
                             title="Attach image"
                             aria-label="Attach image"
                         >
@@ -331,7 +332,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                             type="button"
                             onClick={handleShareLocation}
                             disabled={isLocating}
-                            className={`inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-xl bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-violet-50 hover:border-violet-400 hover:text-violet-900 active:scale-[0.97] transition-all disabled:opacity-60 ${isLocating ? 'ring-2 ring-sky-400 border-sky-400' : ''}`}
+                            className={`inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-none bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-violet-50 hover:border-violet-400 hover:text-violet-900 active:scale-[0.97] transition-all disabled:opacity-60 ${isLocating ? 'ring-2 ring-sky-400 border-sky-400' : ''}`}
                             title="Share your location"
                             aria-label="Share location"
                         >
@@ -340,7 +341,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                         <button
                             type="button"
                             onClick={handleVoiceToggle}
-                            className={`inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-xl border-2 shadow-sm active:scale-[0.97] transition-all ${
+                            className={`inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-none border-2 shadow-sm active:scale-[0.97] transition-all ${
                                 isRecording
                                     ? 'bg-sky-600 border-sky-700 text-white animate-mic-pulse'
                                     : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50 hover:border-slate-400'
@@ -359,13 +360,13 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                         value={inputText}
                         onChange={(e) => setInputText(e.target.value)}
                         placeholder={isRecording ? 'Listening… speak or type below.' : isLocating ? 'Getting your location…' : 'Type a message…'}
-                        className={`min-w-0 flex-1 min-h-[48px] rounded-xl border-2 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 shadow-inner transition-all focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25 md:min-h-[44px] ${isRecording ? 'border-sky-400 ring-1 ring-sky-200' : 'border-slate-200'}`}
+                        className={`min-w-0 flex-1 min-h-[48px] rounded-none border-2 bg-slate-50 px-4 py-3 text-[15px] text-slate-900 placeholder:text-slate-400 shadow-inner transition-all focus:bg-white focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-500/25 md:min-h-[44px] ${isRecording ? 'border-sky-400 ring-1 ring-sky-200' : 'border-slate-200'}`}
                     />
                     
                     <button
                         type="submit"
                         disabled={!inputText.trim() && !attachment && !audioAttachment}
-                        className="inline-flex h-12 min-w-[52px] md:min-w-[56px] items-center justify-center rounded-xl bg-sky-600 text-white shadow-md hover:bg-sky-700 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-sky-600 active:scale-[0.98] transition-all border border-sky-700/30"
+                        className="inline-flex h-12 min-w-[52px] md:min-w-[56px] items-center justify-center rounded-none bg-sky-600 text-white shadow-md hover:bg-sky-700 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-sky-600 active:scale-[0.98] transition-all border border-sky-700/30"
                         title="Send"
                         aria-label="Send message"
                     >

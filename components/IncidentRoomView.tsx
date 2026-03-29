@@ -6,7 +6,7 @@ import { type Report, type Hero, type ChatMessage, Category } from '../types';
 import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, AlertTriangle, Link, ChevronDown } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
-import { CATEGORIES_WITH_ICONS, COORDINATION_SURFACE_RADIUS } from '../constants';
+import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
 import { performIAReview } from '../services/geminiService';
 import { buildReportVerifyUrl, buildSituationRoomUrl } from '../utils/deepLinks';
 
@@ -321,7 +321,7 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
 
                 {/* Chat directly under QR + metadata (above directory + map) */}
                 <section id="situation-chat" className="flex flex-col min-h-0 flex-1 bg-slate-100 border-b border-slate-200 scroll-mt-4">
-                    <div className={`flex h-full min-h-[min(420px,55vh)] max-h-[min(560px,60vh)] flex-col overflow-hidden ${COORDINATION_SURFACE_RADIUS} border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_40px_-12px_rgba(15,23,42,0.08)] mx-2 mb-1 md:mx-4 md:mb-2`}>
+                    <div className={`flex h-full min-h-[min(420px,55vh)] max-h-[min(560px,60vh)] flex-col overflow-hidden ${CHAT_SURFACE_CLASS} border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_40px_-12px_rgba(15,23,42,0.08)] mx-2 mb-1 md:mx-4 md:mb-2`}>
                         <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
                     </div>
                 </section>
@@ -364,7 +364,7 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     )}
                 </section>
 
-                {/* Deploy Beacon + map — same horizontal inset as chat; radius from COORDINATION_SURFACE_RADIUS inside panel */}
+                {/* Deploy Beacon + map — rounded panel (COORDINATION_SURFACE_RADIUS); chat above uses square CHAT_SURFACE_CLASS */}
                 <section className="px-2 md:px-4 pb-8 md:pb-12 pt-2 md:pt-4">
                     <DeployBeaconPanel
                         report={report}
