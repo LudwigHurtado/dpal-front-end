@@ -4,7 +4,8 @@ import { Category, Report, EducationRole } from '../types';
 import { CATEGORIES_WITH_ICONS, EDUCATION_ROLES } from '../constants';
 import SubmissionPanel from './SubmissionPanel';
 import CaseboardReport from './reporting/CaseboardReport';
-import { shouldUseCaseboard } from './reporting/caseboardRegistry';
+import { getCaseboardConfig, shouldUseCaseboard } from './reporting/caseboardRegistry';
+import { getCategoryDefinition } from './sectors/categoryGatewayRegistry';
 import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
 import { pickCivicQuote } from '../utils/civicQuotes';
@@ -19,6 +20,11 @@ interface ReportSubmissionViewProps {
     /** Opens missions hub (e.g. Good Deeds / live intelligence) from “Join mission”. */
     onJoinMission?: () => void;
 }
+
+const fadeStyle = `
+  .report-submission-fade { animation: reportSubmissionFadeIn 0.4s ease-out forwards; }
+  @keyframes reportSubmissionFadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+`;
 
 const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, role, onReturn, addReport, totalReports, prefilledDescription, onJoinMission }) => {
     const { t } = useTranslations();
@@ -58,276 +64,122 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     };
     const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
 
-    const isAccidents = category === Category.AccidentsRoadHazards;
     const useCaseboard = shouldUseCaseboard(category);
+    const caseboardCfg = useMemo(() => (useCaseboard ? getCaseboardConfig(category) : null), [category, useCaseboard]);
+    const gatewayDef = useMemo(() => getCategoryDefinition(category, categoryInfo.headline), [category, categoryInfo.headline]);
+    const accent = gatewayDef.accentColor;
 
-    if (useCaseboard && category === Category.Education) {
-        return (
-            <div className="animate-fade-in font-sans text-stone-900 max-w-7xl mx-auto pb-32 px-4">
-                <div className="rounded-[2rem] bg-gradient-to-br from-violet-100/95 via-stone-50 to-amber-50 border border-stone-200/90 shadow-md mb-8 overflow-hidden">
-                    <div className="p-6 md:p-8 pb-4">
-                        <button
-                            type="button"
-                            onClick={onReturn}
-                            className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-800 bg-white/90 px-4 py-2 rounded-xl border border-violet-200/80 shadow-sm hover:bg-white"
-                        >
-                            <ArrowLeft className="w-4 h-4" />
-                            Back
-                        </button>
+    const heroEyebrow = caseboardCfg
+        ? `${categoryInfo.headline} · ${caseboardCfg.missionSubtitle}`
+        : 'Submit a report';
+
+    const heroDescription = useMemo(() => {
+        if (category === Category.Education) {
+            return 'Assemble the case: pick how you want to enter, choose a report path and your role, then fill the caseboard — structured, serious, and built for accountability.';
+        }
+        if (caseboardCfg) {
+            return 'Choose a path, your relationship to the situation, then complete the guided caseboard — clear steps for the public record.';
+        }
+        return 'Complete the guided steps below. Your report becomes part of the public accountability record.';
+    }, [category, caseboardCfg]);
+
+    const sessionStats = (
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12" aria-label="Session statistics">
+            <div
+                role="status"
+                className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
+            >
+                <div className="flex items-center gap-5 min-w-0">
+                    <div
+                        className="w-16 h-16 rounded-2xl border flex items-center justify-center text-3xl shrink-0 bg-slate-50"
+                        style={{ borderColor: `${accent}55` }}
+                        aria-hidden
+                    >
+                        {roleInfo?.icon || '🛡️'}
                     </div>
-                    <div className="w-full bg-stone-200/40 border-y border-stone-200/80">
-                        <div className="mx-auto flex min-h-[min(52vh,520px)] max-h-[min(70vh,640px)] w-full items-center justify-center px-4 py-6 md:px-8 md:py-10">
-                            <img
-                                src={imageUrl}
-                                alt=""
-                                className="max-h-[min(52vh,520px)] w-full max-w-4xl object-contain object-center"
-                                draggable={false}
-                            />
-                        </div>
-                    </div>
-                    <div className="p-6 md:p-10 pt-6">
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                            <div className="text-5xl md:text-6xl shrink-0">{categoryInfo.icon}</div>
-                            <div>
-                                <p className="text-xs font-semibold text-violet-700 uppercase tracking-wider">Education · Mission report</p>
-                                <h2 className="text-2xl md:text-4xl font-bold text-stone-900 tracking-tight mt-1">{categoryInfo.headline}</h2>
-                                <p className="text-stone-600 text-sm mt-2 max-w-2xl leading-relaxed">
-                                    Assemble the case: pick how you want to enter, choose a report path and your role, then fill the caseboard — structured, serious, and built for accountability.
-                                </p>
-                            </div>
-                        </div>
+                    <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Hero role (from your profile)</p>
+                        <p className="text-lg font-bold text-slate-900">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
+                        <p className="text-xs text-slate-500 mt-1 italic leading-relaxed">{roleInfo ? civicInspiration : 'Your contribution strengthens the public record.'}</p>
                     </div>
                 </div>
+                <ShieldCheck className="w-10 h-10 text-emerald-400/80 shrink-0 pointer-events-none" aria-hidden />
+            </div>
+            <div
+                role="status"
+                className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
+            >
+                <div>
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Reports in this session</p>
+                    <p className="text-4xl font-bold text-slate-900 tabular-nums">{totalReports.toLocaleString()}</p>
+                    <p className="text-xs text-slate-500 mt-1">Informational only — not a button.</p>
+                </div>
+                <Database className="w-10 h-10 text-slate-300 shrink-0 pointer-events-none" aria-hidden />
+            </div>
+        </section>
+    );
+
+    const reportHero = (
+        <div
+            className="rounded-[2rem] bg-white border border-slate-200 shadow-md mb-8 overflow-hidden"
+            style={{ boxShadow: `0 1px 0 0 ${accent}22` }}
+        >
+            <div className="p-6 md:p-8 pb-4">
+                <button
+                    type="button"
+                    onClick={onReturn}
+                    className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-700 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 shadow-sm hover:bg-white"
+                >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                </button>
+            </div>
+            <div className="w-full bg-slate-100/80 border-y border-slate-200/90">
+                <div className="mx-auto flex min-h-[min(52vh,520px)] max-h-[min(70vh,640px)] w-full items-center justify-center px-4 py-6 md:px-8 md:py-10">
+                    <img
+                        src={imageUrl}
+                        alt=""
+                        className="max-h-[min(52vh,520px)] w-full max-w-4xl object-contain object-center"
+                        draggable={false}
+                    />
+                </div>
+            </div>
+            <div className="p-6 md:p-10 pt-6">
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                    <div className="text-5xl md:text-6xl shrink-0">{categoryInfo.icon}</div>
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: accent }}>
+                            {heroEyebrow}
+                        </p>
+                        <h2 className="text-2xl md:text-4xl font-bold text-slate-900 tracking-tight mt-1">{categoryInfo.headline}</h2>
+                        <p className="text-slate-600 text-sm mt-2 max-w-2xl leading-relaxed">{heroDescription}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    if (useCaseboard && caseboardCfg) {
+        return (
+            <div className="report-submission-fade font-sans text-slate-900 max-w-7xl mx-auto pb-32 px-4">
+                <style>{fadeStyle}</style>
+                {reportHero}
                 <CaseboardReport
                     key={category}
                     category={category}
                     addReport={addReport}
                     prefilledDescription={prefilledDescription}
                 />
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12" aria-label="Session statistics">
-                    <div
-                        role="status"
-                        className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
-                    >
-                        <div className="flex items-center gap-5 min-w-0">
-                            <div className="w-16 h-16 rounded-2xl bg-violet-100 border border-violet-200 flex items-center justify-center text-3xl shrink-0" aria-hidden>
-                                {roleInfo?.icon || '🛡️'}
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Hero role (from your profile)</p>
-                                <p className="text-lg font-bold text-stone-900">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
-                                <p className="text-xs text-stone-500 mt-1 italic leading-relaxed">{roleInfo ? civicInspiration : 'Your contribution strengthens the public record.'}</p>
-                            </div>
-                        </div>
-                        <ShieldCheck className="w-10 h-10 text-emerald-500/30 shrink-0 pointer-events-none" aria-hidden />
-                    </div>
-                    <div
-                        role="status"
-                        className="bg-white border border-stone-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
-                    >
-                        <div>
-                            <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider mb-1">Ledger volume (live count)</p>
-                            <p className="text-4xl font-bold text-stone-900 tabular-nums">{totalReports.toLocaleString()}</p>
-                            <p className="text-xs text-stone-500 mt-1">Reports in this session index</p>
-                            <p className="text-xs text-stone-400 mt-1">Informational only — not a button.</p>
-                        </div>
-                        <Database className="w-10 h-10 text-violet-300 shrink-0 pointer-events-none" aria-hidden />
-                    </div>
-                </section>
-            </div>
-        );
-    }
-
-    if (useCaseboard) {
-        return (
-            <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-32 px-4">
-                <style>{`
-                .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-                .dispatch-gradient { background: linear-gradient(180deg, rgba(13, 13, 26, 0) 0%, rgba(13, 13, 26, 0.8) 100%); }
-                .scanline-overlay {
-                    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-                    background-size: 100% 4px, 3px 100%;
-                    pointer-events: none;
-                }
-            `}</style>
-
-                {isAccidents ? (
-                    <div className="relative mb-12 overflow-hidden rounded-[4rem] border-2 border-zinc-800 bg-black shadow-4xl">
-                        <div className="flex min-h-[280px] w-full items-center justify-center px-4 py-8 md:min-h-[min(48vh,480px)] md:px-8 md:py-12">
-                            <img
-                                src={imageUrl}
-                                alt=""
-                                draggable={false}
-                                className="max-h-[min(64vh,620px)] w-full max-w-6xl object-contain object-center"
-                            />
-                        </div>
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
-                        <div className="absolute inset-0 z-10 flex flex-col p-6 md:p-8">
-                            <button
-                                type="button"
-                                onClick={onReturn}
-                                className="pointer-events-auto flex w-fit items-center gap-2 rounded-2xl border border-white/10 bg-black/55 px-5 py-2 text-[10px] font-black uppercase tracking-[0.4em] text-white backdrop-blur"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                                <span>Back</span>
-                            </button>
-                        </div>
-                    </div>
-                ) : (
-                    <div className="relative mb-12 overflow-hidden rounded-[4rem] border-2 border-zinc-800 bg-black shadow-4xl">
-                        <div className="flex min-h-[280px] w-full items-center justify-center px-4 py-8 md:min-h-[min(48vh,480px)] md:px-8 md:py-12">
-                            <img
-                                src={imageUrl}
-                                alt=""
-                                draggable={false}
-                                className="max-h-[min(64vh,620px)] w-full max-w-6xl object-contain object-center"
-                            />
-                        </div>
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/15" />
-
-                        <div className="absolute inset-0 z-10 flex flex-col justify-between p-6 md:p-8">
-                            <button
-                                type="button"
-                                onClick={onReturn}
-                                className="flex w-fit items-center space-x-3 rounded-full border border-cyan-500/25 bg-black/65 px-6 py-2 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 backdrop-blur-md"
-                            >
-                                <ArrowLeft className="w-5 h-5" />
-                                <span>Back</span>
-                            </button>
-                            <div className="flex max-w-xl items-center space-x-6">
-                                <div className="flex-shrink-0 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-5 backdrop-blur-xl">
-                                    <span className="text-4xl md:text-5xl leading-none">{categoryInfo.icon}</span>
-                                </div>
-                                <div>
-                                    <p className="mb-1 text-xs tracking-widest text-cyan-400">CASEBOARD REPORT</p>
-                                    <h2 className="text-2xl font-black uppercase leading-tight text-white md:text-4xl">{categoryInfo.headline}</h2>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                <div className="mt-8 md:mt-10">
-                    <CaseboardReport
-                        key={category}
-                        category={category}
-                        addReport={addReport}
-                        prefilledDescription={prefilledDescription}
-                    />
-                </div>
-
-                <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12" aria-label="Session statistics">
-                    <div role="status" className="bg-zinc-900/60 border-2 border-zinc-800 p-8 rounded-[3rem] shadow-xl backdrop-blur-sm flex items-center justify-between">
-                        <div className="flex items-center space-x-8 min-w-0">
-                            <div className="w-20 h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center text-5xl border-2 border-zinc-800 flex-shrink-0 shadow-inner" aria-hidden>
-                                {roleInfo?.icon || '🛡️'}
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Authorized_Role</p>
-                                <p className="text-xl font-bold text-white leading-snug">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
-                                <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed italic">{roleInfo ? civicInspiration : 'Hope grows when neighbors stand up for one another.'}</p>
-                            </div>
-                        </div>
-                        <ShieldCheck className="w-12 h-12 text-emerald-500/20 shrink-0 pointer-events-none" aria-hidden />
-                    </div>
-
-                    <div role="status" className="bg-zinc-950 border-2 border-zinc-900 p-8 rounded-[3rem] shadow-inner flex items-center justify-between">
-                        <div className="flex items-end space-x-10 min-w-0">
-                            <div className="min-w-0">
-                                <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.4em] mb-3">Ledger_Volume</h3>
-                                <div className="flex items-end space-x-4">
-                                    <span className="text-6xl font-black text-white tracking-tighter leading-none">{totalReports.toLocaleString()}</span>
-                                    <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total_Shards</span>
-                                </div>
-                                <p className="text-[9px] text-zinc-500 mt-2 uppercase tracking-wide">Live count · not a button</p>
-                            </div>
-                            <div className="flex flex-col space-y-2 hidden sm:flex">
-                                <div className="flex items-center space-x-3 text-emerald-500 text-[10px] font-black">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_emerald]" />
-                                    <span className="tracking-[0.2em]">P2P_SYNC_READY</span>
-                                </div>
-                            </div>
-                        </div>
-                        <Database className="w-12 h-12 text-zinc-900 shrink-0 pointer-events-none" aria-hidden />
-                    </div>
-                </section>
+                {sessionStats}
             </div>
         );
     }
 
     return (
-        <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-32 px-4">
-             <style>{`
-                .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-                .dispatch-gradient { background: linear-gradient(180deg, rgba(13, 13, 26, 0) 0%, rgba(13, 13, 26, 0.8) 100%); }
-                .scanline-overlay {
-                    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.1) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
-                    background-size: 100% 4px, 3px 100%;
-                    pointer-events: none;
-                }
-            `}</style>
-
-            {/* Header */}
-            {isAccidents ? (
-                <div className="relative mb-12 overflow-hidden rounded-[4rem] border-2 border-zinc-800 bg-black shadow-4xl">
-                    <div className="flex min-h-[280px] w-full items-center justify-center px-4 py-8 md:min-h-[min(48vh,480px)] md:px-8 md:py-12">
-                        <img
-                            src={imageUrl}
-                            alt=""
-                            draggable={false}
-                            className="max-h-[min(64vh,620px)] w-full max-w-6xl object-contain object-center"
-                        />
-                    </div>
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/75 via-black/35 to-transparent" />
-                    <div className="absolute inset-0 z-10 flex flex-col p-6 md:p-8">
-                        <button
-                            type="button"
-                            onClick={onReturn}
-                            className="pointer-events-auto flex w-fit items-center gap-2 rounded-2xl border border-white/10 bg-black/55 px-5 py-2 text-[10px] font-black uppercase tracking-[0.4em] text-white backdrop-blur"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                            <span>Back</span>
-                        </button>
-                    </div>
-                </div>
-            ) : (
-                <div className="relative mb-12 overflow-hidden rounded-[4rem] border-2 border-zinc-800 bg-black shadow-4xl">
-                    <div className="flex min-h-[280px] w-full items-center justify-center px-4 py-8 md:min-h-[min(48vh,480px)] md:px-8 md:py-12">
-                        <img
-                            src={imageUrl}
-                            alt=""
-                            draggable={false}
-                            className="max-h-[min(64vh,620px)] w-full max-w-6xl object-contain object-center"
-                        />
-                    </div>
-                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-black/15" />
-
-                    <div className="absolute inset-0 z-10 flex flex-col justify-between p-6 md:p-8">
-                        <button
-                            type="button"
-                            onClick={onReturn}
-                            className="flex w-fit items-center space-x-3 rounded-full border border-cyan-500/25 bg-black/65 px-6 py-2 text-[10px] font-black uppercase tracking-[0.4em] text-cyan-400 backdrop-blur-md"
-                        >
-                            <ArrowLeft className="w-5 h-5" />
-                            <span>Back</span>
-                        </button>
-                        <div className="flex max-w-xl items-center space-x-6">
-                            <div className="flex-shrink-0 rounded-2xl border border-cyan-400/30 bg-cyan-500/10 p-5 backdrop-blur-xl">
-                                <span className="text-4xl md:text-5xl leading-none">{categoryInfo.icon}</span>
-                            </div>
-                            <div>
-                                <p className="mb-1 text-xs tracking-widest text-cyan-400">FILE A REPORT</p>
-                                <h2 className="text-2xl font-black uppercase leading-tight text-white md:text-4xl">{categoryInfo.headline}</h2>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Redesigned Submission Flow */}
-            <div className="mt-8 md:mt-10">
+        <div className="report-submission-fade font-sans text-slate-900 max-w-7xl mx-auto pb-32 px-4">
+            <style>{fadeStyle}</style>
+            {reportHero}
+            <div className="mt-2 md:mt-4">
                 <SubmissionPanel
                     addReport={addReport}
                     preselectedCategory={category}
@@ -335,43 +187,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                     onJoinMission={onJoinMission}
                 />
             </div>
-
-            {/* Bottom: live stats only (not interactive) */}
-            <section className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12" aria-label="Session statistics">
-                <div role="status" className="bg-zinc-900/60 border-2 border-zinc-800 p-8 rounded-[3rem] shadow-xl backdrop-blur-sm flex items-center justify-between">
-                    <div className="flex items-center space-x-8 min-w-0">
-                        <div className="w-20 h-20 bg-zinc-950 rounded-[2rem] flex items-center justify-center text-5xl border-2 border-zinc-800 flex-shrink-0 shadow-inner" aria-hidden>
-                            {roleInfo?.icon || '🛡️'}
-                        </div>
-                        <div>
-                            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Authorized_Role</p>
-                            <p className="text-xl font-bold text-white leading-snug">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
-                            <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed italic">{roleInfo ? civicInspiration : 'Hope grows when neighbors stand up for one another.'}</p>
-                        </div>
-                    </div>
-                    <ShieldCheck className="w-12 h-12 text-emerald-500/20 shrink-0 pointer-events-none" aria-hidden />
-                </div>
-
-                <div role="status" className="bg-zinc-950 border-2 border-zinc-900 p-8 rounded-[3rem] shadow-inner flex items-center justify-between">
-                    <div className="flex items-end space-x-10 min-w-0">
-                        <div className="min-w-0">
-                            <h3 className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.4em] mb-3">Ledger_Volume</h3>
-                            <div className="flex items-end space-x-4">
-                                <span className="text-6xl font-black text-white tracking-tighter leading-none">{totalReports.toLocaleString()}</span>
-                                <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest mb-1">Total_Shards</span>
-                            </div>
-                            <p className="text-[9px] text-zinc-500 mt-2 uppercase tracking-wide">Live count · not a button</p>
-                        </div>
-                        <div className="flex flex-col space-y-2 hidden sm:flex">
-                            <div className="flex items-center space-x-3 text-emerald-500 text-[10px] font-black">
-                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_emerald]" />
-                                <span className="tracking-[0.2em]">P2P_SYNC_READY</span>
-                            </div>
-                        </div>
-                    </div>
-                    <Database className="w-12 h-12 text-zinc-900 shrink-0 pointer-events-none" aria-hidden />
-                </div>
-            </section>
+            {sessionStats}
         </div>
     );
 };
