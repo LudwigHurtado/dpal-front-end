@@ -9,6 +9,12 @@ import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
 import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
 import { performIAReview } from '../services/geminiService';
 import { buildReportVerifyUrl, buildSituationRoomUrl } from '../utils/deepLinks';
+import {
+  fetchActiveBeacons,
+  publishBeacon,
+  resolveBeaconOnNetwork,
+  type BeaconRecord,
+} from '../services/beaconService';
 
 /** Matches certificate / print-to-PDF QR generation so scans from the room match the document. */
 const CERTIFICATE_QR_OPTIONS = {
@@ -73,6 +79,10 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
     
     const [beaconInput, setBeaconInput] = useState(report.location || '');
     const [lockedMapLocation, setLockedMapLocation] = useState(report.location || '');
+    const [beaconCoords, setBeaconCoords] = useState<{ lat: number; lng: number } | null>(null);
+    const [networkBeacons, setNetworkBeacons] = useState<BeaconRecord[]>([]);
+    const [beaconNetworkHint, setBeaconNetworkHint] = useState<string | null>(null);
+    const [beaconSyncError, setBeaconSyncError] = useState<string | null>(null);
     const [findings, setFindings] = useState<Record<string, Finding[]>>({});
 
     const activeSector = useMemo(() => sectors.find(s => s.id === activeSectorId) || sectors[0], [sectors, activeSectorId]);
@@ -127,29 +137,86 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
         }
     };
 
-    const handleDeployBeacon = (payload: {
+    const refreshNetworkBeacons = useCallback(async () => {
+        const { beacons, error } = await fetchActiveBeacons();
+        setNetworkBeacons(beacons);
+        if (error && beacons.length === 0) {
+            setBeaconSyncError('Could not reach the beacon service; list may be empty until the API is online.');
+        } else {
+            setBeaconSyncError(null);
+        }
+    }, []);
+
+    useEffect(() => {
+        void refreshNetworkBeacons();
+        const t = window.setInterval(() => void refreshNetworkBeacons(), 15000);
+        return () => window.clearInterval(t);
+    }, [refreshNetworkBeacons]);
+
+    const handleDeployBeacon = async (payload: {
         area: string;
         urgency: 'standard' | 'elevated' | 'urgent';
         alertKind: string;
         notes: string;
     }) => {
         if (!payload.area.trim()) return;
-        setMapLoading(true);
         setLockedMapLocation(payload.area);
         setIsBeaconActive(true);
-        setBeaconDeployedAt(Date.now());
+        const deployedAt = Date.now();
+        setBeaconDeployedAt(deployedAt);
         setBeaconCoordStatus('active');
+
+        let lat: number | undefined;
+        let lng: number | undefined;
+        await new Promise<void>((resolve) => {
+            if (typeof navigator === 'undefined' || !navigator.geolocation) {
+                resolve();
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    lat = pos.coords.latitude;
+                    lng = pos.coords.longitude;
+                    setBeaconCoords({ lat, lng: lng! });
+                    resolve();
+                },
+                () => resolve(),
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 }
+            );
+        });
+
+        const pub = await publishBeacon({
+            reportId: report.id,
+            title: report.title,
+            areaLabel: payload.area.trim(),
+            urgency: payload.urgency,
+            alertKind: payload.alertKind,
+            deployedAt,
+            latitude: lat,
+            longitude: lng,
+        });
+        setBeaconNetworkHint(pub.error ?? null);
+        void refreshNetworkBeacons();
+
         const kindLabel = payload.alertKind.replace(/_/g, ' ');
         const noteLine = payload.notes.trim() ? ` Notes: ${payload.notes.trim()}` : '';
+        const geoNote =
+            lat != null && lng != null
+                ? ` Coordinates shared for map (${lat.toFixed(5)}, ${lng.toFixed(5)}).`
+                : '';
         onSendMessage(
-            `[Beacon] Support signal active for "${report.title}" near ${payload.area}. Type: ${kindLabel}. Urgency: ${payload.urgency}.${noteLine} — Live coordination thread is open; helpers and moderators can join and respond.`
+            `[Beacon] Support signal active for "${report.title}" near ${payload.area}. Type: ${kindLabel}. Urgency: ${payload.urgency}.${noteLine}${geoNote} — Live coordination thread is open; helpers and moderators can join and respond.`
         );
     };
 
-    const handleResolveBeacon = () => {
+    const handleResolveBeacon = async () => {
         setIsBeaconActive(false);
         setBeaconCoordStatus('resolved');
         setBeaconDeployedAt(null);
+        setBeaconCoords(null);
+        const res = await resolveBeaconOnNetwork(report.id);
+        setBeaconNetworkHint(res.error ?? null);
+        void refreshNetworkBeacons();
         onSendMessage(
             `[Beacon] Coordination signal ended for ${lockedMapLocation || beaconInput}. Status: resolved. Thank you for keeping the record constructive and community-centered.`
         );
@@ -186,8 +253,20 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
     };
 
     const mapUrl = useMemo(() => {
-        return `https://maps.google.com/maps?q=${encodeURIComponent(lockedMapLocation || 'Earth')}&t=k&z=15&ie=UTF8&iwloc=&output=embed`;
-    }, [lockedMapLocation]);
+        if (beaconCoords && isBeaconActive) {
+            return `https://www.google.com/maps?q=${beaconCoords.lat},${beaconCoords.lng}&z=17&output=embed`;
+        }
+        const z = isBeaconActive ? 16 : 15;
+        return `https://maps.google.com/maps?q=${encodeURIComponent(lockedMapLocation || 'Earth')}&t=k&z=${z}&ie=UTF8&iwloc=&output=embed`;
+    }, [lockedMapLocation, beaconCoords, isBeaconActive]);
+
+    const publicMapUrl = useMemo(() => {
+        if (beaconCoords && isBeaconActive) {
+            return `https://www.google.com/maps?q=${beaconCoords.lat},${beaconCoords.lng}&z=17`;
+        }
+        const q = lockedMapLocation.trim() || 'Earth';
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+    }, [beaconCoords, isBeaconActive, lockedMapLocation]);
     
     const forensics = report.structuredData?.forensics || {
         jurisdiction: report.location,
@@ -381,10 +460,15 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                         onJoinLinkedRoom={onJoinRoom}
                         onOpenLiveChat={scrollToLiveChat}
                         mapUrl={mapUrl}
+                        publicMapUrl={publicMapUrl}
                         mapLoading={mapLoading}
                         mapInteractive={mapInteractive}
                         onMapLoad={() => setMapLoading(false)}
                         onSetMapInteractive={setMapInteractive}
+                        networkBeacons={networkBeacons}
+                        beaconNetworkHint={beaconNetworkHint}
+                        beaconSyncError={beaconSyncError}
+                        hasPreciseLocation={!!beaconCoords}
                     />
                 </section>
 

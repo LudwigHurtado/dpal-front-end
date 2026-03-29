@@ -1,13 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { SituationRoomSummary } from '../services/situationService';
+import type { BeaconRecord } from '../services/beaconService';
 import type { Report } from '../types';
 import { CATEGORIES_WITH_ICONS, COORDINATION_SURFACE_RADIUS } from '../constants';
+import { buildSituationRoomUrl } from '../utils/deepLinks';
 import {
   Activity,
   ArrowRight,
   Broadcast,
   Check,
   Clock,
+  ExternalLink,
   Heart,
   Map as MapIcon,
   MapPin,
@@ -47,16 +50,25 @@ export interface DeployBeaconPanelProps {
     urgency: 'standard' | 'elevated' | 'urgent';
     alertKind: string;
     notes: string;
-  }) => void;
-  onResolve: () => void;
+  }) => void | Promise<void>;
+  onResolve: () => void | Promise<void>;
   onSendCoordinationNote: (text: string) => void;
   onJoinLinkedRoom?: (roomId: string) => void;
   onOpenLiveChat: () => void;
   mapUrl: string;
+  /** Same area as the embed — open in Google Maps (what others can use to match the signal). */
+  publicMapUrl: string;
   mapLoading: boolean;
   mapInteractive: boolean;
   onMapLoad: () => void;
   onSetMapInteractive: (v: boolean) => void;
+  /** Active beacons from GET /api/beacons (+ local fallback). */
+  networkBeacons: BeaconRecord[];
+  beaconNetworkHint: string | null;
+  /** GET /api/beacons failed and no local cache */
+  beaconSyncError: string | null;
+  /** GPS lock for this deployment */
+  hasPreciseLocation: boolean;
 }
 
 function formatElapsed(ms: number) {
@@ -83,10 +95,15 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
   onJoinLinkedRoom,
   onOpenLiveChat,
   mapUrl,
+  publicMapUrl,
   mapLoading,
   mapInteractive,
   onMapLoad,
   onSetMapInteractive,
+  networkBeacons,
+  beaconNetworkHint,
+  beaconSyncError,
+  hasPreciseLocation,
 }) => {
   const [urgency, setUrgency] = useState<'standard' | 'elevated' | 'urgent'>('standard');
   const [alertKind, setAlertKind] = useState('community_help');
@@ -139,6 +156,13 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
               : 'Ready';
 
   const canDeploy = areaLabel.trim().length > 0;
+
+  const otherBeacons = useMemo(
+    () => networkBeacons.filter((b) => b.reportId !== report.id),
+    [networkBeacons, report.id]
+  );
+
+  const mapDimmed = mapLoading && !isBeaconActive;
 
   return (
     <div className={`${COORDINATION_SURFACE_RADIUS} border border-sky-200/80 bg-gradient-to-br from-slate-50 via-white to-sky-50/90 text-slate-800 shadow-[0_20px_60px_-20px_rgba(14,116,144,0.25)] overflow-hidden font-sans`}>
@@ -207,21 +231,60 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
           )}
         </section>
 
-        {/* Map */}
+        {/* Map — full brightness when beacon is live; overlay matches public pin */}
         <section className="space-y-3">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            <MapIcon className="w-4 h-4 text-sky-600" />
-            Map · Room visibility
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+              <MapIcon className="w-4 h-4 text-sky-600" />
+              Map · Live signal
+            </div>
+            <a
+              href={publicMapUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-700 hover:text-sky-900"
+            >
+              Open in Google Maps
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
           </div>
-          <div className="relative rounded-2xl border border-slate-200 overflow-hidden bg-slate-100 aspect-video shadow-inner">
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            {isBeaconActive
+              ? 'The map stays bright while your beacon is active. The link above is the same area others can open on phones and desktops (matches the embed when GPS is shared).'
+              : 'After you deploy, the map zooms to your area and stays clear — no dimmed preview.'}
+            {hasPreciseLocation && isBeaconActive && (
+              <span className="block mt-1 font-medium text-emerald-800">GPS lock on — pin matches what is published to the network.</span>
+            )}
+          </p>
+          {(beaconNetworkHint || beaconSyncError) && (
+            <div className="space-y-2">
+              {beaconNetworkHint && (
+                <p className="text-[11px] text-amber-900 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">{beaconNetworkHint}</p>
+              )}
+              {beaconSyncError && (
+                <p className="text-[11px] text-slate-700 bg-slate-100 border border-slate-200 rounded-xl px-3 py-2">{beaconSyncError}</p>
+              )}
+            </div>
+          )}
+          <div
+            className={`relative rounded-2xl border overflow-hidden bg-slate-100 aspect-video shadow-inner transition-[box-shadow] ${
+              isBeaconActive ? 'border-amber-400 ring-4 ring-amber-300/50 shadow-[0_0_0_1px_rgba(251,191,36,0.4)]' : 'border-slate-200'
+            }`}
+          >
             <iframe
               src={mapUrl}
-              className={`w-full h-full transition-all duration-700 ${mapLoading ? 'opacity-50 blur-sm' : 'opacity-100'} ${
+              className={`w-full h-full transition-all duration-500 ${mapDimmed ? 'opacity-50 blur-sm' : 'opacity-100 blur-0'} ${
                 mapInteractive ? '' : 'pointer-events-none'
               }`}
               title="Area map for this beacon"
               onLoad={onMapLoad}
             />
+            {isBeaconActive && (
+              <div className="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center">
+                <div className="absolute h-20 w-20 rounded-full border-4 border-amber-400/80 animate-ping opacity-40" />
+                <MapPin className="relative h-12 w-12 text-amber-600 drop-shadow-md" />
+              </div>
+            )}
             {!mapInteractive && (
               <button
                 type="button"
@@ -243,12 +306,51 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
               </button>
             )}
             {isBeaconActive && (
-              <div className="absolute bottom-3 left-3 z-15 pointer-events-none flex items-center gap-2 rounded-xl bg-amber-100/95 border border-amber-300 px-3 py-1.5 text-[10px] font-bold text-amber-950 shadow">
-                <MapPin className="w-3.5 h-3.5" />
-                Beacon pinned · {lockedAreaLabel || areaLabel}
+              <div className="absolute bottom-3 left-3 z-[12] pointer-events-none flex max-w-[85%] items-center gap-2 rounded-xl bg-amber-100/95 border border-amber-400 px-3 py-1.5 text-[10px] font-bold text-amber-950 shadow">
+                <Broadcast className="w-3.5 h-3.5 shrink-0 text-amber-700" />
+                <span className="line-clamp-2">Beacon live · {lockedAreaLabel || areaLabel}</span>
               </div>
             )}
           </div>
+
+          {otherBeacons.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Other active beacons (network)</h3>
+              <ul className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                {otherBeacons.map((b) => (
+                  <li
+                    key={b.reportId}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-2 text-xs"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-900 truncate">{b.title}</p>
+                      <p className="text-slate-500 truncate">{b.areaLabel}</p>
+                    </div>
+                    <div className="flex shrink-0 gap-2">
+                      {b.latitude != null && b.longitude != null && (
+                        <a
+                          href={`https://www.google.com/maps?q=${b.latitude},${b.longitude}&z=16`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-sky-700 hover:underline"
+                        >
+                          Map
+                        </a>
+                      )}
+                      <a
+                        href={buildSituationRoomUrl(b.reportId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-emerald-700 hover:underline"
+                      >
+                        Room
+                      </a>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         {/* Deploy form */}
@@ -259,7 +361,12 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
               type="text"
               value={areaLabel}
               onChange={(e) => onAreaLabelChange(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && canDeploy && !isBeaconActive && onDeploy({ area: areaLabel.trim(), urgency, alertKind, notes })}
+              onKeyDown={(e) =>
+                e.key === 'Enter' &&
+                canDeploy &&
+                !isBeaconActive &&
+                void onDeploy({ area: areaLabel.trim(), urgency, alertKind, notes })
+              }
               placeholder="Neighborhood, address, or region for this signal"
               className="w-full rounded-xl border border-slate-200 bg-white pl-4 pr-12 py-3.5 text-sm text-slate-900 placeholder:text-slate-400 outline-none focus:ring-2 focus:ring-sky-400/60 focus:border-sky-400"
             />
@@ -313,7 +420,7 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
               <button
                 type="button"
                 disabled={!canDeploy}
-                onClick={() => onDeploy({ area: areaLabel.trim(), urgency, alertKind, notes })}
+                onClick={() => void onDeploy({ area: areaLabel.trim(), urgency, alertKind, notes })}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-600 px-6 py-3.5 text-sm font-bold text-white shadow-md hover:bg-sky-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
               >
                 <Broadcast className="w-5 h-5" />
@@ -331,7 +438,7 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={onResolve}
+                  onClick={() => void onResolve()}
                   className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3.5 text-sm font-semibold text-slate-800 hover:bg-slate-50"
                 >
                   <Check className="w-4 h-4 text-emerald-600" />

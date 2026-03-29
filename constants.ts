@@ -31,6 +31,9 @@ export const API_ROUTES = {
   ESCROW_LIST: '/api/escrow/list',
   /** POST JSON report body; enables GET /api/reports/:id for shared links on any device. */
   REPORTS_UPSERT: '/api/reports',
+  /** Community beacons — see `services/beaconService.ts` for request/response shapes. */
+  BEACONS: '/api/beacons',
+  BEACONS_RESOLVE: '/api/beacons/resolve',
 } as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
