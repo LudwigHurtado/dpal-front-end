@@ -202,7 +202,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     };
 
     return (
-        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 rounded-b-2xl md:rounded-b-3xl overflow-hidden">
+        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 overflow-hidden rounded-none">
             <style>{`
                 @keyframes waveform { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }
                 .animate-waveform { animation: waveform 0.8s ease-in-out infinite; }

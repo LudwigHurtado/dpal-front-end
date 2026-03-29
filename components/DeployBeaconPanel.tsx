@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { SituationRoomSummary } from '../services/situationService';
 import type { Report } from '../types';
-import { CATEGORIES_WITH_ICONS } from '../constants';
+import { CATEGORIES_WITH_ICONS, COORDINATION_SURFACE_RADIUS } from '../constants';
 import {
   Activity,
   ArrowRight,
@@ -141,7 +141,7 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
   const canDeploy = areaLabel.trim().length > 0;
 
   return (
-    <div className="rounded-[2rem] md:rounded-[2.5rem] border border-sky-200/80 bg-gradient-to-br from-slate-50 via-white to-sky-50/90 text-slate-800 shadow-[0_20px_60px_-20px_rgba(14,116,144,0.25)] overflow-hidden font-sans">
+    <div className={`${COORDINATION_SURFACE_RADIUS} border border-sky-200/80 bg-gradient-to-br from-slate-50 via-white to-sky-50/90 text-slate-800 shadow-[0_20px_60px_-20px_rgba(14,116,144,0.25)] overflow-hidden font-sans`}>
       <div className="px-5 md:px-8 pt-6 md:pt-8 pb-4 border-b border-sky-100/90 bg-white/70">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>

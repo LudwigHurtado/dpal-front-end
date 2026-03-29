@@ -45,6 +45,12 @@ export const getStoredHomeLayout = (): HomeLayout => {
   return 'feed';
 };
 
+/**
+ * Situation-room live chat + Deploy Beacon panel — use the same outer radius everywhere
+ * so coordination surfaces look like one product family.
+ */
+export const COORDINATION_SURFACE_RADIUS = 'rounded-[2rem] md:rounded-[2.5rem]';
+
 export const CATEGORIES = Object.values(Category);
 
 export const CATEGORIES_WITH_ICONS = [
