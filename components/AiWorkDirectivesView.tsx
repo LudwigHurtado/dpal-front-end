@@ -2,20 +2,39 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
 import { type Hero, type AiDirective, Category, type Report, type WorkPhase, type WorkStep } from '../types';
 import {
-  Activity, AlertTriangle, ArrowLeft, Broadcast, Camera, Loader, 
-  MapPin, Search, ShieldCheck, Sparkles, Target, X, Zap, 
-  Database, FileText, CheckCircle, Plus, Layout as LayoutIcon, 
-  Monitor, List, Package, Coins, Award
+  Activity, AlertTriangle, ArrowLeft, Loader,
+  MapPin, Search, ShieldCheck, Sparkles, Target, Zap,
+  CheckCircle, Coins, Award
 } from './icons';
 import { generateAiDirectives, generateAiDirectivesBudget, isAiEnabled, AiError } from '../services/geminiService';
 import { buildDirectiveAuditHash } from '../services/directivePacket';
 import { useTranslations } from '../i18n';
 import { CATEGORIES_WITH_ICONS } from '../constants';
-import WorkspaceManager from './Workspace/WorkspaceManager';
-import PanelShell from './Workspace/PanelShell';
-import PhaseStepper from './WorkNode/PhaseStepper';
-import StepCard from './WorkNode/StepCard';
-import CompensationPanel from './WorkNode/CompensationPanel';
+
+type WorkMarketplaceCategory = {
+  id: string;
+  label: string;
+  icon: string;
+  generationCategory: Category;
+  categorySet: Category[];
+  keywords: string[];
+};
+
+const WORK_MARKETPLACE_CATEGORIES: WorkMarketplaceCategory[] = [
+  { id: 'general', label: 'General Missions', icon: '🧭', generationCategory: Category.CivicDuty, categorySet: [Category.CivicDuty, Category.GoodDeeds, Category.Other], keywords: ['general', 'community', 'civic'] },
+  { id: 'education', label: 'Education', icon: '🎓', generationCategory: Category.Education, categorySet: [Category.Education], keywords: ['education', 'school', 'teacher', 'student'] },
+  { id: 'police', label: 'Police', icon: '🛡️', generationCategory: Category.PoliceMisconduct, categorySet: [Category.PoliceMisconduct], keywords: ['police', 'misconduct'] },
+  { id: 'courts', label: 'Courts', icon: '⚖️', generationCategory: Category.CivicDuty, categorySet: [Category.CivicDuty, Category.WorkplaceIssues], keywords: ['court', 'legal', 'justice'] },
+  { id: 'politicians', label: 'Politicians', icon: '🏛️', generationCategory: Category.CivicDuty, categorySet: [Category.CivicDuty, Category.Events], keywords: ['politician', 'office', 'campaign'] },
+  { id: 'environment', label: 'Environment', icon: '🌿', generationCategory: Category.Environment, categorySet: [Category.Environment, Category.WaterViolations, Category.FireEnvironmentalHazards], keywords: ['environment', 'water', 'pollution', 'hazard'] },
+  { id: 'housing', label: 'Housing', icon: '🏠', generationCategory: Category.HousingIssues, categorySet: [Category.HousingIssues], keywords: ['housing', 'tenant', 'rent'] },
+  { id: 'medical', label: 'Medical', icon: '🩺', generationCategory: Category.MedicalNegligence, categorySet: [Category.MedicalNegligence, Category.Allergies], keywords: ['medical', 'clinic', 'hospital', 'health'] },
+  { id: 'community-help', label: 'Community Help', icon: '🤝', generationCategory: Category.DpalHelp, categorySet: [Category.DpalHelp, Category.GoodDeeds, Category.ElderlyCare], keywords: ['help', 'community', 'support', 'elderly'] },
+  { id: 'lost-pets', label: 'Lost Pets', icon: '🐾', generationCategory: Category.PublicSafetyAlerts, categorySet: [Category.PublicSafetyAlerts, Category.IndependentDiscoveries], keywords: ['pet', 'lost', 'animal'] },
+  { id: 'insurance', label: 'Insurance', icon: '🧾', generationCategory: Category.InsuranceFraud, categorySet: [Category.InsuranceFraud], keywords: ['insurance', 'claim', 'fraud'] },
+  { id: 'banking', label: 'Banking', icon: '🏦', generationCategory: Category.ConsumerScams, categorySet: [Category.ConsumerScams, Category.P2PEscrowVerification], keywords: ['bank', 'finance', 'account', 'payment'] },
+  { id: 'public-safety', label: 'Public Safety', icon: '🚨', generationCategory: Category.PublicSafetyAlerts, categorySet: [Category.PublicSafetyAlerts, Category.AccidentsRoadHazards, Category.Infrastructure], keywords: ['safety', 'accident', 'road', 'alert'] },
+];
 
 interface AiWorkDirectivesViewProps {
   onReturn: () => void;
@@ -43,6 +62,11 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
   const [error, setError] = useState<AiError | null>(null);
   const [showCreatedState, setShowCreatedState] = useState(false);
   const [aiMode, setAiMode] = useState<'cheap' | 'premium'>('cheap');
+  const [selectedMarketplaceCategoryId, setSelectedMarketplaceCategoryId] = useState<string>('general');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [missionFilter, setMissionFilter] = useState<'all' | 'active' | 'completed' | 'high_reward'>('all');
+  const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
+  const [savedMissionIds, setSavedMissionIds] = useState<Record<string, boolean>>({});
 
   // Initialize directive with phases if it doesn't have them (backward compatibility)
   useEffect(() => {
@@ -254,296 +278,395 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
 
   const currentPhase = activeDirective?.phases?.[activeDirective.currentPhaseIndex || 0];
   const allPhasesComplete = activeDirective?.phases?.every((p) => p.isComplete) || false;
+  const aiAvailable = isAiEnabled();
+  const selectedMarketplaceCategory = WORK_MARKETPLACE_CATEGORIES.find((c) => c.id === selectedMarketplaceCategoryId) || WORK_MARKETPLACE_CATEGORIES[0];
 
-  const workPanels = [
-      {
-          id: 'directiveQueue',
-          title: 'Directive_Queue',
-          component: (
-              <PanelShell id="directiveQueue" title="Directive_Queue">
-                <div className="p-6 space-y-6">
-                    <div className="space-y-4">
-                        <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest flex items-center space-x-2">
-                            <MapPin className="w-3 h-3 text-rose-500" /><span>Geospatial_Lock</span>
-                        </label>
-                        <input value={heroLocation} onChange={e => setHeroLocation(e.target.value)} className="w-full bg-[var(--dpal-input-bg)] border border-[color:var(--dpal-border)] rounded-xl p-3 text-xs text-[var(--dpal-text-primary)] font-black uppercase outline-none focus:border-[var(--dpal-support-cyan)] transition-all" placeholder="Enter City or Address..." />
-                        <div className="flex flex-wrap gap-2">
-                            {['La Paz', 'Cochabamba', 'Santa Cruz', 'El Alto'].map((city) => (
-                                <button key={city} onClick={() => setHeroLocation(city)} className="px-2 py-1 rounded-md text-[9px] font-black uppercase bg-[var(--dpal-background-secondary)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:text-[var(--dpal-text-primary)]">
-                                    {city}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">Focus_Domain</label>
-                        <div className="flex flex-wrap gap-2">
-                            {CATEGORIES_WITH_ICONS.slice(0, 6).map(cat => (
-                                <button key={cat.value} onClick={() => setSelectedCategory(cat.value as Category)} className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase transition-all ${selectedCategory === cat.value ? 'bg-cyan-500/10 border-cyan-500 text-white' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>
-                                    {cat.icon} {t(cat.translationKey)}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="space-y-2">
-                        <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">AI_Cost_Mode</label>
-                        <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => setAiMode('cheap')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'cheap' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>Cheap AI</button>
-                            <button onClick={() => setAiMode('premium')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'premium' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-300' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>Premium AI</button>
-                        </div>
-                    </div>
-                    <button onClick={handleRefresh} disabled={!selectedCategory || !heroLocation.trim() || isGenerating} className="w-full bg-white text-black font-black py-4 rounded-xl text-[10px] uppercase shadow-lg active:scale-95 transition-all disabled:opacity-40">
-                        {isGenerating ? <Loader className="w-4 h-4 animate-spin mx-auto" /> : 'Generate_City_Jobs'}
-                    </button>
-                    {error && (
-                        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-xl">
-                            <p className="text-[9px] text-rose-400 font-black uppercase">{error.message}</p>
-                        </div>
-                    )}
-                    <div className="space-y-3 pt-4 border-t border-[color:var(--dpal-border)]">
-                        {directives.length === 0 ? (
-                            <div className="text-center py-8 text-[var(--dpal-text-muted)]">
-                                <p className="text-[9px] font-black uppercase">No Directives Available</p>
-                                <p className="text-[8px] mt-2">Select location and category, then sync</p>
-                            </div>
-                        ) : (
-                            directives.map(dir => {
-                                const progress = dir.phases 
-                                    ? (dir.phases.filter(p => p.isComplete).length / dir.phases.length) * 100
-                                    : 0;
-                                return (
-                                    <button 
-                                        key={dir.id} 
-                                        onClick={() => setActiveDirective(dir)} 
-                                        className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
-                                            activeDirective?.id === dir.id 
-                                                ? 'bg-amber-500/10 border-amber-500' 
-                                                : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] hover:border-[color:var(--dpal-border-strong)]'
-                                        }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-2 mb-2">
-                                            <h4 className="font-black text-xs text-white uppercase flex-1 truncate">{dir.title}</h4>
-                                            {dir.status === 'completed' && (
-                                                <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-3 text-[8px]">
-                                            <div className="flex items-center gap-1 text-amber-500">
-                                                <Coins className="w-3 h-3" />
-                                                <span className="font-black">{dir.rewardHc} HC</span>
-                                            </div>
-                                            <div className="flex items-center gap-1 text-cyan-500">
-                                                <Award className="w-3 h-3" />
-                                                <span className="font-black">{dir.rewardXp} XP</span>
-                                            </div>
-                                        </div>
-                                        {dir.phases && (
-                                            <div className="mt-2">
-                                                <div className="h-1 bg-[var(--dpal-background)] rounded-full overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-cyan-500 transition-all"
-                                                        style={{ width: `${progress}%` }}
-                                                    />
-                                                </div>
-                                                <p className="text-[7px] text-[var(--dpal-text-muted)] mt-1 font-black uppercase">
-                                                    {Math.round(progress)}% Complete
-                                                </p>
-                                            </div>
-                                        )}
-                                    </button>
-                                );
-                            })
-                        )}
-                    </div>
-                </div>
-              </PanelShell>
-          )
-      },
-      {
-          id: 'directiveDetail',
-          title: 'Field_Protocol',
-          component: (
-              <PanelShell id="directiveDetail" title="Field_Protocol">
-                {activeDirective ? (
-                    <div className="p-6 space-y-6 overflow-y-auto h-full custom-scrollbar">
-                        <div className="space-y-4">
-                            <h2 className="text-2xl font-black uppercase tracking-tighter text-white leading-none">{activeDirective.title}</h2>
-                            <p className="text-sm text-[var(--dpal-text-secondary)] font-bold leading-relaxed border-l-4 border-amber-500 pl-6 italic">"{activeDirective.description}"</p>
-                            <div className="flex items-center gap-3 text-xs">
-                                <span className="px-3 py-1 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-lg text-[var(--dpal-text-muted)] font-black uppercase">
-                                    {activeDirective.difficulty}
-                                </span>
-                                <span className="px-3 py-1 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-lg text-[var(--dpal-text-muted)] font-black uppercase">
-                                    {activeDirective.category}
-                                </span>
-                            </div>
-                        </div>
+  const stats = useMemo(() => {
+    const completed = directives.filter((d) => d.status === 'completed').length;
+    const active = directives.filter((d) => d.status !== 'completed').length;
+    return { active, completed };
+  }, [directives]);
 
-                        {activeDirective.phases && activeDirective.phases.length > 0 ? (
-                            <>
-                                <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">Phase_Progression</label>
-                                    <PhaseStepper 
-                                        phases={activeDirective.phases}
-                                        currentPhaseIndex={activeDirective.currentPhaseIndex || 0}
-                                        onPhaseClick={handlePhaseClick}
-                                    />
-                                </div>
-
-                                {currentPhase && (
-                                    <div className="space-y-4 pt-4 border-t border-[color:var(--dpal-border)]">
-                                        <div className="flex items-center justify-between">
-                                            <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">
-                                                Current Phase: {currentPhase.name}
-                                            </label>
-                                            <span className="text-[8px] text-[var(--dpal-text-muted)] font-black uppercase">
-                                                {currentPhase.estimatedDuration}
-                                            </span>
-                                        </div>
-                                        <p className="text-xs text-[var(--dpal-text-secondary)] font-bold italic border-l-2 border-cyan-500 pl-4">
-                                            {currentPhase.description}
-                                        </p>
-                                        
-                                        <div className="space-y-3">
-                                            {currentPhase.steps.map((step) => {
-                                                const previousSteps = currentPhase.steps.filter(
-                                                    (s) => s.order < step.order
-                                                );
-                                                const canComplete = previousSteps.every((s) => s.isComplete) || step.order === 1;
-                                                
-                                                return (
-                                                    <StepCard
-                                                        key={step.id}
-                                                        step={step}
-                                                        isActive={step.order === (currentPhase.steps.find(s => !s.isComplete)?.order || step.order)}
-                                                        canComplete={canComplete}
-                                                        onToggleComplete={handleStepToggle}
-                                                        onProofUpload={handleProofUpload}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-
-                                        {allPhasesComplete && (
-                                            <button
-                                                onClick={handleCompleteDirective}
-                                                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-5 rounded-2xl uppercase tracking-[0.2em] text-xs shadow-xl active:scale-95 transition-all flex items-center justify-center gap-3"
-                                            >
-                                                <CheckCircle className="w-5 h-5" />
-                                                <span>Finalize Directive & Claim Rewards</span>
-                                            </button>
-                                        )}
-                                    </div>
-                                )}
-                            </>
-                        ) : (
-                            <div className="space-y-4">
-                                <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">Legacy_Action_Chain</label>
-                                {activeDirective.packet?.steps.map((s, i) => (
-                                    <div key={i} className="bg-[var(--dpal-background-secondary)] p-4 rounded-2xl border border-[color:var(--dpal-border)] flex gap-4">
-                                        <span className="text-xs font-black text-[var(--dpal-text-muted)]">0{i+1}</span>
-                                        <p className="text-[10px] font-black text-white uppercase">{s.verb}: {s.detail}</p>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    <div className="h-full flex items-center justify-center p-12 text-center opacity-20">
-                        <p className="text-xs font-black uppercase tracking-widest">Awaiting_Directive_Select</p>
-                    </div>
-                )}
-              </PanelShell>
-          )
-      },
-      {
-          id: 'compensationPanel',
-          title: 'Compensation',
-          component: (
-              <PanelShell id="compensationPanel" title="Compensation_Breakdown">
-                {activeDirective && activeDirective.phases ? (
-                    <div className="p-6 overflow-y-auto h-full custom-scrollbar">
-                        <CompensationPanel 
-                            directive={activeDirective}
-                            phases={activeDirective.phases}
-                        />
-                    </div>
-                ) : (
-                    <div className="h-full flex items-center justify-center p-12 text-center opacity-20">
-                        <p className="text-xs font-black uppercase tracking-widest">Select_Directive</p>
-                    </div>
-                )}
-              </PanelShell>
-          )
-      }
-  ];
-
-  const defaultLayouts = {
-    lg: [
-        { i: 'directiveQueue', x: 0, y: 0, w: 3, h: 30, minW: 3, minH: 10 },
-        { i: 'directiveDetail', x: 3, y: 0, w: 6, h: 25, minW: 5, minH: 10 },
-        { i: 'compensationPanel', x: 9, y: 0, w: 3, h: 25, minW: 3, minH: 10 }
-    ],
-    md: [
-        { i: 'directiveQueue', x: 0, y: 0, w: 2, h: 24, minW: 2, minH: 10 },
-        { i: 'directiveDetail', x: 2, y: 0, w: 4, h: 16, minW: 3, minH: 10 },
-        { i: 'compensationPanel', x: 2, y: 16, w: 4, h: 10, minW: 3, minH: 10 }
-    ]
+  const getDirectiveObjectives = (directive: AiDirective): string[] => {
+    if (directive.phases?.length) {
+      return directive.phases.flatMap((phase) => phase.steps.map((step) => step.task)).slice(0, 4);
+    }
+    if (directive.packet?.steps?.length) {
+      return directive.packet.steps.map((s) => s.detail).slice(0, 4);
+    }
+    return [directive.instruction];
   };
 
-  const mobileTabs = [
-      { id: 'directiveQueue', label: 'Directives', icon: <List /> },
-      { id: 'directiveDetail', label: 'Work', icon: <Zap /> },
-      { id: 'compensationPanel', label: 'Rewards', icon: <Coins /> }
-  ];
+  const getDirectiveProofNeeds = (directive: AiDirective): string[] => {
+    if (directive.phases?.length) {
+      const needs = directive.phases
+        .flatMap((phase) => phase.steps)
+        .filter((step) => step.requiresProof)
+        .map((step) => (step.proofType ? `${step.proofType} proof` : 'supporting proof'));
+      if (needs.length > 0) return Array.from(new Set(needs)).slice(0, 3);
+    }
+    if (directive.packet?.evidenceMissing?.length) {
+      return directive.packet.evidenceMissing.map((e) => e.item).slice(0, 3);
+    }
+    return ['Photo or supporting note'];
+  };
+
+  const getEstimatedTime = (directive: AiDirective): string => {
+    if (directive.phases?.length) {
+      const phaseDurations = directive.phases.map((p) => p.estimatedDuration).filter(Boolean);
+      return phaseDurations.length ? phaseDurations.join(' + ') : 'About 1-2 hours';
+    }
+    return directive.packet?.timeWindow || 'About 1-2 hours';
+  };
+
+  const getUrgency = (directive: AiDirective): 'Low' | 'Medium' | 'High' | 'Critical' => {
+    const p = directive.packet?.priority;
+    if (p === 'LOW') return 'Low';
+    if (p === 'HIGH') return 'High';
+    if (p === 'CRITICAL') return 'Critical';
+    return 'Medium';
+  };
+
+  const directiveMatchesCategory = (directive: AiDirective, cat: WorkMarketplaceCategory): boolean => {
+    if (cat.id === 'general') return true;
+    if (cat.categorySet.includes(directive.category)) return true;
+    const blob = `${directive.title} ${directive.description} ${directive.instruction}`.toLowerCase();
+    return cat.keywords.some((k) => blob.includes(k));
+  };
+
+  const filteredMissions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return directives
+      .filter((d) => directiveMatchesCategory(d, selectedMarketplaceCategory))
+      .filter((d) => {
+        if (missionFilter === 'active') return d.status !== 'completed';
+        if (missionFilter === 'completed') return d.status === 'completed';
+        if (missionFilter === 'high_reward') return d.rewardHc >= 80;
+        return true;
+      })
+      .filter((d) => {
+        if (!q) return true;
+        return `${d.title} ${d.description} ${d.instruction}`.toLowerCase().includes(q);
+      })
+      .sort((a, b) => b.timestamp - a.timestamp);
+  }, [directives, selectedMarketplaceCategory, missionFilter, searchQuery]);
+
+  const cycleMissionFilter = () => {
+    setMissionFilter((prev) => {
+      if (prev === 'all') return 'active';
+      if (prev === 'active') return 'completed';
+      if (prev === 'completed') return 'high_reward';
+      return 'all';
+    });
+  };
+
+  const handleCategorySelect = (cat: WorkMarketplaceCategory) => {
+    setSelectedMarketplaceCategoryId(cat.id);
+    setSelectedCategory(cat.generationCategory);
+    setExpandedMissionId(null);
+  };
+
+  const handleStartMission = (directive: AiDirective) => {
+    setActiveDirective(directive);
+    setExpandedMissionId(directive.id);
+    if (directive.status === 'available') {
+      const next = { ...directive, status: 'in_progress' as const };
+      setDirectives((prev) => prev.map((d) => (d.id === directive.id ? next : d)));
+      setActiveDirective(next);
+    }
+  };
+
+  const handleAskAiForMission = async (directive: AiDirective) => {
+    setSelectedCategory(directive.category);
+    if (!heroLocation.trim()) {
+      setError(new AiError('TEMPORARY_FAILURE', 'Enter your city or area first.'));
+      return;
+    }
+    await handleRefresh();
+  };
+
+  const toggleSavedMission = (missionId: string) => {
+    setSavedMissionIds((prev) => ({ ...prev, [missionId]: !prev[missionId] }));
+  };
 
   return (
-    <div className="flex flex-col h-[90vh] bg-[var(--dpal-background)] font-mono">
-      <header className="bg-[var(--dpal-panel)] border-b border-[color:var(--dpal-border)] px-8 py-4 flex justify-between items-center z-30">
-        <div className="flex items-center space-x-4">
-          <button onClick={onReturn} className="p-2 hover:bg-[var(--dpal-surface-alt)] rounded-lg text-[var(--dpal-text-muted)]">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h1 className="text-lg font-black uppercase tracking-tighter text-[var(--dpal-text-primary)]">Work_Directives_OS</h1>
+    <div className="flex flex-col min-h-[90vh] bg-[var(--dpal-background)] font-sans">
+      <header className="bg-[color-mix(in_srgb,var(--dpal-panel)_88%,transparent)] border-b border-[color:var(--dpal-border)] px-4 md:px-8 py-4 md:py-5 sticky top-0 z-20 backdrop-blur-md">
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <button onClick={onReturn} className="p-2 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] text-[var(--dpal-text-muted)] hover:text-[var(--dpal-text-primary)] hover:bg-[var(--dpal-surface-alt)] transition-all">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-[var(--dpal-text-muted)]">DPAL Work Network</p>
+                <h1 className="text-xl md:text-2xl font-black tracking-tight text-[var(--dpal-text-primary)]">AI-guided community work marketplace</h1>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="px-3 py-2 rounded-xl border border-amber-500/35 bg-amber-500/10 text-amber-300 text-xs font-bold">Coins: {hero.heroCredits.toLocaleString()}</div>
+              <div className="px-3 py-2 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] text-[var(--dpal-text-secondary)] text-xs font-bold">Active: {stats.active}</div>
+              <div className="px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs font-bold">Completed: {stats.completed}</div>
+              <div className={`px-3 py-2 rounded-xl border text-xs font-bold ${aiAvailable ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/30 bg-rose-500/10 text-rose-300'}`}>
+                AI: {isGenerating ? 'Assigning...' : aiAvailable ? 'Online' : 'Offline'}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-3">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--dpal-text-muted)]" />
+              <input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search missions by title, objective, or guidance"
+                className="w-full dpal-input pl-10"
+              />
+            </div>
+            <button onClick={cycleMissionFilter} className="px-4 py-3 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-surface-alt)] text-[var(--dpal-text-secondary)] hover:text-[var(--dpal-text-primary)] hover:border-[color:var(--dpal-border-strong)] transition-all text-sm font-semibold">
+              Filter: {missionFilter.replace('_', ' ')}
+            </button>
           </div>
         </div>
       </header>
 
-      <div className="flex-grow p-4 md:p-6 overflow-hidden">
-        {showCreatedState ? (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-8">
-                <div className="w-24 h-24 bg-emerald-500 rounded-3xl flex items-center justify-center shadow-2xl border-4 border-emerald-400 animate-fade-in">
-                    <CheckCircle className="w-12 h-12 text-black" />
-                </div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Directive_Complete</h2>
-                <p className="text-sm text-[var(--dpal-text-secondary)] font-bold">
-                    All phases completed. Rewards have been distributed to your account.
-                </p>
-                <button 
-                    onClick={() => {
-                        setShowCreatedState(false);
-                        setActiveDirective(null);
-                    }} 
-                    className="bg-[var(--dpal-support-cyan)] hover:bg-[var(--dpal-support-cyan-hover)] text-white font-black px-12 py-4 rounded-2xl uppercase text-xs transition-all active:scale-95"
-                >
-                    Return_To_Queue
-                </button>
-            </div>
-        ) : (
-            <WorkspaceManager 
-                screenId="work-directives"
-                panels={workPanels}
-                defaultLayouts={defaultLayouts}
-                mobileTabs={mobileTabs}
-            />
+      <div className="flex-1 p-4 md:p-6 space-y-6">
+        {showCreatedState && (
+          <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-6 flex flex-col items-center text-center gap-3">
+            <CheckCircle className="w-10 h-10 text-emerald-400" />
+            <p className="text-lg font-black text-[var(--dpal-text-primary)]">Mission completed and rewards distributed.</p>
+            <button
+              onClick={() => {
+                setShowCreatedState(false);
+                setActiveDirective(null);
+              }}
+              className="dpal-btn-primary"
+            >
+              Back to marketplace
+            </button>
+          </div>
         )}
+
+        {!!error && (
+          <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 text-rose-300 text-sm font-semibold">
+            {error.message}
+          </div>
+        )}
+
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-black uppercase tracking-[0.16em] text-[var(--dpal-text-secondary)]">Mission Categories</h2>
+            <div className="text-xs text-[var(--dpal-text-muted)]">Tap a category to browse assignments</div>
+          </div>
+
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {WORK_MARKETPLACE_CATEGORIES.map((cat) => {
+              const selected = cat.id === selectedMarketplaceCategoryId;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat)}
+                  className={`shrink-0 min-w-[180px] text-left rounded-2xl border p-4 transition-all ${
+                    selected
+                      ? 'bg-[var(--dpal-support-cyan)] border-[color:var(--dpal-support-cyan-bright)] text-white shadow-[0_10px_28px_-16px_var(--dpal-support-cyan-glow)]'
+                      : 'bg-[var(--dpal-card)] border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:border-[color:var(--dpal-border-strong)] hover:bg-[var(--dpal-card-hover)]'
+                  }`}
+                >
+                  <div className="text-xl mb-2">{cat.icon}</div>
+                  <div className="text-sm font-bold leading-tight">{cat.label}</div>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-panel)_50%,transparent)] p-4 md:p-6 space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-black text-[var(--dpal-text-primary)]">{selectedMarketplaceCategory.label}</h3>
+            <button
+              onClick={handleRefresh}
+              disabled={!heroLocation.trim() || isGenerating}
+              className="dpal-btn-primary disabled:opacity-50"
+            >
+              {isGenerating ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Refresh AI assignments</span>
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <label className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--dpal-text-muted)] flex items-center gap-2">
+              <MapPin className="w-3 h-3 text-rose-500" /> Mission area
+            </label>
+            <input
+              value={heroLocation}
+              onChange={(e) => setHeroLocation(e.target.value)}
+              className="dpal-input max-w-md"
+              placeholder="City or neighborhood"
+            />
+          </div>
+
+          {filteredMissions.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-8 text-center">
+              <p className="text-sm font-semibold text-[var(--dpal-text-secondary)]">No assignments in this category yet.</p>
+              <p className="text-xs text-[var(--dpal-text-muted)] mt-2">Set location and refresh AI assignments to load missions.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredMissions.map((directive) => {
+                const expanded = expandedMissionId === directive.id;
+                const objectives = getDirectiveObjectives(directive);
+                const proofNeeds = getDirectiveProofNeeds(directive);
+                const urgency = getUrgency(directive);
+                const isSaved = Boolean(savedMissionIds[directive.id]);
+                const missionActive = activeDirective?.id === directive.id ? activeDirective : directive;
+                const activeMissionPhase = missionActive.phases?.[missionActive.currentPhaseIndex || 0];
+                const missionAllComplete = missionActive.phases?.every((p) => p.isComplete) || false;
+                return (
+                  <article key={directive.id} className="dpal-card p-4 md:p-5 space-y-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="space-y-2 min-w-0">
+                        <h4 className="text-lg font-bold text-[var(--dpal-text-primary)]">{directive.title}</h4>
+                        <p className="text-sm text-[var(--dpal-text-secondary)]">{directive.description}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="dpal-badge">{selectedMarketplaceCategory.label}</span>
+                        <span className={`dpal-badge ${urgency === 'Critical' ? 'dpal-badge-danger' : urgency === 'High' ? 'dpal-badge-warning' : 'dpal-badge-info'}`}>Urgency: {urgency}</span>
+                        <span className="dpal-badge dpal-badge-success">Reward: {directive.rewardHc} coins</span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                      <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3">
+                        <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Difficulty</p>
+                        <p className="text-sm font-semibold text-[var(--dpal-text-primary)]">{directive.difficulty}</p>
+                      </div>
+                      <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3">
+                        <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Estimated Time</p>
+                        <p className="text-sm font-semibold text-[var(--dpal-text-primary)]">{getEstimatedTime(directive)}</p>
+                      </div>
+                      <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3">
+                        <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Mission Type</p>
+                        <p className="text-sm font-semibold text-[var(--dpal-text-primary)]">{directive.category}</p>
+                      </div>
+                      <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3">
+                        <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">AI Guidance</p>
+                        <p className="text-sm font-semibold text-[var(--dpal-text-primary)] truncate">{directive.recommendedNextAction || directive.instruction}</p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3">
+                        <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)] mb-2">Objective Checklist</p>
+                        <ul className="space-y-1">
+                          {objectives.map((obj) => (
+                            <li key={`${directive.id}-${obj}`} className="text-sm text-[var(--dpal-text-secondary)] flex gap-2">
+                              <Target className="w-4 h-4 mt-0.5 text-[var(--dpal-support-cyan-bright)]" />
+                              <span>{obj}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3">
+                        <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)] mb-2">Proof Needed</p>
+                        <ul className="space-y-1">
+                          {proofNeeds.map((proof) => (
+                            <li key={`${directive.id}-${proof}`} className="text-sm text-[var(--dpal-text-secondary)] flex gap-2">
+                              <ShieldCheck className="w-4 h-4 mt-0.5 text-emerald-400" />
+                              <span>{proof}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button onClick={() => handleStartMission(directive)} className="dpal-btn-primary">
+                        <Activity className="w-4 h-4" />
+                        <span>Start Mission</span>
+                      </button>
+                      <button onClick={() => handleAskAiForMission(directive)} className="dpal-btn">
+                        <Sparkles className="w-4 h-4" />
+                        <span>Ask AI</span>
+                      </button>
+                      <button onClick={() => toggleSavedMission(directive.id)} className="dpal-btn-ghost">
+                        <span>{isSaved ? 'Saved' : 'Save Mission'}</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setExpandedMissionId(expanded ? null : directive.id);
+                          setActiveDirective(directive);
+                        }}
+                        className="dpal-btn-ghost"
+                      >
+                        <span>{expanded ? 'Hide Details' : 'Mission Details'}</span>
+                      </button>
+                    </div>
+
+                    {expanded && (
+                      <div className="rounded-2xl border border-[color:var(--dpal-border)] bg-[var(--dpal-surface)] p-4 space-y-4">
+                        <p className="text-[11px] uppercase font-bold tracking-[0.12em] text-[var(--dpal-text-muted)]">Category → Mission list → Mission details</p>
+
+                        {activeMissionPhase ? (
+                          <>
+                            <div className="flex items-center justify-between gap-2">
+                              <h5 className="text-sm font-bold text-[var(--dpal-text-primary)]">{activeMissionPhase.name}</h5>
+                              <span className="text-xs text-[var(--dpal-text-muted)]">{activeMissionPhase.estimatedDuration}</span>
+                            </div>
+                            <p className="text-sm text-[var(--dpal-text-secondary)]">{activeMissionPhase.description}</p>
+                            <div className="space-y-2">
+                              {activeMissionPhase.steps.map((step) => {
+                                const previousSteps = activeMissionPhase.steps.filter((s) => s.order < step.order);
+                                const canComplete = previousSteps.every((s) => s.isComplete) || step.order === 1;
+                                return (
+                                  <button
+                                    key={step.id}
+                                    disabled={!canComplete}
+                                    onClick={() => handleStepToggle(step.id)}
+                                    className={`w-full text-left rounded-xl border p-3 transition-all ${
+                                      step.isComplete
+                                        ? 'border-emerald-500/40 bg-emerald-500/10'
+                                        : canComplete
+                                        ? 'border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] hover:border-[color:var(--dpal-border-strong)]'
+                                        : 'border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] opacity-50 cursor-not-allowed'
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="text-sm font-semibold text-[var(--dpal-text-primary)]">{step.name}</span>
+                                      {step.isComplete && <CheckCircle className="w-4 h-4 text-emerald-400" />}
+                                    </div>
+                                    <p className="text-xs text-[var(--dpal-text-secondary)] mt-1">{step.task}</p>
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {missionAllComplete && (
+                              <button onClick={handleCompleteDirective} className="w-full dpal-btn-primary">
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Complete Mission & Claim Coins</span>
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <p className="text-sm text-[var(--dpal-text-secondary)]">Detailed steps will appear once this mission is activated.</p>
+                        )}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--dpal-border-strong); border-radius: 20px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: var(--dpal-background-secondary); }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>
     </div>
