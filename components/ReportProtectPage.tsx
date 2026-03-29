@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowRight,
   AlertCircle,
+  ArrowLeft,
   Database,
   Eye,
   Heart,
@@ -14,7 +15,22 @@ import {
 } from './icons';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 
-interface ReportProtectPageProps {
+/** Matches `HubTab` in App — duplicated here to avoid circular imports */
+export type ReportDashboardHubTab = 'my_reports' | 'community' | 'work_feed' | 'map';
+
+export interface ReportProtectPageNavProps {
+  /** Main menu */
+  onReturnHome: () => void;
+  /** Previous screen (stack) */
+  onGoBack: () => void;
+  /** Hub tabs: stories, contributions, timeline, map */
+  onGoToHub: (tab: ReportDashboardHubTab) => void;
+  onGoToTransparency: () => void;
+  onGoToAcademy: () => void;
+  onGoToLocator: () => void;
+}
+
+interface ReportProtectPageProps extends ReportProtectPageNavProps {
   onOpenReportFlow: () => void;
   onOpenMainControlPanel: () => void;
 }
@@ -108,7 +124,16 @@ const markerKinds = [
 ] as const;
 type MarkerKindId = typeof markerKinds[number]['id'];
 
-const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow, onOpenMainControlPanel }) => {
+const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
+  onOpenReportFlow,
+  onOpenMainControlPanel,
+  onReturnHome,
+  onGoBack,
+  onGoToHub,
+  onGoToTransparency,
+  onGoToAcademy,
+  onGoToLocator,
+}) => {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.Marker[]>([]);
@@ -121,6 +146,42 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilter, setSelectedFilter] = useState<DashboardFilter>('all');
   const [selectedSidebarId, setSelectedSidebarId] = useState<string>('current-alerts');
+  const alertsAnchorRef = useRef<HTMLDivElement | null>(null);
+
+  const handleSidebarSelect = (id: (typeof sidebarNav)[number]['id']) => {
+    setSelectedSidebarId(id);
+    switch (id) {
+      case 'current-alerts':
+        queueMicrotask(() => alertsAnchorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        break;
+      case 'verify-reports':
+        onGoToTransparency();
+        break;
+      case 'search-reports':
+        onGoToHub('community');
+        break;
+      case 'lost-pets':
+      case 'lost-persons':
+        onGoToLocator();
+        break;
+      case 'stolen-property':
+        onOpenReportFlow();
+        break;
+      case 'my-reports':
+        onGoToHub('my_reports');
+        break;
+      default:
+        break;
+    }
+  };
+
+  const shareCaseLink = () => {
+    try {
+      void navigator.clipboard?.writeText(window.location.href);
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     markerKindRef.current = markerKind;
@@ -250,18 +311,75 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
     <div className="font-sans text-white max-w-[1760px] mx-auto px-3 md:px-6 pb-16 animate-fade-in">
       {/* Layer A: Top global header */}
       <header className="sticky top-2 z-30 rounded-3xl border border-white/10 bg-gradient-to-r from-slate-900/95 via-slate-800/95 to-slate-900/95 backdrop-blur-xl px-5 md:px-8 py-5 md:py-6 shadow-[0_20px_60px_rgba(2,6,23,0.45)]">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <ShieldCheck className="w-8 h-8 text-cyan-200 flex-shrink-0" />
-            <div className="text-4xl font-extrabold tracking-tight">DPAL</div>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={onGoBack}
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-slate-900/80 px-3 py-2 text-sm font-semibold text-slate-200 transition hover:border-cyan-400/40 hover:text-white"
+                aria-label="Go back"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </button>
+              <button
+                type="button"
+                onClick={onReturnHome}
+                className="inline-flex items-center gap-2 rounded-2xl border border-cyan-500/30 bg-cyan-950/40 px-3 py-2 text-sm font-semibold text-cyan-100 transition hover:bg-cyan-900/50"
+                aria-label="Home"
+              >
+                <Home className="h-4 w-4" />
+                Home
+              </button>
+            </div>
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-8 w-8 flex-shrink-0 text-cyan-200" />
+              <div className="text-2xl font-extrabold tracking-tight sm:text-4xl">DPAL</div>
+            </div>
           </div>
 
-          <nav className="hidden lg:flex items-center gap-8 text-base text-slate-200">
-            <span className="inline-flex items-center gap-2.5"><Search className="w-4 h-4" />Search</span>
-            <span className="inline-flex items-center gap-2.5"><ShieldCheck className="w-4 h-4" />Verify</span>
-            <span className="inline-flex items-center gap-2.5"><Database className="w-4 h-4" />Resources</span>
-            <span className="inline-flex items-center gap-2.5"><User className="w-4 h-4" />My Contributions</span>
-            <span className="inline-flex items-center gap-2.5"><Heart className="w-4 h-4" />Community</span>
+          <nav className="hidden flex-wrap items-center gap-x-6 gap-y-2 text-base text-slate-200 xl:flex">
+            <button
+              type="button"
+              onClick={() => onGoToHub('community')}
+              className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
+            >
+              <Search className="h-4 w-4" />
+              Search
+            </button>
+            <button
+              type="button"
+              onClick={onGoToTransparency}
+              className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
+            >
+              <ShieldCheck className="h-4 w-4" />
+              Verify
+            </button>
+            <button
+              type="button"
+              onClick={onGoToAcademy}
+              className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
+            >
+              <Database className="h-4 w-4" />
+              Resources
+            </button>
+            <button
+              type="button"
+              onClick={() => onGoToHub('my_reports')}
+              className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
+            >
+              <User className="h-4 w-4" />
+              My Contributions
+            </button>
+            <button
+              type="button"
+              onClick={() => onGoToHub('community')}
+              className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
+            >
+              <Heart className="h-4 w-4" />
+              Community
+            </button>
           </nav>
 
           <div className="flex items-center gap-3">
@@ -271,8 +389,14 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
             >
               Main Control Panel
             </button>
-            <button className="p-3 rounded-2xl border border-white/15 bg-slate-900/75 hover:bg-slate-800/90 transition-colors">
-              <AlertCircle className="w-5 h-5 text-zinc-300" />
+            <button
+              type="button"
+              onClick={() => onGoToHub('community')}
+              className="rounded-2xl border border-white/15 bg-slate-900/75 p-3 transition-colors hover:bg-slate-800/90"
+              aria-label="Community alerts"
+              title="Open community feed"
+            >
+              <AlertCircle className="h-5 w-5 text-zinc-300" />
             </button>
             <button
               onClick={onOpenReportFlow}
@@ -284,18 +408,51 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
         </div>
       </header>
 
+      {/* Compact nav when top bar links are hidden on smaller screens */}
+      <nav
+        className="mt-3 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 xl:hidden"
+        aria-label="Quick dashboard links"
+      >
+        <button type="button" onClick={() => onGoToHub('community')} className="rounded-lg px-2 py-1 hover:bg-white/10">
+          Search
+        </button>
+        <span className="text-slate-600">·</span>
+        <button type="button" onClick={onGoToTransparency} className="rounded-lg px-2 py-1 hover:bg-white/10">
+          Verify
+        </button>
+        <span className="text-slate-600">·</span>
+        <button type="button" onClick={onGoToAcademy} className="rounded-lg px-2 py-1 hover:bg-white/10">
+          Resources
+        </button>
+        <span className="text-slate-600">·</span>
+        <button type="button" onClick={() => onGoToHub('my_reports')} className="rounded-lg px-2 py-1 hover:bg-white/10">
+          My contributions
+        </button>
+        <span className="text-slate-600">·</span>
+        <button type="button" onClick={() => onGoToHub('community')} className="rounded-lg px-2 py-1 hover:bg-white/10">
+          Community
+        </button>
+      </nav>
+
       {/* Breadcrumb bar */}
-      <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 text-sm text-slate-300">
-        <span className="inline-flex items-center gap-2"><Home className="w-4 h-4" />Home</span>
-        <span className="mx-2.5 text-slate-500">/</span>
-        <span>Reporting Dashboard</span>
+      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-slate-900/70 px-5 py-4 text-sm text-slate-300">
+        <button
+          type="button"
+          onClick={onReturnHome}
+          className="inline-flex items-center gap-2 rounded-lg px-1 font-medium text-cyan-200/90 transition hover:text-white"
+        >
+          <Home className="h-4 w-4" />
+          Home
+        </button>
+        <span className="text-slate-500">/</span>
+        <span className="text-slate-200">Report Center</span>
       </div>
 
       {/* Layer B + C: Main body */}
       <div className="mt-5 grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-6">
         {/* Left sidebar */}
         <aside className="rounded-3xl border border-white/10 bg-gradient-to-b from-slate-900/80 to-slate-950/80 p-5 space-y-5 h-[calc(100vh-180px)] overflow-y-auto shadow-[0_18px_45px_rgba(2,6,23,0.35)]">
-          <h2 className="text-2xl font-bold tracking-tight">Reporting Dashboard</h2>
+          <h2 className="text-2xl font-bold tracking-tight">Report Center</h2>
 
           <div className="space-y-2.5">
             {sidebarNav.map((item) => {
@@ -304,7 +461,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setSelectedSidebarId(item.id)}
+                  onClick={() => handleSidebarSelect(item.id)}
                   className={`w-full text-left px-4 py-3.5 rounded-2xl border flex items-center justify-between transition-all ${
                     active
                       ? 'bg-cyan-500/20 border-cyan-300/40 text-cyan-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]'
@@ -321,13 +478,20 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
             })}
           </div>
 
-          <div className="rounded-2xl border border-white/10 bg-slate-900/75 p-4">
+          <button
+            type="button"
+            onClick={() => onGoToHub('map')}
+            className="w-full rounded-2xl border border-white/10 bg-slate-900/75 p-4 text-left transition hover:border-cyan-400/35 hover:bg-slate-800/80"
+          >
             <p className="text-xs uppercase tracking-[0.12em] text-slate-400">Map shortcut</p>
             <div className="mt-3 flex items-center justify-between text-base">
-              <span className="inline-flex items-center gap-2"><Map className="w-4 h-4 text-cyan-300" />Alerts Map</span>
-              <span className="text-emerald-300 text-sm font-semibold">Active</span>
+              <span className="inline-flex items-center gap-2">
+                <Map className="h-4 w-4 text-cyan-300" />
+                Hub map
+              </span>
+              <span className="text-sm font-semibold text-emerald-300">Open</span>
             </div>
-          </div>
+          </button>
 
           <div className="rounded-2xl border border-rose-300/20 bg-rose-900/15 p-4">
             <p className="text-xs uppercase tracking-[0.12em] text-rose-200">Live urgent item</p>
@@ -465,7 +629,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
 
           {/* Lower info zone */}
           <div className="grid grid-cols-1 2xl:grid-cols-[1fr_390px] gap-0">
-            <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-6">
+            <div ref={alertsAnchorRef} className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/80 to-slate-950/75 p-6 scroll-mt-28">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-bold">Current Alerts</h3>
                 <div className="text-sm text-slate-400">All · Urgent · Nearby · Unverified</div>
@@ -489,12 +653,13 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
                           <button
                             key={a}
                             type="button"
-                            className={`px-4 py-2.5 rounded-xl text-white text-sm font-semibold inline-flex items-center gap-2 ${
+                            onClick={() => (idx === 0 ? onGoToTransparency() : onGoToHub('my_reports'))}
+                            className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold text-white ${
                               idx === 0 ? 'bg-cyan-600 hover:bg-cyan-500' : 'bg-slate-700 hover:bg-slate-600'
                             }`}
                           >
                             {a}
-                            <ArrowRight className="w-3 h-3" />
+                            <ArrowRight className="h-3 w-3" />
                           </button>
                         ))}
                       </div>
@@ -524,12 +689,37 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
                 <p className="text-sm text-slate-400 mt-2.5">Reporter trust score: 88</p>
                 <p className="text-sm text-slate-400 mt-1 inline-flex items-center gap-1.5"><MapPin className="w-4 h-4" />Last seen: Oak Park</p>
                 <div className="mt-4 grid grid-cols-2 gap-2.5">
-                  <button className="px-4 py-3 rounded-xl bg-slate-700 text-sm font-semibold">View Case</button>
-                  <button className="px-4 py-3 rounded-xl bg-emerald-600 text-sm font-semibold">Add Sighting</button>
+                  <button
+                    type="button"
+                    onClick={() => onGoToHub('my_reports')}
+                    className="rounded-xl bg-slate-700 px-4 py-3 text-sm font-semibold transition hover:bg-slate-600"
+                  >
+                    View case
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onGoToLocator}
+                    className="rounded-xl bg-emerald-600 px-4 py-3 text-sm font-semibold transition hover:bg-emerald-500"
+                  >
+                    Add sighting
+                  </button>
                 </div>
                 <div className="mt-2.5 grid grid-cols-2 gap-2.5">
-                  <button className="px-4 py-3 rounded-xl bg-blue-600 text-sm font-semibold inline-flex items-center justify-center gap-1.5"><Eye className="w-4 h-4" />Verify</button>
-                  <button className="px-4 py-3 rounded-xl bg-slate-700 text-sm font-semibold">Share</button>
+                  <button
+                    type="button"
+                    onClick={onGoToTransparency}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-4 py-3 text-sm font-semibold transition hover:bg-blue-500"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Verify
+                  </button>
+                  <button
+                    type="button"
+                    onClick={shareCaseLink}
+                    className="rounded-xl bg-slate-700 px-4 py-3 text-sm font-semibold transition hover:bg-slate-600"
+                  >
+                    Share link
+                  </button>
                 </div>
               </div>
             </div>

@@ -1181,6 +1181,13 @@ const App: React.FC = () => {
           <ReportMainControlPanel
             onOpenReportFlow={() => handleNavigate('categorySelection')}
             onOpenWorkPanel={() => setCurrentView('reportWorkPanel')}
+            onOpenDashboard={() => setCurrentView('reportDashboard')}
+            onReturnHome={() => handleNavigate('mainMenu')}
+            onGoBack={() => goBack('mainMenu')}
+            onGoToHub={(tab) => handleNavigate('hub', undefined, tab)}
+            onGoToTransparency={() => handleNavigate('transparencyDatabase')}
+            onGoToAcademy={() => handleNavigate('academy')}
+            onGoToLocator={() => handleNavigate('dpalLocator')}
           />
         )}
 
@@ -1188,6 +1195,12 @@ const App: React.FC = () => {
           <ReportProtectPage
             onOpenReportFlow={() => handleNavigate('categorySelection')}
             onOpenMainControlPanel={() => setCurrentView('reportProtect')}
+            onReturnHome={() => handleNavigate('mainMenu')}
+            onGoBack={() => goBack('mainMenu')}
+            onGoToHub={(tab) => handleNavigate('hub', undefined, tab)}
+            onGoToTransparency={() => handleNavigate('transparencyDatabase')}
+            onGoToAcademy={() => handleNavigate('academy')}
+            onGoToLocator={() => handleNavigate('dpalLocator')}
           />
         )}
 
