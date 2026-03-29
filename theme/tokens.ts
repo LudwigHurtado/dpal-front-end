@@ -26,6 +26,11 @@ export const dpalVar = {
   primaryHover: 'var(--dpal-primary-hover)',
   accent: 'var(--dpal-accent)',
   accentHover: 'var(--dpal-accent-hover)',
+  /** Cyan support accent — chips, secondary CTAs, nav chrome */
+  supportCyan: 'var(--dpal-support-cyan)',
+  supportCyanBright: 'var(--dpal-support-cyan-bright)',
+  supportCyanHover: 'var(--dpal-support-cyan-hover)',
+  supportCyanGlow: 'var(--dpal-support-cyan-glow)',
   success: 'var(--dpal-success)',
   warning: 'var(--dpal-warning)',
   danger: 'var(--dpal-danger)',

@@ -263,33 +263,33 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
               <PanelShell id="directiveQueue" title="Directive_Queue">
                 <div className="p-6 space-y-6">
                     <div className="space-y-4">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest flex items-center space-x-2">
+                        <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest flex items-center space-x-2">
                             <MapPin className="w-3 h-3 text-rose-500" /><span>Geospatial_Lock</span>
                         </label>
-                        <input value={heroLocation} onChange={e => setHeroLocation(e.target.value)} className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-xs text-white font-black uppercase outline-none focus:border-cyan-500 transition-all" placeholder="Enter City or Address..." />
+                        <input value={heroLocation} onChange={e => setHeroLocation(e.target.value)} className="w-full bg-[var(--dpal-input-bg)] border border-[color:var(--dpal-border)] rounded-xl p-3 text-xs text-[var(--dpal-text-primary)] font-black uppercase outline-none focus:border-[var(--dpal-support-cyan)] transition-all" placeholder="Enter City or Address..." />
                         <div className="flex flex-wrap gap-2">
                             {['La Paz', 'Cochabamba', 'Santa Cruz', 'El Alto'].map((city) => (
-                                <button key={city} onClick={() => setHeroLocation(city)} className="px-2 py-1 rounded-md text-[9px] font-black uppercase bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white">
+                                <button key={city} onClick={() => setHeroLocation(city)} className="px-2 py-1 rounded-md text-[9px] font-black uppercase bg-[var(--dpal-background-secondary)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:text-[var(--dpal-text-primary)]">
                                     {city}
                                 </button>
                             ))}
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Focus_Domain</label>
+                        <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">Focus_Domain</label>
                         <div className="flex flex-wrap gap-2">
                             {CATEGORIES_WITH_ICONS.slice(0, 6).map(cat => (
-                                <button key={cat.value} onClick={() => setSelectedCategory(cat.value as Category)} className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase transition-all ${selectedCategory === cat.value ? 'bg-cyan-500/10 border-cyan-500 text-white' : 'bg-black border-zinc-800 text-zinc-600'}`}>
+                                <button key={cat.value} onClick={() => setSelectedCategory(cat.value as Category)} className={`px-3 py-1.5 rounded-lg border text-[8px] font-black uppercase transition-all ${selectedCategory === cat.value ? 'bg-cyan-500/10 border-cyan-500 text-white' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>
                                     {cat.icon} {t(cat.translationKey)}
                                 </button>
                             ))}
                         </div>
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">AI_Cost_Mode</label>
+                        <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">AI_Cost_Mode</label>
                         <div className="grid grid-cols-2 gap-2">
-                            <button onClick={() => setAiMode('cheap')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'cheap' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300' : 'bg-black border-zinc-800 text-zinc-500'}`}>Cheap AI</button>
-                            <button onClick={() => setAiMode('premium')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'premium' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-300' : 'bg-black border-zinc-800 text-zinc-500'}`}>Premium AI</button>
+                            <button onClick={() => setAiMode('cheap')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'cheap' ? 'bg-emerald-500/10 border-emerald-500 text-emerald-300' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>Cheap AI</button>
+                            <button onClick={() => setAiMode('premium')} className={`px-3 py-2 rounded-lg text-[9px] font-black uppercase border ${aiMode === 'premium' ? 'bg-cyan-500/10 border-cyan-500 text-cyan-300' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>Premium AI</button>
                         </div>
                     </div>
                     <button onClick={handleRefresh} disabled={!selectedCategory || !heroLocation.trim() || isGenerating} className="w-full bg-white text-black font-black py-4 rounded-xl text-[10px] uppercase shadow-lg active:scale-95 transition-all disabled:opacity-40">
@@ -300,9 +300,9 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                             <p className="text-[9px] text-rose-400 font-black uppercase">{error.message}</p>
                         </div>
                     )}
-                    <div className="space-y-3 pt-4 border-t border-zinc-800">
+                    <div className="space-y-3 pt-4 border-t border-[color:var(--dpal-border)]">
                         {directives.length === 0 ? (
-                            <div className="text-center py-8 text-zinc-600">
+                            <div className="text-center py-8 text-[var(--dpal-text-muted)]">
                                 <p className="text-[9px] font-black uppercase">No Directives Available</p>
                                 <p className="text-[8px] mt-2">Select location and category, then sync</p>
                             </div>
@@ -318,7 +318,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                                         className={`w-full text-left p-4 rounded-2xl border-2 transition-all ${
                                             activeDirective?.id === dir.id 
                                                 ? 'bg-amber-500/10 border-amber-500' 
-                                                : 'bg-black border-zinc-800 hover:border-zinc-700'
+                                                : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] hover:border-[color:var(--dpal-border-strong)]'
                                         }`}
                                     >
                                         <div className="flex items-start justify-between gap-2 mb-2">
@@ -339,13 +339,13 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                                         </div>
                                         {dir.phases && (
                                             <div className="mt-2">
-                                                <div className="h-1 bg-zinc-950 rounded-full overflow-hidden">
+                                                <div className="h-1 bg-[var(--dpal-background)] rounded-full overflow-hidden">
                                                     <div 
                                                         className="h-full bg-cyan-500 transition-all"
                                                         style={{ width: `${progress}%` }}
                                                     />
                                                 </div>
-                                                <p className="text-[7px] text-zinc-600 mt-1 font-black uppercase">
+                                                <p className="text-[7px] text-[var(--dpal-text-muted)] mt-1 font-black uppercase">
                                                     {Math.round(progress)}% Complete
                                                 </p>
                                             </div>
@@ -368,12 +368,12 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                     <div className="p-6 space-y-6 overflow-y-auto h-full custom-scrollbar">
                         <div className="space-y-4">
                             <h2 className="text-2xl font-black uppercase tracking-tighter text-white leading-none">{activeDirective.title}</h2>
-                            <p className="text-sm text-zinc-400 font-bold leading-relaxed border-l-4 border-amber-500 pl-6 italic">"{activeDirective.description}"</p>
+                            <p className="text-sm text-[var(--dpal-text-secondary)] font-bold leading-relaxed border-l-4 border-amber-500 pl-6 italic">"{activeDirective.description}"</p>
                             <div className="flex items-center gap-3 text-xs">
-                                <span className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 font-black uppercase">
+                                <span className="px-3 py-1 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-lg text-[var(--dpal-text-muted)] font-black uppercase">
                                     {activeDirective.difficulty}
                                 </span>
-                                <span className="px-3 py-1 bg-zinc-900 border border-zinc-800 rounded-lg text-zinc-500 font-black uppercase">
+                                <span className="px-3 py-1 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-lg text-[var(--dpal-text-muted)] font-black uppercase">
                                     {activeDirective.category}
                                 </span>
                             </div>
@@ -391,16 +391,16 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                                 </div>
 
                                 {currentPhase && (
-                                    <div className="space-y-4 pt-4 border-t border-zinc-800">
+                                    <div className="space-y-4 pt-4 border-t border-[color:var(--dpal-border)]">
                                         <div className="flex items-center justify-between">
                                             <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">
                                                 Current Phase: {currentPhase.name}
                                             </label>
-                                            <span className="text-[8px] text-zinc-600 font-black uppercase">
+                                            <span className="text-[8px] text-[var(--dpal-text-muted)] font-black uppercase">
                                                 {currentPhase.estimatedDuration}
                                             </span>
                                         </div>
-                                        <p className="text-xs text-zinc-400 font-bold italic border-l-2 border-cyan-500 pl-4">
+                                        <p className="text-xs text-[var(--dpal-text-secondary)] font-bold italic border-l-2 border-cyan-500 pl-4">
                                             {currentPhase.description}
                                         </p>
                                         
@@ -440,8 +440,8 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                             <div className="space-y-4">
                                 <label className="text-[10px] font-black text-cyan-500 uppercase tracking-widest">Legacy_Action_Chain</label>
                                 {activeDirective.packet?.steps.map((s, i) => (
-                                    <div key={i} className="bg-zinc-950 p-4 rounded-2xl border border-zinc-800 flex gap-4">
-                                        <span className="text-xs font-black text-zinc-700">0{i+1}</span>
+                                    <div key={i} className="bg-[var(--dpal-background-secondary)] p-4 rounded-2xl border border-[color:var(--dpal-border)] flex gap-4">
+                                        <span className="text-xs font-black text-[var(--dpal-text-muted)]">0{i+1}</span>
                                         <p className="text-[10px] font-black text-white uppercase">{s.verb}: {s.detail}</p>
                                     </div>
                                 ))}
@@ -498,14 +498,14 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-[90vh] bg-black font-mono">
-      <header className="bg-zinc-900 border-b border-zinc-800 px-8 py-4 flex justify-between items-center z-30">
+    <div className="flex flex-col h-[90vh] bg-[var(--dpal-background)] font-mono">
+      <header className="bg-[var(--dpal-panel)] border-b border-[color:var(--dpal-border)] px-8 py-4 flex justify-between items-center z-30">
         <div className="flex items-center space-x-4">
-          <button onClick={onReturn} className="p-2 hover:bg-zinc-800 rounded-lg text-zinc-500">
+          <button onClick={onReturn} className="p-2 hover:bg-[var(--dpal-surface-alt)] rounded-lg text-[var(--dpal-text-muted)]">
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div>
-            <h1 className="text-lg font-black uppercase tracking-tighter text-white">Work_Directives_OS</h1>
+            <h1 className="text-lg font-black uppercase tracking-tighter text-[var(--dpal-text-primary)]">Work_Directives_OS</h1>
           </div>
         </div>
       </header>
@@ -517,7 +517,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                     <CheckCircle className="w-12 h-12 text-black" />
                 </div>
                 <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Directive_Complete</h2>
-                <p className="text-sm text-zinc-400 font-bold">
+                <p className="text-sm text-[var(--dpal-text-secondary)] font-bold">
                     All phases completed. Rewards have been distributed to your account.
                 </p>
                 <button 
@@ -525,7 +525,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                         setShowCreatedState(false);
                         setActiveDirective(null);
                     }} 
-                    className="bg-cyan-600 hover:bg-cyan-500 text-white font-black px-12 py-4 rounded-2xl uppercase text-xs transition-all active:scale-95"
+                    className="bg-[var(--dpal-support-cyan)] hover:bg-[var(--dpal-support-cyan-hover)] text-white font-black px-12 py-4 rounded-2xl uppercase text-xs transition-all active:scale-95"
                 >
                     Return_To_Queue
                 </button>
@@ -541,8 +541,8 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
       </div>
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 20px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #18181b; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--dpal-border-strong); border-radius: 20px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: var(--dpal-background-secondary); }
         .animate-fade-in { animation: fadeIn 0.3s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
       `}</style>

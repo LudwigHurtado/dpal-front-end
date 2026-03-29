@@ -1,12 +1,15 @@
 /**
  * =============================================================================
- * DPAL GLOBAL THEME — SINGLE PLACE TO CHANGE APP-WIDE LOOK
+ * DPAL MASTER THEME — CONTROL PANEL (edit visuals here only)
  * =============================================================================
- * Edit ONLY the :root variables below to retheme the whole product.
- * Components should use:
- *   - These CSS variables: var(--dpal-*)
- *   - Or utility classes: .dpal-card, .dpal-topbar, .dpal-btn-primary, etc.
- * Future light mode: add [data-dpal-theme="light"] { ... } with alternate values.
+ * This file is imported first in App.tsx (`import './styles/dpal-theme.css'`).
+ * All brand colors, radii, shadows, spacing, and semantic tokens live in :root /
+ * [data-dpal-theme='dark'] below. Components must use:
+ *   - `var(--dpal-*)` in classNames / styles, or
+ *   - shared utilities: `.dpal-card`, `.dpal-btn-primary`, `.dpal-input`, etc.
+ * Do not scatter raw hex/rgb in TSX for app chrome — add a token here instead.
+ * Light islands: set `data-dpal-theme="light"` on a subtree; extend
+ * `[data-dpal-theme='light']` at the bottom as needed.
  * =============================================================================
  */
 
@@ -32,6 +35,13 @@
   --dpal-primary-hover: #14b8a6;
   --dpal-accent: #2dd4bf;
   --dpal-accent-hover: #5eead4;
+
+  /* Support accent — cyan (nav chrome, secondary pills, sort menus). Teal stays primary. */
+  --dpal-support-cyan: #0891b2;
+  --dpal-support-cyan-bright: #22d3ee;
+  --dpal-support-cyan-hover: #06b6d4;
+  --dpal-support-cyan-muted: rgba(6, 182, 212, 0.35);
+  --dpal-support-cyan-glow: rgba(6, 182, 212, 0.3);
 
   /* ---- Status (semantic) ---- */
   --dpal-success: #22c55e;

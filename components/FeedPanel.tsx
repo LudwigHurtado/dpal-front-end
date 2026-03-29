@@ -26,7 +26,7 @@ const TopicButton: React.FC<{ topic: string | null, activeTopic: string | null, 
         onClick={() => setActiveTopic(topic)}
         className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border-2 transition-all duration-300 ${
           isActive
-            ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+            ? 'text-white border-[color:var(--dpal-support-cyan-bright)] bg-[var(--dpal-support-cyan)] shadow-[0_0_15px_var(--dpal-support-cyan-glow)]'
             : 'bg-[var(--dpal-panel)] border-[color:var(--dpal-border)] dpal-text-muted hover:border-[color:var(--dpal-border-strong)] hover:text-[var(--dpal-text-secondary)]'
         }`}
       >
@@ -107,26 +107,26 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
     <div className="space-y-8 font-mono animate-fade-in">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-            <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{t('feedPanel.title')}</h2>
+            <h2 className="text-2xl font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter">{t('feedPanel.title')}</h2>
             <p className="text-[10px] font-bold dpal-text-muted uppercase tracking-[0.4em] mt-1">Live_Ledger_Streaming</p>
         </div>
         
         <div className="relative" ref={sortMenuRef}>
              <button 
                 onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-                className="flex items-center space-x-3 px-4 py-2 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-xl text-[10px] font-black uppercase text-[var(--dpal-text-secondary)] hover:text-cyan-400 hover:border-cyan-500/50 transition-all shadow-xl"
+                className="flex items-center space-x-3 px-4 py-2 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-[var(--dpal-radius-xl)] text-[10px] font-black uppercase text-[var(--dpal-text-secondary)] hover:text-[var(--dpal-support-cyan-bright)] hover:border-[color:var(--dpal-support-cyan-muted)] transition-all shadow-[var(--dpal-shadow-md)]"
             >
                 <ListFilter className="h-4 w-4" />
                 <span className="tracking-widest">{currentSortLabel}</span>
                 <ChevronDown className={`h-3 w-3 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {isSortMenuOpen && (
-                 <div className="absolute right-0 mt-2 w-48 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-xl shadow-2xl py-1 z-50 overflow-hidden">
+                 <div className="absolute right-0 mt-2 w-48 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-[var(--dpal-radius-xl)] shadow-[var(--dpal-shadow-lg)] py-1 z-50 overflow-hidden">
                     {sortOptions.map(option => (
                          <button
                             key={option.key}
                             onClick={() => { setSortBy(option.key); setIsSortMenuOpen(false); }}
-                            className={`w-full text-left px-4 py-3 text-[9px] font-black uppercase tracking-widest transition-colors ${sortBy === option.key ? 'bg-cyan-600 text-white' : 'dpal-text-muted hover:bg-[var(--dpal-surface-alt)] hover:text-[var(--dpal-text-primary)]'}`}
+                            className={`w-full text-left px-4 py-3 text-[9px] font-black uppercase tracking-widest transition-colors ${sortBy === option.key ? 'bg-[var(--dpal-support-cyan)] text-white' : 'dpal-text-muted hover:bg-[var(--dpal-surface-alt)] hover:text-[var(--dpal-text-primary)]'}`}
                         >
                             {option.label}
                         </button>
@@ -146,7 +146,7 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
           <div className="flex items-center space-x-3 mb-6">
               <Sparkles className="w-6 h-6 text-purple-400" />
               <div>
-                  <h3 className="text-xl font-black text-white uppercase tracking-tighter">{t('feedPanel.analysisTitle')}</h3>
+                  <h3 className="text-xl font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter">{t('feedPanel.analysisTitle')}</h3>
                   <p className="text-[8px] font-black text-purple-500 uppercase tracking-widest">Neural_Processor_Output</p>
               </div>
           </div>

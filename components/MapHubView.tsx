@@ -21,7 +21,7 @@ const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilte
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <button
           onClick={onReturnToMainMenu}
-          className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors group"
+          className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-[var(--dpal-text-muted)] hover:text-[var(--dpal-support-cyan-bright)] transition-colors group"
         >
           <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
           <span>Return Home</span>
@@ -29,7 +29,7 @@ const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilte
         {onOpenFilters && (
           <button
             onClick={onOpenFilters}
-            className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors"
+            className="inline-flex items-center space-x-2 px-4 py-2 rounded-xl bg-[var(--dpal-surface-alt)] border border-[color:var(--dpal-border-strong)] text-[10px] font-black uppercase tracking-wider text-[var(--dpal-text-secondary)] hover:border-[color:var(--dpal-support-cyan-muted)] hover:text-[var(--dpal-support-cyan-bright)] transition-colors"
           >
             <ShieldCheck className="w-4 h-4" />
             <span>Filters</span>
@@ -37,12 +37,12 @@ const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilte
         )}
       </div>
 
-      <div className="relative rounded-2xl border border-zinc-800 bg-zinc-900/80 overflow-hidden aspect-[4/3] min-h-[280px] flex flex-col">
+      <div className="relative rounded-[var(--dpal-radius-2xl)] border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-map-panel)_88%,transparent)] overflow-hidden aspect-[4/3] min-h-[280px] flex flex-col shadow-[var(--dpal-shadow-md)]">
         {!mapLoaded && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950/90 z-10">
-            <Loader className="w-10 h-10 text-cyan-500 animate-spin mb-3" />
-            <MapPin className="w-8 h-8 text-zinc-600 mb-2" />
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Loading Google Maps…</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-[color-mix(in_srgb,var(--dpal-background-secondary)_92%,transparent)] z-10">
+            <Loader className="w-10 h-10 text-[var(--dpal-support-cyan)] animate-spin mb-3" />
+            <MapPin className="w-8 h-8 text-[var(--dpal-text-muted)] mb-2" />
+            <p className="text-[10px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-wider">Loading Google Maps…</p>
           </div>
         )}
         <iframe

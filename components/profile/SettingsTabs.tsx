@@ -61,15 +61,15 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
     };
 
     return (
-        <div className="bg-zinc-900 border-4 border-zinc-800 rounded-[4rem] overflow-hidden flex flex-col lg:flex-row min-h-[700px] shadow-4xl relative">
+        <div className="bg-[var(--dpal-panel)] border-4 border-[color:var(--dpal-border)] rounded-[var(--dpal-radius-3xl)] overflow-hidden flex flex-col lg:flex-row min-h-[700px] shadow-[var(--dpal-shadow-lg)] relative">
             {/* SIDEBAR TABS */}
-            <aside className="lg:w-80 bg-zinc-950 border-r border-zinc-800 p-8 space-y-4">
+            <aside className="lg:w-80 bg-[var(--dpal-background-secondary)] border-r border-[color:var(--dpal-border)] p-8 space-y-4">
                  {SETTINGS_TABS.map(tab => (
                     <button 
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`w-full flex items-center space-x-6 px-8 py-5 rounded-[1.5rem] text-[11px] font-black uppercase tracking-widest transition-all ${
-                            activeTab === tab.id ? 'bg-cyan-600 text-white shadow-xl scale-[1.02]' : 'text-zinc-500 hover:bg-zinc-900 hover:text-zinc-300'
+                            activeTab === tab.id ? 'bg-[var(--dpal-support-cyan)] text-white shadow-[var(--dpal-shadow-md)] scale-[1.02]' : 'text-[var(--dpal-text-muted)] hover:bg-[var(--dpal-panel)] hover:text-[var(--dpal-text-secondary)]'
                         }`}
                     >
                         {React.cloneElement(tab.icon as React.ReactElement, { className: "w-5 h-5" })}
@@ -89,19 +89,19 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
             <main className="flex-grow p-10 md:p-16 relative">
                  <div className="flex justify-between items-start mb-16">
                     <div>
-                        <h2 className="text-4xl font-black text-white uppercase tracking-tighter leading-none">{activeTab.toUpperCase()}_CALIBRATION</h2>
-                        <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-4">Shard: DPAL-S_V2.5 // Node: {hero.operativeId}</p>
+                        <h2 className="text-4xl font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter leading-none">{activeTab.toUpperCase()}_CALIBRATION</h2>
+                        <p className="text-[10px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-widest mt-4">Shard: DPAL-S_V2.5 // Node: {hero.operativeId}</p>
                     </div>
-                    {isSaving && <div className="flex items-center space-x-3 text-cyan-400 animate-pulse"><RefreshCw className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Processing...</span></div>}
+                    {isSaving && <div className="flex items-center space-x-3 text-[var(--dpal-support-cyan-bright)] animate-pulse"><RefreshCw className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Processing...</span></div>}
                  </div>
 
                  <div className="space-y-10 animate-fade-in">
                     {activeTab === 'profile' && (
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                             <div className="space-y-4">
-                                <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-4">Hero Oath (Identity Anchor)</label>
+                                <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest ml-4">Hero Oath (Identity Anchor)</label>
                                 <textarea 
-                                    className="w-full bg-black border-2 border-zinc-800 p-6 rounded-[2rem] text-sm text-white font-bold outline-none focus:border-cyan-600 transition-all resize-none min-h-[150px] shadow-inner"
+                                    className="w-full bg-[var(--dpal-background)] border-2 border-[color:var(--dpal-border)] p-6 rounded-[var(--dpal-radius-2xl)] text-sm text-[var(--dpal-text-primary)] font-bold outline-none focus:border-[var(--dpal-support-cyan)] transition-all resize-none min-h-[150px] shadow-[var(--dpal-shadow-inset)]"
                                     placeholder="I swear to hold power accountable..."
                                     value={hero?.heroOath || ''}
                                     onChange={(e) => setHero(prev => ({...prev, heroOath: e.target.value}))}
@@ -110,10 +110,10 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
                             <div className="space-y-10">
                                 <SettingToggle label="Show Profile Publicly" path="privacy.publicProfile" checked={hero.settings?.privacy?.publicProfile} onToggle={toggleSetting} />
                                 <div className="space-y-4">
-                                    <label className="text-[10px] font-black text-zinc-600 uppercase tracking-widest ml-4">Terminal Language</label>
+                                    <label className="text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest ml-4">Terminal Language</label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {['EN', 'ES', 'KO'].map(lang => (
-                                            <button key={lang} className={`py-4 rounded-xl border-2 font-black text-[10px] transition-all ${lang === 'EN' ? 'bg-cyan-600 text-white border-cyan-400' : 'bg-black border-zinc-900 text-zinc-600'}`}>{lang}</button>
+                                            <button key={lang} className={`py-4 rounded-[var(--dpal-radius-xl)] border-2 font-black text-[10px] transition-all ${lang === 'EN' ? 'bg-[var(--dpal-support-cyan)] text-white border-[color:var(--dpal-support-cyan-bright)]' : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)]'}`}>{lang}</button>
                                         ))}
                                     </div>
                                 </div>
@@ -141,23 +141,23 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
 
                     {activeTab === 'security' && (
                         <div className="max-w-2xl space-y-12">
-                             <div className="p-8 bg-black rounded-[3rem] border-2 border-zinc-900 space-y-6 shadow-inner">
+                             <div className="p-8 bg-[var(--dpal-background)] rounded-[var(--dpal-radius-3xl)] border-2 border-[color:var(--dpal-border)] space-y-6 shadow-[var(--dpal-shadow-inset)]">
                                 <div className="flex items-center space-x-6">
                                     <div className="p-4 bg-rose-500/10 rounded-2xl border border-rose-500/20"><Zap className="w-8 h-8 text-rose-500"/></div>
                                     <div>
                                         <p className="text-lg font-black text-white uppercase tracking-tighter">Biometric_Lock_v4</p>
-                                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">Enhanced Security Protocol</p>
+                                        <p className="text-[10px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-widest">Enhanced Security Protocol</p>
                                     </div>
                                 </div>
-                                <button className="w-full py-4 bg-zinc-800 hover:bg-zinc-700 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all">Update_Secure_Keyphrase</button>
+                                <button className="w-full py-4 bg-[var(--dpal-surface-alt)] hover:bg-[var(--dpal-panel)] text-[var(--dpal-text-primary)] rounded-[var(--dpal-radius-xl)] font-black uppercase tracking-widest text-[10px] transition-all border border-[color:var(--dpal-border)]">Update_Secure_Keyphrase</button>
                              </div>
                              
-                             <div className="p-8 bg-zinc-900/40 border-2 border-zinc-800 border-dashed rounded-[3rem] space-y-6">
+                             <div className="p-8 bg-[color-mix(in_srgb,var(--dpal-panel)_40%,transparent)] border-2 border-[color:var(--dpal-border)] border-dashed rounded-[var(--dpal-radius-3xl)] space-y-6">
                                  <div className="flex items-center space-x-4 text-amber-500">
                                      <AlertTriangle className="w-6 h-6" />
                                      <h4 className="text-sm font-black uppercase tracking-tight">Identity_Repair_Protocol</h4>
                                  </div>
-                                 <p className="text-[10px] font-bold text-zinc-500 uppercase leading-relaxed tracking-widest">
+                                 <p className="text-[10px] font-bold text-[var(--dpal-text-muted)] uppercase leading-relaxed tracking-widest">
                                      IF YOUR IDENTITY SHARD IS CORRUPTED OR UI PARAMETERS ARE FAILING TO RENDER, INITIALIZE NODE RECONSTRUCTION. THIS REBUILDS SYSTEM FIELDS FROM ORIGIN WITHOUT DELETING EARNED CREDITS.
                                  </p>
                                  <button 
@@ -178,14 +178,14 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
 const SettingToggle: React.FC<{ label: string; path: string; checked?: boolean; onToggle: (p: string) => void; desc?: string }> = ({ label, path, checked = false, onToggle, desc }) => (
     <div className="flex items-start justify-between gap-10 group">
         <div className="flex-grow min-w-0">
-            <h4 className="text-sm font-black text-white uppercase tracking-tight mb-1 group-hover:text-cyan-400 transition-colors">{label}</h4>
-            {desc && <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-widest leading-relaxed">{desc}</p>}
+            <h4 className="text-sm font-black text-[var(--dpal-text-primary)] uppercase tracking-tight mb-1 group-hover:text-[var(--dpal-support-cyan-bright)] transition-colors">{label}</h4>
+            {desc && <p className="text-[9px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-widest leading-relaxed">{desc}</p>}
         </div>
         <button 
             onClick={() => onToggle(path)}
-            className={`w-14 h-8 rounded-full transition-all relative flex-shrink-0 ${checked ? 'bg-cyan-600 border border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-zinc-950 border border-zinc-800'}`}
+            className={`w-14 h-8 rounded-full transition-all relative flex-shrink-0 ${checked ? 'bg-[var(--dpal-support-cyan)] border border-[color:var(--dpal-support-cyan-bright)] shadow-[0_0_15px_var(--dpal-support-cyan-glow)]' : 'bg-[var(--dpal-background-secondary)] border border-[color:var(--dpal-border)]'}`}
         >
-            <div className={`absolute top-1 w-5 h-5 rounded-full transition-all duration-500 ${checked ? 'right-1 bg-white shadow-xl' : 'left-1 bg-zinc-800'}`}></div>
+            <div className={`absolute top-1 w-5 h-5 rounded-full transition-all duration-500 ${checked ? 'right-1 bg-white shadow-[var(--dpal-shadow-md)]' : 'left-1 bg-[var(--dpal-surface-alt)]'}`}></div>
         </button>
     </div>
 );
