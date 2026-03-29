@@ -251,7 +251,7 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
           <p className="text-[11px] text-slate-600 leading-relaxed">
             {isBeaconActive
               ? 'The map stays bright while your beacon is active. The link above is the same area others can open on phones and desktops (matches the embed when GPS is shared).'
-              : 'After you deploy, the map zooms to your area and stays clear — no dimmed preview.'}
+              : 'After you deploy, the map zooms to your area and stays clear.'}
             {hasPreciseLocation && isBeaconActive && (
               <span className="block mt-1 font-medium text-emerald-800">GPS lock on — pin matches what is published to the network.</span>
             )}
@@ -273,9 +273,7 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
           >
             <iframe
               src={mapUrl}
-              className={`w-full h-full transition-all duration-500 ${mapDimmed ? 'opacity-50 blur-sm' : 'opacity-100 blur-0'} ${
-                mapInteractive ? '' : 'pointer-events-none'
-              }`}
+              className={`w-full h-full transition-all duration-500 ${mapDimmed ? 'opacity-50 blur-sm' : 'opacity-100 blur-0'}`}
               title="Area map for this beacon"
               onLoad={onMapLoad}
             />
@@ -284,26 +282,6 @@ const DeployBeaconPanel: React.FC<DeployBeaconPanelProps> = ({
                 <div className="absolute h-20 w-20 rounded-full border-4 border-amber-400/80 animate-ping opacity-40" />
                 <MapPin className="relative h-12 w-12 text-amber-600 drop-shadow-md" />
               </div>
-            )}
-            {!mapInteractive && (
-              <button
-                type="button"
-                onClick={() => onSetMapInteractive(true)}
-                className="absolute inset-0 z-10 flex items-center justify-center bg-slate-900/0 hover:bg-slate-900/10 transition-colors cursor-pointer"
-              >
-                <span className="rounded-full bg-white/95 border border-sky-200 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-sky-800 shadow-lg">
-                  Enable map interaction
-                </span>
-              </button>
-            )}
-            {mapInteractive && (
-              <button
-                type="button"
-                onClick={() => onSetMapInteractive(false)}
-                className="absolute top-3 right-3 z-20 rounded-lg bg-white border border-slate-300 p-2 text-slate-700 hover:bg-slate-50 shadow"
-              >
-                <X className="w-4 h-4" />
-              </button>
             )}
             {isBeaconActive && (
               <div className="absolute bottom-3 left-3 z-[12] pointer-events-none flex max-w-[85%] items-center gap-2 rounded-xl bg-amber-100/95 border border-amber-400 px-3 py-1.5 text-[10px] font-bold text-amber-950 shadow">
