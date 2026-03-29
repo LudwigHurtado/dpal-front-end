@@ -22,8 +22,6 @@ import {
   Scale,
   Sparkles,
 } from './icons';
-import QrCodeDisplay from './QrCodeDisplay';
-
 export interface PoliticianPosition {
   id: string;
   measureTitle: string;
@@ -180,7 +178,6 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastDraftSavedAt, setLastDraftSavedAt] = useState<string | null>(null);
   const [createdReportId, setCreatedReportId] = useState<string | null>(null);
-  const [showQr, setShowQr] = useState(false);
   const [aiQuery, setAiQuery] = useState('');
   const [webLoading, setWebLoading] = useState(false);
   const [webError, setWebError] = useState<string | null>(null);
@@ -356,7 +353,7 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
 
     setProofSubmitted(true);
     setCreatedReportId(reportId);
-    setShowQr(true);
+    window.setTimeout(() => document.getElementById('report-qr-inline')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
   };
 
   const scrollTo = (id: string) => {
@@ -370,6 +367,16 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
     if (m >= 15) return 'Civic scout';
     return 'Observer';
   }, [hero.civicMastery]);
+
+  const reportDeepLink = useMemo(() => {
+    if (!createdReportId || typeof window === 'undefined') return '';
+    return `${window.location.origin}/?reportId=${encodeURIComponent(createdReportId)}&situationRoom=1`;
+  }, [createdReportId]);
+
+  const reportQrImageUrl = useMemo(() => {
+    if (!reportDeepLink) return '';
+    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(reportDeepLink)}&bgcolor=ffffff&color=0f172a&margin=12`;
+  }, [reportDeepLink]);
 
   return (
     <div className="animate-fade-in min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50/40 pb-32 font-sans text-slate-800 antialiased">
@@ -386,8 +393,8 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
         </button>
 
         {/* —— Hero: constructive accountability —— */}
-        <section className="relative mb-12 overflow-hidden rounded-[2rem] border border-slate-200/90 bg-white shadow-lg shadow-slate-200/50 md:rounded-[2.5rem]">
-          <div className="grid min-h-[340px] md:min-h-[420px] md:grid-cols-2">
+        <section className="mb-12 overflow-hidden rounded-[2rem] border border-slate-200/90 bg-white shadow-lg shadow-slate-200/50 md:rounded-[2.5rem]">
+          <div className="grid min-h-[220px] md:min-h-[280px] md:grid-cols-2">
             <div className="relative flex flex-col justify-end border-b border-sky-200/80 bg-gradient-to-br from-sky-100/90 via-white to-sky-50/50 p-6 md:border-b-0 md:border-r md:p-10">
               <div className="absolute inset-0 bg-[url('/politician-viewpoints/decentralized-window.png')] bg-cover bg-center opacity-[0.12] mix-blend-multiply" />
               <div className="absolute left-4 top-4 flex flex-wrap gap-2">
@@ -424,25 +431,23 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
             </div>
           </div>
 
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 w-[min(92%,480px)] -translate-x-1/2 -translate-y-1/2">
-            <div className="pointer-events-auto rounded-2xl border border-white/80 bg-white/95 p-5 shadow-xl shadow-sky-200/40 ring-1 ring-sky-100 backdrop-blur-md md:p-7">
-              <div className="mb-3 flex flex-wrap items-center justify-center gap-2">
+          <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/90 to-white px-4 py-8 md:px-10 md:py-10">
+            <div className="mx-auto max-w-3xl text-center">
+              <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
                 {HERO_TAGS.map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-slate-200 bg-slate-50/90 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-slate-600"
+                    className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-slate-600 shadow-sm"
                   >
                     {tag}
                   </span>
                 ))}
               </div>
-              <h1 className="text-center text-2xl font-extrabold uppercase tracking-tight text-slate-900 md:text-3xl">
-                DPAL · Public accountability
-              </h1>
-              <p className="mt-2 text-center text-[12px] font-medium leading-relaxed text-slate-600">
-                A civic space for transparency, dignity, and a better shared record — not attacks, hope together.
+              <h1 className="text-2xl font-extrabold uppercase tracking-tight text-slate-900 md:text-3xl">DPAL · Public accountability</h1>
+              <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600">
+                A civic space for transparency, dignity, and a better shared record — built into the app, not in a separate window.
               </p>
-              <div className="mt-5 flex flex-wrap justify-center gap-2">
+              <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <button
                   type="button"
                   onClick={() => scrollTo('evidence-lab')}
@@ -467,10 +472,10 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 {createdReportId && (
                   <button
                     type="button"
-                    onClick={() => setShowQr(true)}
+                    onClick={() => scrollTo('report-qr-inline')}
                     className="rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-indigo-800 transition hover:bg-indigo-100"
                   >
-                    Share QR
+                    Track link & QR
                   </button>
                 )}
               </div>
@@ -887,11 +892,11 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                   {createdReportId && (
                     <button
                       type="button"
-                      onClick={() => setShowQr(true)}
+                      onClick={() => scrollTo('report-qr-inline')}
                       className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-sky-50 py-2.5 text-[10px] font-bold uppercase tracking-widest text-sky-900 hover:bg-sky-100"
                     >
                       <QrCode className="h-4 w-4" />
-                      View QR · report ID
+                      Track link & QR (sidebar)
                     </button>
                   )}
                 </div>
@@ -959,12 +964,15 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
               </div>
             </div>
 
-            <div className="rounded-[2rem] border border-emerald-200 bg-gradient-to-b from-emerald-50/80 to-white p-6 shadow-md shadow-emerald-100/40">
+            <div
+              id="report-qr-inline"
+              className="scroll-mt-28 rounded-[2rem] border border-emerald-200 bg-gradient-to-b from-emerald-50/80 to-white p-6 shadow-md shadow-emerald-100/40"
+            >
               <div className="flex items-center gap-2 text-emerald-800">
                 <Database className="h-5 w-5" />
-                <p className="text-[10px] font-bold uppercase tracking-[0.35em]">Public ledger</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.35em]">Public ledger · track this report</p>
               </div>
-              <p className="mt-2 text-xs text-slate-600">Entries become durable, shareable records — transparent, revisitable, accountable.</p>
+              <p className="mt-2 text-xs text-slate-600">Shareable link and QR stay on this page — no pop-up window.</p>
               <div className="mt-4 rounded-xl border border-emerald-200 bg-white p-3 font-mono text-[10px] text-emerald-900">
                 <p className="flex items-center gap-2 text-slate-500">
                   <Hash className="h-3.5 w-3.5" />
@@ -972,6 +980,21 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 </p>
                 <p className="mt-2 text-[9px] font-medium uppercase tracking-widest text-slate-500">Anchored reference (preview)</p>
               </div>
+              {createdReportId && reportDeepLink && reportQrImageUrl && (
+                <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Scan or copy</p>
+                  <img src={reportQrImageUrl} alt="" className="mx-auto mt-3 h-[160px] w-[160px] rounded-lg border border-slate-100 bg-white object-contain p-2" />
+                  <p className="mt-3 break-all text-left font-mono text-[10px] leading-relaxed text-slate-600">{reportDeepLink}</p>
+                  <button
+                    type="button"
+                    onClick={() => void navigator.clipboard.writeText(reportDeepLink)}
+                    className="mt-3 w-full rounded-lg border border-emerald-300 bg-emerald-50 py-2 text-[10px] font-bold uppercase tracking-widest text-emerald-900 hover:bg-emerald-100"
+                  >
+                    Copy link
+                  </button>
+                  <p className="mt-2 font-mono text-[10px] text-slate-500">ID: {createdReportId}</p>
+                </div>
+              )}
             </div>
           </aside>
         </div>
@@ -1067,11 +1090,11 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                             type="button"
                             onClick={() => {
                               setCreatedReportId(e.reportId);
-                              setShowQr(true);
+                              window.setTimeout(() => document.getElementById('report-qr-inline')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 50);
                             }}
                             className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-sky-900 hover:bg-sky-100"
                           >
-                            QR · ID
+                            Link & QR
                           </button>
                         </div>
                       </div>
@@ -1240,10 +1263,6 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
           )}
         </section>
       </div>
-
-      {showQr && createdReportId && (
-        <QrCodeDisplay type="report" id={createdReportId} onClose={() => setShowQr(false)} />
-      )}
     </div>
   );
 };
