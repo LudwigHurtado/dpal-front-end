@@ -84,7 +84,7 @@ const SystemTicker: React.FC = () => {
     ];
 
     return (
-        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 border-x border-[color:color-mix(in_srgb,var(--dpal-border)_30%,transparent)] flex items-center bg-black/80 rounded-xl px-4 min-w-0">
+        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 border-x border-[color:color-mix(in_srgb,var(--dpal-border)_45%,transparent)] flex items-center bg-[color-mix(in_srgb,var(--dpal-panel)_92%,var(--dpal-purple)_5%)] rounded-xl px-4 min-w-0 shadow-sm">
             <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black to-transparent z-10"></div>
             <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black to-transparent z-10"></div>
             
@@ -214,7 +214,7 @@ const Header: React.FC<HeaderProps> = ({
                 <span className="text-[9px] font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter leading-none">{hero.name}</span>
                 <button 
                     onClick={() => onNavigate('subscription')}
-                    className={`text-[7px] font-bold uppercase tracking-widest mt-1 px-2 py-0.5 rounded border bg-black/40 hover:bg-white/10 transition-colors ${getTierColor(hero.subscriptionTier)}`}
+                    className={`text-[7px] font-bold uppercase tracking-widest mt-1 px-2 py-0.5 rounded border bg-[color-mix(in_srgb,var(--dpal-surface-alt)_90%,var(--dpal-purple)_8%)] hover:brightness-95 transition-colors ${getTierColor(hero.subscriptionTier)}`}
                 >
                     {hero.subscriptionTier.replace('_', ' ')}
                 </button>

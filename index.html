@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en" translate="no" class="notranslate" data-dpal-theme="dark">
+<html lang="en" translate="no" class="notranslate" data-dpal-theme="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -40,7 +40,8 @@
       /* Base System Colors */
       body {
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        background-color: #0b0f14;
+        /* Fallback before dpal-theme.css — mint field (overridden by tokens) */
+        background-color: #dff6ef;
         margin: 0;
         transition: font-size 0.3s ease;
       }
@@ -66,7 +67,7 @@
       }
       /* Scrollbar colors — overridden when styles/dpal-theme.css loads */
       ::-webkit-scrollbar-track {
-        background: #0f1419;
+        background: #c8ebe0;
       }
       ::-webkit-scrollbar-thumb {
         background: rgba(148, 163, 184, 0.28);

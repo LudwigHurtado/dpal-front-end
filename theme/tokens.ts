@@ -26,6 +26,10 @@ export const dpalVar = {
   primaryHover: 'var(--dpal-primary-hover)',
   accent: 'var(--dpal-accent)',
   accentHover: 'var(--dpal-accent-hover)',
+  /** Secondary civic accent — violet rails, borders, highlights */
+  purple: 'var(--dpal-purple)',
+  purpleSoft: 'var(--dpal-purple-soft)',
+  purpleMuted: 'var(--dpal-purple-muted)',
   /** Cyan support accent — chips, secondary CTAs, nav chrome */
   supportCyan: 'var(--dpal-support-cyan)',
   supportCyanBright: 'var(--dpal-support-cyan-bright)',
