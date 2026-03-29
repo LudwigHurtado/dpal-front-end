@@ -87,54 +87,54 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12" aria-label="Session statistics">
             <div
                 role="status"
-                className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
+                className="dpal-card p-6 flex items-center justify-between"
             >
                 <div className="flex items-center gap-5 min-w-0">
                     <div
-                        className="w-16 h-16 rounded-2xl border flex items-center justify-center text-3xl shrink-0 bg-slate-50"
+                        className="w-16 h-16 rounded-2xl border flex items-center justify-center text-3xl shrink-0 bg-[var(--dpal-surface-alt)]"
                         style={{ borderColor: `${accent}55` }}
                         aria-hidden
                     >
                         {roleInfo?.icon || '🛡️'}
                     </div>
                     <div>
-                        <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Hero role (from your profile)</p>
-                        <p className="text-lg font-bold text-slate-900">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
-                        <p className="text-xs text-slate-500 mt-1 italic leading-relaxed">{roleInfo ? civicInspiration : 'Your contribution strengthens the public record.'}</p>
+                        <p className="text-[10px] font-semibold text-[var(--dpal-text-muted)] uppercase tracking-wider">Hero role (from your profile)</p>
+                        <p className="text-lg font-bold text-[var(--dpal-text-primary)]">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
+                        <p className="text-xs text-[var(--dpal-text-muted)] mt-1 italic leading-relaxed">{roleInfo ? civicInspiration : 'Your contribution strengthens the public record.'}</p>
                     </div>
                 </div>
                 <ShieldCheck className="w-10 h-10 text-emerald-400/80 shrink-0 pointer-events-none" aria-hidden />
             </div>
             <div
                 role="status"
-                className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm flex items-center justify-between"
+                className="dpal-card p-6 flex items-center justify-between"
             >
                 <div>
-                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Reports in this session</p>
-                    <p className="text-4xl font-bold text-slate-900 tabular-nums">{totalReports.toLocaleString()}</p>
-                    <p className="text-xs text-slate-500 mt-1">Informational only — not a button.</p>
+                    <p className="text-[10px] font-semibold text-[var(--dpal-text-muted)] uppercase tracking-wider mb-1">Reports in this session</p>
+                    <p className="text-4xl font-bold text-[var(--dpal-text-primary)] tabular-nums">{totalReports.toLocaleString()}</p>
+                    <p className="text-xs text-[var(--dpal-text-muted)] mt-1">Informational only — not a button.</p>
                 </div>
-                <Database className="w-10 h-10 text-slate-300 shrink-0 pointer-events-none" aria-hidden />
+                <Database className="w-10 h-10 text-[var(--dpal-text-muted)] shrink-0 pointer-events-none" aria-hidden />
             </div>
         </section>
     );
 
     const reportHero = (
         <div
-            className="rounded-[2rem] bg-white border border-slate-200 shadow-md mb-8 overflow-hidden"
-            style={{ boxShadow: `0 1px 0 0 ${accent}22` }}
+            className="dpal-card rounded-[2rem] mb-8 overflow-hidden"
+            style={{ boxShadow: `0 1px 0 0 ${accent}22, var(--dpal-shadow-sm)` }}
         >
             <div className="p-6 md:p-8 pb-4">
                 <button
                     type="button"
                     onClick={onReturn}
-                    className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-700 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200 shadow-sm hover:bg-white"
+                    className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--dpal-text-secondary)] bg-[var(--dpal-surface-alt)] px-4 py-2 rounded-xl border border-[var(--dpal-border)] shadow-sm hover:bg-[var(--dpal-panel)]"
                 >
                     <ArrowLeft className="w-4 h-4" />
                     Back
                 </button>
             </div>
-            <div className="w-full bg-slate-100/80 border-y border-slate-200/90">
+            <div className="w-full bg-[var(--dpal-background-secondary)] border-y border-[var(--dpal-border)]">
                 <div className="mx-auto flex min-h-[min(52vh,520px)] max-h-[min(70vh,640px)] w-full items-center justify-center px-4 py-6 md:px-8 md:py-10">
                     <img
                         src={imageUrl}
@@ -151,8 +151,8 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                         <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: accent }}>
                             {heroEyebrow}
                         </p>
-                        <h2 className="text-2xl md:text-4xl font-bold text-slate-900 tracking-tight mt-1">{categoryInfo.headline}</h2>
-                        <p className="text-slate-600 text-sm mt-2 max-w-2xl leading-relaxed">{heroDescription}</p>
+                        <h2 className="text-2xl md:text-4xl font-bold text-[var(--dpal-text-primary)] tracking-tight mt-1">{categoryInfo.headline}</h2>
+                        <p className="text-[var(--dpal-text-secondary)] text-sm mt-2 max-w-2xl leading-relaxed">{heroDescription}</p>
                     </div>
                 </div>
             </div>
@@ -161,7 +161,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
 
     if (useCaseboard && caseboardCfg) {
         return (
-            <div className="report-submission-fade font-sans text-slate-900 max-w-7xl mx-auto pb-32 px-4">
+            <div className="report-submission-fade font-sans text-[var(--dpal-text-primary)] max-w-7xl mx-auto pb-32 px-4">
                 <style>{fadeStyle}</style>
                 {reportHero}
                 <CaseboardReport
@@ -176,7 +176,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     }
 
     return (
-        <div className="report-submission-fade font-sans text-slate-900 max-w-7xl mx-auto pb-32 px-4">
+        <div className="report-submission-fade font-sans text-[var(--dpal-text-primary)] max-w-7xl mx-auto pb-32 px-4">
             <style>{fadeStyle}</style>
             {reportHero}
             <div className="mt-2 md:mt-4">

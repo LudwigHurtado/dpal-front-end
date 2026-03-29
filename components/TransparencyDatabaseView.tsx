@@ -52,25 +52,25 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
   }, [reports, filters, showOnlyActionable]);
 
   return (
-    <div className="relative flex flex-col min-h-[70vh] bg-zinc-950 text-white rounded-[2.5rem] border border-zinc-800 shadow-2xl font-mono overflow-hidden">
+    <div className="relative flex flex-col min-h-[70vh] bg-[var(--dpal-surface)] text-[var(--dpal-text-primary)] rounded-[2.5rem] border border-[var(--dpal-border)] shadow-xl font-sans overflow-hidden">
       {showIntro && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-950 z-10 rounded-[2.5rem]">
-          <Database className="w-16 h-16 text-emerald-400 animate-pulse mb-4" />
-          <p className="text-emerald-500 text-xs font-bold uppercase tracking-wider">Loading public records…</p>
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--dpal-background)] z-10 rounded-[2.5rem]">
+          <Database className="w-16 h-16 text-[var(--dpal-accent)] animate-pulse mb-4" />
+          <p className="text-[var(--dpal-text-secondary)] text-xs font-bold uppercase tracking-wider">Loading public records…</p>
         </div>
       )}
       <div className={`flex flex-col flex-1 min-h-0 ${showIntro ? 'invisible' : ''}`}>
-        <header className="bg-zinc-900/80 border-b border-zinc-800 px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 flex-shrink-0 z-10">
-            <button onClick={onReturn} className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-cyan-400 transition-colors group">
+        <header className="bg-[var(--dpal-panel)] border-b border-[var(--dpal-border)] px-8 py-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 flex-shrink-0 z-10">
+            <button onClick={onReturn} className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest text-[var(--dpal-text-muted)] hover:text-[var(--dpal-accent)] transition-colors group">
                 <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
                 <span>Back</span>
             </button>
             <div className="flex items-center space-x-4 min-w-0">
-                <Database className="w-6 h-6 text-emerald-500 flex-shrink-0" />
+                <Database className="w-6 h-6 text-[var(--dpal-accent)] flex-shrink-0" />
                 <h2 className="text-xl font-black uppercase tracking-tighter truncate">Public record</h2>
             </div>
-            <div className="hidden md:flex items-center space-x-6 text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                <span className="bg-emerald-950/20 text-emerald-500 border border-emerald-900/40 px-4 py-1.5 rounded-full flex items-center space-x-2">
+            <div className="hidden md:flex items-center space-x-6 text-[10px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">
+                <span className="dpal-badge-success px-4 py-1.5 rounded-full flex items-center space-x-2 border">
                     <ShieldCheck className="w-4 h-4" />
                     <span>Blockchain-linked index</span>
                 </span>
@@ -79,17 +79,17 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
 
         <div className="flex-grow min-h-0 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
             {/* Mobile: results first (order-1); desktop: sidebar left (lg:order-1) */}
-            <aside className="order-2 lg:order-1 lg:col-span-3 border-r border-zinc-800 border-t lg:border-t-0 bg-black/40 overflow-y-auto custom-scrollbar p-4 sm:p-8 min-h-0">
+            <aside className="order-2 lg:order-1 lg:col-span-3 border-r border-[var(--dpal-border)] border-t lg:border-t-0 bg-[var(--dpal-background-secondary)] overflow-y-auto custom-scrollbar p-4 sm:p-8 min-h-0">
                 <div className="space-y-6">
                     <OperationalConfidencePanel />
                     <LiveTransparencyMetricsCard />
                     <VerifierConfidenceCard />
                     {/* ACTIONABLE FILTER */}
                     <div className="space-y-6">
-                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] ml-2">Serious cases</label>
+                        <label className="text-[10px] font-black uppercase text-[var(--dpal-text-muted)] tracking-[0.3em] ml-2">Serious cases</label>
                         <button 
                             onClick={() => setShowOnlyActionable(!showOnlyActionable)}
-                            className={`w-full p-6 rounded-3xl border-2 transition-all flex items-center justify-between group ${showOnlyActionable ? 'bg-rose-600 border-rose-400 text-white shadow-2xl' : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-rose-900'}`}
+                            className={`w-full p-6 rounded-3xl border-2 transition-all flex items-center justify-between group ${showOnlyActionable ? 'bg-rose-700 border-rose-500 text-white shadow-lg' : 'bg-[var(--dpal-card)] border-[var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:border-rose-500/50'}`}
                         >
                             <div className="flex items-center space-x-4">
                                 <Scale className={`w-6 h-6 transition-transform group-hover:scale-110 ${showOnlyActionable ? 'text-white' : 'text-rose-500'}`} />
@@ -103,21 +103,21 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                     </div>
 
                     <div className="space-y-6">
-                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] ml-2">Search</label>
+                        <label className="text-[10px] font-black uppercase text-[var(--dpal-text-muted)] tracking-[0.3em] ml-2">Search</label>
                         <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-700 group-focus-within:text-cyan-500 transition-colors" />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--dpal-text-muted)] group-focus-within:text-[var(--dpal-accent)] transition-colors" />
                             <input 
                                 value={filters.keyword}
                                 onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
                                 placeholder="ID, block #, transaction, title…"
-                                className="w-full bg-zinc-950 border-2 border-zinc-800 rounded-2xl pl-12 pr-4 py-4 text-[11px] font-semibold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-600 placeholder:normal-case"
+                                className="dpal-input w-full border-2 pl-12 pr-4 py-4 text-[11px] font-semibold placeholder:normal-case"
                                 aria-label="Search public records by ID, block number, or transaction"
                             />
                         </div>
                     </div>
 
                     <div className="space-y-4">
-                        <label className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.3em] ml-2">Category</label>
+                        <label className="text-[10px] font-black uppercase text-[var(--dpal-text-muted)] tracking-[0.3em] ml-2">Category</label>
                         <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                             {[...Object.values(Category)].sort((a: any, b: any) => a.localeCompare(b)).map(cat => {
                                 const isSel = filters.selectedCategories.includes(cat);
@@ -128,7 +128,7 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                                             ...prev,
                                             selectedCategories: isSel ? prev.selectedCategories.filter(c => c !== cat) : [...prev.selectedCategories, cat]
                                         }))}
-                                        className={`p-3 rounded-xl border-2 text-[9px] font-black uppercase transition-all text-left ${isSel ? 'bg-emerald-500/10 border-emerald-500 text-white' : 'bg-black border-zinc-900 text-zinc-600 hover:border-zinc-700'}`}
+                                        className={`p-3 rounded-xl border-2 text-[9px] font-black uppercase transition-all text-left ${isSel ? 'bg-emerald-950/40 border-emerald-500/50 text-emerald-300' : 'bg-[var(--dpal-card)] border-[var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:border-[var(--dpal-border-strong)]'}`}
                                     >
                                         {cat}
                                     </button>
@@ -139,36 +139,36 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                 </div>
             </aside>
 
-            <main className="order-1 lg:order-2 lg:col-span-9 bg-black overflow-y-auto custom-scrollbar p-4 pt-4 sm:p-8 lg:p-12 min-h-0">
+            <main className="order-1 lg:order-2 lg:col-span-9 bg-[var(--dpal-background)] overflow-y-auto custom-scrollbar p-4 pt-4 sm:p-8 lg:p-12 min-h-0">
                 <div className="max-w-4xl mx-auto space-y-6 sm:space-y-10">
                     <div className="space-y-4">
                         <label htmlFor="public-record-search" className="sr-only">
                             Search by report ID, block number, transaction hash, or keywords
                         </label>
                         <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-zinc-500 group-focus-within:text-cyan-400 transition-colors pointer-events-none" />
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--dpal-text-muted)] group-focus-within:text-[var(--dpal-accent)] transition-colors pointer-events-none" />
                             <input
                                 id="public-record-search"
                                 type="search"
                                 value={filters.keyword}
                                 onChange={(e) => setFilters((prev) => ({ ...prev, keyword: e.target.value }))}
                                 placeholder="Search by report ID, block number, or transaction…"
-                                className="w-full rounded-2xl border-2 border-zinc-800 bg-zinc-950 py-4 pl-12 pr-4 text-sm font-medium text-white shadow-inner outline-none transition-all placeholder:text-zinc-600 focus:border-cyan-500"
+                                className="dpal-input w-full py-4 pl-12 pr-4 text-sm font-medium shadow-sm"
                                 autoComplete="off"
                             />
                         </div>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-[var(--dpal-text-muted)]">
                             Every submission receives a ledger reference (transaction ID). Look up any record by its report ID, block height, or hash.
                         </p>
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end border-b border-zinc-900 pb-4 sm:pb-10">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end border-b border-[var(--dpal-border)] pb-4 sm:pb-10">
                         <div className="min-w-0">
-                            <h3 className="text-2xl sm:text-4xl font-bold tracking-tight text-white">Search results</h3>
-                            <p className="mt-2 text-sm text-zinc-500 sm:mt-3">Public, blockchain-anchored accountability reports.</p>
+                            <h3 className="text-2xl sm:text-4xl font-bold tracking-tight text-[var(--dpal-text-primary)]">Search results</h3>
+                            <p className="mt-2 text-sm text-[var(--dpal-text-muted)] sm:mt-3">Public, blockchain-anchored accountability reports.</p>
                         </div>
-                        <div className="bg-zinc-900/60 border border-zinc-800 px-4 py-2 sm:px-6 rounded-2xl shrink-0 self-start sm:self-auto">
-                            <span className="text-[10px] font-black text-emerald-500">{filteredReports.length} matching {filteredReports.length === 1 ? 'record' : 'records'}</span>
+                        <div className="dpal-badge-success px-4 py-2 sm:px-6 rounded-2xl shrink-0 self-start sm:self-auto border">
+                            <span className="text-[10px] font-black text-emerald-300">{filteredReports.length} matching {filteredReports.length === 1 ? 'record' : 'records'}</span>
                         </div>
                     </div>
 
@@ -179,11 +179,11 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                                 <ReportCard key={report.id} report={report} onAddImage={() => {}} onJoinChat={onJoinReportChat} />
                             ))
                         ) : (
-                            <div className="py-40 text-center border-4 border-dashed border-zinc-900 rounded-[4rem] bg-zinc-950/40">
-                                <AlertTriangle className="w-20 h-20 text-zinc-900 mx-auto mb-8" />
-                                <p className="text-sm font-semibold text-zinc-500">No matching records</p>
-                                <p className="mt-2 text-xs text-zinc-600">Try another ID, block number, transaction, or keyword.</p>
-                                <button type="button" onClick={() => { setFilters({keyword: '', selectedCategories: [], location: ''}); setShowOnlyActionable(false); }} className="mt-8 text-sm font-semibold text-cyan-500 hover:underline">Clear filters</button>
+                            <div className="py-40 text-center border-4 border-dashed border-[var(--dpal-border)] rounded-[4rem] bg-[var(--dpal-surface)]">
+                                <AlertTriangle className="w-20 h-20 text-[var(--dpal-text-muted)] mx-auto mb-8" />
+                                <p className="text-sm font-semibold text-[var(--dpal-text-secondary)]">No matching records</p>
+                                <p className="mt-2 text-xs text-[var(--dpal-text-muted)]">Try another ID, block number, transaction, or keyword.</p>
+                                <button type="button" onClick={() => { setFilters({keyword: '', selectedCategories: [], location: ''}); setShowOnlyActionable(false); }} className="mt-8 text-sm font-semibold text-[var(--dpal-accent)] hover:underline">Clear filters</button>
                             </div>
                         )}
                     </div>

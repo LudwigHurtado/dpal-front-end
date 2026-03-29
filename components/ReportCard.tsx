@@ -62,7 +62,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
   const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === report.category);
 
   return (
-    <div className={`group bg-zinc-900/40 border-2 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-2xl relative font-mono flex flex-col ${report.isActionable ? 'border-rose-500/50' : 'border-zinc-800 hover:border-cyan-500/50'}`}>
+    <div className={`group bg-[var(--dpal-report-card)] text-[var(--dpal-text-primary)] border-2 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-lg relative font-sans flex flex-col ${report.isActionable ? 'border-rose-500/45' : 'border-[var(--dpal-border)] hover:border-cyan-500/35'}`}>
       
       {/* ACTIONABLE BADGE */}
       {report.isActionable && (
@@ -73,14 +73,14 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
       )}
 
       {/* Ledger Fragment Header */}
-      <div className="bg-zinc-900/80 border-b border-zinc-800 px-4 py-4 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-2">
+      <div className="bg-[var(--dpal-surface-alt)] border-b border-[var(--dpal-border)] px-4 py-4 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
               <div className={`w-2 h-2 rounded-full animate-ping shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'bg-rose-500 shadow-[0_0_10px_rose]' : 'bg-cyan-500'}`}></div>
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white/80 truncate">Shard_#{safeId.split('-').pop()}</span>
-              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'text-rose-500 border-rose-900/50 bg-rose-950/20' : 'text-zinc-500 border-zinc-800'}`}>SEV: {safeSeverity.toUpperCase()}</span>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--dpal-text-secondary)] truncate">Report #{safeId.split('-').pop()}</span>
+              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'text-rose-300 border-rose-500/40 bg-rose-950/50' : 'text-[var(--dpal-text-muted)] border-[var(--dpal-border)] bg-[var(--dpal-surface)]'}`}>Severity: {safeSeverity.toUpperCase()}</span>
           </div>
           <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2 text-[10px] font-black text-zinc-500 uppercase bg-black/40 px-3 py-1 rounded-lg border border-zinc-800">
+              <div className="flex items-center space-x-2 text-[10px] font-black text-[var(--dpal-text-muted)] uppercase bg-[var(--dpal-surface)] px-3 py-1 rounded-lg border border-[var(--dpal-border)]">
                   <Clock className="w-3.5 h-3.5" />
                   <span>{timeLabel}</span>
               </div>
@@ -214,7 +214,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
       </div>
 
       {/* TOP IMAGE VIEWER — below text on mobile; above on md+ */}
-      <div className="relative w-full aspect-[21/10] sm:aspect-[21/8] bg-black border-t md:border-t-0 md:border-b border-zinc-800 overflow-hidden">
+      <div className="relative w-full aspect-[21/10] sm:aspect-[21/8] bg-slate-100 border-t md:border-t-0 md:border-b border-slate-200 overflow-hidden">
           {imageUrlsToDisplay.length > 0 ? (
               <img src={imageUrlsToDisplay[currentImageIndex]} alt={safeTitle} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-1000 grayscale group-hover:grayscale-0" />
           ) : (

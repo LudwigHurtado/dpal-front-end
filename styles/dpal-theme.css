@@ -1,0 +1,384 @@
+/**
+ * =============================================================================
+ * DPAL GLOBAL THEME — SINGLE PLACE TO CHANGE APP-WIDE LOOK
+ * =============================================================================
+ * Edit ONLY the :root variables below to retheme the whole product.
+ * Components should use:
+ *   - These CSS variables: var(--dpal-*)
+ *   - Or utility classes: .dpal-card, .dpal-topbar, .dpal-btn-primary, etc.
+ * Future light mode: add [data-dpal-theme="light"] { ... } with alternate values.
+ * =============================================================================
+ */
+
+:root,
+[data-dpal-theme='dark'] {
+  /* ---- Foundations (charcoal / navy civic-tech) ---- */
+  --dpal-background: #0b0f14;
+  --dpal-background-secondary: #0f1419;
+  --dpal-surface: #151b24;
+  --dpal-surface-alt: #1a222e;
+  --dpal-panel: #1c2431;
+  --dpal-card: #1a2332;
+  --dpal-card-hover: #1f2a3a;
+
+  /* ---- Text ---- */
+  --dpal-text-primary: #f1f5f9;
+  --dpal-text-secondary: #94a3b8;
+  --dpal-text-muted: #64748b;
+  --dpal-placeholder: #64748b;
+
+  /* ---- Brand / accent (teal signal) ---- */
+  --dpal-primary: #0d9488;
+  --dpal-primary-hover: #14b8a6;
+  --dpal-accent: #2dd4bf;
+  --dpal-accent-hover: #5eead4;
+
+  /* ---- Status (semantic) ---- */
+  --dpal-success: #22c55e;
+  --dpal-warning: #f59e0b;
+  --dpal-danger: #ef4444;
+  --dpal-info: #3b82f6;
+  --dpal-verified: #22c55e;
+  --dpal-reward: #14b8a6;
+
+  /* ---- Borders & focus ---- */
+  --dpal-border: rgba(148, 163, 184, 0.14);
+  --dpal-border-strong: rgba(148, 163, 184, 0.28);
+  --dpal-focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.35);
+
+  /* ---- Overlays ---- */
+  --dpal-overlay: rgba(8, 12, 18, 0.72);
+  --dpal-overlay-soft: rgba(8, 12, 18, 0.45);
+
+  /* ---- Named surfaces (map to same palette; tune independently later) ---- */
+  --dpal-sidebar: #121820;
+  --dpal-topbar: #0e131a;
+  --dpal-input-bg: #121a24;
+  --dpal-input-border: rgba(148, 163, 184, 0.2);
+  --dpal-input-text: var(--dpal-text-primary);
+  --dpal-map-panel: #151c26;
+  --dpal-feed-card: #1a2330;
+  --dpal-mission-card: #18212f;
+  --dpal-report-card: #1a2332;
+  --dpal-ledger-card: #161e2a;
+  --dpal-ai-panel: #141c28;
+
+  --dpal-badge-bg: rgba(45, 212, 191, 0.12);
+  --dpal-badge-text: #5eead4;
+
+  /* ---- Typography scale (rem, base 16) ---- */
+  --dpal-text-xs: 0.6875rem;
+  --dpal-text-sm: 0.8125rem;
+  --dpal-text-base: 1rem;
+  --dpal-text-lg: 1.125rem;
+  --dpal-text-xl: 1.25rem;
+  --dpal-text-2xl: 1.5rem;
+  --dpal-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --dpal-font-mono: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
+
+  /* ---- Spacing scale (4px grid) ---- */
+  --dpal-space-1: 0.25rem;
+  --dpal-space-2: 0.5rem;
+  --dpal-space-3: 0.75rem;
+  --dpal-space-4: 1rem;
+  --dpal-space-5: 1.25rem;
+  --dpal-space-6: 1.5rem;
+  --dpal-space-8: 2rem;
+  --dpal-space-10: 2.5rem;
+  --dpal-space-12: 3rem;
+
+  /* ---- Radius ---- */
+  --dpal-radius-sm: 0.5rem;
+  --dpal-radius-md: 0.75rem;
+  --dpal-radius-lg: 1rem;
+  --dpal-radius-xl: 1.25rem;
+  --dpal-radius-2xl: 1.5rem;
+  --dpal-radius-3xl: 2rem;
+
+  /* ---- Shadows (soft, layered) ---- */
+  --dpal-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --dpal-shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
+  --dpal-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --dpal-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+
+  /* ---- Motion ---- */
+  --dpal-duration-fast: 120ms;
+  --dpal-duration-normal: 200ms;
+  --dpal-duration-slow: 320ms;
+  --dpal-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- Z-index ladder ---- */
+  --dpal-z-base: 0;
+  --dpal-z-sticky: 50;
+  --dpal-z-dropdown: 100;
+  --dpal-z-header: 100;
+  --dpal-z-overlay: 200;
+  --dpal-z-modal: 300;
+  --dpal-z-toast: 400;
+}
+
+/* Optional light theme scaffold — fill values when needed */
+[data-dpal-theme='light'] {
+  --dpal-background: #f8fafc;
+  --dpal-text-primary: #0f172a;
+  --dpal-text-secondary: #475569;
+  --dpal-border: rgba(15, 23, 42, 0.08);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Base document (inherits into React tree) */
+/* -------------------------------------------------------------------------- */
+html {
+  font-family: var(--dpal-font-sans);
+}
+
+body {
+  margin: 0;
+  background-color: var(--dpal-background);
+  color: var(--dpal-text-primary);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(45, 212, 191, 0.25);
+  color: var(--dpal-text-primary);
+}
+
+/* Scrollbars use theme tokens */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--dpal-background-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--dpal-border-strong);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.45);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Semantic layout utilities — prefer these over one-off Tailwind colors */
+/* -------------------------------------------------------------------------- */
+.dpal-app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--dpal-background);
+  color: var(--dpal-text-primary);
+  transition: background-color var(--dpal-duration-slow) var(--dpal-ease),
+    color var(--dpal-duration-slow) var(--dpal-ease);
+}
+
+.dpal-topbar {
+  background-color: var(--dpal-topbar);
+  border-bottom: 1px solid var(--dpal-border);
+  box-shadow: var(--dpal-shadow-sm);
+}
+
+.dpal-bottom-nav {
+  background-color: color-mix(in srgb, var(--dpal-background) 92%, transparent);
+  border-top: 1px solid var(--dpal-border);
+  backdrop-filter: blur(12px);
+}
+
+.dpal-sidebar {
+  background-color: var(--dpal-sidebar);
+  border-right: 1px solid var(--dpal-border);
+}
+
+.dpal-panel {
+  background-color: var(--dpal-panel);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-2xl);
+  box-shadow: var(--dpal-shadow-md);
+}
+
+.dpal-card {
+  background-color: var(--dpal-card);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-2xl);
+  box-shadow: var(--dpal-shadow-sm), var(--dpal-shadow-inset);
+  transition: background-color var(--dpal-duration-normal) var(--dpal-ease),
+    border-color var(--dpal-duration-normal) var(--dpal-ease),
+    box-shadow var(--dpal-duration-normal) var(--dpal-ease);
+}
+
+.dpal-card:hover {
+  background-color: var(--dpal-card-hover);
+  border-color: var(--dpal-border-strong);
+}
+
+.dpal-ledger-card {
+  background-color: var(--dpal-ledger-card);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-3xl);
+}
+
+.dpal-map-panel {
+  background-color: var(--dpal-map-panel);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-xl);
+}
+
+.dpal-ai-panel {
+  background-color: var(--dpal-ai-panel);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-xl);
+}
+
+.dpal-text-primary {
+  color: var(--dpal-text-primary);
+}
+.dpal-text-secondary {
+  color: var(--dpal-text-secondary);
+}
+.dpal-text-muted {
+  color: var(--dpal-text-muted);
+}
+
+.dpal-input {
+  background-color: var(--dpal-input-bg);
+  border: 1px solid var(--dpal-input-border);
+  color: var(--dpal-input-text);
+  border-radius: var(--dpal-radius-lg);
+  padding: var(--dpal-space-3) var(--dpal-space-4);
+  font-size: var(--dpal-text-sm);
+  outline: none;
+  transition: border-color var(--dpal-duration-fast) var(--dpal-ease), box-shadow var(--dpal-duration-fast) var(--dpal-ease);
+}
+.dpal-input::placeholder {
+  color: var(--dpal-placeholder);
+}
+.dpal-input:focus {
+  border-color: var(--dpal-accent);
+  box-shadow: var(--dpal-focus-ring);
+}
+
+.dpal-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dpal-space-2);
+  font-weight: 700;
+  font-size: var(--dpal-text-sm);
+  border-radius: var(--dpal-radius-lg);
+  padding: var(--dpal-space-3) var(--dpal-space-5);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background-color var(--dpal-duration-fast) var(--dpal-ease),
+    color var(--dpal-duration-fast) var(--dpal-ease), border-color var(--dpal-duration-fast) var(--dpal-ease),
+    opacity var(--dpal-duration-fast) var(--dpal-ease);
+}
+.dpal-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dpal-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--dpal-focus-ring);
+}
+
+.dpal-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dpal-space-2);
+  font-weight: 700;
+  font-size: var(--dpal-text-sm);
+  border-radius: var(--dpal-radius-lg);
+  padding: var(--dpal-space-3) var(--dpal-space-5);
+  cursor: pointer;
+  transition: background-color var(--dpal-duration-fast) var(--dpal-ease),
+    filter var(--dpal-duration-fast) var(--dpal-ease), box-shadow var(--dpal-duration-fast) var(--dpal-ease);
+  background: linear-gradient(180deg, var(--dpal-primary-hover) 0%, var(--dpal-primary) 100%);
+  color: #042f2e;
+  border: 1px solid rgba(45, 212, 191, 0.35);
+}
+.dpal-btn-primary:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+.dpal-btn-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dpal-btn-primary:focus-visible {
+  outline: none;
+  box-shadow: var(--dpal-focus-ring);
+}
+
+.dpal-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dpal-space-2);
+  font-weight: 700;
+  font-size: var(--dpal-text-sm);
+  border-radius: var(--dpal-radius-lg);
+  padding: var(--dpal-space-3) var(--dpal-space-5);
+  cursor: pointer;
+  transition: background-color var(--dpal-duration-fast) var(--dpal-ease), color var(--dpal-duration-fast) var(--dpal-ease), border-color var(--dpal-duration-fast) var(--dpal-ease);
+  background: transparent;
+  color: var(--dpal-text-secondary);
+  border: 1px solid var(--dpal-border);
+}
+.dpal-btn-ghost:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--dpal-text-primary);
+}
+.dpal-btn-ghost:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.dpal-btn-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--dpal-focus-ring);
+}
+
+.dpal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dpal-space-1);
+  font-size: var(--dpal-text-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--dpal-space-1) var(--dpal-space-3);
+  border-radius: 9999px;
+  background: var(--dpal-badge-bg);
+  color: var(--dpal-badge-text);
+  border: 1px solid rgba(45, 212, 191, 0.25);
+}
+
+.dpal-badge-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
+  border-color: rgba(34, 197, 94, 0.35);
+}
+.dpal-badge-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.35);
+}
+.dpal-badge-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+}
+.dpal-badge-info {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* Full-height inner screens (database, dashboards) */
+.dpal-surface-page {
+  background-color: var(--dpal-surface);
+  color: var(--dpal-text-primary);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-3xl);
+  box-shadow: var(--dpal-shadow-lg);
+}

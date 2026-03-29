@@ -189,7 +189,7 @@ const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="bg-black border-b border-zinc-900 sticky top-0 z-[100] font-mono w-full flex flex-col">
+    <header className="dpal-topbar sticky top-0 z-[100] font-mono w-full flex flex-col">
       <div className="w-full px-4 md:px-8 py-4 flex items-center justify-between gap-4">
           
           <button onClick={onNavigateHome} className="flex items-center space-x-3 group flex-shrink-0">

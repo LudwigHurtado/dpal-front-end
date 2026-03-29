@@ -1,6 +1,6 @@
 
 <!DOCTYPE html>
-<html lang="en" translate="no" class="notranslate">
+<html lang="en" translate="no" class="notranslate" data-dpal-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
@@ -40,7 +40,7 @@
       /* Base System Colors */
       body {
         padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        background-color: #000;
+        background-color: #0b0f14;
         margin: 0;
         transition: font-size 0.3s ease;
       }
@@ -64,15 +64,16 @@
         width: 6px;
         height: 6px;
       }
+      /* Scrollbar colors — overridden when styles/dpal-theme.css loads */
       ::-webkit-scrollbar-track {
-        background: #09090b;
+        background: #0f1419;
       }
       ::-webkit-scrollbar-thumb {
-        background: #27272a;
+        background: rgba(148, 163, 184, 0.28);
         border-radius: 10px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #3f3f46;
+        background: rgba(148, 163, 184, 0.45);
       }
 
       /* React Grid Layout specific styles */

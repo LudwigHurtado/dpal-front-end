@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import './styles/dpal-theme.css';
 import './styles/mobile-theme.css';
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { flushSync } from 'react-dom';
@@ -1088,7 +1089,7 @@ const App: React.FC = () => {
 
   return (
     <ActiveLayout>
-    <div className="min-h-screen flex flex-col transition-all duration-300 bg-zinc-950 text-zinc-100 font-sans selection:bg-cyan-500/30 overflow-x-hidden">
+    <div className="dpal-app transition-all duration-300 selection:bg-cyan-500/25 overflow-x-hidden">
       {showNavRestoreTip && (
         <div
           role="status"

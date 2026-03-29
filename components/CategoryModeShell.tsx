@@ -31,9 +31,9 @@ const CategoryModeShell: React.FC<CategoryModeShellProps> = ({
   const accent = category.accentColor;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-[#0F172A]">
+    <div className="min-h-screen bg-[var(--dpal-background)] text-[var(--dpal-text-primary)]">
       <header
-        className="border-b border-slate-200/80 bg-white/90 backdrop-blur-sm sticky top-0 z-20"
+        className="border-b border-[var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-topbar)_92%,transparent)] backdrop-blur-sm sticky top-0 z-20"
         style={{ boxShadow: `0 1px 0 0 ${accent}18` }}
       >
         <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
@@ -41,14 +41,14 @@ const CategoryModeShell: React.FC<CategoryModeShellProps> = ({
             <button
               type="button"
               onClick={onBack}
-              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[var(--dpal-border)] bg-[var(--dpal-surface)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-surface-alt)]"
               aria-label="Back to category hub"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 truncate">{categoryLabel}</p>
-              <h1 className="text-lg font-black tracking-tight text-slate-900 truncate">{category.title}</h1>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--dpal-text-muted)] truncate">{categoryLabel}</p>
+              <h1 className="text-lg font-black tracking-tight text-[var(--dpal-text-primary)] truncate">{category.title}</h1>
             </div>
           </div>
 
@@ -60,7 +60,7 @@ const CategoryModeShell: React.FC<CategoryModeShellProps> = ({
                   type="button"
                   onClick={() => onSwitchMode(m)}
                   className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition ${
-                    mode === m ? 'text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    mode === m ? 'text-white shadow-sm' : 'bg-[var(--dpal-surface-alt)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-panel)]'
                   }`}
                   style={mode === m ? { backgroundColor: accent } : undefined}
                 >
