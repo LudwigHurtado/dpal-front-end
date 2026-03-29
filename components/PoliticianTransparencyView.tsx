@@ -453,7 +453,10 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   };
 
   return (
-    <div className="animate-fade-in min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50/40 pb-32 font-sans text-slate-800 antialiased">
+    <div
+      data-dpal-theme="light"
+      className="animate-fade-in min-h-screen bg-gradient-to-b from-sky-50 via-white to-emerald-50/40 pb-32 font-sans text-[var(--dpal-text-secondary)] antialiased"
+    >
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-10%,rgba(56,189,248,0.14),transparent),radial-gradient(ellipse_70%_50%_at_100%_20%,rgba(16,185,129,0.08),transparent)]" />
 
       <div className="relative z-10 mx-auto max-w-[1400px] px-4 pt-6 md:px-8">
