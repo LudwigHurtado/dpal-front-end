@@ -398,9 +398,11 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     </div>
                 )}
 
-                {/* Chat directly under QR + metadata (above directory + map) */}
-                <section id="situation-chat" className="flex flex-col min-h-0 flex-1 bg-slate-100 border-b border-slate-200 scroll-mt-4">
-                    <div className={`flex h-full min-h-[min(420px,55vh)] max-h-[min(560px,60vh)] flex-col overflow-hidden ${CHAT_SURFACE_CLASS} border border-slate-200/90 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_8px_40px_-12px_rgba(15,23,42,0.08)] mx-2 mb-1 md:mx-4 md:mb-2`}>
+                {/* Chat — dark page chrome only; single rounded light surface (no full-width slate strip) */}
+                <section id="situation-chat" className="flex flex-col min-h-0 flex-1 scroll-mt-4 border-b border-zinc-800/80 bg-zinc-950 px-3 pb-3 pt-2 md:px-6 md:pb-4 md:pt-3">
+                    <div
+                        className={`flex h-full min-h-[min(420px,55vh)] max-h-[min(560px,60vh)] w-full flex-col overflow-hidden ${CHAT_SURFACE_CLASS} border border-slate-200/90 bg-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.85),0_12px_48px_-16px_rgba(0,0,0,0.45)]`}
+                    >
                         <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
                     </div>
                 </section>

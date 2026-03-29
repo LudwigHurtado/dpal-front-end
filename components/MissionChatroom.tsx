@@ -1,6 +1,4 @@
-
 import React, { useState, useRef, useEffect } from 'react';
-import { CHAT_SURFACE_CLASS } from '../constants';
 import type { ChatMessage, Hero } from '../types';
 import { Send, ShieldCheck, User, Zap, Loader, Camera, X, Broadcast, Maximize2, Mic, Play, Square, Volume2, Paperclip, MapPin } from './icons';
 
@@ -203,7 +201,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
     };
 
     return (
-        <div className={`flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 overflow-hidden ${CHAT_SURFACE_CLASS}`}>
+        <div className="flex h-full min-h-0 max-h-full flex-1 flex-col bg-slate-100 font-sans relative text-slate-900 overflow-hidden">
             <style>{`
                 @keyframes waveform { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.4); } }
                 .animate-waveform { animation: waveform 0.8s ease-in-out infinite; }
