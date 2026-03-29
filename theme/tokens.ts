@@ -6,6 +6,7 @@
  * - Documentation / autocomplete
  *
  * Do NOT duplicate business logic here. Colors live in CSS :root — edit `styles/dpal-theme.css` first.
+ * Default look: slate paper + indigo primary (high-contrast; avoid mint/teal body text).
  */
 
 /** Maps to `var(--dpal-*)` for use in React inline styles */
