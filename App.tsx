@@ -1386,6 +1386,7 @@ const App: React.FC = () => {
             addReport={handleAddReport} 
             totalReports={reports.length}
             prefilledDescription={submissionPrefill}
+            onJoinMission={() => handleNavigate('goodDeedsMissions')}
           />
         )}
 

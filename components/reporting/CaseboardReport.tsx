@@ -17,10 +17,10 @@ interface AttachedFile {
 const PROGRESS_LABELS = ['Detect', 'Document', 'Confirm', 'Connect', 'Submit'] as const;
 
 const MISSION_CARDS: { mode: MissionEntryMode; title: string; subtitle: string }[] = [
-  { mode: 'quick', title: 'Start Quick Report', subtitle: 'Minimum fields — submit fast when time is short.' },
-  { mode: 'full', title: 'Build Full Case', subtitle: 'Guided cards, evidence, and review before submit.' },
-  { mode: 'mission', title: 'Join Mission', subtitle: 'Structured accountability track for this report.' },
-  { mode: 'evidence', title: 'Add Evidence', subtitle: 'Upload-first — document what you already know.' },
+  { mode: 'quick', title: 'Quick report', subtitle: 'Minimum path — move fast when time is short.' },
+  { mode: 'full', title: 'Build full case', subtitle: 'Guided cards, evidence, and review before submit.' },
+  { mode: 'mission', title: 'Join mission', subtitle: 'Structured accountability track for this topic.' },
+  { mode: 'evidence', title: 'Add evidence', subtitle: 'Upload-first — lead with what you can show.' },
 ];
 
 const BASE_CASEBOARD_IDS = [
@@ -335,6 +335,31 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
 
   return (
     <div className="max-w-4xl mx-auto pb-24 px-1 sm:px-2 text-stone-900 [color-scheme:light]">
+      {phase === 'entry' && (
+        <section className="mb-8 space-y-4 animate-fade-in">
+          <h2 className="text-xl font-bold text-stone-800 tracking-tight">How do you want to file?</h2>
+          <p className="text-sm text-stone-600">Choose a starting point — you can still add evidence and detail later.</p>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {MISSION_CARDS.map((m) => (
+              <button
+                key={m.mode}
+                type="button"
+                onClick={() => {
+                  setMissionMode(m.mode);
+                  setPhase('path');
+                }}
+                className={`text-left rounded-2xl border p-4 transition-all shadow-sm hover:shadow-md hover:border-violet-300 ${
+                  missionMode === m.mode ? 'border-violet-400 bg-violet-50/50 ring-1 ring-violet-200' : 'border-stone-200 bg-white'
+                }`}
+              >
+                <p className="font-semibold text-stone-800">{m.title}</p>
+                <p className="text-xs text-stone-500 mt-1">{m.subtitle}</p>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="mb-8 rounded-2xl bg-white border border-stone-200/80 shadow-sm p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <p className="text-xs font-semibold text-stone-500 uppercase tracking-wider">Mission progress</p>
@@ -384,31 +409,6 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
           </ul>
         </div>
       </div>
-
-      {phase === 'entry' && (
-        <section className="space-y-4 animate-fade-in">
-          <h2 className="text-xl font-bold text-stone-800 tracking-tight">Build your report</h2>
-          <p className="text-sm text-stone-600">Choose how you want to enter — you can still add evidence later.</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            {MISSION_CARDS.map((m) => (
-              <button
-                key={m.mode}
-                type="button"
-                onClick={() => {
-                  setMissionMode(m.mode);
-                  setPhase('path');
-                }}
-                className={`text-left rounded-2xl border p-4 transition-all shadow-sm hover:shadow-md hover:border-violet-300 ${
-                  missionMode === m.mode ? 'border-violet-400 bg-violet-50/50 ring-1 ring-violet-200' : 'border-stone-200 bg-white'
-                }`}
-              >
-                <p className="font-semibold text-stone-800">{m.title}</p>
-                <p className="text-xs text-stone-500 mt-1">{m.subtitle}</p>
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
 
       {phase === 'path' && (
         <section className="space-y-4 animate-fade-in">

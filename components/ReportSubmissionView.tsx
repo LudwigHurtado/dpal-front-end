@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Category, Report, EducationRole } from '../types';
 import { CATEGORIES_WITH_ICONS, EDUCATION_ROLES } from '../constants';
 import SubmissionPanel from './SubmissionPanel';
@@ -7,6 +7,7 @@ import CaseboardReport from './reporting/CaseboardReport';
 import { shouldUseCaseboard } from './reporting/caseboardRegistry';
 import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
+import { pickCivicQuote } from '../utils/civicQuotes';
 
 interface ReportSubmissionViewProps {
     category: Category;
@@ -15,12 +16,15 @@ interface ReportSubmissionViewProps {
     addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>) => void;
     totalReports: number;
     prefilledDescription?: string;
+    /** Opens missions hub (e.g. Good Deeds / live intelligence) from “Join mission”. */
+    onJoinMission?: () => void;
 }
 
-const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, role, onReturn, addReport, totalReports, prefilledDescription }) => {
+const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, role, onReturn, addReport, totalReports, prefilledDescription, onJoinMission }) => {
     const { t } = useTranslations();
     const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === category)!;
     const roleInfo = role ? EDUCATION_ROLES.find(r => r.value === role) : null;
+    const civicInspiration = useMemo(() => pickCivicQuote(`${category}-${role ?? 'community'}`), [category, role]);
     const categoryHeroByType: Partial<Record<Category, string>> = {
         [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
         [Category.Allergies]: '/category-cards/allergies.png',
@@ -111,8 +115,8 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                             </div>
                             <div>
                                 <p className="text-[10px] font-semibold text-stone-500 uppercase tracking-wider">Hero role (from your profile)</p>
-                                <p className="text-lg font-bold text-stone-900">{roleInfo ? t(roleInfo.translationKey) : 'Standard citizen'}</p>
-                                <p className="text-xs text-stone-400 mt-1">Informational only — not a button.</p>
+                                <p className="text-lg font-bold text-stone-900">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
+                                <p className="text-xs text-stone-500 mt-1 italic leading-relaxed">{roleInfo ? civicInspiration : 'Your contribution strengthens the public record.'}</p>
                             </div>
                         </div>
                         <ShieldCheck className="w-10 h-10 text-emerald-500/30 shrink-0 pointer-events-none" aria-hidden />
@@ -221,8 +225,8 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                             </div>
                             <div>
                                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Authorized_Role</p>
-                                <p className="text-2xl font-black text-white uppercase tracking-tight">{roleInfo ? t(roleInfo.translationKey) : 'Standard_Citizen'}</p>
-                                <p className="text-[9px] text-zinc-500 mt-1 uppercase tracking-wide">Informational · not a control</p>
+                                <p className="text-xl font-bold text-white leading-snug">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
+                                <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed italic">{roleInfo ? civicInspiration : 'Hope grows when neighbors stand up for one another.'}</p>
                             </div>
                         </div>
                         <ShieldCheck className="w-12 h-12 text-emerald-500/20 shrink-0 pointer-events-none" aria-hidden />
@@ -328,6 +332,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                     addReport={addReport}
                     preselectedCategory={category}
                     prefilledDescription={prefilledDescription}
+                    onJoinMission={onJoinMission}
                 />
             </div>
 
@@ -340,8 +345,8 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
                         </div>
                         <div>
                             <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Authorized_Role</p>
-                            <p className="text-2xl font-black text-white uppercase tracking-tight">{roleInfo ? t(roleInfo.translationKey) : 'Standard_Citizen'}</p>
-                            <p className="text-[9px] text-zinc-500 mt-1 uppercase tracking-wide">Informational · not a control</p>
+                            <p className="text-xl font-bold text-white leading-snug">{roleInfo ? t(roleInfo.translationKey) : civicInspiration}</p>
+                            <p className="text-[11px] text-zinc-400 mt-2 leading-relaxed italic">{roleInfo ? civicInspiration : 'Hope grows when neighbors stand up for one another.'}</p>
                         </div>
                     </div>
                     <ShieldCheck className="w-12 h-12 text-emerald-500/20 shrink-0 pointer-events-none" aria-hidden />

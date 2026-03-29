@@ -16,6 +16,7 @@ interface SubmissionPanelProps {
   addReport: (report: Omit<Report, 'id' | 'timestamp' | 'hash' | 'blockchainRef' | 'status'>, audioUrl?: string) => void;
   preselectedCategory?: Category;
   prefilledDescription?: string;
+  onJoinMission?: () => void;
 }
 
 interface AttachedFile {
@@ -43,7 +44,7 @@ const STEPS = [
 
 const DRAFT_KEY = 'dpal-report-draft-v1';
 
-const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselectedCategory, prefilledDescription }) => {
+const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselectedCategory, prefilledDescription, onJoinMission }) => {
   // For Accidents & Road Hazards we want to show the first step ("Type") even when
   // the category is already preselected (ReportSubmissionView passes preselectedCategory).
   const [activeStepIndex, setActiveStepIndex] = useState(() => (
@@ -914,6 +915,43 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
       {/* CONTENT AREA */}
       <div className="flex-grow order-1 lg:order-2">
           <form onSubmit={handleSubmit} className="bg-zinc-900/40 border-2 border-zinc-800 rounded-[3rem] md:rounded-[4rem] p-6 md:p-10 lg:p-14 shadow-4xl relative overflow-hidden">
+              <div className="mb-8 rounded-2xl border border-cyan-500/25 bg-zinc-950/80 p-4 md:p-5">
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-3">Start here</p>
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveStepIndex(2)}
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-left text-[10px] font-black uppercase tracking-wide text-white hover:border-cyan-500/50 hover:bg-zinc-800 transition-colors"
+                  >
+                    Quick report
+                    <span className="block font-sans font-normal normal-case text-[11px] text-zinc-500 mt-1">Jump to details</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveStepIndex(preselectedCategory === Category.AccidentsRoadHazards ? 0 : 1)}
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-left text-[10px] font-black uppercase tracking-wide text-white hover:border-cyan-500/50 hover:bg-zinc-800 transition-colors"
+                  >
+                    Build full case
+                    <span className="block font-sans font-normal normal-case text-[11px] text-zinc-500 mt-1">From the beginning</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onJoinMission?.()}
+                    className="rounded-xl border border-emerald-800/50 bg-emerald-950/40 px-3 py-3 text-left text-[10px] font-black uppercase tracking-wide text-emerald-200 hover:bg-emerald-950/70 transition-colors"
+                  >
+                    Join mission
+                    <span className="block font-sans font-normal normal-case text-[11px] text-emerald-600/90 mt-1">Community tracks</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveStepIndex(3)}
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-3 text-left text-[10px] font-black uppercase tracking-wide text-white hover:border-cyan-500/50 hover:bg-zinc-800 transition-colors"
+                  >
+                    Add evidence
+                    <span className="block font-sans font-normal normal-case text-[11px] text-zinc-500 mt-1">Photos & files</span>
+                  </button>
+                </div>
+              </div>
               <div className="flex items-center justify-between gap-3 mb-6">
                 <button
                   type="button"
