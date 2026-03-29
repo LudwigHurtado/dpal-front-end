@@ -3,8 +3,9 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import QRCode from 'qrcode';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Crosshair, X, Maximize2, AlertTriangle, Link, ChevronDown } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, AlertTriangle, Link, ChevronDown } from './icons';
 import MissionChatroom from './MissionChatroom';
+import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { performIAReview } from '../services/geminiService';
 import { buildReportVerifyUrl, buildSituationRoomUrl } from '../utils/deepLinks';
@@ -44,9 +45,9 @@ interface Finding {
 }
 
 const DEFAULT_SECTORS: AnalyticalSector[] = [
-    { id: 'intel', label: 'INTEL_DISPATCH', description: 'Raw incoming dispatch packets and beacon control.', icon: <Broadcast className="w-6 h-6"/> },
-    { id: 'audit', label: 'VERIFICATION_QUEUE', description: 'Peer-to-peer verification streams.', icon: <ShieldCheck className="w-6 h-6"/> },
-    { id: 'comms', label: 'PUBLIC_RELAY', description: 'Standard citizen reporting channel.', icon: <Activity className="w-6 h-6"/> },
+    { id: 'intel', label: 'COORDINATION', description: 'Updates, beacon context, and shared signals for this room.', icon: <Broadcast className="w-6 h-6"/> },
+    { id: 'audit', label: 'VERIFICATION', description: 'Checks and confirmations from peers and reviewers.', icon: <ShieldCheck className="w-6 h-6"/> },
+    { id: 'comms', label: 'COMMUNITY', description: 'Open thread and supportive back-and-forth.', icon: <Activity className="w-6 h-6"/> },
 ];
 
 const ForensicValue: React.FC<{ label: string; value?: string; icon: React.ReactNode }> = ({ label, value, icon }) => (
@@ -65,6 +66,8 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
     const [directoryExpanded, setDirectoryExpanded] = useState(false);
     const [isScanning, setIsScanning] = useState(false);
     const [isBeaconActive, setIsBeaconActive] = useState(false);
+    const [beaconDeployedAt, setBeaconDeployedAt] = useState<number | null>(null);
+    const [beaconCoordStatus, setBeaconCoordStatus] = useState<BeaconCoordStatus>('idle');
     const [mapLoading, setMapLoading] = useState(false);
     const [mapInteractive, setMapInteractive] = useState(false);
     
@@ -124,18 +127,37 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
         }
     };
 
-    const handleSummonBeacon = () => {
-        if (isBeaconActive) {
-            setIsBeaconActive(false);
-            onSendMessage(`[SYSTEM_NOTICE]: Community beacon deactivated for sector ${lockedMapLocation.toUpperCase()}.`);
-            return;
-        }
-        if (!beaconInput.trim()) return;
-        
+    const handleDeployBeacon = (payload: {
+        area: string;
+        urgency: 'standard' | 'elevated' | 'urgent';
+        alertKind: string;
+        notes: string;
+    }) => {
+        if (!payload.area.trim()) return;
         setMapLoading(true);
-        setLockedMapLocation(beaconInput);
+        setLockedMapLocation(payload.area);
         setIsBeaconActive(true);
-        onSendMessage(`[BEACON_DEPLOYED]: Global Signal Active in ${beaconInput.toUpperCase()}. Directive: Forensic verification requested.`);
+        setBeaconDeployedAt(Date.now());
+        setBeaconCoordStatus('active');
+        const kindLabel = payload.alertKind.replace(/_/g, ' ');
+        const noteLine = payload.notes.trim() ? ` Notes: ${payload.notes.trim()}` : '';
+        onSendMessage(
+            `[Beacon] Support signal active for "${report.title}" near ${payload.area}. Type: ${kindLabel}. Urgency: ${payload.urgency}.${noteLine} — Live coordination thread is open; helpers and moderators can join and respond.`
+        );
+    };
+
+    const handleResolveBeacon = () => {
+        setIsBeaconActive(false);
+        setBeaconCoordStatus('resolved');
+        setBeaconDeployedAt(null);
+        onSendMessage(
+            `[Beacon] Coordination signal ended for ${lockedMapLocation || beaconInput}. Status: resolved. Thank you for keeping the record constructive and community-centered.`
+        );
+    };
+
+    const scrollToLiveChat = () => {
+        if (typeof document === 'undefined') return;
+        document.getElementById('situation-chat')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     const runDiagnostic = async () => {
@@ -298,7 +320,7 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                 )}
 
                 {/* Chat directly under QR + metadata (above directory + map) */}
-                <section className="flex flex-col min-h-0 flex-1 bg-black border-b border-zinc-900">
+                <section id="situation-chat" className="flex flex-col min-h-0 flex-1 bg-black border-b border-zinc-900 scroll-mt-4">
                     <div className="flex h-full min-h-[min(420px,55vh)] max-h-[min(560px,60vh)] flex-col overflow-hidden border-l-4 border-zinc-900 shadow-[inset_20px_0_60px_rgba(0,0,0,0.8)] mx-0">
                         <MissionChatroom missionId={report.id} messages={messages} onSendMessage={onSendMessage} hero={hero} />
                     </div>
@@ -342,71 +364,28 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     )}
                 </section>
 
-                {/* Map + beacon below directory */}
-                <section className="p-6 md:p-10 space-y-8">
-                    <div className={`p-6 md:p-8 rounded-[2.5rem] md:rounded-[3.5rem] border-4 transition-all duration-1000 flex flex-col items-center space-y-6 md:space-y-10 relative ${isBeaconActive ? 'bg-rose-950/20 border-rose-500 shadow-[0_0_50px_rgba(244,63,94,0.1)]' : 'bg-zinc-950 border-zinc-800 shadow-2xl'}`}>
-                        <div className="relative group/map w-full overflow-hidden rounded-[2rem] md:rounded-[2.5rem] border-4 border-zinc-900 bg-black shadow-4xl aspect-video">
-                            <iframe
-                                src={mapUrl}
-                                className={`w-full h-full grayscale opacity-40 transition-all duration-1000 ${mapLoading ? 'blur-md' : 'blur-0'} ${mapInteractive ? 'grayscale-0 opacity-100' : 'pointer-events-none'}`}
-                                frameBorder="0"
-                                scrolling="no"
-                                title="Tactical Feed"
-                                onLoad={() => setMapLoading(false)}
-                            />
-
-                            {!mapInteractive && (
-                                <div
-                                    className="absolute inset-0 z-20 cursor-crosshair flex items-center justify-center bg-transparent group-hover/map:bg-cyan-500/5 transition-colors"
-                                    onClick={() => setMapInteractive(true)}
-                                >
-                                    <div className="bg-zinc-950/80 backdrop-blur-md px-6 py-2 rounded-full border border-cyan-500/30 opacity-0 group-hover/map:opacity-100 transition-opacity shadow-2xl">
-                                        <p className="text-[10px] font-black uppercase text-cyan-400 tracking-widest">Enable_Tactical_Link</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {mapInteractive && (
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); setMapInteractive(false); }}
-                                    className="absolute top-4 right-4 z-40 bg-zinc-900 border border-zinc-700 p-2 rounded-lg text-white hover:bg-rose-900 transition-colors shadow-2xl"
-                                >
-                                    <X className="w-4 h-4" />
-                                </button>
-                            )}
-
-                            <div className="absolute bottom-4 right-4 z-20 pointer-events-none">
-                                <div className="bg-zinc-950/90 border border-zinc-700/50 p-2 rounded-xl flex items-center space-x-2 shadow-2xl">
-                                    <ShieldCheck className="w-4 h-4 text-emerald-500/50"/>
-                                    <span className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">RSA-4096_SYNC</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-6 md:space-y-8 w-full text-left">
-                            <div className="space-y-3">
-                                <label className="text-[10px] md:text-sm font-black text-cyan-600 uppercase tracking-[0.4em] ml-2">Geospatial_Target</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        value={beaconInput}
-                                        onChange={(e) => setBeaconInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSummonBeacon()}
-                                        placeholder="Target Sector..."
-                                        className="w-full bg-black border-4 border-zinc-800 p-4 md:p-6 rounded-[1.2rem] md:rounded-[1.5rem] text-sm md:text-lg font-black uppercase text-white outline-none focus:border-cyan-500 transition-all shadow-inner"
-                                    />
-                                    <Crosshair className="absolute right-4 md:right-6 top-1/2 -translate-y-1/2 w-5 h-5 md:w-6 md:h-6 text-zinc-800" />
-                                </div>
-                            </div>
-                            <button
-                                onClick={handleSummonBeacon}
-                                disabled={!beaconInput.trim()}
-                                className={`w-full py-5 md:py-7 rounded-[1.5rem] md:rounded-[2rem] font-black uppercase text-xs md:text-sm tracking-[0.4em] transition-all border-4 shadow-4xl ${isBeaconActive ? 'bg-rose-600 border-rose-400 text-white animate-pulse' : 'bg-white border-zinc-200 text-black hover:bg-emerald-400 hover:border-emerald-400 disabled:opacity-20 active:scale-[0.98]'}`}
-                            >
-                                {isBeaconActive ? 'ABORT_BEACON' : 'DEPLOY_BEACON'}
-                            </button>
-                        </div>
-                    </div>
+                {/* Deploy Beacon + map — civic coordination tool tied to this room and chat */}
+                <section className="p-4 md:p-10 pb-8 md:pb-12">
+                    <DeployBeaconPanel
+                        report={report}
+                        roomsIndex={roomsIndex}
+                        areaLabel={beaconInput}
+                        onAreaLabelChange={setBeaconInput}
+                        lockedAreaLabel={lockedMapLocation}
+                        isBeaconActive={isBeaconActive}
+                        coordStatus={beaconCoordStatus}
+                        deployedAt={beaconDeployedAt}
+                        onDeploy={handleDeployBeacon}
+                        onResolve={handleResolveBeacon}
+                        onSendCoordinationNote={(text) => onSendMessage(text)}
+                        onJoinLinkedRoom={onJoinRoom}
+                        onOpenLiveChat={scrollToLiveChat}
+                        mapUrl={mapUrl}
+                        mapLoading={mapLoading}
+                        mapInteractive={mapInteractive}
+                        onMapLoad={() => setMapLoading(false)}
+                        onSetMapInteractive={setMapInteractive}
+                    />
                 </section>
 
                 <section className="border-t border-zinc-800 bg-zinc-900/30 px-4 md:px-10 py-6 md:py-8 shrink-0">
