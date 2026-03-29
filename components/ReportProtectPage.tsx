@@ -28,7 +28,7 @@ const sidebarNav = [
   { id: 'lost-pets', label: 'Lost Pets', icon: Heart },
   { id: 'lost-persons', label: 'Lost Persons', icon: User },
   { id: 'stolen-property', label: 'Stolen Property', icon: Database },
-  { id: 'my-reports', label: 'My Reports', icon: Home },
+  { id: 'my-reports', label: 'My Contributions', icon: Home },
 ] as const;
 
 const filterTabs: { id: DashboardFilter; label: string }[] = [
@@ -260,7 +260,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({ onOpenReportFlow,
             <span className="inline-flex items-center gap-2.5"><Search className="w-4 h-4" />Search</span>
             <span className="inline-flex items-center gap-2.5"><ShieldCheck className="w-4 h-4" />Verify</span>
             <span className="inline-flex items-center gap-2.5"><Database className="w-4 h-4" />Resources</span>
-            <span className="inline-flex items-center gap-2.5"><User className="w-4 h-4" />My Reports</span>
+            <span className="inline-flex items-center gap-2.5"><User className="w-4 h-4" />My Contributions</span>
             <span className="inline-flex items-center gap-2.5"><Heart className="w-4 h-4" />Community</span>
           </nav>
 

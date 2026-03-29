@@ -32,7 +32,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
   const tabs = [
     { id: 'my_reports', label: t('mainContent.myReports'), icon: User },
     { id: 'community', label: t('mainContent.communityFeed'), icon: List },
-    { id: 'work_feed', label: 'WORK_LOG', icon: Activity },
+    { id: 'work_feed', label: 'Community Timeline', icon: Activity },
     { id: 'map', label: 'Map', icon: Map },
   ];
 
@@ -73,7 +73,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
             }`}
           >
             <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-            <span>{isMyReports ? 'Back to home' : 'TERMINAL_EXIT'}</span>
+            <span>Return Home</span>
           </button>
           <div className="flex items-center gap-3">
             {onOpenFilters && (
@@ -89,7 +89,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
             {!isMyReports && (
               <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
                 <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
-                <span>Network_Search_Active</span>
+                <span>Positive Impact</span>
               </div>
             )}
           </div>

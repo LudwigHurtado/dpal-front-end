@@ -117,7 +117,7 @@ const NAV_LINKS: {
   { label: 'Help Center', action: 'help' },
   { label: 'Missions', action: 'missions' },
   { label: 'Rewards', action: 'rewards' },
-  { label: 'My Reports', action: 'my_reports', active: true },
+  { label: 'My Contributions', action: 'my_reports', active: true },
   { label: 'Profile', action: 'profile' },
 ];
 
@@ -252,7 +252,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
             <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl" />
             <div className="relative">
               <div className="mb-4 flex flex-wrap gap-2">
-                {['Private Drafts', 'Verified Records', 'Family Safe', 'Community Impact', 'Public Good Tools'].map((tag) => (
+                {['Private Drafts', 'Verified Records', 'Family Safe', 'Community Tools', 'Positive Impact'].map((tag) => (
                   <span
                     key={tag}
                     className="rounded-full border border-white/80 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm backdrop-blur-sm"
@@ -263,9 +263,9 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
               </div>
               <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">My Reports</h1>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-                Track your reports, follow progress, and see how your contributions help protect families and improve communities.
+                Track your contributions, follow progress, and help create safer communities.
               </p>
-              <p className="mt-1 text-xs font-medium text-sky-700/90">Helping the world starts with one report.</p>
+              <p className="mt-2 text-xs font-medium text-sky-800/90">Trusted Record Builder</p>
 
               {/* Mini visual banner */}
               <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-sky-100 bg-white/80 p-4 shadow-inner">
@@ -292,7 +292,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                   className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-500/25 transition hover:brightness-105"
                 >
                   <Plus className="h-4 w-4" />
-                  Create New Report
+                  Start a New Report
                 </button>
                 <button
                   type="button"
@@ -322,7 +322,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
 
           {/* Summary metrics */}
           <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Report summary</h2>
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Report Progress</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-4">
               <SummaryCard label="Total Reports" value={stats.total} accent="sky" icon={<FileText className="h-4 w-4" />} />
               <SummaryCard label="Drafts" value={stats.drafts} accent="slate" icon={<Layout className="h-4 w-4" />} />
@@ -466,8 +466,8 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
 
           {/* Community impact */}
           <section className="rounded-3xl border border-cyan-100 bg-gradient-to-br from-cyan-50/50 via-white to-slate-50/80 p-6">
-            <h2 className="text-base font-bold text-slate-900">Community impact</h2>
-            <p className="mt-1 text-sm text-slate-600">Your reports are part of something bigger — progress we make together.</p>
+            <h2 className="text-base font-bold text-slate-900">Positive Impact</h2>
+            <p className="mt-1 text-sm text-slate-600">Your contributions are part of something bigger — progress we make together.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <ImpactRow label="People helped (est.)" value={`${stats.communityHelped}+`} icon={<Heart className="h-4 w-4 text-rose-400" />} />
               <ImpactRow label="Cases resolved" value={String(stats.resolved)} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />

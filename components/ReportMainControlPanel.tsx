@@ -23,7 +23,7 @@ const sidebarItems = [
   { label: 'Lost Pets' },
   { label: 'Lost Persons' },
   { label: 'Stolen Property' },
-  { label: 'My Reports' },
+  { label: 'My Contributions' },
 ];
 
 const topFilters = ['Hazard', 'Lost Pet', 'Lost Person', 'Stolen Property'];
@@ -48,7 +48,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({ onOpenR
             <span className="inline-flex items-center gap-2"><Search className="w-4 h-4" />Search</span>
             <span className="inline-flex items-center gap-2"><ShieldCheck className="w-4 h-4" />Verify</span>
             <span className="inline-flex items-center gap-2"><Database className="w-4 h-4" />Resources</span>
-            <span className="inline-flex items-center gap-2"><User className="w-4 h-4" />My Reports</span>
+            <span className="inline-flex items-center gap-2"><User className="w-4 h-4" />My Contributions</span>
             <span className="inline-flex items-center gap-2"><Heart className="w-4 h-4" />Community</span>
           </nav>
           <div className="flex items-center gap-3">

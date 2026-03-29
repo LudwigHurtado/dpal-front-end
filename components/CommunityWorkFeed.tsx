@@ -139,8 +139,8 @@ const CommunityWorkFeed: React.FC = () => {
                         <Zap className="w-4 h-4 text-amber-500 animate-pulse" />
                     </div>
                     <div>
-                        <h3 className="text-[10px] font-black uppercase text-white tracking-[0.3em]">Global_Directives_Feed</h3>
-                        <p className="text-[7px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Community Contributions & Proof of Work</p>
+                        <h3 className="text-[10px] font-black uppercase text-white tracking-[0.3em]">Community Timeline</h3>
+                        <p className="text-[7px] font-bold text-zinc-500 uppercase tracking-widest mt-0.5">Contributions & proof of work</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-3">

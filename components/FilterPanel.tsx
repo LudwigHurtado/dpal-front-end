@@ -85,11 +85,11 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
       <div className="p-6 border-b border-zinc-800 bg-zinc-900/80 relative z-10 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-4">
             <Plus className="w-6 h-6 text-cyan-500 animate-pulse" />
-            <h2 className="text-sm font-black text-white uppercase tracking-widest">Add_A_New_Report</h2>
+            <h2 className="text-sm font-black text-white uppercase tracking-widest">Start a New Report</h2>
         </div>
         <div className="flex items-center space-x-2 text-[9px] font-black text-zinc-600">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_emerald]"></div>
-            <span>TERM_ACTIVE</span>
+            <span>Helping in Progress</span>
         </div>
       </div>
 
@@ -103,7 +103,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
             >
                 <div className="flex items-center space-x-3">
                     <Megaphone className="w-6 h-6 group-hover/add:scale-110 transition-transform" />
-                    <span className="uppercase text-xs tracking-[0.2em]">Initialize_Genesis_Protocol</span>
+                    <span className="uppercase text-xs tracking-[0.2em]">Start a New Report</span>
                 </div>
                 <p className="text-[8px] font-bold text-cyan-200 uppercase tracking-widest opacity-60">Sync new evidence to ledger</p>
             </button>

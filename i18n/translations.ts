@@ -94,7 +94,7 @@ export const translations = {
         sortBy: "Sort by",
     },
     mainContent: {
-      myReports: "My Reports",
+      myReports: "My Contributions",
       communityFeed: "Community Feed",
       returnToMainMenu: "Return to Main Menu",
       noReports: "You haven't submitted any reports yet",
@@ -228,7 +228,7 @@ export const translations = {
       stampLedgerBlockLine: "Ledger block #",
       stampLedgerPending: "Pending anchor",
       stampLookupHint: "Use this number in Main Menu → Ledger block search to open this filing.",
-      viewInHub: "View My Reports",
+      viewInHub: "View My Contributions",
       returnToMenu: "Return to Main Menu",
       noBonus: "Submit high-quality reports for a chance to earn bonus rewards",
     },

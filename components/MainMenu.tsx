@@ -222,6 +222,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                         REPORT_DASHBOARD: '/main-screen/dashboard.png',
                         PUBLIC_LEDGER: '/main-screen/public-ledger.png',
                         MY_REPORTS: '/main-screen/my-reports.png',
+                        MY_CONTRIBUTIONS: '/main-screen/my-reports.png',
                         FIELD_MISSIONS: '/main-screen/field-missions.png',
                         ASSET_ARCHIVE: '/main-screen/asset-archive.png',
                         COIN_EXCHANGE: '/main-screen/coin-exchange.png',
@@ -233,6 +234,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                         MINT_STATION: '/main-screen/mint-station.png',
                         QR_LIVE_SAVER: '/main-screen/qr-live-saver.png',
                         WORK_LOG: '/main-screen/weekly-work-log.png',
+                        COMMUNITY_TIMELINE: '/main-screen/weekly-work-log.png',
                         WORK_FOR_DPAL_COINS: '/next-view/sector-dpal-coin.png',
                         STORAGE_QR: '/main-screen/storage-qr.png',
                         'DPAL HELP': '/category-cards/dpal-help.png',
@@ -243,7 +245,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 <PrimaryNavModule 
                     icon={<Megaphone className="w-8 h-8" />}
                     label="FILE_A_REPORT"
-                    subLabel="Initialize Genesis Accountability Shard"
+                    subLabel="Start a New Report"
                     status="READY"
                     colorClass="rose"
                     bgImageUrl="/main-screen/file-a-report.png"
@@ -282,7 +284,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Activity className="w-8 h-8" />}
-                    label="MY_REPORTS"
+                    label="MY_CONTRIBUTIONS"
                     subLabel="Your Personal History & Impact Logs"
                     status="SECURE"
                     colorClass="cyan"
@@ -402,7 +404,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule 
                     icon={<Activity className="w-8 h-8" />}
-                    label="WORK_LOG"
+                    label="COMMUNITY_TIMELINE"
                     subLabel="Community Contribution Feed"
                     status="LOGGING"
                     colorClass="blue"
