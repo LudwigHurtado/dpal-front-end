@@ -27,24 +27,24 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[400] bg-zinc-950/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="w-full max-w-6xl rounded-[2rem] border border-zinc-700 shadow-2xl overflow-hidden bg-zinc-950">
-        <div className="bg-gradient-to-b from-slate-900 to-zinc-950">
-        <div className="px-6 md:px-8 py-5 border-b border-zinc-800 flex items-start justify-between gap-4">
+    <div className="dpal-modal-backdrop z-[400] p-4">
+      <div className="w-full max-w-6xl rounded-[2rem] border border-[color:var(--dpal-border-strong)] shadow-2xl overflow-hidden bg-[var(--dpal-background-secondary)]">
+        <div className="bg-gradient-to-b from-[var(--dpal-panel)] to-[var(--dpal-background-secondary)]">
+        <div className="px-6 md:px-8 py-5 border-b dpal-border-subtle flex items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-400">Welcome to DPAL</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.35em] dpal-text-secondary">Welcome to DPAL</p>
             <h2 className="text-2xl md:text-4xl font-black tracking-tight mt-2">Choose your path today</h2>
-            <p className="text-sm text-zinc-300 mt-2 max-w-3xl">
+            <p className="text-sm text-[var(--dpal-text-secondary)] mt-2 max-w-3xl">
               Protect your community, find what&apos;s lost, and complete real-world missions that create measurable impact.
             </p>
           </div>
           <button
             type="button"
             onClick={onSkip}
-            className="p-2 rounded-xl border border-zinc-700 hover:bg-zinc-900"
+            className="p-2 rounded-xl border border-[color:var(--dpal-border-strong)] hover:bg-[var(--dpal-panel)]"
             aria-label="Skip and go to dashboard"
           >
-            <X className="w-5 h-5 text-zinc-200" />
+            <X className="w-5 h-5 text-[var(--dpal-text-secondary)]" />
           </button>
         </div>
 
@@ -52,7 +52,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
           <button
             type="button"
             onClick={onSelectReportProtect}
-            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-cyan-500/30 bg-zinc-900 hover:border-cyan-400 transition-all group"
+            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-cyan-500/30 bg-[var(--dpal-panel)] hover:border-cyan-400 transition-all group"
           >
             <img
               src="/gateway/report-protect-card.png"
@@ -67,7 +67,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
                 Locator & Reporting
               </div>
               <h3 className="text-xl font-black uppercase mt-2">Master Control Panel</h3>
-              <p className="mt-2 text-sm text-zinc-300">
+              <p className="mt-2 text-sm text-[var(--dpal-text-secondary)]">
                 Report hazards, locate people, pets, or property, verify events, and build public accountability.
               </p>
               <div className="mt-4 inline-flex items-center gap-2 text-cyan-200 text-[10px] font-black uppercase tracking-widest">
@@ -80,7 +80,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
           <button
             type="button"
             onClick={onSelectPlayDoGood}
-            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-emerald-500/30 bg-zinc-900 hover:border-emerald-400 transition-all group"
+            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-emerald-500/30 bg-[var(--dpal-panel)] hover:border-emerald-400 transition-all group"
           >
             <img
               src="/gateway/play-need-deed-card.png"
@@ -95,7 +95,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
                 DPAL Care Missions
               </div>
               <h3 className="text-xl font-black uppercase mt-2">Play & Do Good</h3>
-              <p className="mt-2 text-sm text-zinc-300">
+              <p className="mt-2 text-sm text-[var(--dpal-text-secondary)]">
                 Join care missions, rescue walks, shelter support, senior visits, and community improvement challenges.
               </p>
               <div className="mt-4 inline-flex items-center gap-2 text-emerald-200 text-[10px] font-black uppercase tracking-widest">
@@ -108,7 +108,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
           <button
             type="button"
             onClick={onSelectReportDashboard}
-            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 bg-zinc-900 hover:border-blue-400 transition-all"
+            className="text-left rounded-[1.5rem] overflow-hidden border-2 border-blue-500/30 bg-[var(--dpal-panel)] hover:border-blue-400 transition-all"
           >
             <img
               src="/gateway/report-dashboard-card.png"
@@ -123,7 +123,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
                 Command Center
               </div>
               <h3 className="text-xl font-black uppercase mt-2">Report Dashboard</h3>
-              <p className="mt-2 text-sm text-zinc-300">
+              <p className="mt-2 text-sm text-[var(--dpal-text-secondary)]">
                 Live map, active alerts, verification queue, and case detail panels in one operations view.
               </p>
             </div>
@@ -134,7 +134,7 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
           <button
             type="button"
             onClick={onSelectMainPanel}
-            className="px-4 py-2 rounded-xl border border-slate-400/40 bg-slate-400/10 text-slate-100 text-xs font-black uppercase tracking-widest"
+            className="px-4 py-2 rounded-xl border border-[color-mix(in_srgb,var(--dpal-text-secondary)_40%,transparent)] bg-[color-mix(in_srgb,var(--dpal-text-secondary)_10%,transparent)] text-[var(--dpal-text-primary)] text-xs font-black uppercase tracking-widest"
           >
             Open Main Panel
           </button>
@@ -160,14 +160,14 @@ const MissionGatewayModal: React.FC<MissionGatewayModalProps> = ({
               type="checkbox"
               checked={rememberChoice}
               onChange={(e) => onRememberChoiceChange(e.target.checked)}
-              className="w-4 h-4 rounded border-zinc-600 bg-zinc-900 text-cyan-500"
+              className="w-4 h-4 rounded border-[color:var(--dpal-border-strong)] bg-[var(--dpal-panel)] text-cyan-500"
             />
-            <span className="text-sm text-zinc-300">Remember my choice</span>
+            <span className="text-sm text-[var(--dpal-text-secondary)]">Remember my choice</span>
           </label>
           <button
             type="button"
             onClick={onSkip}
-            className="text-[11px] font-black uppercase tracking-widest text-zinc-400 hover:text-zinc-200"
+            className="text-[11px] font-black uppercase tracking-widest dpal-text-muted hover:text-[var(--dpal-text-primary)]"
           >
             Skip and go to main panel
           </button>

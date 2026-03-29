@@ -105,7 +105,7 @@ const PrimaryNavModule: React.FC<{
     return (
         <button 
             onClick={onClick}
-            className={`relative flex flex-col items-start p-6 rounded-[1.8rem] bg-zinc-900 border-2 border-zinc-700 hover:border-zinc-500 transition-all group overflow-hidden h-full text-left shadow-xl ${colorClass === 'rose' ? 'bg-rose-950/20 border-rose-500/40' : ''}`}
+            className={`relative flex flex-col items-start p-6 rounded-[1.8rem] dpal-bg-panel border-2 dpal-border-subtle hover:border-[var(--dpal-border-strong)] transition-all group overflow-hidden h-full text-left shadow-xl ${colorClass === 'rose' ? 'bg-rose-950/20 border-rose-500/40' : ''}`}
         >
             <DualCometBorder color={hexMap[colorClass] || '#22d3ee'} hoverable={true} />
             
@@ -117,16 +117,16 @@ const PrimaryNavModule: React.FC<{
                         src={encodeURI(currentImage)}
                         alt=""
                         draggable={false}
-                        className="absolute inset-0 w-full h-full object-contain object-center opacity-100 bg-zinc-950"
+                        className="absolute inset-0 w-full h-full object-contain object-center opacity-100 dpal-bg-deep"
                     />
                 </>
             )}
             
             <div className="relative w-full flex justify-between items-start mb-6">
-                <div className={`p-4 rounded-2xl bg-zinc-950 border border-zinc-700 group-hover:border-${colorClass}-500/50 transition-all shadow-lg`}>
+                <div className={`p-4 rounded-2xl dpal-bg-deep border dpal-border-emphasis group-hover:border-${colorClass}-500/50 transition-all shadow-lg`}>
                     <div className={`text-${colorClass}-400 group-hover:scale-110 transition-transform`}>{icon}</div>
                 </div>
-                <div className="flex items-center space-x-2 bg-black/60 px-3 py-1 rounded-lg border border-zinc-800">
+                <div className="flex items-center space-x-2 bg-[var(--dpal-overlay-soft)] px-3 py-1 rounded-lg border dpal-border-subtle">
                     <div className={`w-1.5 h-1.5 rounded-full bg-${colorClass}-500 animate-pulse shadow-[0_0_8px_${colorClass}]`}></div>
                     <span className={`text-[8px] font-semibold tracking-wide text-${colorClass}-400`}>{status}</span>
                 </div>
@@ -443,7 +443,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                         style={{ backgroundImage: "url('/main-screen/escalation-hub.png')" }}
                         aria-hidden
                     />
-                    <span className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/85 to-zinc-950/55" aria-hidden />
+                    <span className="absolute inset-0 bg-gradient-to-t from-[var(--dpal-background)] via-[color-mix(in_srgb,var(--dpal-background)_85%,transparent)] to-[color-mix(in_srgb,var(--dpal-background)_55%,transparent)]" aria-hidden />
                     <span className="relative z-10 flex items-center gap-3 text-emerald-200 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
                         <Globe className="w-4 h-4 shrink-0" />
                         Community care & outreach
@@ -458,10 +458,10 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 onOpenReportByBlock={onOpenReportByBlock}
             />
 
-            <div className="my-8 bg-zinc-900/70 border border-zinc-800 rounded-3xl p-4 md:p-6">
+            <div className="my-8 dpal-bg-panel-soft border dpal-border-subtle rounded-3xl p-4 md:p-6">
                 <div className="flex items-center justify-between mb-3">
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Sponsored Transparency</p>
-                    <span className="text-[10px] text-zinc-600 uppercase">Ad</span>
+                    <p className="text-[10px] font-black dpal-text-muted uppercase tracking-widest">Sponsored Transparency</p>
+                    <span className="text-[10px] dpal-text-muted uppercase">Ad</span>
                 </div>
                 <GoogleAdSlot
                     slot={import.meta.env.VITE_ADSENSE_SLOT_HOME || import.meta.env.VITE_ADSENSE_SLOT_SUPPORT_NODE || ''}
@@ -471,21 +471,21 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
             </div>
             
-            <div className="my-20 border-t border-zinc-900"></div>
+            <div className="my-20 border-t dpal-border-subtle"></div>
             
             <div className="flex flex-col items-center gap-8 mb-16 max-w-4xl mx-auto relative z-20">
                 <h2 className="text-center text-3xl font-bold leading-tight tracking-tight text-white">Find your cause</h2>
                 <div className="w-full">
                      <div className="relative group">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-8">
-                            <Search className="h-6 w-6 text-zinc-600 group-focus-within:text-cyan-500 transition-colors" />
+                            <Search className="h-6 w-6 dpal-text-muted group-focus-within:text-cyan-500 transition-colors" />
                         </div>
                         <input
                           type="text"
                           value={categorySearch}
                           onChange={(e) => setCategorySearch(e.target.value)}
                           placeholder="Search categories you care about…"
-                          className="w-full pl-20 pr-20 py-6 bg-zinc-950 border-2 border-zinc-800 rounded-[2.5rem] focus:ring-4 focus:ring-cyan-500/10 focus:border-cyan-500 transition-all text-white font-bold tracking-tight text-xl shadow-inner uppercase placeholder:text-zinc-900"
+                          className="w-full pl-20 pr-20 py-6 dpal-bg-deep border-2 dpal-border-subtle rounded-[2.5rem] focus:ring-4 focus:ring-cyan-500/10 focus:border-cyan-500 transition-all text-white font-bold tracking-tight text-xl shadow-inner uppercase placeholder:text-[var(--dpal-placeholder)]"
                         />
                     </div>
                 </div>
@@ -499,7 +499,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     hoverable={false}
                 />
                 
-                <div className="bg-black/40 rounded-[3.4rem] p-8 md:p-12 border border-zinc-900 relative z-10">
+                <div className="bg-[var(--dpal-overlay-soft)] rounded-[3.4rem] p-8 md:p-12 border dpal-border-subtle relative z-10">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                         {filteredDispatchCategories.map((cat) => {
                             const isActionsOpen = openDispatchActionsCategory === cat.value;
@@ -526,7 +526,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                             return (
                             <div
                                 key={cat.value}
-                                className={`group/card relative rounded-[2.5rem] overflow-visible transition-all duration-300 border-2 bg-zinc-900/50 ${isActionsOpen ? 'border-cyan-500/80 z-30 shadow-2xl' : 'border-zinc-800 hover:border-zinc-600 shadow-lg'}`}
+                                className={`group/card relative rounded-[2.5rem] overflow-visible transition-all duration-300 border-2 dpal-bg-panel-soft ${isActionsOpen ? 'border-cyan-500/80 z-30 shadow-2xl' : 'dpal-border-subtle hover:border-[var(--dpal-border-strong)] shadow-lg'}`}
                             >
                                 <DualCometBorder color="#06b6d4" radius="2.5rem" hoverable={true} />
                                 <div className="flex flex-col p-6 md:p-8">
@@ -538,7 +538,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                             {t(cat.translationKey)}
                                         </div>
                                     </div>
-                                    <div className="relative z-0 overflow-hidden min-h-[240px] w-full rounded-[2rem] border border-white/10 bg-zinc-950/80">
+                                    <div className="relative z-0 overflow-hidden min-h-[240px] w-full rounded-[2rem] border border-white/10 bg-[color-mix(in_srgb,var(--dpal-background-secondary)_80%,transparent)]">
                                         {!hiddenDispatchCategoryImages[cat.value] && (
                                             <img
                                                 src={getCategoryCardImageSrc(cat.value)}
@@ -563,14 +563,14 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                 }}
                                             />
                                         )}
-                                        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-zinc-950/10 to-zinc-950/30" />
+                                        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-[color-mix(in_srgb,var(--dpal-background-secondary)_10%,transparent)] to-[color-mix(in_srgb,var(--dpal-background-secondary)_30%,transparent)]" />
                                     </div>
 
                                     <div className="mt-5 relative z-20 flex items-center gap-3">
                                         <button
                                             type="button"
                                             onClick={() => onNavigate('reportSubmission', cat.value)}
-                                            className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-zinc-200 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+                                            className="flex-1 inline-flex items-center justify-center bg-white text-black font-black py-3 px-4 rounded-2xl hover:bg-white/90 transition-all shadow-lg text-[10px] tracking-widest uppercase"
                                         >
                                             Report
                                         </button>
@@ -591,7 +591,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                 Actions
                                             </button>
                                             <div
-                                                className={`absolute right-0 left-0 mt-2 z-40 rounded-2xl border border-zinc-800 bg-zinc-950/95 backdrop-blur shadow-2xl overflow-hidden transition-all duration-150 ${
+                                                className={`absolute right-0 left-0 mt-2 z-40 rounded-2xl border dpal-border-subtle bg-[color-mix(in_srgb,var(--dpal-background-secondary)_95%,transparent)] backdrop-blur shadow-2xl overflow-hidden transition-all duration-150 ${
                                                     isActionsOpen
                                                         ? 'opacity-100 pointer-events-auto translate-y-0'
                                                         : 'opacity-0 pointer-events-none translate-y-1'
@@ -599,11 +599,11 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                 role="menu"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <button type="button" onClick={runPlay} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Play</button>
-                                                <button type="button" onClick={runHelp} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Help</button>
-                                                <button type="button" onClick={runWork} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Work</button>
+                                                <button type="button" onClick={runPlay} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Play</button>
+                                                <button type="button" onClick={runHelp} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Help</button>
+                                                <button type="button" onClick={runWork} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Work</button>
                                                 {cat.value === Category.GoodDeeds && (
-                                                    <button type="button" onClick={runMissions} className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest" role="menuitem">Good Deed Missions</button>
+                                                    <button type="button" onClick={runMissions} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Good Deed Missions</button>
                                                 )}
                                                 <button
                                                     type="button"
@@ -612,7 +612,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                         if (onDispatchActionsReport) onDispatchActionsReport();
                                                         else onNavigate('reportSubmission', cat.value);
                                                     }}
-                                                    className="w-full px-4 py-3 text-left text-white hover:bg-zinc-900 text-[10px] font-black uppercase tracking-widest"
+                                                    className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest"
                                                     role="menuitem"
                                                 >
                                                     Report

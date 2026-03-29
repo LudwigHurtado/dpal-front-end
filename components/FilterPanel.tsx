@@ -55,7 +55,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
   }, [reports, filters.selectedCategories]);
 
   return (
-    <div className="bg-zinc-900/60 border border-zinc-800 rounded-[2rem] overflow-hidden shadow-2xl font-mono relative group/target flex flex-col h-full max-h-[85vh]">
+    <div className="bg-[color-mix(in_srgb,var(--dpal-panel)_60%,transparent)] border border-[color:var(--dpal-border)] rounded-[2rem] overflow-hidden shadow-2xl font-mono relative group/target flex flex-col h-full max-h-[85vh]">
       <style>{`
         @keyframes targeting-patrol {
             0% { stroke-dashoffset: 1000; stroke: #22d3ee; filter: drop-shadow(0 0 12px #22d3ee); }
@@ -82,12 +82,12 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
 
       <TargetingScanner />
 
-      <div className="p-6 border-b border-zinc-800 bg-zinc-900/80 relative z-10 flex items-center justify-between flex-shrink-0">
+      <div className="p-6 border-b border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-panel)_80%,transparent)] relative z-10 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-4">
             <Plus className="w-6 h-6 text-cyan-500 animate-pulse" />
             <h2 className="text-sm font-black text-white uppercase tracking-widest">Start a New Report</h2>
         </div>
-        <div className="flex items-center space-x-2 text-[9px] font-black text-zinc-600">
+        <div className="flex items-center space-x-2 text-[9px] font-black text-[var(--dpal-text-muted)]">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_5px_emerald]"></div>
             <span>Helping in Progress</span>
         </div>
@@ -109,7 +109,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
             </button>
           )}
 
-          <div className="relative w-full aspect-video rounded-3xl bg-black border border-zinc-800 overflow-hidden mb-2">
+          <div className="relative w-full aspect-video rounded-3xl bg-[var(--dpal-background)] border border-[color:var(--dpal-border)] overflow-hidden mb-2">
             {mapUrl ? (
                 <iframe 
                     src={mapUrl}
@@ -120,13 +120,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                 />
             ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center space-y-5">
-                    <div className="w-28 h-28 rounded-full border border-zinc-800 relative overflow-hidden">
+                    <div className="w-28 h-28 rounded-full border border-[color:var(--dpal-border)] relative overflow-hidden">
                         <div className="absolute inset-0 animate-radar-sweep rounded-full"></div>
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                            <Crosshair className="w-6 h-6 text-zinc-800" />
+                            <Crosshair className="w-6 h-6 text-[var(--dpal-text-muted)]" />
                         </div>
                     </div>
-                    <p className="text-center px-4 text-[10px] font-medium leading-relaxed tracking-wide text-zinc-500">Add a place to see the map</p>
+                    <p className="text-center px-4 text-[10px] font-medium leading-relaxed tracking-wide text-[var(--dpal-text-muted)]">Add a place to see the map</p>
                 </div>
             )}
             <div className="absolute top-4 left-4 flex items-center space-x-3 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-xl border border-white/5 text-[9px] font-black uppercase text-cyan-400">
@@ -137,21 +137,21 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <label className="pl-2 text-[10px] font-semibold tracking-wide text-zinc-400">Search words</label>
+              <label className="pl-2 text-[10px] font-semibold tracking-wide text-[var(--dpal-text-secondary)]">Search words</label>
               <div className="relative group">
-                <Search className="h-5 w-5 text-zinc-700 absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-cyan-500 transition-colors" />
+                <Search className="h-5 w-5 text-[var(--dpal-text-muted)] absolute left-4 top-1/2 -translate-y-1/2 group-focus-within:text-cyan-500 transition-colors" />
                 <input
                   type="text"
                   value={filters.keyword}
                   onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
                   placeholder="Search by keywords..."
-                  className="w-full pl-12 pr-4 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl focus:border-cyan-500 transition-all text-xs font-bold tracking-tight text-white outline-none shadow-inner"
+                  className="w-full pl-12 pr-4 py-4 bg-[var(--dpal-background-secondary)] border border-[color:var(--dpal-border)] rounded-2xl focus:border-cyan-500 transition-all text-xs font-bold tracking-tight text-white outline-none shadow-inner"
                 />
               </div>
             </div>
             
             <div className="space-y-2">
-              <label className="pl-2 text-[10px] font-semibold tracking-wide text-zinc-400">Place or neighborhood</label>
+              <label className="pl-2 text-[10px] font-semibold tracking-wide text-[var(--dpal-text-secondary)]">Place or neighborhood</label>
               <div className="relative">
                 <MapPin className="h-5 w-5 text-rose-500 absolute left-4 top-1/2 -translate-y-1/2" />
                 <input
@@ -159,7 +159,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                   value={filters.location}
                   onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
                   placeholder="City, Sector, or Zip..."
-                  className="w-full pl-12 pr-4 py-4 bg-zinc-950 border border-zinc-800 rounded-2xl focus:border-cyan-500 transition-all text-xs font-bold tracking-tight text-white outline-none shadow-inner"
+                  className="w-full pl-12 pr-4 py-4 bg-[var(--dpal-background-secondary)] border border-[color:var(--dpal-border)] rounded-2xl focus:border-cyan-500 transition-all text-xs font-bold tracking-tight text-white outline-none shadow-inner"
                 />
               </div>
             </div>
@@ -167,8 +167,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
 
           <div className="space-y-4">
             <div className="flex justify-between items-center px-2">
-                <label className="text-[10px] font-semibold tracking-wide text-zinc-400">Topics that matter to you</label>
-                <button onClick={() => setIsTriageExpanded(true)} className="text-zinc-700 hover:text-cyan-400 transition-colors">
+                <label className="text-[10px] font-semibold tracking-wide text-[var(--dpal-text-secondary)]">Topics that matter to you</label>
+                <button onClick={() => setIsTriageExpanded(true)} className="text-[var(--dpal-text-muted)] hover:text-cyan-400 transition-colors">
                     <Maximize2 className="w-4 h-4" />
                 </button>
             </div>
@@ -187,7 +187,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                     className={`px-4 py-2.5 text-[10px] font-black uppercase tracking-tighter rounded-xl border transition-all flex items-center space-x-2.5 ${
                       isSelected
                         ? 'bg-cyan-500/20 border-cyan-500 text-white shadow-[inset_0_0_10px_rgba(6,182,212,0.1)]'
-                        : 'bg-zinc-950 border-zinc-800 text-zinc-600 hover:border-zinc-700 hover:text-zinc-300'
+                        : 'bg-[var(--dpal-background-secondary)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)] hover:border-[color:var(--dpal-border-strong)] hover:text-[var(--dpal-text-secondary)]'
                     }`}
                   >
                     <span className="grayscale-0">{cat.icon}</span>
@@ -200,9 +200,9 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
 
           {/* TRIAGE EXPANSION MODAL */}
           {isTriageExpanded && (
-              <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-6 md:p-20 font-mono animate-fade-in">
-                  <div className="bg-zinc-900 border-4 border-emerald-500/30 rounded-[3rem] w-full max-w-4xl p-12 relative shadow-[0_0_80px_rgba(16,185,129,0.15)] animate-scale-in">
-                        <button onClick={() => setIsTriageExpanded(false)} className="absolute top-8 right-8 p-3 bg-zinc-800 hover:bg-zinc-700 text-white rounded-full transition-all">
+              <div className="dpal-modal-backdrop z-[200] p-6 md:p-20 font-mono animate-fade-in">
+                  <div className="dpal-modal-dialog max-w-4xl border-4 border-emerald-500/30 rounded-[3rem] p-12 relative shadow-[0_0_80px_rgba(16,185,129,0.15)] animate-scale-in">
+                        <button type="button" onClick={() => setIsTriageExpanded(false)} className="dpal-modal-close absolute top-8 right-8">
                             <X className="w-6 h-6" />
                         </button>
                         <div className="space-y-10">
@@ -231,7 +231,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                                             className={`p-6 rounded-[2rem] border-2 transition-all flex flex-col items-center justify-center space-y-4 text-center ${
                                                 isSelected
                                                 ? 'bg-emerald-600 border-emerald-400 text-white shadow-xl scale-105'
-                                                : 'bg-zinc-950 border-zinc-800 text-zinc-500 hover:border-zinc-700'
+                                                : 'bg-[var(--dpal-background-secondary)] border-[color:var(--dpal-border)] text-[var(--dpal-text-muted)] hover:border-[color:var(--dpal-border-strong)]'
                                             }`}
                                         >
                                             <span className="text-4xl">{cat.icon}</span>
@@ -243,7 +243,7 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                             </div>
 
                             <div className="flex gap-4">
-                                <button onClick={() => setFilters(prev => ({ ...prev, selectedCategories: [] }))} className="rounded-2xl bg-zinc-800 px-10 py-5 text-[10px] font-semibold text-zinc-400 transition-all hover:text-white">Clear all</button>
+                                <button onClick={() => setFilters(prev => ({ ...prev, selectedCategories: [] }))} className="rounded-2xl bg-[var(--dpal-surface-alt)] px-10 py-5 text-[10px] font-semibold text-[var(--dpal-text-secondary)] transition-all hover:text-white border border-[color:var(--dpal-border)]">Clear all</button>
                                 <button onClick={() => setIsTriageExpanded(false)} className="flex-grow rounded-2xl bg-white py-5 text-xs font-bold tracking-wide text-black shadow-2xl transition-all active:scale-95">Apply choices</button>
                             </div>
                         </div>
@@ -252,10 +252,10 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
           )}
 
           {filters.selectedCategories.length > 0 && (
-            <div className="space-y-5 pt-6 border-t border-zinc-800 animate-fade-in">
+            <div className="space-y-5 pt-6 border-t border-[color:var(--dpal-border)] animate-fade-in">
                 <div className="flex justify-between items-center px-2">
                     <label className="text-[10px] font-semibold tracking-wide text-emerald-400">Stories that match</label>
-                    <span className="text-[9px] font-mono text-zinc-700">{matchingSignals.length} Active</span>
+                    <span className="text-[9px] font-mono text-[var(--dpal-text-muted)]">{matchingSignals.length} Active</span>
                 </div>
                 <div className="space-y-3">
                     {matchingSignals.length > 0 ? (
@@ -263,34 +263,34 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
                             <button 
                                 key={sig.id}
                                 onClick={() => onJoinReportChat && onJoinReportChat(sig)}
-                                className="w-full text-left bg-zinc-950 border border-zinc-800 p-4 rounded-2xl hover:border-emerald-500 transition-all group/sig relative overflow-hidden shadow-md"
+                                className="w-full text-left bg-[var(--dpal-background-secondary)] border border-[color:var(--dpal-border)] p-4 rounded-2xl hover:border-emerald-500 transition-all group/sig relative overflow-hidden shadow-md"
                             >
                                 <div className="flex items-center justify-between">
                                     <div className="min-w-0">
                                         <p className="text-[11px] font-black text-white truncate uppercase tracking-tighter">{sig.title}</p>
                                         <div className="flex items-center space-x-2 mt-1">
                                              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_4px_emerald]"></div>
-                                             <p className="text-[9px] text-zinc-600 font-bold uppercase truncate">{sig.location}</p>
+                                             <p className="text-[9px] text-[var(--dpal-text-muted)] font-bold uppercase truncate">{sig.location}</p>
                                         </div>
                                     </div>
-                                    <ChevronRight className="w-4 h-4 text-zinc-800 group-hover/sig:text-emerald-500 transition-colors" />
+                                    <ChevronRight className="w-4 h-4 text-[var(--dpal-text-muted)] group-hover/sig:text-emerald-500 transition-colors" />
                                 </div>
                             </button>
                         ))
                     ) : (
-                        <div className="py-8 text-center bg-black/20 rounded-[2rem] border border-zinc-900 border-dashed">
-                             <p className="text-[10px] font-medium italic tracking-wide text-zinc-600">Nothing here yet — try another topic</p>
+                        <div className="py-8 text-center bg-black/20 rounded-[2rem] border border-[color:var(--dpal-border)] border-dashed">
+                             <p className="text-[10px] font-medium italic tracking-wide text-[var(--dpal-text-muted)]">Nothing here yet — try another topic</p>
                         </div>
                     )}
                 </div>
             </div>
           )}
           
-          <div className="pt-6 border-t border-zinc-800 flex-shrink-0">
+          <div className="pt-6 border-t border-[color:var(--dpal-border)] flex-shrink-0">
               <button
                 onClick={onAnalyzeFeed}
                 disabled={isAnalyzing || reportCount === 0}
-                className="w-full flex items-center justify-center space-x-4 px-6 py-6 bg-zinc-900 border border-zinc-800 rounded-2xl text-xs font-black uppercase text-zinc-400 hover:text-white hover:border-purple-500/50 transition-all shadow-xl group disabled:opacity-30 active:scale-95"
+                className="w-full flex items-center justify-center space-x-4 px-6 py-6 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-2xl text-xs font-black uppercase text-[var(--dpal-text-secondary)] hover:text-white hover:border-purple-500/50 transition-all shadow-xl group disabled:opacity-30 active:scale-95"
               >
                 {isAnalyzing ? <Loader className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5 text-purple-500 group-hover:scale-110 transition-transform" />}
                 <span className="tracking-wide">{isAnalyzing ? 'Thinking…' : 'Explore insights'}</span>

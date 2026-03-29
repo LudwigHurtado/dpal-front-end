@@ -382,3 +382,250 @@ body {
   border-radius: var(--dpal-radius-3xl);
   box-shadow: var(--dpal-shadow-lg);
 }
+
+/* -------------------------------------------------------------------------- */
+/* Surfaces & borders — use instead of bg-zinc-* / border-zinc-* */
+/* -------------------------------------------------------------------------- */
+.dpal-bg-root {
+  background-color: var(--dpal-background);
+}
+.dpal-bg-deep {
+  background-color: var(--dpal-background-secondary);
+}
+.dpal-bg-surface {
+  background-color: var(--dpal-surface);
+}
+.dpal-bg-panel {
+  background-color: var(--dpal-panel);
+}
+.dpal-bg-panel-soft {
+  background-color: color-mix(in srgb, var(--dpal-panel) 88%, transparent);
+}
+.dpal-bg-deep-soft {
+  background-color: color-mix(in srgb, var(--dpal-background-secondary) 92%, transparent);
+}
+.dpal-border-subtle {
+  border-color: var(--dpal-border);
+}
+.dpal-border-emphasis {
+  border-color: var(--dpal-border-strong);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Modals — backdrop + dialog shell (compose with max-w-* in markup) */
+/* -------------------------------------------------------------------------- */
+/* .dpal-modal — alias for the same full-screen overlay pattern as .dpal-modal-backdrop */
+.dpal-modal-backdrop,
+.dpal-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--dpal-z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--dpal-space-4);
+  background: var(--dpal-overlay);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  animation: dpal-fade-in var(--dpal-duration-normal) var(--dpal-ease);
+}
+
+/* Bottom / side sheet shell (pair with positioning + radius in markup) */
+.dpal-drawer {
+  background-color: var(--dpal-background-secondary);
+  color: var(--dpal-text-primary);
+  border-color: var(--dpal-border);
+  box-shadow: var(--dpal-shadow-lg);
+}
+
+/* Feed list row / card surface */
+.dpal-feed-card {
+  background-color: var(--dpal-feed-card);
+  border: 1px solid var(--dpal-border);
+  border-radius: var(--dpal-radius-2xl);
+  box-shadow: var(--dpal-shadow-sm), var(--dpal-shadow-inset);
+}
+
+.dpal-modal-dialog {
+  width: 100%;
+  max-height: min(90vh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: var(--dpal-panel);
+  border: 1px solid var(--dpal-border-strong);
+  border-radius: var(--dpal-radius-3xl);
+  box-shadow: var(--dpal-shadow-lg);
+  color: var(--dpal-text-primary);
+}
+
+.dpal-modal-header {
+  flex-shrink: 0;
+  padding: var(--dpal-space-8) var(--dpal-space-10);
+  border-bottom: 1px solid var(--dpal-border);
+  background-color: color-mix(in srgb, var(--dpal-background-secondary) 70%, var(--dpal-panel));
+}
+
+.dpal-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: var(--dpal-space-8) var(--dpal-space-10);
+}
+
+.dpal-modal-footer {
+  flex-shrink: 0;
+  padding: var(--dpal-space-6) var(--dpal-space-8);
+  border-top: 1px solid var(--dpal-border);
+  background-color: color-mix(in srgb, var(--dpal-background-secondary) 70%, var(--dpal-panel));
+}
+
+.dpal-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--dpal-space-4);
+  border-radius: var(--dpal-radius-xl);
+  background: var(--dpal-surface);
+  color: var(--dpal-text-muted);
+  border: 1px solid var(--dpal-border);
+  cursor: pointer;
+  transition: background-color var(--dpal-duration-fast) var(--dpal-ease),
+    color var(--dpal-duration-fast) var(--dpal-ease), border-color var(--dpal-duration-fast) var(--dpal-ease);
+}
+.dpal-modal-close:hover {
+  background: var(--dpal-surface-alt);
+  color: var(--dpal-text-primary);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tables — ledger, audit, feeds */
+/* -------------------------------------------------------------------------- */
+.dpal-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: var(--dpal-radius-2xl);
+  border: 1px solid var(--dpal-border);
+  background: color-mix(in srgb, var(--dpal-panel) 40%, transparent);
+}
+
+table.dpal-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--dpal-text-sm);
+  color: var(--dpal-text-primary);
+}
+
+.dpal-table thead {
+  background: color-mix(in srgb, var(--dpal-background-secondary) 80%, transparent);
+}
+
+.dpal-table th {
+  text-align: left;
+  font-weight: 700;
+  font-size: var(--dpal-text-xs);
+  font-family: var(--dpal-font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dpal-text-muted);
+  padding: var(--dpal-space-3) var(--dpal-space-4);
+  border-bottom: 1px solid var(--dpal-border);
+}
+
+.dpal-table td {
+  padding: var(--dpal-space-3) var(--dpal-space-4);
+  border-bottom: 1px solid var(--dpal-border);
+  color: var(--dpal-text-secondary);
+}
+
+.dpal-table tbody tr:hover td {
+  background: color-mix(in srgb, var(--dpal-accent) 6%, transparent);
+  color: var(--dpal-text-primary);
+}
+
+.dpal-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Tab rail / hub chips (shared pill strip) */
+/* -------------------------------------------------------------------------- */
+.dpal-tab-rail {
+  display: flex;
+  align-items: center;
+  gap: var(--dpal-space-2);
+  padding: var(--dpal-space-2);
+  border-radius: var(--dpal-radius-3xl);
+  box-shadow: var(--dpal-shadow-md);
+  background: color-mix(in srgb, var(--dpal-panel) 65%, transparent);
+  border: 1px solid var(--dpal-border);
+  backdrop-filter: blur(12px);
+}
+
+.dpal-tab-pill {
+  flex-shrink: 0;
+  min-width: max-content;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dpal-space-3);
+  padding: var(--dpal-space-3) var(--dpal-space-6);
+  border-radius: 9999px;
+  font-size: var(--dpal-text-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dpal-text-muted);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--dpal-duration-normal) var(--dpal-ease),
+    color var(--dpal-duration-normal) var(--dpal-ease), box-shadow var(--dpal-duration-normal) var(--dpal-ease);
+}
+
+.dpal-tab-pill:hover:not([aria-current='true']) {
+  background: color-mix(in srgb, var(--dpal-surface-alt) 80%, transparent);
+  color: var(--dpal-text-secondary);
+}
+
+.dpal-tab-pill[aria-current='true'] {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--dpal-primary-hover) 95%, #000) 0%, var(--dpal-primary) 100%);
+  color: #042f2e;
+  border-color: rgba(45, 212, 191, 0.35);
+  box-shadow: 0 0 24px rgba(13, 148, 136, 0.28);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Sticky status / ledger loading bars */
+/* -------------------------------------------------------------------------- */
+.dpal-sticky-status {
+  position: sticky;
+  top: 0;
+  z-index: var(--dpal-z-overlay);
+  padding: var(--dpal-space-3) var(--dpal-space-4);
+  font-size: var(--dpal-text-sm);
+  font-weight: 600;
+  border-bottom: 1px solid var(--dpal-border);
+  background: color-mix(in srgb, var(--dpal-panel) 94%, transparent);
+  color: var(--dpal-text-secondary);
+  backdrop-filter: blur(10px);
+}
+
+/* -------------------------------------------------------------------------- */
+/* Micro labels (section headers) */
+/* -------------------------------------------------------------------------- */
+.dpal-label-caps {
+  font-size: var(--dpal-text-xs);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--dpal-text-muted);
+}
+
+@keyframes dpal-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

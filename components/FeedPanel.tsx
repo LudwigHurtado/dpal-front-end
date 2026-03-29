@@ -27,7 +27,7 @@ const TopicButton: React.FC<{ topic: string | null, activeTopic: string | null, 
         className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-full border-2 transition-all duration-300 ${
           isActive
             ? 'bg-cyan-600 border-cyan-400 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]'
-            : 'bg-zinc-900 border-zinc-800 text-zinc-500 hover:border-zinc-700 hover:text-zinc-300'
+            : 'bg-[var(--dpal-panel)] border-[color:var(--dpal-border)] dpal-text-muted hover:border-[color:var(--dpal-border-strong)] hover:text-[var(--dpal-text-secondary)]'
         }`}
       >
         {topicName}
@@ -108,25 +108,25 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
             <h2 className="text-2xl font-black text-white uppercase tracking-tighter">{t('feedPanel.title')}</h2>
-            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-[0.4em] mt-1">Live_Ledger_Streaming</p>
+            <p className="text-[10px] font-bold dpal-text-muted uppercase tracking-[0.4em] mt-1">Live_Ledger_Streaming</p>
         </div>
         
         <div className="relative" ref={sortMenuRef}>
              <button 
                 onClick={() => setIsSortMenuOpen(!isSortMenuOpen)}
-                className="flex items-center space-x-3 px-4 py-2 bg-zinc-900 border border-zinc-800 rounded-xl text-[10px] font-black uppercase text-zinc-400 hover:text-cyan-400 hover:border-cyan-500/50 transition-all shadow-xl"
+                className="flex items-center space-x-3 px-4 py-2 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-xl text-[10px] font-black uppercase text-[var(--dpal-text-secondary)] hover:text-cyan-400 hover:border-cyan-500/50 transition-all shadow-xl"
             >
                 <ListFilter className="h-4 w-4" />
                 <span className="tracking-widest">{currentSortLabel}</span>
                 <ChevronDown className={`h-3 w-3 transition-transform ${isSortMenuOpen ? 'rotate-180' : ''}`} />
             </button>
             {isSortMenuOpen && (
-                 <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl py-1 z-50 overflow-hidden">
+                 <div className="absolute right-0 mt-2 w-48 bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-xl shadow-2xl py-1 z-50 overflow-hidden">
                     {sortOptions.map(option => (
                          <button
                             key={option.key}
                             onClick={() => { setSortBy(option.key); setIsSortMenuOpen(false); }}
-                            className={`w-full text-left px-4 py-3 text-[9px] font-black uppercase tracking-widest transition-colors ${sortBy === option.key ? 'bg-cyan-600 text-white' : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200'}`}
+                            className={`w-full text-left px-4 py-3 text-[9px] font-black uppercase tracking-widest transition-colors ${sortBy === option.key ? 'bg-cyan-600 text-white' : 'dpal-text-muted hover:bg-[var(--dpal-surface-alt)] hover:text-[var(--dpal-text-primary)]'}`}
                         >
                             {option.label}
                         </button>
@@ -137,9 +137,9 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
       </div>
       
       {showAnalysisCard && (
-        <div className="bg-zinc-900/40 border border-purple-500/30 p-8 rounded-[2.5rem] relative overflow-hidden group shadow-2xl animate-fade-in" role="region">
+        <div className="bg-[color-mix(in_srgb,var(--dpal-panel)_40%,transparent)] border border-purple-500/30 p-8 rounded-[2.5rem] relative overflow-hidden group shadow-2xl animate-fade-in" role="region">
           <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 blur-3xl animate-pulse"></div>
-          <button onClick={onCloseAnalysis} className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors" aria-label={t('feedPanel.closeAnalysisAria')}>
+          <button onClick={onCloseAnalysis} className="absolute top-6 right-6 dpal-text-muted hover:text-white transition-colors" aria-label={t('feedPanel.closeAnalysisAria')}>
             <X className="w-6 h-6" />
           </button>
           
@@ -155,12 +155,12 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
             <p className="text-rose-500 text-sm font-bold uppercase italic">{analysisError}</p>
           ) : analysis && (
             <>
-              <p className="text-zinc-300 text-sm leading-relaxed mb-8 border-l-2 border-purple-500/50 pl-6 italic">
+              <p className="text-[var(--dpal-text-secondary)] text-sm leading-relaxed mb-8 border-l-2 border-purple-500/50 pl-6 italic">
                 "{analysis.summary}"
               </p>
               {analysis.hot_topics.length > 0 && (
                 <div className="space-y-4">
-                  <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">{t('feedPanel.hotTopics')}</h4>
+                  <h4 className="text-[10px] font-black dpal-text-muted uppercase tracking-[0.2em]">{t('feedPanel.hotTopics')}</h4>
                   <div className="flex flex-wrap gap-2">
                     <TopicButton topic={null} activeTopic={activeTopic} setActiveTopic={setActiveTopic} />
                     {analysis.hot_topics.map((t) => (
@@ -186,10 +186,10 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
           ))}
         </div>
       ) : (
-        <div className="text-center py-24 bg-zinc-900/20 border-2 border-dashed border-zinc-800 rounded-[3rem]">
-          <ShieldCheck className="w-20 h-20 text-zinc-800 mx-auto mb-6 opacity-30" />
-          <h3 className="text-2xl font-black text-zinc-700 uppercase tracking-tighter">{t('feedPanel.noReportsTitle')}</h3>
-          <p className="mt-4 text-xs font-bold text-zinc-600 uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
+        <div className="text-center py-24 bg-[color-mix(in_srgb,var(--dpal-panel)_20%,transparent)] border-2 border-dashed border-[color:var(--dpal-border)] rounded-[3rem]">
+          <ShieldCheck className="w-20 h-20 text-[var(--dpal-border-strong)] mx-auto mb-6 opacity-30" />
+          <h3 className="text-2xl font-black dpal-text-muted uppercase tracking-tighter">{t('feedPanel.noReportsTitle')}</h3>
+          <p className="mt-4 text-xs font-bold dpal-text-muted uppercase tracking-widest max-w-xs mx-auto leading-relaxed">
             {activeTopic
               ? t('feedPanel.noReportsForTopic', { topic: activeTopic })
               : t('feedPanel.noReportsGeneral')}

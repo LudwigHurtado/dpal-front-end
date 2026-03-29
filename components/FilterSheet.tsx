@@ -44,22 +44,22 @@ const FilterSheet: React.FC<FilterSheetProps> = ({
   return (
     <>
       <div
-        className="fixed inset-0 z-[150] bg-black/60 backdrop-blur-sm md:hidden animate-fade-in"
+        className="dpal-modal-backdrop z-[150] md:hidden animate-fade-in"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className="fixed left-0 right-0 bottom-0 z-[160] md:hidden max-h-[90vh] rounded-t-3xl border-t border-zinc-800 bg-zinc-950 shadow-2xl flex flex-col animate-slide-up"
+        className="fixed left-0 right-0 bottom-0 z-[160] md:hidden max-h-[90vh] rounded-t-3xl border-t dpal-drawer flex flex-col animate-slide-up"
         role="dialog"
         aria-modal="true"
         aria-label="Filters"
       >
-        <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 flex-shrink-0">
-          <span className="text-xs font-black uppercase tracking-widest text-zinc-400">Filters &amp; Map</span>
+        <div className="flex items-center justify-between px-4 py-3 border-b dpal-border-subtle flex-shrink-0">
+          <span className="text-xs font-black uppercase tracking-widest dpal-text-secondary">Filters &amp; Map</span>
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl text-zinc-500 hover:text-white hover:bg-zinc-800 transition-colors"
+            className="p-2 rounded-xl dpal-text-muted hover:text-[var(--dpal-text-primary)] hover:bg-[var(--dpal-surface-alt)] transition-colors"
             aria-label="Close"
           >
             <X className="w-5 h-5" />

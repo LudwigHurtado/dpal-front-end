@@ -15,20 +15,20 @@ const themeForCategory = (category: Category): Theme => {
   if (category === Category.Allergies) {
     return {
       ring: 'ring-rose-400/30',
-      bg: 'bg-gradient-to-br from-rose-950/30 via-zinc-950 to-cyan-950/20',
+      bg: 'bg-gradient-to-br from-rose-950/30 via-[var(--dpal-background-secondary)] to-cyan-950/20',
       title: 'text-rose-200',
       subtitle: 'text-rose-200/70',
       buttonPrimary: 'bg-rose-600 border-rose-400 hover:bg-rose-500',
-      buttonSecondary: 'bg-zinc-950 border-zinc-800 hover:border-zinc-700',
+      buttonSecondary: 'bg-[var(--dpal-background-secondary)] border-[color:var(--dpal-border)] hover:border-[color:var(--dpal-border-strong)]',
     };
   }
   return {
     ring: 'ring-cyan-400/30',
-    bg: 'bg-zinc-950',
+    bg: 'bg-[var(--dpal-background-secondary)]',
     title: 'text-cyan-200',
     subtitle: 'text-cyan-200/60',
     buttonPrimary: 'bg-cyan-600 border-cyan-400 hover:bg-cyan-500',
-    buttonSecondary: 'bg-zinc-950 border-zinc-800 hover:border-zinc-700',
+    buttonSecondary: 'bg-[var(--dpal-background-secondary)] border-[color:var(--dpal-border)] hover:border-[color:var(--dpal-border-strong)]',
   };
 };
 
@@ -184,8 +184,8 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[500] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-      <div className={`w-full max-w-2xl rounded-[2.5rem] border border-zinc-800 shadow-2xl ring-1 ${t.ring} ${t.bg}`}>
+    <div className="dpal-modal-backdrop z-[500] p-4">
+      <div className={`w-full max-w-2xl rounded-[2.5rem] border border-[color:var(--dpal-border)] shadow-2xl ring-1 ${t.ring} ${t.bg}`}>
         <div className="p-6 sm:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -193,7 +193,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
               <h2 className={`mt-2 text-2xl sm:text-3xl font-black tracking-tighter ${t.title}`}>
                 {category === Category.Allergies ? 'Allergy incident' : 'Incident'} voice capture
               </h2>
-              <p className="mt-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400 max-w-xl leading-relaxed">
+              <p className="mt-2 text-[10px] font-bold uppercase tracking-widest dpal-text-secondary max-w-xl leading-relaxed">
                 Hit record. Talk. Stop. Submit. We’ll attach your audio and (if supported) a live transcript.
               </p>
             </div>
@@ -203,7 +203,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
                 if (isRecording) stopRecording();
                 onClose();
               }}
-              className="p-2 rounded-2xl border border-zinc-800 bg-zinc-950/70 text-zinc-200 hover:text-white hover:border-zinc-700"
+              className="p-2 rounded-2xl border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-background-secondary)_70%,transparent)] text-[var(--dpal-text-secondary)] hover:text-white hover:border-[color:var(--dpal-border-strong)]"
               aria-label="Close audio report modal"
             >
               <X className="w-5 h-5" />
@@ -211,23 +211,23 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
           </div>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-[2rem] border border-zinc-800 bg-zinc-950/60 p-5 space-y-3">
+            <div className="rounded-[2rem] border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-background-secondary)_60%,transparent)] p-5 space-y-3">
               <label className="text-[10px] font-black text-cyan-300 uppercase tracking-widest flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-zinc-500" />
+                <MapPin className="w-4 h-4 dpal-text-muted" />
                 Location
               </label>
               <input
                 value={locationText}
                 onChange={(e) => setLocationText(e.target.value)}
-                className="w-full bg-zinc-950 border-2 border-zinc-800 px-4 py-4 rounded-2xl outline-none focus:border-cyan-500 text-white font-black uppercase tracking-widest text-xs"
+                className="w-full dpal-bg-deep border-2 dpal-border-subtle px-4 py-4 rounded-2xl outline-none focus:border-cyan-500 text-white font-black uppercase tracking-widest text-xs"
                 placeholder="Address, venue, or lat/lng"
               />
-              <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+              <p className="text-[9px] font-bold uppercase tracking-widest dpal-text-muted">
                 Tip: you can paste coordinates.
               </p>
             </div>
 
-            <div className="rounded-[2rem] border border-zinc-800 bg-zinc-950/60 p-5 space-y-3">
+            <div className="rounded-[2rem] border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-background-secondary)_60%,transparent)] p-5 space-y-3">
               <label className="text-[10px] font-black text-cyan-300 uppercase tracking-widest">Severity</label>
               <div className="grid grid-cols-2 gap-2">
                 {(['Informational', 'Standard', 'Critical', 'Catastrophic'] as SeverityLevel[]).map((lvl) => (
@@ -238,7 +238,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
                     className={`py-3 rounded-xl border-2 text-[9px] font-black uppercase tracking-widest transition-all ${
                       severity === lvl
                         ? 'bg-amber-600 border-amber-400 text-white shadow-lg'
-                        : 'bg-black border-zinc-900 text-zinc-600 hover:border-zinc-700 hover:text-zinc-300'
+                        : 'bg-[var(--dpal-background)] border-[color:var(--dpal-border)] dpal-text-muted hover:border-[color:var(--dpal-border-strong)] hover:text-[var(--dpal-text-secondary)]'
                     }`}
                     aria-pressed={severity === lvl}
                   >
@@ -246,17 +246,17 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
                   </button>
                 ))}
               </div>
-              <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+              <p className="text-[9px] font-bold uppercase tracking-widest dpal-text-muted">
                 Choose the closest match. You can clarify in audio.
               </p>
             </div>
           </div>
 
-          <div className="mt-5 rounded-[2rem] border border-zinc-800 bg-zinc-950/60 p-5">
+          <div className="mt-5 rounded-[2rem] border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-background-secondary)_60%,transparent)] p-5">
             <div className="flex items-center justify-between gap-3">
               <div className="space-y-1">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-300">Audio capture</p>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[var(--dpal-text-secondary)]">Audio capture</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest dpal-text-muted">
                   {isRecording ? 'Recording… keep going.' : audioFile ? 'Ready to submit.' : 'Press record to begin.'}
                 </p>
               </div>
@@ -286,7 +286,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
                       if (el.paused) void el.play();
                       else el.pause();
                     }}
-                    className={`px-4 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${t.buttonSecondary} text-zinc-200`}
+                    className={`px-4 py-3 rounded-2xl border text-[10px] font-black uppercase tracking-widest flex items-center gap-2 ${t.buttonSecondary} text-[var(--dpal-text-secondary)]`}
                   >
                     <Play className="w-4 h-4" />
                     Play
@@ -307,23 +307,23 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
               {Array.from({ length: 12 }).map((_, i) => (
                 <div
                   key={i}
-                  className={`rounded-full ${isRecording ? 'bg-rose-500/50 animate-pulse' : audioFile ? 'bg-emerald-500/30' : 'bg-zinc-800'}`}
+                  className={`rounded-full ${isRecording ? 'bg-rose-500/50 animate-pulse' : audioFile ? 'bg-emerald-500/30' : 'bg-[var(--dpal-border-strong)]'}`}
                   style={{ height: `${8 + ((i * 13) % 24)}px` }}
                 />
               ))}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-zinc-800 bg-black/30 p-4">
+            <div className="mt-4 rounded-2xl border border-[color:var(--dpal-border)] bg-[var(--dpal-overlay-soft)] p-4">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Transcript</p>
-                <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600">
+                <p className="text-[10px] font-black uppercase tracking-widest dpal-text-secondary">Transcript</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest dpal-text-muted">
                   {sttSupported ? 'live (browser)' : 'not supported'}
                 </p>
               </div>
               <textarea
                 value={transcript}
                 onChange={(e) => setTranscript(e.target.value)}
-                className="mt-2 w-full min-h-[90px] bg-zinc-950 border-2 border-zinc-800 p-4 rounded-2xl text-[11px] font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-zinc-700"
+                className="mt-2 w-full min-h-[90px] dpal-bg-deep border-2 dpal-border-subtle p-4 rounded-2xl text-[11px] font-bold text-white outline-none focus:border-cyan-500 transition-all placeholder:text-[var(--dpal-placeholder)]"
                 placeholder="If your browser supports it, your speech will appear here. You can also type."
               />
             </div>
@@ -336,7 +336,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
                 if (isRecording) stopRecording();
                 onClose();
               }}
-              className="px-6 py-4 rounded-2xl border border-zinc-800 bg-zinc-950 text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:text-white hover:border-zinc-700"
+              className="px-6 py-4 rounded-2xl border border-[color:var(--dpal-border)] dpal-bg-deep text-[var(--dpal-text-secondary)] text-[10px] font-black uppercase tracking-widest hover:text-white hover:border-[color:var(--dpal-border-strong)]"
             >
               Cancel
             </button>
@@ -353,7 +353,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
                 });
               }}
               className={`px-6 py-4 rounded-2xl border text-[10px] font-black uppercase tracking-widest shadow-2xl active:scale-95 transition-all ${
-                canSubmit && !isRecording && !isPreparing ? `${t.buttonPrimary} text-white` : 'bg-zinc-900 border-zinc-800 text-zinc-500 opacity-70 cursor-not-allowed'
+                canSubmit && !isRecording && !isPreparing ? `${t.buttonPrimary} text-white` : 'bg-[var(--dpal-panel)] border-[color:var(--dpal-border)] dpal-text-muted opacity-70 cursor-not-allowed'
               }`}
             >
               Submit audio report

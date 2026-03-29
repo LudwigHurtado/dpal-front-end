@@ -132,20 +132,20 @@ const CommunityWorkFeed: React.FC = () => {
     };
 
     return (
-        <div className="bg-zinc-900/40 border border-zinc-800 rounded-[3rem] shadow-2xl overflow-hidden animate-fade-in relative p-1 font-mono">
-            <div className="bg-zinc-900/60 border-b border-zinc-800 px-8 py-5 flex items-center justify-between relative z-10">
+        <div className="dpal-feed-card rounded-[3rem] shadow-2xl overflow-hidden animate-fade-in relative p-1 font-mono">
+            <div className="bg-[color-mix(in_srgb,var(--dpal-panel)_60%,transparent)] border-b dpal-border-subtle px-8 py-5 flex items-center justify-between relative z-10">
                 <div className="flex items-center space-x-4">
                     <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/30">
                         <Zap className="w-4 h-4 text-amber-500 animate-pulse" />
                     </div>
                     <div>
                         <h3 className="text-[10px] font-black uppercase text-white tracking-[0.3em]">Community Timeline</h3>
-                        <p className="mt-0.5 text-[7px] font-medium text-zinc-500">Good deeds neighbors can see</p>
+                        <p className="mt-0.5 text-[7px] font-medium dpal-text-muted">Good deeds neighbors can see</p>
                     </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                    <span className="hidden text-[8px] font-medium italic text-zinc-500 sm:inline">Many hands make light work</span>
-                    <div className="bg-black/40 px-4 py-1.5 rounded-full border border-zinc-800 flex items-center space-x-2">
+                    <span className="hidden text-[8px] font-medium italic dpal-text-muted sm:inline">Many hands make light work</span>
+                    <div className="bg-[var(--dpal-overlay-soft)] px-4 py-1.5 rounded-full border dpal-border-subtle flex items-center space-x-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></div>
                         <span className="text-[8px] font-semibold text-emerald-400">Live updates</span>
                     </div>
@@ -157,7 +157,7 @@ const CommunityWorkFeed: React.FC = () => {
                     <button 
                         key={item.id} 
                         onClick={() => setSelectedEntry(item)}
-                        className="w-full text-left group bg-zinc-950 border-2 border-zinc-900 rounded-[2rem] p-6 hover:border-cyan-500/30 transition-all duration-500 shadow-xl relative overflow-hidden active:scale-[0.98]"
+                        className="w-full text-left group dpal-bg-deep border-2 border-[color:var(--dpal-border)] rounded-[2rem] p-6 hover:border-cyan-500/30 transition-all duration-500 shadow-xl relative overflow-hidden active:scale-[0.98]"
                     >
                         <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                             <Activity className="w-20 h-20 text-cyan-500" />
@@ -165,14 +165,14 @@ const CommunityWorkFeed: React.FC = () => {
                         
                         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
                             <div className="flex items-center space-x-5">
-                                <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-600 group-hover:text-cyan-400 group-hover:border-cyan-900/50 transition-all">
+                                <div className="w-12 h-12 rounded-2xl bg-[var(--dpal-panel)] border dpal-border-subtle flex items-center justify-center dpal-text-muted group-hover:text-cyan-400 group-hover:border-cyan-900/50 transition-all">
                                     <User className="w-6 h-6" />
                                 </div>
                                 <div>
                                     <div className="flex items-center space-x-3 mb-1">
                                         <span className="text-[9px] font-black text-cyan-500 uppercase tracking-widest">OP_{item.operative}</span>
-                                        <div className="w-1 h-1 bg-zinc-800 rounded-full"></div>
-                                        <span className="text-[8px] font-bold text-zinc-600 uppercase flex items-center space-x-1">
+                                        <div className="w-1 h-1 bg-[var(--dpal-border-strong)] rounded-full"></div>
+                                        <span className="text-[8px] font-bold dpal-text-muted uppercase flex items-center space-x-1">
                                             <Clock className="w-3 h-3" />
                                             <span>{timeAgo(item.timestamp)}</span>
                                         </span>
@@ -184,18 +184,18 @@ const CommunityWorkFeed: React.FC = () => {
                             </div>
 
                             <div className="flex flex-wrap items-center gap-4 w-full md:w-auto md:justify-end">
-                                <div className="flex items-center space-x-2 bg-zinc-900 px-3 py-1.5 rounded-xl border border-zinc-800">
-                                    <Target className="w-3 h-3 text-zinc-500" />
-                                    <span className="text-[8px] font-black text-zinc-400 uppercase truncate max-w-[80px]">{item.sector}</span>
+                                <div className="flex items-center space-x-2 bg-[var(--dpal-panel)] px-3 py-1.5 rounded-xl border dpal-border-subtle">
+                                    <Target className="w-3 h-3 dpal-text-muted" />
+                                    <span className="text-[8px] font-black dpal-text-secondary uppercase truncate max-w-[80px]">{item.sector}</span>
                                 </div>
                                 <div className="flex -space-x-2 mr-2">
                                     {item.contributors.slice(0, 3).map((c, i) => (
-                                        <div key={i} className="w-6 h-6 rounded-full border-2 border-zinc-950 bg-zinc-800 flex items-center justify-center text-[8px] font-black text-zinc-500 uppercase" title={c}>
+                                        <div key={i} className="w-6 h-6 rounded-full border-2 border-[var(--dpal-background-secondary)] bg-[var(--dpal-surface-alt)] flex items-center justify-center text-[8px] font-black dpal-text-muted uppercase" title={c}>
                                             {c.charAt(0)}
                                         </div>
                                     ))}
                                     {item.contributors.length > 3 && (
-                                        <div className="w-6 h-6 rounded-full border-2 border-zinc-950 bg-zinc-900 flex items-center justify-center text-[8px] font-black text-cyan-500 uppercase">
+                                        <div className="w-6 h-6 rounded-full border-2 border-[var(--dpal-background-secondary)] bg-[var(--dpal-panel)] flex items-center justify-center text-[8px] font-black text-cyan-500 uppercase">
                                             +{item.contributors.length - 3}
                                         </div>
                                     )}
@@ -207,7 +207,7 @@ const CommunityWorkFeed: React.FC = () => {
                                 <div className="flex items-center space-x-2 bg-amber-500/10 px-3 py-1.5 rounded-xl border border-amber-500/30">
                                     <span className="text-[9px] font-black text-amber-500">+{item.reward} HC</span>
                                 </div>
-                                <div className="p-2 text-zinc-700 group-hover:text-cyan-500 transition-colors">
+                                <div className="p-2 dpal-text-muted group-hover:text-cyan-500 transition-colors">
                                     <Eye className="w-4 h-4" />
                                 </div>
                             </div>
@@ -218,11 +218,11 @@ const CommunityWorkFeed: React.FC = () => {
 
             {/* DETAIL OVERLAY */}
             {selectedEntry && (
-                <div className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-8 animate-fade-in" onClick={() => setSelectedEntry(null)}>
-                    <div className="bg-zinc-900 border-2 border-zinc-800 rounded-[3rem] w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col shadow-[0_0_100px_rgba(6,182,212,0.15)] relative" onClick={e => e.stopPropagation()}>
+                <div className="dpal-modal-backdrop z-[200] p-4 md:p-8 animate-fade-in" onClick={() => setSelectedEntry(null)}>
+                    <div className="dpal-modal-dialog max-w-5xl border-2 border-[color:var(--dpal-border)] rounded-[3rem] max-h-[90vh] shadow-[0_0_100px_rgba(6,182,212,0.15)] relative" onClick={e => e.stopPropagation()}>
                         <div className="absolute top-0 left-0 w-full h-1 bg-cyan-500/30 animate-scan-y"></div>
                         
-                        <header className="bg-zinc-950 border-b border-zinc-800 p-8 flex justify-between items-center">
+                        <header className="dpal-modal-header p-8 flex justify-between items-center">
                             <div className="flex items-center space-x-6">
                                 <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/20">
                                     <FileText className="w-8 h-8 text-cyan-400" />
@@ -232,10 +232,10 @@ const CommunityWorkFeed: React.FC = () => {
                                         <h2 className="text-2xl font-black uppercase tracking-tighter text-white">Contribution · {selectedEntry.id}</h2>
                                         <span className={`px-3 py-0.5 rounded text-[8px] font-black border ${selectedEntry.status === 'FINALIZED' ? 'border-emerald-500 text-emerald-500' : 'border-cyan-500 text-cyan-500'}`}>{selectedEntry.status === 'FINALIZED' ? 'Complete' : 'In progress'}</span>
                                     </div>
-                                    <p className="text-[10px] font-medium tracking-wide text-zinc-500">Record ID · 0x{selectedEntry.id.replace('-', '')}{selectedEntry.timestamp.toString(16).slice(-8)}</p>
+                                    <p className="text-[10px] font-medium tracking-wide dpal-text-muted">Record ID · 0x{selectedEntry.id.replace('-', '')}{selectedEntry.timestamp.toString(16).slice(-8)}</p>
                                 </div>
                             </div>
-                            <button onClick={() => setSelectedEntry(null)} className="p-4 bg-zinc-900 hover:bg-rose-950 text-zinc-500 hover:text-rose-500 rounded-2xl transition-all">
+                            <button type="button" onClick={() => setSelectedEntry(null)} className="p-4 bg-[var(--dpal-panel)] hover:bg-rose-950 dpal-text-muted hover:text-rose-500 rounded-2xl transition-all border border-[color:var(--dpal-border)]">
                                 <X className="w-6 h-6" />
                             </button>
                         </header>
@@ -243,36 +243,36 @@ const CommunityWorkFeed: React.FC = () => {
                         <div className="flex-grow overflow-y-auto custom-scrollbar p-10 grid grid-cols-1 lg:grid-cols-12 gap-10">
                             {/* Left: Content */}
                             <div className="lg:col-span-7 space-y-10">
-                                <div className="rounded-[2rem] overflow-hidden border-4 border-zinc-800 relative group/img shadow-2xl">
+                                <div className="rounded-[2rem] overflow-hidden border-4 border-[color:var(--dpal-border)] relative group/img shadow-2xl">
                                     <img src={selectedEntry.proofImage} alt="Proof" className="w-full aspect-video object-cover grayscale opacity-80 group-hover/img:grayscale-0 group-hover/img:opacity-100 transition-all duration-700" />
-                                    <div className="absolute bottom-6 left-6 bg-black/60 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-[10px] font-semibold tracking-wide text-cyan-300">
+                                    <div className="absolute bottom-6 left-6 bg-[var(--dpal-overlay-soft)] backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-[10px] font-semibold tracking-wide text-cyan-300">
                                         Photo shared in trust
                                     </div>
                                 </div>
 
                                 <div className="space-y-6">
-                                    <h3 className="text-xs font-black uppercase text-zinc-600 tracking-[0.4em] flex items-center space-x-3">
+                                    <h3 className="text-xs font-black uppercase dpal-text-muted tracking-[0.4em] flex items-center space-x-3">
                                         <Activity className="w-4 h-4" />
                                         <span>What happened</span>
                                     </h3>
-                                    <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-[2.5rem] relative overflow-hidden">
+                                    <div className="dpal-bg-deep border dpal-border-subtle p-8 rounded-[2.5rem] relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-cyan-500"/></div>
-                                        <p className="text-zinc-200 leading-relaxed italic text-lg border-l-4 border-cyan-500 pl-8">
+                                        <p className="text-[var(--dpal-text-secondary)] leading-relaxed italic text-lg border-l-4 border-cyan-500 pl-8">
                                             "{selectedEntry.description}"
                                         </p>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-6">
-                                    <div className="p-6 bg-zinc-900/60 border border-zinc-800 rounded-3xl">
-                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-2">Category</p>
+                                    <div className="p-6 bg-[color-mix(in_srgb,var(--dpal-panel)_60%,transparent)] border dpal-border-subtle rounded-3xl">
+                                        <p className="text-[8px] font-black dpal-text-muted uppercase tracking-widest mb-2">Category</p>
                                         <div className="flex items-center space-x-3">
                                             <Target className="w-5 h-5 text-cyan-400" />
                                             <span className="text-white font-black uppercase">{selectedEntry.sector}</span>
                                         </div>
                                     </div>
-                                    <div className="p-6 bg-zinc-900/60 border border-zinc-800 rounded-3xl">
-                                        <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-2">Space</p>
+                                    <div className="p-6 bg-[color-mix(in_srgb,var(--dpal-panel)_60%,transparent)] border dpal-border-subtle rounded-3xl">
+                                        <p className="text-[8px] font-black dpal-text-muted uppercase tracking-widest mb-2">Space</p>
                                         <div className="flex items-center space-x-3">
                                             <MapPin className="w-5 h-5 text-rose-500" />
                                             <span className="text-white font-black uppercase truncate">{selectedEntry.location}</span>
@@ -283,9 +283,9 @@ const CommunityWorkFeed: React.FC = () => {
 
                             {/* Right: Collaborative Nodes */}
                             <div className="lg:col-span-5 space-y-8">
-                                <div className="bg-zinc-950 border border-zinc-800 p-8 rounded-[3rem] space-y-8 shadow-inner">
+                                <div className="dpal-bg-deep border dpal-border-subtle p-8 rounded-[3rem] space-y-8 shadow-inner">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
+                                        <h3 className="text-xs font-black uppercase dpal-text-muted tracking-[0.3em] flex items-center space-x-3">
                                             <UserCircle className="w-5 h-5 text-emerald-500" />
                                             <span>Neighbors helping</span>
                                         </h3>
@@ -294,14 +294,14 @@ const CommunityWorkFeed: React.FC = () => {
 
                                     <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                                         {selectedEntry.contributors.map((c, i) => (
-                                            <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border ${c === 'Operative_Prime' ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-zinc-900 border-zinc-800'} transition-all`}>
+                                            <div key={i} className={`flex items-center justify-between p-4 rounded-2xl border ${c === 'Operative_Prime' ? 'bg-cyan-950/20 border-cyan-500/30' : 'bg-[var(--dpal-panel)] border-[color:var(--dpal-border)]'} transition-all`}>
                                                 <div className="flex items-center space-x-4">
-                                                    <div className="w-10 h-10 rounded-full bg-zinc-950 border border-zinc-800 flex items-center justify-center text-xs font-black text-zinc-500 uppercase">
+                                                    <div className="w-10 h-10 rounded-full dpal-bg-deep border dpal-border-subtle flex items-center justify-center text-xs font-black dpal-text-muted uppercase">
                                                         {c.charAt(0)}
                                                     </div>
                                                     <div>
                                                         <p className="text-[10px] font-black text-white uppercase">{c}</p>
-                                                        <p className="text-[8px] font-medium uppercase tracking-wide text-zinc-600">{i === 0 ? 'Lead' : 'Helper'}</p>
+                                                        <p className="text-[8px] font-medium uppercase tracking-wide dpal-text-muted">{i === 0 ? 'Lead' : 'Helper'}</p>
                                                     </div>
                                                 </div>
                                                 {c === 'Operative_Prime' && <Sparkles className="w-4 h-4 text-cyan-400" />}
@@ -321,16 +321,16 @@ const CommunityWorkFeed: React.FC = () => {
                                     )}
                                 </div>
 
-                                <div className="bg-zinc-900/40 border border-zinc-800 p-8 rounded-[3rem] space-y-6">
+                                <div className="bg-[color-mix(in_srgb,var(--dpal-panel)_40%,transparent)] border dpal-border-subtle p-8 rounded-[3rem] space-y-6">
                                     <div className="flex items-center justify-between">
-                                         <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
+                                         <h3 className="text-xs font-black uppercase dpal-text-muted tracking-[0.3em] flex items-center space-x-3">
                                             <ShieldCheck className="w-5 h-5 text-amber-500" />
                                             <span>Community trust</span>
                                         </h3>
                                         <span className="text-xl font-black text-amber-400">{selectedEntry.trustScore}%</span>
                                     </div>
                                     
-                                    <div className="h-1.5 w-full bg-zinc-950 rounded-full overflow-hidden border border-zinc-800 shadow-inner">
+                                    <div className="h-1.5 w-full dpal-bg-deep rounded-full overflow-hidden border dpal-border-subtle shadow-inner">
                                         <div className="h-full bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)] transition-all duration-1000" style={{ width: `${selectedEntry.trustScore}%` }}></div>
                                     </div>
 
@@ -350,18 +350,18 @@ const CommunityWorkFeed: React.FC = () => {
                                          <span>{selectedEntry.reward}</span>
                                          <Coins className="w-6 h-6 text-amber-500" />
                                      </div>
-                                     <p className="text-[8px] text-zinc-600 font-bold uppercase mt-2 italic">Distributed across all active nodes.</p>
+                                     <p className="text-[8px] dpal-text-muted font-bold uppercase mt-2 italic">Distributed across all active nodes.</p>
                                 </div>
                             </div>
                         </div>
 
-                        <footer className="bg-zinc-950 border-t border-zinc-800 p-8 flex flex-col sm:flex-row justify-between items-center gap-6">
-                            <div className="flex items-center space-x-3 text-zinc-600">
+                        <footer className="dpal-modal-footer p-8 flex flex-col sm:flex-row justify-between items-center gap-6">
+                            <div className="flex items-center space-x-3 dpal-text-muted">
                                 <ShieldCheck className="w-4 h-4" />
                                 <span className="text-[10px] font-medium tracking-wide">Timeline ref · #6843{selectedEntry.timestamp.toString().slice(-3)}</span>
                             </div>
                             <div className="flex items-center gap-4">
-                                <span className="text-[9px] font-medium tracking-wide text-zinc-500">DPAL community tools · v3.1</span>
+                                <span className="text-[9px] font-medium tracking-wide dpal-text-muted">DPAL community tools · v3.1</span>
                             </div>
                         </footer>
                     </div>

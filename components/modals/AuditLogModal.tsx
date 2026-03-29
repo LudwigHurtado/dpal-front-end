@@ -16,11 +16,11 @@ const AuditLogModal: React.FC<AuditLogModalProps> = ({ hero, onClose }) => {
     ];
 
     return (
-        <div className="fixed inset-0 z-[300] bg-black/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-10 font-mono animate-fade-in">
-             <div className="bg-zinc-900 border-2 border-emerald-500/30 rounded-[4rem] w-full max-w-4xl max-h-[85vh] overflow-hidden flex flex-col shadow-4xl relative">
+        <div className="dpal-modal-backdrop z-[300] p-4 md:p-10 font-mono animate-fade-in">
+             <div className="dpal-modal-dialog max-w-4xl max-h-[85vh] border-2 border-emerald-500/30 rounded-[4rem] shadow-4xl relative">
                 <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/30 animate-scan-y"></div>
                 
-                <header className="bg-zinc-950 border-b border-zinc-800 p-10 flex justify-between items-center relative z-10">
+                <header className="dpal-modal-header p-10 flex justify-between items-center relative z-10">
                     <div className="flex items-center space-x-8">
                          <div className="p-5 bg-emerald-500/10 rounded-[2rem] border border-emerald-500/30">
                             <Database className="w-10 h-10 text-emerald-400" />
@@ -30,38 +30,38 @@ const AuditLogModal: React.FC<AuditLogModalProps> = ({ hero, onClose }) => {
                             <p className="text-[10px] font-black text-emerald-500/80 uppercase tracking-[0.4em]">Node ID: {hero.operativeId} // Cluster: PROD-MAIN</p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-4 bg-zinc-900 hover:bg-zinc-800 text-zinc-500 hover:text-white rounded-3xl transition-all shadow-xl"><X className="w-8 h-8"/></button>
+                    <button type="button" onClick={onClose} className="dpal-modal-close p-4 rounded-3xl shadow-xl"><X className="w-8 h-8"/></button>
                 </header>
 
-                <div className="flex-grow overflow-y-auto custom-scrollbar p-10 space-y-4">
+                <div className="dpal-modal-body p-10 space-y-4">
                     {events.map(event => (
-                        <div key={event.id} className="group flex items-center justify-between p-6 bg-zinc-950/40 border border-zinc-800 hover:border-emerald-500/30 transition-all rounded-[2rem] shadow-inner relative overflow-hidden">
+                        <div key={event.id} className="group flex items-center justify-between p-6 bg-[color-mix(in_srgb,var(--dpal-background-secondary)_40%,transparent)] border border-[color:var(--dpal-border)] hover:border-emerald-500/30 transition-all rounded-[2rem] shadow-inner relative overflow-hidden">
                              <div className="flex items-center space-x-8 relative z-10">
                                 <div className="text-center w-24">
                                     <p className={`text-sm font-black ${event.amount > 0 ? 'text-emerald-400' : 'text-rose-500'}`}>
                                         {event.amount > 0 ? '+' : ''}{event.amount} HC
                                     </p>
-                                    <p className="text-[7px] font-bold text-zinc-600 uppercase mt-1">TRANSACTION</p>
+                                    <p className="text-[7px] font-bold dpal-text-muted uppercase mt-1">TRANSACTION</p>
                                 </div>
-                                <div className="h-10 w-px bg-zinc-800"></div>
+                                <div className="h-10 w-px bg-[var(--dpal-border)]"></div>
                                 <div>
                                     <p className="text-sm font-black text-white uppercase tracking-tight">{event.label}</p>
                                     <div className="flex items-center space-x-3 mt-1.5">
-                                        <span className="text-[8px] font-black bg-black border border-zinc-800 px-2 py-0.5 rounded text-zinc-500">{event.type}</span>
-                                        <span className="text-[8px] font-mono text-zinc-700 tracking-tighter">SIG_{event.hash}</span>
+                                        <span className="text-[8px] font-black bg-[var(--dpal-background)] border border-[color:var(--dpal-border)] px-2 py-0.5 rounded dpal-text-muted">{event.type}</span>
+                                        <span className="text-[8px] font-mono dpal-text-muted tracking-tighter">SIG_{event.hash}</span>
                                     </div>
                                 </div>
                              </div>
                              <div className="text-right relative z-10">
-                                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{new Date(event.ts).toLocaleDateString()}</p>
-                                <p className="text-[8px] font-mono text-zinc-800 mt-1 uppercase">{new Date(event.ts).toLocaleTimeString([], { hour12: false })}</p>
+                                <p className="text-[9px] font-black dpal-text-muted uppercase tracking-widest">{new Date(event.ts).toLocaleDateString()}</p>
+                                <p className="text-[8px] font-mono text-[var(--dpal-border-strong)] mt-1 uppercase">{new Date(event.ts).toLocaleTimeString([], { hour12: false })}</p>
                              </div>
                         </div>
                     ))}
                 </div>
 
-                <footer className="bg-zinc-950 border-t border-zinc-800 p-8 flex justify-between items-center no-print">
-                     <div className="flex items-center space-x-4 text-zinc-600">
+                <footer className="dpal-modal-footer p-8 flex justify-between items-center no-print">
+                     <div className="flex items-center space-x-4 dpal-text-muted">
                         <ShieldCheck className="w-5 h-5" />
                         <span className="text-[9px] font-black uppercase tracking-widest leading-none">Record_History_Verified_By_P2P_Nodes</span>
                      </div>

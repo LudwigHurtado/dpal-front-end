@@ -68,8 +68,8 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
             onClick={onReturnToMainMenu}
             className={`inline-flex items-center space-x-3 transition-colors group ${
               isMyReports
-                ? 'text-sm font-medium text-slate-500 hover:text-sky-700'
-                : 'text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400'
+                ? 'text-sm font-medium dpal-text-muted hover:text-[var(--dpal-info)]'
+                : 'text-[10px] font-black uppercase tracking-[0.3em] dpal-text-muted hover:text-cyan-400'
             }`}
           >
             <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
@@ -79,7 +79,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
             {onOpenFilters && (
               <button
                 onClick={onOpenFilters}
-                className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-zinc-800 border border-zinc-700 text-[10px] font-black uppercase tracking-wider text-zinc-300 hover:border-cyan-500/50 hover:text-cyan-400 transition-colors lg:hidden"
+                className="inline-flex items-center space-x-2 px-3 py-2 rounded-xl bg-[var(--dpal-surface-alt)] border dpal-border-emphasis text-[10px] font-black uppercase tracking-wider dpal-text-secondary hover:border-cyan-500/50 hover:text-cyan-400 transition-colors lg:hidden"
                 aria-label="Open filters"
               >
                 <ListFilter className="w-4 h-4" />
@@ -87,7 +87,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
               </button>
             )}
             {!isMyReports && (
-              <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
+              <div className="flex items-center space-x-2 text-[8px] font-black dpal-text-muted uppercase tracking-widest">
                 <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
                 <span>Positive Impact</span>
               </div>
@@ -95,7 +95,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
           </div>
        </div>
 
-      <div className="bg-zinc-900/60 border border-zinc-800 p-1.5 rounded-[2.5rem] flex items-center justify-start space-x-1.5 shadow-2xl backdrop-blur-md overflow-x-auto no-scrollbar">
+      <div className="dpal-tab-rail overflow-x-auto no-scrollbar justify-start">
         {tabs.map(tab => {
           const isActive = activeTab === tab.id;
           const TabIcon = tab.icon;
@@ -106,7 +106,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
               className={`flex-shrink-0 min-w-max flex items-center justify-center space-x-3 py-2.5 px-4 md:px-6 rounded-full text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] transition-all duration-500 ${
                 isActive
                 ? 'bg-cyan-600 text-white shadow-[0_0_25px_rgba(6,182,212,0.3)] border-t border-cyan-400/30'
-                : 'text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300'
+                : 'dpal-text-muted hover:bg-[var(--dpal-surface-alt)] hover:text-[var(--dpal-text-secondary)]'
               }`}
               aria-current={isActive ? 'page' : undefined}
             >
