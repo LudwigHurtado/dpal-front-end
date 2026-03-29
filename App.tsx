@@ -55,6 +55,7 @@ import ReportProtectPage from './components/ReportProtectPage';
 import ReportMainControlPanel from './components/ReportMainControlPanel';
 import ReportWorkPanel from './components/ReportWorkPanel';
 import CoinLaunchView from './components/CoinLaunchView';
+import EducationRoleSelectionView from './components/EducationRoleSelectionView';
 import LayoutV1 from './layouts/LayoutV1';
 import LayoutV2 from './layouts/LayoutV2';
 import { featureFlags } from './features/featureFlags';
@@ -322,6 +323,22 @@ const App: React.FC = () => {
     return [];
   });
 
+  const [healthRecords, setHealthRecords] = useState<HealthRecord[]>(() => {
+    const saved = getScopedItem('health-records');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
+
+  const [teamOpsDossiers, setTeamOpsDossiers] = useState<TacticalDossier[]>([]);
+  const [teamOpsMessages, setTeamOpsMessages] = useState<TeamMessage[]>([]);
+
   const [viewHistory, setViewHistory] = useState<View[]>(getInitialViewHistory);
   const viewRef = useRef<View>(getInitialCurrentView());
   const backNavRef = useRef(false);
@@ -362,6 +379,53 @@ const App: React.FC = () => {
       setCurrentView('categorySelection');
     }
   }, [currentView, selectedCategoryForSubmission]);
+
+  /** `store` is a Hero Hub tab, not a standalone screen — normalize persisted navigation. */
+  useLayoutEffect(() => {
+    if (currentView !== 'store') return;
+    setHeroHubTab('store');
+    setCurrentView('heroHub');
+  }, [currentView]);
+
+  /**
+   * After goBack() or session restore, `currentView` can point at a route whose UI is gated on missing state
+   * (e.g. generateMission without intel). That yields a blank main area — coerce to a safe screen.
+   */
+  useLayoutEffect(() => {
+    if (currentView === 'generateMission' && !selectedIntelForMission) {
+      setCurrentView('liveIntelligence');
+      return;
+    }
+    if (currentView === 'missionDetail' && !selectedMissionForDetail) {
+      setHeroHubTab('missions');
+      setCurrentView('heroHub');
+      return;
+    }
+    if (currentView === 'missionComplete' && !completedMissionSummary) {
+      setCurrentView('mainMenu');
+      return;
+    }
+    if (currentView === 'incidentRoom' && !selectedReportForIncidentRoom) {
+      setHubTab('my_reports');
+      setCurrentView('hub');
+      return;
+    }
+    if (currentView === 'categoryGateway' && !gatewayCategory) {
+      setCurrentView('categorySelection');
+      return;
+    }
+    if (currentView === 'categoryModeShell' && !modeShell) {
+      setCurrentView(gatewayCategory ? 'categoryGateway' : 'categorySelection');
+    }
+  }, [
+    currentView,
+    selectedIntelForMission,
+    selectedMissionForDetail,
+    completedMissionSummary,
+    selectedReportForIncidentRoom,
+    gatewayCategory,
+    modeShell,
+  ]);
 
   /** Do not bounce off certificate view while a ?reportId= / ?roomId= link is resolving (async) — that produced a blank hub with no report UI. */
   useLayoutEffect(() => {
@@ -411,7 +475,8 @@ const App: React.FC = () => {
     setScopedItem('reports', JSON.stringify(reports));
     setScopedItem('missions', JSON.stringify(missions));
     setScopedItem('directives', JSON.stringify(directives));
-  }, [hero, reports, missions, directives]);
+    setScopedItem('health-records', JSON.stringify(healthRecords));
+  }, [hero, reports, missions, directives, healthRecords]);
 
   // Deep-link: ?reportId=<id> → certified report (local list first, then GET /api/reports/:id for public QR/PDF links);
   // ?blockNumber=<n> or ?block=<n> → same via ledger index; &situationRoom=1 → incident room when record exists.
@@ -777,6 +842,13 @@ const App: React.FC = () => {
     });
   };
 
+  /** Resets stack + lands on main menu — use for Header/Bottom nav Home so back history cannot surface a broken route. */
+  const navigateHome = useCallback(() => {
+    setViewHistory([]);
+    backNavRef.current = true;
+    setCurrentView('mainMenu');
+  }, []);
+
   const handleCompleteMissionStep = (m: Mission) => {
     const actions = m.phase === 'RECON' ? m.reconActions : m.mainActions;
     const nextIdx = m.currentActionIndex + 1;
@@ -1136,7 +1208,7 @@ const App: React.FC = () => {
       {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'reportWorkPanel' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
-          onNavigateHome={() => setCurrentView('mainMenu')} 
+          onNavigateHome={navigateHome} 
           onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
           onNavigateMissions={() => handleNavigate('liveIntelligence')} 
           onNavigate={handleNavigate} 
@@ -1350,7 +1422,7 @@ const App: React.FC = () => {
         {currentView === 'politicianTransparency' && (
           <PoliticianTransparencyView
             hero={heroWithRank}
-            onReturn={() => goBack('mainMenu')}
+            onReturn={navigateHome}
             createReport={(rep, opts) => void handleAddReport(rep, opts)}
           />
         )}
@@ -1460,7 +1532,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'liveIntelligence' && (
+        {(currentView === 'liveIntelligence' || currentView === 'appLiveIntelligence') && (
           <LiveIntelligenceView onReturn={() => goBack('mainMenu')} onGenerateMission={(intel) => { setSelectedIntelForMission(intel); setCurrentView('generateMission'); }} heroLocation={heroLocation} setHeroLocation={setHeroLocation} initialCategories={initialCategoriesForIntel} textScale={globalTextScale} />
         )}
 
@@ -1541,6 +1613,79 @@ const App: React.FC = () => {
           <TrainingHolodeckView hero={heroWithRank} onReturn={() => goBack('mainMenu')} onComplete={() => {}} />
         )}
 
+        {currentView === 'medicalOutpost' && (
+          <MedicalOutpostView
+            onReturn={() => goBack('mainMenu')}
+            hero={heroWithRank}
+            records={healthRecords}
+            setRecords={setHealthRecords}
+          />
+        )}
+
+        {currentView === 'academy' && (
+          <AcademyView
+            onReturn={() => goBack('mainMenu')}
+            hero={heroWithRank}
+            onCompleteModule={(reward, _skillType) => {
+              setHero((prev) => ({
+                ...prev,
+                xp: prev.xp + reward,
+                masteryScore: prev.masteryScore + reward,
+                heroCredits: prev.heroCredits + Math.floor(reward / 5),
+              }));
+            }}
+          />
+        )}
+
+        {currentView === 'educationRoleSelection' && (
+          <EducationRoleSelectionView
+            onSelectRole={() => handleNavigate('categorySelection', Category.Education)}
+            onReturnToMenu={() => goBack('mainMenu')}
+          />
+        )}
+
+        {currentView === 'outreachEscalation' && (
+          <OutreachEscalationHub reports={reports} onReturn={() => goBack('mainMenu')} />
+        )}
+
+        {currentView === 'aiRegulationHub' && (
+          <AiRegulationHub onReturn={() => goBack('mainMenu')} hero={heroWithRank} />
+        )}
+
+        {currentView === 'threatMap' && <TacticalHeatmap onReturn={() => goBack('mainMenu')} />}
+
+        {currentView === 'teamOps' && (
+          <TeamOpsView
+            onReturn={() => goBack('mainMenu')}
+            hero={heroWithRank}
+            reports={reports}
+            missions={missions}
+            dossiers={teamOpsDossiers}
+            setDossiers={setTeamOpsDossiers}
+            messages={teamOpsMessages}
+            setMessages={setTeamOpsMessages}
+            onJoinMission={(missionId) => {
+              const m = missions.find((mi) => mi.id === missionId);
+              if (m) {
+                setSelectedMissionForDetail(m);
+                setCurrentView('missionDetail');
+              }
+            }}
+          />
+        )}
+
+        {currentView === 'tacticalVault' && (
+          <TacticalVault hero={heroWithRank} setHero={setHero} onReturn={() => goBack('mainMenu')} reports={reports} />
+        )}
+
+        {currentView === 'subscription' && (
+          <SubscriptionView
+            hero={heroWithRank}
+            onReturn={() => goBack('mainMenu')}
+            onUpgrade={(tier) => setHero((prev) => ({ ...prev, subscriptionTier: tier }))}
+          />
+        )}
+
         {currentView === 'incidentRoom' && selectedReportForIncidentRoom && (
           <IncidentRoomView
             report={selectedReportForIncidentRoom}
@@ -1606,7 +1751,10 @@ const App: React.FC = () => {
       </main>
 
       {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && !(isMobileCommunityFeed) && (
-        <BottomNav currentView={currentView} onNavigate={(view) => handleNavigate(view)} />
+        <BottomNav
+          currentView={currentView}
+          onNavigate={(view) => (view === 'mainMenu' ? navigateHome() : handleNavigate(view))}
+        />
       )}
 
     </div>

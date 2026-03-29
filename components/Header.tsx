@@ -139,11 +139,11 @@ const Header: React.FC<HeaderProps> = ({
     else setTextScale('standard');
   };
 
+  /** View / accessibility mode — do not navigate to the report category flow (that path is reserved for “Share a report”). */
   const openViewModeSetup = () => {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new Event('dpal-open-view-mode-setup'));
     }
-    onNavigate('categorySelection');
   };
 
   const handleScroll = () => {
