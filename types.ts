@@ -31,7 +31,11 @@ export enum Category {
     P2PEscrowVerification = 'P2P Escrow & Document Verification',
     ProofOfLifeBiometric = 'Proof of Life & Biometric Verification',
     /** In-app help and community support */
-    DpalHelp = 'DPAL Help'
+    DpalHelp = 'DPAL Help',
+    /** Ride & assistance lifts — reporting surface (logic TBD) */
+    DpalLifts = 'DPAL Lifts',
+    /** Civic mission marketplace — reporting surface (logic TBD) */
+    DpalWorkNetwork = 'DPAL Work Network'
 }
 
 export enum SubscriptionTier {

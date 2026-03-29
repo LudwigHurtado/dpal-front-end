@@ -88,6 +88,8 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.HousingIssues, translationKey: "categories.housingIssues", icon: "🏚️", imageSeed: "unsafe-housing-repair-violation", headline: "Housing Issues" },
   { value: Category.P2PEscrowVerification, translationKey: "categories.p2pEscrowVerification", icon: "🤝", imageSeed: "digital-contract-signature-secure", headline: "P2P Escrow & Document Verification" },
   { value: Category.ProofOfLifeBiometric, translationKey: "categories.proofOfLifeBiometric", icon: "🧬", imageSeed: "biometric-fingerprint-face-scan", headline: "Proof of Life & Biometric Verification" },
+  { value: Category.DpalLifts, translationKey: "categories.dpalLifts", icon: "🛡️", imageSeed: "dpal-lifts-assistance", headline: "Decentralized Public Assistance Lifts" },
+  { value: Category.DpalWorkNetwork, translationKey: "categories.dpalWorkNetwork", icon: "🎯", imageSeed: "dpal-work-network-missions", headline: "DPAL Work Network" },
   { value: Category.DpalHelp, translationKey: "categories.dpalHelp", icon: "🛟", imageSeed: "dpal-help", headline: "Get help from DPAL" },
 ].sort((a, b) => a.value.localeCompare(b.value));
 
@@ -538,6 +540,24 @@ export const FORM_BUNDLE: { bundle_version: string; categories: Record<string, a
             deep_dive_questions: [
                 { id: "DPH_DD_01", section: "DPAL Help", label: "Screen or topic (if known)", required: false, answer_type: "short_text" },
                 { id: "DPH_DD_02", section: "DPAL Help", label: "What have you already tried?", required: false, answer_type: "short_text" }
+            ]
+        },
+        [Category.DpalLifts]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "DPL_01", section: "DPAL Lifts", label: "What assistance or ride context should we know?", required: true, answer_type: "short_text", institutional_value_tag: "audit" }
+            ],
+            deep_dive_questions: [
+                { id: "DPL_DD_01", section: "DPAL Lifts", label: "Pickup / destination or organization (if applicable)", required: false, answer_type: "short_text" }
+            ]
+        },
+        [Category.DpalWorkNetwork]: {
+            core_questions: [
+                ...GLOBAL_CORE,
+                { id: "DWN_01", section: "DPAL Work Network", label: "Mission or workplace objective (summary)", required: true, answer_type: "short_text", institutional_value_tag: "audit" }
+            ],
+            deep_dive_questions: [
+                { id: "DWN_DD_01", section: "DPAL Work Network", label: "Category or skill tags (optional)", required: false, answer_type: "short_text" }
             ]
         }
     }

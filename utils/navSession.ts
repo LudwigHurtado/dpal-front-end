@@ -30,6 +30,7 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'medicalOutpost',
   'academy',
   'aiWorkDirectives',
+  'dpalLifts',
   'outreachEscalation',
   'ecosystem',
   'sustainmentCenter',

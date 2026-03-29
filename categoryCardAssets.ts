@@ -40,6 +40,8 @@ export const CATEGORY_IMAGE_BY_TYPE: Partial<Record<Category, string>> = {
   [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
   [Category.Other]: '/category-cards/Independent Discoveries.png',
   [Category.DpalHelp]: '/category-cards/dpal-help.png',
+  [Category.DpalLifts]: '/category-cards/dpal-lifts.png',
+  [Category.DpalWorkNetwork]: '/main-screen/dpal-work-network.png',
 };
 
 export type CategorySpritePos = { x: number; y: number };

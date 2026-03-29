@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ShieldCheck, User, Coins, Gem, Globe, Maximize2, Search, Monitor, Broadcast, Store, List, Package, Database, Zap, Target, Award, ChevronLeft, ChevronRight, Activity, X, Home, Sparkles, AlertTriangle, Megaphone } from './icons';
+import { ShieldCheck, Shield, User, Coins, Gem, Globe, Maximize2, Search, Monitor, Broadcast, Store, List, Package, Database, Zap, Target, Award, ChevronLeft, ChevronRight, Activity, X, Home, Sparkles, AlertTriangle, Megaphone, Briefcase } from './icons';
 import { useTranslations } from '../i18n';
 import { type Hero, SubscriptionTier, type Category } from '../types';
 import { TextScale, type View, type HeroHubTab, type HubTab } from '../App';
@@ -84,10 +84,7 @@ const SystemTicker: React.FC = () => {
     ];
 
     return (
-        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 border-x border-[color:color-mix(in_srgb,var(--dpal-border)_45%,transparent)] flex items-center bg-[color-mix(in_srgb,var(--dpal-panel)_92%,var(--dpal-purple)_5%)] rounded-xl px-4 min-w-0 shadow-sm">
-            <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black to-transparent z-10"></div>
-            <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black to-transparent z-10"></div>
-            
+        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 flex items-center bg-zinc-950 rounded-xl px-4 min-w-0 border border-zinc-800/90 shadow-inner">
             <div className="whitespace-nowrap animate-ticker flex items-center space-x-12">
                 {[...messages, ...messages].map((msg, idx) => (
                     <div key={idx} className="flex items-center space-x-4">
@@ -269,6 +266,20 @@ const Header: React.FC<HeaderProps> = ({
                 <NavIcon label="Community stories" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
                 <NavIcon label="Public record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
                 <NavIcon label="Neighbors & missions" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
+                <NavIcon
+                    label="DPAL Lifts"
+                    title="DPAL Lifts — Decentralized Public Assistance Lifts"
+                    color="emerald"
+                    icon={<Shield className="w-5 h-5"/>}
+                    onClick={() => onNavigate('dpalLifts')}
+                />
+                <NavIcon
+                    label="Work Network"
+                    title="DPAL Work Network"
+                    color="blue"
+                    icon={<Briefcase className="w-5 h-5"/>}
+                    onClick={() => onNavigate('aiWorkDirectives')}
+                />
                 <NavIcon label="Learning lab" color="purple" icon={<Monitor className="w-5 h-5"/>} onClick={() => onNavigate('trainingHolodeck')} />
                 <NavIcon label="My collection" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
                 <NavIcon label="Wallet & coins" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
@@ -311,7 +322,7 @@ const Header: React.FC<HeaderProps> = ({
   );
 };
 
-const NavIcon: React.FC<{ icon: React.ReactNode, label: string, color: string, onClick: () => void }> = ({ icon, label, color, onClick }) => {
+const NavIcon: React.FC<{ icon: React.ReactNode; label: string; color: string; onClick: () => void; title?: string }> = ({ icon, label, color, onClick, title }) => {
     const colorHex: Record<string, string> = {
         cyan: '#22d3ee',
         emerald: '#10b981',
@@ -323,6 +334,8 @@ const NavIcon: React.FC<{ icon: React.ReactNode, label: string, color: string, o
 
     return (
         <button 
+            type="button"
+            title={title ?? label}
             onClick={onClick}
             className="flex flex-col items-center justify-center space-y-2 group transition-all flex-shrink-0 relative px-1 md:px-2"
         >

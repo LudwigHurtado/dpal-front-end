@@ -414,12 +414,22 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Coins className="w-8 h-8" />}
-                    label="Earn & Shine"
-                    subLabel="Recognition for care — not cash value"
+                    label="DPAL Work Network"
+                    subLabel="Mission marketplace — choose work that matters"
                     status="Bright"
                     colorClass="amber"
-                    bgImageUrl="/next-view/sector-dpal-coin.png"
-                    onClick={() => onNavigate('reportWorkPanel')}
+                    bgImageUrl="/main-screen/dpal-work-network.png"
+                    onClick={() => onNavigate('aiWorkDirectives')}
+                />
+
+                <PrimaryNavModule
+                    icon={<ShieldCheck className="w-8 h-8" />}
+                    label="DPAL Lifts"
+                    subLabel="Decentralized Public Assistance Lifts"
+                    status="Soon"
+                    colorClass="emerald"
+                    bgImageUrl="/category-cards/dpal-lifts.png"
+                    onClick={() => onNavigate('dpalLifts')}
                 />
 
                 <PrimaryNavModule 
@@ -474,7 +484,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
             <div className="my-20 border-t dpal-border-subtle"></div>
             
             <div className="flex flex-col items-center gap-8 mb-16 max-w-4xl mx-auto relative z-20">
-                <h2 className="text-center text-3xl font-bold leading-tight tracking-tight dpal-text-primary">Find your cause</h2>
+                <h2 className="text-center text-3xl font-bold leading-tight tracking-tight text-white">Find your cause</h2>
                 <div className="w-full">
                      <div className="relative group">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-8">
@@ -485,7 +495,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                           value={categorySearch}
                           onChange={(e) => setCategorySearch(e.target.value)}
                           placeholder="Search categories you care about…"
-                          className="w-full pl-20 pr-20 py-6 dpal-bg-deep border-2 dpal-border-subtle rounded-[2.5rem] focus:ring-4 focus:ring-cyan-500/10 focus:border-cyan-500 transition-all dpal-text-primary font-bold tracking-tight text-xl shadow-inner uppercase placeholder:text-[var(--dpal-placeholder)]"
+                          className="w-full pl-20 pr-20 py-6 dpal-bg-deep border-2 dpal-border-subtle rounded-[2.5rem] focus:ring-4 focus:ring-cyan-500/10 focus:border-cyan-500 transition-all text-white font-bold tracking-tight text-xl shadow-inner uppercase placeholder:text-[var(--dpal-placeholder)]"
                         />
                     </div>
                 </div>
@@ -531,7 +541,10 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                 <DualCometBorder color="#06b6d4" radius="2.5rem" hoverable={true} />
                                 <div className="flex flex-col p-6 md:p-8">
                                     <div className="relative z-30 mb-5 text-center px-1">
-                                        <div className="text-sm md:text-base font-black uppercase tracking-tight dpal-text-primary">
+                                        <div
+                                            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
+                                            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
+                                        >
                                             {t(cat.translationKey)}
                                         </div>
                                     </div>
@@ -560,7 +573,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                 }}
                                             />
                                         )}
-                                        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-[color-mix(in_srgb,var(--dpal-primary)_6%,transparent)] to-[color-mix(in_srgb,var(--dpal-purple)_8%,transparent)]" />
+                                        <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-black/0 via-[color-mix(in_srgb,var(--dpal-background-secondary)_10%,transparent)] to-[color-mix(in_srgb,var(--dpal-background-secondary)_30%,transparent)]" />
                                     </div>
 
                                     <div className="mt-5 relative z-20 flex items-center gap-3">
@@ -571,7 +584,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                         >
                                             Report
                                         </button>
-                                        <div className="w-12 h-12 rounded-2xl border dpal-border-subtle bg-[color-mix(in_srgb,var(--dpal-panel)_88%,var(--dpal-purple)_6%)] backdrop-blur flex items-center justify-center flex-shrink-0 shadow-sm">
+                                        <div className="w-12 h-12 rounded-2xl border border-white/10 bg-black/40 backdrop-blur flex items-center justify-center flex-shrink-0">
                                             <span className="text-3xl leading-none">{cat.icon}</span>
                                         </div>
                                         <div className="relative flex-1">
@@ -596,11 +609,11 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                 role="menu"
                                                 onClick={(e) => e.stopPropagation()}
                                             >
-                                                <button type="button" onClick={runPlay} className="w-full px-4 py-3 text-left dpal-text-primary hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Play</button>
-                                                <button type="button" onClick={runHelp} className="w-full px-4 py-3 text-left dpal-text-primary hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Help</button>
-                                                <button type="button" onClick={runWork} className="w-full px-4 py-3 text-left dpal-text-primary hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Work</button>
+                                                <button type="button" onClick={runPlay} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Play</button>
+                                                <button type="button" onClick={runHelp} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Help</button>
+                                                <button type="button" onClick={runWork} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Work</button>
                                                 {cat.value === Category.GoodDeeds && (
-                                                    <button type="button" onClick={runMissions} className="w-full px-4 py-3 text-left dpal-text-primary hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Good Deed Missions</button>
+                                                    <button type="button" onClick={runMissions} className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest" role="menuitem">Good Deed Missions</button>
                                                 )}
                                                 <button
                                                     type="button"
@@ -609,7 +622,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                                                         if (onDispatchActionsReport) onDispatchActionsReport();
                                                         else onNavigate('reportSubmission', cat.value);
                                                     }}
-                                                    className="w-full px-4 py-3 text-left dpal-text-primary hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest"
+                                                    className="w-full px-4 py-3 text-left text-white hover:bg-[var(--dpal-surface)] text-[10px] font-black uppercase tracking-widest"
                                                     role="menuitem"
                                                 >
                                                     Report

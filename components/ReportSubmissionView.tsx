@@ -61,6 +61,8 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
         [Category.Other]: '/category-cards/Independent Discoveries.png',
         [Category.DpalHelp]: '/category-cards/dpal-help.png',
+        [Category.DpalLifts]: '/category-cards/dpal-lifts.png',
+        [Category.DpalWorkNetwork]: '/main-screen/dpal-work-network.png',
     };
     const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
 

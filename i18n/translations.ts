@@ -624,7 +624,9 @@ export const translations = {
       housingIssues: "Housing Issues",
       p2pEscrowVerification: "P2P Escrow & Document Verification",
       proofOfLifeBiometric: "Proof of Life & Biometric Verification",
-      dpalHelp: "DPAL Help"
+      dpalHelp: "DPAL Help",
+      dpalLifts: "DPAL Lifts",
+      dpalWorkNetwork: "DPAL Work Network"
     },
     liveIntelligence: {
       title: "Live Intelligence",

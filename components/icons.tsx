@@ -47,6 +47,8 @@ export const Activity = Icon(<polyline points="22 12 18 12 15 21 9 3 6 12 2 12" 
 export const Zap = Icon(<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />);
 export const X = Icon(<><line x1="18" x2="6" y1="6" y2="18" /><line x1="6" x2="18" y1="6" y2="18" /></>);
 export const ShieldCheck = Icon(<><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" /><path d="m9 12 2 2 4-4" /></>);
+/** Outline shield (no checkmark) — e.g. DPAL Lifts */
+export const Shield = Icon(<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />);
 export const User = Icon(<><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></>);
 export const Coins = Icon(<><circle cx="8" cy="8" r="6" /><path d="M18.09 10.37A6 6 0 1 1 10.34 18" /></>);
 export const Gem = Icon(<><path d="M6 3h12l4 6-10 12L2 9z" /><path d="M11 3 8 9l4 12 4-12-3-6" /><path d="M2 9h20" /></>);

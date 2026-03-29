@@ -38,6 +38,7 @@ import MedicalOutpostView from './components/MedicalOutpostView';
 import AcademyView from './components/AcademyView';
 import LedgerScanner from './components/LedgerScanner';
 import AiWorkDirectivesView from './components/AiWorkDirectivesView';
+import DpalLiftsView from './components/DpalLiftsView';
 import OutreachEscalationHub from './components/OutreachEscalationHub';
 import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
@@ -78,7 +79,7 @@ import { readNavSession, writeNavSession, categoryFromSession } from './utils/na
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -1729,6 +1730,8 @@ const App: React.FC = () => {
             onCompleteDirective={handleCompleteDirective}
           />
         )}
+
+        {currentView === 'dpalLifts' && <DpalLiftsView onReturn={() => goBack('mainMenu')} />}
 
         {currentView === 'ecosystem' && (
           <EcosystemOverview
