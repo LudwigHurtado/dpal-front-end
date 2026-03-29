@@ -39,7 +39,15 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
   const renderContent = () => {
     switch (activeTab) {
       case 'my_reports':
-        return <MyReportsList reports={reports} onJoinReportChat={onJoinReportChat} onAddNewReport={onAddNewReport} />;
+        return (
+          <MyReportsList
+            reports={reports}
+            onJoinReportChat={onJoinReportChat}
+            onAddNewReport={onAddNewReport}
+            onReturnHome={onReturnToMainMenu}
+            onOpenCommunityFeed={() => setActiveTab('community')}
+          />
+        );
       case 'community':
         return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} {...rest} />;
       case 'work_feed':
@@ -51,15 +59,21 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
     }
   };
 
+  const isMyReports = activeTab === 'my_reports';
+
   return (
-    <div className="space-y-8 font-mono animate-fade-in">
+    <div className={`space-y-8 animate-fade-in ${isMyReports ? 'font-sans' : 'font-mono'}`}>
        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 sm:gap-6">
           <button
             onClick={onReturnToMainMenu}
-            className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors group"
+            className={`inline-flex items-center space-x-3 transition-colors group ${
+              isMyReports
+                ? 'text-sm font-medium text-slate-500 hover:text-sky-700'
+                : 'text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400'
+            }`}
           >
             <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-            <span>TERMINAL_EXIT</span>
+            <span>{isMyReports ? 'Back to home' : 'TERMINAL_EXIT'}</span>
           </button>
           <div className="flex items-center gap-3">
             {onOpenFilters && (
@@ -72,10 +86,12 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
                 <span>Filters</span>
               </button>
             )}
-            <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
-              <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
-              <span>Network_Search_Active</span>
-            </div>
+            {!isMyReports && (
+              <div className="flex items-center space-x-2 text-[8px] font-black text-zinc-600 uppercase tracking-widest">
+                <ShieldCheck className="w-4 h-4 text-emerald-500/50" />
+                <span>Network_Search_Active</span>
+              </div>
+            )}
           </div>
        </div>
 
