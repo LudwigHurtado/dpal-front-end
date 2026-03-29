@@ -84,12 +84,15 @@ const SystemTicker: React.FC = () => {
     ];
 
     return (
-        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 flex items-center bg-zinc-950 rounded-xl px-4 min-w-0 border border-zinc-800/90 shadow-inner">
+        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 flex items-center rounded-xl px-4 min-w-0 bg-[var(--dpal-topbar)] border border-[color:color-mix(in_srgb,var(--dpal-border-strong)_55%,transparent)]">
             <div className="whitespace-nowrap animate-ticker flex items-center space-x-12">
                 {[...messages, ...messages].map((msg, idx) => (
                     <div key={idx} className="flex items-center space-x-4">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_10px_rgba(34,211,238,1)] animate-pulse"></div>
-                        <span className="text-[9px] font-medium italic text-cyan-300/90 transition-all duration-500 group-hover:text-white">
+                        <div
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse shrink-0"
+                            style={{ boxShadow: '0 0 10px rgba(59, 130, 246, 0.85)' }}
+                        />
+                        <span className="text-[9px] font-medium italic text-blue-400 transition-colors duration-500 group-hover:text-blue-300 [text-shadow:0_0_24px_rgba(59,130,246,0.35)]">
                             {msg}
                         </span>
                     </div>
