@@ -36,12 +36,12 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentView, onNavigate, classNam
               type="button"
               onClick={() => onNavigate(item.view)}
               className={`flex flex-col items-center justify-center flex-1 min-w-0 py-2 gap-1 transition-colors ${
-                active ? 'text-cyan-400' : 'text-[var(--dpal-text-muted)] hover:text-[var(--dpal-text-secondary)]'
+                active ? 'text-indigo-600' : 'text-[var(--dpal-text-muted)] hover:text-[var(--dpal-text-secondary)]'
               }`}
               aria-current={active ? 'page' : undefined}
               aria-label={item.label}
             >
-              <Icon className={`w-6 h-6 flex-shrink-0 ${active ? 'drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]' : ''}`} />
+              <Icon className={`w-6 h-6 flex-shrink-0 ${active ? 'drop-shadow-[0_0_8px_rgba(79,70,229,0.35)]' : ''}`} />
               <span className="text-[10px] font-black uppercase tracking-wider truncate w-full text-center">
                 {item.label}
               </span>

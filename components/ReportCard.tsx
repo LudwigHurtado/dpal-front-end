@@ -62,7 +62,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
   const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === report.category);
 
   return (
-    <div className={`group bg-[var(--dpal-report-card)] text-[var(--dpal-text-primary)] border-2 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-lg relative font-sans flex flex-col ${report.isActionable ? 'border-rose-500/45' : 'border-[var(--dpal-border)] hover:border-cyan-500/35'}`}>
+    <div className={`group bg-[var(--dpal-report-card)] text-[var(--dpal-text-primary)] border-2 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-lg relative font-sans flex flex-col ${report.isActionable ? 'border-rose-500/45' : 'border-[var(--dpal-border)] hover:border-indigo-300'}`}>
       
       {/* ACTIONABLE BADGE */}
       {report.isActionable && (
@@ -75,9 +75,9 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
       {/* Ledger Fragment Header */}
       <div className="bg-[var(--dpal-surface-alt)] border-b border-[var(--dpal-border)] px-4 py-4 sm:px-8 sm:py-5 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center space-x-3 sm:space-x-4 min-w-0">
-              <div className={`w-2 h-2 rounded-full animate-ping shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'bg-rose-500 shadow-[0_0_10px_rose]' : 'bg-cyan-500'}`}></div>
+              <div className={`w-2 h-2 rounded-full animate-ping shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'bg-rose-500 shadow-[0_0_10px_rose]' : 'bg-indigo-500'}`}></div>
               <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[var(--dpal-text-secondary)] truncate">Report #{safeId.split('-').pop()}</span>
-              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'text-rose-300 border-rose-500/40 bg-rose-950/50' : 'text-[var(--dpal-text-muted)] border-[var(--dpal-border)] bg-[var(--dpal-surface)]'}`}>Severity: {safeSeverity.toUpperCase()}</span>
+              <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border shrink-0 ${safeSeverity === 'Critical' || safeSeverity === 'Catastrophic' ? 'text-rose-800 border-rose-200 bg-rose-50' : 'text-[var(--dpal-text-muted)] border-[var(--dpal-border)] bg-[var(--dpal-surface-alt)]'}`}>Severity: {safeSeverity.toUpperCase()}</span>
           </div>
           <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2 text-[10px] font-black text-[var(--dpal-text-muted)] uppercase bg-[var(--dpal-surface)] px-3 py-1 rounded-lg border border-[var(--dpal-border)]">
@@ -94,7 +94,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
               <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 md:gap-6">
                   <div className="space-y-3 md:space-y-4 flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-3 md:gap-4">
-                          <div className="bg-cyan-950/40 text-cyan-400 px-3 sm:px-4 py-1.5 rounded-full border border-cyan-800/50 flex items-center space-x-2">
+                          <div className="bg-indigo-50 text-indigo-900 px-3 sm:px-4 py-1.5 rounded-full border border-indigo-200 flex items-center space-x-2">
                               <span className="text-lg">{categoryInfo?.icon}</span>
                               <span className="text-[10px] font-black uppercase tracking-widest">{safeCategory.toUpperCase()}</span>
                           </div>
@@ -103,41 +103,41 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                               <span className="truncate max-w-[min(100%,220px)] sm:max-w-[200px]">{safeLocation}</span>
                           </div>
                       </div>
-                      <h3 className="text-xl sm:text-2xl md:text-4xl font-black text-white leading-tight tracking-tighter uppercase group-hover:text-cyan-100 transition-colors">
+                      <h3 className="text-xl sm:text-2xl md:text-4xl font-black text-[var(--dpal-text-primary)] leading-tight tracking-tighter uppercase group-hover:text-indigo-800 transition-colors">
                         {safeTitle}
                       </h3>
                   </div>
 
-                  <div className="hidden md:flex items-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-3xl border border-[var(--dpal-border-strong)] shadow-inner self-start">
+                  <div className="hidden md:flex items-center space-x-6 flex-shrink-0 bg-slate-100 p-4 rounded-3xl border border-[var(--dpal-border)] shadow-inner self-start">
                       <div className="text-center">
                           <p className="text-[8px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest mb-1">Trust_Index</p>
-                          <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{safeTrustScore}%</p>
+                          <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-700' : 'text-amber-700'}`}>{safeTrustScore}%</p>
                       </div>
                       <div className="w-px h-10 bg-[var(--dpal-border-strong)]"></div>
-                      <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-[var(--dpal-text-muted)]'}`} />
+                      <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-700' : 'text-[var(--dpal-text-muted)]'}`} />
                   </div>
               </div>
 
               {/* Narrative before trust on phones; desktop duplicate lives below trust in row */}
-              <div className="md:hidden bg-[color-mix(in_srgb,var(--dpal-background)_50%,transparent)] border-l-4 border-[var(--dpal-border-strong)] pl-4 sm:pl-8 py-2 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
-                  <p className="text-[var(--dpal-text-secondary)] text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
+              <div className="md:hidden bg-slate-50 border-l-4 border-indigo-500 pl-4 sm:pl-8 py-3 relative overflow-hidden rounded-r-xl">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.07]"><Broadcast className="w-20 h-20 text-indigo-600"/></div>
+                  <p className="text-slate-700 text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
                     "{safeDescription}"
                   </p>
               </div>
 
-              <div className="flex md:hidden items-center justify-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-2xl border border-[var(--dpal-border-strong)] shadow-inner w-full">
+              <div className="flex md:hidden items-center justify-center space-x-6 flex-shrink-0 bg-slate-100 p-4 rounded-2xl border border-[var(--dpal-border)] shadow-inner w-full">
                   <div className="text-center">
                       <p className="text-[8px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest mb-1">Trust_Index</p>
-                      <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{safeTrustScore}%</p>
+                      <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-700' : 'text-amber-700'}`}>{safeTrustScore}%</p>
                   </div>
                   <div className="w-px h-10 bg-[var(--dpal-border-strong)]"></div>
-                  <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-[var(--dpal-text-muted)]'}`} />
+                  <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-700' : 'text-[var(--dpal-text-muted)]'}`} />
               </div>
 
-              <div className="hidden md:block bg-[color-mix(in_srgb,var(--dpal-background)_50%,transparent)] border-l-4 border-[var(--dpal-border-strong)] pl-8 py-2 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
-                  <p className="text-[var(--dpal-text-secondary)] text-sm leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
+              <div className="hidden md:block bg-slate-50 border-l-4 border-indigo-500 pl-8 py-3 relative overflow-hidden rounded-r-xl">
+                  <div className="absolute top-0 right-0 p-4 opacity-[0.07]"><Broadcast className="w-20 h-20 text-indigo-600"/></div>
+                  <p className="text-slate-700 text-sm leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
                     "{safeDescription}"
                   </p>
               </div>
@@ -147,30 +147,30 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
           <div className="space-y-4">
                <button 
                 onClick={() => setShowForensics(!showForensics)}
-                className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest text-cyan-500/80 hover:text-cyan-400 transition-colors"
+                className="flex items-center space-x-3 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
                >
                    <FileText className="w-4 h-4" />
                    <span>{showForensics ? 'Hide_Forensic_Data' : 'View_Forensic_Dossier'}</span>
                </button>
                
                {showForensics && report.structuredData && (
-                   <div className="bg-black/60 border-2 border-[var(--dpal-border-strong)] rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-fade-in shadow-inner">
+                   <div className="bg-slate-50 border-2 border-[var(--dpal-border)] rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-fade-in shadow-inner">
                        {Object.entries(report.structuredData).map(([key, val]: [string, any]) => {
                            if (key === 'diagnosticTools' && Array.isArray(val)) return null;
                            return (
                                <div key={key} className="space-y-1">
-                                   <p className="text-[8px] font-black text-cyan-600/80 uppercase tracking-[0.2em]">{key.replace(/([A-Z])/g, '_$1').toUpperCase()}</p>
-                                   <p className="text-[11px] font-bold text-white uppercase truncate">{Array.isArray(val) ? val.join(', ') : String(val)}</p>
+                                   <p className="text-[8px] font-black text-indigo-600 uppercase tracking-[0.2em]">{key.replace(/([A-Z])/g, '_$1').toUpperCase()}</p>
+                                   <p className="text-[11px] font-bold text-slate-800 uppercase truncate">{Array.isArray(val) ? val.join(', ') : String(val)}</p>
                                </div>
                            );
                        })}
                        
                        {report.structuredData.diagnosticTools && (
                            <div className="col-span-full pt-4 border-t border-[color-mix(in_srgb,var(--dpal-border-strong)_40%,transparent)] mt-2">
-                               <p className="text-[8px] font-black text-cyan-500/80 uppercase tracking-[0.2em] mb-2">Applied_Diagnostic_Toolkit</p>
+                               <p className="text-[8px] font-black text-indigo-600 uppercase tracking-[0.2em] mb-2">Applied_Diagnostic_Toolkit</p>
                                <div className="flex flex-wrap gap-2">
                                    {report.structuredData.diagnosticTools.map((tool: string) => (
-                                       <span key={tool} className="bg-cyan-950/20 border border-cyan-900/50 text-cyan-400 px-3 py-1 rounded-lg text-[9px] font-black uppercase">{tool}</span>
+                                       <span key={tool} className="bg-indigo-50 border border-indigo-200 text-indigo-900 px-3 py-1 rounded-lg text-[9px] font-black uppercase">{tool}</span>
                                    ))}
                                </div>
                            </div>
@@ -178,7 +178,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
 
                        <div className="col-span-full pt-4 border-t border-[var(--dpal-border-strong)] mt-2 flex items-center justify-between">
                            <p className="text-[8px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">Metadata_Validation: STABLE</p>
-                           <div className="flex items-center space-x-2 text-emerald-500/50">
+                           <div className="flex items-center space-x-2 text-emerald-700">
                                <ShieldCheck className="w-3 h-3"/>
                                <span className="text-[7px] font-black uppercase tracking-tighter">SECURE_ID_LOCKED</span>
                            </div>
@@ -189,7 +189,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
 
           <div className="flex flex-wrap items-center justify-between gap-6 pt-6 md:pt-8 border-t border-[color-mix(in_srgb,var(--dpal-border-strong)_50%,transparent)]">
               <div className="flex items-center space-x-8">
-                  <button onClick={() => setShowQr(true)} className="flex items-center space-x-3 text-[10px] font-black uppercase text-[var(--dpal-text-muted)] hover:text-cyan-400 transition-colors">
+                  <button onClick={() => setShowQr(true)} className="flex items-center space-x-3 text-[10px] font-black uppercase text-[var(--dpal-text-muted)] hover:text-indigo-600 transition-colors">
                       <QrCode className="w-5 h-5" />
                       <span>Link_Shard</span>
                   </button>
