@@ -184,17 +184,17 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
   };
 
   return (
-    <div className="animate-fade-in overflow-hidden rounded-[1.75rem] border border-slate-200/90 bg-gradient-to-b from-slate-50 via-white to-slate-50/80 font-sans antialiased text-slate-900 shadow-[0_24px_60px_-12px_rgba(15,23,42,0.12)]">
+    <div className="animate-fade-in overflow-hidden rounded-[1.75rem] border border-[color:var(--dpal-border)] bg-gradient-to-b from-[var(--dpal-surface)] via-[var(--dpal-background-secondary)] to-[var(--dpal-surface)] font-sans antialiased text-[var(--dpal-text-primary)] shadow-[var(--dpal-shadow-lg)]">
       {/* In-page app chrome: premium civic header */}
-      <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+      <header className="border-b border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-panel)_92%,transparent)] backdrop-blur-md">
         <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-sky-500 to-cyan-600 text-lg font-bold text-white shadow-md shadow-sky-500/25">
               D
             </div>
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">DPAL</p>
-              <p className="text-sm font-semibold text-slate-800">Decentralized Public Accountability Ledger</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[var(--dpal-text-muted)]">DPAL</p>
+              <p className="text-sm font-semibold text-[var(--dpal-text-primary)]">Decentralized Public Accountability Ledger</p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1 sm:gap-2">
@@ -202,7 +202,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
               link.active ? (
                 <span
                   key={link.label}
-                  className="rounded-full bg-sky-100 px-2.5 py-1.5 text-[11px] font-semibold text-sky-900 ring-1 ring-sky-200/80"
+                  className="rounded-full bg-[color-mix(in_srgb,var(--dpal-primary)_18%,transparent)] px-2.5 py-1.5 text-[11px] font-semibold text-[var(--dpal-accent)] ring-1 ring-[color:color-mix(in_srgb,var(--dpal-primary)_35%,transparent)]"
                   aria-current="page"
                 >
                   {link.label}
@@ -216,27 +216,27 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                       handleNav(link.action);
                     }
                   }}
-                  className="rounded-full px-2.5 py-1.5 text-[11px] font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800"
+                  className="rounded-full px-2.5 py-1.5 text-[11px] font-medium text-[var(--dpal-text-muted)] transition-colors hover:bg-[color-mix(in_srgb,var(--dpal-border)_22%,transparent)] hover:text-[var(--dpal-text-primary)]"
                 >
                   {link.label}
                 </button>
               ),
             )}
-            <span className="mx-1 hidden h-4 w-px bg-slate-200 sm:inline" aria-hidden />
+            <span className="mx-1 hidden h-4 w-px bg-[var(--dpal-border-strong)] sm:inline" aria-hidden />
             <button
               type="button"
-              className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+              className="rounded-full p-2 text-[var(--dpal-text-muted)] hover:bg-[color-mix(in_srgb,var(--dpal-border)_22%,transparent)]"
               aria-label="Notifications"
             >
               <Activity className="h-4 w-4" />
             </button>
-            <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Wallet">
+            <button type="button" className="rounded-full p-2 text-[var(--dpal-text-muted)] hover:bg-[color-mix(in_srgb,var(--dpal-border)_22%,transparent)]" aria-label="Wallet">
               <CreditCard className="h-4 w-4" />
             </button>
-            <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Account">
+            <button type="button" className="rounded-full p-2 text-[var(--dpal-text-muted)] hover:bg-[color-mix(in_srgb,var(--dpal-border)_22%,transparent)]" aria-label="Account">
               <User className="h-4 w-4" />
             </button>
-            <button type="button" className="rounded-full p-2 text-slate-500 hover:bg-slate-100" aria-label="Settings">
+            <button type="button" className="rounded-full p-2 text-[var(--dpal-text-muted)] hover:bg-[color-mix(in_srgb,var(--dpal-border)_22%,transparent)]" aria-label="Settings">
               <Settings className="h-4 w-4" />
             </button>
           </div>
@@ -247,41 +247,41 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
         {/* Main column */}
         <div className="min-w-0 space-y-8">
           {/* Hero */}
-          <section className="relative overflow-hidden rounded-3xl border border-sky-100/90 bg-gradient-to-br from-sky-50/95 via-white to-cyan-50/40 p-6 shadow-sm sm:p-8">
-            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-200/30 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-amber-200/25 blur-3xl" />
+          <section className="relative overflow-hidden rounded-3xl border border-[color:color-mix(in_srgb,var(--dpal-primary)_22%,transparent)] bg-gradient-to-br from-[var(--dpal-panel)] via-[var(--dpal-surface)] to-[color-mix(in_srgb,var(--dpal-primary)_12%,var(--dpal-background-secondary))] p-6 shadow-[var(--dpal-shadow-md)] sm:p-8">
+            <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-cyan-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-10 -left-10 h-40 w-40 rounded-full bg-amber-500/10 blur-3xl" />
             <div className="relative">
               <div className="mb-4 flex flex-wrap gap-2">
                 {['Private Drafts', 'Verified Records', 'Family Safe', 'Community Tools', 'Positive Impact'].map((tag) => (
                   <span
                     key={tag}
-                    className="rounded-full border border-white/80 bg-white/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm backdrop-blur-sm"
+                    className="rounded-full border border-white/80 bg-[color-mix(in_srgb,var(--dpal-card)_70%,transparent)] px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--dpal-text-secondary)] shadow-sm backdrop-blur-sm"
                   >
                     {tag}
                   </span>
                 ))}
               </div>
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">My Reports</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+              <h1 className="text-2xl font-bold tracking-tight text-[var(--dpal-text-primary)] sm:text-3xl">My Reports</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--dpal-text-secondary)] sm:text-base">
                 Track your contributions, follow progress, and help create safer communities.
               </p>
-              <p className="mt-2 text-xs font-medium text-sky-800/90">Trusted Record Builder</p>
+              <p className="mt-2 text-xs font-medium text-[var(--dpal-accent)]">Trusted Record Builder</p>
 
               {/* Mini visual banner */}
-              <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-sky-100 bg-white/80 p-4 shadow-inner">
+              <div className="mt-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[color:color-mix(in_srgb,var(--dpal-primary)_20%,transparent)] bg-[color-mix(in_srgb,var(--dpal-card)_85%,transparent)] p-4 shadow-inner">
                 <div className="flex -space-x-2">
                   {['👨‍👩‍👧', '🏘️', '🛡️', '🌱', '🤝'].map((emoji, i) => (
                     <span
                       key={i}
-                      className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-gradient-to-b from-slate-50 to-slate-100 text-lg shadow-sm"
+                      className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white bg-gradient-to-b from-[color-mix(in_srgb,var(--dpal-background-secondary)_55%,#fff)] to-[color-mix(in_srgb,var(--dpal-surface)_35%,#fff)] text-lg shadow-sm"
                     >
                       {emoji}
                     </span>
                   ))}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-slate-800">Safer together · Shared truth · Better records</p>
-                  <p className="text-xs text-slate-500">Your dashboard for community care and constructive accountability.</p>
+                  <p className="text-sm font-semibold text-[var(--dpal-text-primary)]">Safer together · Shared truth · Better records</p>
+                  <p className="text-xs text-[var(--dpal-text-muted)]">Your dashboard for community care and constructive accountability.</p>
                 </div>
               </div>
 
@@ -289,7 +289,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                 <button
                   type="button"
                   onClick={onAddNewReport}
-                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-sky-600 to-cyan-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-sky-500/25 transition hover:brightness-105"
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[var(--dpal-primary)] to-cyan-600 px-4 py-2.5 text-sm font-semibold text-[#042f2e] shadow-md shadow-[color-mix(in_srgb,var(--dpal-primary)_40%,transparent)] transition hover:brightness-105"
                 >
                   <Plus className="h-4 w-4" />
                   Start a New Report
@@ -297,21 +297,21 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenCommunityFeed?.()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-card)] px-4 py-2.5 text-sm font-semibold text-[var(--dpal-text-secondary)] shadow-sm hover:bg-[var(--dpal-surface-alt)]"
                 >
                   <Heart className="h-4 w-4 text-rose-400" />
                   View Community Impact
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-card)] px-4 py-2.5 text-sm font-semibold text-[var(--dpal-text-secondary)] shadow-sm hover:bg-[var(--dpal-surface-alt)]"
                 >
-                  <Clock className="h-4 w-4 text-sky-500" />
+                  <Clock className="h-4 w-4 text-[var(--dpal-info)]" />
                   Open My Timeline
                 </button>
                 <button
                   type="button"
-                  className="inline-flex items-center gap-2 rounded-xl border border-amber-200/80 bg-amber-50/90 px-4 py-2.5 text-sm font-semibold text-amber-900 hover:bg-amber-50"
+                  className="inline-flex items-center gap-2 rounded-xl border border-[color:color-mix(in_srgb,var(--dpal-warning)_45%,transparent)] bg-[color-mix(in_srgb,var(--dpal-warning)_12%,transparent)] px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-[color-mix(in_srgb,var(--dpal-warning)_18%,transparent)]"
                 >
                   Continue Draft
                   <ChevronRight className="h-4 w-4" />
@@ -322,7 +322,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
 
           {/* Summary metrics */}
           <section>
-            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">Report Progress</h2>
+            <h2 className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-[var(--dpal-text-muted)]">Report Progress</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-4">
               <SummaryCard label="Total Reports" value={stats.total} accent="sky" icon={<FileText className="h-4 w-4" />} />
               <SummaryCard label="Drafts" value={stats.drafts} accent="slate" icon={<Layout className="h-4 w-4" />} />
@@ -336,39 +336,39 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
           </section>
 
           {/* Reward / encouragement strip */}
-          <section className="rounded-2xl border border-amber-100 bg-gradient-to-r from-amber-50/90 via-white to-emerald-50/50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
+          <section className="rounded-2xl border border-[color:color-mix(in_srgb,var(--dpal-warning)_28%,transparent)] bg-gradient-to-r from-[color-mix(in_srgb,var(--dpal-warning)_8%,var(--dpal-panel))] via-[var(--dpal-surface)] to-[color-mix(in_srgb,var(--dpal-success)_8%,var(--dpal-panel))] p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
             <div className="flex flex-wrap items-center gap-4">
-              <div className="flex items-center gap-2 rounded-xl bg-white/90 px-3 py-2 shadow-sm ring-1 ring-amber-100">
-                <Coins className="h-5 w-5 text-amber-600" />
+              <div className="flex items-center gap-2 rounded-xl bg-[var(--dpal-card)] px-3 py-2 shadow-sm ring-1 ring-[color:color-mix(in_srgb,var(--dpal-warning)_35%,transparent)]">
+                <Coins className="h-5 w-5 text-amber-400" />
                 <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-800">DPAL coins</p>
-                  <p className="text-lg font-bold text-slate-900">{(stats.resolved * 120 + stats.verified * 40).toLocaleString()}</p>
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-amber-200">DPAL coins</p>
+                  <p className="text-lg font-bold text-[var(--dpal-text-primary)]">{(stats.resolved * 120 + stats.verified * 40).toLocaleString()}</p>
                 </div>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Community trust points</p>
-                <p className="text-sm font-semibold text-slate-800">{stats.trustScore * 12 + stats.resolved * 25} pts</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--dpal-text-muted)]">Community trust points</p>
+                <p className="text-sm font-semibold text-[var(--dpal-text-primary)]">{stats.trustScore * 12 + stats.resolved * 25} pts</p>
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Helpful streak</p>
-                <p className="text-sm font-semibold text-emerald-700">{Math.min(14, stats.total + 3)} days</p>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--dpal-text-muted)]">Helpful streak</p>
+                <p className="text-sm font-semibold text-emerald-400">{Math.min(14, stats.total + 3)} days</p>
               </div>
             </div>
-            <p className="mt-3 text-xs text-slate-500 sm:mt-0 sm:max-w-xs sm:text-right">
+            <p className="mt-3 text-xs text-[var(--dpal-text-muted)] sm:mt-0 sm:max-w-xs sm:text-right">
               Recognition for civic contribution — not a game, a thank-you for showing up for your community.
             </p>
           </section>
 
           {/* Start a new report */}
-          <section className="rounded-3xl border border-emerald-100/90 bg-gradient-to-br from-emerald-50/40 via-white to-sky-50/30 p-6 shadow-sm">
+          <section className="rounded-3xl border border-[color:color-mix(in_srgb,var(--dpal-success)_25%,transparent)] bg-gradient-to-br from-[color-mix(in_srgb,var(--dpal-success)_8%,var(--dpal-surface))] via-[var(--dpal-panel)] to-[var(--dpal-surface)] p-6 shadow-sm">
             <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Start a New Report</h2>
-                <p className="mt-1 text-sm text-slate-600">
+                <h2 className="text-lg font-bold text-[var(--dpal-text-primary)]">Start a New Report</h2>
+                <p className="mt-1 text-sm text-[var(--dpal-text-secondary)]">
                   Start with what you know. Add details, photos, and sources to help create a better record.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100/80 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[color-mix(in_srgb,var(--dpal-success)_15%,transparent)] px-3 py-1 text-[11px] font-semibold text-emerald-300">
                 <Sparkles className="h-3.5 w-3.5" />
                 Public good tools
               </span>
@@ -379,11 +379,11 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                   key={opt.label}
                   type="button"
                   onClick={onAddNewReport}
-                  className="group flex flex-col rounded-2xl border border-slate-200/90 bg-white p-4 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md"
+                  className="group flex flex-col rounded-2xl border border-[color:var(--dpal-border)] bg-[var(--dpal-card)] p-4 text-left shadow-sm transition hover:border-[color:color-mix(in_srgb,var(--dpal-primary)_45%,transparent)] hover:shadow-md"
                 >
-                  <span className="font-semibold text-slate-800 group-hover:text-sky-800">{opt.label}</span>
-                  <span className="mt-0.5 text-xs text-slate-500">{opt.hint}</span>
-                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-sky-600">
+                  <span className="font-semibold text-[var(--dpal-text-primary)] group-hover:text-[var(--dpal-accent)]">{opt.label}</span>
+                  <span className="mt-0.5 text-xs text-[var(--dpal-text-muted)]">{opt.hint}</span>
+                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-[var(--dpal-primary-hover)]">
                     Begin <ArrowRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
                   </span>
                 </button>
@@ -395,13 +395,13 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
           <section>
             <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative flex-1">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--dpal-text-muted)]" />
                 <input
                   type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search your reports, categories, places, or keywords…"
-                  className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 shadow-inner placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                  className="w-full rounded-2xl border border-[color:var(--dpal-border)] bg-[var(--dpal-input-bg)] py-2.5 pl-10 pr-4 text-sm text-[var(--dpal-text-primary)] shadow-inner placeholder:text-[var(--dpal-placeholder)] focus:border-[var(--dpal-accent)] focus:outline-none focus:ring-2 focus:ring-[color:color-mix(in_srgb,var(--dpal-primary)_35%,transparent)]"
                 />
               </div>
             </div>
@@ -420,7 +420,7 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
               ))}
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="mr-1 self-center text-[10px] font-bold uppercase tracking-wide text-slate-400">Topics</span>
+              <span className="mr-1 self-center text-[10px] font-bold uppercase tracking-wide text-[var(--dpal-text-muted)]">Topics</span>
               {(
                 [
                   ['all', 'All'],
@@ -439,8 +439,8 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
           {/* Main list */}
           <section>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <h2 className="text-base font-bold text-slate-900">Your reports</h2>
-              <span className="text-xs font-medium text-slate-500">{filteredReports.length} shown</span>
+              <h2 className="text-base font-bold text-[var(--dpal-text-primary)]">Your reports</h2>
+              <span className="text-xs font-medium text-[var(--dpal-text-muted)]">{filteredReports.length} shown</span>
             </div>
             {filteredReports.length > 0 ? (
               <div className="space-y-4">
@@ -449,11 +449,11 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="rounded-3xl border border-dashed border-slate-200 bg-slate-50/50 py-16 text-center">
-                <Megaphone className="mx-auto mb-3 h-12 w-12 text-slate-300" />
-                <h3 className="text-lg font-semibold text-slate-700">{t('mainContent.noReports')}</h3>
-                <p className="mt-2 text-sm text-slate-500">{t('mainContent.beTheFirst')}</p>
-                <p className="mt-4 text-xs text-slate-400">
+              <div className="rounded-3xl border border-dashed border-[var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-background-secondary)_50%,transparent)] py-16 text-center">
+                <Megaphone className="mx-auto mb-3 h-12 w-12 text-[var(--dpal-text-muted)]" />
+                <h3 className="text-lg font-semibold text-[var(--dpal-text-secondary)]">{t('mainContent.noReports')}</h3>
+                <p className="mt-2 text-sm text-[var(--dpal-text-muted)]">{t('mainContent.beTheFirst')}</p>
+                <p className="mt-4 text-xs text-[var(--dpal-text-muted)]">
                   {statusFilter === 'drafts'
                     ? 'No drafts yet — start a report and save progress anytime.'
                     : search || statusFilter !== 'all' || topicFilter !== 'all'
@@ -465,31 +465,31 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
           </section>
 
           {/* Community impact */}
-          <section className="rounded-3xl border border-cyan-100 bg-gradient-to-br from-cyan-50/50 via-white to-slate-50/80 p-6">
-            <h2 className="text-base font-bold text-slate-900">Positive Impact</h2>
-            <p className="mt-1 text-sm text-slate-600">Your contributions are part of something bigger — progress we make together.</p>
+          <section className="rounded-3xl border border-[color:color-mix(in_srgb,var(--dpal-primary)_22%,transparent)] bg-gradient-to-br from-[color-mix(in_srgb,var(--dpal-primary)_10%,var(--dpal-surface))] via-[var(--dpal-panel)] to-[var(--dpal-background-secondary)] p-6">
+            <h2 className="text-base font-bold text-[var(--dpal-text-primary)]">Positive Impact</h2>
+            <p className="mt-1 text-sm text-[var(--dpal-text-secondary)]">Your contributions are part of something bigger — progress we make together.</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <ImpactRow label="People helped (est.)" value={`${stats.communityHelped}+`} icon={<Heart className="h-4 w-4 text-rose-400" />} />
               <ImpactRow label="Cases resolved" value={String(stats.resolved)} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} />
-              <ImpactRow label="Safer places identified" value={String(Math.max(1, stats.submitted + 2))} icon={<ShieldCheck className="h-4 w-4 text-sky-500" />} />
+              <ImpactRow label="Safer places identified" value={String(Math.max(1, stats.submitted + 2))} icon={<ShieldCheck className="h-4 w-4 text-[var(--dpal-info)]" />} />
               <ImpactRow label="Trends discovered" value={String(Math.max(0, stats.underReview))} icon={<Activity className="h-4 w-4 text-violet-500" />} />
               <ImpactRow label="Local improvements" value={String(stats.resolved * 2 + 1)} icon={<Globe className="h-4 w-4 text-cyan-600" />} />
-              <ImpactRow label="Timeline records" value={String(stats.total)} icon={<Database className="h-4 w-4 text-slate-500" />} />
+              <ImpactRow label="Timeline records" value={String(stats.total)} icon={<Database className="h-4 w-4 text-[var(--dpal-text-muted)]" />} />
             </div>
           </section>
 
           {/* Footer registry */}
-          <footer className="rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3 text-[11px] text-slate-500">
+          <footer className="rounded-2xl border border-[color-mix(in_srgb,var(--dpal-border)_80%,transparent)] bg-[color-mix(in_srgb,var(--dpal-background-secondary)_75%,transparent)] px-4 py-3 text-[11px] text-[var(--dpal-text-muted)]">
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
               <span>
-                <span className="font-semibold text-slate-600">Record trace:</span> {registryRef}
+                <span className="font-semibold text-[var(--dpal-text-secondary)]">Record trace:</span> {registryRef}
               </span>
               <span className="hidden sm:inline">·</span>
               <span>Timeline marker: {new Date().getFullYear()}-Q{Math.ceil((new Date().getMonth() + 1) / 3)}</span>
               <span className="hidden sm:inline">·</span>
               <span>Visibility: private workspace · verification history preserved</span>
             </div>
-            <p className="mt-1 text-[10px] text-slate-400">
+            <p className="mt-1 text-[10px] text-[var(--dpal-text-muted)]">
               Sources and updates stay connected to your record for transparent, safe review.
             </p>
           </footer>
@@ -498,34 +498,34 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
         {/* Sidebar */}
         <aside className="space-y-4 lg:sticky lg:top-4 lg:self-start">
           <SideCard title="How reporting helps" icon={<Heart className="h-4 w-4 text-rose-400" />}>
-            <p className="text-sm leading-relaxed text-slate-600">
+            <p className="text-sm leading-relaxed text-[var(--dpal-text-secondary)]">
               Clear records help neighbors, families, and officials respond with care. Truth can protect people — and spark real solutions.
             </p>
           </SideCard>
           <SideCard title="My contribution this month" icon={<Award className="h-4 w-4 text-amber-600" />}>
-            <ul className="space-y-2 text-sm text-slate-600">
+            <ul className="space-y-2 text-sm text-[var(--dpal-text-secondary)]">
               <li className="flex justify-between">
                 <span>Reports filed</span>
-                <span className="font-semibold text-slate-900">{stats.total}</span>
+                <span className="font-semibold text-[var(--dpal-text-primary)]">{stats.total}</span>
               </li>
               <li className="flex justify-between">
                 <span>Verified steps</span>
-                <span className="font-semibold text-emerald-700">{stats.verified}</span>
+                <span className="font-semibold text-emerald-400">{stats.verified}</span>
               </li>
             </ul>
           </SideCard>
-          <SideCard title="Family & community impact" icon={<Home className="h-4 w-4 text-sky-600" />}>
-            <p className="text-sm text-slate-600">Safer together — your updates support prevention and healing, not fear.</p>
+          <SideCard title="Family & community impact" icon={<Home className="h-4 w-4 text-[var(--dpal-info)]" />}>
+            <p className="text-sm text-[var(--dpal-text-secondary)]">Safer together — your updates support prevention and healing, not fear.</p>
           </SideCard>
           <SideCard title="Quick tips for strong reports" icon={<Book className="h-4 w-4 text-indigo-500" />}>
-            <ul className="list-inside list-disc space-y-1 text-sm text-slate-600">
+            <ul className="list-inside list-disc space-y-1 text-sm text-[var(--dpal-text-secondary)]">
               <li>What happened, when, and where</li>
               <li>Photos or documents when safe to share</li>
               <li>Links to trusted public sources</li>
             </ul>
           </SideCard>
           <SideCard title="Trusted sources checklist" icon={<CheckCircle className="h-4 w-4 text-emerald-600" />}>
-            <ul className="space-y-1.5 text-sm text-slate-600">
+            <ul className="space-y-1.5 text-sm text-[var(--dpal-text-secondary)]">
               <li className="flex items-center gap-2">
                 <span className="text-emerald-500">✓</span> Official notices & dates
               </li>
@@ -533,42 +533,42 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
                 <span className="text-emerald-500">✓</span> Independent corroboration
               </li>
               <li className="flex items-center gap-2">
-                <span className="text-slate-300">○</span> Redact personal data you do not want public
+                <span className="text-[var(--dpal-text-muted)]">○</span> Redact personal data you do not want public
               </li>
             </ul>
           </SideCard>
           <SideCard title="Rewards pending" icon={<Coins className="h-4 w-4 text-amber-600" />}>
-            <p className="text-sm text-slate-600">
-              <span className="font-semibold text-slate-900">{Math.max(0, 3 - stats.resolved)}</span> milestones close to unlocking — keep going.
+            <p className="text-sm text-[var(--dpal-text-secondary)]">
+              <span className="font-semibold text-[var(--dpal-text-primary)]">{Math.max(0, 3 - stats.resolved)}</span> milestones close to unlocking — keep going.
             </p>
           </SideCard>
           <SideCard title="Community milestones" icon={<Star className="h-4 w-4 text-amber-500" />}>
-            <p className="text-sm text-slate-600">Next: &ldquo;Trusted contributor&rdquo; when {Math.max(0, 5 - stats.verified)} more verifications land.</p>
+            <p className="text-sm text-[var(--dpal-text-secondary)]">Next: &ldquo;Trusted contributor&rdquo; when {Math.max(0, 5 - stats.verified)} more verifications land.</p>
           </SideCard>
           <SideCard title="My badges" icon={<Award className="h-4 w-4 text-violet-500" />}>
             <div className="flex flex-wrap gap-2">
               {['Neighbor', 'Recorder', 'Hope Builder'].map((b) => (
-                <span key={b} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-800 ring-1 ring-violet-100">
+                <span key={b} className="rounded-full bg-[color-mix(in_srgb,#a855f7_12%,transparent)] px-2.5 py-1 text-[11px] font-semibold text-violet-300 ring-1 ring-[color-mix(in_srgb,#a855f7_35%,transparent)]">
                   {b}
                 </span>
               ))}
             </div>
           </SideCard>
-          <SideCard title="My trust growth" icon={<ShieldCheck className="h-4 w-4 text-sky-600" />}>
-            <div className="h-2 overflow-hidden rounded-full bg-slate-200">
-              <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-cyan-500" style={{ width: `${Math.min(100, stats.trustScore)}%` }} />
+          <SideCard title="My trust growth" icon={<ShieldCheck className="h-4 w-4 text-[var(--dpal-primary-hover)]" />}>
+            <div className="h-2 overflow-hidden rounded-full bg-[var(--dpal-border-strong)]">
+              <div className="h-full rounded-full bg-gradient-to-r from-[var(--dpal-primary)] to-cyan-500" style={{ width: `${Math.min(100, stats.trustScore)}%` }} />
             </div>
-            <p className="mt-2 text-xs text-slate-500">Constructive accountability builds confidence over time.</p>
+            <p className="mt-2 text-xs text-[var(--dpal-text-muted)]">Constructive accountability builds confidence over time.</p>
           </SideCard>
           <SideCard title="Helpful resources" icon={<Book className="h-4 w-4 text-cyan-600" />}>
             <ul className="space-y-2 text-sm">
               <li>
-                <button type="button" className="font-medium text-sky-700 hover:underline">
+                <button type="button" className="font-medium text-[var(--dpal-primary-hover)] hover:underline">
                   Community guidelines
                 </button>
               </li>
               <li>
-                <button type="button" className="font-medium text-sky-700 hover:underline">
+                <button type="button" className="font-medium text-[var(--dpal-primary-hover)] hover:underline">
                   Safety & privacy basics
                 </button>
               </li>
@@ -592,23 +592,23 @@ const SummaryCard: React.FC<{
 }> = ({ label, value, accent, icon }) => {
   const ring =
     accent === 'sky'
-      ? 'ring-sky-100'
+      ? 'ring-[color:color-mix(in_srgb,var(--dpal-info)_30%,transparent)]'
       : accent === 'coral'
-        ? 'ring-orange-100'
+        ? 'ring-[color:color-mix(in_srgb,#f97316_30%,transparent)]'
         : accent === 'green'
-          ? 'ring-emerald-100'
+          ? 'ring-[color:color-mix(in_srgb,var(--dpal-success)_30%,transparent)]'
           : accent === 'gold'
-            ? 'ring-amber-100'
+            ? 'ring-[color:color-mix(in_srgb,var(--dpal-warning)_30%,transparent)]'
             : accent === 'cyan'
-              ? 'ring-cyan-100'
-              : 'ring-slate-100';
+              ? 'ring-[color:color-mix(in_srgb,var(--dpal-primary)_30%,transparent)]'
+              : 'ring-[color-mix(in_srgb,var(--dpal-border)_65%,transparent)]';
   return (
-    <div className={`rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm ring-1 ${ring} backdrop-blur-sm`}>
+    <div className={`rounded-2xl border border-[color-mix(in_srgb,var(--dpal-border)_80%,transparent)] bg-[var(--dpal-card)] p-4 shadow-sm ring-1 ${ring} backdrop-blur-sm`}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</span>
-        <span className="text-slate-400">{icon}</span>
+        <span className="text-[10px] font-bold uppercase tracking-wide text-[var(--dpal-text-muted)]">{label}</span>
+        <span className="text-[var(--dpal-text-muted)]">{icon}</span>
       </div>
-      <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900">{value}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight text-[var(--dpal-text-primary)]">{value}</p>
     </div>
   );
 };
@@ -626,8 +626,8 @@ const FilterChip: React.FC<{
       active
         ? variant === 'topic'
           ? 'bg-cyan-600 text-white shadow-sm'
-          : 'bg-sky-600 text-white shadow-sm'
-        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          : 'bg-[var(--dpal-info)] text-white shadow-sm'
+        : 'bg-[var(--dpal-background-secondary)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-surface-alt)]'
     }`}
   >
     {label}
@@ -635,20 +635,20 @@ const FilterChip: React.FC<{
 );
 
 const ImpactRow: React.FC<{ label: string; value: string; icon: React.ReactNode }> = ({ label, value, icon }) => (
-  <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/80 bg-white/70 px-4 py-3 shadow-sm">
-    <div className="flex items-center gap-2 text-sm text-slate-600">
+  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[color:var(--dpal-border)] bg-[var(--dpal-card)] px-4 py-3 shadow-sm">
+    <div className="flex items-center gap-2 text-sm text-[var(--dpal-text-secondary)]">
       {icon}
       {label}
     </div>
-    <span className="text-lg font-bold text-slate-900">{value}</span>
+    <span className="text-lg font-bold text-[var(--dpal-text-primary)]">{value}</span>
   </div>
 );
 
 const SideCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode }> = ({ title, icon, children }) => (
-  <div className="rounded-2xl border border-slate-200/90 bg-white/95 p-4 shadow-sm backdrop-blur-sm">
+  <div className="rounded-2xl border border-[color-mix(in_srgb,var(--dpal-border)_90%,transparent)] bg-[var(--dpal-card)] p-4 shadow-sm backdrop-blur-sm">
     <div className="mb-2 flex items-center gap-2">
       {icon}
-      <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+      <h3 className="text-sm font-bold text-[var(--dpal-text-primary)]">{title}</h3>
     </div>
     {children}
   </div>

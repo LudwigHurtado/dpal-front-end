@@ -32,7 +32,7 @@ const AiStatusIndicator: React.FC = () => {
 
     const config = {
         ONLINE: { label: 'Here', color: 'text-emerald-400', dot: 'bg-emerald-500', bg: 'bg-emerald-950/20', border: 'border-emerald-500/30' },
-        OFFLINE: { label: 'Rest', color: 'text-zinc-600', dot: 'bg-zinc-700', bg: 'bg-zinc-900', border: 'border-zinc-800' },
+        OFFLINE: { label: 'Rest', color: 'text-[var(--dpal-text-muted)]', dot: 'bg-[var(--dpal-surface-alt)]', bg: 'bg-[var(--dpal-panel)]', border: 'border-[color:var(--dpal-border)]' },
         DEGRADED: { label: 'Limited', color: 'text-rose-400', dot: 'bg-rose-500', bg: 'bg-rose-950/20', border: 'border-rose-500/30' }
     }[status];
 
@@ -84,7 +84,7 @@ const SystemTicker: React.FC = () => {
     ];
 
     return (
-        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 border-x border-zinc-800/30 flex items-center bg-black/80 rounded-xl px-4 min-w-0">
+        <div className="flex-grow mx-2 md:mx-4 overflow-hidden relative group h-10 border-x border-[color:color-mix(in_srgb,var(--dpal-border)_30%,transparent)] flex items-center bg-black/80 rounded-xl px-4 min-w-0">
             <div className="absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black to-transparent z-10"></div>
             <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black to-transparent z-10"></div>
             
@@ -184,7 +184,7 @@ const Header: React.FC<HeaderProps> = ({
           case SubscriptionTier.Oracle: return 'text-emerald-400 border-emerald-500/50';
           case SubscriptionTier.Sentinel: return 'text-amber-400 border-amber-500/50';
           case SubscriptionTier.Guardian: return 'text-cyan-400 border-cyan-500/50';
-          default: return 'text-zinc-500 border-zinc-800';
+          default: return 'text-[var(--dpal-text-muted)] border-[color:var(--dpal-border)]';
       }
   };
 
@@ -195,13 +195,13 @@ const Header: React.FC<HeaderProps> = ({
           <button onClick={onNavigateHome} className="flex items-center space-x-3 group flex-shrink-0">
             <div className="relative">
               <div className="absolute inset-0 bg-cyan-500/10 blur-lg group-hover:bg-cyan-400/20 transition-all"></div>
-              <div className="relative p-2 bg-zinc-900 border border-cyan-500/30 rounded-xl group-hover:border-cyan-400 transition-all">
+              <div className="relative p-2 bg-[var(--dpal-panel)] border border-cyan-500/30 rounded-xl group-hover:border-cyan-400 transition-all">
                   <ShieldCheck className="h-6 w-6 text-cyan-500" />
               </div>
             </div>
             <div className="text-left leading-none hidden xs:block">
-              <h1 className="text-xl font-black text-white tracking-tighter uppercase">DPAL</h1>
-              <p className="text-[7px] font-black text-zinc-500 uppercase tracking-[0.3em] mt-1">CORE_V2.5</p>
+              <h1 className="text-xl font-black text-[var(--dpal-text-primary)] tracking-tighter uppercase">DPAL</h1>
+              <p className="text-[7px] font-black text-[var(--dpal-text-muted)] uppercase tracking-[0.3em] mt-1">CORE_V2.5</p>
             </div>
           </button>
 
@@ -211,7 +211,7 @@ const Header: React.FC<HeaderProps> = ({
              <AiStatusIndicator />
              
              <div className="hidden lg:flex flex-col items-end mr-2 text-right">
-                <span className="text-[9px] font-black text-white uppercase tracking-tighter leading-none">{hero.name}</span>
+                <span className="text-[9px] font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter leading-none">{hero.name}</span>
                 <button 
                     onClick={() => onNavigate('subscription')}
                     className={`text-[7px] font-bold uppercase tracking-widest mt-1 px-2 py-0.5 rounded border bg-black/40 hover:bg-white/10 transition-colors ${getTierColor(hero.subscriptionTier)}`}
@@ -220,41 +220,41 @@ const Header: React.FC<HeaderProps> = ({
                 </button>
              </div>
 
-             <div className="flex items-center bg-zinc-900 border border-zinc-800 rounded-xl p-1 pr-2 md:pr-3 space-x-2 md:space-x-3 shadow-inner">
+             <div className="flex items-center bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-xl p-1 pr-2 md:pr-3 space-x-2 md:space-x-3 shadow-inner">
                 <button 
                     onClick={onNavigateToHeroHub}
-                    className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950 flex items-center justify-center hover:border-cyan-500 transition-colors"
+                    className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] flex items-center justify-center hover:border-cyan-500 transition-colors"
                 >
                     {hero.personas.find(p => p.id === hero.equippedPersonaId)?.imageUrl ? (
                         <img src={hero.personas.find(p => p.id === hero.equippedPersonaId)?.imageUrl} alt="P" className="w-full h-full object-cover" />
                     ) : (
-                        <User className="w-4 h-4 text-zinc-600" />
+                        <User className="w-4 h-4 text-[var(--dpal-text-muted)]" />
                     )}
                 </button>
                 <button onClick={onNavigateToReputationAndCurrency} className="flex items-center space-x-2 outline-none group">
                     <Coins className="h-3.5 w-3.5 md:h-4 md:w-4 text-amber-500 group-hover:scale-110 transition-transform" />
                     <div className="flex flex-col items-start leading-none">
-                        <span className="font-black text-white text-[9px] md:text-[10px]">{hero.heroCredits.toLocaleString()}</span>
-                        <span className="text-[6px] font-bold text-zinc-500 uppercase tracking-tighter mt-0.5">$0.005/CREDIT</span>
+                        <span className="font-black text-[var(--dpal-text-primary)] text-[9px] md:text-[10px]">{hero.heroCredits.toLocaleString()}</span>
+                        <span className="text-[6px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-tighter mt-0.5">$0.005/CREDIT</span>
                     </div>
                 </button>
-                <div className="hidden sm:block w-px h-5 bg-zinc-800 mx-1"></div>
+                <div className="hidden sm:block w-px h-5 bg-[var(--dpal-border)] mx-1"></div>
                 <button
                     onClick={openViewModeSetup}
-                    className="hidden sm:flex items-center space-x-1 text-zinc-500 hover:text-cyan-300 transition-colors"
+                    className="hidden sm:flex items-center space-x-1 text-[var(--dpal-text-muted)] hover:text-cyan-300 transition-colors"
                     title="View Mode Setup"
                 >
                     <Monitor className="w-3.5 h-3.5" />
                     <span className="text-[7px] font-black uppercase tracking-widest">Mode</span>
                 </button>
-                <button onClick={toggleScale} className="hidden sm:block text-zinc-600 hover:text-white transition-colors" title="Interface Scale">
+                <button onClick={toggleScale} className="hidden sm:block text-[var(--dpal-text-muted)] hover:text-[var(--dpal-text-primary)] transition-colors" title="Interface Scale">
                     <Maximize2 className="w-3.5 h-3.5" />
                 </button>
              </div>
           </div>
       </div>
 
-      <div className="w-full relative px-0 pb-3 pt-1 border-t border-zinc-900/50 flex items-center overflow-hidden group/nav">
+      <div className="w-full relative px-0 pb-3 pt-1 border-t border-[color:color-mix(in_srgb,var(--dpal-border)_45%,transparent)] flex items-center overflow-hidden group/nav">
         <div className={`absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-black/30 via-black/5 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showLeftArrow ? 'opacity-100' : 'opacity-0'}`}></div>
         <div className={`absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black/30 via-black/5 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showRightArrow ? 'opacity-100' : 'opacity-0'}`}></div>
 
@@ -277,10 +277,10 @@ const Header: React.FC<HeaderProps> = ({
         </div>
 
         <div className={`absolute left-4 z-20 transition-opacity duration-300 ${showLeftArrow ? 'opacity-100' : 'opacity-0'} pointer-events-auto`}>
-             <button onClick={() => scrollNav('left')} className="p-2.5 bg-zinc-900/20 rounded-full border border-zinc-700/20 text-zinc-400/80 hover:text-cyan-400 shadow-2xl backdrop-blur-sm active:scale-90 transition-all"><ChevronLeft className="w-5 h-5"/></button>
+             <button onClick={() => scrollNav('left')} className="p-2.5 bg-[color-mix(in_srgb,var(--dpal-panel)_20%,transparent)] rounded-full border border-[color:color-mix(in_srgb,var(--dpal-border-strong)_22%,transparent)] text-[var(--dpal-text-secondary)] hover:text-cyan-400 shadow-2xl backdrop-blur-sm active:scale-90 transition-all"><ChevronLeft className="w-5 h-5"/></button>
         </div>
         <div className={`absolute right-4 z-20 transition-opacity duration-300 ${showRightArrow ? 'opacity-100' : 'opacity-0'} pointer-events-auto`}>
-             <button onClick={() => scrollNav('right')} className="p-2.5 bg-zinc-900/20 rounded-full border border-zinc-700/20 text-zinc-400/80 hover:text-cyan-400 shadow-2xl backdrop-blur-sm active:scale-90 transition-all"><ChevronRight className="w-5 h-5"/></button>
+             <button onClick={() => scrollNav('right')} className="p-2.5 bg-[color-mix(in_srgb,var(--dpal-panel)_20%,transparent)] rounded-full border border-[color:color-mix(in_srgb,var(--dpal-border-strong)_22%,transparent)] text-[var(--dpal-text-secondary)] hover:text-cyan-400 shadow-2xl backdrop-blur-sm active:scale-90 transition-all"><ChevronRight className="w-5 h-5"/></button>
         </div>
       </div>
 
@@ -326,7 +326,7 @@ const NavIcon: React.FC<{ icon: React.ReactNode, label: string, color: string, o
             onClick={onClick}
             className="flex flex-col items-center justify-center space-y-2 group transition-all flex-shrink-0 relative px-1 md:px-2"
         >
-            <div className="relative p-2.5 md:p-3 rounded-xl bg-zinc-900 border border-zinc-800 group-hover:bg-zinc-800 transition-all shadow-lg overflow-hidden">
+            <div className="relative p-2.5 md:p-3 rounded-xl bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] group-hover:bg-[var(--dpal-surface-alt)] transition-all shadow-lg overflow-hidden">
                 <DualCometBorder color={colorHex[color]} />
                 <div 
                     className="absolute inset-0 opacity-0 group-hover:opacity-30 transition-all duration-700 pointer-events-none z-10 rotate-[35deg] translate-x-[-100%] group-hover:translate-x-[100%]"
@@ -344,7 +344,7 @@ const NavIcon: React.FC<{ icon: React.ReactNode, label: string, color: string, o
                     </div>
                 </div>
             </div>
-            <span className="max-w-[72px] text-center text-[6px] font-semibold leading-tight tracking-wide text-zinc-500 transition-colors group-hover:text-white md:text-[7px] md:max-w-[88px]">
+            <span className="max-w-[72px] text-center text-[6px] font-semibold leading-tight tracking-wide text-[var(--dpal-text-muted)] transition-colors group-hover:text-white md:text-[7px] md:max-w-[88px]">
                 {label}
             </span>
         </button>

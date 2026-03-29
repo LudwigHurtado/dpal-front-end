@@ -1110,7 +1110,7 @@ const App: React.FC = () => {
       {reportDeepLinkLoading && (
         <div
           role="status"
-          className="sticky top-0 z-[199] px-4 py-2.5 bg-zinc-900/95 border-b border-zinc-700 text-zinc-200 text-[11px] sm:text-xs font-semibold"
+          className="dpal-sticky-status"
         >
           Loading report from ledger…
         </div>

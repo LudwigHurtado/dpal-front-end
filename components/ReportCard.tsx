@@ -98,7 +98,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                               <span className="text-lg">{categoryInfo?.icon}</span>
                               <span className="text-[10px] font-black uppercase tracking-widest">{safeCategory.toUpperCase()}</span>
                           </div>
-                          <div className="flex items-center space-x-2 text-[10px] font-black text-zinc-500 uppercase min-w-0">
+                          <div className="flex items-center space-x-2 text-[10px] font-black text-[var(--dpal-text-muted)] uppercase min-w-0">
                               <MapPin className="w-4 h-4 text-rose-500 shrink-0" />
                               <span className="truncate max-w-[min(100%,220px)] sm:max-w-[200px]">{safeLocation}</span>
                           </div>
@@ -108,36 +108,36 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                       </h3>
                   </div>
 
-                  <div className="hidden md:flex items-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-3xl border border-zinc-800 shadow-inner self-start">
+                  <div className="hidden md:flex items-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-3xl border border-[var(--dpal-border-strong)] shadow-inner self-start">
                       <div className="text-center">
-                          <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Trust_Index</p>
+                          <p className="text-[8px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest mb-1">Trust_Index</p>
                           <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{safeTrustScore}%</p>
                       </div>
-                      <div className="w-px h-10 bg-zinc-800"></div>
-                      <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-zinc-700'}`} />
+                      <div className="w-px h-10 bg-[var(--dpal-border-strong)]"></div>
+                      <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-[var(--dpal-text-muted)]'}`} />
                   </div>
               </div>
 
               {/* Narrative before trust on phones; desktop duplicate lives below trust in row */}
-              <div className="md:hidden bg-zinc-950/50 border-l-4 border-zinc-800 pl-4 sm:pl-8 py-2 relative overflow-hidden">
+              <div className="md:hidden bg-[color-mix(in_srgb,var(--dpal-background)_50%,transparent)] border-l-4 border-[var(--dpal-border-strong)] pl-4 sm:pl-8 py-2 relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
-                  <p className="text-zinc-300 text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
+                  <p className="text-[var(--dpal-text-secondary)] text-sm leading-relaxed line-clamp-4 sm:line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
                     "{safeDescription}"
                   </p>
               </div>
 
-              <div className="flex md:hidden items-center justify-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-2xl border border-zinc-800 shadow-inner w-full">
+              <div className="flex md:hidden items-center justify-center space-x-6 flex-shrink-0 bg-black/40 p-4 rounded-2xl border border-[var(--dpal-border-strong)] shadow-inner w-full">
                   <div className="text-center">
-                      <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest mb-1">Trust_Index</p>
+                      <p className="text-[8px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest mb-1">Trust_Index</p>
                       <p className={`text-xl font-black ${safeTrustScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{safeTrustScore}%</p>
                   </div>
-                  <div className="w-px h-10 bg-zinc-800"></div>
-                  <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-zinc-700'}`} />
+                  <div className="w-px h-10 bg-[var(--dpal-border-strong)]"></div>
+                  <ShieldCheck className={`w-8 h-8 ${safeTrustScore > 90 ? 'text-emerald-500' : 'text-[var(--dpal-text-muted)]'}`} />
               </div>
 
-              <div className="hidden md:block bg-zinc-950/50 border-l-4 border-zinc-800 pl-8 py-2 relative overflow-hidden">
+              <div className="hidden md:block bg-[color-mix(in_srgb,var(--dpal-background)_50%,transparent)] border-l-4 border-[var(--dpal-border-strong)] pl-8 py-2 relative overflow-hidden">
                   <div className="absolute top-0 right-0 p-4 opacity-5"><Broadcast className="w-20 h-20 text-white"/></div>
-                  <p className="text-zinc-400 text-sm leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
+                  <p className="text-[var(--dpal-text-secondary)] text-sm leading-relaxed italic line-clamp-3 group-hover:line-clamp-none transition-all duration-300 relative z-10">
                     "{safeDescription}"
                   </p>
               </div>
@@ -154,7 +154,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                </button>
                
                {showForensics && report.structuredData && (
-                   <div className="bg-black/60 border-2 border-zinc-800 rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-fade-in shadow-inner">
+                   <div className="bg-black/60 border-2 border-[var(--dpal-border-strong)] rounded-3xl p-6 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 animate-fade-in shadow-inner">
                        {Object.entries(report.structuredData).map(([key, val]: [string, any]) => {
                            if (key === 'diagnosticTools' && Array.isArray(val)) return null;
                            return (
@@ -166,7 +166,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                        })}
                        
                        {report.structuredData.diagnosticTools && (
-                           <div className="col-span-full pt-4 border-t border-zinc-800/40 mt-2">
+                           <div className="col-span-full pt-4 border-t border-[color-mix(in_srgb,var(--dpal-border-strong)_40%,transparent)] mt-2">
                                <p className="text-[8px] font-black text-cyan-500/80 uppercase tracking-[0.2em] mb-2">Applied_Diagnostic_Toolkit</p>
                                <div className="flex flex-wrap gap-2">
                                    {report.structuredData.diagnosticTools.map((tool: string) => (
@@ -176,8 +176,8 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                            </div>
                        )}
 
-                       <div className="col-span-full pt-4 border-t border-zinc-800 mt-2 flex items-center justify-between">
-                           <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Metadata_Validation: STABLE</p>
+                       <div className="col-span-full pt-4 border-t border-[var(--dpal-border-strong)] mt-2 flex items-center justify-between">
+                           <p className="text-[8px] font-black text-[var(--dpal-text-muted)] uppercase tracking-widest">Metadata_Validation: STABLE</p>
                            <div className="flex items-center space-x-2 text-emerald-500/50">
                                <ShieldCheck className="w-3 h-3"/>
                                <span className="text-[7px] font-black uppercase tracking-tighter">SECURE_ID_LOCKED</span>
@@ -187,13 +187,13 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                )}
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-6 pt-6 md:pt-8 border-t border-zinc-800/50">
+          <div className="flex flex-wrap items-center justify-between gap-6 pt-6 md:pt-8 border-t border-[color-mix(in_srgb,var(--dpal-border-strong)_50%,transparent)]">
               <div className="flex items-center space-x-8">
-                  <button onClick={() => setShowQr(true)} className="flex items-center space-x-3 text-[10px] font-black uppercase text-zinc-500 hover:text-cyan-400 transition-colors">
+                  <button onClick={() => setShowQr(true)} className="flex items-center space-x-3 text-[10px] font-black uppercase text-[var(--dpal-text-muted)] hover:text-cyan-400 transition-colors">
                       <QrCode className="w-5 h-5" />
                       <span>Link_Shard</span>
                   </button>
-                  <div className="hidden xl:flex items-center space-x-3 text-[10px] font-mono text-zinc-700">
+                  <div className="hidden xl:flex items-center space-x-3 text-[10px] font-mono text-[var(--dpal-text-muted)]">
                       <Hash className="w-4 h-4" />
                       <span className="truncate max-w-[150px]">{report.blockchainRef}</span>
                   </div>
@@ -214,11 +214,11 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
       </div>
 
       {/* TOP IMAGE VIEWER — below text on mobile; above on md+ */}
-      <div className="relative w-full aspect-[21/10] sm:aspect-[21/8] bg-slate-100 border-t md:border-t-0 md:border-b border-slate-200 overflow-hidden">
+      <div className="relative w-full aspect-[21/10] sm:aspect-[21/8] bg-[var(--dpal-map-panel)] border-t md:border-t-0 md:border-b border-[color:var(--dpal-border)] overflow-hidden">
           {imageUrlsToDisplay.length > 0 ? (
               <img src={imageUrlsToDisplay[currentImageIndex]} alt={safeTitle} className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-all duration-1000 grayscale group-hover:grayscale-0" />
           ) : (
-              <div className="w-full h-full flex flex-col items-center justify-center text-zinc-800 opacity-20">
+              <div className="w-full h-full flex flex-col items-center justify-center text-[var(--dpal-text-muted)] opacity-30">
                   <div className="text-5xl sm:text-6xl mb-4">{categoryInfo?.icon || '📄'}</div>
                   <p className="text-[10px] font-black uppercase tracking-[0.5em]">Forensic_Telemetry_Missing</p>
               </div>

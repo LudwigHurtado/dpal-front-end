@@ -48,6 +48,9 @@ export const dpalVar = {
   aiPanel: 'var(--dpal-ai-panel)',
   badgeBg: 'var(--dpal-badge-bg)',
   badgeText: 'var(--dpal-badge-text)',
+  /** Modal / table shells — prefer CSS classes `.dpal-modal-backdrop`, `.dpal-table` from `dpal-theme.css` */
+  zModal: 'var(--dpal-z-modal)',
+  zOverlay: 'var(--dpal-z-overlay)',
 } as const;
 
 export type DpalCssVarKey = keyof typeof dpalVar;

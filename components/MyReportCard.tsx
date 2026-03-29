@@ -53,13 +53,13 @@ const StatusBadge: React.FC<{ status: ReportStatus; variant: 'default' | 'civic'
 
 const RarityBadge: React.FC<{ rarity: NftRarity; civic?: boolean }> = ({ rarity, civic }) => {
   const civicStyles = {
-    Common: 'border-zinc-200 text-slate-600 bg-slate-50',
+    Common: 'border-[var(--dpal-border)] text-slate-600 bg-slate-50',
     Rare: 'border-cyan-200 text-cyan-800 bg-cyan-50',
     Epic: 'border-purple-200 text-purple-800 bg-purple-50',
     Legendary: 'border-amber-200 text-amber-900 bg-amber-50',
   } as const;
   const darkStyles = {
-    Common: 'border-zinc-700 text-zinc-500',
+    Common: 'border-[var(--dpal-border-strong)] text-[var(--dpal-text-muted)]',
     Rare: 'border-cyan-800 text-cyan-400',
     Epic: 'border-purple-800 text-purple-400',
     Legendary: 'border-amber-700 text-amber-500',
@@ -108,7 +108,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
 
   const shell = isCivic
     ? 'rounded-3xl border border-slate-200/90 bg-white p-4 shadow-md shadow-slate-200/40 transition hover:border-sky-200 hover:shadow-lg md:p-5'
-    : `bg-zinc-950 border border-zinc-800 rounded-2xl p-4 md:p-5 hover:border-cyan-500/40 transition-all ${report.isGeneratingNft ? 'animate-pulse' : ''}`;
+    : `bg-[var(--dpal-background)] border border-[var(--dpal-border-strong)] rounded-2xl p-4 md:p-5 hover:border-cyan-500/40 transition-all ${report.isGeneratingNft ? 'animate-pulse' : ''}`;
 
   return (
     <div className={`${shell} ${report.isGeneratingNft && !isCivic ? 'animate-pulse' : ''}`}>
@@ -117,7 +117,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
           className={
             isCivic
               ? 'flex h-36 w-full flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-gradient-to-br from-slate-50 to-sky-50/50 md:h-auto md:w-36'
-              : 'h-36 w-full flex-shrink-0 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900 md:w-36'
+              : 'h-36 w-full flex-shrink-0 overflow-hidden rounded-xl border border-[var(--dpal-border-strong)] bg-[var(--dpal-surface)] md:w-36'
           }
         >
           {primaryImageUrl ? (
@@ -131,7 +131,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
 
         <div className="min-w-0 flex-1 space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className={`flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide ${isCivic ? 'font-semibold text-slate-500' : 'font-black text-zinc-500'}`}>
+            <div className={`flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide ${isCivic ? 'font-semibold text-slate-500' : 'font-black text-[var(--dpal-text-muted)]'}`}>
               <span
                 className={
                   isCivic
@@ -141,7 +141,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
               >
                 {categoryInfo ? t(categoryInfo.translationKey) : report.category}
               </span>
-              <span className={`inline-flex items-center gap-1 ${isCivic ? 'text-slate-400' : 'text-zinc-500'}`}>
+              <span className={`inline-flex items-center gap-1 ${isCivic ? 'text-slate-400' : 'text-[var(--dpal-text-muted)]'}`}>
                 <Clock className="h-3 w-3" />
                 {timeLabel}
               </span>
@@ -152,7 +152,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
           <h4 className={`truncate text-lg font-bold tracking-tight ${isCivic ? 'text-slate-900' : 'font-black text-white'}`} title={report.title}>
             {report.title}
           </h4>
-          <p className={`line-clamp-2 text-sm leading-snug ${isCivic ? 'text-slate-600' : 'text-zinc-500'}`}>{report.description || '—'}</p>
+          <p className={`line-clamp-2 text-sm leading-snug ${isCivic ? 'text-slate-600' : 'text-[var(--dpal-text-muted)]'}`}>{report.description || '—'}</p>
 
           {isCivic && (
             <div className="space-y-1.5">
@@ -179,7 +179,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
             </div>
           )}
 
-          {!isCivic && <p className="truncate text-xs text-zinc-500">TX: {report.txHash || report.blockchainRef || report.hash}</p>}
+          {!isCivic && <p className="truncate text-xs text-[var(--dpal-text-muted)]">TX: {report.txHash || report.blockchainRef || report.hash}</p>}
 
           <div className={`flex flex-wrap gap-2 pt-1 ${isCivic ? '' : ''}`}>
             {onJoinChat && (
@@ -239,7 +239,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
       </div>
 
       {hasReward && (
-        <div className={`mt-4 border-t ${isCivic ? 'border-slate-100 pt-4' : 'border-zinc-800 pt-4'}`}>
+        <div className={`mt-4 border-t ${isCivic ? 'border-slate-100 pt-4' : 'border-[var(--dpal-border-strong)] pt-4'}`}>
           {report.isGeneratingNft ? (
             <div
               className={
@@ -255,7 +255,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
             </div>
           ) : report.earnedNft ? (
             <div className="flex flex-wrap items-center gap-3">
-              <span className={`text-xs font-semibold uppercase tracking-wider ${isCivic ? 'text-slate-500' : 'text-zinc-500 font-black'}`}>
+              <span className={`text-xs font-semibold uppercase tracking-wider ${isCivic ? 'text-slate-500' : 'text-[var(--dpal-text-muted)] font-black'}`}>
                 Verified record:
               </span>
               <RarityBadge rarity={report.earnedNft.rarity} civic={isCivic} />
