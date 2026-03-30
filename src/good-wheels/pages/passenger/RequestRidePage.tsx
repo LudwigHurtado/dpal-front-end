@@ -1,13 +1,15 @@
 import React, { useMemo } from 'react';
-import { useRideStore } from '../../store/useRideStore';
 import { MOCK_SUPPORT_CATEGORIES } from '../../data/mock/mockSupportCategories';
+import { useTripStore } from '../../features/trips/tripStore';
+import TripMapPanel from '../../features/trips/components/TripMapPanel';
+import TripSupportCategoryChip from '../../features/trips/components/TripSupportCategoryChip';
 
 const RequestRidePage: React.FC = () => {
-  const draft = useRideStore((s) => s.draft);
-  const setDraft = useRideStore((s) => s.setDraft);
-  const requestRide = useRideStore((s) => s.requestRide);
-  const loading = useRideStore((s) => s.loading);
-  const error = useRideStore((s) => s.error);
+  const draft = useTripStore((s) => s.draft);
+  const setDraft = useTripStore((s) => s.setDraft);
+  const requestRide = useTripStore((s) => s.requestRide);
+  const loading = useTripStore((s) => s.loading);
+  const error = useTripStore((s) => s.error);
 
   const purposes = useMemo(
     () => [
@@ -91,6 +93,16 @@ const RequestRidePage: React.FC = () => {
             </select>
           </label>
 
+          {draft.supportCategoryId && (
+            <div>
+              <div className="text-xs font-bold text-slate-500 mb-2">Selected category</div>
+              {(() => {
+                const c = MOCK_SUPPORT_CATEGORIES.find((x) => x.id === draft.supportCategoryId);
+                return c ? <TripSupportCategoryChip category={c} /> : null;
+              })()}
+            </div>
+          )}
+
           {error && <div className="gw-error">{error}</div>}
 
           <button
@@ -109,7 +121,23 @@ const RequestRidePage: React.FC = () => {
             Real pricing isn’t part of the DPAL Good Wheels foundation yet. This panel is structured for ETA,
             distance, match preview, and safety flags.
           </div>
-          <div className="gw-map-placeholder">Map placeholder (pickup → dropoff route)</div>
+          <TripMapPanel
+            trip={{
+              id: 'draft',
+              passengerId: 'draft',
+              pickup: draft.pickup ?? { label: 'Pickup', addressLine: '—' },
+              dropoff: draft.dropoff ?? { label: 'Destination', addressLine: '—' },
+              purpose: draft.purpose,
+              supportCategoryId: draft.supportCategoryId,
+              status: 'draft',
+              createdAtIso: new Date().toISOString(),
+              updatedAtIso: new Date().toISOString(),
+              estimate: { etaMinutes: 12, distanceKm: 4.6 },
+              timeline: [],
+              safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
+            }}
+            variant="passenger"
+          />
         </div>
       </div>
     </div>

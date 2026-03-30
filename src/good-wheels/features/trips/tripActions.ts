@@ -1,0 +1,47 @@
+import type { Trip, TripStatus } from './tripTypes';
+
+export type TripActionId =
+  | 'cancel'
+  | 'message'
+  | 'call'
+  | 'mark_arrived'
+  | 'start_trip'
+  | 'complete_trip'
+  | 'escalate'
+  | 'handoff_worker'
+  | 'confirm_handoff';
+
+export type TripAction = {
+  id: TripActionId;
+  label: string;
+  tone: 'primary' | 'secondary' | 'danger';
+  enabledWhen?: (trip: Trip) => boolean;
+};
+
+export function defaultPassengerActions(status: TripStatus): TripAction[] {
+  const base: TripAction[] = [{ id: 'message', label: 'Message', tone: 'secondary' }];
+  if (status === 'requested' || status === 'matched' || status === 'driver_assigned' || status === 'driver_arriving') {
+    return [...base, { id: 'cancel', label: 'Cancel Ride', tone: 'danger' }];
+  }
+  if (status === 'arrived') return [...base, { id: 'confirm_handoff', label: 'Confirm pickup', tone: 'primary' }];
+  if (status === 'in_progress' || status === 'support_in_progress' || status === 'escalated') {
+    return [...base, { id: 'escalate', label: 'Emergency Support', tone: 'danger' }];
+  }
+  return base;
+}
+
+export function defaultDriverActions(status: TripStatus): TripAction[] {
+  if (status === 'matched' || status === 'driver_assigned' || status === 'driver_arriving') {
+    return [{ id: 'mark_arrived', label: 'Mark arrived', tone: 'primary' }];
+  }
+  if (status === 'arrived') return [{ id: 'start_trip', label: 'Start trip', tone: 'primary' }];
+  if (status === 'in_progress' || status === 'support_in_progress') return [{ id: 'complete_trip', label: 'Complete trip', tone: 'primary' }];
+  return [];
+}
+
+export function defaultWorkerActions(status: TripStatus): TripAction[] {
+  if (status === 'support_in_progress') return [{ id: 'handoff_worker', label: 'Handoff / Notes', tone: 'secondary' }];
+  if (status === 'escalated') return [{ id: 'escalate', label: 'Escalation tools', tone: 'danger' }];
+  return [];
+}
+

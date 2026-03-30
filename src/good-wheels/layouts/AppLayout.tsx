@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
-import { useRideStore } from '../store/useRideStore';
+import { useTripStore } from '../features/trips/tripStore';
 import { GW_PATHS } from '../routes/paths';
 
 const AppLayout: React.FC = () => {
@@ -9,11 +9,11 @@ const AppLayout: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.activeRole);
   const signOut = useAuthStore((s) => s.signOut);
-  const loadForUser = useRideStore((s) => s.loadForUser);
+  const hydrate = useTripStore((s) => s.hydrate);
 
   useEffect(() => {
-    if (user?.id) void loadForUser(user.id);
-  }, [user?.id, loadForUser]);
+    if (user?.id) void hydrate(user.id);
+  }, [user?.id, hydrate]);
 
   return (
     <div className="gw-root min-h-screen">

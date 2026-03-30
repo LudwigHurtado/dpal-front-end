@@ -14,11 +14,16 @@ export type TripStatus =
   | 'draft'
   | 'requested'
   | 'matched'
-  | 'driver_en_route'
+  | 'driver_assigned'
+  | 'driver_arriving'
   | 'arrived'
   | 'in_progress'
+  | 'support_in_progress'
   | 'completed'
-  | 'cancelled';
+  | 'canceled'
+  | 'escalated';
+
+export type SafetyStatus = 'standard' | 'family_safe' | 'accessibility' | 'needs_attention' | 'urgent';
 
 export type GeoPoint = {
   lat: number;
@@ -58,12 +63,20 @@ export type Trip = {
   purpose: RidePurpose;
   supportCategoryId?: SupportCategoryId;
   status: TripStatus;
+  safetyStatus?: SafetyStatus;
   createdAtIso: string;
   updatedAtIso: string;
   timeline: TripTimelineEvent[];
+  notes?: string;
+  trustMarkers?: string[];
   estimate: {
     etaMinutes: number;
     distanceKm: number;
+  };
+  routeSummary?: {
+    distanceKm: number;
+    durationMinutes: number;
+    previewSteps?: string[];
   };
 };
 
