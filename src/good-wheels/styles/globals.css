@@ -379,6 +379,56 @@
 }
 .gw-ride-map-loading-inner { text-align: center; }
 
+/* ── Map pin-mode floating hint pill ── */
+.gw-map-pin-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 10px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  pointer-events: auto;
+  white-space: nowrap;
+  animation: gwHintPop 0.18s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes gwHintPop {
+  from { transform: translate(-50%,-50%) scale(0.82); opacity: 0; }
+  to   { transform: translate(-50%,-50%) scale(1);    opacity: 1; }
+}
+.gw-map-pin-hint--pickup {
+  background: rgba(239,68,68,0.96);
+  color: white;
+  border: 1.5px solid rgba(255,255,255,0.30);
+}
+.gw-map-pin-hint--dropoff {
+  background: rgba(34,197,94,0.96);
+  color: white;
+  border: 1.5px solid rgba(255,255,255,0.30);
+}
+.gw-map-pin-hint-cancel {
+  background: rgba(255,255,255,0.22);
+  border: none;
+  color: white;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
 /* ── Floating address input card ── */
 .gw-trip-addr-card {
   position: absolute;
@@ -392,13 +442,54 @@
   overflow: hidden;
   border: 1px solid rgba(0,0,0,0.06);
 }
+
+/* Individual field wrapper - changes border when active */
+.gw-addr-field {
+  position: relative;
+  transition: background 0.12s;
+}
+.gw-addr-field--pickup-active {
+  background: rgba(239,68,68,0.04);
+  outline: 2px solid #ef4444;
+  outline-offset: -2px;
+  border-radius: 18px 18px 0 0;
+}
+.gw-addr-field--dropoff-active {
+  background: rgba(34,197,94,0.04);
+  outline: 2px solid #22c55e;
+  outline-offset: -2px;
+  border-radius: 0 0 18px 18px;
+}
+
+/* Colored bottom bar when field is active */
+.gw-addr-active-bar {
+  height: 2px;
+  margin: 0 14px;
+}
+.gw-addr-active-bar--pickup { background: linear-gradient(90deg, #ef4444, rgba(239,68,68,0.3)); }
+.gw-addr-active-bar--dropoff { background: linear-gradient(90deg, #22c55e, rgba(34,197,94,0.3)); }
+
+/* Connector between the two field rows */
+.gw-addr-connector {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 14px;
+}
+.gw-addr-connector-line {
+  flex: 1;
+  height: 1px;
+  background: #F3F4F6;
+  margin-left: 24px;
+}
+
 .gw-addr-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 13px 16px;
+  gap: 8px;
+  padding: 12px 14px 12px 16px;
 }
-.gw-addr-icon { display: flex; align-items: center; flex-shrink: 0; }
+.gw-addr-dot { display: flex; align-items: center; flex-shrink: 0; width: 18px; }
 .gw-addr-input {
   flex: 1;
   border: none;
@@ -407,36 +498,94 @@
   font-weight: 600;
   color: #1F2937;
   background: transparent;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   min-width: 0;
 }
 .gw-addr-input::placeholder { color: #9CA3AF; font-weight: 500; }
-.gw-addr-divider { height: 1px; background: #F3F4F6; margin: 0 16px; }
+
+/* GPS button inside input row */
+.gw-addr-gps-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid #E5E7EB;
+  background: #F9FAFB;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+.gw-addr-gps-btn:hover { background: #F3F4F6; border-color: #D1D5DB; }
+.gw-addr-gps-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.gw-addr-gps-btn--loading { background: rgba(0,119,200,0.07); border-color: rgba(0,119,200,0.3); }
+
+/* GPS spinner */
+.gw-addr-gps-spinner {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid #E5E7EB;
+  border-top-color: #0077C8;
+  border-radius: 50%;
+  animation: gwSpin 0.7s linear infinite;
+}
+@keyframes gwSpin { to { transform: rotate(360deg); } }
+
+/* Autocomplete suggestions dropdown */
 .gw-addr-preds {
   border-top: 1px solid #F3F4F6;
-  max-height: 190px;
+  max-height: 180px;
   overflow-y: auto;
 }
 .gw-addr-pred-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   width: 100%;
   text-align: left;
-  padding: 10px 16px;
+  padding: 10px 14px;
   font-size: 13px;
   color: #374151;
   background: transparent;
   border: none;
   cursor: pointer;
   border-bottom: 1px solid #F9FAFB;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   font-weight: 500;
 }
 .gw-addr-pred-item:hover { background: #F9FAFB; }
 .gw-addr-pred-item:last-child { border-bottom: none; }
+.gw-addr-pred-pin { font-size: 13px; flex-shrink: 0; }
+.gw-addr-pred-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Map-tap shortcut buttons (shown when no field active) */
+.gw-addr-map-hints {
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px 12px;
+  border-top: 1px solid #F3F4F6;
+}
+.gw-addr-map-hint-btn {
+  flex: 1;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  white-space: nowrap;
+}
+.gw-addr-map-hint-btn--pickup {
+  background: rgba(239,68,68,0.08);
+  color: #dc2626;
+  border: 1px solid rgba(239,68,68,0.20);
+}
+.gw-addr-map-hint-btn--dropoff {
+  background: rgba(34,197,94,0.08);
+  color: #16a34a;
+  border: 1px solid rgba(34,197,94,0.20);
+}
 
 /* ── Ride options card (bottom floating) ── */
 .gw-ride-opts-card {
