@@ -14,6 +14,7 @@ import CategoryGatewayView from './components/CategoryGatewayView';
 import CategoryModeShell from './components/CategoryModeShell';
 import ReportModeEntry from './components/categoryMode/report/ReportModeEntry';
 import HelpPathSelectionView from './components/categoryMode/help/HelpPathSelectionView';
+import HelpCenterView from './components/HelpCenterView';
 import WorkMissionBoardView from './components/categoryMode/work/WorkMissionBoardView';
 import PlayHubView from './components/categoryMode/play/PlayHubView';
 import { getCategoryDefinition, categoryToGatewayId } from './components/sectors/categoryGatewayRegistry';
@@ -80,7 +81,7 @@ import { readNavSession, writeNavSession, categoryFromSession } from './utils/na
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -1314,6 +1315,13 @@ const App: React.FC = () => {
 
         {currentView === 'reportWorkPanel' && (
           <ReportWorkPanel onOpenMasterPanel={() => setCurrentView('reportProtect')} />
+        )}
+
+        {currentView === 'helpCenter' && (
+          <HelpCenterView
+            onReturn={() => handleNavigate('mainMenu')}
+            onNavigate={handleNavigate}
+          />
         )}
 
         {currentView === 'categorySelection' && (

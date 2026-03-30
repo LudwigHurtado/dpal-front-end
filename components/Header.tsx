@@ -334,6 +334,7 @@ const Header: React.FC<HeaderProps> = ({
               <NavIcon label="My collection" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
               <NavIcon label="Wallet & coins" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
               <NavIcon label="Profile & badges" color="cyan" icon={<Award className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'profile')} />
+              <NavIcon label="Help Center" color="blue" icon={<ShieldCheck className="w-5 h-5"/>} onClick={() => onNavigate('helpCenter')} />
             </div>
           </div>
         </div>

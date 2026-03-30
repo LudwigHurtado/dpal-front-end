@@ -255,11 +255,11 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 <PrimaryNavModule
                     icon={<Sparkles className="w-8 h-8" />}
                     label="Help Center"
-                    subLabel="Guidance when you need it"
-                    status="Here"
+                    subLabel="Fix issues, get support, resolve problems"
+                    status="New"
                     colorClass="cyan"
                     bgImageUrl="/category-cards/dpal-help.png"
-                    onClick={() => onNavigate('reportSubmission', Category.DpalHelp)}
+                    onClick={() => onNavigate('helpCenter')}
                 />
 
                 <PrimaryNavModule
