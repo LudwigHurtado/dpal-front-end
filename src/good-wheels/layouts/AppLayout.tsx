@@ -68,17 +68,6 @@ const AppLayout: React.FC = () => {
 
   return (
     <div className={previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'}>
-      {previewing && (
-        <div className="gw-preview-stage">
-          <div
-            className="gw-preview-frame"
-            style={{
-              width: previewSpec.width ?? 'auto',
-              height: previewSpec.height ?? 'auto',
-            }}
-          />
-        </div>
-      )}
       <div
         className={previewing ? 'gw-preview-app' : undefined}
         style={

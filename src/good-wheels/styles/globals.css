@@ -27,7 +27,9 @@
 .gw-previewing {
   display: flex;
   justify-content: center;
+  align-items: flex-start;
   padding: 18px 0;
+  overflow: auto;
 }
 .gw-preview-app {
   position: relative;
