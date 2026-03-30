@@ -15,6 +15,9 @@ export type DriverQueueFilterId =
 
 export type DriverQueueItem = Trip;
 
+/** Which type of vehicle — drives the map marker shape */
+export type VehicleMapType = 'car' | 'moto' | 'truck' | 'van';
+
 export type DriverVehicleInfo = {
   id: string;
   makeModel: string;
@@ -22,6 +25,12 @@ export type DriverVehicleInfo = {
   seats: number;
   accessibilityReady: boolean;
   verification: 'unverified' | 'pending' | 'verified';
+  /** Hex color of the vehicle body, e.g. "#EAB308" for yellow */
+  color: string;
+  /** Human-readable color name shown in UI */
+  colorName: string;
+  /** Vehicle type — controls the map marker shape */
+  vehicleType: VehicleMapType;
 };
 
 export type DriverPerformanceSummary = {

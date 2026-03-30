@@ -87,6 +87,9 @@ export const driverService = {
       seats: 4,
       accessibilityReady: false,
       verification: 'verified',
+      color: '#EAB308',      // yellow — matches real taxi look
+      colorName: 'Yellow',
+      vehicleType: 'car',
     };
   },
   async fetchPerformanceSummary(): Promise<DriverPerformanceSummary> {

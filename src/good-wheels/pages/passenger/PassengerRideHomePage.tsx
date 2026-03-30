@@ -4,7 +4,10 @@ import { GW_PATHS } from '../../routes/paths';
 import { useGoogleMaps } from '../../features/map/useGoogleMaps';
 import { useTripStore } from '../../features/trips/tripStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useDriverStore } from '../../features/driver/driverStore';
+import { makeVehicleMarkerUrl } from '../../services/vehicleMapMarker';
 import type { LatLng } from '../../features/map/mapTypes';
+import type { VehicleMapType } from '../../features/driver/driverTypes';
 
 /* ─────────────────────────────────────────────
    Types
@@ -28,11 +31,11 @@ function getPinSvg(label: string, bg: string) {
   </svg>`;
 }
 
-function getVehicleSvg() {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 46" width="46" height="46">
-    <circle cx="23" cy="23" r="18" fill="#0077C8" stroke="white" stroke-width="2.5"/>
-    <text x="23" y="29" text-anchor="middle" font-size="18" font-family="sans-serif">🚗</text>
-  </svg>`;
+/** Map passenger vehicle category → VehicleMapType for the marker renderer */
+function toVehicleMapType(vt: VehicleType): VehicleMapType {
+  if (vt === 'moto')  return 'moto';
+  if (vt === 'large') return 'truck';
+  return 'car';   // 'car' | 'comfort'
 }
 
 /* ─────────────────────────────────────────────
@@ -99,6 +102,8 @@ const PassengerRideHomePage: React.FC = () => {
   const draft      = useTripStore((s) => s.draft);
   const setDraft   = useTripStore((s) => s.setDraft);
   const requestRide = useTripStore((s) => s.requestRide);
+  /* Driver vehicle — used so the map shows the driver's real car color */
+  const driverVehicle = useDriverStore((s) => s.vehicle);
   const { google: g, ready } = useGoogleMaps();
 
   /* Map refs */
@@ -128,6 +133,13 @@ const PassengerRideHomePage: React.FC = () => {
   const [activeTab, setActiveTab]     = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
 
   const bothSet = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
+
+  /* Load driver vehicle data so we have the real vehicle color for the map marker */
+  const hydrateDriver = useDriverStore((s) => s.hydrate);
+  useEffect(() => {
+    if (!driverVehicle) void hydrateDriver();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /* Auto-advance to options sheet once both addresses are set */
   useEffect(() => {
@@ -210,7 +222,11 @@ const PassengerRideHomePage: React.FC = () => {
             directionsRendRef.current.setDirections(result);
             if (!vehicleMarkerRef.current) vehicleMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, zIndex: 20 });
             vehicleMarkerRef.current.setPosition(pickupLL);
-            vehicleMarkerRef.current.setIcon({ url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getVehicleSvg())}`, scaledSize: new g.maps.Size(46, 46), anchor: new g.maps.Point(23, 23) });
+            /* Use the driver's real vehicle color + type from their profile */
+            const markerVehicleType = driverVehicle?.vehicleType ?? toVehicleMapType(vehicleType);
+            const markerColor       = driverVehicle?.color ?? '#0077C8';
+            const markerUrl         = makeVehicleMarkerUrl(markerVehicleType, markerColor, 60);
+            vehicleMarkerRef.current.setIcon({ url: markerUrl, scaledSize: new g.maps.Size(60, 60), anchor: new g.maps.Point(30, 30) });
             const bounds = new g.maps.LatLngBounds();
             bounds.extend(pickupLL); bounds.extend(dropoffLL);
             mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 320, left: 32, right: 32 });
@@ -222,7 +238,8 @@ const PassengerRideHomePage: React.FC = () => {
       vehicleMarkerRef.current?.setMap(null); vehicleMarkerRef.current = null;
       if (pickupLL) mapObjRef.current?.panTo(pickupLL);
     }
-  }, [g, pickupLL, dropoffLL]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [g, pickupLL, dropoffLL, vehicleType, driverVehicle]);
 
   /* ── Autocomplete ── */
   const fetchPredictions = useCallback(
