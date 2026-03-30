@@ -325,19 +325,56 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
             <style>{`
                 @media print {
                     @page { size: A4; margin: 10mm 12mm; }
-                    body { background: white !important; padding: 0 !important; margin: 0 !important; }
-                    .no-print { display: none !important; }
-                    .print-area { display: block !important; padding: 0 !important; margin: 0 !important; background: white !important; }
+
+                    /* ── ISOLATION: hide the entire app shell, reveal ONLY the certificate ──
+                       body * visibility:hidden makes every element transparent.
+                       We then selectively restore visibility for .print-area and its children.
+                       position:absolute + top/left:0 ensures the certificate starts at the
+                       very top of page 1 regardless of scroll position. */
+                    html, body {
+                        background: white !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        height: auto !important;
+                        overflow: visible !important;
+                    }
+                    body * {
+                        visibility: hidden !important;
+                    }
+                    .print-area,
+                    .print-area * {
+                        visibility: visible !important;
+                    }
+                    /* Hide any no-print elements even if nested inside print-area */
+                    .no-print,
+                    .no-print * {
+                        visibility: hidden !important;
+                        display: none !important;
+                    }
+                    /* Anchor the certificate to the top-left of the printed page */
+                    .print-area {
+                        position: absolute !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        right: 0 !important;
+                        width: 100% !important;
+                        padding: 0 !important;
+                        margin: 0 !important;
+                        background: white !important;
+                        box-shadow: none !important;
+                    }
+
                     /* Page breaks */
                     .cert-p1 { break-after: page !important; page-break-after: always !important; box-shadow: none !important; border: 1px solid #ccc !important; }
                     .cert-p2 { break-before: page !important; page-break-before: always !important; box-shadow: none !important; border: 1px solid #ccc !important; }
-                    /* Force all colour sections to print correctly */
-                    .cert-hdr-dark  { background: #0a0a0a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+                    /* Colour preservation for all coloured sections */
+                    .cert-hdr-dark     { background: #0a0a0a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     .cert-status-green { background: #14532d !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .cert-p2-hdr    { background: #1f2937 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .cert-p1-footer { background: #f9fafb !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .cert-qr-bg     { background: #fafafa !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-                    .cert-verif-bg  { background: #fafafa !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-p2-hdr       { background: #1f2937 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-p1-footer    { background: #f9fafb !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-qr-bg        { background: #fafafa !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-verif-bg     { background: #fafafa !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
                     .cert-seal-dpal-inner {
                         background: linear-gradient(155deg, #fffbeb 0%, #fde68a 45%, #d97706 100%) !important;
                         -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
