@@ -587,7 +587,7 @@
   border: 1px solid rgba(34,197,94,0.20);
 }
 
-/* ── Ride options card (bottom floating) ── */
+/* ── Ride options card — slides up only after both pins are placed ── */
 .gw-ride-opts-card {
   position: absolute;
   left: 16px;
@@ -595,29 +595,70 @@
   bottom: 16px;
   z-index: 30;
   background: white;
-  border-radius: 22px;
+  border-radius: 20px;
   box-shadow: 0 8px 32px rgba(0,0,0,0.16);
-  padding: 14px 14px 14px;
+  padding: 12px 12px 12px;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 5px;
   border: 1px solid rgba(0,0,0,0.06);
+  animation: gwSlideUp 0.22s cubic-bezier(0.34,1.3,0.64,1);
 }
-.gw-ride-opts-label {
+@keyframes gwSlideUp {
+  from { transform: translateY(24px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Compact route summary line */
+.gw-ride-route-summary {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid #F3F4F6;
+  margin-bottom: 4px;
+  overflow: hidden;
+}
+.gw-ride-route-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: white;
+}
+.gw-ride-route-dot--a { background: #ef4444; }
+.gw-ride-route-dot--b { background: #22c55e; }
+.gw-ride-route-label {
   font-size: 11px;
+  font-weight: 700;
+  color: #374151;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gw-ride-route-arrow { font-size: 11px; color: #9CA3AF; flex-shrink: 0; }
+
+.gw-ride-opts-label {
+  font-size: 10px;
   font-weight: 800;
   color: #9CA3AF;
   text-transform: uppercase;
   letter-spacing: 0.09em;
   padding: 0 2px;
-  margin-bottom: 2px;
 }
 .gw-ride-opt-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 14px;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
   border: 2px solid transparent;
   background: #F9FAFB;
   cursor: pointer;
@@ -631,24 +672,24 @@
   background: rgba(0,119,200,0.05);
 }
 .gw-ride-opt-icon {
-  width: 44px;
-  height: 32px;
-  border-radius: 10px;
+  width: 38px;
+  height: 26px;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 .gw-ride-opt-info { flex: 1; min-width: 0; }
-.gw-ride-opt-name { font-size: 14px; font-weight: 800; color: #1F2937; }
-.gw-ride-opt-eta { font-size: 12px; color: #6B7280; font-weight: 600; margin-top: 1px; }
-.gw-ride-opt-price { font-size: 17px; font-weight: 900; color: #0D3B66; flex-shrink: 0; }
+.gw-ride-opt-name { font-size: 13px; font-weight: 800; color: #1F2937; }
+.gw-ride-opt-eta { font-size: 11px; color: #6B7280; font-weight: 600; }
+.gw-ride-opt-price { font-size: 15px; font-weight: 900; color: #0D3B66; flex-shrink: 0; }
 .gw-ride-opt-check {
-  font-size: 15px;
+  font-size: 13px;
   color: #0077C8;
   font-weight: 900;
   flex-shrink: 0;
-  width: 20px;
+  width: 18px;
   text-align: center;
 }
 

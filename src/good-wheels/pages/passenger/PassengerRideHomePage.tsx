@@ -385,11 +385,13 @@ const PassengerRideHomePage: React.FC = () => {
     );
   };
 
+  const requestRide = useTripStore((s) => s.requestRide);
   const canConfirm = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
 
-  const handleConfirmRide = () => {
+  const handleConfirmRide = async () => {
     setActiveField(null);
-    navigate(GW_PATHS.passenger.request);
+    await requestRide();
+    navigate(GW_PATHS.passenger.active);
   };
 
   const handleTabClick = (tab: typeof activeTab) => {
@@ -586,81 +588,82 @@ const PassengerRideHomePage: React.FC = () => {
             )}
           </div>
 
-          {/* Map-tap shortcut labels (shown only when no active field) */}
-          {!activeField && (
+          {/* Map-tap shortcut labels — only when no active field and not both set */}
+          {!activeField && !(pickupLL && dropoffLL) && (
             <div className="gw-addr-map-hints">
-              <button
-                type="button"
-                className="gw-addr-map-hint-btn gw-addr-map-hint-btn--pickup"
-                onClick={() => setActiveField('pickup')}
-              >
-                📍 Tap map for pickup
-              </button>
-              <button
-                type="button"
-                className="gw-addr-map-hint-btn gw-addr-map-hint-btn--dropoff"
-                onClick={() => setActiveField('dropoff')}
-              >
-                📍 Tap map for dropoff
-              </button>
+              {!pickupLL && (
+                <button
+                  type="button"
+                  className="gw-addr-map-hint-btn gw-addr-map-hint-btn--pickup"
+                  onClick={() => setActiveField('pickup')}
+                >
+                  📍 Tap map for pickup
+                </button>
+              )}
+              {!dropoffLL && (
+                <button
+                  type="button"
+                  className="gw-addr-map-hint-btn gw-addr-map-hint-btn--dropoff"
+                  onClick={() => setActiveField('dropoff')}
+                >
+                  📍 Tap map for dropoff
+                </button>
+              )}
             </div>
           )}
         </div>
 
-        {/* ── Ride options + confirm ── */}
-        <div className="gw-ride-opts-card" onClick={(e) => e.stopPropagation()}>
-          <div className="gw-ride-opts-label">Choose your ride</div>
+        {/* ── Ride options + confirm — only shown once both pins are placed ── */}
+        {pickupLL && dropoffLL && (
+          <div className="gw-ride-opts-card" onClick={(e) => e.stopPropagation()}>
+            {/* Compact route summary at top */}
+            <div className="gw-ride-route-summary">
+              <span className="gw-ride-route-dot gw-ride-route-dot--a">A</span>
+              <span className="gw-ride-route-label">{pickupText.split(',')[0]}</span>
+              <span className="gw-ride-route-arrow">→</span>
+              <span className="gw-ride-route-dot gw-ride-route-dot--b">B</span>
+              <span className="gw-ride-route-label">{dropoffText.split(',')[0]}</span>
+            </div>
 
-          {RIDE_OPTIONS.map((opt) => {
-            const sel = opt.id === selectedRideId;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                className={sel ? 'gw-ride-opt-row gw-ride-opt-row--selected' : 'gw-ride-opt-row'}
-                onClick={() => setSelectedRideId(opt.id)}
-              >
-                <div className="gw-ride-opt-icon" style={{ background: TIER_COLOR[opt.id] }}>
-                  <svg viewBox="0 0 24 14" fill="none" width="28" height="16">
-                    <rect x="1" y="5" width="22" height="8" rx="2" fill="white" opacity="0.85" />
-                    <rect x="4" y="1" width="16" height="8" rx="2" fill="white" opacity="0.65" />
-                    <circle cx="5" cy="13" r="2" fill={TIER_COLOR[opt.id]} stroke="white" strokeWidth="1.2" />
-                    <circle cx="19" cy="13" r="2" fill={TIER_COLOR[opt.id]} stroke="white" strokeWidth="1.2" />
-                  </svg>
-                </div>
-                <div className="gw-ride-opt-info">
-                  <div className="gw-ride-opt-name">{opt.label}</div>
-                  <div className="gw-ride-opt-eta">{opt.etaMin} min away</div>
-                </div>
-                <div className="gw-ride-opt-price">${opt.price}</div>
-                {sel && <div className="gw-ride-opt-check">✓</div>}
-              </button>
-            );
-          })}
+            <div className="gw-ride-opts-label">Choose your ride</div>
 
-          {/* Charity nudge */}
-          <div className="gw-ride-charity-banner">
-            <span>❤️</span>
-            <span>Every ride supports a local cause</span>
+            {RIDE_OPTIONS.map((opt) => {
+              const sel = opt.id === selectedRideId;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  className={sel ? 'gw-ride-opt-row gw-ride-opt-row--selected' : 'gw-ride-opt-row'}
+                  onClick={() => setSelectedRideId(opt.id)}
+                >
+                  <div className="gw-ride-opt-icon" style={{ background: TIER_COLOR[opt.id] }}>
+                    <svg viewBox="0 0 24 14" fill="none" width="24" height="14">
+                      <rect x="1" y="5" width="22" height="8" rx="2" fill="white" opacity="0.85" />
+                      <rect x="4" y="1" width="16" height="8" rx="2" fill="white" opacity="0.65" />
+                      <circle cx="5" cy="13" r="2" fill={TIER_COLOR[opt.id]} stroke="white" strokeWidth="1.2" />
+                      <circle cx="19" cy="13" r="2" fill={TIER_COLOR[opt.id]} stroke="white" strokeWidth="1.2" />
+                    </svg>
+                  </div>
+                  <div className="gw-ride-opt-info">
+                    <div className="gw-ride-opt-name">{opt.label}</div>
+                    <div className="gw-ride-opt-eta">{opt.etaMin} min</div>
+                  </div>
+                  <div className="gw-ride-opt-price">${opt.price}</div>
+                  {sel && <div className="gw-ride-opt-check">✓</div>}
+                </button>
+              );
+            })}
+
+            {/* Confirm CTA */}
             <button
               type="button"
-              className="gw-ride-charity-link"
-              onClick={() => navigate(GW_PATHS.passenger.charities)}
+              className="gw-ride-confirm-btn"
+              onClick={handleConfirmRide}
             >
-              Choose →
+              Confirm Ride
             </button>
           </div>
-
-          {/* Confirm CTA */}
-          <button
-            type="button"
-            className="gw-ride-confirm-btn"
-            disabled={!canConfirm}
-            onClick={handleConfirmRide}
-          >
-            {canConfirm ? 'Confirm Ride' : 'Enter pickup & destination'}
-          </button>
-        </div>
+        )}
       </div>
 
       {/* ── Bottom tabs ── */}
