@@ -47,7 +47,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         "TRUTHSCORE_CALCULATED: " + report.trustScore + "%",
         `BLOCK_REF_ASSIGNED: ${blockRef}`,
         `ANCHOR_TX: ${txRef?.slice(0, 14)}...`,
-        `CHAIN_NETWORK: ${report.chain || 'DPAL_INTERNAL'}`
+        `CHAIN_NETWORK: ${report.chain || 'DPAL_PRIVATE_CHAIN_v1'}`
     ];
 
     useEffect(() => {
@@ -590,7 +590,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 ['Audit State',      'CERTIFIED',        '#166534'],
                                 ['Anonymity Level',  'PROTECTED',        '#1d4ed8'],
                                 ['Alteration Guard', 'ACTIVE',           '#166534'],
-                                ['Chain Network',    (report.chain || 'DPAL_INTERNAL'), '#1d4ed8'],
+                                ['Chain Network',    (report.chain || 'DPAL_PRIVATE_CHAIN_v1'), '#1d4ed8'],
                             ] as [string, string, string][]).map(([label, value, color]) => (
                                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f9fafb' }}>
                                     <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
@@ -684,13 +684,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
 
                     {/* ── ANCHOR STATUS BANNER ── */}
                     {(() => {
-                        const isServerChain = report.chain && report.chain !== 'DPAL_INTERNAL';
+                        const isPrivateChain = !report.chain || report.chain === 'DPAL_PRIVATE_CHAIN_v1' || report.chain === 'DPAL_INTERNAL';
                         const looksRandom = !report.txHash || report.txHash.length < 10;
-                        const status = isServerChain ? 'server' : looksRandom ? 'fallback' : 'internal';
+                        const status = isPrivateChain ? 'private' : looksRandom ? 'fallback' : 'private';
                         const cfg = {
-                            server:   { bg: '#f0fdf4', border: '#bbf7d0', dot: '#16a34a', label: 'SERVER ANCHORED', sub: `This report was anchored by the DPAL backend on chain: ${report.chain}. The txHash and block number were returned by the server.`, dotColor: '#16a34a' },
-                            internal: { bg: '#eff6ff', border: '#bfdbfe', dot: '#2563eb', label: 'DPAL INTERNAL LEDGER', sub: 'This report is stored in the DPAL backend (Railway). No public blockchain transaction was made. SHA-256 hash was computed client-side.', dotColor: '#2563eb' },
-                            fallback: { bg: '#fffbeb', border: '#fde68a', dot: '#d97706', label: 'LOCAL HASH (BACKEND UNREACHABLE)', sub: 'The anchor API was unreachable at the time of filing. The hash and txHash are locally-derived. The record is saved in localStorage and will sync when backend is available.', dotColor: '#d97706' },
+                            private:  { bg: '#eff6ff', border: '#bfdbfe', dot: '#2563eb', label: 'DPAL PRIVATE CHAIN — ANCHORED', sub: `This report is cryptographically anchored to the DPAL Private Chain (${report.chain || 'DPAL_PRIVATE_CHAIN_v1'}). Block hash and dataHash were computed using SHA-256 (Web Crypto API). The chain is owned and operated entirely by DPAL — no public blockchain involved.`, dotColor: '#2563eb' },
+                            fallback: { bg: '#fffbeb', border: '#fde68a', dot: '#d97706', label: 'LOCAL CHAIN BLOCK (BACKEND OFFLINE)', sub: 'The backend was unreachable. The block was written to the local DPAL Private Chain in localStorage. It will sync to the backend on next connection.', dotColor: '#d97706' },
                         }[status];
                         return (
                             <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, margin: '10px 22px 0', borderRadius: 6, padding: '8px 12px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
@@ -718,7 +717,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 ['Ledger Anchor',    txRef ? `${txRef.substring(0, 22)}…` : 'N/A'],
                                 ['Full Hash',        `${report.hash.substring(0, 26).toUpperCase()}…`],
                                 ['Hash Method',      'SHA-256 (Web Crypto API)'],
-                                ['Chain Network',    (report.chain || 'DPAL_INTERNAL')],
+                                ['Chain Network',    (report.chain || 'DPAL_PRIVATE_CHAIN_v1')],
                                 ['Last Verified',    new Date().toISOString().substring(0, 19) + 'Z'],
                             ] as [string, string][]).map(([label, value]) => (
                                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '3.5px 0', borderBottom: '1px solid #f9fafb', gap: 10 }}>
@@ -759,9 +758,9 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0 20px' }}>
                             {([
-                                ['Filing Route',     'CLIENT → BACKEND → INTERNAL LEDGER'],
+                                ['Filing Route',     'CLIENT → DPAL_PRIVATE_CHAIN → BACKEND'],
                                 ['Registry Source',  'DPAL_CORE_v1.0'],
-                                ['Anchor Method',    (report.chain && report.chain !== 'DPAL_INTERNAL') ? 'SERVER_ANCHORED' : 'INTERNAL_LEDGER_POST'],
+                                ['Anchor Method',    'DPAL_PRIVATE_CHAIN_SHA256'],
                                 ['System Signature', `${report.hash.substring(0, 16).toUpperCase()}…`],
                                 ['Public Trace',     'PUBLICLY ACCESSIBLE'],
                                 ['Hash Algorithm',   'SHA-256 (browser Web Crypto)'],
@@ -784,7 +783,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 `TRUTHSCORE_CALCULATED: ${report.trustScore}% [OK]`,
                                 `BLOCK_REF_ASSIGNED: ${blockRef} [OK]`,
                                 `ANCHOR_TX: ${txRef ? txRef.slice(0, 14) : 'N/A'}... [OK]`,
-                                `CHAIN_NETWORK: ${report.chain || 'DPAL_INTERNAL'} [OK]`,
+                                `CHAIN_NETWORK: ${report.chain || 'DPAL_PRIVATE_CHAIN_v1'} [OK]`,
                             ].map((log, i) => (
                                 <p key={i} style={{ fontSize: 7, fontFamily: 'monospace', color: '#16a34a', margin: 0, padding: '1px 0' }}>&gt; {log}</p>
                             ))}

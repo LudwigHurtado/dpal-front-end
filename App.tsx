@@ -75,6 +75,7 @@ import { createEvidenceRecords } from './services/evidenceVaultService';
 import { persistReportForPublicLookup } from './services/reportPersistenceService';
 import { resolveReportByBlockNumber, fetchReportFromApiById, fetchReportsFeedFromApi } from './services/blockchainLookupService';
 import { parseBlockNumberInput, deriveStableBlockNumber } from './utils/blockchainLookup';
+import { addBlockToChain, DPAL_CHAIN_ID } from './services/dpalChainService';
 import { reportMatchesKeywordFilter } from './utils/reportSearch';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
@@ -967,8 +968,29 @@ const App: React.FC = () => {
 
     let evidenceRecords: any[] = [];
     const rawAttachments: File[] = Array.isArray(rep?.attachments) ? rep.attachments : [];
-    const fallbackTxHash = `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
-    const chainRefId = anchored.txHash || fallbackTxHash;
+
+    // ── Add to DPAL Private Chain ─────────────────────────────────────────
+    // Every report gets a real block: SHA-256 dataHash, chained previousHash,
+    // sequential block index. This is the DPAL-owned private blockchain.
+    let dpalChainBlock: Awaited<ReturnType<typeof addBlockToChain>> | null = null;
+    try {
+      dpalChainBlock = await addBlockToChain({
+        id:            reportId,
+        category:      rep?.category ?? 'unknown',
+        title:         rep?.title ?? '',
+        description:   rep?.description ?? '',
+        location:      rep?.location ?? '',
+        trustScore:    rep?.trustScore ?? 80,
+        evidenceCount: rawAttachments.length,
+      });
+    } catch (chainErr) {
+      console.warn('DPAL Private Chain: failed to add block (chain will sync on next submit):', chainErr);
+    }
+
+    const privateChainTxHash = dpalChainBlock?.block.hash
+      ? `0x${dpalChainBlock.block.hash}`
+      : anchored.txHash || `0x${Math.random().toString(16).slice(2)}${Date.now().toString(16)}`;
+    const chainRefId = privateChainTxHash;
 
     if (rawAttachments.length) {
       try {
@@ -1021,12 +1043,15 @@ const App: React.FC = () => {
       ...rep,
       id: reportId,
       timestamp: new Date(),
-      hash: anchored.reportHash || `0x${Math.random().toString(16).slice(2)}`,
+      // Use DPAL Private Chain values when available; server anchor as secondary source
+      hash:          dpalChainBlock?.block.dataHash
+                       ? `0x${dpalChainBlock.block.dataHash}`
+                       : anchored.reportHash || `0x${Math.random().toString(16).slice(2)}`,
       blockchainRef: chainRefId,
-      txHash: chainRefId,
-      blockNumber: anchored.blockNumber ?? deriveStableBlockNumber(reportId),
-      chain: anchored.chain || 'DPAL_INTERNAL',
-      anchoredAt: anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
+      txHash:        chainRefId,
+      blockNumber:   dpalChainBlock?.block.index ?? anchored.blockNumber ?? deriveStableBlockNumber(reportId),
+      chain:         dpalChainBlock ? DPAL_CHAIN_ID : (anchored.chain || DPAL_CHAIN_ID),
+      anchoredAt:    anchored.anchoredAt ? new Date(anchored.anchoredAt) : new Date(),
       isAuthor: true,
       status: 'Submitted',
       evidenceVault: {

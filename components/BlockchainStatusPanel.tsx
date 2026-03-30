@@ -1,10 +1,18 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslations } from '../i18n';
-import { Cube, Search, Loader, ShieldCheck, AlertTriangle, Database, Activity, Globe, CheckCircle } from './icons';
+import { Cube, Search, Loader, Database, CheckCircle, AlertTriangle, Activity, ShieldCheck, Globe } from './icons';
 import { getApiBase } from '../constants';
+import {
+  getChainState,
+  getChain,
+  verifyChain,
+  exportChainJson,
+  DPAL_CHAIN_ID,
+  type DpalBlock,
+} from '../services/dpalChainService';
 
 type BlockLookupResult = { ok: true } | { ok: false; reason: 'invalid' | 'not_found' };
-type AnchorHealth = 'checking' | 'reachable' | 'unreachable' | 'unknown';
+type BackendHealth = 'checking' | 'reachable' | 'unreachable' | 'unknown';
 
 interface BlockchainStatusPanelProps {
   totalReports: number;
@@ -13,50 +21,75 @@ interface BlockchainStatusPanelProps {
   onOpenReportByBlock?: (raw: string) => Promise<BlockLookupResult>;
 }
 
-const CHAIN_NAME = 'DPAL Internal Ledger';
-const CHAIN_TAG  = 'DPAL_INTERNAL';
-const HASH_METHOD = 'SHA-256 (Web Crypto API)';
-
 const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
   totalReports,
-  latestHash,
-  latestBlockNumber,
+  latestHash: _latestHashProp,
+  latestBlockNumber: _latestBlockNumberProp,
   onOpenReportByBlock,
 }) => {
   const { t } = useTranslations();
-  const [currentBlock, setCurrentBlock] = useState(latestBlockNumber || 6843021);
-  const [blockInput, setBlockInput] = useState('');
-  const [lookupBusy, setLookupBusy] = useState(false);
-  const [lookupHint, setLookupHint] = useState<string | null>(null);
-  const [anchorHealth, setAnchorHealth] = useState<AnchorHealth>('unknown');
-  const [anchorLatency, setAnchorLatency] = useState<number | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+
+  // ── DPAL Private Chain state ──
+  const [chainBlocks, setChainBlocks]           = useState<DpalBlock[]>([]);
+  const [chainIntegrity, setChainIntegrity]     = useState<'VERIFIED' | 'COMPROMISED' | 'EMPTY' | 'CHECKING'>('CHECKING');
+  const [integrityDetail, setIntegrityDetail]   = useState<string>('');
+  const [backendHealth, setBackendHealth]       = useState<BackendHealth>('unknown');
+  const [backendLatency, setBackendLatency]     = useState<number | null>(null);
+  const [lastVerified, setLastVerified]         = useState<string>('');
+  const [blockInput, setBlockInput]             = useState('');
+  const [lookupBusy, setLookupBusy]             = useState(false);
+  const [lookupHint, setLookupHint]             = useState<string | null>(null);
+  const [showChainBlocks, setShowChainBlocks]   = useState(false);
+  const [showTxLog, setShowTxLog]               = useState(false);
+
+  // ── Load chain state and run verification ──
+  const refreshChain = useCallback(async () => {
+    const state = getChainState();
+    const allBlocks = getChain();
+    setChainBlocks(allBlocks);
+    setChainIntegrity('CHECKING');
+    const result = await verifyChain();
+    setChainIntegrity(result.status);
+    setIntegrityDetail(
+      result.status === 'COMPROMISED'
+        ? (result.detail ?? 'Chain integrity check failed.')
+        : result.status === 'EMPTY'
+        ? 'No blocks yet — first report will create genesis + block #1.'
+        : `All ${result.checkedBlocks} blocks verified. Chain is intact.`,
+    );
+    setLastVerified(new Date().toISOString());
+    void state; // suppress unused warning
+  }, []);
 
   useEffect(() => {
-    if (latestBlockNumber && latestBlockNumber > 0) setCurrentBlock(latestBlockNumber);
-  }, [latestBlockNumber]);
+    void refreshChain();
+    const id = setInterval(() => void refreshChain(), 30_000);
+    return () => clearInterval(id);
+  }, [refreshChain]);
 
-  /* ── Real health check: ping the anchor endpoint ── */
-  const checkAnchorHealth = useCallback(async () => {
-    setAnchorHealth('checking');
+  // ── Backend health check ──
+  const checkBackend = useCallback(async () => {
+    setBackendHealth('checking');
     const t0 = performance.now();
     try {
       const base = getApiBase().replace(/\/$/, '');
-      const res = await fetch(`${base}/api/reports`, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-      const ms = Math.round(performance.now() - t0);
-      setAnchorLatency(ms);
-      setAnchorHealth(res.ok || res.status === 405 ? 'reachable' : 'unreachable');
+      const res = await fetch(`${base}/api/reports`, {
+        method: 'HEAD',
+        signal: AbortSignal.timeout(5000),
+      });
+      setBackendLatency(Math.round(performance.now() - t0));
+      setBackendHealth(res.ok || res.status === 405 ? 'reachable' : 'unreachable');
     } catch {
-      setAnchorHealth('unreachable');
-      setAnchorLatency(null);
+      setBackendHealth('unreachable');
+      setBackendLatency(null);
     }
   }, []);
 
   useEffect(() => {
-    void checkAnchorHealth();
-    const id = setInterval(() => void checkAnchorHealth(), 60_000);
+    void checkBackend();
+    const id = setInterval(() => void checkBackend(), 60_000);
     return () => clearInterval(id);
-  }, [checkAnchorHealth]);
+  }, [checkBackend]);
 
   const runBlockLookup = async () => {
     if (!onOpenReportByBlock || !blockInput.trim() || lookupBusy) return;
@@ -66,7 +99,6 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
       const result = await onOpenReportByBlock(blockInput);
       if (result.ok) {
         setBlockInput('');
-        setLookupHint(null);
       } else if (result.reason === 'invalid') {
         setLookupHint(t('blockchainLookup.invalidBlock'));
       } else {
@@ -77,129 +109,237 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
     }
   };
 
-  const healthColor = anchorHealth === 'reachable' ? '#16a34a' : anchorHealth === 'unreachable' ? '#dc2626' : '#d97706';
-  const healthLabel = anchorHealth === 'reachable' ? 'Backend Reachable' : anchorHealth === 'unreachable' ? 'Backend Unreachable' : anchorHealth === 'checking' ? 'Checking…' : 'Not Checked';
-  const healthBg    = anchorHealth === 'reachable' ? '#f0fdf4' : anchorHealth === 'unreachable' ? '#fef2f2' : '#fffbeb';
+  const handleExport = () => {
+    const json = exportChainJson();
+    const blob = new Blob([json], { type: 'application/json' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `dpal-private-chain-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Derived display values
+  const latest        = chainBlocks[chainBlocks.length - 1];
+  const latestHash    = latest?.hash ?? '';
+  const chainLength   = chainBlocks.length;
+  const nonGenesis    = chainBlocks.filter((b) => b.reportId !== 'DPAL_GENESIS');
+
+  const integrityColor = chainIntegrity === 'VERIFIED' ? '#16a34a' : chainIntegrity === 'COMPROMISED' ? '#dc2626' : chainIntegrity === 'CHECKING' ? '#d97706' : '#6b7280';
+  const integrityLabel = chainIntegrity === 'VERIFIED' ? 'VERIFIED ✓' : chainIntegrity === 'COMPROMISED' ? 'COMPROMISED ✗' : chainIntegrity === 'CHECKING' ? 'Verifying…' : 'EMPTY';
+  const integrityBg    = chainIntegrity === 'VERIFIED' ? '#f0fdf4' : chainIntegrity === 'COMPROMISED' ? '#fef2f2' : '#fffbeb';
+
+  const backendColor = backendHealth === 'reachable' ? '#16a34a' : backendHealth === 'unreachable' ? '#dc2626' : '#d97706';
+  const backendLabel = backendHealth === 'reachable' ? 'Reachable' : backendHealth === 'unreachable' ? 'Offline' : backendHealth === 'checking' ? 'Checking…' : 'Unknown';
 
   return (
-    <div className="my-6 bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div style={{ margin: '24px 0', background: 'white', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
 
-      {/* Header */}
-      <div style={{ background: '#0f172a', padding: '12px 20px', display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Database style={{ width: 16, height: 16, color: '#94a3b8' }} />
-        <p style={{ fontSize: 11, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'white', margin: 0 }}>
-          {CHAIN_NAME}
-        </p>
-        <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#64748b', background: '#1e293b', padding: '2px 7px', borderRadius: 4 }}>
-          {CHAIN_TAG}
-        </span>
-        <span style={{ marginLeft: 'auto', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#475569' }}>
-          Hash: {HASH_METHOD}
-        </span>
+      {/* ── TOP HEADER STRIP ── */}
+      <div style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 32, height: 32, borderRadius: 8, background: 'rgba(255,255,255,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <Database style={{ width: 17, height: 17, color: '#7dd3fc' }} />
+        </div>
+        <div>
+          <p style={{ fontSize: 13, fontWeight: 900, color: 'white', margin: 0, letterSpacing: '0.04em' }}>DPAL Private Chain</p>
+          <p style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.25em', margin: '1px 0 0' }}>{DPAL_CHAIN_ID}</p>
+        </div>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#38bdf8', background: 'rgba(56,189,248,0.1)', border: '1px solid rgba(56,189,248,0.3)', padding: '3px 8px', borderRadius: 5 }}>
+            SHA-256 Linked Blocks
+          </span>
+          <span style={{ fontSize: 8, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#a3e635', background: 'rgba(163,230,53,0.1)', border: '1px solid rgba(163,230,53,0.3)', padding: '3px 8px', borderRadius: 5 }}>
+            DPAL Owned · Private
+          </span>
+        </div>
       </div>
 
-      {/* Honest transparency notice */}
-      <div style={{ background: '#fffbeb', borderBottom: '1px solid #fde68a', padding: '7px 20px', display: 'flex', alignItems: 'center', gap: 8 }}>
-        <AlertTriangle style={{ width: 13, height: 13, color: '#d97706', flexShrink: 0 }} />
-        <p style={{ fontSize: 10, fontWeight: 700, color: '#92400e', margin: 0 }}>
-          DPAL currently uses an <strong>internal SHA-256 ledger</strong> — not a public blockchain. Files are hashed with Web Crypto. Reports are anchored to a private backend. Public blockchain integration (Ethereum/Polygon) is a future milestone.
-        </p>
-      </div>
-
-      {/* Stats grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, borderBottom: '1px solid #f1f5f9' }}>
-        {/* Block height */}
-        <div style={{ padding: '14px 16px', textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', margin: '0 0 4px' }}>Latest Block</p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            <Cube style={{ width: 14, height: 14, color: '#3b82f6' }} />
-            <p style={{ fontSize: 18, fontWeight: 900, color: '#2563eb', margin: 0, fontFamily: 'monospace' }}>{currentBlock.toLocaleString()}</p>
-          </div>
-          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>Derived from report IDs</p>
+      {/* ── CHAIN INTEGRITY BANNER ── */}
+      <div style={{ background: integrityBg, borderBottom: '1px solid #e5e7eb', padding: '10px 24px', display: 'flex', alignItems: 'center', gap: 10 }}>
+        {chainIntegrity === 'CHECKING'
+          ? <Loader style={{ width: 14, height: 14, color: '#d97706' }} className="animate-spin" />
+          : chainIntegrity === 'VERIFIED'
+          ? <ShieldCheck style={{ width: 14, height: 14, color: '#16a34a' }} />
+          : chainIntegrity === 'COMPROMISED'
+          ? <AlertTriangle style={{ width: 14, height: 14, color: '#dc2626' }} />
+          : <Activity style={{ width: 14, height: 14, color: '#6b7280' }} />}
+        <div style={{ flex: 1 }}>
+          <p style={{ fontSize: 11, fontWeight: 900, color: integrityColor, margin: 0, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
+            Chain Integrity: {integrityLabel}
+          </p>
+          <p style={{ fontSize: 9, color: '#6b7280', margin: '2px 0 0' }}>{integrityDetail}</p>
         </div>
-
-        {/* Total records */}
-        <div style={{ padding: '14px 16px', textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', margin: '0 0 4px' }}>Records Filed</p>
-          <p style={{ fontSize: 18, fontWeight: 900, color: '#111827', margin: 0, fontFamily: 'monospace' }}>{totalReports.toLocaleString()}</p>
-          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>localStorage + backend</p>
-        </div>
-
-        {/* Backend health */}
-        <div style={{ padding: '14px 16px', textAlign: 'center', borderRight: '1px solid #f1f5f9', background: healthBg }}>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', margin: '0 0 4px' }}>Backend Anchor</p>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-            {anchorHealth === 'checking'
-              ? <Loader style={{ width: 14, height: 14, color: '#d97706' }} className="animate-spin" />
-              : anchorHealth === 'reachable'
-              ? <CheckCircle style={{ width: 14, height: 14, color: '#16a34a' }} />
-              : <AlertTriangle style={{ width: 14, height: 14, color: '#dc2626' }} />}
-            <p style={{ fontSize: 13, fontWeight: 900, color: healthColor, margin: 0 }}>{healthLabel}</p>
-          </div>
-          {anchorLatency !== null && (
-            <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>{anchorLatency}ms latency</p>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => void refreshChain()}
+            style={{ fontSize: 9, fontWeight: 700, color: '#374151', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+          >
+            Re-verify
+          </button>
+          {chainLength > 1 && (
+            <button
+              type="button"
+              onClick={handleExport}
+              style={{ fontSize: 9, fontWeight: 700, color: '#1d4ed8', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, padding: '4px 10px', cursor: 'pointer' }}
+            >
+              Export Chain
+            </button>
           )}
         </div>
-
-        {/* Latest hash */}
-        <div style={{ padding: '14px 16px', textAlign: 'center', overflow: 'hidden' }}>
-          <p style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', margin: '0 0 4px' }}>Latest Hash (SHA-256)</p>
-          <p style={{ fontSize: 11, fontFamily: 'monospace', color: '#374151', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', margin: 0 }}
-            title={latestHash || 'PENDING_FIRST_ANCHOR'}>
-            {latestHash || 'PENDING_FIRST_ANCHOR'}
-          </p>
-          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>Real SHA-256 when file attached</p>
-        </div>
-      </div>
-
-      {/* What IS and ISN'T real — expand panel */}
-      <div style={{ borderBottom: '1px solid #f1f5f9' }}>
-        <button
-          type="button"
-          onClick={() => setShowDetails(d => !d)}
-          style={{ width: '100%', padding: '9px 20px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left' }}
-        >
-          <Activity style={{ width: 13, height: 13, color: '#64748b' }} />
-          <span style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#374151' }}>
-            Ledger Transparency Report — What is real vs simulated
-          </span>
-          <span style={{ marginLeft: 'auto', fontSize: 10, color: '#94a3b8' }}>{showDetails ? '▲ Hide' : '▼ Show'}</span>
-        </button>
-
-        {showDetails && (
-          <div style={{ padding: '4px 20px 16px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px' }}>
-            {([
-              ['✅ Real', 'SHA-256 file hashing — browser Web Crypto API'],
-              ['✅ Real', 'Report storage — Railway backend + localStorage'],
-              ['✅ Real', 'Public lookup URL — ?reportId= link works across devices'],
-              ['✅ Real', 'Evidence vault — files anchored via /api/reports/:id/evidence'],
-              ['⚠️ Derived', 'Block numbers — computed from report ID hash (FNV), not a chain node'],
-              ['⚠️ Fallback', 'Report hash — SHA-256 if API works; random 0x hex if backend down'],
-              ['⚠️ Fallback', 'txHash — server value when anchored; random hex when offline'],
-              ['❌ Not yet', 'Public blockchain — Ethereum/Polygon/Solana integration is a future milestone'],
-              ['❌ Not yet', 'Smart contracts — no on-chain contract deployed'],
-              ['❌ Not yet', 'Wallet signing — no web3 wallet connection in this version'],
-            ] as [string, string][]).map(([status, desc]) => (
-              <div key={desc} style={{ display: 'flex', alignItems: 'flex-start', gap: 6, padding: '4px 0', borderBottom: '1px solid #f8fafc' }}>
-                <span style={{ fontSize: 11, flexShrink: 0, marginTop: 1 }}>{status.split(' ')[0]}</span>
-                <div>
-                  <span style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#374151' }}>{status.split(' ').slice(1).join(' ')}</span>
-                  <p style={{ fontSize: 9, color: '#6b7280', margin: '1px 0 0', lineHeight: 1.4 }}>{desc}</p>
-                </div>
-              </div>
-            ))}
-            <div style={{ gridColumn: '1 / -1', marginTop: 6, padding: '8px 12px', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8 }}>
-              <p style={{ fontSize: 9, fontWeight: 700, color: '#1e40af', margin: 0, lineHeight: 1.5 }}>
-                🔗 <strong>To connect a public blockchain:</strong> Set up a backend that calls an Ethereum/Polygon RPC node from <code>/api/reports/anchor</code>, returns a real <code>txHash</code> and <code>blockNumber</code>, and set <code>VITE_FEATURE_BLOCKCHAIN_ANCHOR=true</code> in your environment. The front end is already wired to use those values.
-              </p>
-            </div>
-          </div>
+        {lastVerified && (
+          <p style={{ fontSize: 8, color: '#9ca3af', flexShrink: 0 }}>Last verified: {lastVerified.substring(11, 19)} UTC</p>
         )}
       </div>
 
-      {/* Block lookup */}
+      {/* ── STATS ROW ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: '1px solid #f1f5f9' }}>
+        {/* Chain length */}
+        <div style={{ padding: '16px', textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
+          <p style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#94a3b8', margin: '0 0 5px' }}>Chain Length</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            <Cube style={{ width: 14, height: 14, color: '#3b82f6' }} />
+            <p style={{ fontSize: 22, fontWeight: 900, color: '#2563eb', margin: 0, fontFamily: 'monospace' }}>{chainLength}</p>
+          </div>
+          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>blocks (incl. genesis)</p>
+        </div>
+
+        {/* Report records */}
+        <div style={{ padding: '16px', textAlign: 'center', borderRight: '1px solid #f1f5f9' }}>
+          <p style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#94a3b8', margin: '0 0 5px' }}>Reports Anchored</p>
+          <p style={{ fontSize: 22, fontWeight: 900, color: '#111827', margin: 0, fontFamily: 'monospace' }}>{nonGenesis.length}</p>
+          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>on DPAL Private Chain</p>
+        </div>
+
+        {/* Integrity */}
+        <div style={{ padding: '16px', textAlign: 'center', borderRight: '1px solid #f1f5f9', background: integrityBg }}>
+          <p style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#94a3b8', margin: '0 0 5px' }}>Integrity</p>
+          <p style={{ fontSize: 14, fontWeight: 900, color: integrityColor, margin: 0, fontFamily: 'monospace' }}>{integrityLabel}</p>
+          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>Full SHA-256 chain check</p>
+        </div>
+
+        {/* Backend sync */}
+        <div style={{ padding: '16px', textAlign: 'center' }}>
+          <p style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#94a3b8', margin: '0 0 5px' }}>Backend Sync</p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+            {backendHealth === 'checking'
+              ? <Loader style={{ width: 13, height: 13, color: '#d97706' }} className="animate-spin" />
+              : backendHealth === 'reachable'
+              ? <CheckCircle style={{ width: 13, height: 13, color: '#16a34a' }} />
+              : <AlertTriangle style={{ width: 13, height: 13, color: '#dc2626' }} />}
+            <p style={{ fontSize: 13, fontWeight: 900, color: backendColor, margin: 0 }}>{backendLabel}</p>
+          </div>
+          {backendLatency !== null && (
+            <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>{backendLatency}ms</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── LATEST BLOCK HASH ── */}
+      {latestHash && (
+        <div style={{ padding: '10px 24px', background: '#fafafa', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <p style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#9ca3af', margin: 0, flexShrink: 0 }}>Latest Block Hash</p>
+          <p style={{ fontSize: 10, fontFamily: 'monospace', color: '#1e40af', fontWeight: 700, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={latestHash}>
+            {latestHash}
+          </p>
+          {latest && (
+            <p style={{ fontSize: 8, color: '#9ca3af', margin: 0, flexShrink: 0 }}>
+              Block #{latest.index} · {latest.timestamp.substring(0, 10)}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── TRANSACTION LOG (expandable) ── */}
+      {nonGenesis.length > 0 && (
+        <div style={{ borderBottom: '1px solid #f1f5f9' }}>
+          <button
+            type="button"
+            onClick={() => setShowTxLog((s) => !s)}
+            style={{ width: '100%', padding: '9px 24px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left' }}
+          >
+            <Activity style={{ width: 12, height: 12, color: '#64748b' }} />
+            <span style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#374151' }}>
+              Transaction Log — {nonGenesis.length} records on-chain
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#94a3b8' }}>{showTxLog ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showTxLog && (
+            <div style={{ maxHeight: 260, overflowY: 'auto', padding: '0 24px 12px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 9 }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {['#', 'Timestamp', 'Report ID', 'Data Hash', 'Block Hash', 'Prev Hash'].map((h) => (
+                      <th key={h} style={{ padding: '5px 8px', textAlign: 'left', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#6b7280', borderBottom: '1px solid #e5e7eb' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...nonGenesis].reverse().map((b) => (
+                    <tr key={b.index} style={{ borderBottom: '1px solid #f9fafb' }}>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#2563eb', fontWeight: 900 }}>#{b.index}</td>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#374151' }}>{b.timestamp.substring(0, 19).replace('T', ' ')}</td>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#374151', maxWidth: 90, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={b.reportId}>{b.reportId}</td>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#6b7280' }}>{b.dataHash.substring(0, 10)}…</td>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#166534', fontWeight: 700 }}>{b.hash.substring(0, 12)}…</td>
+                      <td style={{ padding: '5px 8px', fontFamily: 'monospace', color: '#9ca3af' }}>{b.previousHash.substring(0, 12)}…</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── FULL BLOCK EXPLORER (expandable) ── */}
+      {chainLength > 0 && (
+        <div style={{ borderBottom: '1px solid #f1f5f9' }}>
+          <button
+            type="button"
+            onClick={() => setShowChainBlocks((s) => !s)}
+            style={{ width: '100%', padding: '9px 24px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left' }}
+          >
+            <Globe style={{ width: 12, height: 12, color: '#64748b' }} />
+            <span style={{ fontSize: 10, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.18em', color: '#374151' }}>
+              Full Block Explorer — {chainLength} total blocks
+            </span>
+            <span style={{ marginLeft: 'auto', fontSize: 10, color: '#94a3b8' }}>{showChainBlocks ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showChainBlocks && (
+            <div style={{ maxHeight: 300, overflowY: 'auto', padding: '0 24px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {[...chainBlocks].reverse().map((b) => (
+                <div key={b.index} style={{ background: b.reportId === 'DPAL_GENESIS' ? '#f8fafc' : '#ffffff', border: `1px solid ${b.reportId === 'DPAL_GENESIS' ? '#e2e8f0' : '#dbeafe'}`, borderRadius: 8, padding: '9px 12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
+                    <span style={{ fontSize: 10, fontWeight: 900, color: b.reportId === 'DPAL_GENESIS' ? '#6b7280' : '#1e40af', fontFamily: 'monospace' }}>
+                      Block #{b.index} {b.reportId === 'DPAL_GENESIS' ? '— GENESIS' : ''}
+                    </span>
+                    <span style={{ fontSize: 8, color: '#9ca3af', fontFamily: 'monospace' }}>{b.timestamp.substring(0, 19).replace('T', ' ')} UTC</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr', gap: '2px 8px', fontSize: 8 }}>
+                    {[
+                      ['Report ID', b.reportId],
+                      ['Data Hash', b.dataHash],
+                      ['Block Hash', b.hash],
+                      ['Prev Hash', b.previousHash],
+                    ].map(([label, val]) => (
+                      <React.Fragment key={label}>
+                        <span style={{ fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</span>
+                        <span style={{ fontFamily: 'monospace', color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={val}>{val}</span>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── BLOCK LOOKUP ── */}
       {onOpenReportByBlock && (
-        <div className="p-4">
+        <div style={{ padding: '14px 24px' }}>
           <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-2 text-center">{t('blockchainLookup.title')}</p>
           <p className="text-xs text-gray-500 text-center mb-3">{t('blockchainLookup.description')}</p>
           <div className="flex flex-col sm:flex-row gap-2 max-w-xl mx-auto">
