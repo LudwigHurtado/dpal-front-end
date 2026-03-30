@@ -74,8 +74,8 @@ const RoleSelectPage: React.FC = () => {
         </p>
       </div>
 
-      {/* Role cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, width: '100%', maxWidth: 900 }}>
+      {/* Role cards — marginLeft gives room for the left-edge ribbon */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 18, width: '100%', maxWidth: 900, paddingLeft: 36 }}>
         {ROLES.map((r) => {
           const isLoading = picking === r.role;
           return (
@@ -89,7 +89,7 @@ const RoleSelectPage: React.FC = () => {
                 background: 'white',
                 border: `2px solid transparent`,
                 borderRadius: 20,
-                overflow: 'hidden',
+                overflow: 'visible',
                 cursor: picking ? 'wait' : 'pointer',
                 textAlign: 'left',
                 padding: 0,
@@ -108,60 +108,88 @@ const RoleSelectPage: React.FC = () => {
                 (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 8px 32px rgba(0,0,0,0.22)';
               }}
             >
-              {/* Photo */}
-              <div style={{ position: 'relative', height: 220, overflow: 'hidden' }}>
-                <img
-                  src={r.image}
-                  alt={r.label}
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
-                />
-                {/* Gradient overlay */}
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)' }} />
-                {/* Badge */}
-                <span style={{ position: 'absolute', top: 12, left: 12, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.18em', color: 'white', background: r.accent, borderRadius: 20, padding: '4px 10px' }}>
+              {/* Left-edge vertical badge ribbon */}
+              <div style={{
+                position: 'absolute',
+                left: -28,
+                top: 0,
+                bottom: 0,
+                width: 28,
+                background: r.accent,
+                borderRadius: '14px 0 0 14px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2,
+                boxShadow: `-2px 0 12px ${r.accent}55`,
+              }}>
+                <span style={{
+                  fontSize: 9,
+                  fontWeight: 900,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.2em',
+                  color: 'white',
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)',
+                  whiteSpace: 'nowrap',
+                }}>
                   {r.badge}
                 </span>
-                {/* Role name on photo */}
-                <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16 }}>
-                  <p style={{ fontSize: 22, fontWeight: 900, color: 'white', margin: 0, lineHeight: 1.1, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{r.label}</p>
-                  <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: '3px 0 0', fontWeight: 600 }}>{r.tagline}</p>
-                </div>
               </div>
 
-              {/* Body */}
-              <div style={{ padding: '16px 18px 18px' }}>
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
-                  {r.bullets.map((b) => (
-                    <li key={b} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#374151', fontWeight: 500, lineHeight: 1.4 }}>
-                      <span style={{ width: 18, height: 18, borderRadius: '50%', background: `${r.accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-                        <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-                          <path d="M2 5l2.5 2.5L8 3" stroke={r.accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              {/* Inner card — clipped to rounded rectangle */}
+              <div style={{ borderRadius: 20, overflow: 'hidden' }}>
+                {/* Photo */}
+                <div style={{ position: 'relative', height: 220, overflow: 'hidden' }}>
+                  <img
+                    src={r.image}
+                    alt={r.label}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center top', display: 'block' }}
+                  />
+                  {/* Gradient overlay */}
+                  <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%)' }} />
+                  {/* Role name on photo */}
+                  <div style={{ position: 'absolute', bottom: 14, left: 16, right: 16 }}>
+                    <p style={{ fontSize: 22, fontWeight: 900, color: 'white', margin: 0, lineHeight: 1.1, textShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>{r.label}</p>
+                    <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.85)', margin: '3px 0 0', fontWeight: 600 }}>{r.tagline}</p>
+                  </div>
+                </div>
+
+                {/* Body */}
+                <div style={{ padding: '16px 18px 18px' }}>
+                  <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 7 }}>
+                    {r.bullets.map((b) => (
+                      <li key={b} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#374151', fontWeight: 500, lineHeight: 1.4 }}>
+                        <span style={{ width: 18, height: 18, borderRadius: '50%', background: `${r.accent}18`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                          <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                            <path d="M2 5l2.5 2.5L8 3" stroke={r.accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                        {b}
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA */}
+                  <div style={{ marginTop: 16, height: 44, borderRadius: 12, background: isLoading ? '#e5e7eb' : r.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }}>
+                    {isLoading ? (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
+                          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
                         </svg>
-                      </span>
-                      {b}
-                    </li>
-                  ))}
-                </ul>
-
-                {/* CTA */}
-                <div style={{ marginTop: 16, height: 44, borderRadius: 12, background: isLoading ? '#e5e7eb' : r.accent, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }}>
-                  {isLoading ? (
-                    <>
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}>
-                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
-                      </svg>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: '#9ca3af' }}>Loading…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span style={{ fontSize: 14, fontWeight: 800, color: 'white' }}>Continue as {r.label}</span>
-                      <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 8h10M9 4l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
-                    </>
-                  )}
+                        <span style={{ fontSize: 14, fontWeight: 800, color: '#9ca3af' }}>Loading…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span style={{ fontSize: 14, fontWeight: 800, color: 'white' }}>Continue as {r.label}</span>
+                        <svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+                          <path d="M3 8h10M9 4l4 4-4 4" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              </div>{/* end inner clip wrapper */}
             </button>
           );
         })}
