@@ -37,6 +37,36 @@ export async function fetchReportFromApiById(reportId: string): Promise<Report |
 }
 
 /**
+ * Fetch a feed list of reports for community viewing.
+ * Backend may implement either:
+ * - GET /api/reports
+ * - GET /api/reports?limit=50
+ * This client treats it as best-effort and falls back to empty list on any error.
+ */
+export async function fetchReportsFeedFromApi(limit = 60): Promise<Report[]> {
+  try {
+    const apiBase = getApiBase();
+    const urls = [
+      `${apiBase}/api/reports?limit=${encodeURIComponent(String(limit))}`,
+      `${apiBase}/api/reports`,
+    ];
+    for (const url of urls) {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : Array.isArray((data as any)?.reports) ? (data as any).reports : [];
+      if (!Array.isArray(list)) continue;
+      return list
+        .map((item: any, idx: number) => mapApiReportToReport(item, item?.id || item?._id || `api-${idx}`))
+        .filter((r: Report | null): r is Report => Boolean(r));
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Resolve a ledger block height to a report: local index first, then API lookup + optional full report fetch.
  */
 export async function resolveReportByBlockNumber(blockNumber: number, reports: Report[]): Promise<Report | null> {

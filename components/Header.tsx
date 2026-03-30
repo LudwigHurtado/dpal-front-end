@@ -265,10 +265,10 @@ const Header: React.FC<HeaderProps> = ({
         >
             <div className="flex items-center space-x-6 md:space-x-12 py-3 px-10 md:px-12 min-w-max mx-auto">
                 <NavIcon label="Home" color="cyan" icon={<Home className="w-5 h-5"/>} onClick={onNavigateHome} />
-                <NavIcon label="Share a report" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
-                <NavIcon label="Community stories" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
-                <NavIcon label="Public record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
-                <NavIcon label="Neighbors & missions" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
+                <NavIcon label="Share A Report" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
+                <NavIcon label="Community Stories" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
+                <NavIcon label="Public Record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
+                <NavIcon label="Neighbors & Missions" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
                 <NavIcon
                     label="DPAL Lifts"
                     title="DPAL Lifts — Decentralized Public Assistance Lifts"

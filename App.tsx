@@ -71,7 +71,7 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { persistReportForPublicLookup } from './services/reportPersistenceService';
-import { resolveReportByBlockNumber, fetchReportFromApiById } from './services/blockchainLookupService';
+import { resolveReportByBlockNumber, fetchReportFromApiById, fetchReportsFeedFromApi } from './services/blockchainLookupService';
 import { parseBlockNumberInput, deriveStableBlockNumber } from './utils/blockchainLookup';
 import { reportMatchesKeywordFilter } from './utils/reportSearch';
 import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
@@ -478,6 +478,27 @@ const App: React.FC = () => {
     setScopedItem('directives', JSON.stringify(directives));
     setScopedItem('health-records', JSON.stringify(healthRecords));
   }, [hero, reports, missions, directives, healthRecords]);
+
+  /** Best-effort: hydrate community feed from backend so other users see recent filings. */
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const remote = await fetchReportsFeedFromApi(80);
+      if (cancelled || remote.length === 0) return;
+      setReports((prev) => {
+        const seen = new Set(prev.map((r) => r.id));
+        const merged = [...prev];
+        for (const r of remote) {
+          if (!seen.has(r.id)) merged.push(r);
+        }
+        merged.sort((a, b) => new Date(b.timestamp as any).getTime() - new Date(a.timestamp as any).getTime());
+        return merged;
+      });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Deep-link: ?reportId=<id> → certified report (local list first, then GET /api/reports/:id for public QR/PDF links);
   // ?blockNumber=<n> or ?block=<n> → same via ledger index; &situationRoom=1 → incident room when record exists.

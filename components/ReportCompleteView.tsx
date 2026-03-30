@@ -205,10 +205,30 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
 
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
-    const qrSlot = (dataUrl: string | null, alt: string) => {
+    const qrSlot = (dataUrl: string | null, alt: string, href?: string) => {
         const box = 'w-44 h-44 sm:w-48 sm:h-48';
         if (dataUrl) {
-            return <img src={dataUrl} alt={alt} className={`cert-qr-img ${box} object-contain`} width={192} height={192} />;
+            const img = (
+                <img
+                    src={dataUrl}
+                    alt={alt}
+                    className={`cert-qr-img ${box} object-contain`}
+                    width={192}
+                    height={192}
+                />
+            );
+            if (!href) return img;
+            return (
+                <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex"
+                    aria-label={alt}
+                >
+                    {img}
+                </a>
+            );
         }
         if (qrLoading) {
             return (
@@ -448,12 +468,20 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     <div className="bg-zinc-950/90 border border-zinc-700 rounded-2xl p-5 text-center">
                                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">{t('reportComplete.qrVerifyTitle')}</p>
-                                        <div className="inline-flex bg-white p-3 rounded-2xl border border-zinc-600 shadow-inner justify-center">{qrSlot(qrVerifyDataUrl, 'Verify this report')}</div>
+                                        <div className="inline-flex bg-white p-3 rounded-2xl border border-zinc-600 shadow-inner justify-center">
+                                            {qrSlot(qrVerifyDataUrl, 'Verify this report', `${baseUrl}?reportId=${encodeURIComponent(report.id)}`)}
+                                        </div>
                                         <p className="text-[8px] font-mono text-zinc-500 break-all mt-3 px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
                                     </div>
                                     <div className="bg-zinc-950/90 border border-zinc-700 rounded-2xl p-5 text-center">
                                         <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-3">{t('reportComplete.qrSituationTitle')}</p>
-                                        <div className="inline-flex bg-white p-3 rounded-2xl border border-zinc-600 shadow-inner justify-center">{qrSlot(qrSituationDataUrl, 'Open situation room')}</div>
+                                        <div className="inline-flex bg-white p-3 rounded-2xl border border-zinc-600 shadow-inner justify-center">
+                                            {qrSlot(
+                                                qrSituationDataUrl,
+                                                'Open situation room',
+                                                `${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`
+                                            )}
+                                        </div>
                                         <p className="text-[8px] font-mono text-zinc-500 break-all mt-3 px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>
                                     </div>
                                 </div>
@@ -561,7 +589,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[length:12px_12px] opacity-[0.03] no-print" />
                                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest relative z-10">{t('reportComplete.qrVerifyTitle')}</p>
                                 <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border border-zinc-100 mx-auto relative z-10">
-                                    {qrSlot(qrVerifyDataUrl, 'Verify this report')}
+                                    {qrSlot(qrVerifyDataUrl, 'Verify this report', `${baseUrl}?reportId=${encodeURIComponent(report.id)}`)}
                                 </div>
                                 <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2 relative z-10">{t('reportComplete.qrSubtext')}</p>
                                 <p className="text-[8px] font-mono text-zinc-500 break-all px-1 relative z-10">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
@@ -570,7 +598,11 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             <div className="cert-qr-block bg-zinc-50 border-2 border-zinc-200 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 relative w-full print:border-black">
                                 <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t('reportComplete.qrSituationTitle')}</p>
                                 <div className="bg-white p-4 rounded-2xl inline-block border border-zinc-200 mx-auto">
-                                    {qrSlot(qrSituationDataUrl, 'Situation room')}
+                                    {qrSlot(
+                                        qrSituationDataUrl,
+                                        'Situation room',
+                                        `${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`
+                                    )}
                                 </div>
                                 <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2">{t('reportComplete.qrSituationSubtext')}</p>
                                 <p className="text-[8px] font-mono text-zinc-500 break-all px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>
