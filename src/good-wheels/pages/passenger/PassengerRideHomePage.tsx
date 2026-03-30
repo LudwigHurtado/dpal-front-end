@@ -38,6 +38,24 @@ function toVehicleMapType(vt: VehicleType): VehicleMapType {
   return 'car';   // 'car' | 'comfort'
 }
 
+/**
+ * Calculate the compass bearing (0–360°) from point A to point B.
+ * 0 = north, 90 = east, 180 = south, 270 = west.
+ * Used to rotate the vehicle SVG so it faces along the road.
+ */
+function calcBearing(
+  from: { lat: number; lng: number },
+  to:   { lat: number; lng: number },
+): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const φ1 = toRad(from.lat);
+  const φ2 = toRad(to.lat);
+  const Δλ = toRad(to.lng - from.lng);
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
+}
+
 /* ─────────────────────────────────────────────
    Vehicle options
 ───────────────────────────────────────────── */
@@ -220,13 +238,30 @@ const PassengerRideHomePage: React.FC = () => {
         (result, status) => {
           if (status === 'OK' && result && directionsRendRef.current) {
             directionsRendRef.current.setDirections(result);
+
+            /* ── Road-snapped position: use the actual route start point,
+                 not the raw user lat/lng, so the marker sits ON the road ── */
+            const leg   = result.routes[0]?.legs[0];
+            const step0 = leg?.steps[0];
+            const roadStart = leg?.start_location ?? pickupLL;
+
+            /* ── Bearing: rotate the car to face along the first road step ── */
+            let bearing = 0;
+            if (step0) {
+              const from = { lat: step0.start_location.lat(), lng: step0.start_location.lng() };
+              const to   = { lat: step0.end_location.lat(),   lng: step0.end_location.lng() };
+              bearing = calcBearing(from, to);
+            }
+
             if (!vehicleMarkerRef.current) vehicleMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, zIndex: 20 });
-            vehicleMarkerRef.current.setPosition(pickupLL);
+            vehicleMarkerRef.current.setPosition(roadStart);
+
             /* Use the driver's real vehicle color + type from their profile */
             const markerVehicleType = driverVehicle?.vehicleType ?? toVehicleMapType(vehicleType);
             const markerColor       = driverVehicle?.color ?? '#0077C8';
-            const markerUrl         = makeVehicleMarkerUrl(markerVehicleType, markerColor, 60);
+            const markerUrl         = makeVehicleMarkerUrl(markerVehicleType, markerColor, 60, bearing);
             vehicleMarkerRef.current.setIcon({ url: markerUrl, scaledSize: new g.maps.Size(60, 60), anchor: new g.maps.Point(30, 30) });
+
             const bounds = new g.maps.LatLngBounds();
             bounds.extend(pickupLL); bounds.extend(dropoffLL);
             mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 320, left: 32, right: 32 });

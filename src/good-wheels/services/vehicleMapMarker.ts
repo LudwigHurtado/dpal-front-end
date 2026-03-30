@@ -211,12 +211,16 @@ function vanTopDown(bodyColor: string): string {
  * @param vehicleType  - 'car' | 'moto' | 'truck' | 'van'
  * @param bodyColor    - Hex color string of the driver's vehicle, e.g. '#EAB308'
  * @param size         - Pixel size of the square SVG (default 64)
+ * @param bearingDeg   - Compass bearing (0 = north/up, 90 = east, 180 = south, 270 = west).
+ *                       The SVG vehicle is drawn facing up (north), so the rotation is applied
+ *                       around the centre of the viewBox to align it with the road direction.
  * @returns            - data:image/svg+xml URL ready for use as marker icon
  */
 export function makeVehicleMarkerUrl(
   vehicleType: VehicleMapType,
   bodyColor: string,
   size = 64,
+  bearingDeg = 0,
 ): string {
   // Normalise colour — default to white if invalid
   const color = /^#[0-9A-Fa-f]{6}$/.test(bodyColor) ? bodyColor : '#FFFFFF';
@@ -227,13 +231,16 @@ export function makeVehicleMarkerUrl(
     vehicleType === 'van'   ? vanTopDown(color)   :
     carTopDown(color);
 
+  // Rotate the whole drawing around the SVG centre (32, 32) to match road bearing
+  const rot = ((bearingDeg % 360) + 360) % 360;
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="${size}" height="${size}">
     <defs>
       <filter id="ds" x="-20%" y="-20%" width="140%" height="140%">
         <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(0,0,0,0.25)"/>
       </filter>
     </defs>
-    <g filter="url(#ds)">${inner}</g>
+    <g transform="rotate(${rot},32,32)" filter="url(#ds)">${inner}</g>
   </svg>`;
 
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
