@@ -52,6 +52,21 @@
   padding: 0 14px;
 }
 
+/* Force true mobile behavior while device preview is active on desktop */
+.gw-force-mobile .gw-appshell { grid-template-columns: 1fr !important; gap: 12px; padding: 10px 0 18px; }
+.gw-force-mobile .gw-grid-2 { grid-template-columns: 1fr !important; gap: 12px; }
+.gw-force-mobile .gw-pagehead { align-items: flex-start; }
+.gw-force-mobile .gw-appbar-inner { padding: 10px 0; }
+.gw-force-mobile .gw-button { padding: 10px 12px; border-radius: 12px; }
+.gw-force-mobile .gw-card { border-radius: 18px; }
+.gw-force-mobile .gw-request-page .gw-pagehead p { font-size: 14px; }
+.gw-force-mobile .gw-request-page .gw-request-form,
+.gw-force-mobile .gw-request-page .gw-request-estimate { padding: 14px; }
+.gw-force-mobile .gw-request-page .gw-input { min-height: 44px; border-radius: 12px; }
+.gw-force-mobile .gw-request-page .gw-card-title { font-size: 18px; }
+.gw-force-mobile .gw-request-page .gw-map-canvas > div { height: 220px !important; }
+.gw-force-mobile .gw-request-page .gw-map-placeholder { min-height: 220px !important; }
+
 .gw-container { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
 .gw-main { padding: 28px 0 56px; }
 

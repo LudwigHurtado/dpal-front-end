@@ -67,7 +67,7 @@ const AppLayout: React.FC = () => {
   }, [role]);
 
   return (
-    <div className={previewing ? 'gw-root min-h-screen gw-previewing' : 'gw-root min-h-screen'}>
+    <div className={previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'}>
       {previewing && (
         <div className="gw-preview-stage">
           <div

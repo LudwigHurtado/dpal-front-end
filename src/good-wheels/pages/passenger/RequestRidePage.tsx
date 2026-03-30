@@ -49,7 +49,7 @@ const RequestRidePage: React.FC = () => {
   }, [draft.pickup?.point, setDraft]);
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 gw-request-page">
       <div className="gw-pagehead">
         <div>
           <h1 className="gw-h2">Request a Ride</h1>
@@ -57,8 +57,8 @@ const RequestRidePage: React.FC = () => {
         </div>
       </div>
 
-      <div className="gw-grid-2">
-        <div className="gw-card p-5 space-y-4">
+      <div className="gw-grid-2 gw-request-grid">
+        <div className="gw-card p-5 space-y-4 gw-request-form">
           <div className="gw-card-title">Trip details</div>
 
           <label className="gw-label">
@@ -155,7 +155,7 @@ const RequestRidePage: React.FC = () => {
           </button>
         </div>
 
-        <div className="gw-card p-5 space-y-4">
+        <div className="gw-card p-5 space-y-4 gw-request-estimate">
           <div className="gw-card-title">Estimate</div>
           <div className="gw-muted">
             Real pricing isn’t part of the DPAL Good Wheels foundation yet. This panel is structured for ETA,
