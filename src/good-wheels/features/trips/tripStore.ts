@@ -6,6 +6,7 @@ import { TERMINAL_STATUSES } from './tripConstants';
 type TripState = {
   activeTrip: Trip | null;
   history: Trip[];
+  lastTerminalTrip: Trip | null;
   draft: RideRequestDraft;
   loading: boolean;
   error: string | null;
@@ -15,6 +16,7 @@ type TripState = {
   requestRide: () => Promise<void>;
   setActiveTrip: (trip: Trip) => void;
   clearActiveTrip: () => void;
+  clearLastTerminalTrip: () => void;
   updateStatus: (status: TripStatus, timelineLabel?: string, timelineDetail?: string) => void;
   appendTimelineEvent: (label: string, detail?: string) => void;
   updateSafetyState: (safetyStatus: SafetyStatus, timelineDetail?: string) => void;
@@ -30,6 +32,7 @@ const EMPTY_DRAFT: RideRequestDraft = {
 export const useTripStore = create<TripState>((set, get) => ({
   activeTrip: null,
   history: [],
+  lastTerminalTrip: null,
   draft: EMPTY_DRAFT,
   loading: false,
   error: null,
@@ -54,7 +57,25 @@ export const useTripStore = create<TripState>((set, get) => ({
       set({ error: 'Please choose pickup and destination.' });
       return;
     }
-    set({ loading: true, error: null });
+    // Provide immediate UI feedback for the passenger bottom sheet.
+    set({
+      loading: true,
+      error: null,
+      activeTrip: {
+        id: `trip-${Date.now()}`,
+        passengerId: 'usr-passenger-001',
+        pickup: draft.pickup,
+        dropoff: draft.dropoff,
+        purpose: draft.purpose,
+        supportCategoryId: draft.supportCategoryId,
+        status: 'requested',
+        safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
+        createdAtIso: new Date().toISOString(),
+        updatedAtIso: new Date().toISOString(),
+        estimate: { etaMinutes: 8, distanceKm: 4.8 },
+        timeline: [{ id: `evt-${Date.now()}`, atIso: new Date().toISOString(), label: 'Finding a driver…' }],
+      },
+    });
     try {
       const trip = await tripService.requestTrip(draft);
       set({ activeTrip: trip, loading: false });
@@ -68,6 +89,9 @@ export const useTripStore = create<TripState>((set, get) => ({
   clearActiveTrip() {
     set({ activeTrip: null, error: null });
   },
+  clearLastTerminalTrip() {
+    set({ lastTerminalTrip: null });
+  },
   updateStatus(status, timelineLabel, timelineDetail) {
     const prev = get().activeTrip;
     if (!prev) return;
@@ -79,6 +103,7 @@ export const useTripStore = create<TripState>((set, get) => ({
     if (TERMINAL_STATUSES.has(status)) {
       set((s) => ({
         activeTrip: null,
+        lastTerminalTrip: next,
         history: [next, ...s.history],
       }));
     } else {

@@ -12,6 +12,7 @@ import SignInPage from '../pages/auth/SignInPage';
 import HomePage from '../pages/public/HomePage';
 import PassengerDashboardPage from '../pages/passenger/PassengerDashboardPage';
 import RequestRidePage from '../pages/passenger/RequestRidePage';
+import PassengerActiveTripPage from '../pages/passenger/PassengerActiveTripPage';
 import DriverDashboardPage from '../pages/driver/DriverDashboardPage';
 import DriverQueuePage from '../pages/driver/DriverQueuePage';
 import DriverActiveTripPage from '../pages/driver/DriverActiveTripPage';
@@ -53,6 +54,7 @@ export default function AppRouter(): React.ReactElement {
                 children: [
                   { path: GW_PATHS.passenger.dashboard, element: <PassengerDashboardPage /> },
                   { path: GW_PATHS.passenger.request, element: <RequestRidePage /> },
+                  { path: GW_PATHS.passenger.active, element: <PassengerActiveTripPage /> },
                 ],
               },
               {
