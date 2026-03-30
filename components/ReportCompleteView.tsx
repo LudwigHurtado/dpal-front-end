@@ -42,12 +42,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
     const txRef = report.txHash || report.blockchainRef || report.hash;
 
     const logs = [
-        "ESTABLISHING_P2P_HANDSHAKE...",
-        "CHRONOLOGICAL_SYNC_STABLE",
+        "REPORT_HASH_COMPUTED: SHA-256...",
+        "TIMESTAMP_RECORDED",
         "TRUTHSCORE_CALCULATED: " + report.trustScore + "%",
-        `BLOCK_INDEX_IDENTIFIED: ${blockRef}`,
-        `TX_BROADCASTED: ${txRef?.slice(0, 14)}...`,
-        "SHARD_SEALED_WITH_AUTHORITY_KEY"
+        `BLOCK_REF_ASSIGNED: ${blockRef}`,
+        `ANCHOR_TX: ${txRef?.slice(0, 14)}...`,
+        `CHAIN_NETWORK: ${report.chain || 'DPAL_INTERNAL'}`
     ];
 
     useEffect(() => {
@@ -585,12 +585,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         <div style={{ padding: '14px 22px' }}>
                             <p style={{ fontSize: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.3em', color: '#9ca3af', margin: '0 0 8px', paddingBottom: 4, borderBottom: '1px solid #f3f4f6' }}>Verification Summary</p>
                             {([
-                                ['Ledger Status',    'ANCHORED',   '#166534'],
-                                ['Integrity Check',  'PASSED ✓',   '#166534'],
-                                ['Audit State',      'CERTIFIED',  '#166534'],
-                                ['Anonymity Level',  'PROTECTED',  '#1d4ed8'],
-                                ['Alteration Guard', 'ACTIVE',     '#166534'],
-                                ['Smart Contract',   'EXECUTED',   '#166534'],
+                                ['Ledger Status',    'ANCHORED',         '#166534'],
+                                ['Integrity Check',  'PASSED ✓',         '#166534'],
+                                ['Audit State',      'CERTIFIED',        '#166534'],
+                                ['Anonymity Level',  'PROTECTED',        '#1d4ed8'],
+                                ['Alteration Guard', 'ACTIVE',           '#166534'],
+                                ['Chain Network',    (report.chain || 'DPAL_INTERNAL'), '#1d4ed8'],
                             ] as [string, string, string][]).map(([label, value, color]) => (
                                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f9fafb' }}>
                                     <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
@@ -633,7 +633,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                             <div className="cert-seal-dpal-inner" style={{ width: 88, height: 88, borderRadius: '50%', border: '3px double #92400e', background: 'linear-gradient(155deg,#fffbeb 0%,#fde68a 45%,#d97706 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 6 }}>
                                 <p style={{ fontSize: 12, fontWeight: 900, color: '#78350f', margin: 0, letterSpacing: '-0.02em', lineHeight: 1 }}>DPAL</p>
                                 <p style={{ fontSize: 6, fontWeight: 900, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '2px 0 0', lineHeight: 1 }}>Verified</p>
-                                <p style={{ fontSize: 5, color: '#b45309', margin: '3px 0 0', fontWeight: 700, lineHeight: 1 }}>RSA-4096</p>
+                                <p style={{ fontSize: 5, color: '#b45309', margin: '3px 0 0', fontWeight: 700, lineHeight: 1 }}>SHA-256</p>
                                 {ledgerBlockDigits && <p style={{ fontSize: 5, fontFamily: 'monospace', fontWeight: 900, color: '#451a03', margin: '3px 0 0', lineHeight: 1 }}>#{ledgerBlockDigits}</p>}
                             </div>
                         </div>
@@ -682,6 +682,27 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         <p style={{ fontSize: 8, fontFamily: 'monospace', color: '#6b7280', margin: 0 }}>{`DPAL-CERT-${report.hash.substring(2, 10).toUpperCase()}`}</p>
                     </div>
 
+                    {/* ── ANCHOR STATUS BANNER ── */}
+                    {(() => {
+                        const isServerChain = report.chain && report.chain !== 'DPAL_INTERNAL';
+                        const looksRandom = !report.txHash || report.txHash.length < 10;
+                        const status = isServerChain ? 'server' : looksRandom ? 'fallback' : 'internal';
+                        const cfg = {
+                            server:   { bg: '#f0fdf4', border: '#bbf7d0', dot: '#16a34a', label: 'SERVER ANCHORED', sub: `This report was anchored by the DPAL backend on chain: ${report.chain}. The txHash and block number were returned by the server.`, dotColor: '#16a34a' },
+                            internal: { bg: '#eff6ff', border: '#bfdbfe', dot: '#2563eb', label: 'DPAL INTERNAL LEDGER', sub: 'This report is stored in the DPAL backend (Railway). No public blockchain transaction was made. SHA-256 hash was computed client-side.', dotColor: '#2563eb' },
+                            fallback: { bg: '#fffbeb', border: '#fde68a', dot: '#d97706', label: 'LOCAL HASH (BACKEND UNREACHABLE)', sub: 'The anchor API was unreachable at the time of filing. The hash and txHash are locally-derived. The record is saved in localStorage and will sync when backend is available.', dotColor: '#d97706' },
+                        }[status];
+                        return (
+                            <div style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, margin: '10px 22px 0', borderRadius: 6, padding: '8px 12px', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <span style={{ width: 8, height: 8, borderRadius: '50%', background: cfg.dot, flexShrink: 0, marginTop: 3, display: 'inline-block' }} />
+                                <div>
+                                    <p style={{ fontSize: 7.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: cfg.dotColor, margin: 0 }}>{cfg.label}</p>
+                                    <p style={{ fontSize: 7, color: '#374151', margin: '3px 0 0', lineHeight: 1.5 }}>{cfg.sub}</p>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
                     {/* A + B — 2-column sections */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #e5e7eb' }}>
                         {/* A: Ledger Metadata */}
@@ -696,8 +717,8 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                                 ['Filing Timestamp', (report.anchoredAt || report.timestamp).toISOString()],
                                 ['Ledger Anchor',    txRef ? `${txRef.substring(0, 22)}…` : 'N/A'],
                                 ['Full Hash',        `${report.hash.substring(0, 26).toUpperCase()}…`],
-                                ['Verification',     'RSA-4096 + SHA-256'],
-                                ['Smart Contract',   'EXECUTED'],
+                                ['Hash Method',      'SHA-256 (Web Crypto API)'],
+                                ['Chain Network',    (report.chain || 'DPAL_INTERNAL')],
                                 ['Last Verified',    new Date().toISOString().substring(0, 19) + 'Z'],
                             ] as [string, string][]).map(([label, value]) => (
                                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '3.5px 0', borderBottom: '1px solid #f9fafb', gap: 10 }}>
@@ -738,12 +759,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0 20px' }}>
                             {([
-                                ['Filing Route',     'CLIENT → LEDGER → SHARD'],
+                                ['Filing Route',     'CLIENT → BACKEND → INTERNAL LEDGER'],
                                 ['Registry Source',  'DPAL_CORE_v1.0'],
-                                ['Protocol',         'DPAL-X_CORE_v1.0.42_STABLE'],
+                                ['Anchor Method',    (report.chain && report.chain !== 'DPAL_INTERNAL') ? 'SERVER_ANCHORED' : 'INTERNAL_LEDGER_POST'],
                                 ['System Signature', `${report.hash.substring(0, 16).toUpperCase()}…`],
                                 ['Public Trace',     'PUBLICLY ACCESSIBLE'],
-                                ['Shard Authority',  'SEALED_WITH_AUTHORITY_KEY'],
+                                ['Hash Algorithm',   'SHA-256 (browser Web Crypto)'],
                             ] as [string, string][]).map(([label, value]) => (
                                 <div key={label} style={{ padding: '3px 0', borderBottom: '1px solid #f9fafb' }}>
                                     <span style={{ display: 'block', fontSize: 7, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
@@ -758,12 +779,12 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         <p style={{ fontSize: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#6b7280', margin: '0 0 6px' }}>Verification Stream</p>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 24px' }}>
                             {[
-                                'ESTABLISHING_P2P_HANDSHAKE... [OK]',
-                                'CHRONOLOGICAL_SYNC_STABLE [OK]',
+                                'REPORT_HASH_COMPUTED: SHA-256 [OK]',
+                                'TIMESTAMP_RECORDED [OK]',
                                 `TRUTHSCORE_CALCULATED: ${report.trustScore}% [OK]`,
-                                `BLOCK_INDEX_IDENTIFIED: ${blockRef} [OK]`,
-                                `TX_BROADCASTED: ${txRef ? txRef.slice(0, 14) : 'N/A'}... [OK]`,
-                                'SHARD_SEALED_WITH_AUTHORITY_KEY [OK]',
+                                `BLOCK_REF_ASSIGNED: ${blockRef} [OK]`,
+                                `ANCHOR_TX: ${txRef ? txRef.slice(0, 14) : 'N/A'}... [OK]`,
+                                `CHAIN_NETWORK: ${report.chain || 'DPAL_INTERNAL'} [OK]`,
                             ].map((log, i) => (
                                 <p key={i} style={{ fontSize: 7, fontFamily: 'monospace', color: '#16a34a', margin: 0, padding: '1px 0' }}>&gt; {log}</p>
                             ))}
