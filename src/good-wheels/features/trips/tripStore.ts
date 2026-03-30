@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { RideRequestDraft, SafetyStatus, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
 import { tripService } from './tripService';
+import { TERMINAL_STATUSES } from './tripConstants';
 
 type TripState = {
   activeTrip: Trip | null;
@@ -12,6 +13,8 @@ type TripState = {
   clearDraft: () => void;
   hydrate: (userId: string) => Promise<void>;
   requestRide: () => Promise<void>;
+  setActiveTrip: (trip: Trip) => void;
+  clearActiveTrip: () => void;
   updateStatus: (status: TripStatus, timelineLabel?: string, timelineDetail?: string) => void;
   appendTimelineEvent: (label: string, detail?: string) => void;
   updateSafetyState: (safetyStatus: SafetyStatus, timelineDetail?: string) => void;
@@ -59,6 +62,12 @@ export const useTripStore = create<TripState>((set, get) => ({
       set({ loading: false, error: 'Could not request a ride.' });
     }
   },
+  setActiveTrip(trip) {
+    set({ activeTrip: trip, error: null });
+  },
+  clearActiveTrip() {
+    set({ activeTrip: null, error: null });
+  },
   updateStatus(status, timelineLabel, timelineDetail) {
     const prev = get().activeTrip;
     if (!prev) return;
@@ -67,7 +76,14 @@ export const useTripStore = create<TripState>((set, get) => ({
       status,
       updatedAtIso: new Date().toISOString(),
     };
-    set({ activeTrip: next });
+    if (TERMINAL_STATUSES.has(status)) {
+      set((s) => ({
+        activeTrip: null,
+        history: [next, ...s.history],
+      }));
+    } else {
+      set({ activeTrip: next });
+    }
     if (timelineLabel) get().appendTimelineEvent(timelineLabel, timelineDetail);
   },
   appendTimelineEvent(label, detail) {

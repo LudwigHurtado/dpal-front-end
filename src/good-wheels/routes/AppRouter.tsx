@@ -12,6 +12,14 @@ import SignInPage from '../pages/auth/SignInPage';
 import HomePage from '../pages/public/HomePage';
 import PassengerDashboardPage from '../pages/passenger/PassengerDashboardPage';
 import RequestRidePage from '../pages/passenger/RequestRidePage';
+import DriverDashboardPage from '../pages/driver/DriverDashboardPage';
+import DriverQueuePage from '../pages/driver/DriverQueuePage';
+import DriverActiveTripPage from '../pages/driver/DriverActiveTripPage';
+import DriverHistoryPage from '../pages/driver/DriverHistoryPage';
+import DriverVehiclePage from '../pages/driver/DriverVehiclePage';
+import DriverEarningsPage from '../pages/driver/DriverEarningsPage';
+import NotificationsPage from '../pages/shared/NotificationsPage';
+import SettingsPage from '../pages/shared/SettingsPage';
 import NotFoundPage from '../pages/shared/NotFoundPage';
 import RoleProtectedRoute from './guards/RoleProtectedRoute';
 import { GW_PATHS } from './paths';
@@ -47,6 +55,19 @@ export default function AppRouter(): React.ReactElement {
                   { path: GW_PATHS.passenger.request, element: <RequestRidePage /> },
                 ],
               },
+              {
+                element: <RoleProtectedRoute role="driver" />,
+                children: [
+                  { path: GW_PATHS.driver.dashboard, element: <DriverDashboardPage /> },
+                  { path: GW_PATHS.driver.queue, element: <DriverQueuePage /> },
+                  { path: GW_PATHS.driver.active, element: <DriverActiveTripPage /> },
+                  { path: GW_PATHS.driver.history, element: <DriverHistoryPage /> },
+                  { path: GW_PATHS.driver.vehicle, element: <DriverVehiclePage /> },
+                  { path: GW_PATHS.driver.earnings, element: <DriverEarningsPage /> },
+                ],
+              },
+              { path: GW_PATHS.shared.notifications, element: <NotificationsPage /> },
+              { path: GW_PATHS.shared.settings, element: <SettingsPage /> },
             ],
           },
         ],

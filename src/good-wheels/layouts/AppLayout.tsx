@@ -1,19 +1,62 @@
-import React, { useEffect } from 'react';
-import { Outlet, NavLink, useNavigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTripStore } from '../features/trips/tripStore';
 import { GW_PATHS } from '../routes/paths';
+import { useDriverStore } from '../features/driver/driverStore';
 
 const AppLayout: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.activeRole);
   const signOut = useAuthStore((s) => s.signOut);
   const hydrate = useTripStore((s) => s.hydrate);
+  const hydrateDriver = useDriverStore((s) => s.hydrate);
+
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 860 : false));
 
   useEffect(() => {
     if (user?.id) void hydrate(user.id);
   }, [user?.id, hydrate]);
+
+  useEffect(() => {
+    if (role === 'driver') void hydrateDriver();
+  }, [role, hydrateDriver]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 860);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const mobileTabs = useMemo(() => {
+    if (role === 'driver') {
+      return [
+        { to: GW_PATHS.driver.dashboard, label: 'Ride' },
+        { to: GW_PATHS.driver.queue, label: 'Queue' },
+        { to: GW_PATHS.driver.active, label: 'On Trip' },
+        { to: GW_PATHS.driver.vehicle, label: 'Profile' },
+      ];
+    }
+    if (role === 'passenger') {
+      return [
+        { to: GW_PATHS.passenger.dashboard, label: 'Ride' },
+        { to: GW_PATHS.passenger.request, label: 'Request' },
+        { to: GW_PATHS.passenger.active, label: 'On Trip' },
+        { to: GW_PATHS.auth.profile, label: 'Profile' },
+      ];
+    }
+    if (role === 'worker') {
+      return [
+        { to: GW_PATHS.worker.dashboard, label: 'Home' },
+        { to: GW_PATHS.worker.dispatch, label: 'Dispatch' },
+        { to: GW_PATHS.worker.tasks, label: 'Tasks' },
+        { to: GW_PATHS.auth.profile, label: 'Profile' },
+      ];
+    }
+    return [];
+  }, [role]);
 
   return (
     <div className="gw-root min-h-screen">
@@ -23,8 +66,8 @@ const AppLayout: React.FC = () => {
             Good Wheels
           </button>
           <div className="gw-appbar-spacer" />
-          <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">Notifications</NavLink>
-          <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">Settings</NavLink>
+          {!isMobile && <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">Notifications</NavLink>}
+          {!isMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">Settings</NavLink>}
           <button type="button" className="gw-button gw-button-ghost" onClick={() => void signOut().then(() => navigate(GW_PATHS.public.home))}>
             Sign out
           </button>
@@ -32,6 +75,7 @@ const AppLayout: React.FC = () => {
       </header>
 
       <div className="gw-container gw-appshell">
+        {!isMobile && (
         <aside className="gw-sidenav">
           <div className="gw-sidenav-card">
             <div className="gw-sidenav-title">{user?.fullName ?? '—'}</div>
@@ -70,11 +114,34 @@ const AppLayout: React.FC = () => {
             </nav>
           )}
         </aside>
+        )}
 
-        <main className="gw-content">
+        <main className="gw-content" style={isMobile ? { paddingBottom: 84 } : undefined}>
           <Outlet />
         </main>
       </div>
+
+      {isMobile && mobileTabs.length > 0 && (
+        <nav
+          className="gw-bottomnav"
+          aria-label="Bottom navigation"
+        >
+          <div className="gw-bottomnav-inner">
+            {mobileTabs.map((t) => {
+              const active = location.pathname === t.to;
+              return (
+                <NavLink
+                  key={t.to}
+                  to={t.to}
+                  className={active ? 'gw-bottomnav-item gw-bottomnav-item-active' : 'gw-bottomnav-item'}
+                >
+                  <span className="gw-bottomnav-label">{t.label}</span>
+                </NavLink>
+              );
+            })}
+          </div>
+        </nav>
+      )}
     </div>
   );
 };
