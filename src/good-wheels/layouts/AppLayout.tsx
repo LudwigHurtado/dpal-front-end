@@ -50,8 +50,8 @@ const AppLayout: React.FC = () => {
     if (role === 'passenger') {
       return [
         { to: GW_PATHS.passenger.dashboard, label: 'Ride' },
-        { to: GW_PATHS.passenger.request, label: 'Request' },
-        { to: GW_PATHS.passenger.active, label: 'On Trip' },
+        { to: GW_PATHS.passenger.charities, label: 'Charities' },
+        { to: GW_PATHS.passenger.donations, label: 'Donations' },
         { to: GW_PATHS.auth.profile, label: 'Profile' },
       ];
     }

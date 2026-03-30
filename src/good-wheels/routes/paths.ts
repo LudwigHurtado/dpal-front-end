@@ -22,6 +22,8 @@ export const GW_PATHS = {
     history: '/app/passenger/history',
     places: '/app/passenger/places',
     support: '/app/passenger/support',
+    charities: '/app/passenger/charities',
+    donations: '/app/passenger/donations',
   },
   driver: {
     dashboard: '/app/driver/dashboard',

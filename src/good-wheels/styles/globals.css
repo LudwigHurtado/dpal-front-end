@@ -297,3 +297,288 @@
 .gw-footer { border-top: 1px solid var(--gw-border); background: rgba(246,247,251,0.70); padding: 18px 0; }
 .gw-footer-inner { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
+/* ============================================================
+   PassengerRideHomePage — Full-screen layered map composition
+   ============================================================ */
+
+.gw-ride-home {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: #F5F7FA;
+  font-family: inherit;
+}
+
+/* ── Brand header ── */
+.gw-ride-header {
+  flex-shrink: 0;
+  background: linear-gradient(170deg, #0D3B66 0%, #0077C8 100%);
+  padding: env(safe-area-inset-top, 0px) 0 0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+  z-index: 10;
+}
+.gw-ride-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px 14px;
+}
+.gw-ride-brand { display: flex; align-items: center; gap: 10px; }
+.gw-ride-logo-mark {
+  width: 42px; height: 42px;
+  border-radius: 13px;
+  background: rgba(255,255,255,0.18);
+  border: 1px solid rgba(255,255,255,0.28);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gw-ride-brand-title {
+  color: white;
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+.gw-ride-brand-sub { color: rgba(255,255,255,0.78); font-size: 11px; font-weight: 700; letter-spacing: 0.01em; }
+.gw-ride-signout-btn {
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: rgba(255,255,255,0.88);
+  border-radius: 10px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ── Map stage ── */
+.gw-ride-map-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+.gw-ride-map-canvas {
+  position: absolute;
+  inset: 0;
+  background: #dde3ea;
+}
+.gw-ride-map-loading {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,119,200,0.08), rgba(47,179,68,0.06));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+}
+.gw-ride-map-loading-inner { text-align: center; }
+
+/* ── Floating address input card ── */
+.gw-trip-addr-card {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  z-index: 30;
+  background: white;
+  border-radius: 18px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.14);
+  overflow: hidden;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.gw-addr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+}
+.gw-addr-icon { display: flex; align-items: center; flex-shrink: 0; }
+.gw-addr-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1F2937;
+  background: transparent;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.gw-addr-input::placeholder { color: #9CA3AF; font-weight: 500; }
+.gw-addr-divider { height: 1px; background: #F3F4F6; margin: 0 16px; }
+.gw-addr-preds {
+  border-top: 1px solid #F3F4F6;
+  max-height: 190px;
+  overflow-y: auto;
+}
+.gw-addr-pred-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: #374151;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-bottom: 1px solid #F9FAFB;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.gw-addr-pred-item:hover { background: #F9FAFB; }
+.gw-addr-pred-item:last-child { border-bottom: none; }
+
+/* ── Ride options card (bottom floating) ── */
+.gw-ride-opts-card {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 30;
+  background: white;
+  border-radius: 22px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.16);
+  padding: 14px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border: 1px solid rgba(0,0,0,0.06);
+}
+.gw-ride-opts-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #9CA3AF;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  padding: 0 2px;
+  margin-bottom: 2px;
+}
+.gw-ride-opt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 2px solid transparent;
+  background: #F9FAFB;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.12s, background 0.12s;
+  width: 100%;
+}
+.gw-ride-opt-row:hover { background: #F3F4F6; }
+.gw-ride-opt-row--selected {
+  border-color: #0077C8;
+  background: rgba(0,119,200,0.05);
+}
+.gw-ride-opt-icon {
+  width: 44px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.gw-ride-opt-info { flex: 1; min-width: 0; }
+.gw-ride-opt-name { font-size: 14px; font-weight: 800; color: #1F2937; }
+.gw-ride-opt-eta { font-size: 12px; color: #6B7280; font-weight: 600; margin-top: 1px; }
+.gw-ride-opt-price { font-size: 17px; font-weight: 900; color: #0D3B66; flex-shrink: 0; }
+.gw-ride-opt-check {
+  font-size: 15px;
+  color: #0077C8;
+  font-weight: 900;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+/* Charity nudge banner inside options card */
+.gw-ride-charity-banner {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: 700;
+  padding: 8px 12px;
+  background: rgba(47,179,68,0.07);
+  border-radius: 12px;
+  border: 1px solid rgba(47,179,68,0.18);
+}
+.gw-ride-charity-banner span:first-child { font-size: 15px; }
+.gw-ride-charity-banner span:nth-child(2) { flex: 1; }
+.gw-ride-charity-link {
+  background: rgba(47,179,68,0.12);
+  border: 1px solid rgba(47,179,68,0.28);
+  color: #2FB344;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Confirm ride CTA */
+.gw-ride-confirm-btn {
+  width: 100%;
+  background: linear-gradient(135deg, #0077C8 0%, #0D3B66 100%);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  border: none;
+  border-radius: 14px;
+  padding: 15px;
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: opacity 0.15s;
+  margin-top: 2px;
+}
+.gw-ride-confirm-btn:disabled {
+  background: #D1D5DB;
+  color: #9CA3AF;
+  cursor: not-allowed;
+}
+.gw-ride-confirm-btn:not(:disabled):hover { opacity: 0.9; }
+.gw-ride-confirm-btn:not(:disabled):active { opacity: 0.8; }
+
+/* ── Bottom tab bar ── */
+.gw-ride-bottom-tabs {
+  flex-shrink: 0;
+  background: white;
+  border-top: 1px solid #E5E7EB;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding: 8px 4px calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+}
+.gw-ride-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 4px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: #9CA3AF;
+  transition: color 0.12s;
+}
+.gw-ride-tab--active { color: #0077C8; }
+.gw-ride-tab-icon { font-size: 20px; line-height: 1; }
+.gw-ride-tab-label { font-size: 11px; font-weight: 700; white-space: nowrap; }
+
+
