@@ -1,7 +1,6 @@
 import { create } from 'zustand';
 import type { RideRequestDraft, Trip } from './tripTypes';
-import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
-import { mockRideApi } from '../../services/adapters/mockAdapters';
+import { tripService } from './tripService';
 
 type TripState = {
   activeTrip: Trip | null;
@@ -37,8 +36,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   async hydrate(userId) {
     set({ loading: true, error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
-      const [active, hist] = await Promise.all([api.getActiveTrip(userId), api.listHistory(userId)]);
+      const [active, hist] = await Promise.all([tripService.getActiveTrip(userId), tripService.listHistory(userId)]);
       set({ activeTrip: active, history: hist, loading: false });
     } catch {
       set({ loading: false, error: 'Could not load trips.' });
@@ -52,8 +50,7 @@ export const useTripStore = create<TripState>((set, get) => ({
     }
     set({ loading: true, error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
-      const trip = await api.requestRide(draft);
+      const trip = await tripService.requestTrip(draft);
       set({ activeTrip: trip, loading: false });
     } catch {
       set({ loading: false, error: 'Could not request a ride.' });

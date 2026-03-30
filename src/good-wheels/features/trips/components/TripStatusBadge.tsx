@@ -1,23 +1,17 @@
 import React from 'react';
 import type { TripStatus } from '../tripTypes';
-import { formatTripStatus } from '../tripUtils';
+import { TRIP_BADGE_TONE, TRIP_STATUS_LABEL, type TripBadgeTone } from '../tripConstants';
 
-const toneByStatus: Record<TripStatus, { bg: string; fg: string; border: string }> = {
-  draft: { bg: 'rgba(15,23,42,0.04)', fg: '#334155', border: 'rgba(15,23,42,0.10)' },
-  requested: { bg: 'rgba(245,158,11,0.10)', fg: '#92400e', border: 'rgba(245,158,11,0.22)' },
-  matched: { bg: 'rgba(37,99,235,0.10)', fg: '#1d4ed8', border: 'rgba(37,99,235,0.22)' },
-  driver_assigned: { bg: 'rgba(37,99,235,0.10)', fg: '#1d4ed8', border: 'rgba(37,99,235,0.22)' },
-  driver_arriving: { bg: 'rgba(37,99,235,0.10)', fg: '#1d4ed8', border: 'rgba(37,99,235,0.22)' },
-  arrived: { bg: 'rgba(22,163,74,0.10)', fg: '#166534', border: 'rgba(22,163,74,0.22)' },
-  in_progress: { bg: 'rgba(22,163,74,0.10)', fg: '#166534', border: 'rgba(22,163,74,0.22)' },
-  support_in_progress: { bg: 'rgba(37,99,235,0.10)', fg: '#1d4ed8', border: 'rgba(37,99,235,0.22)' },
-  completed: { bg: 'rgba(22,163,74,0.10)', fg: '#166534', border: 'rgba(22,163,74,0.22)' },
-  canceled: { bg: 'rgba(251,113,133,0.10)', fg: '#9f1239', border: 'rgba(251,113,133,0.22)' },
-  escalated: { bg: 'rgba(251,113,133,0.10)', fg: '#9f1239', border: 'rgba(251,113,133,0.22)' },
+const toneStyle: Record<TripBadgeTone, { bg: string; fg: string; border: string }> = {
+  neutral: { bg: 'rgba(15,23,42,0.04)', fg: '#334155', border: 'rgba(15,23,42,0.10)' },
+  info: { bg: 'rgba(37,99,235,0.10)', fg: '#1d4ed8', border: 'rgba(37,99,235,0.22)' },
+  success: { bg: 'rgba(22,163,74,0.10)', fg: '#166534', border: 'rgba(22,163,74,0.22)' },
+  warning: { bg: 'rgba(245,158,11,0.10)', fg: '#92400e', border: 'rgba(245,158,11,0.22)' },
+  danger: { bg: 'rgba(251,113,133,0.10)', fg: '#9f1239', border: 'rgba(251,113,133,0.22)' },
 };
 
 const TripStatusBadge: React.FC<{ status: TripStatus }> = ({ status }) => {
-  const t = toneByStatus[status];
+  const t = toneStyle[TRIP_BADGE_TONE[status]];
   return (
     <span
       style={{
@@ -34,7 +28,7 @@ const TripStatusBadge: React.FC<{ status: TripStatus }> = ({ status }) => {
         letterSpacing: '0.02em',
       }}
     >
-      {formatTripStatus(status)}
+      {TRIP_STATUS_LABEL[status]}
     </span>
   );
 };
