@@ -78,5 +78,13 @@ export type Trip = {
     durationMinutes: number;
     previewSteps?: string[];
   };
+  /** Optional fare estimate for donation/rewards layer (USD) */
+  fareUsd?: number;
+  /** Optional charity/donation metadata captured for the trip */
+  charityId?: string | null;
+  charityName?: string | null;
+  donationConfig?: { type: 'none' | 'fixed' | 'percentage' | 'round_up'; value: number } | null;
+  donationAmountUsd?: number;
+  dpalRewardPoints?: number;
 };
 

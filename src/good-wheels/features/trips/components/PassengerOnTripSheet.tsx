@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Trip } from '../tripTypes';
+import DonationPanel from '../../charity/components/DonationPanel';
+import CharitySelectorModal from '../../charity/components/CharitySelectorModal';
+import { MOCK_CHARITIES } from '../../charity/mockCharities';
+import { useDonation } from '../../charity/useDonation';
 
 export default function PassengerOnTripSheet({
   trip,
@@ -10,6 +14,19 @@ export default function PassengerOnTripSheet({
   onDonate?: () => void;
   onContactDriver?: () => void;
 }) {
+  const [charityOpen, setCharityOpen] = useState(false);
+  const {
+    fareUsd,
+    selectedCharity,
+    setSelectedCharity,
+    donationConfig,
+    donationAmountUsd,
+    updateDonation,
+    clearDonation,
+  } = useDonation(trip?.fareUsd ?? 18.5);
+
+  // fare syncing can be added later if fare becomes dynamic
+
   return (
     <>
       <div className="gw-sheet-handle" aria-hidden />
@@ -31,13 +48,31 @@ export default function PassengerOnTripSheet({
         </button>
       </div>
 
-      <div className="gw-card p-5 mt-4" style={{ background: 'rgba(22,163,74,0.06)' }}>
-        <div className="font-extrabold text-slate-900">Support a nearby cause</div>
-        <div className="gw-muted mt-1">Donate during the ride — your community impact shows up on the receipt.</div>
-        <button type="button" className="gw-button gw-button-primary w-full mt-3" onClick={onDonate}>
-          Donate
-        </button>
+      <div className="mt-4">
+        <DonationPanel
+          fare={fareUsd}
+          selectedCharity={selectedCharity}
+          donationConfig={donationConfig}
+          donationAmount={donationAmountUsd}
+          onChange={(type, value) => {
+            updateDonation(type, value);
+            onDonate?.();
+          }}
+          onClear={clearDonation}
+          onOpenCharities={() => setCharityOpen(true)}
+        />
       </div>
+
+      <CharitySelectorModal
+        open={charityOpen}
+        charities={MOCK_CHARITIES}
+        selectedCharityId={selectedCharity?.id ?? null}
+        onSelect={(c) => {
+          setSelectedCharity(c);
+          setCharityOpen(false);
+        }}
+        onClose={() => setCharityOpen(false)}
+      />
     </>
   );
 }
