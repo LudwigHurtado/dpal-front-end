@@ -4,12 +4,20 @@ import { useGoogleMaps } from '../../map/useGoogleMaps';
 import { geocodeAddress, midpoint } from '../../map/mapUtils';
 import type { LatLng } from '../../map/mapTypes';
 
-const TripMapPanel: React.FC<{ trip: Trip; variant?: 'passenger' | 'driver' | 'worker' }> = ({ trip, variant = 'passenger' }) => {
+const TripMapPanel: React.FC<{
+  trip: Trip;
+  variant?: 'passenger' | 'driver' | 'worker';
+  pinMode?: 'pickup' | 'dropoff' | null;
+  onPinSelect?: (args: { lat: number; lng: number; addressLine: string; mode: 'pickup' | 'dropoff' }) => void;
+}> = ({ trip, variant = 'passenger', pinMode = null, onPinSelect }) => {
   const title = variant === 'driver' ? 'Navigation' : variant === 'worker' ? 'Coordination map' : 'Trip map';
-  const { google: g, ready } = useGoogleMaps();
+  const { google: g, ready, error } = useGoogleMaps();
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapObjRef = useRef<google.maps.Map | null>(null);
   const directionsRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  const driverMarkerRef = useRef<google.maps.Marker | null>(null);
+  const driverTickRef = useRef<number | null>(null);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
 
@@ -45,7 +53,10 @@ const TripMapPanel: React.FC<{ trip: Trip; variant?: 'passenger' | 'driver' | 'w
     if (!ready || !g) return;
     let cancelled = false;
     (async () => {
-      const [p, d] = await Promise.all([geocodeAddress(g, pickupAddress), geocodeAddress(g, dropoffAddress)]);
+      const [p, d] = await Promise.all([
+        trip.pickup.point ? Promise.resolve(trip.pickup.point) : geocodeAddress(g, pickupAddress),
+        trip.dropoff.point ? Promise.resolve(trip.dropoff.point) : geocodeAddress(g, dropoffAddress),
+      ]);
       if (cancelled) return;
       setPickupLL(p);
       setDropoffLL(d);
@@ -103,6 +114,96 @@ const TripMapPanel: React.FC<{ trip: Trip; variant?: 'passenger' | 'driver' | 'w
     );
   }, [ready, g, center, pickupLL, dropoffLL]);
 
+  useEffect(() => {
+    if (!ready || !g) return;
+    const map = mapObjRef.current;
+    if (!map || !pickupLL || !dropoffLL) return;
+
+    if (driverMarkerRef.current) {
+      driverMarkerRef.current.setMap(null);
+      driverMarkerRef.current = null;
+    }
+    if (driverTickRef.current) {
+      window.clearInterval(driverTickRef.current);
+      driverTickRef.current = null;
+    }
+
+    const shouldTrack =
+      trip.status === 'driver_assigned' ||
+      trip.status === 'driver_arriving' ||
+      trip.status === 'arrived' ||
+      trip.status === 'in_progress';
+    if (!shouldTrack) return;
+
+    const marker = new g.maps.Marker({
+      map,
+      position: pickupLL,
+      icon: {
+        path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        scale: 5,
+        fillColor: '#0077C8',
+        fillOpacity: 1,
+        strokeColor: '#0D3B66',
+        strokeWeight: 1,
+      },
+      title: 'Driver',
+    });
+    driverMarkerRef.current = marker;
+
+    let step = trip.status === 'in_progress' ? 0.6 : trip.status === 'arrived' ? 0.98 : 0.15;
+    const delta = trip.status === 'driver_assigned' ? 0.02 : trip.status === 'driver_arriving' ? 0.035 : 0.01;
+    const id = window.setInterval(() => {
+      step = Math.min(1, step + delta);
+      const lat = pickupLL.lat + (dropoffLL.lat - pickupLL.lat) * step;
+      const lng = pickupLL.lng + (dropoffLL.lng - pickupLL.lng) * step;
+      marker.setPosition({ lat, lng });
+      if (step >= 1 && driverTickRef.current) {
+        window.clearInterval(driverTickRef.current);
+        driverTickRef.current = null;
+      }
+    }, 1200);
+    driverTickRef.current = id;
+
+    return () => {
+      if (driverTickRef.current) {
+        window.clearInterval(driverTickRef.current);
+        driverTickRef.current = null;
+      }
+    };
+  }, [ready, g, pickupLL, dropoffLL, trip.status]);
+
+  useEffect(() => {
+    if (!ready || !g) return;
+    const map = mapObjRef.current;
+    if (!map) return;
+    if (clickListenerRef.current) {
+      clickListenerRef.current.remove();
+      clickListenerRef.current = null;
+    }
+    if (!pinMode || !onPinSelect) return;
+
+    clickListenerRef.current = map.addListener('click', (ev: google.maps.MapMouseEvent) => {
+      const lat = ev.latLng?.lat();
+      const lng = ev.latLng?.lng();
+      if (typeof lat !== 'number' || typeof lng !== 'number') return;
+      const geocoder = new g.maps.Geocoder();
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        const addressLine =
+          status === 'OK' && results && results[0]?.formatted_address
+            ? results[0].formatted_address
+            : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        onPinSelect({ lat, lng, addressLine, mode: pinMode });
+      });
+    });
+
+    return () => {
+      if (clickListenerRef.current) {
+        clickListenerRef.current.remove();
+        clickListenerRef.current = null;
+      }
+    };
+  }, [ready, g, pinMode, onPinSelect]);
+
   return (
     <div className="gw-card p-5 space-y-3">
       <div className="gw-card-title">{title}</div>
@@ -110,6 +211,11 @@ const TripMapPanel: React.FC<{ trip: Trip; variant?: 'passenger' | 'driver' | 'w
         <strong className="text-slate-800">{trip.pickup.label}</strong> →{' '}
         <strong className="text-slate-800">{trip.dropoff.label}</strong>
       </div>
+      {pinMode && (
+        <div className="text-xs font-bold text-slate-600">
+          Pin mode: <span className="text-[#0077C8]">{pinMode}</span> — click on map to set location.
+        </div>
+      )}
       <div
         className="gw-map-canvas"
         style={{
@@ -120,7 +226,11 @@ const TripMapPanel: React.FC<{ trip: Trip; variant?: 'passenger' | 'driver' | 'w
           background: 'rgba(241,245,249,0.7)',
         }}
       >
-        {ready ? (
+        {error ? (
+          <div className="gw-map-placeholder" style={{ minHeight: 220 }}>
+            Could not load Google Maps. Check `VITE_GOOGLE_MAPS_API_KEY` referrer settings.
+          </div>
+        ) : ready ? (
           <div ref={mapRef} style={{ width: '100%', height: 240 }} />
         ) : (
           <div className="gw-map-placeholder" style={{ minHeight: 220 }}>

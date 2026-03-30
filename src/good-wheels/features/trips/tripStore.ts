@@ -80,7 +80,22 @@ export const useTripStore = create<TripState>((set, get) => ({
     });
     try {
       const trip = await tripService.requestTrip(draft);
-      set({ activeTrip: trip, loading: false });
+      set({
+        activeTrip: {
+          ...trip,
+          pickup: {
+            ...trip.pickup,
+            addressLine: draft.pickup?.addressLine ?? trip.pickup.addressLine,
+            point: draft.pickup?.point ?? trip.pickup.point,
+          },
+          dropoff: {
+            ...trip.dropoff,
+            addressLine: draft.dropoff?.addressLine ?? trip.dropoff.addressLine,
+            point: draft.dropoff?.point ?? trip.dropoff.point,
+          },
+        },
+        loading: false,
+      });
     } catch {
       set({ loading: false, error: 'Could not request a ride.' });
     }

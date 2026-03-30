@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MOCK_SUPPORT_CATEGORIES } from '../../data/mock/mockSupportCategories';
 import { useTripStore } from '../../features/trips/tripStore';
 import TripMapPanel from '../../features/trips/components/TripMapPanel';
@@ -10,6 +10,7 @@ const RequestRidePage: React.FC = () => {
   const requestRide = useTripStore((s) => s.requestRide);
   const loading = useTripStore((s) => s.loading);
   const error = useTripStore((s) => s.error);
+  const [pinMode, setPinMode] = useState<'pickup' | 'dropoff' | null>(null);
 
   const purposes = useMemo(
     () => [
@@ -24,6 +25,28 @@ const RequestRidePage: React.FC = () => {
     ],
     []
   );
+
+  useEffect(() => {
+    if (draft.pickup?.point) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setDraft({
+          pickup: {
+            label: 'Current Location',
+            addressLine: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+            point: { lat, lng },
+          },
+        });
+      },
+      () => {
+        // Ignore denial; user can pin manually.
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  }, [draft.pickup?.point, setDraft]);
 
   return (
     <div className="space-y-8">
@@ -45,7 +68,7 @@ const RequestRidePage: React.FC = () => {
               placeholder="Enter pickup location"
               value={draft.pickup?.addressLine ?? ''}
               onChange={(e) =>
-                setDraft({ pickup: { label: 'Pickup', addressLine: e.target.value } })
+                setDraft({ pickup: { label: 'Pickup', addressLine: e.target.value, point: draft.pickup?.point } })
               }
             />
           </label>
@@ -57,10 +80,27 @@ const RequestRidePage: React.FC = () => {
               placeholder="Enter destination"
               value={draft.dropoff?.addressLine ?? ''}
               onChange={(e) =>
-                setDraft({ dropoff: { label: 'Destination', addressLine: e.target.value } })
+                setDraft({ dropoff: { label: 'Destination', addressLine: e.target.value, point: draft.dropoff?.point } })
               }
             />
           </label>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={pinMode === 'pickup' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
+              onClick={() => setPinMode((p) => (p === 'pickup' ? null : 'pickup'))}
+            >
+              {pinMode === 'pickup' ? 'Stop pin pickup' : 'Pin pickup on map'}
+            </button>
+            <button
+              type="button"
+              className={pinMode === 'dropoff' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
+              onClick={() => setPinMode((p) => (p === 'dropoff' ? null : 'dropoff'))}
+            >
+              {pinMode === 'dropoff' ? 'Stop pin dropoff' : 'Pin dropoff on map'}
+            </button>
+          </div>
 
           <label className="gw-label">
             Ride purpose
@@ -137,6 +177,15 @@ const RequestRidePage: React.FC = () => {
               safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
             }}
             variant="passenger"
+            pinMode={pinMode}
+            onPinSelect={({ lat, lng, addressLine, mode }) => {
+              if (mode === 'pickup') {
+                setDraft({ pickup: { label: 'Pickup Pin', addressLine, point: { lat, lng } } });
+              } else {
+                setDraft({ dropoff: { label: 'Dropoff Pin', addressLine, point: { lat, lng } } });
+              }
+              setPinMode(null);
+            }}
           />
         </div>
       </div>
