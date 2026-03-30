@@ -778,11 +778,11 @@ const App: React.FC = () => {
     }
   }, [currentView, gatewayCategory, flowActions]);
 
-  const handleNavigate = (
+  function handleNavigate(
     view: View,
     category?: Category,
     targetTab?: HeroHubTab | HubTab
-  ) => {
+  ): void {
     const aiViews: View[] = ['liveIntelligence', 'generateMission', 'trainingHolodeck', 'aiWorkDirectives'];
     if (aiViews.includes(view) && !isAiEnabled() && !isOfflineMode) {
         setPrevView(currentView);
@@ -829,7 +829,7 @@ const App: React.FC = () => {
         }
         setCurrentView(view); 
     }
-  };
+  }
 
   const goToCategorySelectionHelpSector = () => {
     setHelpSectorFocusSignal((n) => n + 1);
