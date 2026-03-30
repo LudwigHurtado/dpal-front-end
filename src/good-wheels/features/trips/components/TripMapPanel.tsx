@@ -18,6 +18,7 @@ const TripMapPanel: React.FC<{
   const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
   const driverTickRef = useRef<number | null>(null);
+  const nearbyCarsRef = useRef<google.maps.Marker[]>([]);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
 
@@ -82,7 +83,15 @@ const TripMapPanel: React.FC<{
         new g.maps.Marker({
           map,
           position: pickupLL,
-          label: { text: 'P', color: '#0f172a', fontWeight: '800' },
+          label: { text: 'You', color: '#0f172a', fontWeight: '800' },
+          icon: {
+            path: g.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: '#0077C8',
+            fillOpacity: 0.85,
+            strokeColor: '#0D3B66',
+            strokeWeight: 2,
+          },
         })
       );
     }
@@ -98,6 +107,34 @@ const TripMapPanel: React.FC<{
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (map as any).__gwMarkers = markers;
 
+    nearbyCarsRef.current.forEach((m) => m.setMap(null));
+    nearbyCarsRef.current = [];
+    const shouldShowNearbyCars =
+      variant === 'passenger' &&
+      (trip.status === 'draft' || trip.status === 'requested' || trip.status === 'matched');
+    if (shouldShowNearbyCars && pickupLL) {
+      const offsets = [
+        { lat: 0.003, lng: 0.0025 },
+        { lat: -0.002, lng: 0.0032 },
+        { lat: 0.0015, lng: -0.0028 },
+      ];
+      nearbyCarsRef.current = offsets.map((o, i) =>
+        new g.maps.Marker({
+          map,
+          position: { lat: pickupLL.lat + o.lat, lng: pickupLL.lng + o.lng },
+          title: `Nearby car ${i + 1}`,
+          icon: {
+            path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 4.8,
+            fillColor: '#2FB344',
+            fillOpacity: 0.95,
+            strokeColor: '#14532d',
+            strokeWeight: 1,
+          },
+        })
+      );
+    }
+
     const dr = directionsRef.current;
     if (!dr || !pickupLL || !dropoffLL) return;
 
@@ -112,7 +149,7 @@ const TripMapPanel: React.FC<{
         if (status === 'OK' && result) dr.setDirections(result);
       }
     );
-  }, [ready, g, center, pickupLL, dropoffLL]);
+  }, [ready, g, center, pickupLL, dropoffLL, trip.status, variant]);
 
   useEffect(() => {
     if (!ready || !g) return;

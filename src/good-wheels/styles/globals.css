@@ -66,6 +66,8 @@
 .gw-force-mobile .gw-request-page .gw-card-title { font-size: 18px; }
 .gw-force-mobile .gw-request-page .gw-map-canvas > div { height: 220px !important; }
 .gw-force-mobile .gw-request-page .gw-map-placeholder { min-height: 220px !important; }
+.gw-force-mobile .gw-request-page .gw-request-estimate { order: -1; }
+.gw-force-mobile .gw-request-page .gw-request-form { order: 1; }
 
 .gw-container { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
 .gw-main { padding: 28px 0 56px; }

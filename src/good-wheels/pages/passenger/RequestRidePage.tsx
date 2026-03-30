@@ -58,6 +58,39 @@ const RequestRidePage: React.FC = () => {
       </div>
 
       <div className="gw-grid-2 gw-request-grid">
+        <div className="gw-card p-5 space-y-4 gw-request-estimate">
+          <div className="gw-card-title">Live map</div>
+          <div className="gw-muted">
+            Your location, nearby cars, and route to destination.
+          </div>
+          <TripMapPanel
+            trip={{
+              id: 'draft',
+              passengerId: 'draft',
+              pickup: draft.pickup ?? { label: 'Pickup', addressLine: '—' },
+              dropoff: draft.dropoff ?? { label: 'Destination', addressLine: '—' },
+              purpose: draft.purpose,
+              supportCategoryId: draft.supportCategoryId,
+              status: 'requested',
+              createdAtIso: new Date().toISOString(),
+              updatedAtIso: new Date().toISOString(),
+              estimate: { etaMinutes: 12, distanceKm: 4.6 },
+              timeline: [],
+              safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
+            }}
+            variant="passenger"
+            pinMode={pinMode}
+            onPinSelect={({ lat, lng, addressLine, mode }) => {
+              if (mode === 'pickup') {
+                setDraft({ pickup: { label: 'Pickup Pin', addressLine, point: { lat, lng } } });
+              } else {
+                setDraft({ dropoff: { label: 'Dropoff Pin', addressLine, point: { lat, lng } } });
+              }
+              setPinMode(null);
+            }}
+          />
+        </div>
+
         <div className="gw-card p-5 space-y-4 gw-request-form">
           <div className="gw-card-title">Trip details</div>
 
@@ -153,40 +186,6 @@ const RequestRidePage: React.FC = () => {
           >
             Confirm request
           </button>
-        </div>
-
-        <div className="gw-card p-5 space-y-4 gw-request-estimate">
-          <div className="gw-card-title">Estimate</div>
-          <div className="gw-muted">
-            Real pricing isn’t part of the DPAL Good Wheels foundation yet. This panel is structured for ETA,
-            distance, match preview, and safety flags.
-          </div>
-          <TripMapPanel
-            trip={{
-              id: 'draft',
-              passengerId: 'draft',
-              pickup: draft.pickup ?? { label: 'Pickup', addressLine: '—' },
-              dropoff: draft.dropoff ?? { label: 'Destination', addressLine: '—' },
-              purpose: draft.purpose,
-              supportCategoryId: draft.supportCategoryId,
-              status: 'draft',
-              createdAtIso: new Date().toISOString(),
-              updatedAtIso: new Date().toISOString(),
-              estimate: { etaMinutes: 12, distanceKm: 4.6 },
-              timeline: [],
-              safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
-            }}
-            variant="passenger"
-            pinMode={pinMode}
-            onPinSelect={({ lat, lng, addressLine, mode }) => {
-              if (mode === 'pickup') {
-                setDraft({ pickup: { label: 'Pickup Pin', addressLine, point: { lat, lng } } });
-              } else {
-                setDraft({ dropoff: { label: 'Dropoff Pin', addressLine, point: { lat, lng } } });
-              }
-              setPinMode(null);
-            }}
-          />
         </div>
       </div>
     </div>
