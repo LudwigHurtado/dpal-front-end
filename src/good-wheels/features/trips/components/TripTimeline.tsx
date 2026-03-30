@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Trip } from '../tripTypes';
+import { useTripTimeline } from '../hooks/useTripTimeline';
 
 function fmtTime(iso: string): string {
   const d = new Date(iso);
@@ -8,7 +9,7 @@ function fmtTime(iso: string): string {
 }
 
 const TripTimeline: React.FC<{ trip: Trip }> = ({ trip }) => {
-  const events = [...trip.timeline].sort((a, b) => new Date(a.atIso).getTime() - new Date(b.atIso).getTime());
+  const { events } = useTripTimeline(trip);
   return (
     <div className="gw-card p-5 space-y-4">
       <div className="gw-card-title">Trip timeline</div>

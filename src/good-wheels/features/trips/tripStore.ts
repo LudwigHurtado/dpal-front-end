@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { RideRequestDraft, Trip } from './tripTypes';
+import type { RideRequestDraft, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
 import { tripService } from './tripService';
 
 type TripState = {
@@ -12,6 +12,8 @@ type TripState = {
   clearDraft: () => void;
   hydrate: (userId: string) => Promise<void>;
   requestRide: () => Promise<void>;
+  updateStatus: (status: TripStatus, timelineLabel?: string, timelineDetail?: string) => void;
+  appendTimelineEvent: (label: string, detail?: string) => void;
 };
 
 const EMPTY_DRAFT: RideRequestDraft = {
@@ -55,6 +57,34 @@ export const useTripStore = create<TripState>((set, get) => ({
     } catch {
       set({ loading: false, error: 'Could not request a ride.' });
     }
+  },
+  updateStatus(status, timelineLabel, timelineDetail) {
+    const prev = get().activeTrip;
+    if (!prev) return;
+    const next: Trip = {
+      ...prev,
+      status,
+      updatedAtIso: new Date().toISOString(),
+    };
+    set({ activeTrip: next });
+    if (timelineLabel) get().appendTimelineEvent(timelineLabel, timelineDetail);
+  },
+  appendTimelineEvent(label, detail) {
+    const prev = get().activeTrip;
+    if (!prev) return;
+    const ev: TripTimelineEvent = {
+      id: `evt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      atIso: new Date().toISOString(),
+      label,
+      detail,
+    };
+    set({
+      activeTrip: {
+        ...prev,
+        updatedAtIso: new Date().toISOString(),
+        timeline: [...prev.timeline, ev],
+      },
+    });
   },
 }));
 

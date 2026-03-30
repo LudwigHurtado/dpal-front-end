@@ -1,4 +1,5 @@
 import type { Trip, TripStatus } from './tripTypes';
+import { ROLE_ACTIONS_BY_STATUS } from './tripConstants';
 
 export type TripActionId =
   | 'cancel'
@@ -17,6 +18,23 @@ export type TripAction = {
   tone: 'primary' | 'secondary' | 'danger';
   enabledWhen?: (trip: Trip) => boolean;
 };
+
+export const TRIP_ACTION_META: Record<TripActionId, Omit<TripAction, 'enabledWhen'>> = {
+  cancel: { id: 'cancel', label: 'Cancel ride', tone: 'danger' },
+  message: { id: 'message', label: 'Message', tone: 'secondary' },
+  call: { id: 'call', label: 'Call', tone: 'secondary' },
+  mark_arrived: { id: 'mark_arrived', label: 'Mark arrived', tone: 'primary' },
+  start_trip: { id: 'start_trip', label: 'Start trip', tone: 'primary' },
+  complete_trip: { id: 'complete_trip', label: 'Complete trip', tone: 'primary' },
+  escalate: { id: 'escalate', label: 'Emergency support', tone: 'danger' },
+  handoff_worker: { id: 'handoff_worker', label: 'Handoff / notes', tone: 'secondary' },
+  confirm_handoff: { id: 'confirm_handoff', label: 'Confirm pickup', tone: 'primary' },
+};
+
+export function actionsForRoleAndStatus(role: import('./tripTypes').Role, status: TripStatus): TripAction[] {
+  const ids = ROLE_ACTIONS_BY_STATUS[role]?.[status] ?? [];
+  return ids.map((id) => TRIP_ACTION_META[id]).filter(Boolean) as TripAction[];
+}
 
 export function defaultPassengerActions(status: TripStatus): TripAction[] {
   const base: TripAction[] = [{ id: 'message', label: 'Message', tone: 'secondary' }];

@@ -1,19 +1,14 @@
 import React from 'react';
 import type { Role, Trip } from '../tripTypes';
-import { defaultDriverActions, defaultPassengerActions, defaultWorkerActions, type TripAction, type TripActionId } from '../tripActions';
-
-function actionsFor(role: Role, trip: Trip): TripAction[] {
-  if (role === 'driver') return defaultDriverActions(trip.status);
-  if (role === 'worker') return defaultWorkerActions(trip.status);
-  return defaultPassengerActions(trip.status);
-}
+import type { TripActionId } from '../tripActions';
+import { useTripActions } from '../hooks/useTripActions';
 
 const TripActionBar: React.FC<{
   role: Role;
   trip: Trip;
   onAction?: (id: TripActionId) => void;
 }> = ({ role, trip, onAction }) => {
-  const actions = actionsFor(role, trip);
+  const { actions, onAction: defaultOnAction } = useTripActions(role, trip);
   if (actions.length === 0) return null;
 
   return (
@@ -36,7 +31,7 @@ const TripActionBar: React.FC<{
               type="button"
               className={cls}
               style={style}
-              onClick={() => onAction?.(a.id)}
+              onClick={() => (onAction ?? defaultOnAction)(a.id)}
             >
               {a.label}
             </button>
