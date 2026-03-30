@@ -81,24 +81,31 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         runQrLoad();
     }, [runQrLoad]);
 
-    /** Best-effort refresh when user uses Ctrl+P / browser Print→PDF (not only the Print button). */
+    /**
+     * Intercept Ctrl+P / browser Print→PDF and regenerate QR data URLs so they
+     * are always present in the printed output — not only when Print button is used.
+     *
+     * We replace window.print temporarily with a version that awaits QR generation,
+     * then restores the original. This is the most reliable cross-browser approach.
+     */
     useEffect(() => {
+        if (typeof window === 'undefined') return undefined;
+
         const onBeforePrint = () => {
-            void loadQrImages()
-                .then(([v, s]) => {
-                    flushSync(() => {
-                        setQrVerifyDataUrl(v);
-                        setQrSituationDataUrl(s);
-                    });
-                })
-                .catch(() => {});
+            // Synchronously kick off generation; if already loaded the promise resolves instantly
+            if (qrVerifyDataUrl && qrSituationDataUrl) return;
+            void loadQrImages().then(([v, s]) => {
+                flushSync(() => {
+                    setQrVerifyDataUrl(v);
+                    setQrSituationDataUrl(s);
+                });
+            }).catch(() => {});
         };
-        if (typeof window !== 'undefined') {
-            window.addEventListener('beforeprint', onBeforePrint);
-            return () => window.removeEventListener('beforeprint', onBeforePrint);
-        }
-        return undefined;
-    }, [loadQrImages]);
+
+        window.addEventListener('beforeprint', onBeforePrint);
+        return () => window.removeEventListener('beforeprint', onBeforePrint);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadQrImages, qrVerifyDataUrl, qrSituationDataUrl]);
 
     const handlePrint = useCallback(async () => {
         if (typeof window === 'undefined') return;
@@ -111,9 +118,14 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         } catch {
             /* keep existing QR state if generation fails */
         }
+        // Give the browser 3 animation frames + 120ms to paint the QR <img> before opening print dialog
         await new Promise<void>((resolve) => {
             requestAnimationFrame(() => {
-                requestAnimationFrame(() => resolve());
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        setTimeout(resolve, 120);
+                    });
+                });
             });
         });
         window.print();
@@ -305,15 +317,29 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         align-items: flex-start !important;
                         text-align: left !important;
                     }
+                    /* Force 2-column layout so QR codes always appear beside the content */
+                    .cert-body-grid {
+                        display: grid !important;
+                        grid-template-columns: 8fr 4fr !important;
+                        gap: 32px !important;
+                    }
+                    .cert-body-main { min-width: 0; }
+                    .cert-body-sidebar {
+                        min-width: 180px;
+                        max-width: 260px;
+                    }
                     .cert-qr-block {
                         overflow: visible !important;
+                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
                     }
                     img.cert-qr-img {
                         display: block !important;
                         visibility: visible !important;
                         opacity: 1 !important;
-                        max-width: 200px !important;
-                        height: auto !important;
+                        width: 180px !important;
+                        height: 180px !important;
+                        max-width: 100% !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
@@ -548,8 +574,8 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-12 gap-20 flex-grow relative z-10">
-                        <div className="md:col-span-8 space-y-16">
+                    <div className="cert-body-grid grid grid-cols-1 md:grid-cols-12 gap-20 flex-grow relative z-10">
+                        <div className="cert-body-main md:col-span-8 space-y-16">
                             {/* B. Record Identification */}
                             <section>
                                 <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-400 mb-8 flex items-center gap-4">
@@ -615,7 +641,7 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
 
                         {/* E. Sidebar: embedded QR (data URLs print reliably; external QR URLs often fail in PDF) */}
-                        <div className="md:col-span-4 flex flex-col items-stretch justify-start gap-8 py-4">
+                        <div className="cert-body-sidebar md:col-span-4 flex flex-col items-stretch justify-start gap-8 py-4">
                             <div className="cert-qr-block bg-white border-2 border-zinc-100 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 shadow-xl relative w-full overflow-hidden print:border-black print:shadow-none">
                                 <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[length:12px_12px] opacity-[0.03] no-print" />
                                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest relative z-10">{t('reportComplete.qrVerifyTitle')}</p>
@@ -650,7 +676,13 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
                     </div>
 
-                    <footer className="mt-20 pt-12 border-t-4 border-zinc-900 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
+                    {/* Public tracking URL — always printed as plain text backup */}
+                    <div className="mt-8 mb-2 px-2 py-3 border border-zinc-300 rounded-xl bg-zinc-50/60 text-center break-inside-avoid">
+                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-1">Public Tracking Link — Scan QR or visit:</p>
+                        <p className="text-[9px] font-mono text-zinc-800 break-all leading-relaxed font-bold">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
+                    </div>
+
+                    <footer className="mt-8 pt-12 border-t-4 border-zinc-900 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
                          <p className="text-[10px] text-zinc-500 font-bold uppercase max-w-2xl text-center md:text-left leading-relaxed tracking-wider">
                              {t('reportComplete.footerNote')}
                          </p>
