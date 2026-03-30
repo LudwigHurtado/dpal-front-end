@@ -628,24 +628,29 @@ const PassengerRideHomePage: React.FC = () => {
         {bothSet && (
           <div className="gw-bid-card" onClick={(e) => e.stopPropagation()}>
 
-            {/* Route summary + collapse toggle */}
+            {/* ── Collapse / expand button — top-right corner ── */}
+            <button
+              type="button"
+              className="gw-bid-collapse-btn"
+              onClick={() => setBidCollapsed(c => !c)}
+              aria-label={bidCollapsed ? 'Expand panel' : 'Collapse panel'}
+            >
+              <svg
+                width="13" height="13" viewBox="0 0 16 16" fill="none"
+                style={{ transform: bidCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+              >
+                <polyline points="3,10 8,5 13,10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              {bidCollapsed ? 'Show' : 'Hide'}
+            </button>
+
+            {/* Route summary row */}
             <div className="gw-bid-route">
               <span className="gw-bid-pin gw-bid-pin--a">A</span>
               <span className="gw-bid-route-addr">{pickupText.split(',')[0]}</span>
               <span className="gw-bid-arrow">→</span>
               <span className="gw-bid-pin gw-bid-pin--b">B</span>
               <span className="gw-bid-route-addr">{dropoffText.split(',')[0]}</span>
-              {/* collapse / expand arrow */}
-              <button
-                type="button"
-                className="gw-bid-collapse-btn"
-                onClick={() => setBidCollapsed(c => !c)}
-                aria-label={bidCollapsed ? 'Expand panel' : 'Collapse panel'}
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transition: 'transform 0.25s', transform: bidCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-                  <polyline points="3,10 8,5 13,10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
             </div>
 
             {/* Collapsible body */}
