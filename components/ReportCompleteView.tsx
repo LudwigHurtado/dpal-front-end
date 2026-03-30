@@ -92,14 +92,25 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         if (typeof window === 'undefined') return undefined;
 
         const onBeforePrint = () => {
-            // Synchronously kick off generation; if already loaded the promise resolves instantly
-            if (qrVerifyDataUrl && qrSituationDataUrl) return;
-            void loadQrImages().then(([v, s]) => {
+            // Always write directly into DOM so the browser snapshot captures them.
+            // If data-URLs are already in state, inject immediately; otherwise generate first.
+            const inject = (v: string, s: string) => {
+                const imgs = certificateRef.current?.querySelectorAll<HTMLImageElement>('img.cert-qr-img');
+                if (imgs) {
+                    const urls = [v, s];
+                    imgs.forEach((img, idx) => { if (urls[idx]) img.src = urls[idx]; });
+                }
                 flushSync(() => {
                     setQrVerifyDataUrl(v);
                     setQrSituationDataUrl(s);
                 });
-            }).catch(() => {});
+            };
+
+            if (qrVerifyDataUrl && qrSituationDataUrl) {
+                inject(qrVerifyDataUrl, qrSituationDataUrl);
+                return;
+            }
+            void loadQrImages().then(([v, s]) => inject(v, s)).catch(() => {});
         };
 
         window.addEventListener('beforeprint', onBeforePrint);
@@ -109,27 +120,51 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
 
     const handlePrint = useCallback(async () => {
         if (typeof window === 'undefined') return;
+
+        let verifyUrl = qrVerifyDataUrl;
+        let situationUrl = qrSituationDataUrl;
+
+        // Always regenerate fresh data-URLs so the latest state is guaranteed
         try {
             const [v, s] = await loadQrImages();
+            verifyUrl = v;
+            situationUrl = s;
+            // 1. Update React state synchronously so the virtual DOM matches
             flushSync(() => {
                 setQrVerifyDataUrl(v);
                 setQrSituationDataUrl(s);
             });
         } catch {
-            /* keep existing QR state if generation fails */
+            /* fall back to whatever is already in state */
         }
-        // Give the browser 3 animation frames + 120ms to paint the QR <img> before opening print dialog
+
+        // 2. Write the data-URLs directly into the DOM as a belt-and-suspenders
+        //    bypass — this ensures the <img> src is set even if the React re-render
+        //    hasn't committed yet when the print dialog fires.
+        const certImgs = certificateRef.current?.querySelectorAll<HTMLImageElement>('img.cert-qr-img');
+        if (certImgs && verifyUrl && situationUrl) {
+            const urls = [verifyUrl, situationUrl];
+            certImgs.forEach((img, idx) => {
+                if (urls[idx]) img.src = urls[idx];
+            });
+        }
+
+        // 3. Wait for 4 animation frames + 250ms so the browser has painted the
+        //    new <img> src before the print snapshot is taken
         await new Promise<void>((resolve) => {
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
-                        setTimeout(resolve, 120);
+                        requestAnimationFrame(() => {
+                            setTimeout(resolve, 250);
+                        });
                     });
                 });
             });
         });
+
         window.print();
-    }, [loadQrImages]);
+    }, [loadQrImages, qrVerifyDataUrl, qrSituationDataUrl]);
 
     const handleShare = async () => {
         const shareData = {
@@ -317,21 +352,39 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         align-items: flex-start !important;
                         text-align: left !important;
                     }
-                    /* Force 2-column layout so QR codes always appear beside the content */
+                    /* ── Force 2-column layout so QR codes always print beside the content ──
+                       CRITICAL: Override Tailwind md:col-span-8 / md:col-span-4 which set
+                       grid-column: span 8 / span 8 on a 2-col grid — that collapses the
+                       sidebar to a new row and pushes the QR codes off-page. */
                     .cert-body-grid {
                         display: grid !important;
                         grid-template-columns: 8fr 4fr !important;
-                        gap: 32px !important;
+                        gap: 28px !important;
+                        overflow: visible !important;
                     }
-                    .cert-body-main { min-width: 0; }
+                    .cert-body-main {
+                        grid-column: 1 !important;
+                        grid-row: 1 !important;
+                        min-width: 0 !important;
+                        overflow: visible !important;
+                    }
                     .cert-body-sidebar {
-                        min-width: 180px;
-                        max-width: 260px;
+                        grid-column: 2 !important;
+                        grid-row: 1 !important;
+                        min-width: 160px !important;
+                        max-width: none !important;
+                        overflow: visible !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        align-items: stretch !important;
                     }
                     .cert-qr-block {
                         overflow: visible !important;
                         break-inside: avoid !important;
                         page-break-inside: avoid !important;
+                        display: flex !important;
+                        flex-direction: column !important;
+                        align-items: center !important;
                     }
                     img.cert-qr-img {
                         display: block !important;
@@ -339,7 +392,10 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         opacity: 1 !important;
                         width: 180px !important;
                         height: 180px !important;
+                        min-width: 160px !important;
+                        min-height: 160px !important;
                         max-width: 100% !important;
+                        object-fit: contain !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
