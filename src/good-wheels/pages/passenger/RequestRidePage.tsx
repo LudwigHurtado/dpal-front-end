@@ -3,6 +3,7 @@ import { MOCK_SUPPORT_CATEGORIES } from '../../data/mock/mockSupportCategories';
 import { useTripStore } from '../../features/trips/tripStore';
 import TripMapPanel from '../../features/trips/components/TripMapPanel';
 import TripSupportCategoryChip from '../../features/trips/components/TripSupportCategoryChip';
+import { useGoogleMaps } from '../../features/map/useGoogleMaps';
 
 const RequestRidePage: React.FC = () => {
   const draft = useTripStore((s) => s.draft);
@@ -11,23 +12,54 @@ const RequestRidePage: React.FC = () => {
   const loading = useTripStore((s) => s.loading);
   const error = useTripStore((s) => s.error);
   const [pinMode, setPinMode] = useState<'pickup' | 'dropoff' | null>(null);
+  const [locatingPickup, setLocatingPickup] = useState(false);
+  const [pickupLocationNote, setPickupLocationNote] = useState<string | null>(null);
+  const { google: g } = useGoogleMaps();
+  const [pickupPredictions, setPickupPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [dropoffPredictions, setDropoffPredictions] = useState<google.maps.places.AutocompletePrediction[]>([]);
 
   const setPickupFromGeolocation = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    setLocatingPickup(true);
+    setPickupLocationNote('Detecting your location…');
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
-        setDraft({
-          pickup: {
-            label: 'My Location',
-            addressLine: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-            point: { lat, lng },
-          },
+        const fallbackAddress = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        if (!g) {
+          setDraft({
+            pickup: {
+              label: 'My Location',
+              addressLine: fallbackAddress,
+              point: { lat, lng },
+            },
+          });
+          setPickupLocationNote(`Using GPS coordinates: ${fallbackAddress}`);
+          setLocatingPickup(false);
+          return;
+        }
+
+        const geocoder = new g.maps.Geocoder();
+        geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          const resolvedAddress =
+            status === 'OK' && results && results[0]?.formatted_address
+              ? results[0].formatted_address
+              : fallbackAddress;
+          setDraft({
+            pickup: {
+              label: 'My Location',
+              addressLine: resolvedAddress,
+              point: { lat, lng },
+            },
+          });
+          setPickupLocationNote(`GPS location set: ${resolvedAddress}`);
+          setLocatingPickup(false);
         });
       },
       () => {
-        // ignored
+        setPickupLocationNote('Could not get your GPS location. You can still type your address.');
+        setLocatingPickup(false);
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
     );
@@ -47,11 +79,68 @@ const RequestRidePage: React.FC = () => {
     []
   );
 
+  const fetchPredictions = (
+    input: string,
+    cb: (items: google.maps.places.AutocompletePrediction[]) => void
+  ) => {
+    if (!g || !input.trim()) {
+      cb([]);
+      return;
+    }
+    const svc = new g.maps.places.AutocompleteService();
+    svc.getPlacePredictions(
+      {
+        input,
+        componentRestrictions: undefined,
+      },
+      (preds, status) => {
+        if (status !== g.maps.places.PlacesServiceStatus.OK || !preds) {
+          cb([]);
+          return;
+        }
+        cb(preds.slice(0, 5));
+      }
+    );
+  };
+
+  const applyPrediction = (
+    prediction: google.maps.places.AutocompletePrediction,
+    mode: 'pickup' | 'dropoff'
+  ) => {
+    if (!g) return;
+    const placeSvc = new g.maps.places.PlacesService(document.createElement('div'));
+    placeSvc.getDetails({ placeId: prediction.place_id }, (place, status) => {
+      const loc = place?.geometry?.location;
+      const lat = loc?.lat();
+      const lng = loc?.lng();
+      const addressLine = place?.formatted_address || prediction.description;
+      if (mode === 'pickup') {
+        setDraft({
+          pickup: {
+            label: 'Pickup',
+            addressLine,
+            point: typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : draft.pickup?.point,
+          },
+        });
+        setPickupPredictions([]);
+      } else {
+        setDraft({
+          dropoff: {
+            label: 'Dropoff',
+            addressLine,
+            point: typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : draft.dropoff?.point,
+          },
+        });
+        setDropoffPredictions([]);
+      }
+    });
+  };
+
   useEffect(() => {
     if (draft.pickup?.point) return;
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
     setPickupFromGeolocation();
-  }, [draft.pickup?.point, setDraft]);
+  }, [draft.pickup?.point, setDraft, g]);
 
   return (
     <div className="space-y-8 gw-request-page">
@@ -67,6 +156,97 @@ const RequestRidePage: React.FC = () => {
           <div className="gw-card-title">Live map</div>
           <div className="gw-muted">
             Your location, nearby cars, and route to destination.
+          </div>
+          <div className="gw-card p-4 space-y-3" style={{ boxShadow: 'none', background: 'rgba(241,245,249,0.65)' }}>
+            <label className="gw-label">
+              Pickup address
+              <input
+                className="gw-input"
+                placeholder="Enter pickup location"
+                value={draft.pickup?.addressLine ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraft({ pickup: { label: 'Pickup', addressLine: v, point: draft.pickup?.point } });
+                  fetchPredictions(v, setPickupPredictions);
+                }}
+              />
+            </label>
+            {pickupPredictions.length > 0 && (
+              <div className="gw-card p-2" style={{ boxShadow: 'none' }}>
+                <div className="space-y-1">
+                  {pickupPredictions.map((p) => (
+                    <button
+                      key={p.place_id}
+                      type="button"
+                      className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-100 text-sm"
+                      onClick={() => applyPrediction(p, 'pickup')}
+                    >
+                      {p.description}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="gw-button gw-button-secondary"
+                disabled={locatingPickup}
+                onClick={setPickupFromGeolocation}
+              >
+                {locatingPickup ? 'Getting GPS…' : 'Use my GPS location'}
+              </button>
+              <button
+                type="button"
+                className={pinMode === 'pickup' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
+                onClick={() => setPinMode((p) => (p === 'pickup' ? null : 'pickup'))}
+              >
+                {pinMode === 'pickup' ? 'Tap map for pickup…' : 'Pick pickup on map'}
+              </button>
+            </div>
+
+            <label className="gw-label">
+              Dropoff address
+              <input
+                className="gw-input"
+                placeholder="Enter dropoff location"
+                value={draft.dropoff?.addressLine ?? ''}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setDraft({ dropoff: { label: 'Destination', addressLine: v, point: draft.dropoff?.point } });
+                  fetchPredictions(v, setDropoffPredictions);
+                }}
+              />
+            </label>
+            {dropoffPredictions.length > 0 && (
+              <div className="gw-card p-2" style={{ boxShadow: 'none' }}>
+                <div className="space-y-1">
+                  {dropoffPredictions.map((p) => (
+                    <button
+                      key={p.place_id}
+                      type="button"
+                      className="w-full text-left px-2 py-2 rounded-lg hover:bg-slate-100 text-sm"
+                      onClick={() => applyPrediction(p, 'dropoff')}
+                    >
+                      {p.description}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={pinMode === 'dropoff' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
+                onClick={() => setPinMode((p) => (p === 'dropoff' ? null : 'dropoff'))}
+              >
+                {pinMode === 'dropoff' ? 'Tap map for dropoff…' : 'Pick dropoff on map'}
+              </button>
+            </div>
+            {pickupLocationNote && <div className="text-xs font-bold text-slate-500">{pickupLocationNote}</div>}
+            <div className="text-xs font-bold text-slate-600">
+              Red marker = pickup (A), Green marker = dropoff (B), Yellow line = route.
+            </div>
           </div>
           <TripMapPanel
             trip={{
@@ -98,55 +278,6 @@ const RequestRidePage: React.FC = () => {
 
         <div className="gw-card p-5 space-y-4 gw-request-form">
           <div className="gw-card-title">Trip details</div>
-
-          <label className="gw-label">
-            Pickup
-            <input
-              className="gw-input"
-              placeholder="Enter pickup location"
-              value={draft.pickup?.addressLine ?? ''}
-              onChange={(e) =>
-                setDraft({ pickup: { label: 'Pickup', addressLine: e.target.value, point: draft.pickup?.point } })
-              }
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="gw-button gw-button-secondary"
-              onClick={setPickupFromGeolocation}
-            >
-              Use my location
-            </button>
-            <button
-              type="button"
-              className={pinMode === 'pickup' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
-              onClick={() => setPinMode((p) => (p === 'pickup' ? null : 'pickup'))}
-            >
-              {pinMode === 'pickup' ? 'Tap map to set pickup…' : 'Pick pickup on map'}
-            </button>
-          </div>
-
-          <label className="gw-label">
-            Destination
-            <input
-              className="gw-input"
-              placeholder="Enter destination"
-              value={draft.dropoff?.addressLine ?? ''}
-              onChange={(e) =>
-                setDraft({ dropoff: { label: 'Destination', addressLine: e.target.value, point: draft.dropoff?.point } })
-              }
-            />
-          </label>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={pinMode === 'dropoff' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
-              onClick={() => setPinMode((p) => (p === 'dropoff' ? null : 'dropoff'))}
-            >
-              {pinMode === 'dropoff' ? 'Tap map to set dropoff…' : 'Pick dropoff on map'}
-            </button>
-          </div>
 
           <label className="gw-label">
             Ride purpose
