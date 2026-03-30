@@ -619,6 +619,29 @@
   border-bottom: 1px solid #F3F4F6;
   overflow: hidden;
 }
+
+/* Collapse / expand toggle button */
+.gw-bid-collapse-btn {
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid #E5E7EB;
+  background: #F9FAFB;
+  color: #6B7280;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  padding: 0;
+}
+.gw-bid-collapse-btn:hover {
+  background: #EFF6FF;
+  color: #2563EB;
+  border-color: #BFDBFE;
+}
 .gw-bid-pin {
   width: 20px;
   height: 20px;

@@ -192,6 +192,7 @@ const PassengerRideHomePage: React.FC = () => {
   /* UI state */
   const [vehicleType, setVehicleType] = useState<VehicleType>('car');
   const [maxPrice, setMaxPrice]       = useState('');
+  const [bidCollapsed, setBidCollapsed] = useState(false);
   const [activeField, setActiveField] = useState<ActiveField>(null);
   const [pickupText,  setPickupText]  = useState(draft.pickup?.addressLine  ?? '');
   const [dropoffText, setDropoffText] = useState(draft.dropoff?.addressLine ?? '');
@@ -627,70 +628,85 @@ const PassengerRideHomePage: React.FC = () => {
         {bothSet && (
           <div className="gw-bid-card" onClick={(e) => e.stopPropagation()}>
 
-            {/* Route summary */}
+            {/* Route summary + collapse toggle */}
             <div className="gw-bid-route">
               <span className="gw-bid-pin gw-bid-pin--a">A</span>
               <span className="gw-bid-route-addr">{pickupText.split(',')[0]}</span>
               <span className="gw-bid-arrow">→</span>
               <span className="gw-bid-pin gw-bid-pin--b">B</span>
               <span className="gw-bid-route-addr">{dropoffText.split(',')[0]}</span>
+              {/* collapse / expand arrow */}
+              <button
+                type="button"
+                className="gw-bid-collapse-btn"
+                onClick={() => setBidCollapsed(c => !c)}
+                aria-label={bidCollapsed ? 'Expand panel' : 'Collapse panel'}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transition: 'transform 0.25s', transform: bidCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  <polyline points="3,10 8,5 13,10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
 
-            {/* Vehicle type selector */}
-            <div className="gw-bid-section-label">Select vehicle</div>
-            <div className="gw-bid-vehicles">
-              {VEHICLE_OPTIONS.map((v) => {
-                const sel = v.id === vehicleType;
-                const accent = VEHICLE_ACCENT[v.id];
-                return (
-                  <button
-                    key={v.id}
-                    type="button"
-                    className={`gw-bid-vehicle-btn${sel ? ' gw-bid-vehicle-btn--sel' : ''}`}
-                    style={sel ? { borderColor: accent, background: `${accent}12` } : {}}
-                    onClick={() => setVehicleType(v.id)}
-                  >
-                    <div className="gw-bid-vehicle-icon" style={{ background: sel ? accent : '#f1f5f9' }}>
-                      {v.id === 'car'   && <CarIcon   color={sel ? 'white' : '#64748b'} />}
-                      {v.id === 'moto'  && <MotoIcon  color={sel ? 'white' : '#64748b'} />}
-                      {v.id === 'truck' && <TruckIcon color={sel ? 'white' : '#64748b'} />}
-                    </div>
-                    <div className="gw-bid-vehicle-label">{v.label}</div>
-                    <div className="gw-bid-vehicle-sub">{v.sub}</div>
-                  </button>
-                );
-              })}
-            </div>
+            {/* Collapsible body */}
+            {!bidCollapsed && (
+              <>
+                {/* Vehicle type selector */}
+                <div className="gw-bid-vehicles">
+                  {VEHICLE_OPTIONS.map((v) => {
+                    const sel = v.id === vehicleType;
+                    const accent = VEHICLE_ACCENT[v.id];
+                    return (
+                      <button
+                        key={v.id}
+                        type="button"
+                        className={`gw-bid-vehicle-btn${sel ? ' gw-bid-vehicle-btn--sel' : ''}`}
+                        style={sel ? { borderColor: accent, background: `${accent}12` } : {}}
+                        onClick={() => setVehicleType(v.id)}
+                      >
+                        <div className="gw-bid-vehicle-icon" style={{ background: sel ? accent : '#f1f5f9' }}>
+                          {v.id === 'car'   && <CarIcon   color={sel ? 'white' : '#64748b'} />}
+                          {v.id === 'moto'  && <MotoIcon  color={sel ? 'white' : '#64748b'} />}
+                          {v.id === 'truck' && <TruckIcon color={sel ? 'white' : '#64748b'} />}
+                        </div>
+                        <div className="gw-bid-vehicle-label">{v.label}</div>
+                        <div className="gw-bid-vehicle-sub">{v.sub}</div>
+                      </button>
+                    );
+                  })}
+                </div>
 
-            {/* Max price bid */}
-            <div className="gw-bid-section-label" style={{ marginTop: 4 }}>Your max offer</div>
-            <div className="gw-bid-price-row">
-              <div className="gw-bid-price-field">
-                <span className="gw-bid-price-dollar">$</span>
-                <input
-                  type="number"
-                  min="1"
-                  className="gw-bid-price-input"
-                  placeholder="e.g. 15"
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                />
-              </div>
-              <p className="gw-bid-price-hint">First driver to accept wins the ride</p>
-            </div>
+                {/* Max price bid */}
+                <div className="gw-bid-section-label" style={{ marginTop: 4 }}>Your max offer</div>
+                <div className="gw-bid-price-row">
+                  <div className="gw-bid-price-field">
+                    <span className="gw-bid-price-dollar">$</span>
+                    <input
+                      type="number"
+                      min="1"
+                      className="gw-bid-price-input"
+                      placeholder="e.g. 15"
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                    />
+                  </div>
+                  <p className="gw-bid-price-hint">First driver to accept wins the ride</p>
+                </div>
 
-            {/* Broadcast CTA */}
-            <button
-              type="button"
-              className="gw-bid-broadcast-btn"
-              disabled={broadcasting || !maxPrice}
-              onClick={handleBroadcast}
-            >
-              {broadcasting
-                ? <><span className="gw-addr-gps-spinner" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} /> Broadcasting…</>
-                : <><span className="gw-bid-broadcast-icon">📡</span> Broadcast Ride Request</>}
-            </button>
-            <p className="gw-bid-broadcast-note">10% of fare supports a local charity · built-in, no extra cost</p>
+                {/* Broadcast CTA */}
+                <button
+                  type="button"
+                  className="gw-bid-broadcast-btn"
+                  disabled={broadcasting || !maxPrice}
+                  onClick={handleBroadcast}
+                >
+                  {broadcasting
+                    ? <><span className="gw-addr-gps-spinner" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} /> Broadcasting…</>
+                    : <><span className="gw-bid-broadcast-icon">📡</span> Broadcast Ride Request</>}
+                </button>
+                <p className="gw-bid-broadcast-note">10% of fare supports a local charity · built-in, no extra cost</p>
+              </>
+            )}
           </div>
         )}
       </div>
