@@ -196,11 +196,14 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         document.body.removeChild(a);
     };
 
+    const [linkCopied, setLinkCopied] = useState(false);
+
     const handleCopyLink = () => {
         const baseUrl = window.location.origin;
         const link = `${baseUrl}?reportId=${report.id}`;
-        navigator.clipboard.writeText(link);
-        alert("Verification link copied to clipboard.");
+        navigator.clipboard.writeText(link).catch(() => {});
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 3000);
     };
 
     const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
@@ -402,6 +405,34 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
                     </div>
                 </header>
+
+                {/* ── Public tracking link — prominent banner ── */}
+                <div className="mb-8 rounded-2xl border-2 border-emerald-500/40 bg-emerald-950/40 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Globe className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Public Tracking Link</span>
+                        </div>
+                        <p className="text-xs text-zinc-300 font-mono break-all leading-relaxed">
+                            {`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}
+                        </p>
+                        <p className="text-[11px] text-zinc-500 mt-1">
+                            Share this link with anyone — they can verify and track this report from any device.
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleCopyLink}
+                        className={`flex-shrink-0 inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-wide transition-all ${
+                            linkCopied
+                                ? 'bg-emerald-500 text-white'
+                                : 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                        }`}
+                    >
+                        {linkCopied ? <Check className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                        {linkCopied ? 'Copied!' : 'Copy Link'}
+                    </button>
+                </div>
 
                 <section className="mb-12 bg-zinc-900/40 border-2 border-zinc-800 p-10 rounded-[3rem] shadow-inner relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-8 opacity-5"><Sparkles className="w-32 h-32 text-cyan-500"/></div>

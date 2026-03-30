@@ -735,35 +735,91 @@ const CaseboardReport: React.FC<CaseboardReportProps> = ({ category, addReport, 
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => setSafetyConfirmed(!safetyConfirmed)}
-            className={`w-full rounded-2xl border-2 p-4 flex items-center gap-3 text-left transition-colors ${
-              safetyConfirmed ? 'border-emerald-400 bg-emerald-50' : 'border-stone-200 bg-stone-50'
-            }`}
-          >
-            <ShieldCheck className={`w-8 h-8 ${safetyConfirmed ? 'text-emerald-600' : 'text-stone-400'}`} />
-            <div>
-              <p className="font-semibold text-stone-800">Safety confirmation</p>
-              <p className="text-xs text-stone-500">I am in a safe place to submit and have avoided direct confrontation.</p>
+          {/* ── Step 1: Safety confirmation (REQUIRED to unlock Submit) ── */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black ${safetyConfirmed ? 'bg-emerald-500 text-white' : 'bg-amber-400 text-white animate-pulse'}`}>
+                {safetyConfirmed ? '✓' : '1'}
+              </span>
+              <p className={`text-xs font-bold uppercase tracking-wide ${safetyConfirmed ? 'text-emerald-600' : 'text-amber-600'}`}>
+                {safetyConfirmed ? 'Safety confirmed — you can now submit' : 'Required: Click below to confirm your safety before submitting'}
+              </p>
             </div>
-            {safetyConfirmed && <Sparkles className="w-5 h-5 text-emerald-500 ml-auto" />}
-          </button>
 
-          <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setPhase('board')} className="text-sm text-violet-700 font-medium hover:underline">
-              ← Edit caseboard
-            </button>
             <button
               type="button"
-              onClick={submit}
-              disabled={!safetyConfirmed || isSubmitting}
-              className="ml-auto rounded-2xl bg-violet-600 text-white px-8 py-3 text-sm font-bold shadow-lg hover:bg-violet-700 disabled:opacity-40 inline-flex items-center gap-2"
+              onClick={() => setSafetyConfirmed(!safetyConfirmed)}
+              className={`w-full rounded-2xl border-2 p-4 flex items-center gap-3 text-left transition-all ${
+                safetyConfirmed
+                  ? 'border-emerald-400 bg-emerald-50 shadow-sm'
+                  : 'border-amber-300 bg-amber-50 shadow-md ring-2 ring-amber-200'
+              }`}
             >
-              {isSubmitting ? <Loader className="w-5 h-5 animate-spin" /> : null}
-              Submit report
+              <ShieldCheck className={`w-8 h-8 flex-shrink-0 ${safetyConfirmed ? 'text-emerald-600' : 'text-amber-500'}`} />
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-stone-800">
+                  {safetyConfirmed ? '✓ Safety confirmed' : 'Tap to confirm you are safe'}
+                </p>
+                <p className="text-xs text-stone-500 mt-0.5">I am in a safe location and have not confronted anyone involved.</p>
+              </div>
+              {safetyConfirmed
+                ? <Sparkles className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+                : <span className="text-amber-500 font-black text-lg flex-shrink-0">→</span>}
             </button>
           </div>
+
+          {/* ── Step 2: Submit ── */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 mb-1">
+              <span className={`inline-flex items-center justify-center w-5 h-5 rounded-full text-[10px] font-black ${safetyConfirmed ? 'bg-violet-600 text-white' : 'bg-stone-300 text-stone-500'}`}>
+                2
+              </span>
+              <p className={`text-xs font-bold uppercase tracking-wide ${safetyConfirmed ? 'text-violet-700' : 'text-stone-400'}`}>
+                {safetyConfirmed ? 'Ready — click Submit report below' : 'Submit (unlocks after step 1)'}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={() => setPhase('board')} className="text-sm text-violet-700 font-medium hover:underline">
+                ← Edit caseboard
+              </button>
+              <button
+                type="button"
+                onClick={submit}
+                disabled={!safetyConfirmed || isSubmitting}
+                className={`ml-auto rounded-2xl px-8 py-3 text-sm font-bold shadow-lg inline-flex items-center gap-2 transition-all ${
+                  safetyConfirmed && !isSubmitting
+                    ? 'bg-violet-600 hover:bg-violet-700 text-white cursor-pointer'
+                    : 'bg-stone-200 text-stone-400 cursor-not-allowed opacity-60'
+                }`}
+              >
+                {isSubmitting ? <Loader className="w-5 h-5 animate-spin" /> : null}
+                {isSubmitting ? 'Submitting…' : 'Submit report'}
+              </button>
+            </div>
+
+            {!safetyConfirmed && (
+              <p className="text-xs text-stone-400 text-right">
+                ↑ Complete step 1 first to enable submit
+              </p>
+            )}
+          </div>
+
+          {/* ── Tracking link preview (shown once safety is confirmed) ── */}
+          {safetyConfirmed && (
+            <div className="rounded-xl border border-violet-100 bg-violet-50/60 p-3 flex items-start gap-2">
+              <span className="text-violet-500 text-base flex-shrink-0 mt-0.5">🔗</span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-violet-800 mb-0.5">Public tracking link</p>
+                <p className="text-[11px] text-violet-600 font-mono break-all">
+                  {typeof window !== 'undefined' ? `${window.location.origin}?reportId=…` : '?reportId=…'}
+                </p>
+                <p className="text-[11px] text-stone-500 mt-1">
+                  After submitting, anyone with this link can verify and track your report.
+                </p>
+              </div>
+            </div>
+          )}
         </section>
       )}
 
