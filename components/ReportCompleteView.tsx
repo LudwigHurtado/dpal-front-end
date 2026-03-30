@@ -324,179 +324,32 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
         <div className="relative min-h-screen bg-black font-mono overflow-x-hidden pb-32">
             <style>{`
                 @media print {
-                    @page { size: A4; margin: 14mm 12mm; }
-                    body { background: white !important; color: black !important; padding: 0 !important; margin: 0 !important; }
+                    @page { size: A4; margin: 10mm 12mm; }
+                    body { background: white !important; padding: 0 !important; margin: 0 !important; }
                     .no-print { display: none !important; }
-                    .print-area { 
-                        display: block !important; 
-                        padding: 0 !important; 
-                        margin: 0 !important; 
-                        background: white !important; 
-                        border: none !important; 
-                        box-shadow: none !important; 
+                    .print-area { display: block !important; padding: 0 !important; margin: 0 !important; background: white !important; }
+                    /* Page breaks */
+                    .cert-p1 { break-after: page !important; page-break-after: always !important; box-shadow: none !important; border: 1px solid #ccc !important; }
+                    .cert-p2 { break-before: page !important; page-break-before: always !important; box-shadow: none !important; border: 1px solid #ccc !important; }
+                    /* Force all colour sections to print correctly */
+                    .cert-hdr-dark  { background: #0a0a0a !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-status-green { background: #14532d !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-p2-hdr    { background: #1f2937 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-p1-footer { background: #f9fafb !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-qr-bg     { background: #fafafa !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-verif-bg  { background: #fafafa !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    .cert-seal-dpal-inner {
+                        background: linear-gradient(155deg, #fffbeb 0%, #fde68a 45%, #d97706 100%) !important;
+                        -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
                     }
-                    .cert-print-header {
-                        flex-direction: column !important;
-                        align-items: stretch !important;
-                        gap: 14px !important;
-                        padding-bottom: 16px !important;
-                        margin-bottom: 20px !important;
-                    }
-                    .cert-print-header-inner {
-                        flex-direction: column !important;
-                        align-items: flex-start !important;
-                        gap: 12px !important;
-                    }
-                    .cert-print-validation {
-                        width: 100% !important;
-                        align-items: flex-start !important;
-                        text-align: left !important;
-                    }
-                    /* ── Force 2-column layout so QR codes always print beside the content ──
-                       CRITICAL: Override Tailwind md:col-span-8 / md:col-span-4 which set
-                       grid-column: span 8 / span 8 on a 2-col grid — that collapses the
-                       sidebar to a new row and pushes the QR codes off-page. */
-                    .cert-body-grid {
-                        display: grid !important;
-                        grid-template-columns: 8fr 4fr !important;
-                        gap: 28px !important;
-                        overflow: visible !important;
-                    }
-                    .cert-body-main {
-                        grid-column: 1 !important;
-                        grid-row: 1 !important;
-                        min-width: 0 !important;
-                        overflow: visible !important;
-                    }
-                    .cert-body-sidebar {
-                        grid-column: 2 !important;
-                        grid-row: 1 !important;
-                        min-width: 160px !important;
-                        max-width: none !important;
-                        overflow: visible !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        align-items: stretch !important;
-                    }
-                    .cert-qr-block {
-                        overflow: visible !important;
-                        break-inside: avoid !important;
-                        page-break-inside: avoid !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        align-items: center !important;
+                    .cert-seal-compliance-inner {
+                        background: linear-gradient(155deg, #fecaca 0%, #dc2626 55%, #991b1b 100%) !important;
+                        -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
                     }
                     img.cert-qr-img {
                         display: block !important;
                         visibility: visible !important;
                         opacity: 1 !important;
-                        width: 180px !important;
-                        height: 180px !important;
-                        min-width: 160px !important;
-                        min-height: 160px !important;
-                        max-width: 100% !important;
-                        object-fit: contain !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    /* Certificate stamps: preserve gold / red on PDF (override blanket grayscale rules below) */
-                    .certificate-frame .cert-stamp-dpal {
-                        background: linear-gradient(155deg, #fffbeb 0%, #fde68a 45%, #d97706 100%) !important;
-                        border: 6px double #92400e !important;
-                        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35) !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-brand {
-                        color: #78350f !important;
-                        text-shadow: 0 1px 0 rgba(255,255,255,0.35) !important;
-                    }
-                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-sub,
-                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-micro {
-                        color: #92400e !important;
-                    }
-                    .certificate-frame .cert-stamp-dpal .cert-stamp-dpal-blocknum {
-                        color: #451a03 !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .certificate-frame .cert-stamp-compliance {
-                        background: linear-gradient(160deg, #fecaca 0%, #dc2626 55%, #991b1b 100%) !important;
-                        border: 6px double #7f1d1d !important;
-                        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.2) !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-title,
-                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-sub {
-                        color: #ffffff !important;
-                    }
-                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-micro {
-                        color: #fecaca !important;
-                    }
-                    .certificate-frame .cert-stamp-compliance .cert-stamp-compliance-block {
-                        color: #ffffff !important;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .certificate-frame { 
-                        border: 3px solid #000 !important; 
-                        color: black !important; 
-                        margin: 0 !important; 
-                        padding: 12mm !important;
-                        min-height: auto !important;
-                        height: auto !important;
-                        width: 100% !important;
-                        max-width: 100% !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        page-break-inside: auto !important;
-                        overflow: visible !important;
-                    }
-                    .bg-zinc-950, .bg-zinc-900, .bg-black, .bg-zinc-50 { background: white !important; color: black !important; }
-                    .text-white, .text-zinc-400, .text-zinc-500, .text-zinc-900 { color: black !important; }
-                    .shadow-2xl, .shadow-3xl, .shadow-4xl, .shadow-xl { box-shadow: none !important; }
-                    .border-zinc-800, .border-zinc-900, .border-zinc-100 { border-color: #000 !important; }
-                    .bg-emerald-100 { background: #f0fdf4 !important; border: 1px solid #166534 !important; }
-                    .text-emerald-800 { color: #166534 !important; }
-                    .grayscale, .opacity-40, .opacity-60, .opacity-5, .opacity-80 { filter: none !important; opacity: 1 !important; }
-
-                    /* ── Public Tracking Link box print styles ── */
-                    .cert-tracking-box {
-                        margin-top: 24px !important;
-                        margin-bottom: 8px !important;
-                        break-inside: avoid !important;
-                        page-break-inside: avoid !important;
-                    }
-                    .cert-tracking-box > div {
-                        border: 2px solid #000 !important;
-                        border-radius: 8px !important;
-                        overflow: visible !important;
-                    }
-                    .cert-tracking-box .bg-zinc-900 {
-                        background: #111 !important;
-                        padding: 8px 14px !important;
-                    }
-                    .cert-tracking-box .bg-zinc-900 p,
-                    .cert-tracking-box .bg-zinc-900 span {
-                        color: #fff !important;
-                    }
-                    .cert-tracking-box .bg-zinc-50 {
-                        background: #f9fafb !important;
-                        padding: 10px 14px !important;
-                    }
-                    .cert-tracking-box .text-zinc-900 { color: #000 !important; }
-                    .cert-tracking-box .bg-white { background: white !important; }
-                    .cert-tracking-box .border-zinc-200,
-                    .cert-tracking-box .border-zinc-300 { border-color: #888 !important; }
-                    .cert-tracking-box .text-zinc-400 { color: #555 !important; }
-                    .cert-tracking-box .text-zinc-700 { color: #222 !important; }
-                    .cert-tracking-box img.cert-qr-img {
-                        display: block !important;
-                        visibility: visible !important;
-                        opacity: 1 !important;
-                        width: 64px !important;
-                        height: 64px !important;
                         -webkit-print-color-adjust: exact !important;
                         print-color-adjust: exact !important;
                     }
@@ -644,189 +497,252 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                 </section>
             </div>
 
-            {/* THE FORMAL CERTIFICATE - PRINT AREA */}
-            <div className="print-area max-w-5xl mx-auto px-4 md:px-0">
-                <div ref={certificateRef} className="certificate-frame bg-white text-zinc-950 border-[20px] border-double border-zinc-900 rounded-none shadow-4xl p-10 md:p-24 flex flex-col min-h-[1050px] relative overflow-hidden">
-                    {/* Decorative Background Elements */}
-                    <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] bg-[length:24px_24px] opacity-10 no-print"></div>
-                    <div className="absolute top-0 right-0 w-96 h-96 bg-zinc-50 rounded-full -mr-48 -mt-48 opacity-20 no-print"></div>
-                    
-                    {/* A. Certificate Header — stacked for print so validation badge is never clipped */}
-                    <header className="cert-print-header cert-print-header-inner border-b-[6px] border-zinc-900 pb-8 mb-10 md:pb-10 md:mb-12 flex flex-col gap-6 relative z-10">
-                        <div className="flex flex-col sm:flex-row sm:items-start gap-6 min-w-0 w-full">
-                            <div className="w-20 h-20 sm:w-24 sm:h-24 bg-zinc-950 flex items-center justify-center rounded-[2rem] shadow-xl shrink-0">
-                                <ShieldCheck className="w-11 h-11 sm:w-14 sm:h-14 text-white" />
-                            </div>
-                            <div className="text-left space-y-2 min-w-0 flex-1">
-                                <h1 className="text-2xl sm:text-3xl md:text-5xl font-black uppercase tracking-tighter leading-tight">{t('reportComplete.certTitle')}</h1>
-                                <p className="text-[10px] sm:text-[11px] font-black text-zinc-500 uppercase tracking-[0.35em] sm:tracking-[0.5em] leading-snug">{t('reportComplete.certSubtext')}</p>
-                            </div>
+            {/* ═══════════════════ CERTIFICATE — PRINT AREA ═══════════════════ */}
+            <div className="print-area max-w-4xl mx-auto px-4 md:px-0 py-8 space-y-6">
+
+                {/* ▓▓▓ PAGE 1 — PUBLIC CERTIFICATE ▓▓▓ */}
+                <div ref={certificateRef} className="cert-p1" style={{ fontFamily: "'Inter','Helvetica Neue',Arial,sans-serif", background: 'white', border: '1px solid #d1d5db', boxShadow: '0 20px 60px rgba(0,0,0,0.18)' }}>
+
+                    {/* A. HEADER */}
+                    <div className="cert-hdr-dark" style={{ background: '#0a0a0a', padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 14 }}>
+                        <div style={{ width: 42, height: 42, border: '2px solid rgba(255,255,255,0.3)', borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <ShieldCheck style={{ width: 24, height: 24, color: 'white' }} />
                         </div>
-                        <div className="cert-print-validation flex flex-col gap-2 w-full border border-emerald-200 bg-emerald-50/80 rounded-2xl px-4 py-3 sm:px-5 sm:py-4">
-                            <div className="text-[9px] font-black text-emerald-800/80 uppercase tracking-widest">{t('reportComplete.statusLabel')}</div>
-                            <div className="text-[10px] sm:text-[11px] font-black text-emerald-900 uppercase tracking-wide leading-snug">
-                                {t('reportComplete.statusValue')}
-                            </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <h1 style={{ fontSize: 16, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'white', lineHeight: 1.2, margin: 0 }}>Certified Public Accountability Record</h1>
+                            <p style={{ fontSize: 9, color: 'rgba(255,255,255,0.5)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.18em', margin: '3px 0 0' }}>Issued by DPAL · Decentralized Public Accountability Ledger</p>
                         </div>
-                    </header>
-
-                    <div className="cert-body-grid grid grid-cols-1 md:grid-cols-12 gap-20 flex-grow relative z-10">
-                        <div className="cert-body-main md:col-span-8 space-y-16">
-                            {/* B. Record Identification */}
-                            <section>
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-400 mb-8 flex items-center gap-4">
-                                    <Target className="w-5 h-5 text-zinc-950"/> <span>{t('reportComplete.recordId')}</span>
-                                </h3>
-                                <div className="grid grid-cols-2 gap-x-16 gap-y-8 bg-zinc-50/50 border border-zinc-100 p-10 rounded-[2.5rem]">
-                                    <DataRow label={t('reportComplete.certIdLabel')} value={`DPAL-CERT-${report.hash.substring(2, 10).toUpperCase()}`} />
-                                    <DataRow label={t('reportComplete.blockRefLabel')} value={blockRef} />
-                                    <DataRow label={t('reportComplete.dateIssuedLabel')} value={(report.anchoredAt || report.timestamp).toLocaleString()} />
-                                    <DataRow label={t('reportComplete.categoryLabel')} value={report.category.toUpperCase()} />
-                                    <DataRow label={'Evidence Artifacts'} value={`${report.evidenceVault?.records?.length || 0}`} />
-                                </div>
-                            </section>
-
-                            {/* C. Verification & Integrity */}
-                            <section>
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-400 mb-8 flex items-center gap-4">
-                                    <Hash className="w-5 h-5 text-zinc-950"/> <span>{t('reportComplete.integritySection')}</span>
-                                </h3>
-                                <div className="grid grid-cols-2 gap-x-16 gap-y-8 px-4">
-                                    <DataRow label={t('reportComplete.ledgerStatus')} value={t('reportComplete.ledgerStatusValue')} />
-                                    <DataRow label={t('reportComplete.integrityCheck')} value={t('reportComplete.integrityCheckValue')} />
-                                    <DataRow label={t('reportComplete.protectionLabel')} value={t('reportComplete.protectionValue')} />
-                                    <DataRow label={t('reportComplete.anonymityLabel')} value={t('reportComplete.anonymityValue')} />
-                                </div>
-                            </section>
-
-                            {/* D. Verification Stamps — gold DPAL + red compliance (same URLs as sidebar QRs for all categories) */}
-                            <section className="pt-8">
-                                <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">Certification Stamps</p>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                    <div
-                                        className="cert-stamp-dpal rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-4 border-[6px] border-double border-amber-800 bg-gradient-to-br from-amber-50 via-amber-200 to-amber-600 shadow-inner"
-                                        aria-label="DPAL verified stamp"
-                                    >
-                                        <p className="cert-stamp-dpal-brand text-2xl font-black tracking-tighter text-amber-950 leading-none mb-1">DPAL</p>
-                                        <p className="cert-stamp-dpal-sub text-[9px] font-black uppercase tracking-[0.35em] text-amber-900">Verified</p>
-                                        <ShieldCheck className="w-8 h-8 text-amber-800 mt-1.5 mb-0.5 drop-shadow-sm" />
-                                        <p className="cert-stamp-dpal-micro text-[7px] font-black uppercase tracking-widest text-amber-900/90 mt-0.5">RSA-4096</p>
-                                        <p className="cert-stamp-dpal-micro text-[7px] font-black uppercase tracking-[0.2em] text-amber-900/80 mt-1">
-                                            {t('reportComplete.stampLedgerBlockLine')}
-                                        </p>
-                                        <p className="cert-stamp-dpal-blocknum font-mono text-sm font-black tabular-nums text-amber-950 leading-tight mt-0.5 px-1">
-                                            {ledgerBlockDigits ?? t('reportComplete.stampLedgerPending')}
-                                        </p>
-                                    </div>
-                                    <div
-                                        className="cert-stamp-compliance rounded-full w-56 h-56 mx-auto flex flex-col items-center justify-center text-center p-5 border-[6px] border-double border-red-900 bg-gradient-to-br from-red-300 via-red-600 to-red-900 shadow-inner"
-                                        aria-label="Compliance certified stamp"
-                                    >
-                                        <Star className="w-11 h-11 text-white mb-2 drop-shadow-md" />
-                                        <p className="cert-stamp-compliance-title text-[9px] font-black uppercase tracking-[0.28em] text-white leading-tight">Compliance</p>
-                                        <p className="cert-stamp-compliance-sub text-[9px] font-black uppercase tracking-[0.28em] text-white leading-tight mt-0.5">Certified</p>
-                                        <p className="cert-stamp-compliance-micro text-[7px] font-black uppercase tracking-widest text-red-100 mt-1">Auto verification</p>
-                                        {ledgerBlockDigits && (
-                                            <p className="cert-stamp-compliance-block font-mono text-[8px] font-black tabular-nums text-white/95 mt-1.5 px-1">
-                                                #{ledgerBlockDigits}
-                                            </p>
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-                        </div>
-
-                        {/* E. Sidebar: embedded QR (data URLs print reliably; external QR URLs often fail in PDF) */}
-                        <div className="cert-body-sidebar md:col-span-4 flex flex-col items-stretch justify-start gap-8 py-4">
-                            <div className="cert-qr-block bg-white border-2 border-zinc-100 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 shadow-xl relative w-full overflow-hidden print:border-black print:shadow-none">
-                                <div className="absolute inset-0 bg-[radial-gradient(#000_1px,transparent_1px)] bg-[length:12px_12px] opacity-[0.03] no-print" />
-                                <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest relative z-10">{t('reportComplete.qrVerifyTitle')}</p>
-                                <div className="bg-white p-4 rounded-2xl inline-block shadow-inner border border-zinc-100 mx-auto relative z-10">
-                                    {qrSlot(qrVerifyDataUrl, 'Verify this report', `${baseUrl}?reportId=${encodeURIComponent(report.id)}`)}
-                                </div>
-                                <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2 relative z-10">{t('reportComplete.qrSubtext')}</p>
-                                <p className="text-[8px] font-mono text-zinc-500 break-all px-1 relative z-10">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
-                            </div>
-
-                            <div className="cert-qr-block bg-zinc-50 border-2 border-zinc-200 p-6 sm:p-8 rounded-[2rem] text-center space-y-4 relative w-full print:border-black">
-                                <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{t('reportComplete.qrSituationTitle')}</p>
-                                <div className="bg-white p-4 rounded-2xl inline-block border border-zinc-200 mx-auto">
-                                    {qrSlot(
-                                        qrSituationDataUrl,
-                                        'Situation room',
-                                        `${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`
-                                    )}
-                                </div>
-                                <p className="text-[9px] text-zinc-600 font-bold uppercase leading-relaxed px-2">{t('reportComplete.qrSituationSubtext')}</p>
-                                <p className="text-[8px] font-mono text-zinc-500 break-all px-1">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>
-                            </div>
-
-                            {/* OFFICIAL SEAL VISUAL */}
-                            <div className="relative mt-4 no-print lg:block hidden">
-                                <div className="absolute inset-0 seal-ripple bg-zinc-900/5 rounded-full scale-[2]"></div>
-                                <div className="relative w-40 h-40 border-[8px] border-zinc-900 rounded-full flex flex-col items-center justify-center p-4">
-                                     <Star className="w-12 h-12 text-zinc-950 mb-1" />
-                                     <div className="text-[9px] font-black text-zinc-950 text-center leading-none uppercase">AUTHENTIC<br/>ACCOUNTABILITY<br/>SEAL</div>
-                                </div>
-                            </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ fontSize: 7, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.15em', margin: 0, fontWeight: 700 }}>Certificate No.</p>
+                            <p style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 900, color: 'white', margin: '3px 0 0', letterSpacing: '0.06em' }}>{`DPAL-${report.hash.substring(2, 10).toUpperCase()}`}</p>
                         </div>
                     </div>
 
-                    {/* ── Public Tracking Link Box — printed below certificate body ── */}
-                    <div className="cert-tracking-box mt-10 mb-2 break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                        <div className="border-2 border-zinc-800 rounded-2xl overflow-hidden">
-                            {/* header strip */}
-                            <div className="bg-zinc-900 px-5 py-3 flex items-center gap-3">
-                                <Globe className="w-4 h-4 text-emerald-400 flex-shrink-0" />
-                                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-400">Public Tracking Link</p>
-                                <span className="ml-auto text-[8px] font-black uppercase tracking-widest text-zinc-500">Anyone can verify this report at this address</span>
-                            </div>
-                            {/* body */}
-                            <div className="bg-zinc-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-mono font-black text-zinc-900 break-all leading-relaxed">
-                                        {`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}
-                                    </p>
+                    {/* B. STATUS STRIP */}
+                    <div className="cert-status-green" style={{ background: '#14532d', padding: '5px 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <CheckCircle style={{ width: 11, height: 11, color: '#86efac', flexShrink: 0 }} />
+                        <p style={{ fontSize: 7.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#86efac', margin: 0 }}>Blockchain Verified · Immutable Record · Publicly Traceable · Tamper-Evident</p>
+                        <span style={{ marginLeft: 'auto', fontSize: 7.5, fontWeight: 700, color: '#4ade80', letterSpacing: '0.1em', flexShrink: 0 }}>STATUS: CERTIFIED ✓</span>
+                    </div>
+
+                    {/* C. 2-COLUMN RECORD + VERIFICATION GRID */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #e5e7eb' }}>
+                        {/* Left — Record Identification */}
+                        <div style={{ padding: '14px 22px', borderRight: '1px solid #e5e7eb' }}>
+                            <p style={{ fontSize: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.3em', color: '#9ca3af', margin: '0 0 8px', paddingBottom: 4, borderBottom: '1px solid #f3f4f6' }}>Record Identification</p>
+                            {([
+                                ['Certificate ID',   `DPAL-CERT-${report.hash.substring(2, 10).toUpperCase()}`],
+                                ['Block Reference',  blockRef],
+                                ['Date Issued',      (report.anchoredAt || report.timestamp).toLocaleString()],
+                                ['Category',         report.category.toUpperCase()],
+                                ['Evidence Artifacts', String(report.evidenceVault?.records?.length || 0)],
+                                ['Reporting Party',  `RP-${report.hash.substring(0, 4).toUpperCase()}`],
+                            ] as [string, string][]).map(([label, value]) => (
+                                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '4px 0', borderBottom: '1px solid #f9fafb', gap: 10 }}>
+                                    <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{label}</span>
+                                    <span style={{ fontSize: 8, fontWeight: 900, color: '#111827', textAlign: 'right', fontFamily: 'monospace', wordBreak: 'break-all' }}>{value}</span>
                                 </div>
-                                <div className="flex-shrink-0 border border-zinc-300 rounded-xl px-4 py-2 bg-white text-center no-print" style={{ minWidth: '110px' }}>
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Scan to verify</p>
-                                    <div className="mt-1 inline-block">
-                                        {qrVerifyDataUrl
-                                            ? <img src={qrVerifyDataUrl} alt="Verify QR" className="cert-qr-img w-16 h-16 object-contain" width={64} height={64} />
-                                            : <div className="w-16 h-16 bg-zinc-100 rounded" />}
-                                    </div>
+                            ))}
+                        </div>
+                        {/* Right — Verification Summary */}
+                        <div style={{ padding: '14px 22px' }}>
+                            <p style={{ fontSize: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.3em', color: '#9ca3af', margin: '0 0 8px', paddingBottom: 4, borderBottom: '1px solid #f3f4f6' }}>Verification Summary</p>
+                            {([
+                                ['Ledger Status',    'ANCHORED',   '#166534'],
+                                ['Integrity Check',  'PASSED ✓',   '#166534'],
+                                ['Audit State',      'CERTIFIED',  '#166534'],
+                                ['Anonymity Level',  'PROTECTED',  '#1d4ed8'],
+                                ['Alteration Guard', 'ACTIVE',     '#166534'],
+                                ['Smart Contract',   'EXECUTED',   '#166534'],
+                            ] as [string, string, string][]).map(([label, value, color]) => (
+                                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f9fafb' }}>
+                                    <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{label}</span>
+                                    <span style={{ fontSize: 8, fontWeight: 900, color, fontFamily: 'monospace' }}>{value}</span>
                                 </div>
-                            </div>
-                            {/* instruction strip */}
-                            <div className="bg-white border-t border-zinc-200 px-5 py-2 flex flex-wrap items-center gap-4">
-                                <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">
-                                    Report ID: <span className="font-mono text-zinc-700">{report.id}</span>
-                                </p>
-                                <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">
-                                    Issued: <span className="text-zinc-700">{(report.anchoredAt || report.timestamp).toLocaleDateString()}</span>
-                                </p>
-                                <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400 ml-auto">
-                                    DPAL Decentralized Ledger · Immutable Public Record
-                                </p>
-                            </div>
+                            ))}
                         </div>
                     </div>
 
-                    <footer className="mt-8 pt-12 border-t-4 border-zinc-900 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
-                         <p className="text-[10px] text-zinc-500 font-bold uppercase max-w-2xl text-center md:text-left leading-relaxed tracking-wider">
-                             {t('reportComplete.footerNote')}
-                         </p>
-                         <div className="flex flex-col items-center md:items-end space-y-2 text-right max-w-md">
-                            <p className="text-[11px] font-black uppercase tracking-widest text-zinc-950 leading-none">{t('reportComplete.digitallyCertified')}</p>
-                            {ledgerBlockDigits && (
-                                <p className="text-[9px] font-mono text-zinc-700 font-bold">LEDGER_BLOCK: {ledgerBlockDigits}</p>
-                            )}
-                            <p className="text-[9px] font-mono text-zinc-400">LEDGER_ANCHOR: {report.hash.substring(0, 32).toUpperCase()}...</p>
-                            {ledgerBlockDigits && (
-                                <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-wide leading-snug">{t('reportComplete.stampLookupHint')}</p>
-                            )}
-                         </div>
-                    </footer>
+                    {/* D. QR CODES — SIDE BY SIDE */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #e5e7eb' }}>
+                        {/* QR 1 */}
+                        <div className="cert-qr-bg" style={{ padding: '14px 22px', textAlign: 'center', borderRight: '1px solid #e5e7eb', background: '#fafafa' }}>
+                            <p style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#374151', margin: '0 0 8px' }}>Public Ledger Verification</p>
+                            <div style={{ display: 'inline-block', background: 'white', border: '1px solid #d1d5db', padding: 5, borderRadius: 7, lineHeight: 0 }}>
+                                {qrVerifyDataUrl
+                                    ? <img src={qrVerifyDataUrl} alt="Public Ledger Verification" className="cert-qr-img" style={{ width: 140, height: 140, display: 'block' }} width={140} height={140} />
+                                    : <div style={{ width: 140, height: 140, background: '#f3f4f6', borderRadius: 4 }} />}
+                            </div>
+                            <p style={{ fontSize: 7, color: '#6b7280', margin: '6px 0 2px', fontWeight: 600 }}>Scan to verify on the public ledger</p>
+                            <p style={{ fontSize: 6, fontFamily: 'monospace', color: '#9ca3af', wordBreak: 'break-all', margin: 0, lineHeight: 1.5 }}>{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
+                        </div>
+                        {/* QR 2 */}
+                        <div className="cert-qr-bg" style={{ padding: '14px 22px', textAlign: 'center', background: '#fafafa' }}>
+                            <p style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#374151', margin: '0 0 8px' }}>Situation Room Access</p>
+                            <div style={{ display: 'inline-block', background: 'white', border: '1px solid #d1d5db', padding: 5, borderRadius: 7, lineHeight: 0 }}>
+                                {qrSituationDataUrl
+                                    ? <img src={qrSituationDataUrl} alt="Situation Room Access" className="cert-qr-img" style={{ width: 140, height: 140, display: 'block' }} width={140} height={140} />
+                                    : <div style={{ width: 140, height: 140, background: '#f3f4f6', borderRadius: 4 }} />}
+                            </div>
+                            <p style={{ fontSize: 7, color: '#6b7280', margin: '6px 0 2px', fontWeight: 600 }}>Scan to access the operational situation room</p>
+                            <p style={{ fontSize: 6, fontFamily: 'monospace', color: '#9ca3af', wordBreak: 'break-all', margin: 0, lineHeight: 1.5 }}>{`${baseUrl}?reportId=${encodeURIComponent(report.id)}&situationRoom=1`}</p>
+                        </div>
+                    </div>
+
+                    {/* E. SEALS ROW + TRACKING LINK */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'auto auto 1fr', alignItems: 'center', borderBottom: '1px solid #e5e7eb' }}>
+                        {/* DPAL Seal */}
+                        <div style={{ padding: '12px 14px 12px 22px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div className="cert-seal-dpal-inner" style={{ width: 88, height: 88, borderRadius: '50%', border: '3px double #92400e', background: 'linear-gradient(155deg,#fffbeb 0%,#fde68a 45%,#d97706 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 6 }}>
+                                <p style={{ fontSize: 12, fontWeight: 900, color: '#78350f', margin: 0, letterSpacing: '-0.02em', lineHeight: 1 }}>DPAL</p>
+                                <p style={{ fontSize: 6, fontWeight: 900, color: '#92400e', textTransform: 'uppercase', letterSpacing: '0.12em', margin: '2px 0 0', lineHeight: 1 }}>Verified</p>
+                                <p style={{ fontSize: 5, color: '#b45309', margin: '3px 0 0', fontWeight: 700, lineHeight: 1 }}>RSA-4096</p>
+                                {ledgerBlockDigits && <p style={{ fontSize: 5, fontFamily: 'monospace', fontWeight: 900, color: '#451a03', margin: '3px 0 0', lineHeight: 1 }}>#{ledgerBlockDigits}</p>}
+                            </div>
+                        </div>
+                        {/* Compliance Seal */}
+                        <div style={{ padding: '12px 14px', borderRight: '1px solid #e5e7eb', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                            <div className="cert-seal-compliance-inner" style={{ width: 88, height: 88, borderRadius: '50%', border: '3px double #7f1d1d', background: 'linear-gradient(155deg,#fecaca 0%,#dc2626 55%,#991b1b 100%)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 6 }}>
+                                <Star style={{ width: 18, height: 18, color: 'white', marginBottom: 3 }} />
+                                <p style={{ fontSize: 7, fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, lineHeight: 1 }}>Compliance</p>
+                                <p style={{ fontSize: 6, color: '#fecaca', margin: '2px 0 0', fontWeight: 700, lineHeight: 1 }}>Certified</p>
+                                {ledgerBlockDigits && <p style={{ fontSize: 5, fontFamily: 'monospace', fontWeight: 900, color: 'rgba(255,255,255,0.9)', margin: '3px 0 0', lineHeight: 1 }}>#{ledgerBlockDigits}</p>}
+                            </div>
+                        </div>
+                        {/* Tracking Link */}
+                        <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <Globe style={{ width: 12, height: 12, color: '#374151' }} />
+                                <p style={{ fontSize: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#374151', margin: 0 }}>Public Tracking Link</p>
+                            </div>
+                            <p style={{ fontSize: 9, fontFamily: 'monospace', fontWeight: 900, color: '#111827', wordBreak: 'break-all', margin: 0, lineHeight: 1.5 }}>{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
+                            <p style={{ fontSize: 7, color: '#6b7280', margin: 0, lineHeight: 1.4 }}>Anyone can verify this record using the link above or by scanning either QR code above.</p>
+                        </div>
+                    </div>
+
+                    {/* F. FOOTER STRIP */}
+                    <div className="cert-p1-footer" style={{ background: '#f9fafb', padding: '8px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                        <p style={{ fontSize: 7, color: '#6b7280', fontWeight: 600, margin: 0, lineHeight: 1.5 }}>
+                            This document is a certified digital accountability record. Unauthorized alteration is cryptographically detectable and constitutes record tampering under applicable law.
+                        </p>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ fontSize: 8, fontWeight: 900, color: '#111', textTransform: 'uppercase', letterSpacing: '0.12em', margin: 0 }}>Digitally Certified</p>
+                            <p style={{ fontSize: 7, fontFamily: 'monospace', color: '#6b7280', margin: '2px 0 0' }}>{(report.anchoredAt || report.timestamp).toLocaleDateString()}</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ▓▓▓ PAGE 2 — TECHNICAL VERIFICATION ▓▓▓ */}
+                <div className="cert-p2" style={{ fontFamily: "'Inter','Helvetica Neue',Arial,sans-serif", background: 'white', border: '1px solid #d1d5db', boxShadow: '0 20px 60px rgba(0,0,0,0.1)' }}>
+
+                    {/* Mini header */}
+                    <div className="cert-p2-hdr" style={{ background: '#1f2937', padding: '11px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <Database style={{ width: 15, height: 15, color: '#9ca3af' }} />
+                            <p style={{ fontSize: 11, fontWeight: 900, color: 'white', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Technical Verification Record</p>
+                            <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginLeft: 8 }}>· Page 2 of 2</span>
+                        </div>
+                        <p style={{ fontSize: 8, fontFamily: 'monospace', color: '#6b7280', margin: 0 }}>{`DPAL-CERT-${report.hash.substring(2, 10).toUpperCase()}`}</p>
+                    </div>
+
+                    {/* A + B — 2-column sections */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', borderBottom: '1px solid #e5e7eb' }}>
+                        {/* A: Ledger Metadata */}
+                        <div style={{ padding: '14px 22px', borderRight: '1px solid #e5e7eb' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 9 }}>
+                                <Hash style={{ width: 11, height: 11, color: '#374151' }} />
+                                <p style={{ fontSize: 7.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#374151', margin: 0 }}>A — Ledger Metadata</p>
+                            </div>
+                            {([
+                                ['Ledger Block',     ledgerBlockDigits ? `#${ledgerBlockDigits}` : '#PENDING'],
+                                ['Block Reference',  blockRef],
+                                ['Filing Timestamp', (report.anchoredAt || report.timestamp).toISOString()],
+                                ['Ledger Anchor',    txRef ? `${txRef.substring(0, 22)}…` : 'N/A'],
+                                ['Full Hash',        `${report.hash.substring(0, 26).toUpperCase()}…`],
+                                ['Verification',     'RSA-4096 + SHA-256'],
+                                ['Smart Contract',   'EXECUTED'],
+                                ['Last Verified',    new Date().toISOString().substring(0, 19) + 'Z'],
+                            ] as [string, string][]).map(([label, value]) => (
+                                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '3.5px 0', borderBottom: '1px solid #f9fafb', gap: 10 }}>
+                                    <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{label}</span>
+                                    <span style={{ fontSize: 8, fontFamily: 'monospace', fontWeight: 700, color: '#111827', textAlign: 'right', wordBreak: 'break-all' }}>{value}</span>
+                                </div>
+                            ))}
+                        </div>
+                        {/* B: Technical Summary */}
+                        <div style={{ padding: '14px 22px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 9 }}>
+                                <Activity style={{ width: 11, height: 11, color: '#374151' }} />
+                                <p style={{ fontSize: 7.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#374151', margin: 0 }}>B — Technical Summary</p>
+                            </div>
+                            {([
+                                ['Category',        report.category.toUpperCase()],
+                                ['Report ID',       report.id],
+                                ['Evidence Count',  String(report.evidenceVault?.records?.length || 0)],
+                                ['Anonymity Level', 'PROTECTED'],
+                                ['Protection',      'ACTIVE'],
+                                ['Audit Flag',      'SECONDARY_AUDIT_ENABLED'],
+                                ['Integrity Hash',  'SHA-256 VERIFIED'],
+                                ['Trust Score',     `${report.trustScore}%`],
+                            ] as [string, string][]).map(([label, value]) => (
+                                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '3.5px 0', borderBottom: '1px solid #f9fafb', gap: 10 }}>
+                                    <span style={{ fontSize: 8, color: '#6b7280', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', flexShrink: 0 }}>{label}</span>
+                                    <span style={{ fontSize: 8, fontFamily: 'monospace', fontWeight: 700, color: '#111827', textAlign: 'right' }}>{value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* C: Chain of Custody */}
+                    <div style={{ padding: '14px 22px', borderBottom: '1px solid #e5e7eb' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 9 }}>
+                            <Globe style={{ width: 11, height: 11, color: '#374151' }} />
+                            <p style={{ fontSize: 7.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#374151', margin: 0 }}>C — Chain of Custody / Public Trace</p>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0 20px' }}>
+                            {([
+                                ['Filing Route',     'CLIENT → LEDGER → SHARD'],
+                                ['Registry Source',  'DPAL_CORE_v1.0'],
+                                ['Protocol',         'DPAL-X_CORE_v1.0.42_STABLE'],
+                                ['System Signature', `${report.hash.substring(0, 16).toUpperCase()}…`],
+                                ['Public Trace',     'PUBLICLY ACCESSIBLE'],
+                                ['Shard Authority',  'SEALED_WITH_AUTHORITY_KEY'],
+                            ] as [string, string][]).map(([label, value]) => (
+                                <div key={label} style={{ padding: '3px 0', borderBottom: '1px solid #f9fafb' }}>
+                                    <span style={{ display: 'block', fontSize: 7, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+                                    <span style={{ display: 'block', fontSize: 8, fontFamily: 'monospace', fontWeight: 700, color: '#374151', marginTop: 2, wordBreak: 'break-all' }}>{value}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Verification stream */}
+                    <div className="cert-verif-bg" style={{ padding: '12px 22px', background: '#fafafa', borderBottom: '1px solid #e5e7eb' }}>
+                        <p style={{ fontSize: 7, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#6b7280', margin: '0 0 6px' }}>Verification Stream</p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px 24px' }}>
+                            {[
+                                'ESTABLISHING_P2P_HANDSHAKE... [OK]',
+                                'CHRONOLOGICAL_SYNC_STABLE [OK]',
+                                `TRUTHSCORE_CALCULATED: ${report.trustScore}% [OK]`,
+                                `BLOCK_INDEX_IDENTIFIED: ${blockRef} [OK]`,
+                                `TX_BROADCASTED: ${txRef ? txRef.slice(0, 14) : 'N/A'}... [OK]`,
+                                'SHARD_SEALED_WITH_AUTHORITY_KEY [OK]',
+                            ].map((log, i) => (
+                                <p key={i} style={{ fontSize: 7, fontFamily: 'monospace', color: '#16a34a', margin: 0, padding: '1px 0' }}>&gt; {log}</p>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* P2 Footer */}
+                    <div style={{ padding: '9px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 16 }}>
+                        <p style={{ fontSize: 7, color: '#9ca3af', fontWeight: 600, margin: 0 }}>
+                            DPAL — Decentralized Public Accountability Ledger · Technical verification record for archival and audit purposes
+                        </p>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ fontSize: 7, fontFamily: 'monospace', color: '#6b7280', margin: 0 }}>LEDGER_ANCHOR: {report.hash.substring(0, 22).toUpperCase()}...</p>
+                            {ledgerBlockDigits && <p style={{ fontSize: 7, fontFamily: 'monospace', color: '#6b7280', margin: '2px 0 0' }}>LEDGER_BLOCK: {ledgerBlockDigits}</p>}
+                        </div>
+                    </div>
                 </div>
             </div>
 
