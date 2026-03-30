@@ -1,0 +1,49 @@
+export const GW_PATHS = {
+  root: '/',
+  public: {
+    home: '/',
+    about: '/about',
+    how: '/how-it-works',
+    safety: '/safety',
+    help: '/help',
+    contact: '/contact',
+  },
+  auth: {
+    signIn: '/auth/sign-in',
+    signUp: '/auth/sign-up',
+    roleSelect: '/auth/role',
+    onboarding: '/auth/onboarding',
+    profile: '/app/profile',
+  },
+  passenger: {
+    dashboard: '/app/passenger/dashboard',
+    request: '/app/passenger/request',
+    active: '/app/passenger/active',
+    history: '/app/passenger/history',
+    places: '/app/passenger/places',
+    support: '/app/passenger/support',
+  },
+  driver: {
+    dashboard: '/app/driver/dashboard',
+    queue: '/app/driver/queue',
+    active: '/app/driver/active',
+    history: '/app/driver/history',
+    vehicle: '/app/driver/vehicle',
+    earnings: '/app/driver/earnings',
+  },
+  worker: {
+    dashboard: '/app/worker/dashboard',
+    tasks: '/app/worker/tasks',
+    dispatch: '/app/worker/dispatch',
+    caseDetail: (id: string) => `/app/worker/cases/${encodeURIComponent(id)}`,
+    history: '/app/worker/history',
+    impact: '/app/worker/impact',
+  },
+  shared: {
+    tripDetails: (id: string) => `/app/trips/${encodeURIComponent(id)}`,
+    map: '/app/map',
+    notifications: '/app/notifications',
+    settings: '/app/settings',
+  },
+} as const;
+

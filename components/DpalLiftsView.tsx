@@ -30,6 +30,20 @@ const DpalLiftsView: React.FC<DpalLiftsViewProps> = ({ onReturn }) => {
         <p className="text-[var(--dpal-text-secondary)] leading-relaxed">
           Ride coordination, donation credits, and community impact tools will connect here. You can wire missions and flows next — this screen is ready for navigation.
         </p>
+
+        <div className="mt-8 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('dpal-navigate', { detail: { view: 'goodWheels' } }));
+              }
+            }}
+            className="inline-flex items-center justify-center rounded-2xl bg-cyan-600 hover:bg-cyan-500 text-white font-black px-6 py-4 text-[10px] uppercase tracking-widest shadow-xl active:scale-95 transition-all"
+          >
+            Open DPAL Good Wheels
+          </button>
+        </div>
       </div>
     </div>
   );

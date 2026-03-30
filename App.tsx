@@ -39,6 +39,7 @@ import AcademyView from './components/AcademyView';
 import LedgerScanner from './components/LedgerScanner';
 import AiWorkDirectivesView from './components/AiWorkDirectivesView';
 import DpalLiftsView from './components/DpalLiftsView';
+import GoodWheelsApp from './src/good-wheels/app/GoodWheelsApp';
 import OutreachEscalationHub from './components/OutreachEscalationHub';
 import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
@@ -79,7 +80,7 @@ import { readNavSession, writeNavSession, categoryFromSession } from './utils/na
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -447,6 +448,19 @@ const App: React.FC = () => {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  /** Cross-module navigation hook (e.g. Good Wheels embedded surfaces). */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onNavigate = (evt: Event) => {
+      const e = evt as CustomEvent<{ view?: View; category?: Category; tab?: HeroHubTab | HubTab }>;
+      const view = e?.detail?.view;
+      if (!view) return;
+      handleNavigate(view, e.detail?.category, e.detail?.tab);
+    };
+    window.addEventListener('dpal-navigate', onNavigate as EventListener);
+    return () => window.removeEventListener('dpal-navigate', onNavigate as EventListener);
+  }, [handleNavigate]);
   const useMobileLayout = isMobileViewport;
   const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'community';
 
@@ -1753,6 +1767,12 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'dpalLifts' && <DpalLiftsView onReturn={() => goBack('mainMenu')} />}
+
+        {currentView === 'goodWheels' && (
+          <div className="min-h-[80vh]">
+            <GoodWheelsApp />
+          </div>
+        )}
 
         {currentView === 'ecosystem' && (
           <EcosystemOverview
