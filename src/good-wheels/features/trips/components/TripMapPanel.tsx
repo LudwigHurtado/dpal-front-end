@@ -22,6 +22,23 @@ const TripMapPanel: React.FC<{
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
 
+  const placeAtMapCenter = () => {
+    if (!g || !onPinSelect || !pinMode) return;
+    const map = mapObjRef.current;
+    const centerPt = map?.getCenter();
+    const lat = centerPt?.lat();
+    const lng = centerPt?.lng();
+    if (typeof lat !== 'number' || typeof lng !== 'number') return;
+    const geocoder = new g.maps.Geocoder();
+    geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+      const addressLine =
+        status === 'OK' && results && results[0]?.formatted_address
+          ? results[0].formatted_address
+          : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      onPinSelect({ lat, lng, addressLine, mode: pinMode });
+    });
+  };
+
   const pickupAddress = trip.pickup.addressLine;
   const dropoffAddress = trip.dropoff.addressLine;
 
@@ -264,8 +281,13 @@ const TripMapPanel: React.FC<{
         <strong className="text-slate-800">{trip.dropoff.label}</strong>
       </div>
       {pinMode && (
-        <div className="text-xs font-bold text-slate-600">
-          Pin mode: <span className="text-[#0077C8]">{pinMode}</span> — click the map to place marker.
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="text-xs font-bold text-slate-600">
+            Pin mode: <span className="text-[#0077C8]">{pinMode}</span> — click map or place at center.
+          </div>
+          <button type="button" className="gw-button gw-button-secondary" onClick={placeAtMapCenter}>
+            Place {pinMode} at center
+          </button>
         </div>
       )}
       {!pinMode && (
