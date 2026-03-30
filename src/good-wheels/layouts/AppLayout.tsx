@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useTripStore } from '../features/trips/tripStore';
 import { GW_PATHS } from '../routes/paths';
 import { useDriverStore } from '../features/driver/driverStore';
+import DevicePreview, { readGwPreviewDevice, type GwPreviewDeviceId, GW_PREVIEW_DEVICES, writeGwPreviewDevice } from '../components/dev/DevicePreview';
 
 const AppLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ const AppLayout: React.FC = () => {
   const hydrateDriver = useDriverStore((s) => s.hydrate);
 
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 860 : false));
+  const isDev = Boolean((import.meta as any).env?.DEV);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<GwPreviewDeviceId>(() => (typeof window !== 'undefined' ? readGwPreviewDevice() : 'off'));
 
   useEffect(() => {
     if (user?.id) void hydrate(user.id);
@@ -29,6 +33,10 @@ const AppLayout: React.FC = () => {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  const previewSpec = useMemo(() => GW_PREVIEW_DEVICES.find((d) => d.id === previewDevice) ?? GW_PREVIEW_DEVICES[0], [previewDevice]);
+  const previewing = previewDevice !== 'off' && isDev;
+  const effectiveIsMobile = previewing ? true : isMobile;
 
   const mobileTabs = useMemo(() => {
     if (role === 'driver') {
@@ -59,15 +67,42 @@ const AppLayout: React.FC = () => {
   }, [role]);
 
   return (
-    <div className="gw-root min-h-screen">
+    <div className={previewing ? 'gw-root min-h-screen gw-previewing' : 'gw-root min-h-screen'}>
+      {previewing && (
+        <div className="gw-preview-stage">
+          <div
+            className="gw-preview-frame"
+            style={{
+              width: previewSpec.width ?? 'auto',
+              height: previewSpec.height ?? 'auto',
+            }}
+          />
+        </div>
+      )}
+      <div
+        className={previewing ? 'gw-preview-app' : undefined}
+        style={
+          previewing
+            ? {
+                width: previewSpec.width ?? 'auto',
+                height: previewSpec.height ?? 'auto',
+              }
+            : undefined
+        }
+      >
       <header className="gw-appbar">
         <div className="gw-container gw-appbar-inner">
           <button type="button" className="gw-button gw-button-ghost" onClick={() => navigate(GW_PATHS.public.home)}>
             Good Wheels
           </button>
           <div className="gw-appbar-spacer" />
-          {!isMobile && <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">Notifications</NavLink>}
-          {!isMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">Settings</NavLink>}
+          {isDev && (
+            <button type="button" className="gw-button gw-button-secondary" onClick={() => setPreviewOpen(true)}>
+              Device preview
+            </button>
+          )}
+          {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">Notifications</NavLink>}
+          {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">Settings</NavLink>}
           <button type="button" className="gw-button gw-button-ghost" onClick={() => void signOut().then(() => navigate(GW_PATHS.public.home))}>
             Sign out
           </button>
@@ -75,7 +110,7 @@ const AppLayout: React.FC = () => {
       </header>
 
       <div className="gw-container gw-appshell">
-        {!isMobile && (
+        {!effectiveIsMobile && (
         <aside className="gw-sidenav">
           <div className="gw-sidenav-card">
             <div className="gw-sidenav-title">{user?.fullName ?? '—'}</div>
@@ -116,12 +151,12 @@ const AppLayout: React.FC = () => {
         </aside>
         )}
 
-        <main className="gw-content" style={isMobile ? { paddingBottom: 84 } : undefined}>
+        <main className="gw-content" style={effectiveIsMobile ? { paddingBottom: 84 } : undefined}>
           <Outlet />
         </main>
       </div>
 
-      {isMobile && mobileTabs.length > 0 && (
+      {effectiveIsMobile && mobileTabs.length > 0 && (
         <nav
           className="gw-bottomnav"
           aria-label="Bottom navigation"
@@ -141,6 +176,19 @@ const AppLayout: React.FC = () => {
             })}
           </div>
         </nav>
+      )}
+      </div>
+
+      {isDev && (
+        <DevicePreview
+          open={previewOpen}
+          value={previewDevice}
+          onChange={(id) => {
+            setPreviewDevice(id);
+            writeGwPreviewDevice(id);
+          }}
+          onClose={() => setPreviewOpen(false)}
+        />
       )}
     </div>
   );

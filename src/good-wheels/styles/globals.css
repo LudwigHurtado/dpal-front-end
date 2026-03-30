@@ -23,6 +23,35 @@
   color: var(--gw-text);
 }
 
+/* DEV device preview frame */
+.gw-previewing {
+  display: flex;
+  justify-content: center;
+  padding: 18px 0;
+}
+.gw-preview-app {
+  position: relative;
+  border-radius: 34px;
+  overflow: hidden;
+  border: 1px solid rgba(15,23,42,0.14);
+  box-shadow: 0 28px 70px rgba(2,6,23,0.20);
+  background: var(--gw-bg);
+}
+.gw-previewing .gw-bottomnav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+}
+.gw-previewing .gw-appbar {
+  position: sticky;
+  top: 0;
+}
+.gw-previewing .gw-container {
+  max-width: 100%;
+  padding: 0 14px;
+}
+
 .gw-container { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
 .gw-main { padding: 28px 0 56px; }
 
