@@ -41,14 +41,21 @@ const TripMapPanel: React.FC<{
       disableDefaultUI: true,
       zoomControl: true,
       gestureHandling: 'greedy',
+      draggableCursor: pinMode ? 'crosshair' : undefined,
       mapId: undefined,
     });
     directionsRef.current = new g.maps.DirectionsRenderer({
       map: mapObjRef.current,
       suppressMarkers: true,
-      polylineOptions: { strokeColor: '#0077C8', strokeOpacity: 0.9, strokeWeight: 5 },
+      polylineOptions: { strokeColor: '#FEC345', strokeOpacity: 0.95, strokeWeight: 6 },
     });
   }, [ready, g, center]);
+
+  useEffect(() => {
+    const map = mapObjRef.current;
+    if (!map) return;
+    map.setOptions({ draggableCursor: pinMode ? 'crosshair' : undefined });
+  }, [pinMode]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -83,13 +90,13 @@ const TripMapPanel: React.FC<{
         new g.maps.Marker({
           map,
           position: pickupLL,
-          label: { text: 'You', color: '#0f172a', fontWeight: '800' },
+          label: { text: 'P', color: '#ffffff', fontWeight: '800' },
           icon: {
             path: g.maps.SymbolPath.CIRCLE,
             scale: 8,
-            fillColor: '#0077C8',
+            fillColor: '#ef4444',
             fillOpacity: 0.85,
-            strokeColor: '#0D3B66',
+            strokeColor: '#7f1d1d',
             strokeWeight: 2,
           },
         })
@@ -100,7 +107,15 @@ const TripMapPanel: React.FC<{
         new g.maps.Marker({
           map,
           position: dropoffLL,
-          label: { text: 'D', color: '#0f172a', fontWeight: '800' },
+          label: { text: 'D', color: '#ffffff', fontWeight: '800' },
+          icon: {
+            path: g.maps.SymbolPath.CIRCLE,
+            scale: 8,
+            fillColor: '#22c55e',
+            fillOpacity: 0.9,
+            strokeColor: '#14532d',
+            strokeWeight: 2,
+          },
         })
       );
     }
@@ -250,7 +265,14 @@ const TripMapPanel: React.FC<{
       </div>
       {pinMode && (
         <div className="text-xs font-bold text-slate-600">
-          Pin mode: <span className="text-[#0077C8]">{pinMode}</span> — click on map to set location.
+          Pin mode: <span className="text-[#0077C8]">{pinMode}</span> — click the map to place marker.
+        </div>
+      )}
+      {!pinMode && (
+        <div className="text-xs font-bold text-slate-600">
+          Marker legend: <span style={{ color: '#ef4444' }}>Red = Pickup</span> ·{' '}
+          <span style={{ color: '#22c55e' }}>Green = Dropoff</span> ·{' '}
+          <span style={{ color: '#d97706' }}>Yellow = Route</span>
         </div>
       )}
       <div

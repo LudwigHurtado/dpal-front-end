@@ -12,6 +12,27 @@ const RequestRidePage: React.FC = () => {
   const error = useTripStore((s) => s.error);
   const [pinMode, setPinMode] = useState<'pickup' | 'dropoff' | null>(null);
 
+  const setPickupFromGeolocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        setDraft({
+          pickup: {
+            label: 'My Location',
+            addressLine: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+            point: { lat, lng },
+          },
+        });
+      },
+      () => {
+        // ignored
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
+
   const purposes = useMemo(
     () => [
       { id: 'normal_ride', label: 'Normal ride' },
@@ -29,23 +50,7 @@ const RequestRidePage: React.FC = () => {
   useEffect(() => {
     if (draft.pickup?.point) return;
     if (typeof navigator === 'undefined' || !navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lng = pos.coords.longitude;
-        setDraft({
-          pickup: {
-            label: 'Current Location',
-            addressLine: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-            point: { lat, lng },
-          },
-        });
-      },
-      () => {
-        // Ignore denial; user can pin manually.
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-    );
+    setPickupFromGeolocation();
   }, [draft.pickup?.point, setDraft]);
 
   return (
@@ -105,6 +110,22 @@ const RequestRidePage: React.FC = () => {
               }
             />
           </label>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="gw-button gw-button-secondary"
+              onClick={setPickupFromGeolocation}
+            >
+              Use my location
+            </button>
+            <button
+              type="button"
+              className={pinMode === 'pickup' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
+              onClick={() => setPinMode((p) => (p === 'pickup' ? null : 'pickup'))}
+            >
+              {pinMode === 'pickup' ? 'Tap map to set pickup…' : 'Pick pickup on map'}
+            </button>
+          </div>
 
           <label className="gw-label">
             Destination
@@ -117,21 +138,13 @@ const RequestRidePage: React.FC = () => {
               }
             />
           </label>
-
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className={pinMode === 'pickup' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
-              onClick={() => setPinMode((p) => (p === 'pickup' ? null : 'pickup'))}
-            >
-              {pinMode === 'pickup' ? 'Stop pin pickup' : 'Pin pickup on map'}
-            </button>
             <button
               type="button"
               className={pinMode === 'dropoff' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
               onClick={() => setPinMode((p) => (p === 'dropoff' ? null : 'dropoff'))}
             >
-              {pinMode === 'dropoff' ? 'Stop pin dropoff' : 'Pin dropoff on map'}
+              {pinMode === 'dropoff' ? 'Tap map to set dropoff…' : 'Pick dropoff on map'}
             </button>
           </div>
 
