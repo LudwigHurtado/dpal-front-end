@@ -460,6 +460,46 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                     .bg-emerald-100 { background: #f0fdf4 !important; border: 1px solid #166534 !important; }
                     .text-emerald-800 { color: #166534 !important; }
                     .grayscale, .opacity-40, .opacity-60, .opacity-5, .opacity-80 { filter: none !important; opacity: 1 !important; }
+
+                    /* ── Public Tracking Link box print styles ── */
+                    .cert-tracking-box {
+                        margin-top: 24px !important;
+                        margin-bottom: 8px !important;
+                        break-inside: avoid !important;
+                        page-break-inside: avoid !important;
+                    }
+                    .cert-tracking-box > div {
+                        border: 2px solid #000 !important;
+                        border-radius: 8px !important;
+                        overflow: visible !important;
+                    }
+                    .cert-tracking-box .bg-zinc-900 {
+                        background: #111 !important;
+                        padding: 8px 14px !important;
+                    }
+                    .cert-tracking-box .bg-zinc-900 p,
+                    .cert-tracking-box .bg-zinc-900 span {
+                        color: #fff !important;
+                    }
+                    .cert-tracking-box .bg-zinc-50 {
+                        background: #f9fafb !important;
+                        padding: 10px 14px !important;
+                    }
+                    .cert-tracking-box .text-zinc-900 { color: #000 !important; }
+                    .cert-tracking-box .bg-white { background: white !important; }
+                    .cert-tracking-box .border-zinc-200,
+                    .cert-tracking-box .border-zinc-300 { border-color: #888 !important; }
+                    .cert-tracking-box .text-zinc-400 { color: #555 !important; }
+                    .cert-tracking-box .text-zinc-700 { color: #222 !important; }
+                    .cert-tracking-box img.cert-qr-img {
+                        display: block !important;
+                        visibility: visible !important;
+                        opacity: 1 !important;
+                        width: 64px !important;
+                        height: 64px !important;
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
                 }
                 .animate-fade-in { animation: fadeIn 0.8s ease-out forwards; }
                 @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -732,10 +772,44 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         </div>
                     </div>
 
-                    {/* Public tracking URL — always printed as plain text backup */}
-                    <div className="mt-8 mb-2 px-2 py-3 border border-zinc-300 rounded-xl bg-zinc-50/60 text-center break-inside-avoid">
-                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-1">Public Tracking Link — Scan QR or visit:</p>
-                        <p className="text-[9px] font-mono text-zinc-800 break-all leading-relaxed font-bold">{`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}</p>
+                    {/* ── Public Tracking Link Box — printed below certificate body ── */}
+                    <div className="cert-tracking-box mt-10 mb-2 break-inside-avoid" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                        <div className="border-2 border-zinc-800 rounded-2xl overflow-hidden">
+                            {/* header strip */}
+                            <div className="bg-zinc-900 px-5 py-3 flex items-center gap-3">
+                                <Globe className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-400">Public Tracking Link</p>
+                                <span className="ml-auto text-[8px] font-black uppercase tracking-widest text-zinc-500">Anyone can verify this report at this address</span>
+                            </div>
+                            {/* body */}
+                            <div className="bg-zinc-50 px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-xs font-mono font-black text-zinc-900 break-all leading-relaxed">
+                                        {`${baseUrl}?reportId=${encodeURIComponent(report.id)}`}
+                                    </p>
+                                </div>
+                                <div className="flex-shrink-0 border border-zinc-300 rounded-xl px-4 py-2 bg-white text-center no-print" style={{ minWidth: '110px' }}>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Scan to verify</p>
+                                    <div className="mt-1 inline-block">
+                                        {qrVerifyDataUrl
+                                            ? <img src={qrVerifyDataUrl} alt="Verify QR" className="cert-qr-img w-16 h-16 object-contain" width={64} height={64} />
+                                            : <div className="w-16 h-16 bg-zinc-100 rounded" />}
+                                    </div>
+                                </div>
+                            </div>
+                            {/* instruction strip */}
+                            <div className="bg-white border-t border-zinc-200 px-5 py-2 flex flex-wrap items-center gap-4">
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                                    Report ID: <span className="font-mono text-zinc-700">{report.id}</span>
+                                </p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400">
+                                    Issued: <span className="text-zinc-700">{(report.anchoredAt || report.timestamp).toLocaleDateString()}</span>
+                                </p>
+                                <p className="text-[8px] font-bold uppercase tracking-wider text-zinc-400 ml-auto">
+                                    DPAL Decentralized Ledger · Immutable Public Record
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <footer className="mt-8 pt-12 border-t-4 border-zinc-900 flex flex-col md:flex-row justify-between items-end gap-10 relative z-10">
