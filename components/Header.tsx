@@ -130,7 +130,10 @@ const Header: React.FC<HeaderProps> = ({
   const langRef = useRef<HTMLDivElement>(null);
   const navScrollRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
-  const [showRightArrow, setShowRightArrow] = useState(true);
+  const [showRightArrow, setShowRightArrow] = useState(false);
+  const [scrollPct, setScrollPct] = useState(0);
+  const [thumbWidth, setThumbWidth] = useState(50);
+  const [canScroll, setCanScroll] = useState(false);
   
   const toggleScale = () => {
     if (textScale === 'standard') setTextScale('large');
@@ -146,22 +149,52 @@ const Header: React.FC<HeaderProps> = ({
     }
   };
 
-  const handleScroll = () => {
-    if (navScrollRef.current) {
-        const { scrollLeft, scrollWidth, clientWidth } = navScrollRef.current;
-        setShowLeftArrow(scrollLeft > 10);
-        setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+  const syncScrollState = () => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    const overflow = scrollWidth - clientWidth;
+    const scrollable = overflow > 4;
+    setCanScroll(scrollable);
+    setShowLeftArrow(scrollable && scrollLeft > 10);
+    setShowRightArrow(scrollable && scrollLeft < overflow - 10);
+    if (scrollable) {
+      const tw = Math.max(20, Math.round((clientWidth / scrollWidth) * 100));
+      setThumbWidth(tw);
+      setScrollPct(Math.round((scrollLeft / overflow) * (100 - tw)));
     }
   };
 
   const scrollNav = (direction: 'left' | 'right') => {
-    if (navScrollRef.current) {
-        const scrollAmount = 250;
-        navScrollRef.current.scrollBy({
-            left: direction === 'left' ? -scrollAmount : scrollAmount,
-            behavior: 'smooth'
-        });
-    }
+    const el = navScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction === 'left' ? -280 : 280, behavior: 'smooth' });
+  };
+
+  // Drag state for the custom scrollbar thumb
+  const thumbDragRef = useRef<{ startX: number; startScroll: number } | null>(null);
+
+  const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = navScrollRef.current;
+    if (!el) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    thumbDragRef.current = { startX: e.clientX, startScroll: el.scrollLeft };
+  };
+
+  const onThumbPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = navScrollRef.current;
+    if (!el || !thumbDragRef.current) return;
+    const { scrollWidth, clientWidth } = el;
+    const trackWidth = (e.currentTarget.parentElement?.clientWidth ?? clientWidth) - (thumbWidth / 100) * (e.currentTarget.parentElement?.clientWidth ?? clientWidth);
+    const overflow = scrollWidth - clientWidth;
+    const dx = e.clientX - thumbDragRef.current.startX;
+    const ratio = overflow / (trackWidth || 1);
+    el.scrollLeft = Math.max(0, Math.min(overflow, thumbDragRef.current.startScroll + dx * ratio));
+  };
+
+  const onThumbPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.currentTarget.releasePointerCapture(e.pointerId);
+    thumbDragRef.current = null;
   };
 
   useEffect(() => {
@@ -171,11 +204,13 @@ const Header: React.FC<HeaderProps> = ({
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    handleScroll();
-    window.addEventListener('resize', handleScroll);
+    // Delay so icons are fully rendered before measuring overflow
+    const timer = setTimeout(syncScrollState, 80);
+    window.addEventListener('resize', syncScrollState);
     return () => {
         document.removeEventListener('mousedown', handleClickOutside);
-        window.removeEventListener('resize', handleScroll);
+        window.removeEventListener('resize', syncScrollState);
+        clearTimeout(timer);
     };
   }, []);
 
@@ -254,53 +289,75 @@ const Header: React.FC<HeaderProps> = ({
           </div>
       </div>
 
-      <div className="w-full relative px-0 pb-3 pt-1 border-t border-[color:color-mix(in_srgb,var(--dpal-border)_45%,transparent)] flex items-center overflow-hidden group/nav">
-        <div className={`absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-black/30 via-black/5 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showLeftArrow ? 'opacity-100' : 'opacity-0'}`}></div>
-        <div className={`absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-black/30 via-black/5 to-transparent z-10 pointer-events-none transition-opacity duration-300 ${showRightArrow ? 'opacity-100' : 'opacity-0'}`}></div>
+      {/* ── Icon navigation row ── */}
+      <div className="w-full border-t border-[color:color-mix(in_srgb,var(--dpal-border)_45%,transparent)] flex flex-col">
 
-        <div 
+        {/* Scroll area with fade edges + arrow buttons */}
+        <div className="relative flex items-center overflow-hidden">
+          {/* Left fade + arrow */}
+          <div className={`absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-black/40 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showLeftArrow ? 'opacity-100' : 'opacity-0'}`} />
+          <div className={`absolute left-1.5 z-20 transition-all duration-200 ${showLeftArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            <button
+              onClick={() => scrollNav('left')}
+              className="p-2 bg-[var(--dpal-panel)] rounded-full border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:text-cyan-400 shadow-lg backdrop-blur-sm active:scale-90 transition-all"
+            >
+              <ChevronLeft className="w-4 h-4"/>
+            </button>
+          </div>
+
+          {/* Right fade + arrow */}
+          <div className={`absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-black/40 to-transparent z-10 pointer-events-none transition-opacity duration-200 ${showRightArrow ? 'opacity-100' : 'opacity-0'}`} />
+          <div className={`absolute right-1.5 z-20 transition-all duration-200 ${showRightArrow ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
+            <button
+              onClick={() => scrollNav('right')}
+              className="p-2 bg-[var(--dpal-panel)] rounded-full border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:text-cyan-400 shadow-lg backdrop-blur-sm active:scale-90 transition-all"
+            >
+              <ChevronRight className="w-4 h-4"/>
+            </button>
+          </div>
+
+          {/* Scrollable icon list */}
+          <div
             ref={navScrollRef}
-            onScroll={handleScroll}
-            className="w-full overflow-x-auto no-scrollbar scroll-smooth flex justify-start md:justify-center"
-        >
-            <div className="flex items-center space-x-6 md:space-x-12 py-3 px-10 md:px-12 min-w-max mx-auto">
-                <NavIcon label="Home" color="cyan" icon={<Home className="w-5 h-5"/>} onClick={onNavigateHome} />
-                <NavIcon label="Share A Report" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
-                <NavIcon label="Community Stories" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
-                <NavIcon label="Public Record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
-                <NavIcon label="Neighbors & Missions" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
-                <NavIcon
-                    label="DPAL Lifts"
-                    title="DPAL Lifts — Decentralized Public Assistance Lifts"
-                    color="emerald"
-                    icon={<Shield className="w-5 h-5"/>}
-                    onClick={() => onNavigate('dpalLifts')}
-                />
-                <NavIcon
-                    label="Work Network"
-                    title="DPAL Work Network"
-                    color="blue"
-                    icon={<Briefcase className="w-5 h-5"/>}
-                    onClick={() => onNavigate('aiWorkDirectives')}
-                />
-                <NavIcon label="Learning lab" color="purple" icon={<Monitor className="w-5 h-5"/>} onClick={() => onNavigate('trainingHolodeck')} />
-                <NavIcon label="My collection" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
-                <NavIcon label="Wallet & coins" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
-                <NavIcon label="Profile & badges" color="cyan" icon={<Award className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'profile')} />
+            onScroll={syncScrollState}
+            className="w-full overflow-x-auto dpal-nav-scroll flex justify-start md:justify-center"
+          >
+            <div className="flex items-center space-x-6 md:space-x-10 py-3 px-10 md:px-12 min-w-max mx-auto">
+              <NavIcon label="Home" color="cyan" icon={<Home className="w-5 h-5"/>} onClick={onNavigateHome} />
+              <NavIcon label="Share A Report" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
+              <NavIcon label="Community Stories" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub')} />
+              <NavIcon label="Public Record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
+              <NavIcon label="Neighbors & Missions" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
+              <NavIcon label="DPAL Lifts" title="DPAL Lifts — Decentralized Public Assistance Lifts" color="emerald" icon={<Shield className="w-5 h-5"/>} onClick={() => onNavigate('dpalLifts')} />
+              <NavIcon label="Work Network" title="DPAL Work Network" color="blue" icon={<Briefcase className="w-5 h-5"/>} onClick={() => onNavigate('aiWorkDirectives')} />
+              <NavIcon label="Learning lab" color="purple" icon={<Monitor className="w-5 h-5"/>} onClick={() => onNavigate('trainingHolodeck')} />
+              <NavIcon label="My collection" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
+              <NavIcon label="Wallet & coins" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
+              <NavIcon label="Profile & badges" color="cyan" icon={<Award className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'profile')} />
             </div>
+          </div>
         </div>
 
-        <div className={`absolute left-4 z-20 transition-opacity duration-300 ${showLeftArrow ? 'opacity-100' : 'opacity-0'} pointer-events-auto`}>
-             <button onClick={() => scrollNav('left')} className="p-2.5 bg-[color-mix(in_srgb,var(--dpal-panel)_20%,transparent)] rounded-full border border-[color:color-mix(in_srgb,var(--dpal-border-strong)_22%,transparent)] text-[var(--dpal-text-secondary)] hover:text-cyan-400 shadow-2xl backdrop-blur-sm active:scale-90 transition-all"><ChevronLeft className="w-5 h-5"/></button>
-        </div>
-        <div className={`absolute right-4 z-20 transition-opacity duration-300 ${showRightArrow ? 'opacity-100' : 'opacity-0'} pointer-events-auto`}>
-             <button onClick={() => scrollNav('right')} className="p-2.5 bg-[color-mix(in_srgb,var(--dpal-panel)_20%,transparent)] rounded-full border border-[color:color-mix(in_srgb,var(--dpal-border-strong)_22%,transparent)] text-[var(--dpal-text-secondary)] hover:text-cyan-400 shadow-2xl backdrop-blur-sm active:scale-90 transition-all"><ChevronRight className="w-5 h-5"/></button>
-        </div>
+        {/* ── Custom drag scrollbar pill — only shown when content overflows ── */}
+        {canScroll && (
+          <div className="px-4 pb-2 pt-0.5">
+            <div className="relative h-1.5 rounded-full bg-[color:color-mix(in_srgb,var(--dpal-border)_60%,transparent)]">
+              <div
+                className="absolute top-0 h-full rounded-full bg-cyan-500/60 hover:bg-cyan-400 active:bg-cyan-300 cursor-grab active:cursor-grabbing transition-colors touch-none select-none"
+                style={{ width: `${thumbWidth}%`, left: `${scrollPct}%` }}
+                onPointerDown={onThumbPointerDown}
+                onPointerMove={onThumbPointerMove}
+                onPointerUp={onThumbPointerUp}
+                onPointerCancel={onThumbPointerUp}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <style>{`
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .dpal-nav-scroll { scroll-behavior: smooth; -ms-overflow-style: none; scrollbar-width: none; }
+        .dpal-nav-scroll::-webkit-scrollbar { display: none; }
         
         @keyframes border-trace-cw-fast {
             0% { stroke-dashoffset: 250; }
