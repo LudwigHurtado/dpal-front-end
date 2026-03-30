@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { RideRequestDraft, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
+import type { RideRequestDraft, SafetyStatus, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
 import { tripService } from './tripService';
 
 type TripState = {
@@ -14,6 +14,7 @@ type TripState = {
   requestRide: () => Promise<void>;
   updateStatus: (status: TripStatus, timelineLabel?: string, timelineDetail?: string) => void;
   appendTimelineEvent: (label: string, detail?: string) => void;
+  updateSafetyState: (safetyStatus: SafetyStatus, timelineDetail?: string) => void;
 };
 
 const EMPTY_DRAFT: RideRequestDraft = {
@@ -85,6 +86,18 @@ export const useTripStore = create<TripState>((set, get) => ({
         timeline: [...prev.timeline, ev],
       },
     });
+  },
+  updateSafetyState(safetyStatus, timelineDetail) {
+    const prev = get().activeTrip;
+    if (!prev) return;
+    set({
+      activeTrip: {
+        ...prev,
+        safetyStatus,
+        updatedAtIso: new Date().toISOString(),
+      },
+    });
+    get().appendTimelineEvent('Safety updated', timelineDetail ?? `Safety set to ${safetyStatus.replace(/_/g, ' ')}`);
   },
 }));
 

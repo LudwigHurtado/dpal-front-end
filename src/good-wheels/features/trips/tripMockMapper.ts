@@ -17,7 +17,6 @@ function asStatus(v: unknown): TripStatus {
 function asPlaceRef(v: unknown, fallbackLabel: string): PlaceRef {
   const o = (v ?? {}) as Partial<PlaceRef>;
   return {
-    id: typeof o.id === 'string' ? o.id : `place-${fallbackLabel.toLowerCase().replace(/\\s+/g, '-')}`,
     label: typeof o.label === 'string' ? o.label : fallbackLabel,
     addressLine: typeof o.addressLine === 'string' ? o.addressLine : '—',
     point: o.point && typeof o.point === 'object' ? (o.point as any) : undefined,
@@ -44,28 +43,35 @@ export function mapMockTripToTrip(input: unknown): Trip {
   const now = new Date().toISOString();
   const o = (input ?? {}) as any;
 
-  const tripId = typeof o.tripId === 'string' ? o.tripId : typeof o.id === 'string' ? o.id : `trip-${Date.now()}`;
+  const id = typeof o.id === 'string' ? o.id : typeof o.tripId === 'string' ? o.tripId : `trip-${Date.now()}`;
   const createdAtIso = asIso(o.createdAtIso, now);
   const updatedAtIso = asIso(o.updatedAtIso, createdAtIso);
   const status = asStatus(o.status);
 
   return {
-    tripId,
+    id,
     passengerId: typeof o.passengerId === 'string' ? o.passengerId : 'passenger-demo',
-    driverId: typeof o.driverId === 'string' ? o.driverId : null,
-    workerId: typeof o.workerId === 'string' ? o.workerId : null,
+    driverId: typeof o.driverId === 'string' ? o.driverId : undefined,
+    workerId: typeof o.workerId === 'string' ? o.workerId : undefined,
     pickup: asPlaceRef(o.pickup, 'Pickup'),
     dropoff: asPlaceRef(o.dropoff, 'Dropoff'),
     purpose: typeof o.purpose === 'string' ? o.purpose : 'normal_ride',
     supportCategoryId: (typeof o.supportCategoryId === 'string' ? (o.supportCategoryId as SupportCategoryId) : undefined) ?? undefined,
     status,
-    safetyStatus: (typeof o.safetyStatus === 'string' ? (o.safetyStatus as SafetyStatus) : undefined) ?? 'ok',
+    safetyStatus: (typeof o.safetyStatus === 'string' ? (o.safetyStatus as SafetyStatus) : undefined) ?? 'standard',
     timeline: asTimeline(o.timeline),
     notes: typeof o.notes === 'string' ? o.notes : undefined,
     trustMarkers: Array.isArray(o.trustMarkers) ? o.trustMarkers.filter((x: any) => typeof x === 'string') : undefined,
     routeSummary: o.routeSummary && typeof o.routeSummary === 'object' ? o.routeSummary : undefined,
     createdAtIso,
     updatedAtIso,
+    estimate:
+      o.estimate && typeof o.estimate === 'object'
+        ? {
+            etaMinutes: typeof o.estimate.etaMinutes === 'number' ? o.estimate.etaMinutes : 12,
+            distanceKm: typeof o.estimate.distanceKm === 'number' ? o.estimate.distanceKm : 4.2,
+          }
+        : { etaMinutes: 12, distanceKm: 4.2 },
   } as Trip;
 }
 

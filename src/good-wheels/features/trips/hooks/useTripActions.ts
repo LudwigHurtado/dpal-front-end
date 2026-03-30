@@ -1,4 +1,4 @@
-import type { Role, Trip, TripStatus } from '../tripTypes';
+import type { Role, SafetyStatus, Trip, TripStatus } from '../tripTypes';
 import { actionsForRoleAndStatus, type TripAction, type TripActionId } from '../tripActions';
 import { useTripStore } from '../tripStore';
 
@@ -9,6 +9,7 @@ function nowIso(): string {
 export function useTripActions(role: Role, trip: Trip) {
   const updateStatus = useTripStore((s) => s.updateStatus);
   const appendTimeline = useTripStore((s) => s.appendTimelineEvent);
+  const updateSafetyState = useTripStore((s) => s.updateSafetyState);
 
   const actions: TripAction[] = actionsForRoleAndStatus(role, trip.status);
 
@@ -46,6 +47,8 @@ export function useTripActions(role: Role, trip: Trip) {
     cancelTrip,
     escalateTrip,
     attachWorker,
+    appendTimelineEvent: appendTimeline,
+    updateSafetyState: (safety: SafetyStatus, detail?: string) => updateSafetyState(safety, detail),
     // small helper for callers that need a timestamp
     nowIso,
   };
