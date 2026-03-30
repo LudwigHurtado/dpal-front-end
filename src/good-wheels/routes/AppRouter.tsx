@@ -80,7 +80,7 @@ export default function AppRouter(): React.ReactElement {
         ],
       },
     ];
-    return createMemoryRouter(routes, { initialEntries: [GW_PATHS.public.home] });
+    return createMemoryRouter(routes, { initialEntries: [GW_PATHS.auth.signIn] });
   }, []);
 
   return <RouterProvider router={router} />;
