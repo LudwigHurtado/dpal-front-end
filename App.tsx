@@ -1320,9 +1320,12 @@ const App: React.FC = () => {
           <CategorySelectionView 
             helpSectorFocusSignal={helpSectorFocusSignal}
             onSelectCategory={(cat) => {
+              // Skip the gateway / mode-shell intermediate screens and open the reporter directly
               setGatewayCategory(cat);
-              setModeShell(null);
-              setCurrentView('categoryGateway');
+              setModeShell({ category: cat, mode: 'report' });
+              setSelectedCategoryForSubmission(cat);
+              setSubmissionPrefill('');
+              setCurrentView('reportSubmission');
             }} 
             onSelectMissions={(cat) => {
               if (cat === Category.GoodDeeds) {
