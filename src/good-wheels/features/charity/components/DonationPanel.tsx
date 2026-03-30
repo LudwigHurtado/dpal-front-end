@@ -1,5 +1,6 @@
 import type { Charity, DonationConfig } from '../types';
 import { formatMoney } from '../utils';
+import { calculateDonationAmount } from '../utils';
 
 type DonationPanelProps = {
   fare: number;
@@ -11,7 +12,7 @@ type DonationPanelProps = {
   onOpenCharities: () => void;
 };
 
-export default function DonationPanel({
+function DonationPanelInline({
   fare,
   selectedCharity,
   donationConfig,
@@ -108,6 +109,132 @@ export default function DonationPanel({
         <div className="flex items-center justify-between">
           <span className="text-sm text-slate-600 font-bold">Total</span>
           <strong className="text-sm text-slate-900">{formatMoney(fare + donationAmount)}</strong>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default DonationPanelInline;
+
+// Compatibility modal API (close to your snippet) without breaking current inline usage.
+export function DonationPanel({
+  open,
+  fareEstimate,
+  value,
+  charityName,
+  onClose,
+  onChange,
+}: {
+  open: boolean;
+  fareEstimate: number;
+  value: { enabled: boolean; type: 'fixed' | 'percentage' | 'round_up'; value: number };
+  charityName: string | null;
+  onClose: () => void;
+  onChange: (config: { enabled: boolean; type: 'fixed' | 'percentage' | 'round_up'; value: number }) => void;
+}) {
+  const previewAmount = value.enabled
+    ? calculateDonationAmount(
+        fareEstimate,
+        value.type === 'round_up'
+          ? ({ type: 'round_up', value: 0 } as any)
+          : value.type === 'fixed'
+            ? ({ type: 'fixed', value: value.value } as any)
+            : ({ type: 'percentage', value: value.value } as any)
+      )
+    : 0;
+
+  if (!open) return null;
+
+  const setType = (type: 'fixed' | 'percentage' | 'round_up', newValue: number) => {
+    onChange({ enabled: true, type, value: newValue });
+  };
+
+  return (
+    <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true" aria-label="Donation settings">
+      <button
+        type="button"
+        className="absolute inset-0"
+        style={{ background: 'rgba(2,6,23,0.35)' }}
+        onClick={onClose}
+        aria-label="Close"
+      />
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-full" style={{ maxWidth: 720 }}>
+        <div className="gw-card p-6" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="gw-card-title">Donation settings</div>
+              <div className="gw-muted mt-1">{charityName ?? 'No charity selected yet'}</div>
+            </div>
+            <button type="button" className="gw-button gw-button-secondary" onClick={onClose}>
+              Close
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-4">
+            <label className="flex items-center justify-between gw-card p-4" style={{ boxShadow: 'none', background: 'rgba(241,245,249,0.65)' }}>
+              <span className="font-extrabold text-slate-900">Enable donation</span>
+              <input
+                type="checkbox"
+                checked={value.enabled}
+                onChange={(e) => onChange({ ...value, enabled: e.target.checked })}
+              />
+            </label>
+
+            <div>
+              <div className="text-sm font-extrabold text-slate-900 mb-2">Fixed donation</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[1, 2, 5].map((amt) => (
+                  <button
+                    key={amt}
+                    type="button"
+                    onClick={() => setType('fixed', amt)}
+                    className={value.type === 'fixed' && value.value === amt ? 'gw-button gw-button-donate' : 'gw-button gw-button-secondary'}
+                  >
+                    ${amt}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-extrabold text-slate-900 mb-2">Percentage</div>
+              <div className="grid grid-cols-3 gap-2">
+                {[5, 10, 15].map((pct) => (
+                  <button
+                    key={pct}
+                    type="button"
+                    onClick={() => setType('percentage', pct)}
+                    className={value.type === 'percentage' && value.value === pct ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
+                  >
+                    {pct}%
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-sm font-extrabold text-slate-900 mb-2">Round up</div>
+              <button
+                type="button"
+                onClick={() => setType('round_up', 0)}
+                className={value.type === 'round_up' ? 'gw-button gw-button-primary w-full' : 'gw-button gw-button-secondary w-full'}
+              >
+                Round fare up to next dollar
+              </button>
+            </div>
+
+            <div className="gw-card p-4" style={{ boxShadow: 'none', background: 'rgba(255,255,255,0.75)' }}>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600 font-bold">Fare estimate</span>
+                <span className="text-slate-900 font-extrabold">{formatMoney(fareEstimate)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm">
+                <span className="text-slate-600 font-bold">Donation preview</span>
+                <span className="text-slate-900 font-extrabold">{formatMoney(previewAmount)}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

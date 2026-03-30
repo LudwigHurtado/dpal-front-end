@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Charity } from '../types';
 
-export default function CharitySelectorModal({
+function CharitySelectorModalImpl({
   open,
   charities,
   selectedCharityId,
@@ -63,5 +63,12 @@ export default function CharitySelectorModal({
       </div>
     </div>
   );
+}
+
+export default CharitySelectorModalImpl;
+
+// Named export for compatibility with the snippet style.
+export function CharitySelectorModal(props: React.ComponentProps<typeof CharitySelectorModalImpl>) {
+  return <CharitySelectorModalImpl {...props} />;
 }
 

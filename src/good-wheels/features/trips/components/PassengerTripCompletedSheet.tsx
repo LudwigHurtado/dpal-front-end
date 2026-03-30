@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Trip } from '../tripTypes';
+import { formatMoney } from '../../charity/utils';
 
 export default function PassengerTripCompletedSheet({
   trip,
@@ -27,8 +28,22 @@ export default function PassengerTripCompletedSheet({
         </div>
         <div className="flex items-center justify-between">
           <div className="text-sm font-bold text-slate-600">Donation</div>
-          <div className="text-sm font-extrabold text-slate-900">—</div>
+          <div className="text-sm font-extrabold text-slate-900">
+            {typeof trip?.donationAmountUsd === 'number' ? formatMoney(trip.donationAmountUsd) : '—'}
+          </div>
         </div>
+        {trip?.charityName && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-bold text-slate-600">Charity</div>
+            <div className="text-sm font-extrabold text-slate-900">{trip.charityName}</div>
+          </div>
+        )}
+        {typeof trip?.dpalRewardPoints === 'number' && (
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-bold text-slate-600">DPAL points</div>
+            <div className="text-sm font-extrabold text-slate-900">{trip.dpalRewardPoints}</div>
+          </div>
+        )}
       </div>
 
       <div className="mt-4">

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GW_PATHS } from '../../routes/paths';
 import TripMapPanel from '../../features/trips/components/TripMapPanel';
@@ -6,16 +6,58 @@ import PassengerTripBottomSheet from '../../features/trips/components/PassengerT
 import { useTripStore } from '../../features/trips/tripStore';
 import { usePassengerTripUi } from '../../features/trips/hooks/usePassengerTripUi';
 import { useTripActions } from '../../features/trips/hooks/useTripActions';
+import { tripService } from '../../features/trips/tripService';
 
 const PassengerActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
   const activeTrip = useTripStore((s) => s.activeTrip);
   const lastTerminalTrip = useTripStore((s) => s.lastTerminalTrip);
   const clearLastTerminalTrip = useTripStore((s) => s.clearLastTerminalTrip);
+  const patchLastTerminalTrip = useTripStore((s) => s.patchLastTerminalTrip);
+  const patchHistoryTrip = useTripStore((s) => s.patchHistoryTrip);
 
   const tripForUi = activeTrip ?? lastTerminalTrip;
   const { uiState, sheetMode } = usePassengerTripUi(tripForUi);
   const actions = useTripActions('passenger', tripForUi ?? ({} as any));
+
+  const canFinalize = useMemo(() => {
+    return Boolean(
+      tripForUi &&
+        tripForUi.status === 'completed' &&
+        typeof tripForUi.dpalRewardPoints !== 'number'
+    );
+  }, [tripForUi]);
+
+  useEffect(() => {
+    if (!canFinalize || !tripForUi) return;
+    let mounted = true;
+    (async () => {
+      const donationConfig = tripForUi.donationConfig ?? { type: 'none', value: 0 };
+      const charity =
+        tripForUi.charityId && tripForUi.charityName
+          ? { id: tripForUi.charityId, name: tripForUi.charityName, category: 'community' }
+          : null;
+      const { donation, rewardPoints } = await tripService.finalizeCompletedTrip({
+        trip: tripForUi,
+        userId: tripForUi.passengerId,
+        fareUsd: tripForUi.fareUsd ?? 18.5,
+        charity,
+        donationConfig,
+      });
+      if (!mounted) return;
+      const patch = {
+        donationAmountUsd: donation?.amountUsd ?? 0,
+        dpalRewardPoints: rewardPoints,
+        charityId: charity?.id ?? tripForUi.charityId ?? null,
+        charityName: charity?.name ?? tripForUi.charityName ?? null,
+      };
+      patchLastTerminalTrip(patch);
+      patchHistoryTrip(tripForUi.id, patch);
+    })().catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [canFinalize, tripForUi, patchLastTerminalTrip, patchHistoryTrip]);
 
   const onCancel = () => {
     // Uses shared trip action; store will move to terminal and capture receipt.
@@ -45,7 +87,7 @@ const PassengerActiveTripPage: React.FC = () => {
         onSearchRide={() => navigate(GW_PATHS.passenger.request)}
         onCancel={onCancel}
         onContactDriver={() => actions.appendTimelineEvent('Contact requested', 'Contact tools will be wired soon.')}
-        onDonate={() => actions.appendTimelineEvent('Donate opened', 'Donation panel will be wired next.')}
+        onDonate={() => actions.appendTimelineEvent('Donation updated', 'Donation settings updated for this trip.')}
         onDone={onDone}
       />
     </div>

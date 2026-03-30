@@ -17,6 +17,8 @@ type TripState = {
   setActiveTrip: (trip: Trip) => void;
   clearActiveTrip: () => void;
   clearLastTerminalTrip: () => void;
+  patchLastTerminalTrip: (patch: Partial<Trip>) => void;
+  patchHistoryTrip: (tripId: string, patch: Partial<Trip>) => void;
   updateStatus: (status: TripStatus, timelineLabel?: string, timelineDetail?: string) => void;
   appendTimelineEvent: (label: string, detail?: string) => void;
   updateSafetyState: (safetyStatus: SafetyStatus, timelineDetail?: string) => void;
@@ -91,6 +93,14 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
   clearLastTerminalTrip() {
     set({ lastTerminalTrip: null });
+  },
+  patchLastTerminalTrip(patch) {
+    set((s) => (s.lastTerminalTrip ? { lastTerminalTrip: { ...s.lastTerminalTrip, ...patch } } : s));
+  },
+  patchHistoryTrip(tripId, patch) {
+    set((s) => ({
+      history: s.history.map((t) => (t.id === tripId ? { ...t, ...patch } : t)),
+    }));
   },
   updateStatus(status, timelineLabel, timelineDetail) {
     const prev = get().activeTrip;
