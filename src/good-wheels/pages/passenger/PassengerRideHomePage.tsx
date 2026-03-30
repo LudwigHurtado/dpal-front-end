@@ -9,97 +9,200 @@ import type { LatLng } from '../../features/map/mapTypes';
 /* ─────────────────────────────────────────────
    Types
 ───────────────────────────────────────────── */
-type RideTier = 'economy' | 'comfort' | 'xl';
+type VehicleType = 'car' | 'moto' | 'truck';
 type ActiveField = 'pickup' | 'dropoff' | null;
 
-interface RideOption {
-  id: RideTier;
-  label: string;
-  price: number;
-  etaMin: number;
-}
-
-const RIDE_OPTIONS: RideOption[] = [
-  { id: 'economy', label: 'Economy', price: 12, etaMin: 5 },
-  { id: 'comfort', label: 'Comfort', price: 18, etaMin: 3 },
-  { id: 'xl', label: 'XL', price: 25, etaMin: 6 },
-];
-
-const TIER_COLOR: Record<RideTier, string> = {
-  economy: '#0077C8',
-  comfort: '#0D3B66',
-  xl: '#2FB344',
-};
-
 /* ─────────────────────────────────────────────
-   Helpers
+   Futuristic SVG icons
 ───────────────────────────────────────────── */
-function getCarSvg(tier: RideTier): string {
-  const bg = TIER_COLOR[tier];
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40" width="40" height="40">
-    <circle cx="20" cy="20" r="18" fill="${bg}" stroke="white" stroke-width="2.5"/>
-    <rect x="10" y="17" width="20" height="10" rx="3" fill="white" opacity="0.92"/>
-    <rect x="13" y="13" width="14" height="8" rx="2" fill="white" opacity="0.70"/>
-    <circle cx="14" cy="27.5" r="2.5" fill="${bg}" stroke="white" stroke-width="1"/>
-    <circle cx="26" cy="27.5" r="2.5" fill="${bg}" stroke="white" stroke-width="1"/>
+
+/** GPS / crosshair scanner icon */
+const GpsIcon = ({ color = '#0077C8', size = 18 }: { color?: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="12" r="9" stroke={color} strokeWidth="1.5" strokeOpacity="0.25" />
+    <circle cx="12" cy="12" r="4.5" stroke={color} strokeWidth="1.8" />
+    <circle cx="12" cy="12" r="1.8" fill={color} />
+    {/* crosshair arms */}
+    <line x1="12" y1="2" x2="12" y2="5.5" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <line x1="12" y1="18.5" x2="12" y2="22" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <line x1="2" y1="12" x2="5.5" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    <line x1="18.5" y1="12" x2="22" y2="12" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+  </svg>
+);
+
+/** Futuristic teardrop pin */
+const PinIcon = ({ color = '#6B7280', size = 15 }: { color?: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 28" fill="none">
+    <path
+      d="M12 1C7.03 1 3 5.03 3 10c0 6.6 9 17 9 17s9-10.4 9-17c0-4.97-4.03-9-9-9z"
+      fill={color}
+      stroke="white"
+      strokeWidth="1.5"
+    />
+    <circle cx="12" cy="10" r="3.2" fill="white" fillOpacity="0.9" />
+    <circle cx="12" cy="10" r="1.5" fill={color} />
+  </svg>
+);
+
+/** Car side-profile (futuristic sedan) */
+const CarIcon = ({ color = 'white' }: { color?: string }) => (
+  <svg viewBox="0 0 52 26" fill="none" width="46" height="22">
+    {/* body */}
+    <path d="M4 18 L6 10 L46 10 L48 18 Z" fill={color} fillOpacity="0.92" />
+    {/* roof */}
+    <path d="M11 10 L16 4 L36 4 L41 10 Z" fill={color} fillOpacity="0.7" />
+    {/* windshield tint */}
+    <path d="M17 10 L21 5 L35 5 L39 10 Z" fill="#7dd3fc" fillOpacity="0.55" />
+    {/* wheels */}
+    <circle cx="13" cy="19" r="4.5" fill="#1e293b" stroke={color} strokeWidth="1.4" />
+    <circle cx="13" cy="19" r="2" fill="#475569" />
+    <circle cx="39" cy="19" r="4.5" fill="#1e293b" stroke={color} strokeWidth="1.4" />
+    <circle cx="39" cy="19" r="2" fill="#475569" />
+    {/* headlight */}
+    <ellipse cx="47.5" cy="15" rx="2.2" ry="1.4" fill="#fde68a" fillOpacity="0.95" />
+    <ellipse cx="47.5" cy="15" rx="5" ry="3" fill="#fde68a" fillOpacity="0.12" />
+    {/* tail light */}
+    <rect x="3" y="14" width="3" height="3.5" rx="1" fill="#f87171" fillOpacity="0.9" />
+  </svg>
+);
+
+/** Motorcycle side-profile */
+const MotoIcon = ({ color = 'white' }: { color?: string }) => (
+  <svg viewBox="0 0 52 30" fill="none" width="46" height="26">
+    {/* frame */}
+    <path d="M14 20 L24 8 L34 8 L38 14 L38 20" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fillOpacity="0" />
+    {/* tank */}
+    <ellipse cx="28" cy="11" rx="6" ry="3.5" fill={color} fillOpacity="0.75" />
+    {/* fairing */}
+    <path d="M34 8 L40 10 L40 16 L38 14" fill={color} fillOpacity="0.55" />
+    {/* handlebars */}
+    <path d="M32 8 L35 5 M32 8 L35 10" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+    {/* seat */}
+    <path d="M20 8 L30 8 L30 10 L20 10 Z" fill={color} fillOpacity="0.65" rx="2" />
+    {/* wheels */}
+    <circle cx="12" cy="21" r="6" fill="#1e293b" stroke={color} strokeWidth="1.4" />
+    <circle cx="12" cy="21" r="2.5" fill="#475569" />
+    <circle cx="40" cy="21" r="6" fill="#1e293b" stroke={color} strokeWidth="1.4" />
+    <circle cx="40" cy="21" r="2.5" fill="#475569" />
+    {/* headlight */}
+    <circle cx="42" cy="13" r="2" fill="#fde68a" fillOpacity="0.9" />
+  </svg>
+);
+
+/** Large / SUV / truck side-profile */
+const TruckIcon = ({ color = 'white' }: { color?: string }) => (
+  <svg viewBox="0 0 58 28" fill="none" width="50" height="24">
+    {/* body — tall boxy shape */}
+    <rect x="3" y="8" width="46" height="14" rx="3" fill={color} fillOpacity="0.88" />
+    {/* roof rack */}
+    <rect x="5" y="5" width="42" height="4" rx="2" fill={color} fillOpacity="0.55" />
+    {/* windows */}
+    <rect x="8" y="9" width="14" height="7" rx="1.5" fill="#7dd3fc" fillOpacity="0.5" />
+    <rect x="24" y="9" width="18" height="7" rx="1.5" fill="#7dd3fc" fillOpacity="0.5" />
+    {/* trailer hitch / rear */}
+    <rect x="49" y="14" width="5" height="4" rx="1.2" fill={color} fillOpacity="0.6" />
+    {/* wheels */}
+    <circle cx="13" cy="23" r="4.5" fill="#1e293b" stroke={color} strokeWidth="1.4" />
+    <circle cx="13" cy="23" r="2" fill="#475569" />
+    <circle cx="37" cy="23" r="4.5" fill="#1e293b" stroke={color} strokeWidth="1.4" />
+    <circle cx="37" cy="23" r="2" fill="#475569" />
+    {/* headlight */}
+    <ellipse cx="50.5" cy="15" rx="2" ry="1.5" fill="#fde68a" fillOpacity="0.95" />
+    <ellipse cx="50.5" cy="15" rx="4.5" ry="3" fill="#fde68a" fillOpacity="0.12" />
+    {/* tail light */}
+    <rect x="2" y="13" width="2.5" height="4" rx="1" fill="#f87171" fillOpacity="0.9" />
+  </svg>
+);
+
+/** Map marker SVG — futuristic hexagon-ish */
+function getPinSvg(label: string, bg: string) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 42" width="32" height="42">
+    <defs>
+      <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="2" result="blur"/>
+        <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+    </defs>
+    <path d="M16 1C8.82 1 3 6.82 3 14c0 3.44 1.3 6.57 3.43 8.93L16 41l9.57-18.07A11.96 11.96 0 0 0 29 14C29 6.82 23.18 1 16 1z"
+      fill="${bg}" stroke="white" stroke-width="2" filter="url(#glow)"/>
+    <circle cx="16" cy="14" r="7" fill="white" fill-opacity="0.18"/>
+    <circle cx="16" cy="14" r="5.5" fill="white"/>
+    <text x="16" y="18" text-anchor="middle" font-size="7.5" font-weight="900" fill="${bg}" font-family="sans-serif">${label}</text>
   </svg>`;
 }
 
-/* GPS icon SVG */
-const GpsIcon = ({ color = '#0077C8' }: { color?: string }) => (
-  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="12" cy="12" r="3" />
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" />
-    <circle cx="12" cy="12" r="8" strokeOpacity="0.35" />
-  </svg>
-);
+/** Vehicle marker on map */
+function getVehicleSvg(type: VehicleType) {
+  const colors: Record<VehicleType, string> = { car: '#0077C8', moto: '#7C3AED', truck: '#059669' };
+  const bg = colors[type];
+  const label = type === 'car' ? '🚗' : type === 'moto' ? '🏍' : '🚙';
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 46 46" width="46" height="46">
+    <defs>
+      <radialGradient id="vbg" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="${bg}" stop-opacity="1"/>
+        <stop offset="100%" stop-color="${bg}" stop-opacity="0.75"/>
+      </radialGradient>
+      <filter id="vs"><feGaussianBlur stdDeviation="2.5"/></filter>
+    </defs>
+    <circle cx="23" cy="23" r="21" fill="${bg}" fill-opacity="0.15" filter="url(#vs)"/>
+    <circle cx="23" cy="23" r="18" fill="url(#vbg)" stroke="white" stroke-width="2.5"/>
+    <circle cx="23" cy="23" r="14" fill="none" stroke="white" stroke-width="1" stroke-opacity="0.35"/>
+    <text x="23" y="29" text-anchor="middle" font-size="16" font-family="sans-serif">${label}</text>
+  </svg>`;
+}
 
-/* Pin icon SVG */
-const PinIcon = ({ color = '#6B7280' }: { color?: string }) => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill={color} stroke="white" strokeWidth="1.4">
-    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-    <circle cx="12" cy="9" r="2.5" fill="white" />
-  </svg>
-);
+const VEHICLE_OPTIONS: { id: VehicleType; label: string; sub: string }[] = [
+  { id: 'car',   label: 'Car',       sub: 'Sedan / Compact' },
+  { id: 'moto',  label: 'Moto',      sub: 'Motorcycle' },
+  { id: 'truck', label: 'Large',     sub: 'SUV / Truck' },
+];
+
+const VEHICLE_ACCENT: Record<VehicleType, string> = {
+  car:   '#0077C8',
+  moto:  '#7C3AED',
+  truck: '#059669',
+};
 
 const TABS = [
-  { id: 'ride' as const, label: 'Ride', icon: '🚗' },
+  { id: 'ride'      as const, label: 'Ride',      icon: '🚗' },
   { id: 'charities' as const, label: 'Charities', icon: '❤️' },
   { id: 'donations' as const, label: 'Donations', icon: '🤝' },
-  { id: 'profile' as const, label: 'Profile', icon: '👤' },
+  { id: 'profile'   as const, label: 'Profile',   icon: '👤' },
 ];
 
 /* ─────────────────────────────────────────────
    Component
 ───────────────────────────────────────────── */
 const PassengerRideHomePage: React.FC = () => {
-  const navigate = useNavigate();
-  const signOut = useAuthStore((s) => s.signOut);
-  const draft = useTripStore((s) => s.draft);
-  const setDraft = useTripStore((s) => s.setDraft);
+  const navigate   = useNavigate();
+  const signOut    = useAuthStore((s) => s.signOut);
+  const draft      = useTripStore((s) => s.draft);
+  const setDraft   = useTripStore((s) => s.setDraft);
   const { google: g, ready } = useGoogleMaps();
 
   /* Map refs */
-  const mapRef = useRef<HTMLDivElement>(null);
-  const mapObjRef = useRef<google.maps.Map | null>(null);
-  const directionsRendRef = useRef<google.maps.DirectionsRenderer | null>(null);
-  const pickupMarkerRef = useRef<google.maps.Marker | null>(null);
-  const dropoffMarkerRef = useRef<google.maps.Marker | null>(null);
-  const vehicleMarkerRef = useRef<google.maps.Marker | null>(null);
+  const mapRef             = useRef<HTMLDivElement>(null);
+  const mapObjRef          = useRef<google.maps.Map | null>(null);
+  const directionsRendRef  = useRef<google.maps.DirectionsRenderer | null>(null);
+  const pickupMarkerRef    = useRef<google.maps.Marker | null>(null);
+  const dropoffMarkerRef   = useRef<google.maps.Marker | null>(null);
+  const vehicleMarkerRef   = useRef<google.maps.Marker | null>(null);
   const mapClickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
 
   /* UI state */
-  const [selectedRideId, setSelectedRideId] = useState<RideTier>('economy');
+  const [vehicleType, setVehicleType] = useState<VehicleType>('car');
+  const [maxPrice, setMaxPrice]       = useState('');
   const [activeField, setActiveField] = useState<ActiveField>(null);
-  const [pickupText, setPickupText] = useState(draft.pickup?.addressLine ?? '');
+  const [pickupText,  setPickupText]  = useState(draft.pickup?.addressLine  ?? '');
   const [dropoffText, setDropoffText] = useState(draft.dropoff?.addressLine ?? '');
-  const [pickupLL, setPickupLL] = useState<LatLng | null>(draft.pickup?.point ?? null);
-  const [dropoffLL, setDropoffLL] = useState<LatLng | null>(draft.dropoff?.point ?? null);
-  const [pickupPreds, setPickupPreds] = useState<google.maps.places.AutocompletePrediction[]>([]);
+  const [pickupLL,    setPickupLL]    = useState<LatLng | null>(draft.pickup?.point  ?? null);
+  const [dropoffLL,   setDropoffLL]   = useState<LatLng | null>(draft.dropoff?.point ?? null);
+  const [pickupPreds,  setPickupPreds]  = useState<google.maps.places.AutocompletePrediction[]>([]);
   const [dropoffPreds, setDropoffPreds] = useState<google.maps.places.AutocompletePrediction[]>([]);
-  const [locatingPickup, setLocatingPickup] = useState(false);
+  const [locatingPickup,  setLocatingPickup]  = useState(false);
   const [locatingDropoff, setLocatingDropoff] = useState(false);
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
   const [activeTab, setActiveTab] = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
 
   /* ── Init map ── */
@@ -111,33 +214,29 @@ const PassengerRideHomePage: React.FC = () => {
       disableDefaultUI: true,
       gestureHandling: 'greedy',
       styles: [
-        { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+        { featureType: 'poi',     stylers: [{ visibility: 'off' }] },
         { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+        { featureType: 'road',    elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
       ],
     });
     directionsRendRef.current = new g.maps.DirectionsRenderer({
       suppressMarkers: true,
-      polylineOptions: { strokeColor: '#F4A300', strokeWeight: 5, strokeOpacity: 0.88 },
+      polylineOptions: { strokeColor: '#F4A300', strokeWeight: 5, strokeOpacity: 0.9 },
     });
     directionsRendRef.current.setMap(mapObjRef.current);
   }, [ready, g]);
 
-  /* ── Map click listener: attach/detach based on activeField ── */
+  /* ── Map click listener ── */
   useEffect(() => {
-    // Remove previous listener
     if (mapClickListenerRef.current) {
       mapClickListenerRef.current.remove();
       mapClickListenerRef.current = null;
     }
     if (!g || !mapObjRef.current || !activeField) {
-      // Reset cursor
       if (mapObjRef.current) mapObjRef.current.setOptions({ draggableCursor: '' });
       return;
     }
-
-    // Crosshair cursor while in pin mode
     mapObjRef.current.setOptions({ draggableCursor: 'crosshair' });
-
     mapClickListenerRef.current = mapObjRef.current.addListener(
       'click',
       (e: google.maps.MapMouseEvent) => {
@@ -145,7 +244,6 @@ const PassengerRideHomePage: React.FC = () => {
         const lng = e.latLng?.lng();
         if (typeof lat !== 'number' || typeof lng !== 'number') return;
         const pt: LatLng = { lat, lng };
-
         setReverseGeoLoading(true);
         const geocoder = new g.maps.Geocoder();
         geocoder.geocode({ location: pt }, (results, status) => {
@@ -154,91 +252,62 @@ const PassengerRideHomePage: React.FC = () => {
               ? results[0].formatted_address
               : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
           setReverseGeoLoading(false);
-
           if (activeField === 'pickup') {
-            setPickupText(addr);
-            setPickupLL(pt);
-            setPickupPreds([]);
+            setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
             setDraft({ pickup: { label: 'Pickup', addressLine: addr, point: pt } });
           } else {
-            setDropoffText(addr);
-            setDropoffLL(pt);
-            setDropoffPreds([]);
+            setDropoffText(addr); setDropoffLL(pt); setDropoffPreds([]);
             setDraft({ dropoff: { label: 'Dropoff', addressLine: addr, point: pt } });
           }
-          // Deactivate field after pin placement
           setActiveField(null);
         });
       }
     );
-
     return () => {
-      if (mapClickListenerRef.current) {
-        mapClickListenerRef.current.remove();
-        mapClickListenerRef.current = null;
-      }
-      if (mapObjRef.current) mapObjRef.current.setOptions({ draggableCursor: '' });
+      mapClickListenerRef.current?.remove();
+      mapClickListenerRef.current = null;
+      mapObjRef.current?.setOptions({ draggableCursor: '' });
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g, activeField]);
 
-  /* ── Update markers + route ── */
+  /* ── Markers + route ── */
   useEffect(() => {
     if (!g || !mapObjRef.current) return;
 
-    // Pickup marker — red pin
+    // Pickup marker — futuristic red A pin
     if (pickupLL) {
       if (!pickupMarkerRef.current) {
-        pickupMarkerRef.current = new g.maps.Marker({
-          map: mapObjRef.current,
-          title: 'Pickup',
-          zIndex: 10,
-        });
+        pickupMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current, title: 'Pickup', zIndex: 10 });
       }
       pickupMarkerRef.current.setPosition(pickupLL);
       pickupMarkerRef.current.setIcon({
-        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 36" width="28" height="36">
-            <path d="M14 0C6.27 0 0 6.27 0 14c0 9.8 14 22 14 22S28 23.8 28 14C28 6.27 21.73 0 14 0z" fill="#ef4444" stroke="white" stroke-width="1.8"/>
-            <circle cx="14" cy="13" r="5" fill="white"/>
-            <text x="14" y="17" text-anchor="middle" font-size="7" font-weight="900" fill="#ef4444">A</text>
-          </svg>`
-        )}`,
-        scaledSize: new g.maps.Size(28, 36),
-        anchor: new g.maps.Point(14, 36),
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('A', '#ef4444'))}`,
+        scaledSize: new g.maps.Size(32, 42),
+        anchor: new g.maps.Point(16, 42),
       });
     } else {
       pickupMarkerRef.current?.setMap(null);
       pickupMarkerRef.current = null;
     }
 
-    // Dropoff marker — green pin
+    // Dropoff marker — futuristic green B pin
     if (dropoffLL) {
       if (!dropoffMarkerRef.current) {
-        dropoffMarkerRef.current = new g.maps.Marker({
-          map: mapObjRef.current,
-          title: 'Dropoff',
-          zIndex: 10,
-        });
+        dropoffMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current, title: 'Dropoff', zIndex: 10 });
       }
       dropoffMarkerRef.current.setPosition(dropoffLL);
       dropoffMarkerRef.current.setIcon({
-        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(
-          `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 36" width="28" height="36">
-            <path d="M14 0C6.27 0 0 6.27 0 14c0 9.8 14 22 14 22S28 23.8 28 14C28 6.27 21.73 0 14 0z" fill="#22c55e" stroke="white" stroke-width="1.8"/>
-            <circle cx="14" cy="13" r="5" fill="white"/>
-            <text x="14" y="17" text-anchor="middle" font-size="7" font-weight="900" fill="#16a34a">B</text>
-          </svg>`
-        )}`,
-        scaledSize: new g.maps.Size(28, 36),
-        anchor: new g.maps.Point(14, 36),
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('B', '#22c55e'))}`,
+        scaledSize: new g.maps.Size(32, 42),
+        anchor: new g.maps.Point(16, 42),
       });
     } else {
       dropoffMarkerRef.current?.setMap(null);
       dropoffMarkerRef.current = null;
     }
 
-    // Route + vehicle preview
+    // Route + vehicle marker — vehicle placed at PICKUP location
     if (pickupLL && dropoffLL && directionsRendRef.current) {
       const dirSvc = new g.maps.DirectionsService();
       dirSvc.route(
@@ -246,28 +315,26 @@ const PassengerRideHomePage: React.FC = () => {
         (result, status) => {
           if (status === 'OK' && result && directionsRendRef.current) {
             directionsRendRef.current.setDirections(result);
-            const path = result.routes[0]?.overview_path;
-            if (path && path.length > 0) {
-              const idx = Math.floor(path.length * 0.25);
-              const pt = path[idx];
-              if (!vehicleMarkerRef.current) {
-                vehicleMarkerRef.current = new g.maps.Marker({
-                  map: mapObjRef.current!,
-                  title: 'Your driver',
-                  zIndex: 20,
-                });
-              }
-              vehicleMarkerRef.current.setPosition(pt);
-              vehicleMarkerRef.current.setIcon({
-                url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getCarSvg(selectedRideId))}`,
-                scaledSize: new g.maps.Size(40, 40),
-                anchor: new g.maps.Point(20, 20),
+
+            // Place vehicle marker AT pickup (driver is heading to pick up the passenger)
+            if (!vehicleMarkerRef.current) {
+              vehicleMarkerRef.current = new g.maps.Marker({
+                map: mapObjRef.current!,
+                title: 'Vehicle',
+                zIndex: 20,
               });
             }
+            vehicleMarkerRef.current.setPosition(pickupLL);
+            vehicleMarkerRef.current.setIcon({
+              url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getVehicleSvg(vehicleType))}`,
+              scaledSize: new g.maps.Size(46, 46),
+              anchor: new g.maps.Point(23, 23),
+            });
+
             const bounds = new g.maps.LatLngBounds();
             bounds.extend(pickupLL);
             bounds.extend(dropoffLL);
-            mapObjRef.current?.fitBounds(bounds, { top: 120, bottom: 290, left: 32, right: 32 });
+            mapObjRef.current?.fitBounds(bounds, { top: 120, bottom: 260, left: 32, right: 32 });
           }
         }
       );
@@ -277,17 +344,17 @@ const PassengerRideHomePage: React.FC = () => {
       vehicleMarkerRef.current = null;
       if (pickupLL) mapObjRef.current?.panTo(pickupLL);
     }
-  }, [g, pickupLL, dropoffLL, selectedRideId]);
+  }, [g, pickupLL, dropoffLL, vehicleType]);
 
-  /* ── Vehicle icon refresh on tier change ── */
+  /* ── Vehicle icon refresh on type change ── */
   useEffect(() => {
     if (!g || !vehicleMarkerRef.current) return;
     vehicleMarkerRef.current.setIcon({
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getCarSvg(selectedRideId))}`,
-      scaledSize: new g.maps.Size(40, 40),
-      anchor: new g.maps.Point(20, 20),
+      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getVehicleSvg(vehicleType))}`,
+      scaledSize: new g.maps.Size(46, 46),
+      anchor: new g.maps.Point(23, 23),
     });
-  }, [g, selectedRideId]);
+  }, [g, vehicleType]);
 
   /* ── Autocomplete ── */
   const fetchPredictions = useCallback(
@@ -309,21 +376,16 @@ const PassengerRideHomePage: React.FC = () => {
       svc.getDetails({ placeId: pred.place_id, fields: ['geometry', 'formatted_address'] }, (place, status) => {
         if (status !== g.maps.places.PlacesServiceStatus.OK || !place) return;
         const loc = place.geometry?.location;
-        const lat = loc?.lat();
-        const lng = loc?.lng();
+        const lat = loc?.lat(); const lng = loc?.lng();
         const addr = place.formatted_address ?? pred.description;
         const point: LatLng | undefined =
           typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : undefined;
         if (mode === 'pickup') {
-          setPickupText(addr);
-          if (point) setPickupLL(point);
-          setPickupPreds([]);
+          setPickupText(addr); if (point) setPickupLL(point); setPickupPreds([]);
           setDraft({ pickup: { label: 'Pickup', addressLine: addr, point } });
-          setActiveField('dropoff'); // auto-advance to dropoff
+          setActiveField('dropoff');
         } else {
-          setDropoffText(addr);
-          if (point) setDropoffLL(point);
-          setDropoffPreds([]);
+          setDropoffText(addr); if (point) setDropoffLL(point); setDropoffPreds([]);
           setDraft({ dropoff: { label: 'Dropoff', addressLine: addr, point } });
           setActiveField(null);
         }
@@ -337,10 +399,9 @@ const PassengerRideHomePage: React.FC = () => {
     if (!g) { onAddr(`${lat.toFixed(5)}, ${lng.toFixed(5)}`); return; }
     const geocoder = new g.maps.Geocoder();
     geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-      const addr =
-        status === 'OK' && results?.[0]?.formatted_address
-          ? results[0].formatted_address
-          : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      const addr = status === 'OK' && results?.[0]?.formatted_address
+        ? results[0].formatted_address
+        : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
       onAddr(addr);
     });
   };
@@ -352,12 +413,9 @@ const PassengerRideHomePage: React.FC = () => {
       ({ coords }) => {
         const pt: LatLng = { lat: coords.latitude, lng: coords.longitude };
         gpsGeocode(pt.lat, pt.lng, (addr) => {
-          setPickupText(addr);
-          setPickupLL(pt);
-          setPickupPreds([]);
+          setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
           setDraft({ pickup: { label: 'My Location', addressLine: addr, point: pt } });
-          setLocatingPickup(false);
-          setActiveField('dropoff'); // auto-advance
+          setLocatingPickup(false); setActiveField('dropoff');
         });
       },
       () => setLocatingPickup(false),
@@ -372,12 +430,9 @@ const PassengerRideHomePage: React.FC = () => {
       ({ coords }) => {
         const pt: LatLng = { lat: coords.latitude, lng: coords.longitude };
         gpsGeocode(pt.lat, pt.lng, (addr) => {
-          setDropoffText(addr);
-          setDropoffLL(pt);
-          setDropoffPreds([]);
+          setDropoffText(addr); setDropoffLL(pt); setDropoffPreds([]);
           setDraft({ dropoff: { label: 'My Location', addressLine: addr, point: pt } });
-          setLocatingDropoff(false);
-          setActiveField(null);
+          setLocatingDropoff(false); setActiveField(null);
         });
       },
       () => setLocatingDropoff(false),
@@ -386,11 +441,13 @@ const PassengerRideHomePage: React.FC = () => {
   };
 
   const requestRide = useTripStore((s) => s.requestRide);
-  const canConfirm = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
+  const bothSet = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
 
-  const handleConfirmRide = async () => {
+  const handleBroadcast = async () => {
     setActiveField(null);
+    setBroadcasting(true);
     await requestRide();
+    setBroadcasting(false);
     navigate(GW_PATHS.passenger.active);
   };
 
@@ -412,10 +469,13 @@ const PassengerRideHomePage: React.FC = () => {
         <div className="gw-ride-header-inner">
           <div className="gw-ride-brand">
             <div className="gw-ride-logo-mark">
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width="22" height="22">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                <line x1="2" y1="12" x2="22" y2="12" />
+              {/* Futuristic globe / wheel logo */}
+              <svg viewBox="0 0 28 28" fill="none" width="26" height="26">
+                <circle cx="14" cy="14" r="12" stroke="white" strokeWidth="1.8" strokeOpacity="0.9"/>
+                <circle cx="14" cy="14" r="5.5" fill="white" fillOpacity="0.18" stroke="white" strokeWidth="1.4"/>
+                <line x1="14" y1="2" x2="14" y2="26" stroke="white" strokeWidth="1.2" strokeOpacity="0.6"/>
+                <line x1="2" y1="14" x2="26" y2="14" stroke="white" strokeWidth="1.2" strokeOpacity="0.6"/>
+                <ellipse cx="14" cy="14" rx="6" ry="12" stroke="white" strokeWidth="1.1" strokeOpacity="0.45"/>
               </svg>
             </div>
             <div>
@@ -434,10 +494,8 @@ const PassengerRideHomePage: React.FC = () => {
 
       {/* ── Map stage ── */}
       <div className="gw-ride-map-stage">
-        {/* Map canvas */}
         <div ref={mapRef} className="gw-ride-map-canvas" />
 
-        {/* Loading placeholder */}
         {!ready && (
           <div className="gw-ride-map-loading">
             <div className="gw-ride-map-loading-inner">
@@ -447,13 +505,13 @@ const PassengerRideHomePage: React.FC = () => {
           </div>
         )}
 
-        {/* ── Map pin-mode hint pill ── */}
+        {/* ── Pin-mode hint pill ── */}
         {activeField && (
           <div
             className={`gw-map-pin-hint ${activeField === 'pickup' ? 'gw-map-pin-hint--pickup' : 'gw-map-pin-hint--dropoff'}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <PinIcon color={activeField === 'pickup' ? '#ef4444' : '#22c55e'} />
+            <PinIcon color={activeField === 'pickup' ? '#ef4444' : '#22c55e'} size={14} />
             <span>
               {reverseGeoLoading
                 ? 'Reading location…'
@@ -461,25 +519,17 @@ const PassengerRideHomePage: React.FC = () => {
                 ? 'Tap map to set pickup point'
                 : 'Tap map to set dropoff point'}
             </span>
-            <button
-              type="button"
-              className="gw-map-pin-hint-cancel"
-              onClick={() => setActiveField(null)}
-            >
-              ✕
-            </button>
+            <button type="button" className="gw-map-pin-hint-cancel" onClick={() => setActiveField(null)}>✕</button>
           </div>
         )}
 
         {/* ── Floating address card ── */}
         <div className="gw-trip-addr-card" onClick={(e) => e.stopPropagation()}>
 
-          {/* Pickup field */}
+          {/* Pickup */}
           <div className={`gw-addr-field${activeField === 'pickup' ? ' gw-addr-field--pickup-active' : ''}`}>
             <div className="gw-addr-row">
-              <div className="gw-addr-dot gw-addr-dot--pickup">
-                <PinIcon color="#ef4444" />
-              </div>
+              <div className="gw-addr-dot"><PinIcon color="#ef4444" size={15} /></div>
               <input
                 className="gw-addr-input"
                 placeholder="Where from? (pickup)"
@@ -492,35 +542,21 @@ const PassengerRideHomePage: React.FC = () => {
                   fetchPredictions(v, setPickupPreds);
                 }}
               />
-              {/* GPS button */}
               <button
                 type="button"
                 className={`gw-addr-gps-btn${locatingPickup ? ' gw-addr-gps-btn--loading' : ''}`}
-                title="Use my GPS location as pickup"
+                title="Use GPS as pickup"
                 onClick={handlePickupGps}
                 disabled={locatingPickup}
               >
-                {locatingPickup
-                  ? <span className="gw-addr-gps-spinner" />
-                  : <GpsIcon color="#0077C8" />}
+                {locatingPickup ? <span className="gw-addr-gps-spinner" /> : <GpsIcon color="#0077C8" size={17} />}
               </button>
             </div>
-
-            {/* Active indicator bar */}
-            {activeField === 'pickup' && (
-              <div className="gw-addr-active-bar gw-addr-active-bar--pickup" />
-            )}
-
-            {/* Autocomplete suggestions */}
+            {activeField === 'pickup' && <div className="gw-addr-active-bar gw-addr-active-bar--pickup" />}
             {pickupPreds.length > 0 && (
               <div className="gw-addr-preds">
                 {pickupPreds.map((p) => (
-                  <button
-                    key={p.place_id}
-                    type="button"
-                    className="gw-addr-pred-item"
-                    onClick={() => applyPrediction(p, 'pickup')}
-                  >
+                  <button key={p.place_id} type="button" className="gw-addr-pred-item" onClick={() => applyPrediction(p, 'pickup')}>
                     <span className="gw-addr-pred-pin" style={{ color: '#ef4444' }}>📍</span>
                     <span className="gw-addr-pred-text">{p.description}</span>
                   </button>
@@ -529,16 +565,12 @@ const PassengerRideHomePage: React.FC = () => {
             )}
           </div>
 
-          <div className="gw-addr-connector">
-            <div className="gw-addr-connector-line" />
-          </div>
+          <div className="gw-addr-connector"><div className="gw-addr-connector-line" /></div>
 
-          {/* Dropoff field */}
+          {/* Dropoff */}
           <div className={`gw-addr-field${activeField === 'dropoff' ? ' gw-addr-field--dropoff-active' : ''}`}>
             <div className="gw-addr-row">
-              <div className="gw-addr-dot gw-addr-dot--dropoff">
-                <PinIcon color="#22c55e" />
-              </div>
+              <div className="gw-addr-dot"><PinIcon color="#22c55e" size={15} /></div>
               <input
                 className="gw-addr-input"
                 placeholder="Where to? (dropoff)"
@@ -551,35 +583,21 @@ const PassengerRideHomePage: React.FC = () => {
                   fetchPredictions(v, setDropoffPreds);
                 }}
               />
-              {/* GPS button */}
               <button
                 type="button"
                 className={`gw-addr-gps-btn${locatingDropoff ? ' gw-addr-gps-btn--loading' : ''}`}
-                title="Use my GPS location as dropoff"
+                title="Use GPS as dropoff"
                 onClick={handleDropoffGps}
                 disabled={locatingDropoff}
               >
-                {locatingDropoff
-                  ? <span className="gw-addr-gps-spinner" />
-                  : <GpsIcon color="#22c55e" />}
+                {locatingDropoff ? <span className="gw-addr-gps-spinner" /> : <GpsIcon color="#22c55e" size={17} />}
               </button>
             </div>
-
-            {/* Active indicator bar */}
-            {activeField === 'dropoff' && (
-              <div className="gw-addr-active-bar gw-addr-active-bar--dropoff" />
-            )}
-
-            {/* Autocomplete suggestions */}
+            {activeField === 'dropoff' && <div className="gw-addr-active-bar gw-addr-active-bar--dropoff" />}
             {dropoffPreds.length > 0 && (
               <div className="gw-addr-preds">
                 {dropoffPreds.map((p) => (
-                  <button
-                    key={p.place_id}
-                    type="button"
-                    className="gw-addr-pred-item"
-                    onClick={() => applyPrediction(p, 'dropoff')}
-                  >
+                  <button key={p.place_id} type="button" className="gw-addr-pred-item" onClick={() => applyPrediction(p, 'dropoff')}>
                     <span className="gw-addr-pred-pin" style={{ color: '#22c55e' }}>📍</span>
                     <span className="gw-addr-pred-text">{p.description}</span>
                   </button>
@@ -588,24 +606,16 @@ const PassengerRideHomePage: React.FC = () => {
             )}
           </div>
 
-          {/* Map-tap shortcut labels — only when no active field and not both set */}
+          {/* Map-tap shortcuts */}
           {!activeField && !(pickupLL && dropoffLL) && (
             <div className="gw-addr-map-hints">
               {!pickupLL && (
-                <button
-                  type="button"
-                  className="gw-addr-map-hint-btn gw-addr-map-hint-btn--pickup"
-                  onClick={() => setActiveField('pickup')}
-                >
+                <button type="button" className="gw-addr-map-hint-btn gw-addr-map-hint-btn--pickup" onClick={() => setActiveField('pickup')}>
                   📍 Tap map for pickup
                 </button>
               )}
               {!dropoffLL && (
-                <button
-                  type="button"
-                  className="gw-addr-map-hint-btn gw-addr-map-hint-btn--dropoff"
-                  onClick={() => setActiveField('dropoff')}
-                >
+                <button type="button" className="gw-addr-map-hint-btn gw-addr-map-hint-btn--dropoff" onClick={() => setActiveField('dropoff')}>
                   📍 Tap map for dropoff
                 </button>
               )}
@@ -613,55 +623,74 @@ const PassengerRideHomePage: React.FC = () => {
           )}
         </div>
 
-        {/* ── Ride options + confirm — only shown once both pins are placed ── */}
-        {pickupLL && dropoffLL && (
-          <div className="gw-ride-opts-card" onClick={(e) => e.stopPropagation()}>
-            {/* Compact route summary at top */}
-            <div className="gw-ride-route-summary">
-              <span className="gw-ride-route-dot gw-ride-route-dot--a">A</span>
-              <span className="gw-ride-route-label">{pickupText.split(',')[0]}</span>
-              <span className="gw-ride-route-arrow">→</span>
-              <span className="gw-ride-route-dot gw-ride-route-dot--b">B</span>
-              <span className="gw-ride-route-label">{dropoffText.split(',')[0]}</span>
+        {/* ── Bid panel — only shown once both addresses are set ── */}
+        {bothSet && (
+          <div className="gw-bid-card" onClick={(e) => e.stopPropagation()}>
+
+            {/* Route summary */}
+            <div className="gw-bid-route">
+              <span className="gw-bid-pin gw-bid-pin--a">A</span>
+              <span className="gw-bid-route-addr">{pickupText.split(',')[0]}</span>
+              <span className="gw-bid-arrow">→</span>
+              <span className="gw-bid-pin gw-bid-pin--b">B</span>
+              <span className="gw-bid-route-addr">{dropoffText.split(',')[0]}</span>
             </div>
 
-            <div className="gw-ride-opts-label">Choose your ride</div>
+            {/* Vehicle type selector */}
+            <div className="gw-bid-section-label">Select vehicle</div>
+            <div className="gw-bid-vehicles">
+              {VEHICLE_OPTIONS.map((v) => {
+                const sel = v.id === vehicleType;
+                const accent = VEHICLE_ACCENT[v.id];
+                return (
+                  <button
+                    key={v.id}
+                    type="button"
+                    className={`gw-bid-vehicle-btn${sel ? ' gw-bid-vehicle-btn--sel' : ''}`}
+                    style={sel ? { borderColor: accent, background: `${accent}12` } : {}}
+                    onClick={() => setVehicleType(v.id)}
+                  >
+                    <div className="gw-bid-vehicle-icon" style={{ background: sel ? accent : '#f1f5f9' }}>
+                      {v.id === 'car'   && <CarIcon   color={sel ? 'white' : '#64748b'} />}
+                      {v.id === 'moto'  && <MotoIcon  color={sel ? 'white' : '#64748b'} />}
+                      {v.id === 'truck' && <TruckIcon color={sel ? 'white' : '#64748b'} />}
+                    </div>
+                    <div className="gw-bid-vehicle-label">{v.label}</div>
+                    <div className="gw-bid-vehicle-sub">{v.sub}</div>
+                  </button>
+                );
+              })}
+            </div>
 
-            {RIDE_OPTIONS.map((opt) => {
-              const sel = opt.id === selectedRideId;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={sel ? 'gw-ride-opt-row gw-ride-opt-row--selected' : 'gw-ride-opt-row'}
-                  onClick={() => setSelectedRideId(opt.id)}
-                >
-                  <div className="gw-ride-opt-icon" style={{ background: TIER_COLOR[opt.id] }}>
-                    <svg viewBox="0 0 24 14" fill="none" width="24" height="14">
-                      <rect x="1" y="5" width="22" height="8" rx="2" fill="white" opacity="0.85" />
-                      <rect x="4" y="1" width="16" height="8" rx="2" fill="white" opacity="0.65" />
-                      <circle cx="5" cy="13" r="2" fill={TIER_COLOR[opt.id]} stroke="white" strokeWidth="1.2" />
-                      <circle cx="19" cy="13" r="2" fill={TIER_COLOR[opt.id]} stroke="white" strokeWidth="1.2" />
-                    </svg>
-                  </div>
-                  <div className="gw-ride-opt-info">
-                    <div className="gw-ride-opt-name">{opt.label}</div>
-                    <div className="gw-ride-opt-eta">{opt.etaMin} min</div>
-                  </div>
-                  <div className="gw-ride-opt-price">${opt.price}</div>
-                  {sel && <div className="gw-ride-opt-check">✓</div>}
-                </button>
-              );
-            })}
+            {/* Max price bid */}
+            <div className="gw-bid-section-label" style={{ marginTop: 4 }}>Your max offer</div>
+            <div className="gw-bid-price-row">
+              <div className="gw-bid-price-field">
+                <span className="gw-bid-price-dollar">$</span>
+                <input
+                  type="number"
+                  min="1"
+                  className="gw-bid-price-input"
+                  placeholder="e.g. 15"
+                  value={maxPrice}
+                  onChange={(e) => setMaxPrice(e.target.value)}
+                />
+              </div>
+              <p className="gw-bid-price-hint">First driver to accept wins the ride</p>
+            </div>
 
-            {/* Confirm CTA */}
+            {/* Broadcast CTA */}
             <button
               type="button"
-              className="gw-ride-confirm-btn"
-              onClick={handleConfirmRide}
+              className="gw-bid-broadcast-btn"
+              disabled={broadcasting || !maxPrice}
+              onClick={handleBroadcast}
             >
-              Confirm Ride
+              {broadcasting
+                ? <><span className="gw-addr-gps-spinner" style={{ borderTopColor: 'white', borderColor: 'rgba(255,255,255,0.3)' }} /> Broadcasting…</>
+                : <><span className="gw-bid-broadcast-icon">📡</span> Broadcast Ride Request</>}
             </button>
+            <p className="gw-bid-broadcast-note">10% of fare supports a local charity · built-in, no extra cost</p>
           </div>
         )}
       </div>
