@@ -224,8 +224,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 <video
                     src="/dpal-hero.mp4"
                     autoPlay
-                    muted
-                    loop
                     playsInline
                     controls
                     style={{
