@@ -161,10 +161,29 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         </div>
     );
 
+    const reportVideos = (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px', marginBottom: '1.5rem' }}>
+            {['/dpal-share-1.mp4', '/dpal-share-2.mp4'].map((src, i) => (
+                <div key={i} style={{ borderRadius: '1.2rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.45)', background: '#000', lineHeight: 0 }}>
+                    <video
+                        src={src}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        controls
+                        style={{ width: '100%', display: 'block', maxHeight: '260px', objectFit: 'cover' }}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+
     if (useCaseboard && caseboardCfg) {
         return (
             <div className="report-submission-fade font-sans text-[var(--dpal-text-primary)] max-w-7xl mx-auto pb-32 px-4">
                 <style>{fadeStyle}</style>
+                {reportVideos}
                 {reportHero}
                 <CaseboardReport
                     key={category}
@@ -180,6 +199,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     return (
         <div className="report-submission-fade font-sans text-[var(--dpal-text-primary)] max-w-7xl mx-auto pb-32 px-4">
             <style>{fadeStyle}</style>
+            {reportVideos}
             {reportHero}
             <div className="mt-2 md:mt-4">
                 <SubmissionPanel

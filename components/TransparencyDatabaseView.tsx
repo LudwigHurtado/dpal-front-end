@@ -141,24 +141,6 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
 
             <main className="order-1 lg:order-2 lg:col-span-9 bg-[var(--dpal-background)] overflow-y-auto custom-scrollbar p-4 pt-4 sm:p-8 lg:p-12 min-h-0">
                 <div className="max-w-4xl mx-auto space-y-6 sm:space-y-10">
-
-                    {/* ── Hero Videos ── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '12px' }}>
-                        {['/dpal-share-1.mp4', '/dpal-share-2.mp4'].map((src, i) => (
-                            <div key={i} style={{ borderRadius: '1.2rem', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 8px 32px rgba(0,0,0,0.45)', background: '#000', lineHeight: 0 }}>
-                                <video
-                                    src={src}
-                                    autoPlay
-                                    muted
-                                    loop
-                                    playsInline
-                                    controls
-                                    style={{ width: '100%', display: 'block', maxHeight: '260px', objectFit: 'cover' }}
-                                />
-                            </div>
-                        ))}
-                    </div>
-
                     <div className="space-y-4">
                         <label htmlFor="public-record-search" className="sr-only">
                             Search by report ID, block number, transaction hash, or keywords
