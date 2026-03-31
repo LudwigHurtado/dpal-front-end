@@ -53,8 +53,8 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
     setIntegrityDetail(
       result.status === 'COMPROMISED'
         ? (result.detail ?? 'Chain integrity check failed.')
-        : result.status === 'EMPTY'
-        ? 'No blocks yet — first report will create genesis + block #1.'
+        :       result.status === 'EMPTY'
+        ? 'Chain engine is ready. Submit your first report to initialize the genesis block and begin recording.'
         : `All ${result.checkedBlocks} blocks verified. Chain is intact.`,
     );
     setLastVerified(new Date().toISOString());
@@ -68,18 +68,31 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
   }, [refreshChain]);
 
   // ── Backend health check ──
+  // Any HTTP response at all (even 404/405/500) means the server is UP and reachable.
+  // Only a network-level failure (timeout, DNS fail, refused) means truly unreachable.
   const checkBackend = useCallback(async () => {
     setBackendHealth('checking');
     const t0 = performance.now();
     try {
       const base = getApiBase().replace(/\/$/, '');
-      const res = await fetch(`${base}/api/reports`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(5000),
-      });
+      // Try HEAD first; fall back to GET if HEAD isn't supported
+      let res: Response;
+      try {
+        res = await fetch(`${base}/api/reports`, {
+          method: 'HEAD',
+          signal: AbortSignal.timeout(5000),
+        });
+      } catch {
+        res = await fetch(`${base}/api/reports`, {
+          method: 'GET',
+          signal: AbortSignal.timeout(5000),
+        });
+      }
       setBackendLatency(Math.round(performance.now() - t0));
-      setBackendHealth(res.ok || res.status === 405 ? 'reachable' : 'unreachable');
+      // Any HTTP response = server is reachable (even 404 = server up, route not configured)
+      setBackendHealth('reachable');
     } catch {
+      // True network failure — DNS, connection refused, timeout
       setBackendHealth('unreachable');
       setBackendLatency(null);
     }
@@ -126,12 +139,12 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
   const chainLength   = chainBlocks.length;
   const nonGenesis    = chainBlocks.filter((b) => b.reportId !== 'DPAL_GENESIS');
 
-  const integrityColor = chainIntegrity === 'VERIFIED' ? '#16a34a' : chainIntegrity === 'COMPROMISED' ? '#dc2626' : chainIntegrity === 'CHECKING' ? '#d97706' : '#6b7280';
-  const integrityLabel = chainIntegrity === 'VERIFIED' ? 'VERIFIED ✓' : chainIntegrity === 'COMPROMISED' ? 'COMPROMISED ✗' : chainIntegrity === 'CHECKING' ? 'Verifying…' : 'EMPTY';
-  const integrityBg    = chainIntegrity === 'VERIFIED' ? '#f0fdf4' : chainIntegrity === 'COMPROMISED' ? '#fef2f2' : '#fffbeb';
+  const integrityColor = chainIntegrity === 'VERIFIED' ? '#16a34a' : chainIntegrity === 'COMPROMISED' ? '#dc2626' : chainIntegrity === 'CHECKING' ? '#d97706' : '#0077C8';
+  const integrityLabel = chainIntegrity === 'VERIFIED' ? 'VERIFIED ✓' : chainIntegrity === 'COMPROMISED' ? 'COMPROMISED ✗' : chainIntegrity === 'CHECKING' ? 'Verifying…' : 'READY — Awaiting First Report';
+  const integrityBg    = chainIntegrity === 'VERIFIED' ? '#f0fdf4' : chainIntegrity === 'COMPROMISED' ? '#fef2f2' : chainIntegrity === 'EMPTY' ? '#EFF6FF' : '#fffbeb';
 
   const backendColor = backendHealth === 'reachable' ? '#16a34a' : backendHealth === 'unreachable' ? '#dc2626' : '#d97706';
-  const backendLabel = backendHealth === 'reachable' ? 'Reachable' : backendHealth === 'unreachable' ? 'Offline' : backendHealth === 'checking' ? 'Checking…' : 'Unknown';
+  const backendLabel = backendHealth === 'reachable' ? 'Online ✓' : backendHealth === 'unreachable' ? 'Unreachable' : backendHealth === 'checking' ? 'Checking…' : 'Unknown';
 
   return (
     <div style={{ margin: '24px 0', background: 'white', border: '1px solid #e2e8f0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
@@ -163,7 +176,7 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
           ? <ShieldCheck style={{ width: 14, height: 14, color: '#16a34a' }} />
           : chainIntegrity === 'COMPROMISED'
           ? <AlertTriangle style={{ width: 14, height: 14, color: '#dc2626' }} />
-          : <Activity style={{ width: 14, height: 14, color: '#6b7280' }} />}
+          : <ShieldCheck style={{ width: 14, height: 14, color: '#0077C8' }} />}
         <div style={{ flex: 1 }}>
           <p style={{ fontSize: 11, fontWeight: 900, color: integrityColor, margin: 0, textTransform: 'uppercase', letterSpacing: '0.12em' }}>
             Chain Integrity: {integrityLabel}
@@ -215,8 +228,8 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
         {/* Integrity */}
         <div style={{ padding: '16px', textAlign: 'center', borderRight: '1px solid #f1f5f9', background: integrityBg }}>
           <p style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#94a3b8', margin: '0 0 5px' }}>Integrity</p>
-          <p style={{ fontSize: 14, fontWeight: 900, color: integrityColor, margin: 0, fontFamily: 'monospace' }}>{integrityLabel}</p>
-          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>Full SHA-256 chain check</p>
+          <p style={{ fontSize: chainIntegrity === 'EMPTY' ? 10 : 14, fontWeight: 900, color: integrityColor, margin: 0, fontFamily: 'monospace' }}>{chainIntegrity === 'EMPTY' ? 'READY' : integrityLabel}</p>
+          <p style={{ fontSize: 8, color: '#94a3b8', margin: '3px 0 0', fontWeight: 600 }}>{chainIntegrity === 'EMPTY' ? 'Awaiting first report' : 'Full SHA-256 chain check'}</p>
         </div>
 
         {/* Backend sync */}
