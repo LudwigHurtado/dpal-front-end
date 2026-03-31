@@ -208,6 +208,45 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
     return (
         <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
+
+            {/* ── Hero Video ── */}
+            <div style={{
+                position: 'relative',
+                width: '100%',
+                borderRadius: '1.5rem',
+                overflow: 'hidden',
+                marginBottom: '2rem',
+                boxShadow: '0 0 60px rgba(0,198,255,0.15), 0 20px 60px rgba(0,0,0,0.5)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                background: '#000',
+                marginTop: '0.5rem',
+            }}>
+                <video
+                    src="/dpal-hero.mp4"
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    controls
+                    style={{
+                        width: '100%',
+                        display: 'block',
+                        maxHeight: '520px',
+                        objectFit: 'cover',
+                    }}
+                />
+                {/* Subtle bottom gradient fade into page */}
+                <div style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    height: '80px',
+                    background: 'linear-gradient(to bottom, transparent, rgba(0,0,0,0.55))',
+                    pointerEvents: 'none',
+                }} />
+            </div>
+
             <header className="mb-8 text-center flex flex-col items-center relative pt-4" />
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16 relative z-20">
