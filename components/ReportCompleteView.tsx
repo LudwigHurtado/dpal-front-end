@@ -418,6 +418,68 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                     </div>
                 </header>
 
+                {/* ── DPAL Private Chain Block Record ── */}
+                <div className="mb-6 rounded-2xl overflow-hidden border-2 border-blue-500/50" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)' }}>
+                    {/* Header */}
+                    <div className="flex items-center gap-3 px-5 py-3 border-b border-blue-500/30" style={{ background: 'rgba(37,99,235,0.2)' }}>
+                        <Database className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.28em] text-blue-300">DPAL Private Chain — Block Record</span>
+                        <span className="ml-auto text-[8px] font-black uppercase tracking-widest text-green-400 bg-green-900/40 border border-green-500/40 px-2 py-0.5 rounded-full">✓ ANCHORED</span>
+                    </div>
+                    {/* Block number + hash row */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-blue-500/20 border-b border-blue-500/20">
+                        <div className="px-4 py-4 text-center">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-blue-400 mb-1">Block Number</p>
+                            <p className="text-3xl font-black text-white font-mono tracking-tight">
+                                {report.blockNumber != null ? `#${report.blockNumber}` : '#1'}
+                            </p>
+                            <p className="text-[8px] text-blue-300/60 mt-1 font-mono">
+                                {report.blockNumber === 0 ? 'GENESIS INIT' : report.blockNumber === 1 ? 'First Report Block' : `Block on DPAL chain`}
+                            </p>
+                        </div>
+                        <div className="px-4 py-4 text-center">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-blue-400 mb-1">Chain</p>
+                            <p className="text-[10px] font-black text-white font-mono break-all leading-tight">{report.chain || 'DPAL_PRIVATE_CHAIN_v1'}</p>
+                        </div>
+                        <div className="px-4 py-4 text-center col-span-2">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-blue-400 mb-1">Block Hash (SHA-256)</p>
+                            <p className="text-[9px] font-black text-cyan-300 font-mono break-all leading-relaxed">
+                                {txRef ? txRef.substring(0, 42) + '…' : 'Computing…'}
+                            </p>
+                        </div>
+                    </div>
+                    {/* Search instruction */}
+                    <div className="px-5 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                        <div className="flex-1">
+                            <p className="text-[10px] text-blue-200 font-bold">
+                                <span className="text-yellow-300">⬡ How to look this up:</span>
+                                {' '}Go to the <span className="text-white font-black">LEDGER</span> tab → scroll to <span className="text-white font-black">"Ledger Block Search"</span> → type{' '}
+                                <span className="font-black text-cyan-300 font-mono bg-blue-900/60 px-1.5 py-0.5 rounded">
+                                    {report.blockNumber != null ? `#${report.blockNumber}` : '#1'}
+                                </span>
+                                {' '}and press <span className="text-white font-black">Open Filing</span>. Anyone in the world with this block number can pull up this certified record.
+                            </p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                const val = report.blockNumber != null ? String(report.blockNumber) : '1';
+                                navigator.clipboard.writeText(val).catch(() => {});
+                            }}
+                            className="flex-shrink-0 inline-flex items-center gap-1.5 bg-blue-700 hover:bg-blue-600 text-white rounded-lg px-3 py-2 text-[9px] font-black uppercase tracking-widest transition-all"
+                        >
+                            <Hash className="w-3 h-3" />
+                            Copy Block #
+                        </button>
+                    </div>
+                    {/* Genesis note */}
+                    <div className="px-5 pb-3">
+                        <p className="text-[9px] text-blue-400/60 font-mono">
+                            Genesis block #0 = DPAL chain initialization · Your report = block #{report.blockNumber ?? 1} · Each new report adds the next sequential block.
+                        </p>
+                    </div>
+                </div>
+
                 {/* ── Public tracking link — prominent banner ── */}
                 <div className="mb-8 rounded-2xl border-2 border-emerald-500/40 bg-emerald-950/40 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                     <div className="flex-1 min-w-0">
@@ -560,6 +622,27 @@ const ReportCompleteView: React.FC<ReportCompleteViewProps> = ({ report, onRetur
                         <CheckCircle style={{ width: 11, height: 11, color: '#86efac', flexShrink: 0 }} />
                         <p style={{ fontSize: 7.5, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.28em', color: '#86efac', margin: 0 }}>Blockchain Verified · Immutable Record · Publicly Traceable · Tamper-Evident</p>
                         <span style={{ marginLeft: 'auto', fontSize: 7.5, fontWeight: 700, color: '#4ade80', letterSpacing: '0.1em', flexShrink: 0 }}>STATUS: CERTIFIED ✓</span>
+                    </div>
+
+                    {/* B2. BLOCK NUMBER HIGHLIGHT STRIP — large, easy to read on printed page */}
+                    <div style={{ background: '#eff6ff', borderBottom: '1px solid #bfdbfe', padding: '8px 24px', display: 'flex', alignItems: 'center', gap: 16 }}>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                            <span style={{ fontSize: 8, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.25em', color: '#1d4ed8' }}>DPAL Private Chain · Block</span>
+                            <span style={{ fontSize: 22, fontWeight: 900, color: '#1e3a5f', fontFamily: 'monospace', letterSpacing: '-0.02em' }}>
+                                {report.blockNumber != null ? `#${report.blockNumber}` : '#1'}
+                            </span>
+                        </div>
+                        <div style={{ width: 1, height: 28, background: '#bfdbfe' }} />
+                        <div style={{ flex: 1 }}>
+                            <p style={{ fontSize: 7, color: '#1d4ed8', fontWeight: 800, margin: 0, textTransform: 'uppercase', letterSpacing: '0.12em' }}>To look up this record:</p>
+                            <p style={{ fontSize: 7, color: '#374151', margin: '2px 0 0', fontFamily: 'monospace' }}>
+                                LEDGER tab → Ledger Block Search → type <strong>{report.blockNumber != null ? `#${report.blockNumber}` : '#1'}</strong> → Open Filing
+                            </p>
+                        </div>
+                        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                            <p style={{ fontSize: 6, color: '#6b7280', margin: 0, textTransform: 'uppercase', letterSpacing: '0.1em' }}>Chain</p>
+                            <p style={{ fontSize: 7, fontWeight: 900, color: '#1e3a5f', fontFamily: 'monospace', margin: '2px 0 0' }}>{report.chain || 'DPAL_PRIVATE_CHAIN_v1'}</p>
+                        </div>
                     </div>
 
                     {/* C. 2-COLUMN RECORD + VERIFICATION GRID */}
