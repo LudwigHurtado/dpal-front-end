@@ -44,6 +44,17 @@ export const CATEGORY_IMAGE_BY_TYPE: Partial<Record<Category, string>> = {
   [Category.DpalWorkNetwork]: '/main-screen/dpal-work-network.png',
 };
 
+/**
+ * Categories with multiple rotating images. The card will crossfade through
+ * each image on a slow cycle so the tile feels alive.
+ */
+export const CATEGORY_GALLERY_IMAGES: Partial<Record<Category, string[]>> = {
+  [Category.PoliceMisconduct]: [
+    '/category-cards/police-corruption-1.png',
+    '/category-cards/police-corruption-2.png',
+  ],
+};
+
 export type CategorySpritePos = { x: number; y: number };
 
 /** Sprite sheet slice positions (same as category picker fallback). */

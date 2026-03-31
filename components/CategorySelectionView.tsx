@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { Category } from '../types';
 import { useTranslations } from '../i18n';
@@ -20,6 +20,7 @@ import {
 import {
   CATEGORY_SPRITE_POSITIONS,
   CATEGORY_SPRITE_SHEET_SRC,
+  CATEGORY_GALLERY_IMAGES,
   getCategoryCardImageSrc,
 } from '../categoryCardAssets';
 
@@ -50,6 +51,42 @@ const BorderPulse: React.FC<{ color: string }> = ({ color }) => (
         />
     </svg>
 );
+
+/** Sub-component: renders a crossfading gallery for a category card. */
+const CategoryCardGallery: React.FC<{ category: Category }> = ({ category }) => {
+  const gallery = CATEGORY_GALLERY_IMAGES[category];
+  const [active, setActive] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (!gallery || gallery.length < 2) return;
+    timerRef.current = setInterval(() => setActive((i) => (i + 1) % gallery.length), 4200);
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [gallery]);
+  if (!gallery) return null;
+  return (
+    <>
+      {gallery.map((src, i) => (
+        <img
+          key={src}
+          src={src}
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-1000"
+          style={{ opacity: i === active ? 1 : 0 }}
+        />
+      ))}
+      {/* Subtle "CORRUPTION" overlay badge */}
+      <div style={{
+        position: 'absolute', bottom: 8, left: 8,
+        background: 'rgba(220,38,38,0.85)', color: 'white',
+        fontSize: 8, fontWeight: 900, letterSpacing: '0.18em',
+        textTransform: 'uppercase', padding: '3px 8px',
+        borderRadius: 4,
+      }}>
+        Police Misconduct
+      </div>
+    </>
+  );
+};
 
 const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
   onSelectCategory,
@@ -166,7 +203,10 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
         </div>
 
         <div className="relative z-0 flex-1 min-h-[240px] sm:min-h-[260px] rounded-[2rem] overflow-hidden border border-white/10 bg-zinc-950/80">
-          {!hiddenCategoryImages[cat.value] && (
+          {/* Gallery (multi-image crossfade) takes priority */}
+          {CATEGORY_GALLERY_IMAGES[cat.value] ? (
+            <CategoryCardGallery category={cat.value} />
+          ) : !hiddenCategoryImages[cat.value] && (
             <img
               src={getCategoryCardImageSrc(cat.value)}
               alt=""
