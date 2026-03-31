@@ -22,6 +22,7 @@ import DriverActiveTripPage from '../pages/driver/DriverActiveTripPage';
 import DriverHistoryPage from '../pages/driver/DriverHistoryPage';
 import DriverVehiclePage from '../pages/driver/DriverVehiclePage';
 import DriverEarningsPage from '../pages/driver/DriverEarningsPage';
+import DriverCommsPage from '../pages/dispatcher/DriverCommsPage';
 import NotificationsPage from '../pages/shared/NotificationsPage';
 import SettingsPage from '../pages/shared/SettingsPage';
 import NotFoundPage from '../pages/shared/NotFoundPage';
@@ -71,6 +72,7 @@ export default function AppRouter(): React.ReactElement {
                   { path: GW_PATHS.driver.history, element: <DriverHistoryPage /> },
                   { path: GW_PATHS.driver.vehicle, element: <DriverVehiclePage /> },
                   { path: GW_PATHS.driver.earnings, element: <DriverEarningsPage /> },
+                  { path: GW_PATHS.driver.comms, element: <DriverCommsPage /> },
                 ],
               },
               { path: GW_PATHS.shared.notifications, element: <NotificationsPage /> },

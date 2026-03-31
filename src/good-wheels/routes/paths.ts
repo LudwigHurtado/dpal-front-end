@@ -32,6 +32,7 @@ export const GW_PATHS = {
     history: '/app/driver/history',
     vehicle: '/app/driver/vehicle',
     earnings: '/app/driver/earnings',
+    comms: '/app/driver/comms',
   },
   worker: {
     dashboard: '/app/worker/dashboard',

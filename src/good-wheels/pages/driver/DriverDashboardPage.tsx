@@ -33,6 +33,9 @@ const DriverDashboardPage: React.FC = () => {
           <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.queue)}>
             Open queue
           </button>
+          <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.comms)}>
+            💬 Comms
+          </button>
           <button
             type="button"
             className="gw-button gw-button-primary"
