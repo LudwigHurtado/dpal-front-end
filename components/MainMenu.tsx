@@ -452,24 +452,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
             </div>
 
-            <div className="flex justify-end mb-12">
-                <button
-                    type="button"
-                    onClick={() => onNavigate('outreachEscalation')}
-                    className="relative inline-flex items-center gap-3 overflow-hidden rounded-xl border border-emerald-500/40 px-6 py-3 font-black text-xs uppercase tracking-[0.2em] transition-all hover:border-emerald-400"
-                >
-                    <span
-                        className="absolute inset-0 bg-cover bg-center opacity-45"
-                        style={{ backgroundImage: "url('/main-screen/escalation-hub.png')" }}
-                        aria-hidden
-                    />
-                    <span className="absolute inset-0 bg-gradient-to-t from-[var(--dpal-background)] via-[color-mix(in_srgb,var(--dpal-background)_85%,transparent)] to-[color-mix(in_srgb,var(--dpal-background)_55%,transparent)]" aria-hidden />
-                    <span className="relative z-10 flex items-center gap-3 text-emerald-200 [text-shadow:0_1px_2px_rgba(0,0,0,0.6)]">
-                        <Globe className="w-4 h-4 shrink-0" />
-                        Community care & outreach
-                    </span>
-                </button>
-            </div>
 
             <BlockchainStatusPanel
                 totalReports={totalReports}
