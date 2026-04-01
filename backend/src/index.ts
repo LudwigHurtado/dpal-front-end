@@ -12,14 +12,28 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 // ── Security & CORS ───────────────────────────────────────────────────────────
 app.use(helmet());
 
-const allowedOrigins = (process.env.CORS_ORIGINS ?? '')
-  .split(',')
-  .map(o => o.trim())
-  .filter(Boolean);
+// Always allow these DPAL-owned domains in addition to anything in CORS_ORIGINS env var
+const BUILT_IN_ORIGINS = [
+  'https://dpal-enterprise-dashboard.vercel.app',
+  'https://dpal-front-end.vercel.app',
+];
+
+const allowedOrigins = [
+  ...BUILT_IN_ORIGINS,
+  ...(process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map(o => o.trim())
+    .filter(Boolean),
+];
 
 app.use(cors({
   origin: (origin, cb) => {
-    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    // Allow server-to-server (no origin header) and all listed origins
+    if (!origin) return cb(null, true);
+    if (allowedOrigins.includes(origin)) return cb(null, true);
+    // In development allow any localhost
+    if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost/.test(origin)) return cb(null, true);
+    console.warn(`[CORS] Blocked origin: ${origin}`);
     return cb(new Error(`CORS: origin ${origin} not allowed`));
   },
   credentials: true,
