@@ -8,7 +8,6 @@ import {
   Info,
   FileText,
   Upload,
-  CheckCircle,
   Coins,
   ExternalLink,
   Hash,
@@ -16,12 +15,12 @@ import {
   Eye,
   Award,
   Activity,
-  QrCode,
   Link,
   Globe,
   Scale,
   Sparkles,
 } from './icons';
+import { MdOutlinedSelectSync, MdOutlinedTextFieldSync } from './MaterialWebEvidenceFields';
 export interface PoliticianPosition {
   id: string;
   measureTitle: string;
@@ -189,6 +188,23 @@ const EVENT_TYPES = [
 
 const HERO_TAGS = ['Said vs Did', 'Shared Record', 'Track the Truth', 'Verify Together', 'Hope & Accountability'];
 
+/** Section art (user-provided banners) — see public/politician-viewpoints/ */
+const SECTION_IMG = {
+  intelSearch: '/politician-viewpoints/banner-intel-search.png',
+  evidenceLab: '/politician-viewpoints/banner-evidence-lab.png',
+  communityReview: '/politician-viewpoints/banner-community-review.png',
+  emptySearch: '/politician-viewpoints/illustration-empty-search.png',
+  sharedFeed: '/politician-viewpoints/banner-shared-feed.png',
+} as const;
+
+function hostLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url.slice(0, 32);
+  }
+}
+
 function pseudoLedgerHash(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
@@ -217,6 +233,10 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   const [webLoading, setWebLoading] = useState(false);
   const [webError, setWebError] = useState<string | null>(null);
   const [webResults, setWebResults] = useState<Array<{ title: string; url: string; snippet?: string; source?: string }>>([]);
+  const [selectedIssueChips, setSelectedIssueChips] = useState<Set<string>>(new Set());
+  const [selectedMisconductChips, setSelectedMisconductChips] = useState<Set<string>>(new Set());
+  const [searchAttempted, setSearchAttempted] = useState(false);
+  const [searchNetworkFailed, setSearchNetworkFailed] = useState(false);
 
   const politicians = MOCK_POLITICIANS;
 
@@ -300,6 +320,46 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
       proofFiles.length > 0 || proofNote.trim().length > 0 || saidSourceUrl.trim().length > 0 || didSourceUrl.trim().length > 0;
     return hasSaid && hasDid && hasAnyProof;
   }, [saidText, didText, proofFiles.length, proofNote, saidSourceUrl, didSourceUrl]);
+
+  const toggleIssueChip = (chip: string) => {
+    setSelectedIssueChips((prev) => {
+      const next = new Set(prev);
+      if (next.has(chip)) next.delete(chip);
+      else next.add(chip);
+      return next;
+    });
+  };
+
+  const toggleMisconductChip = (chip: string) => {
+    setSelectedMisconductChips((prev) => {
+      const next = new Set(prev);
+      if (next.has(chip)) next.delete(chip);
+      else next.add(chip);
+      return next;
+    });
+  };
+
+  const clearAllChips = () => {
+    setSelectedIssueChips(new Set());
+    setSelectedMisconductChips(new Set());
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const dirty =
+      !proofSubmitted &&
+      (saidText.trim().length > 0 ||
+        didText.trim().length > 0 ||
+        proofNote.trim().length > 0 ||
+        saidSourceUrl.trim().length > 0 ||
+        didSourceUrl.trim().length > 0 ||
+        proofFiles.length > 0);
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dirty) e.preventDefault();
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [saidText, didText, proofNote, saidSourceUrl, didSourceUrl, proofFiles.length, proofSubmitted]);
 
   const submitEvidence = () => {
     setSubmitError(null);
@@ -414,11 +474,15 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   }, [reportDeepLink]);
 
   const runPublicSearch = () => {
-    const q = aiQuery.trim();
-    if (!q) return;
+    const chipText = [...selectedIssueChips, ...selectedMisconductChips].join(' ');
+    const q = [aiQuery.trim(), chipText].filter(Boolean).join(' ');
+    if (!q.trim()) return;
+
     const smart = buildFreePoliticianSearchQuery(q);
 
     setWebError(null);
+    setSearchNetworkFailed(false);
+    setSearchAttempted(true);
     setWebLoading(true);
     setWebResults([]);
 
@@ -445,10 +509,16 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
           if (Array.isArray(rt?.Topics)) rt.Topics.forEach(addTopic);
           else addTopic(rt);
         });
-        setWebResults(out.slice(0, 12));
-        if (out.length === 0) setWebError('No results returned. Try a name + state, or different misconduct keywords.');
+        const sliced = out.slice(0, 12);
+        setWebResults(sliced);
+        if (sliced.length === 0) {
+          setWebError('empty');
+        }
       })
-      .catch(() => setWebError('Search failed. Check your connection and try again.'))
+      .catch(() => {
+        setSearchNetworkFailed(true);
+        setWebError('network');
+      })
       .finally(() => setWebLoading(false));
   };
 
@@ -535,6 +605,30 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
             </div>
           </div>
 
+          {/* Flow stepper — orient users: search → draft → submit */}
+          <div className="border-t border-slate-100 bg-white px-4 py-4 md:px-8">
+            <ol className="mx-auto flex max-w-3xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-500">
+              <li className="flex items-center gap-2 text-sky-700">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white shadow-sm">1</span>
+                <span>Search sources</span>
+              </li>
+              <span className="hidden text-slate-300 sm:inline" aria-hidden>
+                →
+              </span>
+              <li className="flex items-center gap-2 text-teal-800">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-teal-500 bg-white text-teal-700 shadow-sm">2</span>
+                <span>Draft evidence</span>
+              </li>
+              <span className="hidden text-slate-300 sm:inline" aria-hidden>
+                →
+              </span>
+              <li className="flex items-center gap-2 text-amber-900">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 border-amber-400 bg-amber-50 text-amber-800 shadow-sm">3</span>
+                <span>Submit to registry</span>
+              </li>
+            </ol>
+          </div>
+
           <div className="border-t border-slate-100 bg-gradient-to-b from-slate-50/90 to-white px-4 py-8 md:px-10 md:py-10">
             <div className="mx-auto max-w-3xl text-center">
               <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
@@ -609,11 +703,21 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
 
         {/* —— Search console —— */}
         <section id="intel-search" className="mb-10 scroll-mt-24">
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-md shadow-slate-200/40 md:p-8">
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200/90 bg-white shadow-lg shadow-slate-200/50">
+            <div className="relative border-b border-slate-100">
+              <img
+                src={SECTION_IMG.intelSearch}
+                alt=""
+                className="h-36 w-full object-cover object-top sm:h-44 md:h-48"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
+            <div className="p-6 md:p-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-sky-600">Community truth engine</p>
-                <h2 className="mt-1 text-xl font-extrabold uppercase tracking-tight text-slate-900 md:text-2xl">Search & discover</h2>
+                <h2 className="mt-1 text-2xl font-extrabold uppercase tracking-tight text-slate-900 md:text-3xl">Search &amp; discover</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
                   <span className="font-semibold text-slate-800">Free web search</span> — look up politicians, offices, misconduct, ethics, and public records
                   (no API key). Results open in your packet workflow below.
@@ -650,38 +754,66 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 <span className="font-semibold text-slate-700">Politician & misconduct:</span> type any name, office, or ethics keywords — we broaden the query toward
                 public sources when those topics appear.
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                {ISSUE_CHIPS.map((chip) => (
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Topics (tap to toggle)</span>
+                {(selectedIssueChips.size > 0 || selectedMisconductChips.size > 0) && (
                   <button
-                    key={chip}
                     type="button"
-                    onClick={() => setAiQuery((prev) => (prev ? `${prev} ${chip}` : chip))}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-600 shadow-sm transition hover:border-sky-300 hover:text-sky-800"
+                    onClick={clearAllChips}
+                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 transition hover:border-rose-200 hover:text-rose-700"
                   >
-                    {chip}
+                    Clear topics
                   </button>
-                ))}
+                )}
               </div>
-              <div className="mt-4">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Misconduct & ethics shortcuts</p>
-                <div className="flex flex-wrap gap-2">
-                  {MISCONDUCT_CHIPS.map((chip) => (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {ISSUE_CHIPS.map((chip) => {
+                  const on = selectedIssueChips.has(chip);
+                  return (
                     <button
                       key={chip}
                       type="button"
-                      onClick={() => setAiQuery((prev) => (prev ? `${prev} ${chip}` : chip))}
-                      className="rounded-full border border-rose-100 bg-rose-50/90 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-rose-900/90 shadow-sm transition hover:border-rose-200 hover:bg-rose-100"
+                      aria-pressed={on}
+                      onClick={() => toggleIssueChip(chip)}
+                      className={`min-h-[44px] rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm transition ${
+                        on
+                          ? 'border-sky-500 bg-sky-50 text-sky-900 ring-2 ring-sky-200'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'
+                      }`}
                     >
                       {chip}
                     </button>
-                  ))}
+                  );
+                })}
+              </div>
+              <div className="mt-4">
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Misconduct &amp; ethics shortcuts</p>
+                <div className="flex flex-wrap gap-2">
+                  {MISCONDUCT_CHIPS.map((chip) => {
+                    const on = selectedMisconductChips.has(chip);
+                    return (
+                      <button
+                        key={chip}
+                        type="button"
+                        aria-pressed={on}
+                        onClick={() => toggleMisconductChip(chip)}
+                        className={`min-h-[44px] rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm transition ${
+                          on
+                            ? 'border-rose-400 bg-rose-100 text-rose-950 ring-2 ring-rose-200'
+                            : 'border-rose-100 bg-rose-50/90 text-rose-900/90 hover:border-rose-200 hover:bg-rose-100'
+                        }`}
+                      >
+                        {chip}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <button
                   type="button"
                   onClick={runPublicSearch}
-                  className="rounded-2xl bg-sky-600 px-8 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-sky-200/60 transition hover:bg-sky-700"
+                  className="min-h-[48px] rounded-2xl bg-sky-600 px-8 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-sky-200/60 transition hover:bg-sky-700"
                 >
                   {webLoading ? 'Searching…' : 'Run search'}
                 </button>
@@ -689,16 +821,44 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
               </div>
             </div>
 
-            {(webError || webResults.length > 0) && (
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
+            {searchAttempted && !webLoading && (
+              <div className="mt-6 space-y-4">
+                {searchNetworkFailed && (
+                  <div className="rounded-2xl border-2 border-rose-200 bg-rose-50 p-5 shadow-sm">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-rose-900">Connection issue</p>
+                    <p className="mt-2 text-sm leading-relaxed text-rose-900/90">
+                      Search could not reach DuckDuckGo. Check your network and try again.
+                    </p>
+                  </div>
+                )}
+
+                {!searchNetworkFailed && webError === 'empty' && webResults.length === 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-6 text-center shadow-sm">
+                    <img
+                      src={SECTION_IMG.emptySearch}
+                      alt=""
+                      className="mx-auto max-h-52 w-full max-w-lg rounded-xl object-contain"
+                      loading="lazy"
+                    />
+                    <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-800">No matching sources</p>
+                    <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+                      Try a name plus state, adjust your keywords, or toggle topic chips — then run search again.
+                    </p>
+                  </div>
+                )}
+
+                {webResults.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-slate-600">Source links</p>
                   <button
                     type="button"
                     onClick={async () => {
+                      const chipText = [...selectedIssueChips, ...selectedMisconductChips].join(' ');
+                      const qLine = [aiQuery.trim(), chipText].filter(Boolean).join(' ');
                       const lines = [
                         `DPAL free search (politician / misconduct / records)`,
-                        `Query: ${aiQuery.trim()}`,
+                        `Query: ${qLine}`,
                         ...webResults.map((r) => `- ${r.title}\n  ${r.url}`),
                       ].join('\n');
                       try {
@@ -720,34 +880,35 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                     Share / Copy
                   </button>
                 </div>
-                {webError && <div className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-amber-800">{webError}</div>}
-                {webResults.length > 0 && (
-                  <div className="mt-3 grid gap-2">
-                    {webResults.map((r) => (
-                      <a
-                        key={r.url}
-                        href={r.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block rounded-xl border border-slate-200 bg-white p-3 transition hover:border-sky-300 hover:shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="line-clamp-2 text-sm font-bold text-slate-900">{r.title}</p>
-                            {r.snippet && <p className="mt-1 line-clamp-2 text-xs text-slate-600">{r.snippet}</p>}
-                            <p className="mt-2 truncate text-[10px] uppercase tracking-[0.15em] text-slate-500">
-                              {r.source ? `${r.source} · ` : ''}
-                              {r.url}
-                            </p>
-                          </div>
-                          <ExternalLink className="h-4 w-4 shrink-0 text-slate-400" />
+                <div className="mt-3 grid gap-2">
+                  {webResults.map((r) => (
+                    <a
+                      key={r.url}
+                      href={r.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="block rounded-xl border border-slate-200 bg-white p-3 transition hover:border-sky-300 hover:shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-sky-800">{hostLabel(r.url)}</p>
+                          <p className="line-clamp-2 text-sm font-bold text-slate-900">{r.title}</p>
+                          {r.snippet && <p className="mt-1 line-clamp-2 text-xs text-slate-600">{r.snippet}</p>}
+                          <p className="mt-2 truncate text-[10px] text-slate-500">
+                            {r.source ? `${r.source} · ` : ''}
+                            {r.url}
+                          </p>
                         </div>
-                      </a>
-                    ))}
-                  </div>
+                        <ExternalLink className="h-4 w-4 shrink-0 text-slate-400" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              </div>
                 )}
               </div>
             )}
+            </div>
           </div>
         </section>
 
@@ -770,74 +931,73 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 </span>
               </div>
 
-              <div className="mt-6">
-                <label className="text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Subject / office (optional)</label>
-                <input
+              <div className="politician-evidence-md mt-6 [&_md-outlined-text-field]:block [&_md-outlined-text-field]:w-full [&_md-outlined-select]:block [&_md-outlined-select]:w-full">
+                <MdOutlinedTextFieldSync
+                  label="Subject / office (optional)"
                   value={subjectName}
-                  onChange={(e) => {
-                    setSubjectName(e.target.value);
+                  supportingText="Official, agency, or public figure"
+                  onValueChange={(v) => {
+                    setSubjectName(v);
                     setProofSubmitted(false);
                   }}
-                  placeholder="Official, agency, or public figure"
-                  className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
                 />
               </div>
 
-              <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              <div className="politician-evidence-md mt-8 grid gap-6 lg:grid-cols-2 [&_md-outlined-text-field]:block [&_md-outlined-text-field]:w-full [&_md-outlined-select]:block [&_md-outlined-select]:w-full">
                 <div className="rounded-2xl border border-sky-200 bg-gradient-to-b from-sky-50/80 to-white p-5">
                   <div className="flex items-center gap-2 text-sky-800">
                     <MegaphoneMini />
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em]">Public statement</p>
                   </div>
-                  <p className="mt-2 text-xs text-slate-600">Quote, promise, speech, or press release.</p>
-                  <textarea
+                  <MdOutlinedTextFieldSync
+                    className="mt-4"
+                    label="What was said"
+                    type="textarea"
+                    rows={6}
+                    supportingText="Quote, promise, speech, or press release."
                     value={saidText}
-                    onChange={(e) => {
-                      setSaidText(e.target.value);
+                    onValueChange={(v) => {
+                      setSaidText(v);
                       setProofSubmitted(false);
                     }}
-                    placeholder='"We will protect this community and deliver clean water."'
-                    className="mt-4 min-h-[128px] w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
                   />
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <MdOutlinedTextFieldSync
+                      label="Source link"
+                      type="url"
+                      value={saidSourceUrl}
+                      supportingText="https://…"
+                      onValueChange={(v) => {
+                        setSaidSourceUrl(v);
+                        setProofSubmitted(false);
+                      }}
+                    />
                     <div>
-                      <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Source link</label>
+                      <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500" htmlFor="politician-said-date">
+                        Date
+                      </label>
                       <input
-                        value={saidSourceUrl}
-                        onChange={(e) => {
-                          setSaidSourceUrl(e.target.value);
-                          setProofSubmitted(false);
-                        }}
-                        placeholder="https://…"
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Date</label>
-                      <input
+                        id="politician-said-date"
                         type="date"
                         value={saidDate}
                         onChange={(e) => {
                           setSaidDate(e.target.value);
                           setProofSubmitted(false);
                         }}
-                        className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-sky-400 focus:outline-none"
+                        className="mt-1 min-h-[44px] w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
                       />
                     </div>
                   </div>
                   <div className="mt-3">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Event type</label>
-                    <select
+                    <MdOutlinedSelectSync
+                      label="Event type"
                       value={eventType}
-                      onChange={(e) => setEventType(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-sky-400 focus:outline-none"
-                    >
-                      {EVENT_TYPES.map((et) => (
-                        <option key={et} value={et}>
-                          {et}
-                        </option>
-                      ))}
-                    </select>
+                      options={EVENT_TYPES}
+                      onValueChange={(v) => {
+                        setEventType(v);
+                        setProofSubmitted(false);
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -846,61 +1006,62 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                     <Scale className="h-4 w-4" />
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em]">On the record</p>
                   </div>
-                  <p className="mt-2 text-xs text-slate-600">Documented vote, action, funding, or outcome — for clarity, not blame.</p>
-                  <textarea
+                  <MdOutlinedTextFieldSync
+                    className="mt-4"
+                    label="What the record shows"
+                    type="textarea"
+                    rows={6}
+                    supportingText="Documented vote, action, funding, or outcome — for clarity, not blame."
                     value={didText}
-                    onChange={(e) => {
-                      setDidText(e.target.value);
+                    onValueChange={(v) => {
+                      setDidText(v);
                       setProofSubmitted(false);
                     }}
-                    placeholder="Describe what happened with enough detail for others to verify."
-                    className="mt-4 min-h-[128px] w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-400 focus:outline-none focus:ring-2 focus:ring-teal-100"
                   />
                   <div className="mt-3">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Evidence link</label>
-                    <input
+                    <MdOutlinedTextFieldSync
+                      label="Evidence link"
+                      type="url"
                       value={didSourceUrl}
-                      onChange={(e) => {
-                        setDidSourceUrl(e.target.value);
+                      supportingText="https://…"
+                      onValueChange={(v) => {
+                        setDidSourceUrl(v);
                         setProofSubmitted(false);
                       }}
-                      placeholder="https://…"
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-teal-400 focus:outline-none"
                     />
                   </div>
                   <div className="mt-3">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Accountability category</label>
-                    <select
+                    <MdOutlinedSelectSync
+                      label="Accountability category"
                       value={contradictionType}
-                      onChange={(e) => setContradictionType(e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 focus:border-amber-400 focus:outline-none"
-                    >
-                      {CONTRADICTION_TYPES.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                      options={CONTRADICTION_TYPES}
+                      onValueChange={(v) => {
+                        setContradictionType(v);
+                        setProofSubmitted(false);
+                      }}
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              <div className="politician-evidence-md mt-6 grid gap-6 lg:grid-cols-2 [&_md-outlined-text-field]:block [&_md-outlined-text-field]:w-full">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
                   <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-slate-600">Context & community notes</p>
-                  <textarea
+                  <MdOutlinedTextFieldSync
+                    className="mt-3"
+                    label="Context"
+                    type="textarea"
+                    rows={4}
+                    supportingText="Who, what, when, where — additional respectful context."
                     value={proofNote}
-                    onChange={(e) => setProofNote(e.target.value)}
-                    placeholder="Who, what, when, where — additional respectful context."
-                    className="mt-3 min-h-[88px] w-full rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-50"
+                    onValueChange={setProofNote}
                   />
                   <div className="mt-3">
-                    <label className="text-[9px] font-bold uppercase tracking-widest text-slate-500">Timeline</label>
-                    <input
+                    <MdOutlinedTextFieldSync
+                      label="Timeline"
                       value={timelineNote}
-                      onChange={(e) => setTimelineNote(e.target.value)}
-                      placeholder="e.g. “30 days before vote X”"
-                      className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none"
+                      supportingText='e.g. “30 days before vote X”'
+                      onValueChange={(v) => setTimelineNote(v)}
                     />
                   </div>
                   <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/80 px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-amber-900 transition hover:bg-amber-100">
@@ -966,28 +1127,30 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                       </li>
                     </ul>
                   </div>
-                  <button
+                  <p className="mt-6 text-[10px] leading-relaxed text-slate-500">
+                    This entry is community-sourced accountability, not legal advice. By submitting, you agree your summary is
+                    accurate to the best of your knowledge and includes sources where possible.
+                  </p>
+                  <md-filled-button
                     type="button"
-                    onClick={submitEvidence}
+                    className="mt-3 w-full [&::part(container)]:min-h-[48px]"
                     disabled={!canSubmit}
-                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 py-3.5 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-teal-200/50 transition hover:from-teal-700 hover:to-emerald-700 disabled:from-slate-300 disabled:to-slate-400 disabled:text-slate-600"
+                    onClick={submitEvidence}
                   >
-                    <CheckCircle className="h-4 w-4" />
                     Submit to shared registry
-                  </button>
+                  </md-filled-button>
                   {submitError && <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-rose-700">{submitError}</p>}
                   <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.2em] text-slate-600">
                     Status: {proofSubmitted ? 'Under review' : 'Not submitted'}
                   </p>
                   {createdReportId && (
-                    <button
+                    <md-outlined-button
                       type="button"
+                      className="mt-3 w-full [&::part(container)]:min-h-[44px]"
                       onClick={() => scrollTo('report-qr-inline')}
-                      className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-sky-300 bg-sky-50 py-2.5 text-[10px] font-bold uppercase tracking-widest text-sky-900 hover:bg-sky-100"
                     >
-                      <QrCode className="h-4 w-4" />
                       Track link & QR (sidebar)
-                    </button>
+                    </md-outlined-button>
                   )}
                 </div>
               </div>
