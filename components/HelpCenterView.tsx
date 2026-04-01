@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
+import { submitHelpReport } from '../services/helpCenterService';
 import {
   ShieldCheck, Search, AlertTriangle, Clock, CheckCircle, ChevronRight,
   Upload, Send, Phone, Mail, User, MapPin, Zap, Activity,
@@ -160,7 +161,18 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
   const [aiInput, setAiInput] = useState('');
   const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittedRef, setSubmittedRef] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+
+  // Urgent report form state
+  const [urgentCategory, setUrgentCategory] = useState('');
+  const [urgentTitle, setUrgentTitle] = useState('');
+  const [urgentDesc, setUrgentDesc] = useState('');
+  const [urgentName, setUrgentName] = useState('');
+  const [urgentEmail, setUrgentEmail] = useState('');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredCategories = searchQuery.trim()
@@ -170,14 +182,59 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
       )
     : HELP_CATEGORIES;
 
-  const handleAiSubmit = () => {
-    if (!aiInput.trim()) return;
-    setSubmitSuccess(true);
-    setTimeout(() => {
-      setSubmitSuccess(false);
-      setAiInput('');
-    }, 3000);
-  };
+  /** Submit via AI chat input — sends to real backend */
+  const handleAiSubmit = useCallback(async () => {
+    if (!aiInput.trim() || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
+    const result = await submitHelpReport({
+      category:    'ai_support',
+      title:       aiInput.slice(0, 120),
+      description: aiInput,
+      urgency:     'normal',
+      source:      'web',
+    });
+
+    setSubmitting(false);
+    if (result.ok) {
+      setSubmitSuccess(true);
+      setSubmittedRef(result.reportNumber ?? null);
+      setTimeout(() => { setSubmitSuccess(false); setAiInput(''); }, 5000);
+    } else {
+      setSubmitError(result.error ?? 'Submission failed. Please try again.');
+    }
+  }, [aiInput, submitting]);
+
+  /** Submit urgent escalation form — sends to real backend */
+  const handleUrgentSubmit = useCallback(async () => {
+    if (!urgentTitle.trim() || !urgentDesc.trim() || submitting) return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const result = await submitHelpReport({
+      category:               urgentCategory || 'urgent_escalation',
+      title:                  urgentTitle,
+      description:            urgentDesc,
+      urgency:                'urgent',
+      needsImmediateResponse: true,
+      source:                 'web',
+      contact: urgentName || urgentEmail ? {
+        fullName: urgentName || undefined,
+        email:    urgentEmail || undefined,
+      } : undefined,
+    });
+
+    setSubmitting(false);
+    if (result.ok) {
+      setSubmitSuccess(true);
+      setSubmittedRef(result.reportNumber ?? null);
+      setUrgentTitle(''); setUrgentDesc(''); setUrgentName(''); setUrgentEmail('');
+    } else {
+      setSubmitError(result.error ?? 'Submission failed. Please try again.');
+    }
+  }, [urgentCategory, urgentTitle, urgentDesc, urgentName, urgentEmail, submitting]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -664,25 +721,56 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
               </div>
             </div>
 
-            {/* Priority escalation form */}
+            {/* Priority escalation form — connected to real backend */}
             <div className="bg-white rounded-2xl p-5 border border-red-100 shadow-sm">
               <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-3">Submit Urgent Report</p>
-              <textarea
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 resize-none outline-none focus:border-red-400 transition-colors"
-                rows={4}
-                placeholder="Describe your urgent situation clearly. Include what happened, when, and any relevant details…"
-              />
-              <div className="flex gap-3 mt-3">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex items-center gap-2 bg-gray-50 border border-gray-200 text-gray-600 rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-gray-100 transition-colors"
-                >
-                  <Upload className="w-4 h-4" /> Attach Proof
-                </button>
-                <button className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-2.5 font-black text-sm transition-colors flex items-center justify-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> Escalate Now
-                </button>
-              </div>
+
+              {submitSuccess && submittedRef ? (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-center">
+                  <CheckCircle className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+                  <p className="font-black text-emerald-800 text-sm">Report submitted — Case <span className="font-mono">{submittedRef}</span></p>
+                  <p className="text-[11px] text-emerald-600 mt-1">Our team has been notified. You can track this in the DPAL Admin Dashboard.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2 mb-3">
+                    <input
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 outline-none focus:border-red-400 transition-colors"
+                      placeholder="Brief title (e.g. 'Unsafe trip — driver threatening')"
+                      value={urgentTitle}
+                      onChange={e => setUrgentTitle(e.target.value)}
+                    />
+                    <textarea
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 resize-none outline-none focus:border-red-400 transition-colors"
+                      rows={3}
+                      placeholder="Describe your urgent situation clearly. Include what happened, when, and any relevant details…"
+                      value={urgentDesc}
+                      onChange={e => setUrgentDesc(e.target.value)}
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 outline-none" placeholder="Your name (optional)" value={urgentName} onChange={e => setUrgentName(e.target.value)} />
+                      <input className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 outline-none" placeholder="Email (optional)" value={urgentEmail} onChange={e => setUrgentEmail(e.target.value)} />
+                    </div>
+                  </div>
+                  {submitError && <p className="text-xs text-red-600 font-bold mb-2">{submitError}</p>}
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex items-center gap-2 bg-gray-50 border border-gray-200 text-gray-600 rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-gray-100 transition-colors"
+                    >
+                      <Upload className="w-4 h-4" /> Attach Proof
+                    </button>
+                    <button
+                      onClick={() => void handleUrgentSubmit()}
+                      disabled={submitting || !urgentTitle.trim() || !urgentDesc.trim()}
+                      className="flex-1 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl py-2.5 font-black text-sm transition-colors flex items-center justify-center gap-2"
+                    >
+                      {submitting ? <Loader className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                      {submitting ? 'Submitting…' : 'Escalate Now'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -715,20 +803,33 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
                     Hello! I'm the DPAL Support AI. Describe your issue and I'll guide you to the right solution or escalate to a human reviewer if needed.
                   </div>
                 </div>
-                {submitSuccess && (
+                {(submitting || submitSuccess) && (
                   <div className="flex gap-2.5 justify-end">
                     <div className="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm font-medium max-w-[80%]">{aiInput}</div>
                   </div>
                 )}
-                {submitSuccess && (
+                {submitting && (
                   <div className="flex gap-2.5">
                     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-purple-500 to-blue-600 flex items-center justify-center flex-shrink-0">
                       <Loader className="w-3.5 h-3.5 text-white animate-spin" />
                     </div>
                     <div className="bg-gray-50 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-700 font-medium">
-                      Analyzing your issue and preparing the best resolution path…
+                      Submitting to DPAL Help Center…
                     </div>
                   </div>
+                )}
+                {submitSuccess && submittedRef && (
+                  <div className="flex gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-500 to-green-600 flex items-center justify-center flex-shrink-0">
+                      <CheckCircle className="w-3.5 h-3.5 text-white" />
+                    </div>
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-emerald-800 font-medium">
+                      ✓ Ticket submitted — Case <span className="font-mono font-black">{submittedRef}</span>. Our team has been notified.
+                    </div>
+                  </div>
+                )}
+                {submitError && (
+                  <div className="bg-red-50 border border-red-200 rounded-xl px-3 py-2 text-xs text-red-700 font-bold">{submitError}</div>
                 )}
               </div>
 
@@ -754,12 +855,12 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
                   placeholder="Ask DPAL Support AI anything…"
                   value={aiInput}
                   onChange={e => setAiInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleAiSubmit(); }}
+                  onKeyDown={e => { if (e.key === 'Enter') void handleAiSubmit(); }}
                 />
-                <button onClick={handleAiSubmit} disabled={!aiInput.trim()}
+                <button onClick={() => void handleAiSubmit()} disabled={!aiInput.trim() || submitting}
                   className="w-9 h-9 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 text-white rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
                 >
-                  <Send className="w-4 h-4" />
+                  {submitting ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                 </button>
               </div>
             </div>

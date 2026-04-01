@@ -1,0 +1,227 @@
+// DPAL Help Center — Prisma Schema
+// Database: Supabase PostgreSQL
+// Run: npx prisma migrate dev --name init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum ReportStatus {
+  submitted
+  under_review
+  awaiting_contact
+  awaiting_documents
+  assigned
+  in_progress
+  referred_out
+  resolved
+  closed
+  rejected
+  duplicate
+}
+
+enum ReportUrgency {
+  low
+  normal
+  high
+  urgent
+  emergency
+}
+
+enum ReportSource {
+  web
+  mobile
+  admin
+  phone_intake
+  api
+}
+
+enum Visibility {
+  private
+  internal
+  public_redacted
+}
+
+enum NoteType {
+  internal
+  follow_up
+  resolution
+  contact_log
+}
+
+enum ContactMethod {
+  email
+  phone
+  text
+  any
+}
+
+// ─── Main report record ───────────────────────────────────────────────────────
+
+model HelpReport {
+  id                    String        @id @default(cuid())
+  reportNumber          String        @unique // HC-2026-000001
+  userId                String?       // nullable for anonymous
+
+  category              String
+  subcategory           String?
+  tags                  String[]      @default([])
+
+  title                 String
+  description           String
+
+  urgency               ReportUrgency @default(normal)
+  status                ReportStatus  @default(submitted)
+  source                ReportSource  @default(web)
+  visibility            Visibility    @default(private)
+
+  isAnonymous           Boolean       @default(false)
+  needsImmediateResponse Boolean      @default(false)
+  isDuplicate           Boolean       @default(false)
+  duplicateOfId         String?
+
+  language              String        @default("en")
+
+  occurredAt            DateTime?
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  // ── Relations ──
+  contact               HelpReportContact?
+  location              HelpReportLocation?
+  attachments           HelpReportAttachment[]
+  statusHistory         HelpReportStatusHistory[]
+  notes                 HelpReportNote[]
+  assignments           HelpReportAssignment[]
+
+  @@map("help_reports")
+  @@index([status])
+  @@index([urgency])
+  @@index([category])
+  @@index([createdAt])
+  @@index([userId])
+}
+
+// ─── Contact details ──────────────────────────────────────────────────────────
+
+model HelpReportContact {
+  id                    String  @id @default(cuid())
+  reportId              String  @unique
+  report                HelpReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  fullName              String?
+  phone                 String?
+  email                 String?
+  preferredContactMethod ContactMethod @default(email)
+  safeToCall            Boolean @default(true)
+  safeToText            Boolean @default(true)
+
+  @@map("help_report_contacts")
+}
+
+// ─── Location details ─────────────────────────────────────────────────────────
+
+model HelpReportLocation {
+  id                    String  @id @default(cuid())
+  reportId              String  @unique
+  report                HelpReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  country               String?
+  stateRegion           String?
+  city                  String?
+  address               String?
+  latitude              Float?
+  longitude             Float?
+  locationNotes         String?
+
+  @@map("help_report_locations")
+}
+
+// ─── File attachments ─────────────────────────────────────────────────────────
+
+model HelpReportAttachment {
+  id                    String  @id @default(cuid())
+  reportId              String
+  report                HelpReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  filePath              String  // Supabase Storage path
+  publicUrl             String? // Public or signed URL
+  fileName              String
+  fileType              String
+  fileSizeByes          Int?
+  uploadedBy            String?
+
+  createdAt             DateTime @default(now())
+
+  @@map("help_report_attachments")
+  @@index([reportId])
+}
+
+// ─── Status change history ────────────────────────────────────────────────────
+
+model HelpReportStatusHistory {
+  id                    String       @id @default(cuid())
+  reportId              String
+  report                HelpReport   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  oldStatus             ReportStatus?
+  newStatus             ReportStatus
+  changedBy             String       // user id or "system"
+  reason                String?
+
+  createdAt             DateTime     @default(now())
+
+  @@map("help_report_status_history")
+  @@index([reportId])
+}
+
+// ─── Internal notes ───────────────────────────────────────────────────────────
+
+model HelpReportNote {
+  id                    String    @id @default(cuid())
+  reportId              String
+  report                HelpReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  authorId              String    // admin user id
+  noteType              NoteType  @default(internal)
+  body                  String
+
+  createdAt             DateTime  @default(now())
+
+  @@map("help_report_notes")
+  @@index([reportId])
+}
+
+// ─── Assignments ──────────────────────────────────────────────────────────────
+
+model HelpReportAssignment {
+  id                    String    @id @default(cuid())
+  reportId              String
+  report                HelpReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  assignedTo            String    // admin/staff user id
+  assignedBy            String
+  team                  String?
+  assignedAt            DateTime  @default(now())
+
+  @@map("help_report_assignments")
+  @@index([reportId])
+  @@index([assignedTo])
+}
+
+// ─── Counter table for sequential report numbers ──────────────────────────────
+
+model ReportCounter {
+  id                    Int      @id @default(1)
+  lastNumber            Int      @default(0)
+
+  @@map("report_counters")
+}
