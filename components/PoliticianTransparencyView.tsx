@@ -21,6 +21,11 @@ import {
   Sparkles,
 } from './icons';
 import { MdOutlinedSelectSync, MdOutlinedTextFieldSync } from './MaterialWebEvidenceFields';
+import {
+  isPoliticianOpenAiConfigured,
+  refinePoliticianSearchQuery,
+  suggestEvidenceDraftFromNotes,
+} from '../services/politicianOpenAiService';
 export interface PoliticianPosition {
   id: string;
   measureTitle: string;
@@ -237,8 +242,14 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   const [selectedMisconductChips, setSelectedMisconductChips] = useState<Set<string>>(new Set());
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [searchNetworkFailed, setSearchNetworkFailed] = useState(false);
+  const [openAiSearchBusy, setOpenAiSearchBusy] = useState(false);
+  const [openAiSearchErr, setOpenAiSearchErr] = useState<string | null>(null);
+  const [openAiEvidenceBusy, setOpenAiEvidenceBusy] = useState(false);
+  const [openAiEvidenceErr, setOpenAiEvidenceErr] = useState<string | null>(null);
+  const [aiDraftHint, setAiDraftHint] = useState('');
 
   const politicians = MOCK_POLITICIANS;
+  const openAiEnabled = isPoliticianOpenAiConfigured();
 
   const allTopics = useMemo(() => {
     const set = new Set<string>();
@@ -522,6 +533,46 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
       .finally(() => setWebLoading(false));
   };
 
+  const handleRefineSearchWithAi = async () => {
+    if (!openAiEnabled) return;
+    setOpenAiSearchErr(null);
+    setOpenAiSearchBusy(true);
+    try {
+      const q = await refinePoliticianSearchQuery({
+        query: aiQuery,
+        issueChips: [...selectedIssueChips],
+        misconductChips: [...selectedMisconductChips],
+      });
+      setAiQuery(q);
+    } catch (e: unknown) {
+      setOpenAiSearchErr(e instanceof Error ? e.message : 'OpenAI request failed');
+    } finally {
+      setOpenAiSearchBusy(false);
+    }
+  };
+
+  const handleSuggestEvidenceWithAi = async () => {
+    if (!openAiEnabled) return;
+    setOpenAiEvidenceErr(null);
+    setOpenAiEvidenceBusy(true);
+    try {
+      const d = await suggestEvidenceDraftFromNotes({
+        subjectName,
+        proofNote,
+        timelineNote,
+        userHint: aiDraftHint,
+      });
+      setSaidText(d.saidText);
+      setDidText(d.didText);
+      setProofNote(d.proofNote);
+      setProofSubmitted(false);
+    } catch (e: unknown) {
+      setOpenAiEvidenceErr(e instanceof Error ? e.message : 'OpenAI request failed');
+    } finally {
+      setOpenAiEvidenceBusy(false);
+    }
+  };
+
   return (
     <div
       data-dpal-theme="light"
@@ -754,6 +805,19 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 <span className="font-semibold text-slate-700">Politician & misconduct:</span> type any name, office, or ethics keywords — we broaden the query toward
                 public sources when those topics appear.
               </p>
+              {openAiEnabled && (
+                <p className="mt-2 text-[10px] leading-relaxed text-indigo-900/80">
+                  <span className="font-semibold text-indigo-950">OpenAI</span> can tighten your search query before DuckDuckGo. In local dev the key is injected by the Vite proxy (
+                  <code className="rounded bg-white/70 px-1">VITE_OPENAI_API_KEY</code> in <code className="rounded bg-white/70 px-1">.env.local</code>
+                  ). Production may need a same-origin proxy if the browser blocks direct API calls.
+                </p>
+              )}
+              {!openAiEnabled && (
+                <p className="mt-2 text-[10px] text-slate-400">
+                  Set <code className="rounded bg-slate-100 px-1">VITE_OPENAI_API_KEY</code> in <code className="rounded bg-slate-100 px-1">.env.local</code> (see{' '}
+                  <code className="rounded bg-slate-100 px-1">.env.example</code>) to enable AI query refine and evidence draft.
+                </p>
+              )}
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Topics (tap to toggle)</span>
                 {(selectedIssueChips.size > 0 || selectedMisconductChips.size > 0) && (
@@ -809,7 +873,7 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                   })}
                 </div>
               </div>
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
                 <button
                   type="button"
                   onClick={runPublicSearch}
@@ -817,8 +881,20 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 >
                   {webLoading ? 'Searching…' : 'Run search'}
                 </button>
+                {openAiEnabled && (
+                  <button
+                    type="button"
+                    onClick={() => void handleRefineSearchWithAi()}
+                    disabled={openAiSearchBusy}
+                    className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-3 text-xs font-bold uppercase tracking-widest text-indigo-900 shadow-sm transition hover:bg-indigo-100 disabled:opacity-50"
+                  >
+                    <Sparkles className="h-4 w-4 shrink-0" />
+                    {openAiSearchBusy ? 'Refining…' : 'Refine query (AI)'}
+                  </button>
+                )}
                 <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500">DuckDuckGo · free · best-effort</p>
               </div>
+              {openAiSearchErr && <p className="mt-2 text-xs font-medium text-rose-600">{openAiSearchErr}</p>}
             </div>
 
             {searchAttempted && !webLoading && (
@@ -930,6 +1006,32 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                   {proofSubmitted ? 'Submitted — thank you' : 'Draft'}
                 </span>
               </div>
+
+              {openAiEnabled && (
+                <div className="politician-evidence-md mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 [&_md-outlined-text-field]:block [&_md-outlined-text-field]:w-full">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.25em] text-indigo-900">OpenAI · evidence draft</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Uses your notes below (context, timeline) plus optional instructions. Always verify facts and add sources — AI may leave placeholders.
+                  </p>
+                  <MdOutlinedTextFieldSync
+                    className="mt-3"
+                    label="Instructions for AI (optional)"
+                    value={aiDraftHint}
+                    supportingText="e.g. “Emphasize the housing vote” or “Keep under 200 words per side”"
+                    onValueChange={setAiDraftHint}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSuggestEvidenceWithAi()}
+                    disabled={openAiEvidenceBusy}
+                    className="mt-3 inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-[10px] font-bold uppercase tracking-widest text-indigo-900 shadow-sm transition hover:bg-indigo-50 disabled:opacity-50 sm:w-auto"
+                  >
+                    <Sparkles className="h-4 w-4 shrink-0" />
+                    {openAiEvidenceBusy ? 'Drafting…' : 'Suggest draft (AI)'}
+                  </button>
+                  {openAiEvidenceErr && <p className="mt-2 text-xs font-medium text-rose-600">{openAiEvidenceErr}</p>}
+                </div>
+              )}
 
               <div className="politician-evidence-md mt-6 [&_md-outlined-text-field]:block [&_md-outlined-text-field]:w-full [&_md-outlined-select]:block [&_md-outlined-select]:w-full">
                 <MdOutlinedTextFieldSync

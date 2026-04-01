@@ -2,6 +2,10 @@
 
 interface ImportMetaEnv {
   readonly VITE_GEMINI_API_KEY?: string;
+  /** OpenAI — Politician Transparency Search refine + Evidence draft (optional). */
+  readonly VITE_OPENAI_API_KEY?: string;
+  /** Default: gpt-4o-mini */
+  readonly VITE_OPENAI_MODEL?: string;
   readonly VITE_API_BASE?: string;
   readonly VITE_ADSENSE_CLIENT?: string;
   readonly VITE_ADSENSE_SLOT_SUPPORT_NODE?: string;
