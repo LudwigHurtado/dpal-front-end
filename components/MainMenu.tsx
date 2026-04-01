@@ -272,15 +272,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('helpCenter')}
                 />
 
-                <PrimaryNavModule
-                    icon={<Monitor className="w-8 h-8" />}
-                    label="Report Center"
-                    subLabel="A calmer place to plan what to file"
-                    status="New"
-                    colorClass="cyan"
-                    bgImageUrl="/main-screen/dashboard.png"
-                    onClick={() => onNavigate('reportDashboard')}
-                />
 
                 <PrimaryNavModule 
                     icon={<Database className="w-8 h-8" />}
