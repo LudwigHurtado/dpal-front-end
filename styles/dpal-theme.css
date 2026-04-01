@@ -2,7 +2,8 @@
  * =============================================================================
  * DPAL MASTER THEME — CONTROL PANEL (edit visuals here only)
  * =============================================================================
- * This file is imported first in App.tsx (`import './styles/dpal-theme.css'`).
+ * Imports after `material-web-theme.css` (Material Web M3 tokens — color / type / shape).
+ * This file maps `--dpal-*` to `--md-sys-*` where possible.
  * All brand colors, radii, shadows, spacing, and semantic tokens live in :root /
  * [data-dpal-theme='dark'] below. Components must use:
  *   - `var(--dpal-*)` in classNames / styles, or
@@ -15,75 +16,75 @@
 
 :root,
 [data-dpal-theme='dark'] {
-  /* ---- Foundations (charcoal / navy civic-tech) ---- */
-  --dpal-background: #0b0f14;
-  --dpal-background-secondary: #0f1419;
-  --dpal-surface: #151b24;
-  --dpal-surface-alt: #1a222e;
-  --dpal-panel: #1c2431;
-  --dpal-card: #1a2332;
-  --dpal-card-hover: #1f2a3a;
+  /* ---- Foundations — aligned to Material Web --md-sys-color-* (dark) ---- */
+  --dpal-background: var(--md-sys-color-background);
+  --dpal-background-secondary: var(--md-sys-color-surface-container-low);
+  --dpal-surface: var(--md-sys-color-surface);
+  --dpal-surface-alt: var(--md-sys-color-surface-container-high);
+  --dpal-panel: var(--md-sys-color-surface-container-highest);
+  --dpal-card: var(--md-sys-color-surface-container-high);
+  --dpal-card-hover: color-mix(in srgb, var(--md-sys-color-surface-container-highest) 92%, var(--md-sys-color-on-surface) 8%);
 
-  /* ---- Text ---- */
-  --dpal-text-primary: #f1f5f9;
-  --dpal-text-secondary: #94a3b8;
-  --dpal-text-muted: #64748b;
-  --dpal-placeholder: #64748b;
+  /* ---- Text — on-surface roles ---- */
+  --dpal-text-primary: var(--md-sys-color-on-surface);
+  --dpal-text-secondary: var(--md-sys-color-on-surface-variant);
+  --dpal-text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 85%, var(--md-sys-color-on-surface) 15%);
+  --dpal-placeholder: var(--md-sys-color-on-surface-variant);
 
-  /* ---- Brand / accent (teal signal) ---- */
-  --dpal-primary: #0d9488;
-  --dpal-primary-hover: #14b8a6;
-  --dpal-accent: #2dd4bf;
-  --dpal-accent-hover: #5eead4;
+  /* ---- Brand / accent (teal + cyan — primary / secondary M3 roles) ---- */
+  --dpal-primary: var(--md-sys-color-primary);
+  --dpal-primary-hover: var(--md-sys-color-primary-fixed-dim);
+  --dpal-accent: var(--md-sys-color-primary-fixed);
+  --dpal-accent-hover: color-mix(in srgb, var(--md-sys-color-primary-fixed) 90%, white 10%);
 
   /* Support accent — cyan (nav chrome, secondary pills, sort menus). Teal stays primary. */
   --dpal-support-cyan: #0891b2;
-  --dpal-support-cyan-bright: #22d3ee;
+  --dpal-support-cyan-bright: var(--md-sys-color-secondary);
   --dpal-support-cyan-hover: #06b6d4;
-  --dpal-support-cyan-muted: rgba(6, 182, 212, 0.35);
-  --dpal-support-cyan-glow: rgba(6, 182, 212, 0.3);
+  --dpal-support-cyan-muted: color-mix(in srgb, var(--md-sys-color-secondary) 35%, transparent);
+  --dpal-support-cyan-glow: color-mix(in srgb, var(--md-sys-color-secondary) 30%, transparent);
 
-  /* ---- Status (semantic) ---- */
+  /* ---- Status (semantic) — keep distinct hues; harmonize with error role ---- */
   --dpal-success: #22c55e;
   --dpal-warning: #f59e0b;
-  --dpal-danger: #ef4444;
+  --dpal-danger: var(--md-sys-color-error);
   --dpal-info: #3b82f6;
   --dpal-verified: #22c55e;
-  --dpal-reward: #14b8a6;
+  --dpal-reward: var(--md-sys-color-primary-fixed-dim);
 
-  /* ---- Borders & focus ---- */
-  --dpal-border: rgba(148, 163, 184, 0.14);
-  --dpal-border-strong: rgba(148, 163, 184, 0.28);
-  --dpal-focus-ring: 0 0 0 3px rgba(45, 212, 191, 0.35);
+  /* ---- Borders & focus — outline tokens ---- */
+  --dpal-border: color-mix(in srgb, var(--md-sys-color-outline) 35%, transparent);
+  --dpal-border-strong: color-mix(in srgb, var(--md-sys-color-outline) 65%, transparent);
+  --dpal-focus-ring: 0 0 0 3px color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
 
   /* ---- Overlays ---- */
-  --dpal-overlay: rgba(8, 12, 18, 0.72);
-  --dpal-overlay-soft: rgba(8, 12, 18, 0.45);
+  --dpal-overlay: color-mix(in srgb, var(--md-sys-color-background) 72%, transparent);
+  --dpal-overlay-soft: color-mix(in srgb, var(--md-sys-color-background) 45%, transparent);
 
-  /* ---- Named surfaces (map to same palette; tune independently later) ---- */
-  --dpal-sidebar: #121820;
-  --dpal-topbar: #0e131a;
-  --dpal-input-bg: #121a24;
-  --dpal-input-border: rgba(148, 163, 184, 0.2);
+  /* ---- Named surfaces — map to M3 containers ---- */
+  --dpal-sidebar: var(--md-sys-color-surface-container);
+  --dpal-topbar: color-mix(in srgb, var(--md-sys-color-background) 96%, var(--md-sys-color-on-surface) 4%);
+  --dpal-input-bg: var(--md-sys-color-surface-container-low);
+  --dpal-input-border: color-mix(in srgb, var(--md-sys-color-outline) 45%, transparent);
   --dpal-input-text: var(--dpal-text-primary);
-  --dpal-map-panel: #151c26;
-  --dpal-feed-card: #1a2330;
-  --dpal-mission-card: #18212f;
-  --dpal-report-card: #1a2332;
-  --dpal-ledger-card: #161e2a;
-  --dpal-ai-panel: #141c28;
+  --dpal-map-panel: var(--md-sys-color-surface-container);
+  --dpal-feed-card: var(--md-sys-color-surface-container-high);
+  --dpal-mission-card: var(--md-sys-color-surface-container);
+  --dpal-report-card: var(--md-sys-color-surface-container-high);
+  --dpal-ledger-card: var(--md-sys-color-surface-container);
+  --dpal-ai-panel: var(--md-sys-color-surface-container-low);
 
-  --dpal-badge-bg: rgba(45, 212, 191, 0.12);
-  --dpal-badge-text: #5eead4;
+  --dpal-badge-bg: color-mix(in srgb, var(--md-sys-color-primary) 12%, transparent);
+  --dpal-badge-text: var(--md-sys-color-primary-fixed);
 
-  /* ---- Typography scale (rem, base 16) ---- */
-  --dpal-text-xs: 0.6875rem;
-  --dpal-text-sm: 0.8125rem;
-  --dpal-text-base: 1rem;
-  --dpal-text-lg: 1.125rem;
-  --dpal-text-xl: 1.25rem;
-  --dpal-text-2xl: 1.5rem;
-  --dpal-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  /* ---- Typography scale — map to Material typescale where applicable ---- */
+  --dpal-text-xs: var(--md-sys-typescale-label-small-size);
+  --dpal-text-sm: var(--md-sys-typescale-body-medium-size);
+  --dpal-text-base: var(--md-sys-typescale-body-large-size);
+  --dpal-text-lg: var(--md-sys-typescale-title-medium-size);
+  --dpal-text-xl: var(--md-sys-typescale-title-large-size);
+  --dpal-text-2xl: var(--md-sys-typescale-headline-small-size);
+  --dpal-font-sans: var(--md-ref-typeface-plain);
   --dpal-font-mono: ui-monospace, 'Cascadia Code', 'Segoe UI Mono', monospace;
 
   /* ---- Spacing scale (4px grid) ---- */
@@ -97,12 +98,12 @@
   --dpal-space-10: 2.5rem;
   --dpal-space-12: 3rem;
 
-  /* ---- Radius ---- */
-  --dpal-radius-sm: 0.5rem;
-  --dpal-radius-md: 0.75rem;
-  --dpal-radius-lg: 1rem;
+  /* ---- Radius — map to Material shape corners ---- */
+  --dpal-radius-sm: var(--md-sys-shape-corner-small);
+  --dpal-radius-md: var(--md-sys-shape-corner-medium);
+  --dpal-radius-lg: var(--md-sys-shape-corner-large);
   --dpal-radius-xl: 1.25rem;
-  --dpal-radius-2xl: 1.5rem;
+  --dpal-radius-2xl: var(--md-sys-shape-corner-extra-large);
   --dpal-radius-3xl: 2rem;
 
   /* ---- Shadows (soft, layered) ---- */
@@ -127,31 +128,54 @@
   --dpal-z-toast: 400;
 }
 
-/* Optional light theme scaffold — fill values when needed */
+/* Light theme — Material Web tokens in material-web-theme.css drive --md-sys-*; DPAL aliases follow */
 [data-dpal-theme='light'] {
-  --dpal-background: #f8fafc;
-  --dpal-text-primary: #0f172a;
-  --dpal-text-secondary: #475569;
-  --dpal-border: rgba(15, 23, 42, 0.08);
+  --dpal-background: var(--md-sys-color-background);
+  --dpal-background-secondary: var(--md-sys-color-surface-container-low);
+  --dpal-surface: var(--md-sys-color-surface);
+  --dpal-surface-alt: var(--md-sys-color-surface-container-high);
+  --dpal-panel: var(--md-sys-color-surface-container-highest);
+  --dpal-card: var(--md-sys-color-surface);
+  --dpal-card-hover: var(--md-sys-color-surface-container-high);
+  --dpal-text-primary: var(--md-sys-color-on-surface);
+  --dpal-text-secondary: var(--md-sys-color-on-surface-variant);
+  --dpal-text-muted: color-mix(in srgb, var(--md-sys-color-on-surface-variant) 88%, var(--md-sys-color-on-surface) 12%);
+  --dpal-placeholder: var(--md-sys-color-on-surface-variant);
+  --dpal-primary: var(--md-sys-color-primary);
+  --dpal-primary-hover: color-mix(in srgb, var(--md-sys-color-primary) 92%, black 8%);
+  --dpal-accent: var(--md-sys-color-primary-container);
+  --dpal-accent-hover: color-mix(in srgb, var(--md-sys-color-primary-container) 90%, var(--md-sys-color-on-primary-container) 10%);
+  --dpal-border: var(--md-sys-color-outline-variant);
+  --dpal-border-strong: var(--md-sys-color-outline);
+  --dpal-sidebar: var(--md-sys-color-surface-container);
+  --dpal-topbar: var(--md-sys-color-surface);
+  --dpal-input-bg: var(--md-sys-color-surface-container-low);
+  --dpal-badge-bg: color-mix(in srgb, var(--md-sys-color-primary) 14%, transparent);
+  --dpal-badge-text: var(--md-sys-color-primary);
 }
 
 /* -------------------------------------------------------------------------- */
 /* Base document (inherits into React tree) */
 /* -------------------------------------------------------------------------- */
 html {
-  font-family: var(--dpal-font-sans);
+  font-family: var(--md-ref-typeface-plain);
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--md-sys-typescale-body-large-line-height);
 }
 
 body {
   margin: 0;
-  background-color: var(--dpal-background);
-  color: var(--dpal-text-primary);
+  background-color: var(--md-sys-color-background);
+  color: var(--md-sys-color-on-surface);
   -webkit-font-smoothing: antialiased;
+  font-family: var(--md-ref-typeface-plain);
+  font-size: var(--md-sys-typescale-body-large-size);
+  line-height: var(--md-sys-typescale-body-large-line-height);
 }
 
 ::selection {
-  background: rgba(45, 212, 191, 0.25);
-  color: var(--dpal-text-primary);
+  background: color-mix(in srgb, var(--md-sys-color-primary) 28%, transparent);
+  color: var(--md-sys-color-on-surface);
 }
 
 /* Scrollbars use theme tokens */
@@ -305,8 +329,8 @@ body {
   transition: background-color var(--dpal-duration-fast) var(--dpal-ease),
     filter var(--dpal-duration-fast) var(--dpal-ease), box-shadow var(--dpal-duration-fast) var(--dpal-ease);
   background: linear-gradient(180deg, var(--dpal-primary-hover) 0%, var(--dpal-primary) 100%);
-  color: #042f2e;
-  border: 1px solid rgba(45, 212, 191, 0.35);
+  color: var(--md-sys-color-on-primary);
+  border: 1px solid color-mix(in srgb, var(--md-sys-color-primary) 35%, transparent);
 }
 .dpal-btn-primary:hover:not(:disabled) {
   filter: brightness(1.06);

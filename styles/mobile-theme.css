@@ -26,11 +26,11 @@
 
 .dpal-mobile-ui .dpal-btn-primary {
   background-color: var(--dpal-mobile-cyan-dim);
-  color: #042f2e;
+  color: var(--md-sys-color-on-primary);
   min-height: var(--dpal-touch-min);
   padding: 12px 20px;
-  border-radius: 12px;
-  font-weight: 700;
+  border-radius: var(--md-sys-shape-corner-medium);
+  font-weight: var(--md-ref-typeface-weight-bold);
   border: 1px solid var(--dpal-mobile-cyan);
 }
 
