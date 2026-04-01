@@ -60,13 +60,35 @@ function calcBearing(
    Vehicle options
 ───────────────────────────────────────────── */
 const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mult: number; eta: string }[] = [
-  { id: 'car',     label: 'Standard',  sub: 'Sedan / Compact',  emoji: '🚗', mult: 1.0, eta: '3 min' },
+  { id: 'car',     label: 'Standard',  sub: 'Sedan / Compact',  emoji: '🚗', mult: 1.0,  eta: '3 min' },
   { id: 'comfort', label: 'Comfort',   sub: 'Larger Sedan',     emoji: '🚙', mult: 1.22, eta: '5 min' },
   { id: 'moto',    label: 'Moto',      sub: 'Motorcycle',       emoji: '🏍', mult: 0.7,  eta: '2 min' },
   { id: 'large',   label: 'Large',     sub: 'SUV / Van',        emoji: '🚐', mult: 1.9,  eta: '6 min' },
 ];
 
 const BASE_FARE = 5.40;
+
+/* ─────────────────────────────────────────────
+   Charities
+───────────────────────────────────────────── */
+interface Charity {
+  id: string;
+  name: string;
+  emoji: string;
+  tagline: string;
+  color: string;
+  bg: string;
+  category: string;
+}
+
+const CHARITIES: Charity[] = [
+  { id: 'paws',      name: 'Paws Rescue',      emoji: '🐾', tagline: 'Animal shelter & rescue',       color: '#EA580C', bg: '#FFF7ED', category: 'Animals'   },
+  { id: 'golden',    name: 'Golden Years',      emoji: '👴', tagline: 'Senior transport & care',        color: '#7C3AED', bg: '#F5F3FF', category: 'Seniors'   },
+  { id: 'hope',      name: 'Hope Shelter',      emoji: '🏠', tagline: 'Homeless housing support',       color: '#0077C8', bg: '#EFF6FF', category: 'Housing'   },
+  { id: 'children',  name: 'Hope for Children', emoji: '👶', tagline: 'Food, school & safe homes',      color: '#059669', bg: '#F0FDF4', category: 'Children'  },
+  { id: 'green',     name: 'Green Future',       emoji: '🌱', tagline: 'Urban reforestation & parks',   color: '#16A34A', bg: '#F0FDF4', category: 'Environ.'  },
+  { id: 'medaid',    name: 'MedAid Local',       emoji: '🏥', tagline: 'Free clinic & medicine access', color: '#DC2626', bg: '#FEF2F2', category: 'Medical'   },
+];
 
 /* ─────────────────────────────────────────────
    Saved places
@@ -132,6 +154,10 @@ const PassengerRideHomePage: React.FC = () => {
   const dropoffMarkerRef    = useRef<google.maps.Marker | null>(null);
   const vehicleMarkerRef    = useRef<google.maps.Marker | null>(null);
   const mapClickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
+  /* Route animation — stores polyline path + animation state */
+  const routePathRef        = useRef<google.maps.LatLng[]>([]);
+  const animStepRef         = useRef(0);
+  const animTimerRef        = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* UI state */
   const [sheet, setSheet]           = useState<SheetState>('home');
@@ -147,8 +173,9 @@ const PassengerRideHomePage: React.FC = () => {
   const [locatingPickup,  setLocatingPickup]  = useState(false);
   const [locatingDropoff, setLocatingDropoff] = useState(false);
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
-  const [broadcasting, setBroadcasting] = useState(false);
-  const [activeTab, setActiveTab]     = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
+  const [broadcasting, setBroadcasting]   = useState(false);
+  const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
+  const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
 
   const bothSet = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
 
@@ -217,21 +244,79 @@ const PassengerRideHomePage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g, activeField]);
 
+  /* ── Stop route animation helper ── */
+  const stopRouteAnimation = useCallback(() => {
+    if (animTimerRef.current) { clearInterval(animTimerRef.current); animTimerRef.current = null; }
+  }, []);
+
+  /* ── Start route animation: marker crawls along polyline, stays on road ── */
+  const startRouteAnimation = useCallback((path: google.maps.LatLng[]) => {
+    if (!g || !vehicleMarkerRef.current || path.length < 2) return;
+    stopRouteAnimation();
+    animStepRef.current = 0;
+
+    /* Sub-sample: insert interpolated points so animation is smooth at any zoom */
+    const dense: google.maps.LatLng[] = [];
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i];
+      const b = path[i + 1];
+      const steps = 6;
+      for (let t = 0; t < steps; t++) {
+        const f = t / steps;
+        dense.push(new g.maps.LatLng(
+          a.lat() + (b.lat() - a.lat()) * f,
+          a.lng() + (b.lng() - a.lng()) * f,
+        ));
+      }
+    }
+    dense.push(path[path.length - 1]);
+
+    const markerVehicleType = driverVehicle?.vehicleType ?? toVehicleMapType(vehicleType);
+    const markerColor = driverVehicle?.color ?? '#0077C8';
+
+    animTimerRef.current = setInterval(() => {
+      const idx = animStepRef.current;
+      if (idx >= dense.length) {
+        /* Loop: reset to start so animation keeps running */
+        animStepRef.current = 0;
+        return;
+      }
+      const pos = dense[idx];
+      vehicleMarkerRef.current?.setPosition(pos);
+
+      /* Rotate to face direction of travel */
+      if (idx < dense.length - 1) {
+        const next = dense[idx + 1];
+        const bearing = calcBearing(
+          { lat: pos.lat(), lng: pos.lng() },
+          { lat: next.lat(), lng: next.lng() },
+        );
+        const url = makeVehicleMarkerUrl(markerVehicleType, markerColor, 60, bearing);
+        vehicleMarkerRef.current?.setIcon({ url, scaledSize: new g.maps.Size(60, 60), anchor: new g.maps.Point(30, 30) });
+      }
+      animStepRef.current += 1;
+    }, 80); // ~12 fps crawl — adjust for speed feel
+  }, [g, driverVehicle, vehicleType, stopRouteAnimation]);
+
   /* ── Markers + route ── */
   useEffect(() => {
     if (!g || !mapObjRef.current) return;
+
+    /* ── Pickup pin ── */
     if (pickupLL) {
       if (!pickupMarkerRef.current) pickupMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, title: 'Pickup', zIndex: 10 });
       pickupMarkerRef.current.setPosition(pickupLL);
       pickupMarkerRef.current.setIcon({ url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('A', '#111827'))}`, scaledSize: new g.maps.Size(32, 42), anchor: new g.maps.Point(16, 42) });
     } else { pickupMarkerRef.current?.setMap(null); pickupMarkerRef.current = null; }
 
+    /* ── Dropoff pin ── */
     if (dropoffLL) {
       if (!dropoffMarkerRef.current) dropoffMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, title: 'Dropoff', zIndex: 10 });
       dropoffMarkerRef.current.setPosition(dropoffLL);
       dropoffMarkerRef.current.setIcon({ url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('B', '#0077C8'))}`, scaledSize: new g.maps.Size(32, 42), anchor: new g.maps.Point(16, 42) });
     } else { dropoffMarkerRef.current?.setMap(null); dropoffMarkerRef.current = null; }
 
+    /* ── Route + animated vehicle marker ── */
     if (pickupLL && dropoffLL && directionsRendRef.current) {
       new g.maps.DirectionsService().route(
         { origin: pickupLL, destination: dropoffLL, travelMode: g.maps.TravelMode.DRIVING },
@@ -239,40 +324,60 @@ const PassengerRideHomePage: React.FC = () => {
           if (status === 'OK' && result && directionsRendRef.current) {
             directionsRendRef.current.setDirections(result);
 
-            /* ── Road-snapped position: use the actual route start point,
-                 not the raw user lat/lng, so the marker sits ON the road ── */
-            const leg   = result.routes[0]?.legs[0];
-            const step0 = leg?.steps[0];
-            const roadStart = leg?.start_location ?? pickupLL;
-
-            /* ── Bearing: rotate the car to face along the first road step ── */
-            let bearing = 0;
-            if (step0) {
-              const from = { lat: step0.start_location.lat(), lng: step0.start_location.lng() };
-              const to   = { lat: step0.end_location.lat(),   lng: step0.end_location.lng() };
-              bearing = calcBearing(from, to);
+            /* Collect ALL path points from every step of every leg
+               → this keeps the marker glued to the actual road geometry */
+            const path: google.maps.LatLng[] = [];
+            for (const leg of result.routes[0]?.legs ?? []) {
+              for (const step of leg.steps ?? []) {
+                /* Each step has a path array of road-snapped LatLngs */
+                const stepPath = (step as any).path as google.maps.LatLng[] | undefined;
+                if (stepPath?.length) {
+                  path.push(...stepPath);
+                } else {
+                  /* Fallback: use step start/end if geometry library unavailable */
+                  path.push(step.start_location, step.end_location);
+                }
+              }
             }
+            routePathRef.current = path;
 
-            if (!vehicleMarkerRef.current) vehicleMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, zIndex: 20 });
-            vehicleMarkerRef.current.setPosition(roadStart);
+            /* Create vehicle marker at route start */
+            if (!vehicleMarkerRef.current) {
+              vehicleMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, zIndex: 20 });
+            }
+            vehicleMarkerRef.current.setPosition(path[0] ?? pickupLL);
 
-            /* Use the driver's real vehicle color + type from their profile */
+            /* Initial icon with bearing toward first step */
             const markerVehicleType = driverVehicle?.vehicleType ?? toVehicleMapType(vehicleType);
-            const markerColor       = driverVehicle?.color ?? '#0077C8';
-            const markerUrl         = makeVehicleMarkerUrl(markerVehicleType, markerColor, 60, bearing);
+            const markerColor = driverVehicle?.color ?? '#0077C8';
+            let initialBearing = 0;
+            if (path.length >= 2) {
+              initialBearing = calcBearing(
+                { lat: path[0].lat(), lng: path[0].lng() },
+                { lat: path[1].lat(), lng: path[1].lng() },
+              );
+            }
+            const markerUrl = makeVehicleMarkerUrl(markerVehicleType, markerColor, 60, initialBearing);
             vehicleMarkerRef.current.setIcon({ url: markerUrl, scaledSize: new g.maps.Size(60, 60), anchor: new g.maps.Point(30, 30) });
+
+            /* Start crawling along the road */
+            startRouteAnimation(path);
 
             const bounds = new g.maps.LatLngBounds();
             bounds.extend(pickupLL); bounds.extend(dropoffLL);
-            mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 320, left: 32, right: 32 });
+            mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 340, left: 32, right: 32 });
           }
         }
       );
     } else {
+      stopRouteAnimation();
       if (directionsRendRef.current) directionsRendRef.current.setDirections({ routes: [] } as any);
       vehicleMarkerRef.current?.setMap(null); vehicleMarkerRef.current = null;
+      routePathRef.current = [];
       if (pickupLL) mapObjRef.current?.panTo(pickupLL);
     }
+
+    return () => stopRouteAnimation();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [g, pickupLL, dropoffLL, vehicleType, driverVehicle]);
 
@@ -644,6 +749,80 @@ const PassengerRideHomePage: React.FC = () => {
               })}
             </div>
 
+            {/* ── Charity selector ── */}
+            <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 20px 10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: '#111827', margin: 0 }}>Support a cause ❤️</p>
+                  <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0 0', fontWeight: 500 }}>
+                    10% of your fare is donated — no extra cost to you
+                  </p>
+                </div>
+                {selectedCharity && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCharity(null)}
+                    style={{ fontSize: 10, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {/* Horizontal charity scroll */}
+              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
+                {CHARITIES.map((c) => {
+                  const sel = selectedCharity === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setSelectedCharity(sel ? null : c.id)}
+                      style={{
+                        flexShrink: 0,
+                        width: 112,
+                        padding: '10px 10px 8px',
+                        borderRadius: 14,
+                        border: sel ? `2px solid ${c.color}` : '2px solid transparent',
+                        background: sel ? c.bg : '#F9FAFB',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 0.15s',
+                        position: 'relative',
+                      }}
+                    >
+                      {sel && (
+                        <div style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: '50%', background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </div>
+                      )}
+                      <div style={{ fontSize: 22, marginBottom: 4 }}>{c.emoji}</div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: '#111827', lineHeight: 1.2 }}>{c.name}</div>
+                      <div style={{ fontSize: 9, color: '#9CA3AF', marginTop: 2, fontWeight: 500, lineHeight: 1.3 }}>{c.tagline}</div>
+                      <div style={{ marginTop: 5, fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: c.color }}>{c.category}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Donation preview when charity selected */}
+              {selectedCharity && (() => {
+                const charity = CHARITIES.find(c => c.id === selectedCharity)!;
+                const fare = BASE_FARE * (VEHICLES.find(v => v.id === vehicleType)?.mult ?? 1);
+                const donation = (fare * 0.1).toFixed(2);
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 10, background: charity.bg, border: `1px solid ${charity.color}30` }}>
+                    <span style={{ fontSize: 20 }}>{charity.emoji}</span>
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 12, fontWeight: 800, color: '#111827', margin: 0 }}>{charity.name}</p>
+                      <p style={{ fontSize: 11, color: '#6B7280', margin: '1px 0 0', fontWeight: 500 }}>Donating <span style={{ color: charity.color, fontWeight: 900 }}>${donation}</span> with this ride</p>
+                    </div>
+                    <div style={{ fontSize: 18 }}>✅</div>
+                  </div>
+                );
+              })()}
+            </div>
+
             {/* Payment row + max offer */}
             <div style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 12, borderTop: '1px solid #F3F4F6', borderBottom: '1px solid #F3F4F6' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
@@ -673,9 +852,15 @@ const PassengerRideHomePage: React.FC = () => {
               >
                 {broadcasting ? <><Spinner color="white" /> Broadcasting…</> : confirmLabel}
               </button>
-              <p style={{ textAlign: 'center', fontSize: 11, color: '#10b981', fontWeight: 600, margin: '8px 0 2px' }}>
-                10% of fare supports a local charity · built-in, no extra cost
-              </p>
+              {selectedCharity ? (
+                <p style={{ textAlign: 'center', fontSize: 11, color: '#10b981', fontWeight: 700, margin: '8px 0 2px' }}>
+                  ❤️ {CHARITIES.find(c => c.id === selectedCharity)?.name} will receive 10% of your fare
+                </p>
+              ) : (
+                <p style={{ textAlign: 'center', fontSize: 11, color: '#9CA3AF', fontWeight: 500, margin: '8px 0 2px' }}>
+                  Select a charity above to dedicate 10% of your fare
+                </p>
+              )}
             </div>
           </div>
         )}
