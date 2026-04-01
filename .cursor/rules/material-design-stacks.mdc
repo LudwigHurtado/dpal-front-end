@@ -1,0 +1,25 @@
+---
+description: Material Design stacks — when to use Angular Material vs Material Web vs tokens only
+alwaysApply: true
+---
+
+# Material Design for DPAL and future projects
+
+## This repo (`dpal-front-end`)
+
+- **Stack:** React + Vite. Use **`@material/web`** (Material Web / M3 web components) and shared CSS tokens in `styles/material-web-theme.css` + `styles/dpal-theme.css`.
+- **Do not** add Angular Material here — it targets Angular only and does not integrate with React.
+
+## If a future project uses **Angular**
+
+- Prefer **[Angular Material](https://material.angular.dev/)** — official M3-aligned components for Angular (`@angular/material`). Follow that site for install, theming, and component APIs.
+
+## If a future project uses **React / Vite / non-Angular SPA**
+
+- Prefer **`@material/web`** with CSS custom properties (`--md-sys-color-*`, `--md-sys-typescale-*`, `--md-sys-shape-*`), same pattern as this repo.
+- Reference: [material-components/material-web docs](https://github.com/material-components/material-web/tree/main/docs).
+
+## Cross-cutting
+
+- **Material Design 3** principles (roles, elevation, motion) apply across stacks; component import paths differ by framework.
+- Prefer **design tokens** (system colors, typescale, shape) over one-off hex values for app chrome.
