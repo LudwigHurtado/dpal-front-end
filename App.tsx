@@ -1307,7 +1307,6 @@ const App: React.FC = () => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');
             }}
-            onDispatchActionsReport={() => handleNavigate('reportDashboard')}
           />
         )}
 

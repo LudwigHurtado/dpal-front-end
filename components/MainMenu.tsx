@@ -29,8 +29,6 @@ interface MainMenuProps {
     onDispatchHelp?: () => void;
     onDispatchWork?: (category: Category) => void;
     onDispatchMissions?: (category: Category) => void;
-    /** Actions menu "Report" — reporting dashboard when provided. */
-    onDispatchActionsReport?: () => void;
 }
 
 const PERIMETER_COLORS = ['#06b6d4', '#f43f5e', '#f59e0b', '#10b981', '#a855f7', '#3b82f6'];
@@ -159,7 +157,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
     onDispatchHelp,
     onDispatchWork,
     onDispatchMissions,
-    onDispatchActionsReport,
 }) => {
     const { t } = useTranslations();
 
