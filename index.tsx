@@ -4,6 +4,7 @@ import App from './App';
 import { LanguageProvider } from './i18n';
 import { DPALFlowProvider } from './context/DPALFlowContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import DevicePreviewFrame from './components/DevicePreviewFrame';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -16,7 +17,9 @@ root.render(
     <AppErrorBoundary>
       <LanguageProvider>
         <DPALFlowProvider>
-          <App />
+          <DevicePreviewFrame>
+            <App />
+          </DevicePreviewFrame>
         </DPALFlowProvider>
       </LanguageProvider>
     </AppErrorBoundary>
