@@ -194,12 +194,9 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
         <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
 
         <div className="relative z-30 mb-5 text-center px-1">
-          <div
-            className="text-sm md:text-base font-black uppercase tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)]"
-            style={{ WebkitTextStroke: '1.2px rgba(0,0,0,0.95)' }}
-          >
+          <span className="inline-block bg-white text-zinc-900 text-[11px] font-black uppercase tracking-widest leading-tight px-3 py-1.5 rounded-lg">
             {t(cat.translationKey)}
-          </div>
+          </span>
         </div>
 
         <div className="relative z-0 flex-1 min-h-[240px] sm:min-h-[260px] rounded-[2rem] overflow-hidden border border-white/10 bg-zinc-950/80">
