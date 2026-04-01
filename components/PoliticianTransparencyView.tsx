@@ -484,17 +484,17 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
               </div>
               <div className="relative z-10 flex min-h-0 flex-1 flex-col pt-10">
                 <div className="mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-sky-700">What was said</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-sky-700">Said this</p>
                   <p className="mt-2 max-w-md text-sm font-semibold leading-relaxed text-slate-700">
                     Public statements and promises — dated, sourced, preserved for the community record.
                   </p>
                 </div>
                 <div className="mt-auto flex w-full flex-col gap-2">
-                  <div className="flex h-[220px] w-full items-center justify-center overflow-hidden rounded-2xl border border-sky-200/90 bg-white shadow-md ring-1 ring-sky-100 sm:h-[240px] md:h-[260px]">
+                  <div className="flex h-[220px] w-full items-center justify-center overflow-hidden rounded-2xl border border-sky-200/90 bg-slate-900/5 shadow-md ring-1 ring-sky-100 sm:h-[240px] md:h-[280px] lg:h-[300px]">
                     <img
-                      src="/politician-viewpoints/decentralized-window.png"
-                      alt="Public statements and rhetoric — what was said"
-                      className="max-h-full max-w-full object-contain object-center"
+                      src="/politician-viewpoints/said-this.png"
+                      alt="Said this — public statements, speeches, and archived quotes"
+                      className="h-full w-full object-cover object-top"
                       loading="eager"
                       decoding="async"
                     />
@@ -514,17 +514,17 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
               </div>
               <div className="relative z-10 flex min-h-0 flex-1 flex-col pt-10">
                 <div className="mb-4">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-teal-800">What the record shows</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-teal-800">Did this</p>
                   <p className="mt-2 max-w-xl text-sm font-semibold leading-relaxed text-slate-700">
                     Votes, actions, and outcomes — documented with care so we can improve accountability together.
                   </p>
                 </div>
                 <div className="mt-auto flex w-full flex-col gap-2">
-                  <div className="flex h-[220px] w-full items-center justify-center overflow-hidden rounded-2xl border border-teal-200/90 bg-white shadow-md ring-1 ring-teal-100 sm:h-[240px] md:h-[260px]">
+                  <div className="flex h-[220px] w-full items-center justify-center overflow-hidden rounded-2xl border border-teal-200/90 bg-slate-900/5 shadow-md ring-1 ring-teal-100 sm:h-[240px] md:h-[280px] lg:h-[300px]">
                     <img
-                      src="/politician-viewpoints/what-record-shows.png"
-                      alt="Said vs Did — search, evidence, and public record"
-                      className="max-h-full max-w-full object-contain object-center"
+                      src="/politician-viewpoints/did-this.png"
+                      alt="Did this — evidence, outcomes, and what the record shows"
+                      className="h-full w-full object-cover object-top"
                       loading="eager"
                       decoding="async"
                     />
