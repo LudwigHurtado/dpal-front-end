@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Category, type Hero } from '../types';
 import {
   Search,
@@ -315,23 +315,38 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
     }
   }, []);
 
+  /** Debounced so we do not call setState on every keystroke (was flashing “Draft saved” and re-rendering constantly). */
+  const draftSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const draft: ProofDraft = {
-      saidText,
-      saidSourceUrl,
-      saidDate,
-      didText,
-      didSourceUrl,
-      note: proofNote,
-      timelineNote,
-      subjectName,
-      eventType,
-      contradictionType,
-      createdAtIso: new Date().toISOString(),
+    if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
+    draftSaveTimerRef.current = setTimeout(() => {
+      draftSaveTimerRef.current = null;
+      const iso = new Date().toISOString();
+      const draft: ProofDraft = {
+        saidText,
+        saidSourceUrl,
+        saidDate,
+        didText,
+        didSourceUrl,
+        note: proofNote,
+        timelineNote,
+        subjectName,
+        eventType,
+        contradictionType,
+        createdAtIso: iso,
+      };
+      try {
+        window.localStorage.setItem(PROOF_DRAFT_STORAGE_KEY, JSON.stringify(draft));
+        setLastDraftSavedAt(iso);
+      } catch {
+        /* ignore */
+      }
+    }, 550);
+    return () => {
+      if (draftSaveTimerRef.current) clearTimeout(draftSaveTimerRef.current);
     };
-    window.localStorage.setItem(PROOF_DRAFT_STORAGE_KEY, JSON.stringify(draft));
-    setLastDraftSavedAt(draft.createdAtIso);
   }, [saidText, saidSourceUrl, saidDate, didText, didSourceUrl, proofNote, timelineNote, subjectName, eventType, contradictionType]);
 
   const canSubmit = useMemo(() => {
