@@ -82,6 +82,8 @@ import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { pathToView, viewToPath } from './utils/appRoutes';
 
 export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter';
 
@@ -256,6 +258,8 @@ function getInitialCurrentView(): View {
   if (typeof window === 'undefined') return 'mainMenu';
   const params = new URLSearchParams(window.location.search);
   if (params.get('view') === 'storage') return 'storage';
+  const fromPath = pathToView(window.location.pathname);
+  if (fromPath) return fromPath as View;
   const nav = readNavSession();
   if (nav?.currentView) {
     /** Completion views need in-memory payload; fall back to hub after refresh. */
@@ -283,6 +287,8 @@ function getInitialGatewayCategory(): Category | null {
 }
 
 const App: React.FC = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [reports, setReports] = useState<Report[]>(getInitialReports);
   const [currentView, setCurrentView] = useState<View>(getInitialCurrentView);
   const [prevView, setPrevView] = useState<View>('mainMenu');
@@ -377,6 +383,28 @@ const App: React.FC = () => {
       gatewayCategory: gatewayCategory ?? null,
     });
   }, [currentView, viewHistory, selectedCategoryForSubmission, gatewayCategory]);
+
+  /** Browser URL ↔ currentView: unique path per screen, working back/forward and shareable links. */
+  useEffect(() => {
+    const v = pathToView(location.pathname);
+    if (v == null) {
+      if (location.pathname !== '/' && location.pathname !== '/index.html') {
+        navigate('/', { replace: true });
+      }
+      return;
+    }
+    if (v === currentView) return;
+    backNavRef.current = true;
+    setCurrentView(v as View);
+  }, [location.pathname, currentView, navigate]);
+
+  useEffect(() => {
+    const path = viewToPath(currentView);
+    const full = `${path}${location.search}${location.hash}`;
+    const cur = `${location.pathname}${location.search}${location.hash}`;
+    if (full === cur) return;
+    navigate(full, { replace: false });
+  }, [currentView, location.pathname, location.search, location.hash, navigate]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {

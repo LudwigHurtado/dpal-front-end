@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter } from 'react-router-dom';
 import App from './App';
 import { LanguageProvider } from './i18n';
 import { DPALFlowProvider } from './context/DPALFlowContext';
@@ -14,14 +15,16 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <AppErrorBoundary>
-      <LanguageProvider>
-        <DPALFlowProvider>
-          <DevicePreviewFrame>
-            <App />
-          </DevicePreviewFrame>
-        </DPALFlowProvider>
-      </LanguageProvider>
-    </AppErrorBoundary>
+    <BrowserRouter>
+      <AppErrorBoundary>
+        <LanguageProvider>
+          <DPALFlowProvider>
+            <DevicePreviewFrame>
+              <App />
+            </DevicePreviewFrame>
+          </DPALFlowProvider>
+        </LanguageProvider>
+      </AppErrorBoundary>
+    </BrowserRouter>
   </React.StrictMode>
 );
