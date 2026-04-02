@@ -19,6 +19,7 @@ import {
   Globe,
   Scale,
   Sparkles,
+  User,
 } from './icons';
 import { MdOutlinedSelectSync, MdOutlinedTextFieldSync } from './MaterialWebEvidenceFields';
 import {
@@ -120,35 +121,41 @@ type EvidenceStatus =
 const PROOF_DRAFT_STORAGE_KEY = 'dpal-politician-proof-draft-v2';
 const PROOF_LOG_STORAGE_KEY = 'dpal-politician-proof-log-v1';
 
-const ISSUE_CHIPS = [
-  'Statement vs Vote',
-  'Donations',
-  'Conflict of Interest',
-  'Public Contracts',
-  'Environmental Violations',
-  'Community Harm',
-  'Budget Contradictions',
-  'Lobbying Links',
-  'Promise Tracker',
-] as const;
+/** Selectable investigation modes for DuckDuckGo + UI (ids stable for state). */
+const ACCOUNTABILITY_FOCUS: { id: string; label: string }[] = [
+  { id: 'promise-vs-vote', label: 'Promise vs Vote' },
+  { id: 'statement-vs-action', label: 'Statement vs Action' },
+  { id: 'budget-contradiction', label: 'Budget Contradiction' },
+  { id: 'conflict-of-interest', label: 'Conflict of Interest' },
+  { id: 'campaign-finance', label: 'Campaign Finance' },
+  { id: 'lobbying-links', label: 'Lobbying Links' },
+  { id: 'public-contracts', label: 'Public Contracts' },
+  { id: 'community-harm', label: 'Community Harm' },
+  { id: 'environmental-harm', label: 'Environmental Harm' },
+  { id: 'abuse-of-office', label: 'Abuse of Office' },
+  { id: 'ethics-violation', label: 'Ethics Violation' },
+  { id: 'oversight-investigation', label: 'Oversight Investigation' },
+];
 
-/** One-tap additions for free “politician + misconduct” style discovery (DuckDuckGo). */
-const MISCONDUCT_CHIPS = [
-  'Political misconduct',
-  'Ethics violation',
-  'Abuse of office',
-  'Oversight investigation',
-  'Campaign finance',
-  'FEC complaint',
-] as const;
+const SOURCE_FILTERS: { id: string; label: string; hint: string }[] = [
+  { id: 'news', label: 'News', hint: 'news' },
+  { id: 'public-records', label: 'Public Records', hint: 'public records site:.gov' },
+  { id: 'voting-records', label: 'Voting Records', hint: 'vote record roll call' },
+  { id: 'court-complaints', label: 'Court / Complaints', hint: 'complaint lawsuit ethics' },
+  { id: 'contracts', label: 'Contracts', hint: 'contract award RFP' },
+  { id: 'donations', label: 'Donations', hint: 'campaign finance donation FEC' },
+  { id: 'ethics-reports', label: 'Ethics Reports', hint: 'ethics disclosure oversight' },
+];
 
-function buildFreePoliticianSearchQuery(raw: string): string {
+const DEFAULT_SOURCE_FILTER_IDS = new Set(['public-records', 'news', 'ethics-reports']);
+
+function buildFreePoliticianSearchQuery(raw: string, focusLabels: string[] = []): string {
   const q = raw.trim();
   if (!q) return '';
   const lower = q.toLowerCase();
   const misconductIntent =
     /\b(misconduct|ethics|bribe|corruption|violation|complaint|abuse|fraud|scandal|fec|lobby|oversight|investigation|malfeasance)\b/i.test(q) ||
-    MISCONDUCT_CHIPS.some((c) => lower.includes(c.toLowerCase()));
+    focusLabels.some((l) => lower.includes(l.toLowerCase()));
   const politicianIntent =
     /\b(senator|representative|mayor|council|governor|congress|legislature|politician|official|candidate)\b/i.test(q);
 
@@ -238,8 +245,11 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   const [webLoading, setWebLoading] = useState(false);
   const [webError, setWebError] = useState<string | null>(null);
   const [webResults, setWebResults] = useState<Array<{ title: string; url: string; snippet?: string; source?: string }>>([]);
-  const [selectedIssueChips, setSelectedIssueChips] = useState<Set<string>>(new Set());
-  const [selectedMisconductChips, setSelectedMisconductChips] = useState<Set<string>>(new Set());
+  const [targetOfficialName, setTargetOfficialName] = useState('');
+  const [targetOfficeRole, setTargetOfficeRole] = useState('');
+  const [targetJurisdiction, setTargetJurisdiction] = useState('');
+  const [selectedFocus, setSelectedFocus] = useState<Set<string>>(new Set());
+  const [selectedSourceFilters, setSelectedSourceFilters] = useState<Set<string>>(() => new Set(DEFAULT_SOURCE_FILTER_IDS));
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [searchNetworkFailed, setSearchNetworkFailed] = useState(false);
   const [openAiSearchBusy, setOpenAiSearchBusy] = useState(false);
@@ -332,27 +342,85 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
     return hasSaid && hasDid && hasAnyProof;
   }, [saidText, didText, proofFiles.length, proofNote, saidSourceUrl, didSourceUrl]);
 
-  const toggleIssueChip = (chip: string) => {
-    setSelectedIssueChips((prev) => {
+  const investigationFocusLabels = useMemo(
+    () => ACCOUNTABILITY_FOCUS.filter((f) => selectedFocus.has(f.id)).map((f) => f.label),
+    [selectedFocus]
+  );
+
+  const investigationSourceHints = useMemo(
+    () =>
+      SOURCE_FILTERS.filter((s) => selectedSourceFilters.has(s.id))
+        .map((s) => s.hint)
+        .join(' '),
+    [selectedSourceFilters]
+  );
+
+  const investigationQueryLine = useMemo(() => {
+    const parts = [
+      targetOfficialName.trim(),
+      targetOfficeRole.trim(),
+      targetJurisdiction.trim(),
+      aiQuery.trim(),
+      investigationFocusLabels.join(' '),
+      investigationSourceHints.trim(),
+    ].filter(Boolean);
+    return parts.join(' ');
+  }, [
+    targetOfficialName,
+    targetOfficeRole,
+    targetJurisdiction,
+    aiQuery,
+    investigationFocusLabels,
+    investigationSourceHints,
+  ]);
+
+  const canRunInvestigation = useMemo(
+    () =>
+      targetOfficialName.trim().length > 0 ||
+      targetOfficeRole.trim().length > 0 ||
+      targetJurisdiction.trim().length > 0 ||
+      aiQuery.trim().length > 0 ||
+      selectedFocus.size > 0,
+    [targetOfficialName, targetOfficeRole, targetJurisdiction, aiQuery, selectedFocus]
+  );
+
+  const toggleFocus = (id: string) => {
+    setSelectedFocus((prev) => {
       const next = new Set(prev);
-      if (next.has(chip)) next.delete(chip);
-      else next.add(chip);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const toggleMisconductChip = (chip: string) => {
-    setSelectedMisconductChips((prev) => {
+  const toggleSourceFilter = (id: string) => {
+    setSelectedSourceFilters((prev) => {
       const next = new Set(prev);
-      if (next.has(chip)) next.delete(chip);
-      else next.add(chip);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const clearAllChips = () => {
-    setSelectedIssueChips(new Set());
-    setSelectedMisconductChips(new Set());
+  const resetInvestigationFilters = () => {
+    setTargetOfficialName('');
+    setTargetOfficeRole('');
+    setTargetJurisdiction('');
+    setAiQuery('');
+    setSelectedFocus(new Set());
+    setSelectedSourceFilters(new Set(DEFAULT_SOURCE_FILTER_IDS));
+  };
+
+  const handleBuildEvidencePacket = () => {
+    const name = targetOfficialName.trim();
+    if (name && !subjectName.trim()) {
+      setSubjectName(name);
+    }
+    scrollTo('evidence-lab');
+  };
+
+  const handleCompareStatementVsRecord = () => {
+    scrollTo('evidence-lab');
   };
 
   useEffect(() => {
@@ -485,11 +553,10 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
   }, [reportDeepLink]);
 
   const runPublicSearch = () => {
-    const chipText = [...selectedIssueChips, ...selectedMisconductChips].join(' ');
-    const q = [aiQuery.trim(), chipText].filter(Boolean).join(' ');
+    const q = investigationQueryLine;
     if (!q.trim()) return;
 
-    const smart = buildFreePoliticianSearchQuery(q);
+    const smart = buildFreePoliticianSearchQuery(q, investigationFocusLabels);
 
     setWebError(null);
     setSearchNetworkFailed(false);
@@ -538,10 +605,14 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
     setOpenAiSearchErr(null);
     setOpenAiSearchBusy(true);
     try {
+      const targetLine = [targetOfficialName.trim(), targetOfficeRole.trim(), targetJurisdiction.trim()]
+        .filter(Boolean)
+        .join(' · ');
       const q = await refinePoliticianSearchQuery({
         query: aiQuery,
-        issueChips: [...selectedIssueChips],
-        misconductChips: [...selectedMisconductChips],
+        targetLine,
+        focusLabels: investigationFocusLabels,
+        sourceHints: investigationSourceHints,
       });
       setAiQuery(q);
     } catch (e: unknown) {
@@ -752,153 +823,256 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
           </div>
         </section>
 
-        {/* —— Search console —— */}
+        {/* —— Public accountability search —— */}
         <section id="intel-search" className="mb-10 scroll-mt-24">
           <div className="overflow-hidden rounded-[2rem] border border-slate-200/90 bg-white shadow-lg shadow-slate-200/50">
             <div className="relative border-b border-slate-100">
               <img
                 src={SECTION_IMG.intelSearch}
                 alt=""
-                className="h-36 w-full object-cover object-top sm:h-44 md:h-48"
+                className="h-32 w-full object-cover object-top sm:h-40 md:h-44"
                 loading="lazy"
                 decoding="async"
               />
             </div>
-            <div className="p-6 md:p-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-sky-600">Community truth engine</p>
-                <h2 className="mt-1 text-2xl font-extrabold uppercase tracking-tight text-slate-900 md:text-3xl">Search &amp; discover</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600">
-                  <span className="font-semibold text-slate-800">Free web search</span> — look up politicians, offices, misconduct, ethics, and public records
-                  (no API key). Results open in your packet workflow below.
-                </p>
-              </div>
-              <button
-                type="button"
-                disabled
-                className="shrink-0 rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-400"
-                title="Coming soon"
-              >
-                Scan quote · soon
-              </button>
-            </div>
-
-            <div className="mt-6">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-sky-500" />
-                <input
-                  value={aiQuery}
-                  onChange={(e) => setAiQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      runPublicSearch();
-                    }
-                  }}
-                  placeholder="e.g. Senator name + state, or “mayor ethics investigation”, misconduct, vote record…"
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50/80 py-4 pl-12 pr-4 text-sm text-slate-900 shadow-inner placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
-                  aria-label="Free search: politicians, misconduct, public records"
-                />
-              </div>
-              <p className="mt-3 text-[11px] font-medium text-slate-600">
-                <span className="font-semibold text-slate-700">Politician & misconduct:</span> type any name, office, or ethics keywords — we broaden the query toward
-                public sources when those topics appear.
-              </p>
-              {openAiEnabled && (
-                <p className="mt-2 text-[10px] leading-relaxed text-indigo-900/80">
-                  <span className="font-semibold text-indigo-950">OpenAI</span> can tighten your search query before DuckDuckGo. In local dev the key is injected by the Vite proxy (
-                  <code className="rounded bg-white/70 px-1">VITE_OPENAI_API_KEY</code> in <code className="rounded bg-white/70 px-1">.env.local</code>
-                  ). Production may need a same-origin proxy if the browser blocks direct API calls.
-                </p>
-              )}
-              {!openAiEnabled && (
-                <p className="mt-2 text-[10px] text-slate-400">
-                  Set <code className="rounded bg-slate-100 px-1">VITE_OPENAI_API_KEY</code> in <code className="rounded bg-slate-100 px-1">.env.local</code> (see{' '}
-                  <code className="rounded bg-slate-100 px-1">.env.example</code>) to enable AI query refine and evidence draft.
-                </p>
-              )}
-              <div className="mt-4 flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Topics (tap to toggle)</span>
-                {(selectedIssueChips.size > 0 || selectedMisconductChips.size > 0) && (
-                  <button
-                    type="button"
-                    onClick={clearAllChips}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-slate-500 transition hover:border-rose-200 hover:text-rose-700"
-                  >
-                    Clear topics
-                  </button>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {ISSUE_CHIPS.map((chip) => {
-                  const on = selectedIssueChips.has(chip);
-                  return (
+            <div className="space-y-6 p-6 md:p-8">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-5 md:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="max-w-3xl">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-sky-700">Public Accountability Engine</p>
+                    <h2 className="mt-2 text-2xl font-extrabold tracking-tight text-slate-900 md:text-3xl">
+                      Investigate Officials, Claims, and Public Harm
+                    </h2>
+                    <p className="mt-3 text-sm leading-relaxed text-slate-600 md:text-[15px]">
+                      Search public records, ethics findings, campaign finance, votes, contracts, and documented community impact. Select an accountability focus
+                      and build an evidence-backed packet in the workspace below.
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center lg:flex-col lg:items-end">
+                    <span className="inline-flex items-center rounded-lg border border-sky-200 bg-white px-3 py-2 text-[9px] font-bold uppercase tracking-[0.2em] text-sky-800">
+                      Evidence-Based Search
+                    </span>
                     <button
-                      key={chip}
                       type="button"
-                      aria-pressed={on}
-                      onClick={() => toggleIssueChip(chip)}
-                      className={`min-h-[44px] rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm transition ${
-                        on
-                          ? 'border-sky-500 bg-sky-50 text-sky-900 ring-2 ring-sky-200'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-sky-300 hover:text-sky-800'
-                      }`}
+                      onClick={() => scrollTo('evidence-lab')}
+                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-700 transition hover:border-sky-300 hover:bg-sky-50"
                     >
-                      {chip}
+                      Open existing packet
                     </button>
-                  );
-                })}
-              </div>
-              <div className="mt-4">
-                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.25em] text-slate-500">Misconduct &amp; ethics shortcuts</p>
-                <div className="flex flex-wrap gap-2">
-                  {MISCONDUCT_CHIPS.map((chip) => {
-                    const on = selectedMisconductChips.has(chip);
-                    return (
-                      <button
-                        key={chip}
-                        type="button"
-                        aria-pressed={on}
-                        onClick={() => toggleMisconductChip(chip)}
-                        className={`min-h-[44px] rounded-full border px-3 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm transition ${
-                          on
-                            ? 'border-rose-400 bg-rose-100 text-rose-950 ring-2 ring-rose-200'
-                            : 'border-rose-100 bg-rose-50/90 text-rose-900/90 hover:border-rose-200 hover:bg-rose-100'
-                        }`}
-                      >
-                        {chip}
-                      </button>
-                    );
-                  })}
+                  </div>
                 </div>
               </div>
-              <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                <button
-                  type="button"
-                  onClick={runPublicSearch}
-                  className="min-h-[48px] rounded-2xl bg-sky-600 px-8 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-md shadow-sky-200/60 transition hover:bg-sky-700"
-                >
-                  {webLoading ? 'Searching…' : 'Run search'}
-                </button>
-                {openAiEnabled && (
-                  <button
-                    type="button"
-                    onClick={() => void handleRefineSearchWithAi()}
-                    disabled={openAiSearchBusy}
-                    className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-6 py-3 text-xs font-bold uppercase tracking-widest text-indigo-900 shadow-sm transition hover:bg-indigo-100 disabled:opacity-50"
-                  >
-                    <Sparkles className="h-4 w-4 shrink-0" />
-                    {openAiSearchBusy ? 'Refining…' : 'Refine query (AI)'}
-                  </button>
-                )}
-                <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-500">DuckDuckGo · free · best-effort</p>
+
+              <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                <div className="space-y-6 xl:col-span-8">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+                    <div className="mb-4 flex items-start gap-3">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
+                        <User className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-900">1. Identify the target</h3>
+                        <p className="mt-1 text-xs text-slate-600">Who are you investigating? Start with the person, office, or public body.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                      <div>
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Official / name</label>
+                        <input
+                          value={targetOfficialName}
+                          onChange={(e) => setTargetOfficialName(e.target.value)}
+                          placeholder="e.g. Senator Jane Doe"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Office / role</label>
+                        <input
+                          value={targetOfficeRole}
+                          onChange={(e) => setTargetOfficeRole(e.target.value)}
+                          placeholder="Mayor, School Board, Sheriff…"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                          autoComplete="off"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">State / city / agency</label>
+                        <input
+                          value={targetJurisdiction}
+                          onChange={(e) => setTargetJurisdiction(e.target.value)}
+                          placeholder="Arizona, Maricopa County, Phoenix…"
+                          className="w-full rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                          autoComplete="off"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+                    <div className="mb-4 flex items-start gap-3">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
+                        <Scale className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-900">2. Accountability focus</h3>
+                        <p className="mt-1 text-xs text-slate-600">Choose one or more investigation modes (not casual tags).</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                      {ACCOUNTABILITY_FOCUS.map((opt) => {
+                        const on = selectedFocus.has(opt.id);
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => toggleFocus(opt.id)}
+                            className={`min-h-[44px] rounded-xl border px-3 py-2.5 text-left text-[11px] font-bold leading-snug text-slate-800 transition md:text-xs ${
+                              on
+                                ? 'border-sky-600 bg-sky-600 text-white shadow-sm'
+                                : 'border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-slate-100'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+                    <div className="mb-4 flex items-start gap-3">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-slate-50 text-slate-600">
+                        <FileText className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <h3 className="text-base font-extrabold text-slate-900">3. Evidence query</h3>
+                        <p className="mt-1 text-xs text-slate-600">What claim, issue, or conduct should be examined?</p>
+                      </div>
+                    </div>
+                    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-widest text-slate-500">Investigation query</label>
+                    <textarea
+                      value={aiQuery}
+                      onChange={(e) => setAiQuery(e.target.value)}
+                      rows={4}
+                      placeholder="Enter statement, controversy, policy action, donor link, contract issue, or misconduct allegation…"
+                      className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50/80 px-3 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
+                    />
+                    <p className="mt-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Source filters</p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {SOURCE_FILTERS.map((opt) => {
+                        const on = selectedSourceFilters.has(opt.id);
+                        return (
+                          <button
+                            key={opt.id}
+                            type="button"
+                            aria-pressed={on}
+                            onClick={() => toggleSourceFilter(opt.id)}
+                            className={`min-h-[40px] rounded-lg border px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest transition ${
+                              on
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {openAiEnabled && (
+                      <p className="mt-4 text-[10px] leading-relaxed text-indigo-900/85">
+                        <span className="font-semibold text-indigo-950">OpenAI</span> can tighten the investigation query before DuckDuckGo (dev:{' '}
+                        <code className="rounded bg-indigo-50 px-1">VITE_OPENAI_API_KEY</code> via Vite proxy).
+                      </p>
+                    )}
+                    {!openAiEnabled && (
+                      <p className="mt-4 text-[10px] text-slate-400">
+                        Set <code className="rounded bg-slate-100 px-1">VITE_OPENAI_API_KEY</code> in <code className="rounded bg-slate-100 px-1">.env.local</code> for AI query refine and evidence draft.
+                      </p>
+                    )}
+
+                    <div className="mt-5 flex flex-col gap-2 border-t border-slate-100 pt-5 sm:flex-row sm:flex-wrap">
+                      <button
+                        type="button"
+                        onClick={runPublicSearch}
+                        disabled={!canRunInvestigation || webLoading}
+                        className={`inline-flex min-h-[48px] items-center justify-center rounded-xl px-6 py-3 text-xs font-bold uppercase tracking-widest shadow-md transition ${
+                          canRunInvestigation && !webLoading
+                            ? 'bg-sky-700 text-white shadow-sky-200/50 hover:bg-sky-800'
+                            : 'cursor-not-allowed bg-slate-200 text-slate-400'
+                        }`}
+                      >
+                        {webLoading ? 'Searching…' : 'Run investigation'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleBuildEvidencePacket}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-3 text-xs font-bold uppercase tracking-widest text-slate-800 transition hover:bg-slate-50"
+                      >
+                        Build evidence packet
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCompareStatementVsRecord}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-5 py-3 text-xs font-bold uppercase tracking-widest text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Compare statement vs record
+                      </button>
+                      {openAiEnabled && (
+                        <button
+                          type="button"
+                          onClick={() => void handleRefineSearchWithAi()}
+                          disabled={openAiSearchBusy}
+                          className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-5 py-3 text-xs font-bold uppercase tracking-widest text-indigo-900 transition hover:bg-indigo-100 disabled:opacity-50"
+                        >
+                          <Sparkles className="h-4 w-4 shrink-0" />
+                          {openAiSearchBusy ? 'Refining…' : 'Refine query (AI)'}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={resetInvestigationFilters}
+                        className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-dashed border-slate-300 px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 hover:border-slate-400 hover:text-slate-700"
+                      >
+                        Reset filters
+                      </button>
+                    </div>
+                    <p className="mt-3 text-[10px] font-medium uppercase tracking-[0.15em] text-slate-400">DuckDuckGo · free · best-effort public web</p>
+                    {openAiSearchErr && <p className="mt-2 text-xs font-medium text-rose-600">{openAiSearchErr}</p>}
+                  </div>
+                </div>
+
+                <aside className="space-y-4 xl:col-span-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h3 className="text-base font-extrabold text-slate-900">Investigation results</h3>
+                    <p className="mt-1 text-xs text-slate-600">What you get after running a search — structured for packet-ready review.</p>
+                    <ul className="mt-4 space-y-3">
+                      {[
+                        { t: 'Official profile', d: 'Role, jurisdiction, and public-office context when identifiable from the open web.' },
+                        { t: 'Key findings', d: 'Leads on contradictions, ethics issues, votes, contracts, and flags to verify.' },
+                        { t: 'Evidence timeline', d: 'Documents, votes, reports, and events to order in your packet.' },
+                        { t: 'Contracts / donations', d: 'Financial and award links to cross-check in primary sources.' },
+                        { t: 'Statement vs action', d: 'Compare speeches and promises with votes and official actions.' },
+                      ].map((row) => (
+                        <li key={row.t} className="rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-800">{row.t}</p>
+                          <p className="mt-1 text-xs text-slate-600">{row.d}</p>
+                        </li>
+                      ))}
+                      <li className="rounded-xl border border-dashed border-sky-300 bg-sky-50/90 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-sky-900">Add to packet</p>
+                        <p className="mt-1 text-xs text-sky-900/90">Save verified items in the evidence workspace and registry below.</p>
+                      </li>
+                    </ul>
+                  </div>
+                </aside>
               </div>
-              {openAiSearchErr && <p className="mt-2 text-xs font-medium text-rose-600">{openAiSearchErr}</p>}
             </div>
 
             {searchAttempted && !webLoading && (
-              <div className="mt-6 space-y-4">
+              <div className="space-y-4 border-t border-slate-100 bg-slate-50/30 px-6 py-6 md:px-8 md:pb-8">
                 {searchNetworkFailed && (
                   <div className="rounded-2xl border-2 border-rose-200 bg-rose-50 p-5 shadow-sm">
                     <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-rose-900">Connection issue</p>
@@ -918,7 +1092,7 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                     />
                     <p className="mt-4 text-sm font-bold uppercase tracking-[0.2em] text-slate-800">No matching sources</p>
                     <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
-                      Try a name plus state, adjust your keywords, or toggle topic chips — then run search again.
+                      Add target fields or a clearer investigation query, adjust accountability focus or source filters, then run the investigation again.
                     </p>
                   </div>
                 )}
@@ -930,16 +1104,15 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                   <button
                     type="button"
                     onClick={async () => {
-                      const chipText = [...selectedIssueChips, ...selectedMisconductChips].join(' ');
-                      const qLine = [aiQuery.trim(), chipText].filter(Boolean).join(' ');
+                      const qLine = investigationQueryLine;
                       const lines = [
-                        `DPAL free search (politician / misconduct / records)`,
+                        `DPAL public accountability search`,
                         `Query: ${qLine}`,
                         ...webResults.map((r) => `- ${r.title}\n  ${r.url}`),
                       ].join('\n');
                       try {
                         if (navigator.share) {
-                          await navigator.share({ title: 'DPAL Politician Search', text: lines });
+                          await navigator.share({ title: 'DPAL accountability search', text: lines });
                           return;
                         }
                       } catch {
@@ -984,7 +1157,6 @@ const PoliticianTransparencyView: React.FC<PoliticianTransparencyViewProps> = ({
                 )}
               </div>
             )}
-            </div>
           </div>
         </section>
 

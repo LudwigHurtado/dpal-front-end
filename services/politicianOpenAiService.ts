@@ -65,18 +65,29 @@ async function chatCompletion(
   return out;
 }
 
-/** Single-line DuckDuckGo-oriented query from user text + chips. */
+/** Single-line DuckDuckGo-oriented query from investigation fields + focus + sources. */
 export async function refinePoliticianSearchQuery(input: {
   query: string;
-  issueChips: string[];
-  misconductChips: string[];
+  /** Legacy — optional; merged into focus line if focusLabels omitted */
+  issueChips?: string[];
+  misconductChips?: string[];
+  targetLine?: string;
+  focusLabels?: string[];
+  sourceHints?: string;
 }): Promise<string> {
-  const chipLine = [...input.issueChips, ...input.misconductChips].filter(Boolean).join('; ');
+  const focusLine =
+    input.focusLabels && input.focusLabels.length > 0
+      ? input.focusLabels.join('; ')
+      : [...(input.issueChips ?? []), ...(input.misconductChips ?? [])].filter(Boolean).join('; ');
+  const target = input.targetLine?.trim() || '';
+  const sources = input.sourceHints?.trim() || '';
   const system = `You help civic researchers build effective web search queries for public information: elected officials, votes, ethics, misconduct, campaign finance, and government records.
 Output ONLY the search query string — no quotes, no explanation, max 400 characters. Prefer concrete names, offices, jurisdictions, and years when inferable. You may include site: filters like site:.gov when helpful.`;
 
-  const user = `User typed: ${input.query.trim() || '(empty)'}
-Selected topic tags: ${chipLine || '(none)'}`;
+  const user = `Investigation target: ${target || '(not specified)'}
+Main query / claim: ${input.query.trim() || '(empty)'}
+Accountability focus: ${focusLine || '(none)'}
+Source emphasis: ${sources || '(none)'}`;
 
   const raw = await chatCompletion(
     [
