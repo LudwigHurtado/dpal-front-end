@@ -118,7 +118,8 @@ export type HubTab =
 
 if (import.meta.env.DEV) {
   console.log('AI enabled?', Boolean(import.meta.env.VITE_GEMINI_API_KEY));
-  console.log('API base:', import.meta.env.VITE_API_BASE);
+  console.log('API base (raw):', import.meta.env.VITE_API_BASE);
+  console.log('API base (resolved):', getApiBase());
 }
 
 const isMobileDeviceProfile = (): boolean => {
@@ -384,8 +385,28 @@ const App: React.FC = () => {
     });
   }, [currentView, viewHistory, selectedCategoryForSubmission, gatewayCategory]);
 
-  /** Browser URL ↔ currentView: unique path per screen, working back/forward and shareable links. */
+  /**
+   * URL → currentView: react only when the browser path changes (back/forward, direct load, external link).
+   * Do NOT depend on `currentView` here — if you do, a programmatic view change (e.g. report form) while the
+   * URL still matches the *previous* screen will overwrite the new view and flash between routes.
+   *
+   * Deep links use `/?reportId=`, `/?block=`, etc. with pathname still `/`. Do not map `/` → mainMenu in that
+   * case or we fight incident room / certificate flows and cause URL flicker.
+   */
   useEffect(() => {
+    const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
+    const params = new URLSearchParams(location.search);
+    if (normalizedPath === '/') {
+      if (
+        params.get('reportId')?.trim() ||
+        params.get('roomId')?.trim() ||
+        params.get('blockNumber')?.trim() ||
+        params.get('block')?.trim()
+      ) {
+        return;
+      }
+    }
+
     const v = pathToView(location.pathname);
     if (v == null) {
       if (location.pathname !== '/' && location.pathname !== '/index.html') {
@@ -393,18 +414,26 @@ const App: React.FC = () => {
       }
       return;
     }
-    if (v === currentView) return;
-    backNavRef.current = true;
-    setCurrentView(v as View);
-  }, [location.pathname, currentView, navigate]);
+    setCurrentView((prev) => {
+      if (v === prev) return prev;
+      backNavRef.current = true;
+      return v as View;
+    });
+  }, [location.pathname, location.search, navigate]);
 
+  /**
+   * currentView → URL: keep the address bar in sync after in-app navigation.
+   * Depend only on `currentView` — listing `location.search`/`hash` here re-ran the effect on every
+   * `history.replaceState` from situation-room / deep-link helpers and caused rapid navigate + flicker.
+   */
   useEffect(() => {
     const path = viewToPath(currentView);
     const full = `${path}${location.search}${location.hash}`;
     const cur = `${location.pathname}${location.search}${location.hash}`;
     if (full === cur) return;
     navigate(full, { replace: false });
-  }, [currentView, location.pathname, location.search, location.hash, navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync only when view changes; do not re-run on every query/hash change
+  }, [currentView, navigate]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {
