@@ -1,7 +1,13 @@
 import React, { useState } from 'react';
 import { type Hero, type ProfileSettings } from '../../types';
-import { User, ShieldCheck, Broadcast, Zap, Database, Globe, Check, RefreshCw, X, LogOut, Lock, ChevronRight, AlertTriangle } from '../icons';
+import { User, ShieldCheck, Broadcast, Zap, Check, RefreshCw, LogOut, Lock, AlertTriangle, Sparkles } from '../icons';
 import { INITIAL_HERO_PROFILE } from '../../constants';
+import {
+  MATERIAL_PALETTE_OPTIONS,
+  type MaterialPaletteId,
+  applyMaterialPalette,
+  getStoredMaterialPaletteId,
+} from '../../utils/materialPalette';
 
 interface SettingsTabsProps {
     hero: Hero;
@@ -10,14 +16,36 @@ interface SettingsTabsProps {
 
 const SETTINGS_TABS = [
     { id: 'profile', label: 'Identity', icon: <User/> },
+    { id: 'appearance', label: 'Material_Topic', icon: <Sparkles/> },
     { id: 'privacy', label: 'Stealth_Ops', icon: <ShieldCheck/> },
     { id: 'notifications', label: 'Broadcast_Alerts', icon: <Broadcast/> },
     { id: 'security', label: 'Ledger_Auth', icon: <Lock/> },
 ];
 
+/** Preview swatches for palette cards (Material hues, dark-surface friendly). */
+const PALETTE_PREVIEW: Record<MaterialPaletteId, { primary: string; secondary: string }> = {
+  teal: { primary: '#0d9488', secondary: '#22d3ee' },
+  green: { primary: '#81c784', secondary: '#4dd0e1' },
+  blue: { primary: '#64b5f6', secondary: '#80cbc4' },
+  bluegrey: { primary: '#90a4ae', secondary: '#81d4fa' },
+  purple: { primary: '#b39ddb', secondary: '#f48fb1' },
+  orange: { primary: '#ffb74d', secondary: '#aed581' },
+};
+
 const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
     const [activeTab, setActiveTab] = useState('profile');
     const [isSaving, setIsSaving] = useState(false);
+    const [materialPalette, setMaterialPalette] = useState<MaterialPaletteId>(() => getStoredMaterialPaletteId());
+
+    const selectMaterialPalette = (id: MaterialPaletteId) => {
+        applyMaterialPalette(id);
+        setMaterialPalette(id);
+        try {
+            window.dispatchEvent(new Event('dpal-material-palette'));
+        } catch {
+            /* ignore */
+        }
+    };
 
     const toggleSetting = (path: string) => {
         setIsSaving(true);
@@ -72,7 +100,7 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
                             activeTab === tab.id ? 'bg-[var(--dpal-support-cyan)] text-white shadow-[var(--dpal-shadow-md)] scale-[1.02]' : 'text-[var(--dpal-text-muted)] hover:bg-[var(--dpal-panel)] hover:text-[var(--dpal-text-secondary)]'
                         }`}
                     >
-                        {React.cloneElement(tab.icon as React.ReactElement, { className: "w-5 h-5" })}
+                        {React.cloneElement(tab.icon as React.ReactElement<{ className?: string }>, { className: "w-5 h-5" })}
                         <span>{tab.label}</span>
                     </button>
                  ))}
@@ -117,6 +145,56 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
                                         ))}
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'appearance' && (
+                        <div className="max-w-3xl space-y-6">
+                            <div>
+                                <h3 className="text-sm font-black uppercase tracking-tight text-[var(--dpal-text-primary)] mb-2">
+                                    Material Design topic
+                                </h3>
+                                <p className="text-[9px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-widest leading-relaxed">
+                                    Chooses primary and secondary accents (--md-sys-color-*). Surfaces stay neutral; matches DPAL token rules in styles/dpal-theme.css.
+                                </p>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {MATERIAL_PALETTE_OPTIONS.map((opt) => {
+                                    const active = materialPalette === opt.id;
+                                    const sw = PALETTE_PREVIEW[opt.id];
+                                    return (
+                                        <button
+                                            key={opt.id}
+                                            type="button"
+                                            onClick={() => selectMaterialPalette(opt.id)}
+                                            className={`text-left rounded-[var(--dpal-radius-2xl)] border-2 p-5 transition-all ${
+                                                active
+                                                    ? 'border-[var(--md-sys-color-primary)] bg-[color-mix(in_srgb,var(--md-sys-color-primary-container)_35%,transparent)] shadow-[var(--dpal-shadow-md)]'
+                                                    : 'border-[color:var(--dpal-border)] bg-[var(--dpal-background)] hover:border-[var(--md-sys-color-outline)]'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3 mb-3">
+                                                <span
+                                                    className="h-10 w-10 shrink-0 rounded-xl border border-white/10 shadow-inner"
+                                                    style={{
+                                                        background: `linear-gradient(135deg, ${sw.primary} 55%, ${sw.secondary} 100%)`,
+                                                    }}
+                                                    aria-hidden
+                                                />
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-black uppercase tracking-wide text-[var(--dpal-text-primary)] truncate">
+                                                        {opt.label}
+                                                    </p>
+                                                    <p className="text-[9px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-wider">{opt.hint}</p>
+                                                </div>
+                                                {active && (
+                                                    <Check className="w-5 h-5 shrink-0 text-[var(--md-sys-color-primary)] ml-auto" aria-hidden />
+                                                )}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
                     )}

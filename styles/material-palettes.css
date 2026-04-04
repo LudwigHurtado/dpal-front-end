@@ -1,0 +1,250 @@
+/**
+ * Material Design 3 — accent “topics” (primary / secondary families).
+ * Base tokens remain in material-web-theme.css (:root, teal default).
+ * Set `data-dpal-palette` on <html> (see utils/materialPalette.ts). Omit or `teal` = default.
+ */
+
+/* -------------------------------------------------------------------------- */
+/* Green — trust, civic, environmental tone                                   */
+/* -------------------------------------------------------------------------- */
+html[data-dpal-theme='dark'][data-dpal-palette='green'] {
+  --md-sys-color-primary: #81c784;
+  --md-sys-color-on-primary: #003300;
+  --md-sys-color-primary-container: #1b5e20;
+  --md-sys-color-on-primary-container: #c8e6c9;
+  --md-sys-color-primary-fixed: #a5d6a7;
+  --md-sys-color-primary-fixed-dim: #66bb6a;
+  --md-sys-color-on-primary-fixed: #003200;
+  --md-sys-color-on-primary-fixed-variant: #2e7d32;
+
+  --md-sys-color-secondary: #4dd0e1;
+  --md-sys-color-on-secondary: #00363a;
+  --md-sys-color-secondary-container: #006064;
+  --md-sys-color-on-secondary-container: #b2ebf2;
+  --md-sys-color-secondary-fixed: #80deea;
+  --md-sys-color-secondary-fixed-dim: #4dd0e1;
+  --md-sys-color-on-secondary-fixed: #00363a;
+  --md-sys-color-on-secondary-fixed-variant: #00838f;
+
+  --md-sys-color-inverse-primary: #81c784;
+  --md-sys-color-surface-tint: #66bb6a;
+}
+
+html[data-dpal-theme='light'][data-dpal-palette='green'] {
+  --md-sys-color-primary: #2e7d32;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #c8e6c9;
+  --md-sys-color-on-primary-container: #1b5e20;
+  --md-sys-color-primary-fixed: #a5d6a7;
+  --md-sys-color-primary-fixed-dim: #81c784;
+  --md-sys-color-on-primary-fixed: #003200;
+  --md-sys-color-on-primary-fixed-variant: #2e7d32;
+
+  --md-sys-color-secondary: #00838f;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #b2ebf2;
+  --md-sys-color-on-secondary-container: #006064;
+  --md-sys-color-secondary-fixed: #80deea;
+  --md-sys-color-secondary-fixed-dim: #4dd0e1;
+  --md-sys-color-on-secondary-fixed: #00363a;
+  --md-sys-color-on-secondary-fixed-variant: #00838f;
+
+  --md-sys-color-inverse-primary: #a5d6a7;
+  --md-sys-color-surface-tint: #2e7d32;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Blue — clarity, information                                                  */
+/* -------------------------------------------------------------------------- */
+html[data-dpal-theme='dark'][data-dpal-palette='blue'] {
+  --md-sys-color-primary: #64b5f6;
+  --md-sys-color-on-primary: #0d1f33;
+  --md-sys-color-primary-container: #1565c0;
+  --md-sys-color-on-primary-container: #e3f2fd;
+  --md-sys-color-primary-fixed: #90caf9;
+  --md-sys-color-primary-fixed-dim: #42a5f5;
+  --md-sys-color-on-primary-fixed: #0d1f33;
+  --md-sys-color-on-primary-fixed-variant: #1976d2;
+
+  --md-sys-color-secondary: #80cbc4;
+  --md-sys-color-on-secondary: #002020;
+  --md-sys-color-secondary-container: #00695c;
+  --md-sys-color-on-secondary-container: #e0f2f1;
+  --md-sys-color-secondary-fixed: #b2dfdb;
+  --md-sys-color-secondary-fixed-dim: #4db6ac;
+  --md-sys-color-on-secondary-fixed: #002020;
+  --md-sys-color-on-secondary-fixed-variant: #00796b;
+
+  --md-sys-color-inverse-primary: #64b5f6;
+  --md-sys-color-surface-tint: #42a5f5;
+}
+
+html[data-dpal-theme='light'][data-dpal-palette='blue'] {
+  --md-sys-color-primary: #1565c0;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #bbdefb;
+  --md-sys-color-on-primary-container: #0d47a1;
+  --md-sys-color-primary-fixed: #90caf9;
+  --md-sys-color-primary-fixed-dim: #64b5f6;
+  --md-sys-color-on-primary-fixed: #0d1f33;
+  --md-sys-color-on-primary-fixed-variant: #1565c0;
+
+  --md-sys-color-secondary: #00796b;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #b2dfdb;
+  --md-sys-color-on-secondary-container: #004d40;
+  --md-sys-color-secondary-fixed: #b2dfdb;
+  --md-sys-color-secondary-fixed-dim: #4db6ac;
+  --md-sys-color-on-secondary-fixed: #002020;
+  --md-sys-color-on-secondary-fixed-variant: #00695c;
+
+  --md-sys-color-inverse-primary: #90caf9;
+  --md-sys-color-surface-tint: #1565c0;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Blue grey — neutral authority (Material Blue Grey)                         */
+/* -------------------------------------------------------------------------- */
+html[data-dpal-theme='dark'][data-dpal-palette='bluegrey'] {
+  --md-sys-color-primary: #90a4ae;
+  --md-sys-color-on-primary: #0d1419;
+  --md-sys-color-primary-container: #37474f;
+  --md-sys-color-on-primary-container: #eceff1;
+  --md-sys-color-primary-fixed: #b0bec5;
+  --md-sys-color-primary-fixed-dim: #78909c;
+  --md-sys-color-on-primary-fixed: #0d1419;
+  --md-sys-color-on-primary-fixed-variant: #546e7a;
+
+  --md-sys-color-secondary: #81d4fa;
+  --md-sys-color-on-secondary: #00202e;
+  --md-sys-color-secondary-container: #01579b;
+  --md-sys-color-on-secondary-container: #e1f5fe;
+  --md-sys-color-secondary-fixed: #b3e5fc;
+  --md-sys-color-secondary-fixed-dim: #4fc3f7;
+  --md-sys-color-on-secondary-fixed: #00202e;
+  --md-sys-color-on-secondary-fixed-variant: #0277bd;
+
+  --md-sys-color-inverse-primary: #90a4ae;
+  --md-sys-color-surface-tint: #78909c;
+}
+
+html[data-dpal-theme='light'][data-dpal-palette='bluegrey'] {
+  --md-sys-color-primary: #455a64;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #cfd8dc;
+  --md-sys-color-on-primary-container: #263238;
+  --md-sys-color-primary-fixed: #b0bec5;
+  --md-sys-color-primary-fixed-dim: #90a4ae;
+  --md-sys-color-on-primary-fixed: #0d1419;
+  --md-sys-color-on-primary-fixed-variant: #546e7a;
+
+  --md-sys-color-secondary: #0277bd;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #b3e5fc;
+  --md-sys-color-on-secondary-container: #01579b;
+  --md-sys-color-secondary-fixed: #b3e5fc;
+  --md-sys-color-secondary-fixed-dim: #4fc3f7;
+  --md-sys-color-on-secondary-fixed: #00202e;
+  --md-sys-color-on-secondary-fixed-variant: #0277bd;
+
+  --md-sys-color-inverse-primary: #b0bec5;
+  --md-sys-color-surface-tint: #455a64;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Purple — depth, focus (M3-style)                                           */
+/* -------------------------------------------------------------------------- */
+html[data-dpal-theme='dark'][data-dpal-palette='purple'] {
+  --md-sys-color-primary: #b39ddb;
+  --md-sys-color-on-primary: #1a0d33;
+  --md-sys-color-primary-container: #4527a0;
+  --md-sys-color-on-primary-container: #ede7f6;
+  --md-sys-color-primary-fixed: #d1c4e9;
+  --md-sys-color-primary-fixed-dim: #9575cd;
+  --md-sys-color-on-primary-fixed: #1a0d33;
+  --md-sys-color-on-primary-fixed-variant: #5e35b1;
+
+  --md-sys-color-secondary: #f48fb1;
+  --md-sys-color-on-secondary: #330014;
+  --md-sys-color-secondary-container: #880e4f;
+  --md-sys-color-on-secondary-container: #fce4ec;
+  --md-sys-color-secondary-fixed: #f8bbd0;
+  --md-sys-color-secondary-fixed-dim: #f06292;
+  --md-sys-color-on-secondary-fixed: #330014;
+  --md-sys-color-on-secondary-fixed-variant: #c2185b;
+
+  --md-sys-color-inverse-primary: #b39ddb;
+  --md-sys-color-surface-tint: #9575cd;
+}
+
+html[data-dpal-theme='light'][data-dpal-palette='purple'] {
+  --md-sys-color-primary: #5e35b1;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #d1c4e9;
+  --md-sys-color-on-primary-container: #311b92;
+  --md-sys-color-primary-fixed: #d1c4e9;
+  --md-sys-color-primary-fixed-dim: #b39ddb;
+  --md-sys-color-on-primary-fixed: #1a0d33;
+  --md-sys-color-on-primary-fixed-variant: #5e35b1;
+
+  --md-sys-color-secondary: #c2185b;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #f8bbd0;
+  --md-sys-color-on-secondary-container: #880e4f;
+  --md-sys-color-secondary-fixed: #f8bbd0;
+  --md-sys-color-secondary-fixed-dim: #f06292;
+  --md-sys-color-on-secondary-fixed: #330014;
+  --md-sys-color-on-secondary-fixed-variant: #ad1457;
+
+  --md-sys-color-inverse-primary: #d1c4e9;
+  --md-sys-color-surface-tint: #5e35b1;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Orange — urgency, warmth                                                     */
+/* -------------------------------------------------------------------------- */
+html[data-dpal-theme='dark'][data-dpal-palette='orange'] {
+  --md-sys-color-primary: #ffb74d;
+  --md-sys-color-on-primary: #331900;
+  --md-sys-color-primary-container: #e65100;
+  --md-sys-color-on-primary-container: #fff3e0;
+  --md-sys-color-primary-fixed: #ffcc80;
+  --md-sys-color-primary-fixed-dim: #ffa726;
+  --md-sys-color-on-primary-fixed: #331900;
+  --md-sys-color-on-primary-fixed-variant: #ef6c00;
+
+  --md-sys-color-secondary: #aed581;
+  --md-sys-color-on-secondary: #1b2e0a;
+  --md-sys-color-secondary-container: #558b2f;
+  --md-sys-color-on-secondary-container: #f1f8e9;
+  --md-sys-color-secondary-fixed: #dcedc8;
+  --md-sys-color-secondary-fixed-dim: #9ccc65;
+  --md-sys-color-on-secondary-fixed: #1b2e0a;
+  --md-sys-color-on-secondary-fixed-variant: #33691e;
+
+  --md-sys-color-inverse-primary: #ffb74d;
+  --md-sys-color-surface-tint: #ffa726;
+}
+
+html[data-dpal-theme='light'][data-dpal-palette='orange'] {
+  --md-sys-color-primary: #ef6c00;
+  --md-sys-color-on-primary: #ffffff;
+  --md-sys-color-primary-container: #ffe0b2;
+  --md-sys-color-on-primary-container: #e65100;
+  --md-sys-color-primary-fixed: #ffcc80;
+  --md-sys-color-primary-fixed-dim: #ffb74d;
+  --md-sys-color-on-primary-fixed: #331900;
+  --md-sys-color-on-primary-fixed-variant: #f57c00;
+
+  --md-sys-color-secondary: #558b2f;
+  --md-sys-color-on-secondary: #ffffff;
+  --md-sys-color-secondary-container: #dcedc8;
+  --md-sys-color-on-secondary-container: #33691e;
+  --md-sys-color-secondary-fixed: #dcedc8;
+  --md-sys-color-secondary-fixed-dim: #aed581;
+  --md-sys-color-on-secondary-fixed: #1b2e0a;
+  --md-sys-color-on-secondary-fixed-variant: #558b2f;
+
+  --md-sys-color-inverse-primary: #ffcc80;
+  --md-sys-color-surface-tint: #ef6c00;
+}

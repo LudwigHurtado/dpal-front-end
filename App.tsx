@@ -2,6 +2,7 @@
 
 import './styles/material-web-theme.css';
 import './styles/dpal-theme.css';
+import './styles/material-palettes.css';
 import './styles/mobile-theme.css';
 import React, { useState, useEffect, useLayoutEffect, useCallback, useMemo, useRef } from 'react';
 import { flushSync } from 'react-dom';

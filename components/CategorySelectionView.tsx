@@ -190,8 +190,13 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
         key={cat.value}
         className="group flex flex-col bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 hover:border-zinc-600 transition-all duration-500 relative overflow-visible shadow-2xl p-8"
       >
-        <BorderPulse color="#06b6d4" />
-        <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"></div>
+        <BorderPulse color="var(--md-sys-color-primary)" />
+        <div
+          className="absolute inset-0 opacity-0 group-hover:opacity-100 blur-3xl transition-opacity"
+          style={{
+            background: 'color-mix(in srgb, var(--md-sys-color-primary) 22%, transparent)',
+          }}
+        />
 
         <div className="relative z-30 mb-5 text-center px-1">
           <span className="inline-block bg-white text-zinc-900 text-[11px] font-black uppercase tracking-widest leading-tight px-3 py-1.5 rounded-lg">
@@ -258,7 +263,11 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
                 e.stopPropagation();
                 setOpenActionsCategory((prev) => (prev === cat.value ? null : cat.value));
               }}
-              className="w-full inline-flex items-center justify-center bg-cyan-600 text-white font-black py-3 px-4 rounded-2xl hover:bg-cyan-500 transition-all shadow-lg text-[10px] tracking-widest uppercase"
+              className="w-full inline-flex items-center justify-center font-black py-3 px-4 rounded-2xl transition-all shadow-lg text-[10px] tracking-widest uppercase hover:opacity-90"
+              style={{
+                backgroundColor: 'var(--md-sys-color-primary)',
+                color: 'var(--md-sys-color-on-primary)',
+              }}
               aria-haspopup="menu"
               aria-expanded={isActionsOpen}
             >
@@ -361,7 +370,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
             )}
             <button
                 onClick={onReturnToHub}
-                className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-cyan-400 transition-colors mb-12 group"
+                className="inline-flex items-center space-x-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 transition-colors mb-12 group hover:text-[color:var(--md-sys-color-primary)]"
             >
                 <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
                 <span>Return Home</span>
@@ -369,7 +378,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
 
             <header className="mb-12 text-center">
                 <div className="flex items-center justify-center space-x-4 mb-4">
-                    <ShieldCheck className="w-10 h-10 text-cyan-500" />
+                    <ShieldCheck className="w-10 h-10 text-[color:var(--md-sys-color-primary)]" />
                     <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase">Choose a topic</h1>
                 </div>
                 <p className="mb-8 text-xs font-medium tracking-wide text-zinc-400">Pick what fits — we will guide you with care</p>
@@ -385,7 +394,15 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
                     <button
                         type="button"
                         onClick={() => setViewMode('next')}
-                        className={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.22em] transition-all ${viewMode === 'next' ? 'bg-cyan-500 text-black' : 'text-zinc-300 hover:bg-zinc-800'}`}
+                        className={`rounded-xl px-4 py-3 text-xs font-black uppercase tracking-[0.22em] transition-all ${viewMode === 'next' ? '' : 'text-zinc-300 hover:bg-zinc-800'}`}
+                        style={
+                          viewMode === 'next'
+                            ? {
+                                backgroundColor: 'var(--md-sys-color-primary)',
+                                color: 'var(--md-sys-color-on-primary)',
+                              }
+                            : undefined
+                        }
                     >
                         Next View
                     </button>
@@ -394,14 +411,16 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
                 {/* Tactical Search Field */}
                 <div className="max-w-2xl mx-auto relative group">
                     <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none">
-                        <Search className={`w-6 h-6 transition-colors ${searchQuery ? 'text-cyan-500' : 'text-zinc-700'}`} />
+                        <Search
+                          className={`w-6 h-6 transition-colors ${searchQuery ? 'text-[color:var(--md-sys-color-primary)]' : 'text-zinc-700'}`}
+                        />
                     </div>
                     <input 
                         type="text"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="FILTER_DOMAINS_BY_KEYWORD..."
-                        className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-[2rem] pl-16 pr-16 py-6 text-lg font-black uppercase tracking-widest text-white outline-none focus:border-cyan-500 focus:ring-8 focus:ring-cyan-500/5 transition-all shadow-inner placeholder:text-zinc-800"
+                        className="w-full bg-zinc-900 border-2 border-zinc-800 rounded-[2rem] pl-16 pr-16 py-6 text-lg font-black uppercase tracking-widest text-white outline-none transition-all shadow-inner placeholder:text-zinc-800 focus:border-[color:var(--md-sys-color-primary)] focus:ring-8 focus:ring-[color-mix(in_srgb,var(--md-sys-color-primary)_18%,transparent)]"
                     />
                     {searchQuery && (
                         <button 
