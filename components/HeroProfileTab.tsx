@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { type Hero, type Archetype } from '../types';
+import { type Category } from '../types';
+import { type View, type HeroHubTab, type HubTab } from '../App';
 import { useTranslations } from '../i18n';
 import { Loader, ShieldCheck, Sparkles, Box, Database, Monitor, Award, Activity, Coins, Fingerprint } from './icons';
 
@@ -13,39 +15,8 @@ import SettingsTabs from './profile/SettingsTabs';
 import AuditLogModal from './modals/AuditLogModal';
 import EditProfileModal from './modals/EditProfileModal';
 
-// Keep aligned with App.tsx
-type View =
-  | 'categorySelection'
-  | 'reportSubmission'
-  | 'reportComplete'
-  | 'hub'
-  | 'heroHub'
-  | 'reputation'
-  | 'payment'
-  | 'missionDetail'
-  | 'missionComplete'
-  | 'liveIntelligence'
-  | 'generateMission'
-  | 'trainingHolodeck'
-  | 'tacticalVault'
-  | 'transparencyDatabase'
-  | 'aiRegulationHub'
-  | 'incidentRoom'
-  | 'home';
-
-type HeroHubTab =
-  | 'profile'
-  | 'missions'
-  | 'skills'
-  | 'training'
-  | 'briefing'
-  | 'collection'
-  | 'mint'
-  | 'store';
-
-type HubTab = 'my_reports' | 'community' | 'work_feed';
 type NavigateTab = HeroHubTab | HubTab;
-type NavigateFn = (view: View, cat?: unknown, tab?: NavigateTab) => void;
+type NavigateFn = (view: View, cat?: Category, tab?: NavigateTab) => void;
 
 type ActivityItem = {
   id: string;
@@ -61,6 +32,7 @@ interface HeroProfileTabProps {
   onAddHeroPersona: (description: string, archetype: Archetype) => Promise<void>;
   onDeleteHeroPersona: (personaId: string) => void;
   onEquipHeroPersona: (personaId: string | null) => void;
+  onGenerateBackstory?: () => Promise<void>;
 }
 
 const METRIC_COLOR_CLASS: Record<string, string> = {

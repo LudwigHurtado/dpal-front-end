@@ -64,7 +64,7 @@ const ActionTile: React.FC<{ label: string; status: string; icon: React.ReactNod
         className={`flex flex-col items-center justify-center p-6 rounded-[2rem] bg-zinc-900 border border-zinc-800 hover:border-${color}-500/50 transition-all group shadow-xl active:scale-95`}
     >
         <div className={`p-4 bg-${color}-500/10 rounded-2xl mb-4 group-hover:scale-110 transition-transform text-${color}-400`}>
-            {React.cloneElement(icon as React.ReactElement, { className: "w-6 h-6" })}
+            {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-6 h-6" })}
         </div>
         <p className="text-[10px] font-black text-white uppercase tracking-tighter truncate w-full">{label}</p>
         <span className={`text-[7px] font-bold uppercase tracking-widest mt-1 text-${color}-500/70 group-hover:text-${color}-500`}>{status}</span>

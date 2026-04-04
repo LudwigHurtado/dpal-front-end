@@ -7,8 +7,40 @@ import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, Tr
  * Backend should connect to MongoDB (Railway MongoDB or Atlas) and implement the routes in API_ROUTES.
  * Set VITE_API_BASE in .env.local or deployment env to your Railway backend URL.
  */
+const DEFAULT_API_BASE = 'https://web-production-a27b.up.railway.app';
+const LOCAL_DEV_API_BASE = 'http://localhost:3001';
+let hasWarnedMissingApiBase = false;
+
+const normalizeApiBase = (value: unknown): string => {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/\/+$/, '');
+};
+
+export const isApiBaseConfigured = (): boolean => {
+  const configured = normalizeApiBase((import.meta as any).env?.VITE_API_BASE);
+  return configured.length > 0;
+};
+
 export const getApiBase = (): string => {
-  return (import.meta as any).env?.VITE_API_BASE || 'https://web-production-a27b.up.railway.app';
+  const env = (import.meta as any).env ?? {};
+  const configured = normalizeApiBase(env.VITE_API_BASE);
+  if (configured) return configured;
+
+  if (!hasWarnedMissingApiBase) {
+    hasWarnedMissingApiBase = true;
+    if (env.DEV) {
+      console.warn(
+        '[DPAL] Missing VITE_API_BASE in development. Falling back to local backend at http://localhost:3001. ' +
+          'Create/update .env.local and restart dev server for explicit config.'
+      );
+    } else {
+      console.warn(
+        '[DPAL] Missing VITE_API_BASE. Falling back to default Railway endpoint. ' +
+          'Create/update environment config for explicit backend routing.'
+      );
+    }
+  }
+  return env.DEV ? LOCAL_DEV_API_BASE : DEFAULT_API_BASE;
 };
 
 /** Build full URL for an API route so all requests go to the same Railway backend. */

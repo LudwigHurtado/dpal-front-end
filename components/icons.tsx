@@ -1,12 +1,10 @@
 
 import React from 'react';
 
-type IconProps = {
-  className?: string;
-};
+type IconProps = React.SVGProps<SVGSVGElement>;
 
 /** FIX: Helper to create SVG components to avoid repetitive boilerplate and resolve circular definitions */
-const Icon = (path: React.ReactNode): React.FC<IconProps> => ({ className }) => (
+const Icon = (path: React.ReactNode): React.FC<IconProps> => ({ className, ...props }) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
     width="24" 
@@ -18,6 +16,7 @@ const Icon = (path: React.ReactNode): React.FC<IconProps> => ({ className }) => 
     strokeLinecap="round" 
     strokeLinejoin="round" 
     className={className}
+    {...props}
   >
     {path}
   </svg>

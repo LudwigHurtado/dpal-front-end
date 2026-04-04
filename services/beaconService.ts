@@ -69,7 +69,11 @@ export async function fetchActiveBeacons(): Promise<{ beacons: BeaconRecord[]; s
     const res = await fetch(apiUrl('/api/beacons?status=active'), { method: 'GET' });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const remote = Array.isArray(data?.beacons) ? data.beacons.map(normalizeBeacon).filter((b) => b.status === 'active') : [];
+    const remote: BeaconRecord[] = Array.isArray(data?.beacons)
+      ? (data.beacons as unknown[])
+          .map(normalizeBeacon)
+          .filter((b: BeaconRecord) => b.status === 'active')
+      : [];
     const byId = new Map<string, BeaconRecord>();
     for (const b of local) byId.set(b.reportId, b);
     for (const b of remote) byId.set(b.reportId, b);

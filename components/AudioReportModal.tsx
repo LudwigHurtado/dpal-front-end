@@ -301,7 +301,7 @@ const AudioReportModal: React.FC<AudioReportModalProps> = ({
               </div>
             )}
 
-            {audioUrl && <audio ref={(r) => (audioElRef.current = r)} src={audioUrl} className="hidden" />}
+            {audioUrl && <audio ref={(r) => { audioElRef.current = r; }} src={audioUrl} className="hidden" />}
 
             <div className="mt-4 grid grid-cols-12 gap-1 h-8 items-end">
               {Array.from({ length: 12 }).map((_, i) => (

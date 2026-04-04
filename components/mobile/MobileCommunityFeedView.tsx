@@ -64,7 +64,7 @@ function categoryGroup(report: Report): FeedCategory {
   if (
     c === 'Public Safety Alerts' ||
     c === 'Accidents & Road Hazards' ||
-    c === 'Medical Emergencies' ||
+    c === 'Medical Negligence' ||
     c === 'Police Misconduct'
   ) {
     return 'safety';

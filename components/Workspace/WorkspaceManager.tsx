@@ -128,7 +128,7 @@ const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
                             activeMobileTab === tab.id ? 'text-cyan-400 bg-cyan-500/10' : 'text-zinc-600'
                         }`}
                     >
-                        {React.cloneElement(tab.icon as React.ReactElement, { className: "w-5 h-5 mb-1" })}
+                        {React.cloneElement(tab.icon as React.ReactElement<{ className?: string }>, { className: "w-5 h-5 mb-1" })}
                         <span className="text-[8px] font-black uppercase tracking-tighter">{tab.label}</span>
                     </button>
                 ))}

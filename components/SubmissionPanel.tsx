@@ -690,7 +690,7 @@ const SubmissionPanel: React.FC<SubmissionPanelProps> = ({ addReport, preselecte
               <p className="text-[10px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-widest mt-2">{isEscrowCategory ? 'Seller, buyer, item and payment' : 'Describe what happened'}</p>
             </div>
             <div className="space-y-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-4">
-               {schema?.core_questions.slice(0, 4).map(q => (
+               {schema?.core_questions.slice(0, 4).map((q: any) => (
                  <ForensicField key={q.id} question={q} value={answers[q.id]} onChange={v => setAnswers({...answers, [q.id]: v})} />
                ))}
                <div className="space-y-3">

@@ -24,6 +24,7 @@ const getBraveSearchApiKey = (): string | undefined => {
 export const isBraveSearchEnabled = (): boolean => Boolean(getBraveSearchApiKey());
 
 const CATEGORY_KEYWORDS: Record<Category, string[]> = {
+  [Category.GoodDeeds]: ["good deeds", "community volunteers", "mutual aid", "public service"],
   [Category.Travel]: ["travel", "transport disruption", "flight delays"],
   [Category.ElderlyCare]: ["elderly care", "senior care", "nursing home"],
   [Category.ProfessionalServices]: ["professional services", "consumer complaint", "service misconduct"],
@@ -52,6 +53,9 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.StolenPropertyRegistry]: ["stolen property registry", "ownership verification", "theft report"],
   [Category.P2PEscrowVerification]: ["escrow dispute", "p2p fraud", "transaction verification"],
   [Category.ProofOfLifeBiometric]: ["biometric verification", "identity check", "proof of life"],
+  [Category.DpalHelp]: ["public assistance", "community aid request", "help network"],
+  [Category.DpalLifts]: ["mobility assistance", "transport access", "ride support"],
+  [Category.DpalWorkNetwork]: ["community work network", "task marketplace", "local work opportunities"],
 };
 
 const buildSearchQuery = (categories: Category[], location: string): string => {

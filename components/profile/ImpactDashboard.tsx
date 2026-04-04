@@ -57,10 +57,10 @@ const ImpactDashboard: React.FC<ImpactDashboardProps> = ({ stats, activity }) =>
 const StatCard: React.FC<{ label: string; value: any; icon: React.ReactNode; color: string }> = ({ label, value, icon, color }) => (
     <div className={`p-8 bg-zinc-900 border-2 border-zinc-800 hover:border-${color}-500/30 transition-all rounded-[2.5rem] shadow-xl group overflow-hidden relative`}>
         <div className={`absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity text-${color}-400`}>
-            {React.cloneElement(icon as React.ReactElement, { className: "w-16 h-16" })}
+            {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-16 h-16" })}
         </div>
         <div className={`p-3 bg-zinc-950 rounded-xl mb-4 inline-block text-${color}-500 border border-zinc-800`}>
-            {React.cloneElement(icon as React.ReactElement, { className: "w-5 h-5" })}
+            {React.cloneElement(icon as React.ReactElement<{ className?: string }>, { className: "w-5 h-5" })}
         </div>
         <p className="text-[28px] font-black text-white tracking-tighter leading-none">{value}</p>
         <p className="text-[9px] font-bold text-zinc-600 uppercase tracking-[0.2em] mt-3 truncate">{label}</p>

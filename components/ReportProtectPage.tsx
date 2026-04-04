@@ -472,7 +472,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
                     <item.icon className="w-4 h-4" />
                     {item.label}
                   </span>
-                  {item.count != null ? <span className="text-sm font-bold">{item.count}</span> : null}
+                  {'count' in item && item.count != null ? <span className="text-sm font-bold">{item.count}</span> : null}
                 </button>
               );
             })}

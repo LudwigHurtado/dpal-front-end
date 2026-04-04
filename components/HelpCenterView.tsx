@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { submitHelpReport } from '../services/helpCenterService';
+import { type View } from '../App';
 import {
   ShieldCheck, Search, AlertTriangle, Clock, CheckCircle, ChevronRight,
   Upload, Send, Phone, Mail, User, MapPin, Zap, Activity,
@@ -151,7 +152,7 @@ const TicketCard: React.FC<{ ticket: SupportTicket; onClick: () => void }> = ({ 
 ═══════════════════════════════════════════════ */
 interface HelpCenterViewProps {
   onReturn?: () => void;
-  onNavigate?: (view: string) => void;
+  onNavigate?: (view: View) => void;
 }
 
 const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {

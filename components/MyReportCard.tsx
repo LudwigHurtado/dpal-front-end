@@ -99,7 +99,7 @@ const MyReportCard: React.FC<MyReportCardProps> = ({ report, onJoinChat, variant
     };
   }, [report]);
 
-  const safeTimestamp = report.timestamp instanceof Date ? report.timestamp : new Date((report as { timestamp?: string }).timestamp as string);
+  const safeTimestamp = report.timestamp instanceof Date ? report.timestamp : new Date(report.timestamp as unknown as string);
   const timeLabel = Number.isNaN(safeTimestamp.getTime()) ? '—' : safeTimestamp.toLocaleString();
 
   const hasReward = report.earnedNft || report.credsEarned || report.isGeneratingNft;

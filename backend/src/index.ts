@@ -12,25 +12,35 @@ const PORT = parseInt(process.env.PORT ?? '3001', 10);
 // ── Security & CORS ───────────────────────────────────────────────────────────
 app.use(helmet());
 
-// Always allow these DPAL-owned domains in addition to anything in CORS_ORIGINS env var
+// Always allow these DPAL-owned domains in addition to env-configured origins.
 const BUILT_IN_ORIGINS = [
   'https://dpal-enterprise-dashboard.vercel.app',
   'https://dpal-front-end.vercel.app',
 ];
 
+const normalizeOrigin = (value: string): string => value.trim().replace(/\/+$/, '');
+
+const parseOriginList = (value?: string): string[] =>
+  (value ?? '')
+    .split(',')
+    .map((o) => normalizeOrigin(o))
+    .filter(Boolean);
+
 const allowedOrigins = [
   ...BUILT_IN_ORIGINS,
-  ...(process.env.CORS_ORIGINS ?? '')
-    .split(',')
-    .map(o => o.trim())
-    .filter(Boolean),
+  // Preferred legacy name in this repo.
+  ...parseOriginList(process.env.CORS_ORIGINS),
+  // Common deployment name used in Railway setup.
+  ...parseOriginList(process.env.FRONTEND_ORIGIN),
 ];
+
+const allowedOriginSet = new Set(allowedOrigins.map((origin) => normalizeOrigin(origin)));
 
 app.use(cors({
   origin: (origin, cb) => {
     // Allow server-to-server (no origin header) and all listed origins
     if (!origin) return cb(null, true);
-    if (allowedOrigins.includes(origin)) return cb(null, true);
+    if (allowedOriginSet.has(normalizeOrigin(origin))) return cb(null, true);
     // In development allow any localhost
     if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost/.test(origin)) return cb(null, true);
     console.warn(`[CORS] Blocked origin: ${origin}`);

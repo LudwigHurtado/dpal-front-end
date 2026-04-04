@@ -65,7 +65,7 @@ export function readNavSession(): NavSessionPayload | null {
     if (!raw) return null;
     const s = JSON.parse(raw);
     if (!s || typeof s.currentView !== 'string') return null;
-    const hist = Array.isArray(s.viewHistory) ? s.viewHistory.map(String).filter((v) => ALLOWED_APP_VIEWS.has(v)) : [];
+    const hist = Array.isArray(s.viewHistory) ? s.viewHistory.map(String).filter((v: string) => ALLOWED_APP_VIEWS.has(v)) : [];
     return {
       currentView: ALLOWED_APP_VIEWS.has(s.currentView) ? s.currentView : 'mainMenu',
       viewHistory: hist.slice(-40),

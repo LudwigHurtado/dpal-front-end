@@ -7,6 +7,7 @@ import { useTripStore } from '../../features/trips/tripStore';
 import { usePassengerTripUi } from '../../features/trips/hooks/usePassengerTripUi';
 import { useTripActions } from '../../features/trips/hooks/useTripActions';
 import { tripService } from '../../features/trips/tripService';
+import type { DonationConfig } from '../../features/charity/types';
 
 const PassengerActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,7 +33,15 @@ const PassengerActiveTripPage: React.FC = () => {
     if (!canFinalize || !tripForUi) return;
     let mounted = true;
     (async () => {
-      const donationConfig = tripForUi.donationConfig ?? { type: 'none', value: 0 };
+      const rawDonation = tripForUi.donationConfig;
+      const donationConfig: DonationConfig =
+        rawDonation?.type === 'fixed'
+          ? { type: 'fixed', value: Number(rawDonation.value ?? 0) }
+          : rawDonation?.type === 'percentage'
+            ? { type: 'percentage', value: Number(rawDonation.value ?? 0) }
+            : rawDonation?.type === 'round_up'
+              ? { type: 'round_up', value: 0 }
+              : { type: 'none', value: 0 };
       const charity =
         tripForUi.charityId && tripForUi.charityName
           ? { id: tripForUi.charityId, name: tripForUi.charityName, category: 'community' }

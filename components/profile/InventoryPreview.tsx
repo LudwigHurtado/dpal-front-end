@@ -12,8 +12,8 @@ const InventoryPreview: React.FC<InventoryPreviewProps> = ({ hero }) => {
     const nfts = hero.personas.map(p => ({ id: p.id, type: 'NFT', title: p.name, img: p.imageUrl, rarity: 'Rare' }));
     // Mock Badges
     const badges = [
-        { id: 'b1', type: 'BADGE', title: 'Evidence Ace', rarity: 'Legendary' },
-        { id: 'b2', type: 'BADGE', title: 'Community Pillar', rarity: 'Standard' }
+        { id: 'b1', type: 'BADGE', title: 'Evidence Ace', img: null, rarity: 'Legendary' },
+        { id: 'b2', type: 'BADGE', title: 'Community Pillar', img: null, rarity: 'Standard' }
     ];
 
     const items = [...nfts, ...badges].filter(i => filter === 'ALL' || i.type === filter);

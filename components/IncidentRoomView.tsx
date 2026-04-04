@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import QRCode from 'qrcode';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
 import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
@@ -15,6 +15,30 @@ import {
   resolveBeaconOnNetwork,
   type BeaconRecord,
 } from '../services/beaconService';
+
+/** Collect visual URLs filed with the report — works across categories (imageUrls + common structuredData shapes). */
+function collectReportImageUrls(report: Report): string[] {
+  const out: string[] = [];
+  const push = (u: unknown) => {
+    if (typeof u === 'string' && u.trim().length > 0) out.push(u.trim());
+  };
+  if (Array.isArray(report.imageUrls)) {
+    report.imageUrls.forEach(push);
+  }
+  const sd = report.structuredData;
+  if (sd && typeof sd === 'object') {
+    const o = sd as Record<string, unknown>;
+    for (const key of ['photos', 'images', 'imageUrls', 'filingImages', 'attachmentUrls'] as const) {
+      const v = o[key];
+      if (!Array.isArray(v)) continue;
+      for (const item of v) {
+        if (typeof item === 'string') push(item);
+        else if (item && typeof item === 'object' && 'url' in item) push((item as { url: string }).url);
+      }
+    }
+  }
+  return [...new Set(out)];
+}
 
 /** Matches certificate / print-to-PDF QR generation so scans from the room match the document. */
 const CERTIFICATE_QR_OPTIONS = {
@@ -85,6 +109,7 @@ const ForensicValue: React.FC<{ label: string; value?: string; icon: React.React
 );
 
 const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, hero, messages, onSendMessage, roomsIndex = [], onJoinRoom, errorBanner }) => {
+    const reportImageUrls = useMemo(() => collectReportImageUrls(report), [report]);
     const sectors = DEFAULT_SECTORS;
     
     const [activeSectorId, setActiveSectorId] = useState(sectors[0].id);
@@ -482,6 +507,63 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                         {errorBanner}
                     </div>
                 )}
+
+                {/* Filing imagery — same photos attached at submit time; anchors the thread visually (all categories). */}
+                <section
+                    aria-label="Report filing imagery"
+                    className="shrink-0 border-b border-zinc-800/80 bg-zinc-900/40 px-3 py-3 md:px-10 md:py-4"
+                >
+                    <div className="mb-2 flex items-center gap-2 text-zinc-400">
+                        <Camera className="h-4 w-4 shrink-0 text-cyan-500" aria-hidden />
+                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                            Filing imagery — this report
+                        </p>
+                    </div>
+                    {reportImageUrls.length > 0 ? (
+                        <div className="flex flex-col gap-3">
+                            <div className="overflow-hidden rounded-2xl border border-zinc-700/80 bg-black/40 shadow-inner">
+                                <img
+                                    src={reportImageUrls[0]}
+                                    alt=""
+                                    className="max-h-[min(52vh,420px)] w-full object-contain object-center bg-zinc-950"
+                                    loading="eager"
+                                />
+                            </div>
+                            {reportImageUrls.length > 1 && (
+                                <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 [scrollbar-width:thin]">
+                                    {reportImageUrls.slice(1).map((url, i) => (
+                                        <a
+                                            key={`${url}-${i}`}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border border-zinc-600 bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                                        >
+                                            <img
+                                                src={url}
+                                                alt=""
+                                                className="h-full w-full object-cover transition group-hover:opacity-95"
+                                                loading="lazy"
+                                            />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/60 px-4 py-6 text-zinc-500">
+                            <Camera className="h-8 w-8 shrink-0 opacity-40" aria-hidden />
+                            <div>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
+                                    No photos on file for this report
+                                </p>
+                                <p className="mt-1 text-[9px] leading-relaxed text-zinc-600">
+                                    Images submitted with the filing appear here for everyone in this room. Add photos when you file a report (any category).
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </section>
 
                 {/* Chat — user-resizable height (drag handle + presets), persisted in localStorage */}
                 <section id="situation-chat" className="flex shrink-0 flex-col scroll-mt-4 border-b border-zinc-800/80 bg-zinc-950 px-3 pb-3 pt-2 md:px-6 md:pb-4 md:pt-3">
