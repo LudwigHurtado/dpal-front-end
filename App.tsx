@@ -71,6 +71,10 @@ import type { HomeLayout } from './constants';
 import BottomNav from './components/BottomNav';
 import FilterSheet from './components/FilterSheet';
 import { generateNftImage, generateHeroPersonaImage, generateHeroPersonaDetails, generateNftDetails, generateHeroBackstory, generateMissionFromIntel, isAiEnabled } from './services/geminiService';
+import { saveHeroPersonaToServer, fetchSavedHeroPersonas } from './services/heroPersonaService';
+import { buildHumanHeroPersonaPrompt } from './services/heroPersonaPrompt';
+import { mintNftRequest } from './services/nftMintApi';
+import { archetypeToNftTheme, buildHeroMintPrompt, HERO_MINT_BASE_CREDITS, HERO_MINT_CATEGORY } from './utils/heroMintHelpers';
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
 import { createEvidenceRecords } from './services/evidenceVaultService';
@@ -118,7 +122,7 @@ export type HubTab =
   | 'map';
 
 if (import.meta.env.DEV) {
-  console.log('AI enabled?', Boolean(import.meta.env.VITE_GEMINI_API_KEY));
+  console.log('AI enabled?', isAiEnabled(), '(browser key or VITE_USE_SERVER_AI)');
   console.log('API base (raw):', import.meta.env.VITE_API_BASE);
   console.log('API base (resolved):', getApiBase());
 }
@@ -981,11 +985,176 @@ const App: React.FC = () => {
   };
 
   const handleAddHeroPersona = async (desc: string, arch: Archetype, sourceImage?: string) => {
-    const details = await generateHeroPersonaDetails(desc, arch);
-    const imageUrl = await generateHeroPersonaImage(desc, arch, sourceImage);
-    const newPersona: HeroPersona = { id: `persona-${Date.now()}`, name: details.name, backstory: details.backstory, combatStyle: details.combatStyle, imageUrl, prompt: desc, archetype: arch };
+    const normalizedPrompt = buildHumanHeroPersonaPrompt(desc, arch, {
+      heroDisplayName: hero.name,
+      heroBio: hero.bio,
+    });
+    const details = await generateHeroPersonaDetails(normalizedPrompt, arch);
+    const imageUrl = await generateHeroPersonaImage(normalizedPrompt, arch, sourceImage);
+    const newPersona: HeroPersona = {
+      id: `persona-${Date.now()}`,
+      name: details.name,
+      backstory: details.backstory,
+      combatStyle: details.combatStyle,
+      imageUrl,
+      prompt: desc.trim() || normalizedPrompt.slice(0, 400),
+      archetype: arch,
+    };
     setHero(prev => ({ ...prev, personas: [...prev.personas, newPersona], equippedPersonaId: prev.equippedPersonaId || newPersona.id }));
   };
+
+  const handleDeleteHeroPersona = useCallback((personaId: string) => {
+    setHero((prev) => {
+      const personas = (prev.personas || []).filter((p) => p.id !== personaId);
+      let equippedPersonaId = prev.equippedPersonaId;
+      if (equippedPersonaId === personaId) {
+        equippedPersonaId = personas.length > 0 ? personas[0].id : null;
+      }
+      return { ...prev, personas, equippedPersonaId };
+    });
+  }, []);
+
+  const handleSaveHeroPersonaServer = useCallback(
+    async (persona: HeroPersona) => {
+      try {
+        const { id } = await saveHeroPersonaToServer({
+          userId: hero.operativeId,
+          walletAddress: hero.walletAddress,
+          persona,
+        });
+        setHero((prev) => ({
+          ...prev,
+          personas: prev.personas.map((p) => (p.id === persona.id ? { ...p, serverId: id, savedToServer: true } : p)),
+        }));
+      } catch (e: any) {
+        console.error("[Save Hero]", e);
+        window.alert(e?.message || "Could not save hero to the server.");
+      }
+    },
+    [hero.operativeId, hero.walletAddress]
+  );
+
+  const handleMintHeroPersonaServer = useCallback(
+    async (persona: HeroPersona) => {
+      if (persona.isMinted) {
+        window.alert("This identity is already minted on the ledger.");
+        return;
+      }
+      let serverId = persona.serverId;
+      if (!serverId) {
+        const { id } = await saveHeroPersonaToServer({
+          userId: hero.operativeId,
+          walletAddress: hero.walletAddress,
+          persona,
+        });
+        serverId = id;
+        setHero((prev) => ({
+          ...prev,
+          personas: prev.personas.map((p) =>
+            p.id === persona.id ? { ...p, serverId: id, savedToServer: true } : p
+          ),
+        }));
+      }
+      const timestamp = Date.now();
+      const nonce =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`;
+      const idempotencyKey = `hero-persona-mint-${hero.operativeId}-${timestamp}-${nonce}`;
+      try {
+        const receipt = await mintNftRequest({
+          userId: hero.operativeId,
+          prompt: buildHeroMintPrompt(persona),
+          theme: archetypeToNftTheme(persona.archetype),
+          category: HERO_MINT_CATEGORY,
+          priceCredits: HERO_MINT_BASE_CREDITS,
+          idempotencyKey,
+          nonce,
+          timestamp,
+          traits: [
+            { trait_type: "Archetype", value: persona.archetype },
+            { trait_type: "Identity", value: persona.name },
+          ],
+          savedPersonaId: serverId,
+        });
+        const spent = receipt.priceCredits ?? HERO_MINT_BASE_CREDITS;
+        setHero((prev) => ({
+          ...prev,
+          heroCredits: Math.max(0, prev.heroCredits - spent),
+          personas: prev.personas.map((p) =>
+            p.id === persona.id
+              ? {
+                  ...p,
+                  isMinted: true,
+                  mintTokenId: receipt.tokenId,
+                  savedToServer: true,
+                  serverId: serverId ?? p.serverId,
+                }
+              : p
+          ),
+        }));
+      } catch (e: any) {
+        const code = e?.errorCode || e?.details?.error;
+        if (code === "already_minted" || String(e?.message || "").includes("already minted")) {
+          window.alert("This saved hero was already minted.");
+          return;
+        }
+        console.error("[Mint Hero]", e);
+        window.alert(e?.message || "Mint failed. Check credits and API connection.");
+      }
+    },
+    [hero.operativeId, hero.walletAddress]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await fetchSavedHeroPersonas(hero.operativeId);
+        if (cancelled || rows.length === 0) return;
+        setHero((prev) => {
+          const byClient = new Map(rows.map((r) => [r.clientPersonaId, r]));
+          const merged = prev.personas.map((p) => {
+            const row = byClient.get(p.id);
+            if (!row) return p;
+            return {
+              ...p,
+              serverId: row.id,
+              savedToServer: true,
+              isMinted: row.isMinted,
+              mintTokenId: row.tokenId || undefined,
+              metadataUri: row.metadataUri || undefined,
+              mintedAt: row.mintedAt || undefined,
+            };
+          });
+          const have = new Set(prev.personas.map((p) => p.id));
+          const extras: HeroPersona[] = rows
+            .filter((r) => !have.has(r.clientPersonaId))
+            .map((row) => ({
+              id: row.clientPersonaId,
+              name: row.name,
+              backstory: row.backstory,
+              combatStyle: row.combatStyle,
+              imageUrl: row.imageUrl,
+              prompt: row.prompt,
+              archetype: row.archetype as Archetype,
+              serverId: row.id,
+              savedToServer: true,
+              isMinted: row.isMinted,
+              mintTokenId: row.tokenId || undefined,
+              metadataUri: row.metadataUri || undefined,
+              mintedAt: row.mintedAt || undefined,
+            }));
+          return { ...prev, personas: [...merged, ...extras] };
+        });
+      } catch (err) {
+        console.warn("Saved hero personas sync skipped:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [hero.operativeId]);
 
   const fileToSha256 = async (file: File): Promise<string> => {
     const buffer = await file.arrayBuffer();
@@ -1155,27 +1324,79 @@ const App: React.FC = () => {
     }
   };
 
-  /** When a situation-room chat includes a photo, append it to the report’s imageUrls so the filing gallery + feeds update. */
+  /** When a situation-room chat includes a photo, prepend to imageUrls and append to filingImageHistory (append-only audit). */
   const mergeReportImageFromRoom = useCallback((reportId: string, url: string | undefined) => {
     if (!url?.trim()) return;
+    const patch = (r: Report): Report => {
+      if (r.id !== reportId) return r;
+      const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
+      const hist = Array.isArray(r.filingImageHistory) ? [...r.filingImageHistory] : [];
+      if (!hist.includes(url)) hist.push(url);
+      if (list.includes(url)) {
+        return { ...r, filingImageHistory: hist };
+      }
+      return { ...r, imageUrls: [url, ...list], filingImageHistory: hist };
+    };
     setReports((prev) => {
-      const next = prev.map((r) => {
-        if (r.id !== reportId) return r;
-        const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
-        if (list.includes(url)) return r;
-        return { ...r, imageUrls: [url, ...list] };
-      });
-      const updated = next.find((r) => r.id === reportId);
+      const next = prev.map((r) => patch(r));
+      const updated = next.find((x) => x.id === reportId);
       if (updated) void persistReportForPublicLookup(updated);
       return next;
     });
-    setSelectedReportForIncidentRoom((cur) => {
-      if (!cur || cur.id !== reportId) return cur;
-      const list = Array.isArray(cur.imageUrls) ? [...cur.imageUrls] : [];
-      if (list.includes(url)) return cur;
-      return { ...cur, imageUrls: [url, ...list] };
-    });
+    setSelectedReportForIncidentRoom((cur) => (cur && cur.id === reportId ? patch(cur) : cur));
   }, []);
+
+  const reorderFilingHeroToUrl = useCallback((reportId: string, url: string) => {
+    const patch = (r: Report): Report => {
+      if (r.id !== reportId) return r;
+      const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
+      if (!list.includes(url)) return r;
+      return { ...r, imageUrls: [url, ...list.filter((u) => u !== url)] };
+    };
+    setReports((prev) => {
+      const next = prev.map((r) => patch(r));
+      const updated = next.find((x) => x.id === reportId);
+      if (updated) void persistReportForPublicLookup(updated);
+      return next;
+    });
+    setSelectedReportForIncidentRoom((cur) => (cur && cur.id === reportId ? patch(cur) : cur));
+  }, []);
+
+  const removeFilingGalleryImageAt = useCallback((reportId: string, index: number) => {
+    if (import.meta.env.VITE_INCIDENT_IMAGE_ADMIN !== 'true') return;
+    const patch = (r: Report): Report => {
+      if (r.id !== reportId) return r;
+      const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
+      if (index < 0 || index >= list.length) return r;
+      list.splice(index, 1);
+      return { ...r, imageUrls: list };
+    };
+    setReports((prev) => {
+      const next = prev.map((r) => patch(r));
+      const updated = next.find((x) => x.id === reportId);
+      if (updated) void persistReportForPublicLookup(updated);
+      return next;
+    });
+    setSelectedReportForIncidentRoom((cur) => (cur && cur.id === reportId ? patch(cur) : cur));
+  }, []);
+
+  const handleFilingImageUpload = useCallback(
+    async (dataUrl: string) => {
+      const reportId = selectedReportForIncidentRoom?.id;
+      if (!reportId || !dataUrl?.trim()) return;
+      let finalUrl = dataUrl;
+      if (dataUrl.startsWith('data:')) {
+        try {
+          const upload = await uploadSituationMedia(reportId, 'image', dataUrl);
+          if (upload.persistent && upload.url) finalUrl = upload.url;
+        } catch (e) {
+          console.warn('Filing image upload failed; keeping local data URL:', e);
+        }
+      }
+      mergeReportImageFromRoom(reportId, finalUrl);
+    },
+    [selectedReportForIncidentRoom?.id, mergeReportImageFromRoom],
+  );
 
   const handleSendSituationMessage = async (text: string, imageUrl?: string, audioUrl?: string) => {
     const roomId = selectedReportForIncidentRoom?.id;
@@ -1365,7 +1586,7 @@ const App: React.FC = () => {
       )}
       {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'reportWorkPanel' && (
         <Header 
-          onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'profile')} 
+          onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'mint')} 
           onNavigateHome={navigateHome} 
           onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
           onNavigateMissions={() => handleNavigate('liveIntelligence')} 
@@ -1744,7 +1965,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'heroHub' && (
-          <HeroHub onReturnToHub={() => goBack('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} onMintNft={async () => ({} as any)} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={() => {}} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
+          <HeroHub onReturnToHub={() => goBack('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={handleDeleteHeroPersona} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onSaveHeroPersona={handleSaveHeroPersonaServer} onMintHeroPersona={handleMintHeroPersonaServer} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
         )}
 
         {currentView === 'transparencyDatabase' && (
@@ -1860,6 +2081,10 @@ const App: React.FC = () => {
             onReturn={() => goBack('hub')}
             messages={situationMessages}
             onSendMessage={handleSendSituationMessage}
+            onFilingImageUpload={handleFilingImageUpload}
+            onSetMainFilingImage={(url) => reorderFilingHeroToUrl(selectedReportForIncidentRoom.id, url)}
+            onRemoveFilingGalleryImage={(index) => removeFilingGalleryImageAt(selectedReportForIncidentRoom.id, index)}
+            canDeleteFilingImages={import.meta.env.VITE_INCIDENT_IMAGE_ADMIN === 'true'}
             roomsIndex={situationRooms}
             errorBanner={situationError}
             onJoinRoom={async (roomId) => {

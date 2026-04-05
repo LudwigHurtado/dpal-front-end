@@ -1,31 +1,41 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslations } from '../i18n';
-import { type HeroPersona, Archetype } from '../types';
-import { Loader, Check, User, Zap, ShieldCheck, Search, Eye, Sparkles, Activity, Target, Camera, X, RefreshCw, Heart, Scale, Monitor, Trash2 } from './icons';
+import { type Hero, type HeroPersona, Archetype } from '../types';
+import { Loader, Check, User, Zap, ShieldCheck, Search, Eye, Sparkles, Activity, Target, Camera, X, RefreshCw, Heart, Scale, Monitor, Trash2, Database } from './icons';
 
 interface HeroPersonaManagerProps {
+    hero: Hero;
     personas: HeroPersona[];
     equippedPersonaId: string | null;
     onAddHeroPersona: (description: string, archetype: Archetype, sourceImage?: string) => Promise<void>;
     onDeletePersona: (personaId: string) => void;
     onEquipPersona: (personaId: string | null) => void;
+    onSavePersona?: (persona: HeroPersona) => Promise<void>;
+    onMintPersona?: (persona: HeroPersona) => Promise<void>;
 }
 
 const ARCHETYPE_INFO = [
-    { type: Archetype.Analyst, icon: Search, desc: 'Logical pattern scanning.', color: 'cyan', suggestion: 'Vision of a precise data architect' },
-    { type: Archetype.Shepherd, icon: Heart, desc: 'Empathetic mediation.', color: 'rose', suggestion: 'A calm presence in the storm' },
-    { type: Archetype.Seeker, icon: Eye, desc: 'Truth investigation.', color: 'emerald', suggestion: 'Nothing stays hidden for long' },
-    { type: Archetype.Sentinel, icon: ShieldCheck, desc: 'Civic oversight.', color: 'blue', suggestion: 'Vigilant guard of the ledger' },
-    { type: Archetype.Firefighter, icon: Zap, desc: 'Hazard response.', color: 'amber', suggestion: 'Running in when others run out' },
-    { type: Archetype.Seraph, icon: Sparkles, desc: 'Angelic protection.', color: 'purple', suggestion: 'Radiant wings of the Oracle' },
-    { type: Archetype.Guide, icon: User, desc: 'Communal wisdom.', color: 'indigo', suggestion: 'Mapping the way forward' },
+    { type: Archetype.Analyst, icon: Search, desc: 'Clear, careful thinker.', color: 'cyan', suggestion: 'Someone who reads the room and explains things plainly' },
+    { type: Archetype.Shepherd, icon: Heart, desc: 'Brings people together.', color: 'rose', suggestion: 'Stays calm when others are stressed' },
+    { type: Archetype.Seeker, icon: Eye, desc: 'Asks honest questions.', color: 'emerald', suggestion: 'Keeps digging until the truth is clear' },
+    { type: Archetype.Sentinel, icon: ShieldCheck, desc: 'Stands up for neighbors.', color: 'blue', suggestion: 'Shows up for fairness and safety' },
+    { type: Archetype.Firefighter, icon: Zap, desc: 'Shows up when it counts.', color: 'amber', suggestion: 'First to help when something goes wrong' },
+    { type: Archetype.Seraph, icon: Sparkles, desc: 'Warmth & moral courage (human).', color: 'purple', suggestion: 'Lifts others without preaching' },
+    { type: Archetype.Guide, icon: User, desc: 'Helps others find the way.', color: 'indigo', suggestion: 'Patient mentor for neighbors' },
 ];
 
-const SUGGESTION_CHIPS = ["Shadow Operative", "Neon Knight", "Cyber Monk", "Data Drifter", "Oracle Vanguard", "Sentinel Guard", "Rogue Analyst"];
+const SUGGESTION_CHIPS = ["Kind neighbor", "Night-shift parent", "Retired teacher", "Youth coach", "Block captain", "Faith helper", "Community nurse"];
 
-const MAX_PERSONAS = 5;
-
-const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equippedPersonaId, onAddHeroPersona, onDeletePersona, onEquipPersona }) => {
+const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({
+    hero,
+    personas,
+    equippedPersonaId,
+    onAddHeroPersona,
+    onDeletePersona,
+    onEquipPersona,
+    onSavePersona,
+    onMintPersona,
+}) => {
     const { t } = useTranslations();
     const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(personas.length === 0);
     const [draftDescription, setDraftDescription] = useState('');
@@ -34,6 +44,11 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
     const [resonance, setResonance] = useState(0);
     const [sourceImage, setSourceImage] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [savingId, setSavingId] = useState<string | null>(null);
+    const [mintingId, setMintingId] = useState<string | null>(null);
+
+    const mintCost = 500;
+    const canAffordMint = hero.heroCredits >= mintCost;
 
     useEffect(() => {
         setResonance(Math.min(100, (draftDescription.length / 200) * 100));
@@ -52,11 +67,11 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
             // Check if AI is enabled
             const { isAiEnabled } = await import('../services/geminiService');
             if (!isAiEnabled()) {
-                alert("AI key not configured. Please set VITE_GEMINI_API_KEY in your environment variables or enable offline mode.");
+                alert("AI not configured. Set VITE_GEMINI_API_KEY, or VITE_USE_SERVER_AI=true with GEMINI_API_KEY on your API, or offline mode.");
             } else if (e?.message?.includes("Failed to fetch") || e?.message?.includes("NetworkError") || e?.type === "NETWORK_ERROR") {
                 alert("Network connection failed. This is likely a CORS issue - the Gemini API should be called through your backend, not directly from the browser. Please check:\n\n1. Your backend server is running\n2. CORS is properly configured\n3. Your internet connection is stable\n\nTry again in a moment.");
             } else if (e?.message?.includes("403") || e?.message?.includes("Forbidden") || e?.message?.includes("API_KEY")) {
-                alert("API authentication failed (403). Your Gemini API key may be invalid, expired, or missing required permissions. Please check your VITE_GEMINI_API_KEY configuration.");
+                alert("API authentication failed (403). Check VITE_GEMINI_API_KEY or GEMINI_API_KEY on your API server.");
             } else if (e?.message?.includes("429") || e?.message?.includes("RATE_LIMITED")) {
                 alert("API rate limit reached. Please wait a moment and try again.");
             } else {
@@ -88,17 +103,15 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                     </div>
                     <div className="min-w-0">
                         <p className="text-sm font-black text-white uppercase tracking-tighter truncate">Identity_Manifesto</p>
-                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.4em] truncate">{personas.length} / {MAX_PERSONAS} SLOTS_AUTHORIZED</p>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-[0.4em] truncate">{personas.length} IDENTITIES</p>
                     </div>
                 </div>
-                {personas.length < MAX_PERSONAS && (
-                    <button 
-                        onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
-                        className={`px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl active:scale-95 flex-shrink-0 ${isWorkspaceOpen ? 'bg-zinc-800 text-zinc-500' : 'bg-cyan-600 text-white hover:bg-cyan-500'}`}
-                    >
-                        {isWorkspaceOpen ? 'Cancel' : 'MINT_NEW_IDENTITY'}
-                    </button>
-                )}
+                <button
+                    onClick={() => setIsWorkspaceOpen(!isWorkspaceOpen)}
+                    className={`px-10 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-xl active:scale-95 flex-shrink-0 ${isWorkspaceOpen ? 'bg-zinc-800 text-zinc-500' : 'bg-cyan-600 text-white hover:bg-cyan-500'}`}
+                >
+                    {isWorkspaceOpen ? 'Cancel' : 'MINT_NEW_IDENTITY'}
+                </button>
             </div>
 
             {isWorkspaceOpen && (
@@ -222,7 +235,7 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                 className="w-full mt-8 bg-cyan-600 hover:bg-cyan-500 text-white font-black py-8 rounded-[2rem] uppercase tracking-[0.4em] text-sm shadow-3xl active:scale-[0.98] transition-all disabled:opacity-10 flex items-center justify-center space-x-6 group overflow-hidden relative border-b-8 border-cyan-800"
                             >
                                 {isGenerating ? <Loader className="w-8 h-8 animate-spin text-white"/> : <Sparkles className="w-8 h-8 text-white transition-transform group-hover:scale-125"/>}
-                                <span className="truncate">{isGenerating ? 'NEURAL_MINTING_IN_PROGRESS...' : 'MINT_HERO_IDENTITY'}</span>
+                                <span className="truncate">{isGenerating ? 'NEURAL_SYNTHESIS_IN_PROGRESS...' : 'GENERATE_HERO_IDENTITY'}</span>
                             </button>
                         </div>
                     </div>
@@ -266,7 +279,65 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                      </div>
                                 </div>
 
-                                <div className="mt-10 pt-8 border-t border-zinc-900/50 w-full flex items-center justify-between gap-5">
+                                <div className="mt-6 space-y-3 w-full">
+                                    <div className="flex flex-wrap gap-2 justify-center">
+                                        {persona.savedToServer ? (
+                                            <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-950/40 text-emerald-400 border border-emerald-800/50">
+                                                Saved
+                                            </span>
+                                        ) : null}
+                                        {persona.isMinted ? (
+                                            <span className="px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-950/40 text-amber-400 border border-amber-800/50">
+                                                Minted {persona.mintTokenId ? `#${String(persona.mintTokenId).slice(0, 12)}…` : ''}
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {onSavePersona && (
+                                            <button
+                                                type="button"
+                                                disabled={savingId === persona.id || Boolean(persona.savedToServer)}
+                                                onClick={async () => {
+                                                    setSavingId(persona.id);
+                                                    try {
+                                                        await onSavePersona(persona);
+                                                    } finally {
+                                                        setSavingId(null);
+                                                    }
+                                                }}
+                                                className="flex-1 min-w-[120px] bg-zinc-900 hover:bg-zinc-800 disabled:opacity-40 text-zinc-400 hover:text-emerald-400 py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border border-zinc-800 flex items-center justify-center gap-2"
+                                            >
+                                                <Database className="w-3.5 h-3.5" />
+                                                {savingId === persona.id ? '…' : 'Save Hero'}
+                                            </button>
+                                        )}
+                                        {onMintPersona && (
+                                            <button
+                                                type="button"
+                                                disabled={
+                                                    mintingId === persona.id ||
+                                                    Boolean(persona.isMinted) ||
+                                                    !canAffordMint
+                                                }
+                                                onClick={async () => {
+                                                    setMintingId(persona.id);
+                                                    try {
+                                                        await onMintPersona(persona);
+                                                    } finally {
+                                                        setMintingId(null);
+                                                    }
+                                                }}
+                                                className="flex-1 min-w-[120px] bg-amber-600/90 hover:bg-amber-500 disabled:opacity-40 text-white py-3 rounded-xl text-[9px] font-black uppercase tracking-[0.15em] border border-amber-800 flex items-center justify-center gap-2"
+                                                title={!canAffordMint ? `Need ${mintCost} Hero Credits` : undefined}
+                                            >
+                                                <Sparkles className="w-3.5 h-3.5" />
+                                                {mintingId === persona.id ? '…' : 'Mint Hero'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="mt-6 pt-6 border-t border-zinc-900/50 w-full flex items-center justify-between gap-5">
                                     {!isEquipped ? (
                                         <button 
                                             onClick={() => onEquipPersona(persona.id)} 
@@ -280,8 +351,12 @@ const HeroPersonaManager: React.FC<HeroPersonaManagerProps> = ({ personas, equip
                                             <span className="text-[10px] font-black uppercase tracking-[0.3em]">FIELD_ACTIVE</span>
                                         </div>
                                     )}
-                                    <button 
-                                        onClick={() => persona.id && onDeletePersona(persona.id)} 
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (!persona.id) return;
+                                            if (window.confirm("Remove this hero identity?")) onDeletePersona(persona.id);
+                                        }}
                                         className="p-4 bg-zinc-950 hover:bg-rose-950 text-zinc-800 hover:text-rose-500 rounded-2xl border border-zinc-800 hover:border-rose-900 transition-all active:scale-95"
                                     >
                                         <Trash2 className="w-5 h-5" />
