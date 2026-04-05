@@ -3,10 +3,12 @@ import { ArrowLeft, Shield } from './icons';
 
 interface DpalLiftsViewProps {
   onReturn: () => void;
+  /** Prefer this over window events so navigation always uses App’s router. */
+  onOpenGoodWheels?: () => void;
 }
 
 /** Placeholder for Decentralized Public Assistance Lifts — full flows wired later. */
-const DpalLiftsView: React.FC<DpalLiftsViewProps> = ({ onReturn }) => {
+const DpalLiftsView: React.FC<DpalLiftsViewProps> = ({ onReturn, onOpenGoodWheels }) => {
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 md:py-14">
       <button
@@ -35,6 +37,10 @@ const DpalLiftsView: React.FC<DpalLiftsViewProps> = ({ onReturn }) => {
           <button
             type="button"
             onClick={() => {
+              if (onOpenGoodWheels) {
+                onOpenGoodWheels();
+                return;
+              }
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('dpal-navigate', { detail: { view: 'goodWheels' } }));
               }

@@ -42,7 +42,7 @@ import AcademyView from './components/AcademyView';
 import LedgerScanner from './components/LedgerScanner';
 import AiWorkDirectivesView from './components/AiWorkDirectivesView';
 import DpalLiftsView from './components/DpalLiftsView';
-import GoodWheelsApp from './src/good-wheels/app/GoodWheelsApp';
+import GoodWheelsStandaloneRoot from './components/GoodWheelsStandaloneRoot';
 import OutreachEscalationHub from './components/OutreachEscalationHub';
 import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
@@ -514,14 +514,26 @@ const App: React.FC = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onNavigate = (evt: Event) => {
-      const e = evt as CustomEvent<{ view?: View; category?: Category; tab?: HeroHubTab | HubTab }>;
+      const e = evt as CustomEvent<{
+        view?: View;
+        category?: Category;
+        tab?: HeroHubTab | HubTab;
+        /** Replace history and land on `/` so `/good-wheels` etc. do not stay in the bar or stack. */
+        replaceHome?: boolean;
+      }>;
       const view = e?.detail?.view;
       if (!view) return;
       handleNavigate(view, e.detail?.category, e.detail?.tab);
+      if (e.detail?.replaceHome && view === 'mainMenu') {
+        window.setTimeout(() => {
+          navigate('/', { replace: true });
+          window.scrollTo(0, 0);
+        }, 0);
+      }
     };
     window.addEventListener('dpal-navigate', onNavigate as EventListener);
     return () => window.removeEventListener('dpal-navigate', onNavigate as EventListener);
-  }, [handleNavigate]);
+  }, [handleNavigate, navigate]);
   const useMobileLayout = isMobileViewport;
   const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'community';
 
@@ -1143,6 +1155,28 @@ const App: React.FC = () => {
     }
   };
 
+  /** When a situation-room chat includes a photo, append it to the report’s imageUrls so the filing gallery + feeds update. */
+  const mergeReportImageFromRoom = useCallback((reportId: string, url: string | undefined) => {
+    if (!url?.trim()) return;
+    setReports((prev) => {
+      const next = prev.map((r) => {
+        if (r.id !== reportId) return r;
+        const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
+        if (list.includes(url)) return r;
+        return { ...r, imageUrls: [url, ...list] };
+      });
+      const updated = next.find((r) => r.id === reportId);
+      if (updated) void persistReportForPublicLookup(updated);
+      return next;
+    });
+    setSelectedReportForIncidentRoom((cur) => {
+      if (!cur || cur.id !== reportId) return cur;
+      const list = Array.isArray(cur.imageUrls) ? [...cur.imageUrls] : [];
+      if (list.includes(url)) return cur;
+      return { ...cur, imageUrls: [url, ...list] };
+    });
+  }, []);
+
   const handleSendSituationMessage = async (text: string, imageUrl?: string, audioUrl?: string) => {
     const roomId = selectedReportForIncidentRoom?.id;
     if (!roomId) return;
@@ -1207,6 +1241,7 @@ const App: React.FC = () => {
           };
           setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), localOnly]);
           setSituationError('Server unavailable; message and media saved with this report on this device (same ID as QR).');
+          mergeReportImageFromRoom(roomId, finalImageUrl);
           return;
         }
         throw sendErr;
@@ -1219,6 +1254,7 @@ const App: React.FC = () => {
       };
       setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), mergedSaved]);
       setSituationError(null);
+      mergeReportImageFromRoom(roomId, mergedSaved.imageUrl || finalImageUrl);
     } catch (error) {
       console.warn('Situation send failed:', error);
       const fallback: ChatMessage = {
@@ -1229,6 +1265,7 @@ const App: React.FC = () => {
       };
       setSituationMessages((prev) => [...prev.filter((m) => m.id !== optimistic.id), fallback]);
       setSituationError('Server sync pending; message kept on this device with this report (QR report ID).');
+      mergeReportImageFromRoom(roomId, imageUrl);
     }
   };
 
@@ -1860,13 +1897,14 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'dpalLifts' && <DpalLiftsView onReturn={() => goBack('mainMenu')} />}
-
-        {currentView === 'goodWheels' && (
-          <div className="min-h-[80vh]">
-            <GoodWheelsApp />
-          </div>
+        {currentView === 'dpalLifts' && (
+          <DpalLiftsView
+            onReturn={() => goBack('mainMenu')}
+            onOpenGoodWheels={() => handleNavigate('goodWheels')}
+          />
         )}
+
+        {currentView === 'goodWheels' && <GoodWheelsStandaloneRoot />}
 
         {currentView === 'ecosystem' && (
           <EcosystemOverview

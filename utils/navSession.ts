@@ -49,6 +49,7 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'reportProtect',
   'reportDashboard',
   'reportWorkPanel',
+  'helpCenter',
 ]);
 
 export type NavSessionPayload = {

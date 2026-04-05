@@ -248,7 +248,9 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                             <Broadcast className="w-10 h-10 text-sky-600 mx-auto" />
                         </div>
                         <p className="text-sm font-semibold text-slate-700">No messages yet</p>
-                        <p className="text-xs text-slate-500 max-w-sm leading-relaxed">Say hello, share an update, or attach a photo. Everything here stays in this room’s thread.</p>
+                        <p className="text-xs text-slate-500 max-w-sm leading-relaxed">
+                            Say hello, share an update, or use <strong className="text-slate-700">Add photo</strong> below. The full thread is your history — including photos that may later prove irrelevant; they stay visible for accountability.
+                        </p>
                     </div>
                 ) : (
                     messages.map((msg) => {
@@ -315,13 +317,27 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                     </div>
                 )}
                 
-                <form onSubmit={handleSend} className="flex flex-nowrap items-center gap-2 md:gap-3 w-full min-w-0">
+                <form onSubmit={handleSend} className="flex flex-col gap-2 w-full min-w-0">
+                    <p className="text-[10px] font-medium text-slate-500 leading-snug px-0.5">
+                        <span className="text-slate-600 font-semibold">Photos:</span> saved in this room’s history and added to this report’s filing gallery (hero image updates when you send a new photo).
+                    </p>
+                    <div className="flex flex-nowrap items-center gap-2 md:gap-3 w-full min-w-0">
                     <div className="flex items-center gap-1.5 shrink-0">
                         <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
-                            className="inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-none bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-sky-50 hover:border-sky-400 hover:text-sky-800 active:scale-[0.97] transition-all"
-                            title="Attach image"
+                            className="inline-flex h-12 min-w-[44px] px-3 md:px-3.5 md:min-w-0 items-center justify-center gap-2 rounded-none bg-sky-600 border-2 border-sky-700 text-white shadow-sm hover:bg-sky-700 active:scale-[0.97] transition-all"
+                            title="Add a photo from camera or gallery"
+                            aria-label="Add photo to room"
+                        >
+                            <Camera className="w-5 h-5 shrink-0 stroke-[2]" />
+                            <span className="hidden sm:inline text-[11px] font-black uppercase tracking-wide">Add photo</span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="inline-flex h-12 w-12 md:h-11 md:w-11 items-center justify-center rounded-none bg-white border-2 border-slate-300 text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-400 active:scale-[0.97] transition-all"
+                            title="Attach image (same as Add photo)"
                             aria-label="Attach image"
                         >
                             <Paperclip className="w-[22px] h-[22px] stroke-[2.5]" />
@@ -351,7 +367,13 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                         </button>
                     </div>
 
-                    <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                    />
                     
                     <input 
                         type="text" 
@@ -370,6 +392,7 @@ const MissionChatroom: React.FC<MissionChatroomProps> = ({ missionId, messages, 
                     >
                         <Send className="w-6 h-6 md:w-[26px] md:h-[26px]" />
                     </button>
+                    </div>
                 </form>
             </div>
         </div>
