@@ -56,16 +56,34 @@ export const API_ROUTES = {
   NFT_MINT: '/api/nft/mint',
   NFT_GENERATE_IMAGE: '/api/nft/generate-image',
   AI_ASK: '/api/ai/ask',
+  /** POST { model, contents, config? } — server-held Gemini key (see VITE_USE_SERVER_AI). */
+  AI_GEMINI: '/api/ai/gemini',
+  /** GET — { ok, gemini } whether server has GEMINI_API_KEY. */
+  AI_STATUS: '/api/ai/status',
   PERSONA_GENERATE_DETAILS: '/api/persona/generate-details',
   PERSONA_GENERATE_IMAGE: '/api/persona/generate-image',
   assets: (tokenId: string) => `/api/assets/${tokenId}.png`,
   ESCROW_CREATE: '/api/escrow/create',
   ESCROW_LIST: '/api/escrow/list',
   /** POST JSON report body; enables GET /api/reports/:id for shared links on any device. */
+  /** GET ?userId= / POST — saved hero identities (personas) per operative */
+  HERO_PERSONAS: '/api/hero-personas',
   REPORTS_UPSERT: '/api/reports',
   /** Community beacons — see `services/beaconService.ts` for request/response shapes. */
   BEACONS: '/api/beacons',
   BEACONS_RESOLVE: '/api/beacons/resolve',
+  /** Auth — see `auth/authApi.ts` */
+  AUTH_REGISTER: '/api/auth/register',
+  AUTH_LOGIN: '/api/auth/login',
+  AUTH_REFRESH: '/api/auth/refresh',
+  AUTH_LOGOUT: '/api/auth/logout',
+  AUTH_ME: '/api/auth/me',
+  AUTH_FORGOT: '/api/auth/forgot-password',
+  AUTH_RESET: '/api/auth/reset-password',
+  AUTH_VERIFY_EMAIL: '/api/auth/verify-email',
+  AUTH_CHANGE_PASSWORD: '/api/auth/change-password',
+  ADMIN_USERS: '/api/admin/users',
+  ADMIN_ACTIVITY: '/api/admin/activity',
 } as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
@@ -650,17 +668,17 @@ export const ACADEMY_CURRICULUM: TrainingModule[] = [
 ];
 
 export const RANKS: Rank[] = [
-  { level: 1, title: 'Citizen', xpNeeded: 0, perk: 'Access to the reporting network.' },
-  { level: 2, title: 'Scout', xpNeeded: 100, perk: 'Unlock daily missions.' },
-  { level: 3, title: 'Guardian', xpNeeded: 500, perk: 'Can verify other reports.' },
-  { level: 4, title: 'Sentinel', xpNeeded: 1500, perk: 'Eligible for premium analytics.' },
-  { level: 5, title: 'Legend', xpNeeded: 5000, perk: 'Unlock seasonal collectibles.' },
+  { level: 1, title: 'Citizen', xpNeeded: 0, perk: 'Join neighbors who speak up with care.' },
+  { level: 2, title: 'Scout', xpNeeded: 100, perk: 'Small steps—daily ways to help nearby.' },
+  { level: 3, title: 'Guardian', xpNeeded: 500, perk: 'Stand with others to verify what matters.' },
+  { level: 4, title: 'Sentinel', xpNeeded: 1500, perk: 'See patterns and protect your community.' },
+  { level: 5, title: 'Legend', xpNeeded: 5000, perk: 'Inspire others—unity that lasts.' },
 ];
 
 export const INITIAL_HERO_PROFILE: Hero = {
-    name: "Operative Prime",
-    handle: "prime_ops",
-    bio: "Lead field analyst for the DPAL vanguard.",
+    name: "Jordan Rivera",
+    handle: "jordan_helps",
+    bio: "Parent, neighbor, and helper—here to lift others up and keep our community honest and kind.",
     operativeId: "849201",
     level: 3,
     xp: 650,
@@ -673,13 +691,13 @@ export const INITIAL_HERO_PROFILE: Hero = {
     unlockedTitles: ['Candidate', 'Citizen', 'Guardian'],
     equippedTitle: 'Guardian',
     inventory: [
-        { id: 'aug-01', name: 'Rapport Scrambler', type: 'Augmentation', icon: '🧬', resonance: 3, bonusSkill: 'Social', bonusValue: 15 },
-        { id: 'aug-02', name: 'Forensic Lens', type: 'Augmentation', icon: '👁️', resonance: 2, bonusSkill: 'Forensic', bonusValue: 20 },
+        { id: 'aug-01', name: 'Neighbor Kindness Kit', type: 'Augmentation', icon: '🤝', resonance: 3, bonusSkill: 'Social', bonusValue: 15 },
+        { id: 'aug-02', name: 'Clear-Sight Notes', type: 'Augmentation', icon: '📋', resonance: 2, bonusSkill: 'Forensic', bonusValue: 20 },
     ],
-    base: { name: 'Vanguard Hub', level: 2, status: 'Active' },
+    base: { name: 'Home & neighborhood', level: 2, status: 'Active' },
     personas: [],
     equippedPersonaId: null,
-    theme: 'neon',
+    theme: 'light',
     masteryScore: 240,
     wisdomMastery: 45,
     socialMastery: 60,
@@ -687,14 +705,14 @@ export const INITIAL_HERO_PROFILE: Hero = {
     environmentalMastery: 20,
     infrastructureMastery: 30,
     skills: [],
-    path: HeroPath.Sentinel,
+    path: HeroPath.Steward,
     unlockedItemSkus: ['badge_first_report'],
     activeParcels: [],
     subscriptionTier: SubscriptionTier.Scout,
     settings: {
         privacy: { publicProfile: true, showStats: true, showInventory: true, allowDms: true, anonymousReporting: false },
         notifications: { dailyChallenge: true, missionAvailable: true, verificationRequests: true, purchaseReceipts: true, mintConfirmations: true },
-        preferences: { language: 'EN', locationPrecision: 'gps', theme: 'neon' }
+        preferences: { language: 'EN', locationPrecision: 'gps', theme: 'light' }
     },
     stats: {
         reportsSubmitted: 15,

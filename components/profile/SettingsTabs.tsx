@@ -15,11 +15,11 @@ interface SettingsTabsProps {
 }
 
 const SETTINGS_TABS = [
-    { id: 'profile', label: 'Identity', icon: <User/> },
-    { id: 'appearance', label: 'Material_Topic', icon: <Sparkles/> },
-    { id: 'privacy', label: 'Stealth_Ops', icon: <ShieldCheck/> },
-    { id: 'notifications', label: 'Broadcast_Alerts', icon: <Broadcast/> },
-    { id: 'security', label: 'Ledger_Auth', icon: <Lock/> },
+    { id: 'profile', label: 'You & family', icon: <User/> },
+    { id: 'appearance', label: 'Look & feel', icon: <Sparkles/> },
+    { id: 'privacy', label: 'Privacy', icon: <ShieldCheck/> },
+    { id: 'notifications', label: 'Updates', icon: <Broadcast/> },
+    { id: 'security', label: 'Sign-in & safety', icon: <Lock/> },
 ];
 
 /** Preview swatches for palette cards (Material hues, dark-surface friendly). */
@@ -70,7 +70,7 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
     };
 
     const handleNodeReconstruction = () => {
-        if (confirm("WARNING: This will reset all local settings and profile data to defaults. Your Operative ID and credits will be preserved. Proceed?")) {
+        if (confirm("This will reset local settings and profile details to defaults. Your member ID and credits stay. Continue?")) {
             setIsSaving(true);
             setHero(prev => ({
                 ...INITIAL_HERO_PROFILE,
@@ -83,7 +83,7 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
             }));
             setTimeout(() => {
                 setIsSaving(false);
-                alert("Identity Reconstruction Complete.");
+                alert("Settings restored to defaults.");
             }, 1500);
         }
     };
@@ -117,8 +117,10 @@ const SettingsTabs: React.FC<SettingsTabsProps> = ({ hero, setHero }) => {
             <main className="flex-grow p-10 md:p-16 relative">
                  <div className="flex justify-between items-start mb-16">
                     <div>
-                        <h2 className="text-4xl font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter leading-none">{activeTab.toUpperCase()}_CALIBRATION</h2>
-                        <p className="text-[10px] font-bold text-[var(--dpal-text-muted)] uppercase tracking-widest mt-4">Shard: DPAL-S_V2.5 // Node: {hero.operativeId}</p>
+                        <h2 className="text-3xl font-bold text-[var(--dpal-text-primary)] leading-tight tracking-tight">
+                            {SETTINGS_TABS.find((t) => t.id === activeTab)?.label ?? 'Settings'}
+                        </h2>
+                        <p className="mt-2 text-xs font-medium text-[var(--dpal-text-muted)]">Member ID: {hero.operativeId}</p>
                     </div>
                     {isSaving && <div className="flex items-center space-x-3 text-[var(--dpal-support-cyan-bright)] animate-pulse"><RefreshCw className="w-4 h-4 animate-spin"/> <span className="text-[10px] font-black uppercase tracking-widest">Processing...</span></div>}
                  </div>

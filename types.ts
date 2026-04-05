@@ -73,6 +73,11 @@ export interface Report {
     severity: SeverityLevel;
     isActionable: boolean;
     imageUrls?: string[];
+    /**
+     * Append-only list of every filing image URL ever attached (room uploads, chat photos, main updates).
+     * Not removed when the gallery is reordered; only grows unless an admin removes an image from the live gallery.
+     */
+    filingImageHistory?: string[];
     attachments?: File[];
     credsEarned?: number;
     isAuthor?: boolean;
@@ -293,6 +298,13 @@ export interface HeroPersona {
     imageUrl: string;
     prompt: string;
     archetype: Archetype;
+    /** Mongo document id from POST /api/hero-personas */
+    serverId?: string;
+    savedToServer?: boolean;
+    isMinted?: boolean;
+    mintTokenId?: string;
+    metadataUri?: string;
+    mintedAt?: string;
 }
 
 export interface TacticalDossier {
@@ -577,6 +589,8 @@ export interface Hero {
     bio: string;
     heroOath?: string;
     operativeId: string;
+    /** Optional Web3 address when wallet is connected (also sent when saving personas). */
+    walletAddress?: string;
     level: number;
     xp: number;
     xpToNextLevel: number;

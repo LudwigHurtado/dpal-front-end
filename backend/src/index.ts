@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import helpReportsRouter from './routes/helpReports';
 import adminRouter from './routes/admin';
+import geminiProxyRouter from './routes/geminiProxy';
 
 const app  = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -74,6 +75,7 @@ app.get('/health', (_req, res) => {
 });
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api/ai', geminiProxyRouter);
 app.use('/api/help-reports', helpReportsRouter);
 app.use('/api/admin',        adminRouter);
 

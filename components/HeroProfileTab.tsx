@@ -1,9 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { type Hero, type Archetype } from '../types';
+import { type Hero, type Archetype, type HeroPersona } from '../types';
 import { type Category } from '../types';
 import { type View, type HeroHubTab, type HubTab } from '../App';
-import { useTranslations } from '../i18n';
-import { Loader, ShieldCheck, Sparkles, Box, Database, Monitor, Award, Activity, Coins, Fingerprint } from './icons';
+import { Loader, ShieldCheck, Sparkles, Box, Database, Activity, Coins, Heart } from './icons';
 
 import HeroBanner from './profile/HeroBanner';
 import QuickActionsRow from './profile/QuickActionsRow';
@@ -19,237 +18,241 @@ type NavigateTab = HeroHubTab | HubTab;
 type NavigateFn = (view: View, cat?: Category, tab?: NavigateTab) => void;
 
 type ActivityItem = {
-  id: string;
-  icon: React.ReactNode;
-  label: string;
-  time: string;
+    id: string;
+    icon: React.ReactNode;
+    label: string;
+    time: string;
 };
 
 interface HeroProfileTabProps {
-  hero: Hero;
-  setHero: React.Dispatch<React.SetStateAction<Hero>>;
-  onNavigate: NavigateFn;
-  onAddHeroPersona: (description: string, archetype: Archetype) => Promise<void>;
-  onDeleteHeroPersona: (personaId: string) => void;
-  onEquipHeroPersona: (personaId: string | null) => void;
-  onGenerateBackstory?: () => Promise<void>;
+    hero: Hero;
+    setHero: React.Dispatch<React.SetStateAction<Hero>>;
+    onNavigate: NavigateFn;
+    onAddHeroPersona: (description: string, archetype: Archetype, sourceImage?: string) => Promise<void>;
+    onDeleteHeroPersona: (personaId: string) => void;
+    onEquipHeroPersona: (personaId: string | null) => void;
+    onGenerateBackstory?: () => Promise<void>;
+    onSaveHeroPersona?: (persona: HeroPersona) => Promise<void>;
+    onMintHeroPersona?: (persona: HeroPersona) => Promise<void>;
 }
 
-const METRIC_COLOR_CLASS: Record<string, string> = {
-  emerald: 'text-emerald-500',
-  cyan: 'text-cyan-500',
-  zinc: 'text-zinc-500',
-  amber: 'text-amber-500',
-  rose: 'text-rose-500',
-  blue: 'text-blue-500',
-};
-
-const MetricRow: React.FC<{ label: string; value: string; color: string }> = ({ label, value, color }) => {
-  const colorClass = METRIC_COLOR_CLASS[color] ?? 'text-zinc-500';
-  return (
-    <div className="flex justify-between items-center px-2">
-      <span className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">{label}</span>
-      <span className={`text-xs font-black ${colorClass}`}>{value}</span>
+const MetricRow: React.FC<{ label: string; value: string; valueClass: string }> = ({ label, value, valueClass }) => (
+    <div className="flex items-center justify-between px-1">
+        <span className="text-[11px] font-medium text-stone-500">{label}</span>
+        <span className={`text-xs font-semibold ${valueClass}`}>{value}</span>
     </div>
-  );
-};
+);
 
 const HeroProfileTab: React.FC<HeroProfileTabProps> = ({
-  hero,
-  setHero,
-  onNavigate,
-  onAddHeroPersona,
-  onDeleteHeroPersona,
-  onEquipHeroPersona,
+    hero,
+    setHero,
+    onNavigate,
+    onAddHeroPersona,
+    onDeleteHeroPersona,
+    onEquipHeroPersona,
+    onSaveHeroPersona,
+    onMintHeroPersona,
 }) => {
-  const { t } = useTranslations();
-  const [isLoading] = useState(false);
-  const [showAuditLog, setShowAuditLog] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-  const [activeSection, setActiveSection] = useState<'overview' | 'settings'>('overview');
+    const [isLoading] = useState(false);
+    const [showAuditLog, setShowAuditLog] = useState(false);
+    const [showEditProfile, setShowEditProfile] = useState(false);
+    const [activeSection, setActiveSection] = useState<'overview' | 'settings'>('overview');
 
-  // Hard guard
-  if (!hero) {
+    if (!hero) {
+        return (
+            <div className="p-6 font-sans">
+                <div className="rounded-2xl border border-stone-700 bg-stone-900/80 p-6">
+                    <div className="text-lg font-semibold text-stone-100">No profile loaded</div>
+                    <p className="mt-2 text-sm text-stone-400">Create or select a profile, then open this tab again.</p>
+                </div>
+            </div>
+        );
+    }
+
+    const hasIdentities = useMemo(() => (hero.personas || []).length > 0, [hero.personas]);
+
+    const [activity, setActivity] = useState<ActivityItem[]>([]);
+    useEffect(() => {
+        setActivity([
+            {
+                id: '1',
+                icon: <Activity className="h-3.5 w-3.5 text-emerald-500" />,
+                label: 'Supported a food-safety report nearby',
+                time: '2h ago',
+            },
+            {
+                id: '2',
+                icon: <Heart className="h-3.5 w-3.5 text-rose-400" />,
+                label: 'Shared a housing concern with care',
+                time: '5h ago',
+            },
+            {
+                id: '3',
+                icon: <Coins className="h-3.5 w-3.5 text-amber-400" />,
+                label: 'Earned thank-you credits (community bonus)',
+                time: '1d ago',
+            },
+            {
+                id: '4',
+                icon: <ShieldCheck className="h-3.5 w-3.5 text-sky-400" />,
+                label: 'Badge: trusted helper',
+                time: '2d ago',
+            },
+        ]);
+    }, []);
+
+    if (isLoading) {
+        return (
+            <div className="flex flex-col items-center justify-center gap-4 py-32 font-sans">
+                <Loader className="h-10 w-10 animate-spin text-amber-500" />
+                <p className="text-sm font-medium text-stone-500">Loading your home space…</p>
+            </div>
+        );
+    }
+
     return (
-      <div className="p-6">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="text-lg font-semibold">No Hero loaded</div>
-          <div className="mt-2 text-sm opacity-80">Create or select a Hero first, then open Profile again.</div>
+        <div className="mx-auto max-w-[1400px] space-y-10 pb-28 font-sans antialiased">
+            <div className="flex justify-center">
+                <div className="flex rounded-2xl border border-stone-700/80 bg-stone-900/90 p-1 shadow-lg">
+                    <button
+                        type="button"
+                        onClick={() => setActiveSection('overview')}
+                        className={`rounded-xl px-6 py-2.5 text-xs font-semibold transition-colors ${
+                            activeSection === 'overview'
+                                ? 'bg-amber-600 text-white shadow-md'
+                                : 'text-stone-400 hover:text-stone-200'
+                        }`}
+                    >
+                        Home & heart
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setActiveSection('settings')}
+                        className={`rounded-xl px-6 py-2.5 text-xs font-semibold transition-colors ${
+                            activeSection === 'settings'
+                                ? 'bg-amber-600 text-white shadow-md'
+                                : 'text-stone-400 hover:text-stone-200'
+                        }`}
+                    >
+                        Settings
+                    </button>
+                </div>
+            </div>
+
+            {activeSection === 'overview' ? (
+                <div className="animate-fade-in space-y-10">
+                    <HeroBanner
+                        hero={hero}
+                        onEdit={() => setShowEditProfile(true)}
+                        onUpdateAvatar={() => {
+                            document.getElementById('persona-minting-station')?.scrollIntoView({ behavior: 'smooth' });
+                        }}
+                    />
+
+                    {!hasIdentities && (
+                        <button
+                            type="button"
+                            onClick={() =>
+                                document.getElementById('persona-minting-station')?.scrollIntoView({ behavior: 'smooth' })
+                            }
+                            className="group w-full rounded-3xl border-2 border-dashed border-amber-800/50 bg-amber-950/20 p-10 text-center transition-colors hover:border-amber-600/50 hover:bg-amber-950/30"
+                        >
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-amber-700/40 bg-amber-950/50 text-3xl transition-transform group-hover:scale-105">
+                                🤗
+                            </div>
+                            <h3 className="text-xl font-semibold text-stone-50">Add a friendly face</h3>
+                            <p className="mx-auto mt-2 max-w-md text-sm text-stone-400">
+                                Optional portrait or nickname so neighbors recognize you—great for families building trust together.
+                            </p>
+                        </button>
+                    )}
+
+                    <QuickActionsRow onNavigate={onNavigate} missionCount={2} mintReady={true} />
+
+                    <div id="persona-minting-station" className="space-y-4 pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                            <h3 className="flex items-center gap-2 text-sm font-semibold text-stone-300">
+                                <Sparkles className="h-5 w-5 text-amber-400" />
+                                Your identities & portraits
+                            </h3>
+                            <span className="rounded-full border border-emerald-800/50 bg-emerald-950/40 px-3 py-1 text-[10px] font-semibold text-emerald-300">
+                                Private by default
+                            </span>
+                        </div>
+
+                        <HeroPersonaManager
+                            hero={hero}
+                            personas={hero.personas || []}
+                            equippedPersonaId={hero.equippedPersonaId}
+                            onAddHeroPersona={onAddHeroPersona}
+                            onDeletePersona={onDeleteHeroPersona}
+                            onEquipPersona={onEquipHeroPersona}
+                            onSavePersona={onSaveHeroPersona}
+                            onMintPersona={onMintHeroPersona}
+                        />
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-10 lg:grid-cols-12">
+                        <div className="space-y-8 lg:col-span-4">
+                            <DailyChallengeCard hero={hero} setHero={setHero} />
+
+                            <div className="relative overflow-hidden rounded-3xl border border-stone-700/80 bg-stone-900/70 p-7 shadow-lg">
+                                <div className="pointer-events-none absolute -right-4 -top-4 opacity-[0.07]">
+                                    <ShieldCheck className="h-36 w-36 text-emerald-500" />
+                                </div>
+                                <h3 className="relative z-10 mb-6 flex items-center gap-2 text-sm font-semibold text-stone-200">
+                                    <Activity className="h-5 w-5 text-emerald-400" />
+                                    Trust & care
+                                </h3>
+                                <div className="relative z-10 space-y-4">
+                                    <MetricRow label="Verification rate" value="94%" valueClass="text-emerald-400" />
+                                    <MetricRow label="Clarity of what you share" value="8.8/10" valueClass="text-sky-300" />
+                                    <MetricRow label="Disputes" value="0" valueClass="text-stone-400" />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAuditLog(true)}
+                                    className="relative z-10 mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-stone-600 bg-stone-950/60 py-3 text-[11px] font-semibold text-stone-300 transition-colors hover:bg-stone-800"
+                                >
+                                    <Database className="h-4 w-4 text-emerald-500" />
+                                    View full kindness log
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="space-y-10 lg:col-span-8">
+                            <ImpactDashboard stats={hero.stats} activity={activity} />
+
+                            <div className="space-y-4">
+                                <h3 className="flex items-center gap-2 px-1 text-sm font-semibold text-stone-300">
+                                    <Box className="h-5 w-5 text-amber-400" />
+                                    Collection
+                                </h3>
+                                <InventoryPreview hero={hero} />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="animate-fade-in">
+                    <SettingsTabs hero={hero} setHero={setHero} />
+                </div>
+            )}
+
+            {showAuditLog && <AuditLogModal hero={hero} onClose={() => setShowAuditLog(false)} />}
+
+            {showEditProfile && (
+                <EditProfileModal
+                    hero={hero}
+                    onSave={(data) => {
+                        setHero((prev) => ({ ...prev, ...data }));
+                        setShowEditProfile(false);
+                    }}
+                    onClose={() => setShowEditProfile(false)}
+                />
+            )}
         </div>
-      </div>
     );
-  }
-
-  const hasIdentities = useMemo(() => (hero.personas || []).length > 0, [hero.personas]);
-
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  useEffect(() => {
-    setActivity([
-      { id: '1', icon: <Activity className="w-3 h-3 text-emerald-500" />, label: 'Verified "Unsafe Meal Report"', time: '2h ago' },
-      { id: '2', icon: <Monitor className="w-3 h-3 text-rose-500" />, label: 'Submitted "HOA Abuse" Shard', time: '5h ago' },
-      { id: '3', icon: <Coins className="w-3 h-3 text-amber-500" />, label: 'Earned 25 Credits (Audit Bonus)', time: '1d ago' },
-      { id: '4', icon: <Award className="w-3 h-3 text-cyan-400" />, label: 'Unlocked Badge: Evidence Ace', time: '2d ago' },
-    ]);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="py-40 flex flex-col items-center justify-center space-y-6">
-        <Loader className="w-12 h-12 animate-spin text-cyan-500" />
-        <p className="text-xs font-black uppercase tracking-[0.4em] text-zinc-600">Synchronizing Identity Shard...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-[1400px] mx-auto space-y-12 pb-32">
-      <div className="flex justify-center">
-        <div className="bg-zinc-900 border border-zinc-800 p-1.5 rounded-2xl flex space-x-2 shadow-2xl">
-          <button
-            onClick={() => setActiveSection('overview')}
-            className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeSection === 'overview' ? 'bg-cyan-600 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            Intelligence_Hub
-          </button>
-          <button
-            onClick={() => setActiveSection('settings')}
-            className={`px-8 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-              activeSection === 'settings' ? 'bg-cyan-600 text-white shadow-lg' : 'text-zinc-500 hover:text-zinc-300'
-            }`}
-          >
-            Node_Calibration
-          </button>
-        </div>
-      </div>
-
-      {activeSection === 'overview' ? (
-        <div className="space-y-12 animate-fade-in">
-          <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-[4.2rem] opacity-20 blur group-hover:opacity-40 transition-opacity duration-1000"></div>
-            <HeroBanner
-              hero={hero}
-              onEdit={() => setShowEditProfile(true)}
-              onUpdateAvatar={() => {
-                const el = document.getElementById('persona-minting-station');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }}
-            />
-          </div>
-
-          {!hasIdentities && (
-            <div className="animate-pulse-slow">
-              <button
-                onClick={() => {
-                  const el = document.getElementById('persona-minting-station');
-                  el?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className="w-full p-12 bg-cyan-900/10 border-4 border-dashed border-cyan-800/40 rounded-[3rem] flex flex-col items-center justify-center space-y-8 group hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all"
-              >
-                <div className="p-8 bg-cyan-950 rounded-full border border-cyan-500/30">
-                  <Fingerprint className="w-16 h-16 text-cyan-400 group-hover:scale-110 transition-transform" />
-                </div>
-                <div className="text-center space-y-2">
-                  <h3 className="text-3xl font-black uppercase text-white tracking-tighter">Initialize_Hero_Protocol</h3>
-                  <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest">
-                    Awaiting Identity Synthesis. Click to materialize your first operative.
-                  </p>
-                </div>
-              </button>
-            </div>
-          )}
-
-          <QuickActionsRow onNavigate={onNavigate} missionCount={2} mintReady={true} />
-
-          <div id="persona-minting-station" className="space-y-8 pt-8">
-            <div className="flex items-center justify-between px-6">
-              <h3 className="text-sm font-black uppercase text-zinc-500 tracking-[0.4em] flex items-center gap-4">
-                <Sparkles className="w-5 h-5 text-cyan-500" />
-                <span>Hero_Identity_Forge</span>
-              </h3>
-              <div className="bg-cyan-500/10 px-4 py-1.5 rounded-full border border-cyan-500/30">
-                <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest">Neural_Minting_Active</span>
-              </div>
-            </div>
-
-            <HeroPersonaManager
-              personas={hero.personas || []}
-              equippedPersonaId={hero.equippedPersonaId}
-              onAddHeroPersona={onAddHeroPersona}
-              onDeletePersona={onDeleteHeroPersona}
-              onEquipPersona={onEquipHeroPersona}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-            <div className="lg:col-span-4 space-y-8">
-              <DailyChallengeCard hero={hero} setHero={setHero} />
-
-              <div className="bg-zinc-900/60 border-2 border-zinc-800 rounded-[3rem] p-8 space-y-8 shadow-xl relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-8 opacity-5">
-                  <ShieldCheck className="w-40 h-40 text-emerald-500" />
-                </div>
-
-                <h3 className="text-xs font-black uppercase text-zinc-500 tracking-[0.3em] flex items-center space-x-3">
-                  <Activity className="w-5 h-5 text-emerald-500" />
-                  <span>Trust_Index</span>
-                </h3>
-
-                <div className="space-y-6">
-                  <MetricRow label="Verification Rate" value="94%" color="emerald" />
-                  <MetricRow label="Evidence Quality" value="8.8/10" color="cyan" />
-                  <MetricRow label="Appeals Filed" value="0" color="zinc" />
-                </div>
-
-                <button
-                  onClick={() => setShowAuditLog(true)}
-                  className="w-full py-4 bg-zinc-950 hover:bg-zinc-800 border border-zinc-800 text-[10px] font-black uppercase tracking-widest rounded-2xl transition-all flex items-center justify-center space-x-3"
-                >
-                  <Database className="w-4 h-4 text-emerald-500" />
-                  <span>View_Full_Audit_Log</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="lg:col-span-8 space-y-12">
-              <ImpactDashboard stats={hero.stats} activity={activity} />
-
-              <div className="space-y-6">
-                <h3 className="text-sm font-black uppercase text-zinc-500 tracking-[0.4em] px-4 flex items-center gap-4">
-                  <Box className="w-5 h-5 text-cyan-500" />
-                  <span>Inventory_Buffer</span>
-                </h3>
-                <InventoryPreview hero={hero} />
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="animate-fade-in">
-          <SettingsTabs hero={hero} setHero={setHero} />
-        </div>
-      )}
-
-      {showAuditLog && <AuditLogModal hero={hero} onClose={() => setShowAuditLog(false)} />}
-
-      {showEditProfile && (
-        <EditProfileModal
-          hero={hero}
-          onSave={(data) => {
-            setHero((prev) => ({ ...prev, ...data }));
-            setShowEditProfile(false);
-          }}
-          onClose={() => setShowEditProfile(false)}
-        />
-      )}
-
-      <style>{`
-        @keyframes pulse-slow { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-        .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
-      `}</style>
-    </div>
-  );
 };
 
 export default HeroProfileTab;

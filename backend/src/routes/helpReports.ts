@@ -10,6 +10,7 @@ import {
   CreateHelpReportSchema,
   type CreateHelpReportInput,
 } from '../schemas/helpReport';
+import { paramId } from '../lib/routeParams';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -112,7 +113,7 @@ router.post(
   attachUser,
   upload.array('files', 10),
   async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
+    const id = paramId(req);
     const files  = req.files as Express.Multer.File[];
 
     if (!files?.length) {
@@ -151,7 +152,7 @@ router.post(
 
 // ── GET /api/help-reports/:id — get a report (owner or admin) ────────────────
 router.get('/:id', attachUser, async (req: Request, res: Response): Promise<void> => {
-  const { id } = req.params;
+  const id = paramId(req);
   const userId  = (req as any).user?.id;
 
   try {

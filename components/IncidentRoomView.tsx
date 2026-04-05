@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import QRCode from 'qrcode';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera, Star, Trash2 } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
 import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
@@ -54,6 +54,13 @@ interface IncidentRoomViewProps {
     hero: Hero;
     messages: ChatMessage[];
     onSendMessage: (text: string, imageUrl?: string, audioUrl?: string) => void;
+    /** Upload a new main filing image (data URL or http after parent uploads). Prepends to gallery + history. */
+    onFilingImageUpload?: (dataUrl: string) => void | Promise<void>;
+    /** Move an existing URL to hero (main) without deleting others. */
+    onSetMainFilingImage?: (imageUrl: string) => void;
+    /** Admin-only: remove one image from the live gallery (history kept). */
+    onRemoveFilingGalleryImage?: (index: number) => void;
+    canDeleteFilingImages?: boolean;
     roomsIndex?: SituationRoomSummary[];
     onJoinRoom?: (roomId: string) => void | Promise<void>;
     errorBanner?: string | null;
@@ -108,9 +115,62 @@ const ForensicValue: React.FC<{ label: string; value?: string; icon: React.React
     </div>
 );
 
-const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, hero, messages, onSendMessage, roomsIndex = [], onJoinRoom, errorBanner }) => {
+function collectFilingHistoryUrls(report: Report): string[] {
+    const raw = report.filingImageHistory;
+    if (!Array.isArray(raw)) return [];
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const u of raw) {
+        const s = String(u).trim();
+        if (!s || seen.has(s)) continue;
+        seen.add(s);
+        out.push(s);
+    }
+    return out;
+}
+
+const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
+    report,
+    onReturn,
+    hero,
+    messages,
+    onSendMessage,
+    onFilingImageUpload,
+    onSetMainFilingImage,
+    onRemoveFilingGalleryImage,
+    canDeleteFilingImages,
+    roomsIndex = [],
+    onJoinRoom,
+    errorBanner,
+}) => {
     const reportImageUrls = useMemo(() => collectReportImageUrls(report), [report]);
+    const filingHistoryUrls = useMemo(() => collectFilingHistoryUrls(report), [report]);
+    const filingFileInputRef = useRef<HTMLInputElement>(null);
     const sectors = DEFAULT_SECTORS;
+    const [filingUploadBusy, setFilingUploadBusy] = useState(false);
+
+    const handleFilingFileSelected = useCallback(
+        async (e: React.ChangeEvent<HTMLInputElement>) => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file || !file.type.startsWith('image/') || !onFilingImageUpload) return;
+            setFilingUploadBusy(true);
+            try {
+                const dataUrl = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(String(reader.result || ''));
+                    reader.onerror = () => reject(new Error('read'));
+                    reader.readAsDataURL(file);
+                });
+                if (dataUrl.startsWith('data:')) await onFilingImageUpload(dataUrl);
+            } catch {
+                /* ignore */
+            } finally {
+                setFilingUploadBusy(false);
+            }
+        },
+        [onFilingImageUpload],
+    );
     
     const [activeSectorId, setActiveSectorId] = useState(sectors[0].id);
     const [directoryExpanded, setDirectoryExpanded] = useState(false);
@@ -508,19 +568,53 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                     </div>
                 )}
 
-                {/* Filing imagery — same photos attached at submit time; anchors the thread visually (all categories). */}
+                {/* Filing imagery — hero + gallery; uploads prepend; full history retained on the report. */}
                 <section
                     aria-label="Report filing imagery"
                     className="shrink-0 border-b border-zinc-800/80 bg-zinc-900/40 px-3 py-3 md:px-10 md:py-4"
                 >
-                    <div className="mb-2 flex items-center gap-2 text-zinc-400">
-                        <Camera className="h-4 w-4 shrink-0 text-cyan-500" aria-hidden />
-                        <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                            Filing imagery — this report
-                        </p>
+                    <input
+                        ref={filingFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        onChange={handleFilingFileSelected}
+                    />
+                    <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex items-center gap-2 text-zinc-400 min-w-0">
+                            <Camera className="h-4 w-4 shrink-0 text-cyan-500" aria-hidden />
+                            <div className="min-w-0">
+                                <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                                    Filing imagery — this report
+                                </p>
+                                <p className="mt-0.5 text-[9px] leading-relaxed text-zinc-600">
+                                    Upload a new image to set it as the main filing photo; previous versions stay in the gallery and audit history.
+                                </p>
+                            </div>
+                        </div>
+                        {onFilingImageUpload && (
+                            <button
+                                type="button"
+                                disabled={filingUploadBusy}
+                                onClick={() => filingFileInputRef.current?.click()}
+                                className="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-700/60 bg-cyan-950/40 px-3 py-2 text-[10px] font-black uppercase tracking-wider text-cyan-300 hover:bg-cyan-950/70 disabled:opacity-50"
+                            >
+                                {filingUploadBusy ? (
+                                    <>
+                                        <Loader className="h-3.5 w-3.5 animate-spin" />
+                                        Uploading…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Camera className="h-3.5 w-3.5" />
+                                        Add / update main image
+                                    </>
+                                )}
+                            </button>
+                        )}
                     </div>
                     {reportImageUrls.length > 0 ? (
-                        <div className="flex flex-col gap-3">
+                        <div className="flex flex-col gap-4">
                             <div className="overflow-hidden rounded-2xl border border-zinc-700/80 bg-black/40 shadow-inner">
                                 <img
                                     src={reportImageUrls[0]}
@@ -528,38 +622,109 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({ report, onReturn, h
                                     className="max-h-[min(52vh,420px)] w-full object-contain object-center bg-zinc-950"
                                     loading="eager"
                                 />
+                                <div className="border-t border-zinc-800/80 bg-zinc-950/80 px-3 py-2">
+                                    <p className="text-[9px] font-black uppercase tracking-wider text-emerald-500/90">
+                                        Main filing image
+                                    </p>
+                                </div>
                             </div>
                             {reportImageUrls.length > 1 && (
-                                <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 [scrollbar-width:thin]">
-                                    {reportImageUrls.slice(1).map((url, i) => (
-                                        <a
-                                            key={`${url}-${i}`}
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group relative h-20 w-28 shrink-0 overflow-hidden rounded-xl border border-zinc-600 bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
-                                        >
-                                            <img
-                                                src={url}
-                                                alt=""
-                                                className="h-full w-full object-cover transition group-hover:opacity-95"
-                                                loading="lazy"
-                                            />
-                                        </a>
-                                    ))}
+                                <div>
+                                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                        All filing images ({reportImageUrls.length})
+                                    </p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                                        {reportImageUrls.map((url, index) => (
+                                            <div
+                                                key={`${url}-${index}`}
+                                                className={`group relative overflow-hidden rounded-xl border bg-zinc-900 ${
+                                                    index === 0 ? 'border-emerald-600 ring-1 ring-emerald-600/40' : 'border-zinc-600'
+                                                }`}
+                                            >
+                                                <a
+                                                    href={url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="block aspect-[4/3] bg-black/50"
+                                                >
+                                                    <img
+                                                        src={url}
+                                                        alt=""
+                                                        className="h-full w-full object-cover"
+                                                        loading={index === 0 ? 'eager' : 'lazy'}
+                                                    />
+                                                </a>
+                                                <div className="flex flex-wrap gap-1 border-t border-zinc-800/80 bg-zinc-950/95 p-1.5">
+                                                    {index === 0 ? (
+                                                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-950/60 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-emerald-400">
+                                                            <Star className="h-3 w-3" />
+                                                            Main
+                                                        </span>
+                                                    ) : (
+                                                        onSetMainFilingImage && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => onSetMainFilingImage(url)}
+                                                                className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-zinc-600 bg-zinc-800/80 px-1.5 py-1 text-[8px] font-black uppercase tracking-wide text-zinc-200 hover:border-cyan-600 hover:text-cyan-300"
+                                                            >
+                                                                <Target className="h-3 w-3 shrink-0" />
+                                                                Set main
+                                                            </button>
+                                                        )
+                                                    )}
+                                                    {canDeleteFilingImages && onRemoveFilingGalleryImage && (
+                                                        <button
+                                                            type="button"
+                                                            title="Remove from live gallery only — history is kept"
+                                                            onClick={() => onRemoveFilingGalleryImage(index)}
+                                                            className="inline-flex items-center justify-center rounded-md border border-rose-900/60 bg-rose-950/50 p-1 text-rose-300 hover:bg-rose-950"
+                                                        >
+                                                            <Trash2 className="h-3.5 w-3.5" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
                     ) : (
-                        <div className="flex items-center gap-3 rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/60 px-4 py-6 text-zinc-500">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/60 px-4 py-6 text-zinc-500">
                             <Camera className="h-8 w-8 shrink-0 opacity-40" aria-hidden />
-                            <div>
+                            <div className="min-w-0 flex-1">
                                 <p className="text-[10px] font-black uppercase tracking-wider text-zinc-500">
                                     No photos on file for this report
                                 </p>
                                 <p className="mt-1 text-[9px] leading-relaxed text-zinc-600">
-                                    Images submitted with the filing appear here for everyone in this room. Add photos when you file a report (any category).
+                                    Images submitted with the filing appear here for everyone in this room. Use “Add / update main image” to attach one from this room, or add photos when you file a report (any category).
                                 </p>
+                            </div>
+                        </div>
+                    )}
+                    {filingHistoryUrls.length > 0 && (
+                        <div className="mt-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-3">
+                            <p className="mb-2 text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                                Filing image history (audit)
+                            </p>
+                            <p className="mb-2 text-[8px] leading-relaxed text-zinc-600">
+                                Every version uploaded or merged into this room is listed in order. Removing an image from the live gallery does not remove it from this history.
+                            </p>
+                            <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:thin]">
+                                {filingHistoryUrls.map((url, hi) => (
+                                    <a
+                                        key={`hist-${hi}-${url.slice(-24)}`}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="relative h-16 w-20 shrink-0 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500"
+                                    >
+                                        <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                                        <span className="absolute bottom-0 left-0 right-0 bg-black/70 px-0.5 py-0.5 text-center text-[7px] font-mono text-zinc-400">
+                                            #{hi + 1}
+                                        </span>
+                                    </a>
+                                ))}
                             </div>
                         </div>
                     )}

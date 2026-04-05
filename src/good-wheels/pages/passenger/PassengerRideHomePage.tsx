@@ -176,6 +176,8 @@ const PassengerRideHomePage: React.FC = () => {
   const [broadcasting, setBroadcasting]   = useState(false);
   const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
   const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
+  /** Driving route failed (Directions API / quota) — see `services/googleMapsLoader.ts` */
+  const [directionsError, setDirectionsError] = useState<string | null>(null);
 
   const bothSet = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
 
@@ -322,6 +324,7 @@ const PassengerRideHomePage: React.FC = () => {
         { origin: pickupLL, destination: dropoffLL, travelMode: g.maps.TravelMode.DRIVING },
         (result, status) => {
           if (status === 'OK' && result && directionsRendRef.current) {
+            setDirectionsError(null);
             directionsRendRef.current.setDirections(result);
 
             /* Collect ALL path points from every step of every leg
@@ -366,10 +369,15 @@ const PassengerRideHomePage: React.FC = () => {
             const bounds = new g.maps.LatLngBounds();
             bounds.extend(pickupLL); bounds.extend(dropoffLL);
             mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 340, left: 32, right: 32 });
+          } else {
+            const msg = `Driving route failed (${String(status)}). Enable Directions API for your Maps key.`;
+            console.warn('[PassengerRideHomePage]', msg);
+            setDirectionsError(msg);
           }
         }
       );
     } else {
+      setDirectionsError(null);
       stopRouteAnimation();
       if (directionsRendRef.current) directionsRendRef.current.setDirections({ routes: [] } as any);
       vehicleMarkerRef.current?.setMap(null); vehicleMarkerRef.current = null;
@@ -537,6 +545,27 @@ const PassengerRideHomePage: React.FC = () => {
         <div style={S.mapLoading}>
           <div style={{ fontSize: 38 }}>🗺️</div>
           <div style={{ fontSize: 14, fontWeight: 600, color: '#6B7280' }}>Loading map…</div>
+        </div>
+      )}
+      {ready && directionsError && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: 120,
+            left: 14,
+            right: 14,
+            zIndex: 18,
+            background: 'rgba(254,243,199,0.96)',
+            border: '1px solid #f59e0b',
+            borderRadius: 12,
+            padding: '10px 14px',
+            fontSize: 12,
+            fontWeight: 600,
+            color: '#92400e',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+          }}
+        >
+          {directionsError}
         </div>
       )}
 

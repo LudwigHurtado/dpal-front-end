@@ -1,8 +1,12 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
+import './styles/material-web-theme.css';
+import './styles/dpal-theme.css';
+import './styles/material-palettes.css';
+import './styles/mobile-theme.css';
 import { initMaterialPaletteFromStorage } from './utils/materialPalette';
-import App from './App';
+import AppBootstrap from './AppBootstrap';
 
 initMaterialPaletteFromStorage();
 import { LanguageProvider } from './i18n';
@@ -23,7 +27,7 @@ root.render(
         <LanguageProvider>
           <DPALFlowProvider>
             <DevicePreviewFrame>
-              <App />
+              <AppBootstrap />
             </DevicePreviewFrame>
           </DPALFlowProvider>
         </LanguageProvider>

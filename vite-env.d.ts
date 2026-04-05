@@ -2,6 +2,8 @@
 
 interface ImportMetaEnv {
   readonly VITE_GEMINI_API_KEY?: string;
+  /** When true, browser uses POST /api/ai/gemini with server GEMINI_API_KEY (no VITE_GEMINI_API_KEY needed). */
+  readonly VITE_USE_SERVER_AI?: string;
   /** OpenAI — Politician Transparency Search refine + Evidence draft (optional). */
   readonly VITE_OPENAI_API_KEY?: string;
   /** Default: gpt-4o-mini */
@@ -16,6 +18,8 @@ interface ImportMetaEnv {
   readonly VITE_FEATURE_AUDIT_TRAIL?: 'true' | 'false';
   readonly VITE_FEATURE_BLOCKCHAIN_ANCHOR?: 'true' | 'false';
   readonly VITE_FEATURE_GOVERNANCE?: 'true' | 'false';
+  /** When `true`, situation room can remove images from the live filing gallery (history stays). */
+  readonly VITE_INCIDENT_IMAGE_ADMIN?: string;
   /** Optional external URLs for Society Game Hub minigames */
   readonly VITE_GAME_URL_INVESTIGATION_NETWORK?: string;
   readonly VITE_GAME_URL_INVESTIGATE_OBSERVE_INTELLIGENT?: string;

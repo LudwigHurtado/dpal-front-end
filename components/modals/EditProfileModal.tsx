@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { type Hero } from '../../types';
-import { X, ShieldCheck, Zap, User, Pencil, Check, Loader } from '../icons';
+import { X, Heart, Pencil, Check, Loader } from '../icons';
 
 interface EditProfileModalProps {
     hero: Hero;
@@ -13,100 +13,105 @@ const EditProfileModal: React.FC<EditProfileModalProps> = ({ hero, onSave, onClo
         name: hero.name,
         handle: hero.handle,
         bio: hero.bio,
-        heroOath: hero.heroOath || ''
+        heroOath: hero.heroOath || '',
     });
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSave = () => {
         setIsSaving(true);
-        // Simulate ledger commit
         setTimeout(() => {
             onSave(formData);
             setIsSaving(false);
-        }, 1000);
+        }, 600);
     };
 
     return (
-        <div className="dpal-modal-backdrop z-[300] p-4 md:p-10 font-mono animate-fade-in">
-            <div className="dpal-modal-dialog max-w-2xl border-2 border-cyan-500/30 rounded-[4rem] shadow-4xl relative">
-                <header className="dpal-modal-header p-10 flex justify-between items-center relative z-10">
-                    <div className="flex items-center space-x-6">
-                        <div className="p-4 bg-cyan-500/10 rounded-2xl border border-cyan-500/30">
-                            <Pencil className="w-8 h-8 text-cyan-400" />
+        <div className="dpal-modal-backdrop z-[300] animate-fade-in p-4 font-sans md:p-10">
+            <div className="dpal-modal-dialog relative max-w-2xl rounded-3xl border-2 border-amber-800/40 shadow-2xl">
+                <header className="dpal-modal-header relative z-10 flex items-center justify-between p-8 md:p-10">
+                    <div className="flex items-center gap-4">
+                        <div className="rounded-2xl border border-amber-700/40 bg-amber-950/40 p-3">
+                            <Pencil className="h-7 w-7 text-amber-300" />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-black uppercase tracking-tighter text-white">Node_Calibration</h2>
-                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-[0.4em]">Updating: Identity_Shard_v2.5</p>
+                            <h2 className="text-2xl font-bold tracking-tight text-white">Edit your profile</h2>
+                            <p className="mt-1 text-xs font-medium text-stone-400">Share what feels right for you and your family</p>
                         </div>
                     </div>
-                    <button type="button" onClick={onClose} className="dpal-modal-close p-4 rounded-3xl shadow-xl">
-                        <X className="w-8 h-8" />
+                    <button type="button" onClick={onClose} className="dpal-modal-close rounded-2xl p-3 shadow-lg">
+                        <X className="h-6 w-6" />
                     </button>
                 </header>
 
-                <div className="dpal-modal-body p-10 space-y-8 overflow-y-auto custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="custom-scrollbar dpal-modal-body max-h-[60vh] space-y-6 overflow-y-auto p-8 md:p-10">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black dpal-text-muted uppercase tracking-widest ml-4">Operative_Name</label>
-                            <input 
+                            <label className="ml-1 text-xs font-medium text-stone-400">Name</label>
+                            <input
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                className="w-full dpal-bg-deep border-2 dpal-border-subtle p-5 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-600 transition-all shadow-inner"
-                                placeholder="Public Name"
+                                className="dpal-bg-deep dpal-border-subtle w-full rounded-2xl border-2 p-4 text-sm font-medium text-white shadow-inner outline-none transition-all focus:border-amber-600/50"
+                                placeholder="How you’d like to be called"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black dpal-text-muted uppercase tracking-widest ml-4">Handle_Hash</label>
+                            <label className="ml-1 text-xs font-medium text-stone-400">Username</label>
                             <div className="relative">
-                                <span className="absolute left-5 top-1/2 -translate-y-1/2 dpal-text-muted font-bold">@</span>
-                                <input 
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-medium text-stone-500">@</span>
+                                <input
                                     value={formData.handle}
-                                    onChange={(e) => setFormData({ ...formData, handle: e.target.value.replace(/\s+/g, '_').toLowerCase() })}
-                                    className="w-full dpal-bg-deep border-2 dpal-border-subtle pl-10 pr-5 py-5 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-600 transition-all shadow-inner"
-                                    placeholder="handle_id"
+                                    onChange={(e) =>
+                                        setFormData({
+                                            ...formData,
+                                            handle: e.target.value.replace(/\s+/g, '_').toLowerCase(),
+                                        })
+                                    }
+                                    className="dpal-bg-deep dpal-border-subtle w-full rounded-2xl border-2 py-4 pl-9 pr-4 text-sm font-medium text-white shadow-inner outline-none transition-all focus:border-amber-600/50"
+                                    placeholder="neighbor_name"
                                 />
                             </div>
                         </div>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black dpal-text-muted uppercase tracking-widest ml-4">Briefing_Bio</label>
-                        <textarea 
+                        <label className="ml-1 text-xs font-medium text-stone-400">A few words about you</label>
+                        <textarea
                             value={formData.bio}
                             onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                            className="w-full dpal-bg-deep border-2 dpal-border-subtle p-5 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-600 transition-all shadow-inner resize-none min-h-[100px]"
-                            placeholder="Define your field role..."
+                            className="dpal-bg-deep dpal-border-subtle min-h-[100px] w-full resize-none rounded-2xl border-2 p-4 text-sm font-medium text-white shadow-inner outline-none transition-all focus:border-amber-600/50"
+                            placeholder="Family, neighborhood, what you care about…"
                             maxLength={150}
                         />
-                        <p className="text-right text-[8px] font-black dpal-text-muted uppercase tracking-widest">{formData.bio.length}/150</p>
+                        <p className="text-right text-[10px] font-medium text-stone-500">{formData.bio.length}/150</p>
                     </div>
 
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black dpal-text-muted uppercase tracking-widest ml-4">Hero_Oath (Permanent Anchor)</label>
-                        <textarea 
+                        <label className="ml-1 text-xs font-medium text-stone-400">Your promise (optional)</label>
+                        <textarea
                             value={formData.heroOath}
                             onChange={(e) => setFormData({ ...formData, heroOath: e.target.value })}
-                            className="w-full dpal-bg-deep border-2 dpal-border-subtle p-5 rounded-2xl text-sm text-white font-bold outline-none focus:border-cyan-600 transition-all shadow-inner resize-none min-h-[120px]"
-                            placeholder="I swear to hold power accountable..."
+                            className="dpal-bg-deep dpal-border-subtle min-h-[100px] w-full resize-none rounded-2xl border-2 p-4 text-sm font-medium text-white shadow-inner outline-none transition-all focus:border-amber-600/50"
+                            placeholder="I choose to be honest, kind, and to stand with my neighbors…"
                         />
                     </div>
                 </div>
 
-                <footer className="dpal-modal-footer p-8 flex flex-col md:flex-row gap-6">
-                    <button 
+                <footer className="dpal-modal-footer flex flex-col gap-3 p-6 md:flex-row md:gap-4 md:p-8">
+                    <button
                         type="button"
                         onClick={onClose}
-                        className="flex-1 px-8 py-5 dpal-btn-ghost border dpal-border-subtle rounded-2xl font-black uppercase tracking-widest text-[10px]"
+                        className="dpal-btn-ghost dpal-border-subtle flex-1 rounded-2xl border px-6 py-4 text-sm font-semibold"
                     >
-                        Cancel_Abort
+                        Cancel
                     </button>
-                    <button 
+                    <button
+                        type="button"
                         onClick={handleSave}
                         disabled={isSaving || !formData.name || !formData.handle}
-                        className="flex-1 px-8 py-5 bg-white text-black hover:bg-cyan-50 rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-2xl active:scale-95 transition-all flex items-center justify-center space-x-3 border-b-4 border-[color:var(--dpal-border-strong)]"
+                        className="flex flex-1 items-center justify-center gap-2 rounded-2xl border-b-4 border-amber-900 bg-amber-500 px-6 py-4 text-sm font-semibold text-stone-900 shadow-lg transition-all hover:bg-amber-400 active:scale-[0.99] disabled:opacity-50"
                     >
-                        {isSaving ? <Loader className="w-4 h-4 animate-spin"/> : <ShieldCheck className="w-4 h-4"/>}
-                        <span>{isSaving ? 'Synchronizing...' : 'Commit_To_Identity_Shard'}</span>
+                        {isSaving ? <Loader className="h-4 w-4 animate-spin" /> : <Heart className="h-4 w-4" />}
+                        {isSaving ? 'Saving…' : 'Save profile'}
                     </button>
                 </footer>
             </div>

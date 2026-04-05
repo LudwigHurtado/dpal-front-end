@@ -1,3 +1,12 @@
+/**
+ * Loads the **Maps JavaScript API** for the browser (Good Wheels, Locator, etc.).
+ *
+ * **Not** the Google **Navigation SDK** (Android/iOS native turn-by-turn). That SDK does not apply to this web bundle.
+ *
+ * **A→B driving routes** in Good Wheels use `google.maps.DirectionsService` → enable **Directions API** (or legacy Routes) on the same GCP project as the key. Also enable **Maps JavaScript API**, **Places API** (autocomplete), **Geocoding API** (address → lat/lng).
+ *
+ * Script uses `libraries=places,geometry` for Places + spherical helpers.
+ */
 let loaderPromise: Promise<typeof google> | undefined;
 
 const getApiKey = (): string | undefined => {
@@ -26,7 +35,7 @@ const injectScript = (apiKey: string): Promise<void> => {
     s.defer = true;
     s.dataset.dpalGoogleMaps = '1';
     // Using explicit v=weekly helps keep Places + Map behavior consistent.
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places&v=weekly`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&libraries=places,geometry&v=weekly`;
     s.onload = () => resolve();
     s.onerror = () => reject(new Error('google_maps_script_error'));
     document.head.appendChild(s);

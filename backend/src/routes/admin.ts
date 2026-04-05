@@ -13,6 +13,7 @@ import {
   type AssignReportInput,
   type AdminListQueryInput,
 } from '../schemas/helpReport';
+import { paramId } from '../lib/routeParams';
 
 const router = Router();
 
@@ -120,8 +121,9 @@ router.get('/help-reports/stats', async (_req: Request, res: Response): Promise<
 // ── GET /api/admin/help-reports/:id — full detail ─────────────────────────────
 router.get('/help-reports/:id', async (req: Request, res: Response): Promise<void> => {
   try {
+    const id = paramId(req);
     const report = await prisma.helpReport.findUnique({
-      where: { id: req.params.id },
+      where: { id },
       include: {
         contact:       true,
         location:      true,
@@ -144,7 +146,7 @@ router.patch(
   '/help-reports/:id/status',
   validateBody(UpdateStatusSchema),
   async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
+    const id = paramId(req);
     const body = req.body as UpdateStatusInput;
     const adminId = 'admin'; // Replace with (req as any).user?.id once full Supabase auth is wired
 
@@ -181,7 +183,7 @@ router.patch(
   '/help-reports/:id/assign',
   validateBody(AssignReportSchema),
   async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
+    const id = paramId(req);
     const body = req.body as AssignReportInput;
     const adminId = 'admin';
 
@@ -211,7 +213,7 @@ router.post(
   '/help-reports/:id/note',
   validateBody(AddNoteSchema),
   async (req: Request, res: Response): Promise<void> => {
-    const { id } = req.params;
+    const id = paramId(req);
     const body = req.body as AddNoteInput;
     const adminId = 'admin';
 

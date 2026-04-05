@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Category, type Hero, type Report, type NftTheme } from '../types';
-import { FORGE_TRAITS, NFT_THEMES, getApiBase, apiUrl, API_ROUTES } from '../constants';
+import { FORGE_TRAITS, NFT_THEMES, getApiBase } from '../constants';
 import { Gem, Coins, Loader, Check, Sparkles, Database, Target, Zap, ShieldCheck, FileText, ArrowRight, RefreshCw, X, Broadcast, Activity, Box, Fingerprint, Activity as ActivityIcon, User, Monitor, ArrowLeft } from './icons';
 import NftCard from './NftCard';
 import { generateNftPromptIdeas } from '../services/geminiService';
+import { mintNftRequest } from '../services/nftMintApi';
 
 interface NftMintingStationProps {
   hero: Hero;
@@ -71,11 +72,11 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
         // Check if AI is enabled
         const { isAiEnabled } = await import('../services/geminiService');
         if (!isAiEnabled()) {
-            alert("AI key not configured. Please set VITE_GEMINI_API_KEY in your environment or enable offline mode.");
+            alert("AI not configured. Set VITE_GEMINI_API_KEY, or VITE_USE_SERVER_AI=true with GEMINI_API_KEY on your API, or use offline mode.");
         } else if (e?.message?.includes("RATE_LIMITED") || e?.message?.includes("429")) {
             alert("API rate limit reached. Please wait a moment and try again.");
         } else if (e?.message?.includes("API_KEY_INVALID") || e?.message?.includes("NOT_CONFIGURED")) {
-            alert("AI key is invalid. Please check your VITE_GEMINI_API_KEY configuration.");
+            alert("AI key is invalid. Check VITE_GEMINI_API_KEY or server GEMINI_API_KEY.");
         } else {
             alert(`Neural link unstable: ${e?.message || 'Connection failed'}. Check your network connection and try again.`);
         }
@@ -101,61 +102,25 @@ const NftMintingStation: React.FC<NftMintingStationProps> = ({ hero, setHero }) 
         `${Date.now()}-${Math.random().toString(36).substring(2, 15)}-${Math.random().toString(36).substring(2, 15)}`;
       const idempotencyKey = `mint-${hero.operativeId}-${timestamp}-${nonce}`;
 
-      const body = {
-        userId: hero.operativeId,
-        prompt: selectedConcept,
-        theme: theme,
-        category: dpalCategory,
-        priceCredits: totalCost,
-        idempotencyKey,
-        nonce,
-        timestamp,
-        traits: selectedTraits.map(tid => ({
-          trait_type: 'Module',
-          value: FORGE_TRAITS.find(t => t.id === tid)?.name
-        }))
-      };
-
-      // ATTEMPT 1: Try relative path first (leveraging Vercel Proxy)
-      let response;
-      try {
-        response = await fetch('/api/nft/mint', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: controller.signal
-        });
-      } catch (e) {
-        console.warn("[FORGE] Relative dispatch failed, falling back to Railway backend.");
-        response = await fetch(apiUrl(API_ROUTES.NFT_MINT), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-          signal: controller.signal
-        });
-      }
+      const receipt = await mintNftRequest(
+        {
+          userId: hero.operativeId,
+          prompt: selectedConcept,
+          theme: theme,
+          category: dpalCategory,
+          priceCredits: totalCost,
+          idempotencyKey,
+          nonce,
+          timestamp,
+          traits: selectedTraits.map((tid) => ({
+            trait_type: "Module",
+            value: FORGE_TRAITS.find((t) => t.id === tid)?.name,
+          })),
+        },
+        controller.signal
+      );
 
       clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        // Try to parse error response as JSON
-        let errorData: any = {};
-        try {
-          const errorText = await response.text();
-          errorData = JSON.parse(errorText);
-        } catch {
-          // If parsing fails, use status code
-          errorData = { error: 'unknown', message: `HTTP ${response.status}` };
-        }
-
-        // Create error with status code and message
-        const error = new Error(errorData.message || errorData.error || `HTTP ${response.status}`);
-        (error as any).status = response.status;
-        (error as any).errorCode = errorData.error;
-        throw error;
-      }
-
-      const receipt = await response.json();
       
       setHero(prev => ({
           ...prev,

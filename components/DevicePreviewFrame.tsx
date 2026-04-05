@@ -65,6 +65,16 @@ const DEVICES: Device[] = [
 
 const LS_KEY = 'dpal_device_preview';
 
+/** True when this document is inside a Cell Mode iframe — avoid nested previews (blank / broken UI). */
+function isInsidePreviewIframe(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
 /* ─────────────────────────── Notch rendering ────────────────────────── */
 function Notch({ type, w }: { type: Device['notchType']; w: number }) {
   if (type === 'dynamic-island') {
@@ -108,7 +118,10 @@ function Notch({ type, w }: { type: Device['notchType']; w: number }) {
 
 /* ─────────────────────────── Main component ─────────────────────────── */
 const DevicePreviewFrame: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const embedded = isInsidePreviewIframe();
+
   const [open, setOpen]           = useState(() => {
+    if (embedded) return false;
     try { return localStorage.getItem(LS_KEY) === '1'; } catch { return false; }
   });
   const [deviceId, setDeviceId]   = useState<string>(() => {
@@ -117,18 +130,19 @@ const DevicePreviewFrame: React.FC<{ children: React.ReactNode }> = ({ children 
   const [panelOpen, setPanelOpen] = useState(false);
   const device = DEVICES.find(d => d.id === deviceId) ?? DEVICES[0];
 
-  /* Persist setting */
+  /* Persist setting (skip when embedded so parent window keeps the real preference) */
   useEffect(() => {
+    if (embedded) return;
     try {
       localStorage.setItem(LS_KEY, open ? '1' : '0');
       localStorage.setItem(`${LS_KEY}_device`, deviceId);
     } catch { /* ignore */ }
-  }, [open, deviceId]);
+  }, [open, deviceId, embedded]);
 
   /* Scale the phone frame so it always fits visible screen */
   const [scale, setScale] = useState(1);
   useEffect(() => {
-    if (!open) return;
+    if (embedded || !open) return;
     const calc = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
@@ -143,10 +157,10 @@ const DevicePreviewFrame: React.FC<{ children: React.ReactNode }> = ({ children 
     calc();
     window.addEventListener('resize', calc);
     return () => window.removeEventListener('resize', calc);
-  }, [open, device]);
+  }, [open, device, embedded]);
 
-  /* Current page URL for iframe */
-  const iframeUrl = window.location.href;
+  /* Same route in iframe; embedded document detects frame via window.self !== window.top */
+  const iframeUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   /* ── Floating toggle pill ── */
   const FloatingBtn = (
@@ -179,6 +193,11 @@ const DevicePreviewFrame: React.FC<{ children: React.ReactNode }> = ({ children 
       {open ? 'Exit Cell Mode' : 'Cell Mode'}
     </button>
   );
+
+  /* Inside the preview iframe: render app only (no second frame / no floating button). */
+  if (embedded) {
+    return <>{children}</>;
+  }
 
   /* Normal (non-preview) rendering */
   if (!open) {
@@ -216,6 +235,7 @@ const DevicePreviewFrame: React.FC<{ children: React.ReactNode }> = ({ children 
         alignItems: 'center',
         justifyContent: 'flex-start',
         overflow: 'hidden',
+        minHeight: 0,
       }}>
 
         {/* ── Device selector toolbar ── */}
@@ -260,6 +280,7 @@ const DevicePreviewFrame: React.FC<{ children: React.ReactNode }> = ({ children 
         {/* ── Phone frame ── */}
         <div style={{
           flex: 1,
+          minHeight: 0,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',

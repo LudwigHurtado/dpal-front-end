@@ -1,5 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { ShieldCheck, Shield, User, Coins, Gem, Globe, Maximize2, Search, Monitor, Broadcast, Store, List, Package, Database, Zap, Target, Award, ChevronLeft, ChevronRight, Activity, X, Home, Sparkles, AlertTriangle, Megaphone, Briefcase } from './icons';
 import { useTranslations } from '../i18n';
 import { type Hero, SubscriptionTier, type Category } from '../types';
@@ -244,6 +245,15 @@ const Header: React.FC<HeaderProps> = ({
 
           <div className="flex items-center space-x-2 md:space-x-3 flex-shrink-0">
              <AiStatusIndicator />
+
+             <Link
+               to="/account"
+               className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-panel)] text-[7px] font-black uppercase tracking-widest text-cyan-400/90 hover:text-cyan-300 hover:border-cyan-500/40 transition-colors"
+               title="Account, profile, and sign in"
+             >
+               <User className="w-3.5 h-3.5 shrink-0" />
+               <span className="hidden xs:inline">Account</span>
+             </Link>
              
              <div className="hidden lg:flex flex-col items-end mr-2 text-right">
                 <span className="text-[9px] font-black text-[var(--dpal-text-primary)] uppercase tracking-tighter leading-none">{hero.name}</span>
@@ -257,11 +267,14 @@ const Header: React.FC<HeaderProps> = ({
 
              <div className="flex items-center bg-[var(--dpal-panel)] border border-[color:var(--dpal-border)] rounded-xl p-1 pr-2 md:pr-3 space-x-2 md:space-x-3 shadow-inner">
                 <button 
+                    type="button"
                     onClick={onNavigateToHeroHub}
-                    className="w-7 h-7 md:w-8 md:h-8 rounded-lg overflow-hidden border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] flex items-center justify-center hover:border-cyan-500 transition-colors"
+                    title="Hero hub — mint or manage your human hero"
+                    aria-label="Open hero hub: mint and profile"
+                    className="w-8 h-8 md:w-9 md:h-9 shrink-0 rounded-full overflow-hidden border-2 border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] flex items-center justify-center hover:border-amber-400/70 hover:ring-2 hover:ring-amber-500/25 transition-all"
                 >
                     {hero.personas.find(p => p.id === hero.equippedPersonaId)?.imageUrl ? (
-                        <img src={hero.personas.find(p => p.id === hero.equippedPersonaId)?.imageUrl} alt="P" className="w-full h-full object-cover" />
+                        <img src={hero.personas.find(p => p.id === hero.equippedPersonaId)?.imageUrl} alt="" className="h-full w-full object-cover" />
                     ) : (
                         <User className="w-4 h-4 text-[var(--dpal-text-muted)]" />
                     )}

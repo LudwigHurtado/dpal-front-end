@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-02
+Last updated: 2026-04-05
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -37,7 +37,8 @@ All Vite-exposed vars must be prefixed with **`VITE_`**. Copy `.env.example` →
 | Variable | Purpose |
 |----------|---------|
 | **`VITE_API_BASE`** | Backend origin (no trailing slash). **Required** for predictable API routing; if unset, dev falls back to `http://localhost:3001`, prod to the default Railway URL in `constants.ts`. |
-| **`VITE_GEMINI_API_KEY`** | Client-side Gemini (see `services/geminiService.ts`); many flows also hit backend `/api/ai/*`. |
+| **`VITE_GEMINI_API_KEY`** | **Optional if using server AI:** client-side Gemini (`services/geminiService.ts`). **Public in bundle** — prefer **`VITE_USE_SERVER_AI`** + Railway **`GEMINI_API_KEY`** for production. |
+| **`VITE_USE_SERVER_AI`** | Set to **`true`** on Vercel when AI runs only via **`POST /api/ai/gemini`** (no browser key). **`isAiEnabled()`** is true if this **or** `VITE_GEMINI_API_KEY` is set. Requires **`GEMINI_API_KEY`** on **`VITE_API_BASE`** host and deployed **`/api/ai/gemini`** route (`dpal-ai-server`). |
 | **`VITE_OPENAI_API_KEY`** | Politician Transparency: query refine + evidence draft (`services/politicianOpenAiService.ts`). In **dev**, Vite injects the key via **`/openai-proxy`** so the browser bundle does not need the secret. **Production** may need a same-origin proxy if CORS blocks direct OpenAI calls. |
 | **`VITE_OPENAI_MODEL`** | Optional; default `gpt-4o-mini`. |
 | **`VITE_BRAVE_SEARCH_API_KEY`** | Live web search (`services/braveSearchService.ts`). |
@@ -60,14 +61,19 @@ See **`vite-env.d.ts`** for the full typed list.
 1. **Production / main app API (Railway)**  
    - URL: **`VITE_API_BASE`** → typically `https://web-production-a27b.up.railway.app`.  
    - Described in code as **MongoDB**-backed for reports, NFT, escrow, AI routes, etc.  
-   - **`constants.ts` → `API_ROUTES`** documents expected paths: `/api/reports`, `/api/ai/ask`, `/api/nft/*`, `/api/escrow/*`, `/api/beacons`, etc.
+   - **`constants.ts` → `API_ROUTES`** documents expected paths: `/api/reports`, `/api/ai/ask`, **`/api/ai/gemini`**, **`/api/ai/status`**, `/api/nft/*`, `/api/escrow/*`, `/api/beacons`, etc.
 
 2. **Repo folder `backend/`** (Express + **Prisma**)  
-   - Separate **local / auxiliary** service: help-center style **`/api/help-reports`**, **`/api/admin/*`**, plus **legacy-compatible** `GET /api/reports` and `GET /api/reports/feed` mapped from Prisma `helpReport` for enterprise dashboard probes.  
+   - Separate **local / auxiliary** service: help-center style **`/api/help-reports`**, **`/api/admin/*`**, plus optional **`GET /api/ai/status`** + **`POST /api/ai/gemini`** (`routes/geminiProxy.ts`) for local server-AI testing.  
+   - Plus **legacy-compatible** `GET /api/reports` and `GET /api/reports/feed` from Prisma `helpReport` for enterprise dashboard probes.  
    - Default port **3001** (`backend/src/index.ts`).  
-   - **Not** the full Mongo API surface — do not assume all `API_ROUTES` exist here.
+   - **Not** the same deployment as production **`dpal-ai-server`** on Railway unless you point **`VITE_API_BASE`** here — do not assume all `API_ROUTES` exist in this folder.
 
-When debugging “API issues,” confirm whether the app is pointed at Railway or local `3001`.
+3. **`dpal-ai-server`** (separate GitHub repo, **not** this tree)  
+   - **`LudwigHurtado/dpal-ai-server`** — this is what usually backs **`https://web-production-a27b.up.railway.app`**.  
+   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, etc.
+
+When debugging “API issues,” confirm whether the app is pointed at Railway **`dpal-ai-server`** or local `3001` Prisma backend.
 
 ---
 
@@ -76,11 +82,19 @@ When debugging “API issues,” confirm whether the app is pointed at Railway o
 From deployment notes (verify in Railway dashboard):
 
 - `MONGODB_URI` — DB connection  
-- `GEMINI_API_KEY` — server-side AI  
+- `GEMINI_API_KEY` — **server-side Gemini** (required for **`VITE_USE_SERVER_AI`** / `/api/ai/gemini`)  
+- `GEMINI_MODEL` — e.g. `gemini-3-flash-preview` (see `dpal-ai-server` `runGemini`)  
+- `GEMINI_MODEL_CHEAP` — optional; defaults chain to **`gemini-2.0-flash`** (do **not** use retired `gemini-1.5-flash`)  
 - `FRONTEND_ORIGIN` or `CORS_ORIGINS` — comma-separated allowed web origins (frontend + dashboards)  
 - `NODE_ENV=production`
 
 Backend should accept both **`FRONTEND_ORIGIN`** and **`CORS_ORIGINS`** naming.
+
+**Smoke checks (production):**
+
+- `GET {API_BASE}/health` → `dpal-ai-server`, DB block.  
+- `GET {API_BASE}/api/ai/health` → `hasKey: true` when **`GEMINI_API_KEY`** is set.  
+- `GET {API_BASE}/api/ai/status` → **`{ ok: true, gemini: true }`** when server AI is wired (404 = old deploy or wrong service).
 
 ---
 
@@ -117,7 +131,9 @@ If a dashboard shows “disconnected” or wrong API:
 | Politician OpenAI | `services/politicianOpenAiService.ts` |
 | Help center → backend | `services/helpCenterService.ts` → `/api/help-reports` |
 | Beacons | `services/beaconService.ts` |
-| Gemini / AI errors | `services/geminiService.ts` |
+| Gemini / AI errors | `services/geminiService.ts` — **`runGeminiGenerate`**, **`isAiEnabled`**; server proxy **`POST /api/ai/gemini`** |
+| Device preview (Cell Mode) | `components/DevicePreviewFrame.tsx` — iframe embed detection |
+| Situation room filing images | `components/IncidentRoomView.tsx` — `filingImageHistory`, admin delete env |
 | Brave search | `services/braveSearchService.ts` |
 | Maps | `services/googleMapsLoader.ts`, Locator / Good Wheels map components |
 | i18n | `i18n/` — `useTranslations()`, `translations.ts` |
@@ -128,11 +144,18 @@ If a dashboard shows “disconnected” or wrong API:
 
 ## Recent Front-End Work (Session History)
 
+- **Server-side Gemini path:** `VITE_USE_SERVER_AI`, **`POST /api/ai/gemini`** on **`dpal-ai-server`**, optional removal of **`VITE_GEMINI_API_KEY`** from Vercel after verification.  
 - **Politician intel section** redesigned as a serious **accountability workflow** (cards, target first, investigation modes, source toggles, results preview column). DuckDuckGo query built from combined fields + focus labels + source hints.  
 - **OpenAI** integrated for search query refine and evidence draft; dev uses Vite **`/openai-proxy`**.  
 - **Evidence draft auto-save** debounced (~550ms) so **“Draft saved”** does not update on every keystroke (was causing visible flashing / excessive re-renders).  
 - **Material Web** + theme bridge for evidence form controls (`MaterialWebEvidenceFields.tsx`, CSS under `styles/`).  
 - **Sectors** in category hub: labels, hero assets (`SECTOR_HERO_ASSET`), gateway grid.
+
+---
+
+## Cross-repo memory
+
+Longer **multi-repo** notes (Reviewer Node + `dpal-ai-server` + deploy verification) live in **`claude.md`** at the root of **`LudwigHurtado/dpal-reviewer-node`** (or `DPAL Reviewer Node` on disk).
 
 ---
 

@@ -21,6 +21,8 @@ const TripMapPanel: React.FC<{
   const nearbyCarsRef = useRef<google.maps.Marker[]>([]);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
+  /** Set when DirectionsService fails (e.g. Directions API disabled in GCP). */
+  const [directionsError, setDirectionsError] = useState<string | null>(null);
 
   const placeAtMapCenter = () => {
     if (!g || !onPinSelect || !pinMode) return;
@@ -168,7 +170,10 @@ const TripMapPanel: React.FC<{
     }
 
     const dr = directionsRef.current;
-    if (!dr || !pickupLL || !dropoffLL) return;
+    if (!dr || !pickupLL || !dropoffLL) {
+      setDirectionsError(null);
+      return;
+    }
 
     const svc = new g.maps.DirectionsService();
     svc.route(
@@ -178,7 +183,15 @@ const TripMapPanel: React.FC<{
         travelMode: g.maps.TravelMode.DRIVING,
       },
       (result, status) => {
-        if (status === 'OK' && result) dr.setDirections(result);
+        if (status === 'OK' && result) {
+          dr.setDirections(result);
+          setDirectionsError(null);
+          return;
+        }
+        const msg = `Driving route unavailable (${String(status)}). Enable **Directions API** for this key in Google Cloud.`;
+        console.warn('[Good Wheels TripMapPanel]', msg);
+        setDirectionsError(msg);
+        dr.setDirections({ routes: [] } as unknown as google.maps.DirectionsResult);
       }
     );
   }, [ready, g, center, pickupLL, dropoffLL, trip.status, variant]);
@@ -294,7 +307,12 @@ const TripMapPanel: React.FC<{
         <div className="text-xs font-bold text-slate-600">
           Marker legend: <span style={{ color: '#ef4444' }}>Red = Pickup</span> ·{' '}
           <span style={{ color: '#22c55e' }}>Green = Dropoff</span> ·{' '}
-          <span style={{ color: '#d97706' }}>Yellow = Route</span>
+          <span style={{ color: '#d97706' }}>Yellow = Route</span> (Maps Directions API)
+        </div>
+      )}
+      {directionsError && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+          {directionsError}
         </div>
       )}
       <div

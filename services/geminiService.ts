@@ -32,7 +32,12 @@ import { searchLiveIntelWithBrave, isBraveSearchEnabled } from "./braveSearchSer
 const FLASH_TEXT_MODEL = "gemini-3-flash-preview";
 
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
-export const isAiEnabled = () => Boolean(getApiKey());
+
+/** When true, Gemini runs on your API (GEMINI_API_KEY) via POST /api/ai/gemini — no browser key. */
+const useServerGemini = () => import.meta.env.VITE_USE_SERVER_AI === "true";
+
+/** Client key in bundle OR explicit server-AI mode (see VITE_USE_SERVER_AI). */
+export const isAiEnabled = () => Boolean(getApiKey()) || useServerGemini();
 
 import { getApiBase, apiUrl as buildApiUrl, API_ROUTES } from "../constants";
 
@@ -58,6 +63,55 @@ const getAiClient = () => {
   return new GoogleGenAI({ apiKey: key });
 };
 
+type GeminiGenerateParams = {
+  model: string;
+  contents: unknown;
+  config?: unknown;
+};
+
+/**
+ * Prefer in-browser key when set (existing behavior). Otherwise POST to /api/ai/gemini when VITE_USE_SERVER_AI=true.
+ */
+async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: string }> {
+  if (getApiKey()) {
+    const response = await getAiClient().models.generateContent({
+      model: params.model,
+      contents: params.contents as any,
+      config: params.config as any,
+    });
+    return { text: response.text ?? "" };
+  }
+  if (!useServerGemini()) {
+    throw new AiError("NOT_CONFIGURED", "Neural link unconfigured. Device has no AI key.");
+  }
+  let res: Response;
+  try {
+    res = await fetch(buildApiUrl(API_ROUTES.AI_GEMINI), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: params.model,
+        contents: params.contents,
+        config: params.config,
+      }),
+    });
+  } catch (e) {
+    return handleApiError(e);
+  }
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    const msg = String((errBody as { error?: string }).error || `HTTP ${res.status}`);
+    const synthetic = new Error(msg);
+    (synthetic as any).status = res.status;
+    if (res.status === 503 || /not configured/i.test(msg)) {
+      throw new AiError("NOT_CONFIGURED", msg);
+    }
+    return handleApiError(synthetic);
+  }
+  const data = (await res.json()) as { text?: string };
+  return { text: String(data.text ?? "") };
+}
+
 const handleApiError = (error: any): never => {
   console.error(`Backend API Error:`, error);
 
@@ -67,7 +121,10 @@ const handleApiError = (error: any): never => {
   }
 
   if (error?.status === 403 || error?.statusCode === 403 || error?.message?.includes("403") || error?.message?.includes("Forbidden")) {
-    throw new AiError("FORBIDDEN", "API authentication failed (403). Your Gemini API key may be invalid, expired, or missing required permissions. Please check your VITE_GEMINI_API_KEY configuration.");
+    throw new AiError(
+      "FORBIDDEN",
+      "API authentication failed (403). Check VITE_GEMINI_API_KEY (browser) or GEMINI_API_KEY on your API server (server-side AI).",
+    );
   }
 
   if (error?.message?.includes("API_KEY_INVALID") || error?.type === "NOT_CONFIGURED") {
@@ -135,7 +192,6 @@ export async function generateAiDirectives(
     return OFFLINE_DIRECTIVES[workCategory] || OFFLINE_DIRECTIVES[Category.Environment];
 
   try {
-    const ai = getAiClient();
     const prompt = `
             ACT AS: DPAL Tactical Dispatcher.
             TARGET LOCATION: ${location}.
@@ -160,7 +216,7 @@ export async function generateAiDirectives(
             RESPONSE FORMAT: JSON Array.
         `;
 
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: prompt,
       config: {
@@ -342,7 +398,6 @@ export async function generateMissionFromIntel(
   }
 
   try {
-    const ai = getAiClient();
     const prompt = `
             ARCHITECT A MISSION.
             INTEL: ${JSON.stringify(intel)}.
@@ -359,7 +414,7 @@ export async function generateMissionFromIntel(
             - Output 5 specific steps.
         `;
 
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: prompt,
       config: {
@@ -449,8 +504,7 @@ export async function analyzeIntelSource(intel: IntelItem): Promise<IntelAnalysi
     };
 
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `Deep-scan: ${JSON.stringify(intel)}.`,
       config: {
@@ -496,8 +550,7 @@ export async function fetchLiveIntelligence(categories: Category[], location: st
 
   if (!isAiEnabled()) return OFFLINE_INTEL;
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       config: {
         tools: [{ googleSearch: {} }],
@@ -548,8 +601,7 @@ export async function generateTrainingScenario(
 ): Promise<TrainingScenario> {
   if (!isAiEnabled()) return OFFLINE_TRAINING[0];
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `Holodeck sim for ${mode} in ${category}.`,
       config: {
@@ -611,8 +663,7 @@ export async function performIAReview(report: Report): Promise<{ findings: any[]
     };
 
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `IA review for: ${report.title}`,
       config: {
@@ -700,8 +751,7 @@ export async function generateNftImage(
 export async function generateNftDetails(description: string): Promise<{ nftTitle: string; nftDescription: string }> {
   if (!isAiEnabled()) return { nftTitle: "Heroic Shard", nftDescription: "A record." };
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `NFT title/desc for: ${description}.`,
       config: {
@@ -778,8 +828,7 @@ export async function generateNftPromptIdeas(hero: Hero, theme: NftTheme, dpalCa
 export async function generateHeroBackstory(hero: Hero): Promise<string> {
   if (!isAiEnabled()) return "Redacted.";
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `Background for: ${hero.name}.`,
       config: { temperature: 0.8, thinkingConfig: { thinkingBudget: 0 } },
@@ -799,8 +848,7 @@ export async function getMissionTaskAdvice(
 ): Promise<TacticalIntel> {
   if (!isAiEnabled()) return { objective: name, threatLevel: "Medium", keyInsight: "Offline Analysis.", protocol: "Default." };
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `Advice for mission: ${title}, step: ${name}.`,
       config: {
@@ -835,8 +883,7 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
     return { ui: { next: "Offline Analysis", why: "Neural link unconfigured.", need: [], risk: "Low", eta: 0, score: 0 }, patch: {} };
 
   try {
-    const ai = getAiClient();
-    const response = await ai.models.generateContent({
+    const response = await runGeminiGenerate({
       model: FLASH_TEXT_MODEL,
       contents: `Co-pilot update for: ${JSON.stringify(currentState)}`,
       config: {
@@ -881,7 +928,12 @@ export async function getLiveIntelligenceUpdate(currentState: any): Promise<any>
 }
 
 export async function generateHeroPersonaDetails(prompt: string, arch: Archetype): Promise<any> {
-  if (!isAiEnabled()) return { name: "Agent Shadow", backstory: "Local node operative.", combatStyle: "Tactical." };
+  if (!isAiEnabled())
+    return {
+      name: "Jordan Lee",
+      backstory: "A neighbor who checks in on others and speaks up with kindness when something is wrong.",
+      combatStyle: "Calm voice, steady presence, and clear follow-through",
+    };
   try {
     const apiBase = getApiBaseLocal();
     const response = await fetch(buildApiUrl(API_ROUTES.PERSONA_GENERATE_DETAILS), {
