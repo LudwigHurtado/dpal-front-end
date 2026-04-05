@@ -584,10 +584,22 @@ const App: React.FC = () => {
             merged.push(r);
             continue;
           }
-          if (r.isAuthor) {
-            const i = merged.findIndex((x) => x.id === r.id);
-            if (i >= 0 && !merged[i].isAuthor) merged[i] = { ...merged[i], isAuthor: true };
+          const i = merged.findIndex((x) => x.id === r.id);
+          if (i < 0) continue;
+          const cur = merged[i];
+          let next = cur;
+          if (r.isAuthor && !cur.isAuthor) next = { ...next, isAuthor: true };
+          const remoteImgs = Array.isArray(r.imageUrls) ? r.imageUrls.filter((u) => typeof u === 'string' && u.length > 0) : [];
+          if (remoteImgs.length > 0 && (!cur.imageUrls || cur.imageUrls.length === 0)) {
+            next = { ...next, imageUrls: remoteImgs };
           }
+          const remoteHist = Array.isArray(r.filingImageHistory)
+            ? r.filingImageHistory.filter((u) => typeof u === 'string' && u.length > 0)
+            : [];
+          if (remoteHist.length > 0 && (!cur.filingImageHistory || cur.filingImageHistory.length === 0)) {
+            next = { ...next, filingImageHistory: remoteHist };
+          }
+          if (next !== cur) merged[i] = next;
         }
         merged.sort((a, b) => new Date(b.timestamp as any).getTime() - new Date(a.timestamp as any).getTime());
         return merged;

@@ -101,6 +101,11 @@ function mapApiReportToReport(data: Record<string, unknown>, fallbackId: string)
         ? Boolean((data as { payload?: { isAuthor?: boolean } }).payload?.isAuthor)
         : undefined;
 
+  const imageUrls = normalizeStringArray(data.imageUrls);
+  const filingImageHistory = normalizeStringArray(
+    (data as { filingImageHistory?: unknown }).filingImageHistory
+  );
+
   return {
     id,
     title: typeof data.title === 'string' ? data.title : 'Ledger filing',
@@ -119,6 +124,13 @@ function mapApiReportToReport(data: Record<string, unknown>, fallbackId: string)
     severity: (data.severity as Report['severity']) || 'Standard',
     isActionable: typeof data.isActionable === 'boolean' ? data.isActionable : true,
     evidenceVault: data.evidenceVault as Report['evidenceVault'],
+    ...(imageUrls.length > 0 ? { imageUrls } : {}),
+    ...(filingImageHistory.length > 0 ? { filingImageHistory } : {}),
     ...(isAuthor !== undefined ? { isAuthor } : {}),
   };
+}
+
+function normalizeStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((u): u is string => typeof u === 'string' && u.length > 0);
 }
