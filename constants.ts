@@ -50,6 +50,15 @@ export const apiUrl = (path: string): string => {
   return `${base}${p}`;
 };
 
+/**
+ * Deployed URL for the DPAL Reviewer / Validator Node (Verifier Action Portal).
+ * Set `VITE_VALIDATOR_PORTAL_URL` in `.env.local` or hosting env; main menu opens it in a new tab.
+ */
+export const getValidatorPortalUrl = (): string => {
+  const raw = (import.meta as any).env?.VITE_VALIDATOR_PORTAL_URL;
+  return typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : '';
+};
+
 /** API paths the Railway backend (with MongoDB) should implement. */
 export const API_ROUTES = {
   NFT_RECEIPTS: '/api/nft/receipts',

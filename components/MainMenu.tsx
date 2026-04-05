@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from '../i18n';
 import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint } from './icons';
 import { Category } from '../types';
-import { CATEGORIES_WITH_ICONS } from '../constants';
+import { CATEGORIES_WITH_ICONS, getValidatorPortalUrl } from '../constants';
 import {
   CATEGORY_SPRITE_POSITIONS,
   CATEGORY_SPRITE_SHEET_SRC,
@@ -257,6 +257,24 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     colorClass="rose"
                     bgImageUrl="/main-screen/file-a-report.png"
                     onClick={() => onNavigate('categorySelection')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Monitor className="w-8 h-8" />}
+                    label="Validator Node"
+                    subLabel="Verifier Action Portal — review queue and outbound actions"
+                    status="Live"
+                    colorClass="blue"
+                    bgImageUrl="/main-screen/validator-node.png"
+                    onClick={() => {
+                        const url = getValidatorPortalUrl();
+                        if (url) window.open(url, '_blank', 'noopener,noreferrer');
+                        else if (import.meta.env.DEV) {
+                            console.warn(
+                                '[DPAL] Set VITE_VALIDATOR_PORTAL_URL in .env.local to open the Validator Node in a new tab.'
+                            );
+                        }
+                    }}
                 />
 
                 <PrimaryNavModule
