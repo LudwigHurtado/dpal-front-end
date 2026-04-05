@@ -45,8 +45,10 @@ export async function fetchReportFromApiById(reportId: string): Promise<Report |
  */
 export async function fetchReportsFeedFromApi(limit = 60): Promise<Report[]> {
   try {
-    const apiBase = getApiBase();
+    const apiBase = getApiBase().replace(/\/$/, "");
+    /** dpal-ai-server exposes `GET /api/reports/feed` (not `GET /api/reports`). */
     const urls = [
+      `${apiBase}/api/reports/feed?limit=${encodeURIComponent(String(limit))}`,
       `${apiBase}/api/reports?limit=${encodeURIComponent(String(limit))}`,
       `${apiBase}/api/reports`,
     ];
@@ -54,10 +56,13 @@ export async function fetchReportsFeedFromApi(limit = 60): Promise<Report[]> {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
-      const list = Array.isArray(data) ? data : Array.isArray((data as any)?.reports) ? (data as any).reports : [];
-      if (!Array.isArray(list)) continue;
+      const raw = (data as any)?.items ?? (data as any)?.reports ?? data;
+      const list = Array.isArray(raw) ? raw : [];
+      if (!Array.isArray(list) || list.length === 0) continue;
       return list
-        .map((item: any, idx: number) => mapApiReportToReport(item, item?.id || item?._id || `api-${idx}`))
+        .map((item: any, idx: number) =>
+          mapApiReportToReport(item, item?.id ?? item?.reportId ?? item?._id ?? `api-${idx}`)
+        )
         .filter((r: Report | null): r is Report => Boolean(r));
     }
     return [];
@@ -80,9 +85,21 @@ export async function resolveReportByBlockNumber(blockNumber: number, reports: R
 }
 
 function mapApiReportToReport(data: Record<string, unknown>, fallbackId: string): Report | null {
-  const id = typeof data.id === 'string' ? data.id : fallbackId;
+  const id =
+    typeof data.id === 'string'
+      ? data.id
+      : typeof data.reportId === 'string'
+        ? data.reportId
+        : fallbackId;
   const ts = data.timestamp ? new Date(String(data.timestamp)) : new Date();
   const safeTs = Number.isNaN(ts.getTime()) ? new Date() : ts;
+
+  const isAuthor =
+    typeof data.isAuthor === 'boolean'
+      ? data.isAuthor
+      : typeof (data as { payload?: { isAuthor?: boolean } }).payload?.isAuthor === 'boolean'
+        ? Boolean((data as { payload?: { isAuthor?: boolean } }).payload?.isAuthor)
+        : undefined;
 
   return {
     id,
@@ -102,5 +119,6 @@ function mapApiReportToReport(data: Record<string, unknown>, fallbackId: string)
     severity: (data.severity as Report['severity']) || 'Standard',
     isActionable: typeof data.isActionable === 'boolean' ? data.isActionable : true,
     evidenceVault: data.evidenceVault as Report['evidenceVault'],
+    ...(isAuthor !== undefined ? { isAuthor } : {}),
   };
 }

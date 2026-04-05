@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-05
+Last updated: 2026-04-05 (auth / accounts section)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -119,6 +119,15 @@ If a dashboard shows “disconnected” or wrong API:
 - **`App.tsx`** syncs `currentView` with `location.pathname` / search / hash (reports, situation room, etc.).  
 - Report sharing: **`?reportId=<id>`** and related query params — see `App.tsx` comments around report fetch and anchor.
 
+### Accounts & authentication (MongoDB users on `dpal-ai-server`)
+
+- **`AppBootstrap.tsx`** wraps **`AuthProvider`** and defines **auth routes first**; the **`*`** route renders the main **`App`**. That way **`/login`**, **`/signup`**, etc. are real URLs and are **not** swallowed by `App.tsx` view state.
+- **Paths:** **`/login`**, **`/signup`**, **`/forgot-password`**, **`/reset-password`**, **`/verify-email`**, **`/account`**, **`/account/profile`**, **`/admin`** (admin-only UI). Implemented under **`pages/auth/`**; API calls use **`auth/authApi.ts`** and **`constants.ts`** → **`API_ROUTES.AUTH_*`** against **`VITE_API_BASE`** (must be the Railway **`dpal-ai-server`** instance that exposes **`/api/auth/*`** and **`/api/admin/*`**).
+- **User names in the database** are **not** in this repo: they live in MongoDB as **`User`** documents on the API server (**`fullName`**, **`username`**, **`email`**, etc.). After signup, each person can sign in from **`/login`**. Admins (see **`BOOTSTRAP_ADMIN_EMAIL`** on the server) can open **`/admin`** → **Users** to see a paginated list of accounts.
+- **Tokens:** access + refresh stored via **`auth/authStorage.ts`**; **`apiFetch`** attaches **`Authorization`** and refreshes on 401 when possible.
+
+Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *Accounts, login, and where user names live*.
+
 ---
 
 ## Notable Product Areas (Code Anchors)
@@ -126,6 +135,7 @@ If a dashboard shows “disconnected” or wrong API:
 | Area | Where to look |
 |------|----------------|
 | Main shell & view switching | `App.tsx` |
+| Auth pages, login URL | `AppBootstrap.tsx`, `pages/auth/*`, `auth/AuthContext.tsx` |
 | Category / sector “Next view” | `CategorySelectionView.tsx`, `components/sectors/*`, `sectorDefinitions.ts` — sectors named (Safety, Financial, Health, Government, Property, Digital, Community), `SectorGatewayGrid`, `CategoryMappingPanel` |
 | Politician Transparency | `PoliticianTransparencyView.tsx` — **Public Accountability Engine** workflow: target fields → accountability focus grid → evidence query + source filters → DuckDuckGo search; OpenAI refine; evidence lab + localStorage draft |
 | Politician OpenAI | `services/politicianOpenAiService.ts` |

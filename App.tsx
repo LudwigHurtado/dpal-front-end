@@ -580,7 +580,14 @@ const App: React.FC = () => {
         const seen = new Set(prev.map((r) => r.id));
         const merged = [...prev];
         for (const r of remote) {
-          if (!seen.has(r.id)) merged.push(r);
+          if (!seen.has(r.id)) {
+            merged.push(r);
+            continue;
+          }
+          if (r.isAuthor) {
+            const i = merged.findIndex((x) => x.id === r.id);
+            if (i >= 0 && !merged[i].isAuthor) merged[i] = { ...merged[i], isAuthor: true };
+          }
         }
         merged.sort((a, b) => new Date(b.timestamp as any).getTime() - new Date(a.timestamp as any).getTime());
         return merged;
