@@ -52,11 +52,17 @@ export const apiUrl = (path: string): string => {
 
 /**
  * Deployed URL for the DPAL Reviewer / Validator Node (Verifier Action Portal).
- * Set `VITE_VALIDATOR_PORTAL_URL` in `.env.local` or hosting env; main menu opens it in a new tab.
+ * Set `VITE_VALIDATOR_PORTAL_URL` in `.env.local` or hosting env (recommended for previews / custom domains).
+ * When unset, the production hub on `dpal-front-end.vercel.app` defaults to the public Validator deployment.
  */
 export const getValidatorPortalUrl = (): string => {
   const raw = (import.meta as any).env?.VITE_VALIDATOR_PORTAL_URL;
-  return typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : '';
+  const fromEnv = typeof raw === 'string' ? raw.trim().replace(/\/+$/, '') : '';
+  if (fromEnv) return fromEnv;
+  if (typeof window !== 'undefined' && window.location.hostname === 'dpal-front-end.vercel.app') {
+    return 'https://dpal-reviewer-node.vercel.app';
+  }
+  return '';
 };
 
 /** API paths the Railway backend (with MongoDB) should implement. */

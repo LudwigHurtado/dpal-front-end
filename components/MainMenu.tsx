@@ -268,11 +268,17 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     bgImageUrl="/main-screen/validator-node.png"
                     onClick={() => {
                         const url = getValidatorPortalUrl();
-                        if (url) window.open(url, '_blank', 'noopener,noreferrer');
-                        else if (import.meta.env.DEV) {
-                            console.warn(
-                                '[DPAL] Set VITE_VALIDATOR_PORTAL_URL in .env.local to open the Validator Node in a new tab.'
-                            );
+                        if (url) {
+                            // Same-tab navigation so the hub "enters" the Validator portal (back button returns).
+                            window.location.assign(url);
+                            return;
+                        }
+                        const msg =
+                            'Validator Node URL is not set. Add VITE_VALIDATOR_PORTAL_URL to .env.local (e.g. https://dpal-reviewer-node.vercel.app) and restart Vite.';
+                        if (import.meta.env.DEV) {
+                            console.warn('[DPAL]', msg);
+                        } else {
+                            window.alert(msg);
                         }
                     }}
                 />
