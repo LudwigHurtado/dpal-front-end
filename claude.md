@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-05 (auth / accounts section)
+Last updated: 2026-04-06 (help center + ledger lookup + situation room media)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -47,6 +47,7 @@ All Vite-exposed vars must be prefixed with **`VITE_`**. Copy `.env.example` →
 | **`VITE_FEATURE_*`** | `REPUTATION`, `AUDIT_TRAIL`, `BLOCKCHAIN_ANCHOR`, `GOVERNANCE` — see `features/featureFlags.ts`. |
 | **`VITE_GAME_URL_*`** | Society Game Hub — external URLs per game id (`societyGames.ts`). |
 | **`VITE_ADSENSE_*`** | Optional AdSense slots (`MainMenu.tsx`). |
+| **`VITE_VALIDATOR_PORTAL_URL`** | Optional Validator Node destination used by `getValidatorPortalUrl()` in `constants.ts` and the "Validator Node" card in `MainMenu.tsx`. If unset, production host `dpal-front-end.vercel.app` defaults to `https://dpal-reviewer-node.vercel.app`; non-prod host shows a setup warning. |
 
 See **`vite-env.d.ts`** for the full typed list.
 
@@ -154,6 +155,10 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 
 ## Recent Front-End Work (Session History)
 
+- **Help Center made live:** `components/HelpCenterView.tsx` now uses real `/api/help-reports/mine` ticket data, live status filtering/refresh, and real attachment upload flow via `services/helpCenterService.ts` (`uploadHelpReportAttachments`).
+- **Ledger lookup improved:** block search now accepts flexible combos (`#6843021`, `rep-177...`, comma formats, partial numeric tokens) and falls back through exact block match → local keyword match → API feed match → direct `rep-` fetch (`App.tsx`, `utils/blockchainLookup.ts`, `components/BlockchainStatusPanel.tsx`).
+- **Situation Room media safety:** in-room filing images can be uploaded/updated and "set main", while delete controls were removed from the user-facing gallery (`components/IncidentRoomView.tsx`, `App.tsx`).
+- **Main menu work tile image updated:** `public/main-screen/dpal-work-network.png` replaced with the latest provided artwork.
 - **Server-side Gemini path:** `VITE_USE_SERVER_AI`, **`POST /api/ai/gemini`** on **`dpal-ai-server`**, optional removal of **`VITE_GEMINI_API_KEY`** from Vercel after verification.  
 - **Politician intel section** redesigned as a serious **accountability workflow** (cards, target first, investigation modes, source toggles, results preview column). DuckDuckGo query built from combined fields + focus labels + source hints.  
 - **OpenAI** integrated for search query refine and evidence draft; dev uses Vite **`/openai-proxy`**.  

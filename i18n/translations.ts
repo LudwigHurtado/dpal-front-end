@@ -43,10 +43,10 @@ export const translations = {
     },
     blockchainLookup: {
       title: "Ledger block search",
-      description: "Paste the block number from your certificate or explorer. Opens the certified filing when it is anchored on this device or returned by the ledger API.",
-      placeholder: "e.g. 6843021 or #6843021",
+      description: "Paste any block/id number combo from your certificate, explorer, or report id. DPAL will try exact block match first, then partial combo search.",
+      placeholder: "e.g. 6843021, #6843021, or rep-1775421654549",
       openFiling: "Open filing",
-      invalidBlock: "Enter a valid block number (digits only).",
+      invalidBlock: "Enter a number combo from the filing (block/id/hash).",
       notFound: "No filing found for that block on this device. If your backend indexes blocks, ensure /api/reports/lookup is deployed; otherwise open the verification link from your certificate."
     },
     filterPanel: {

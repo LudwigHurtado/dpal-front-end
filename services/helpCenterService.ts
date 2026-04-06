@@ -4,6 +4,7 @@
  */
 
 import { getApiBase } from '../constants';
+import { apiFetch } from '../auth/authApi';
 
 export interface HelpReportPayload {
   category:               string;
@@ -42,6 +43,19 @@ export interface SubmitResult {
   reportNumber?: string;
   isDuplicate?: boolean;
   error?:       string;
+}
+
+export interface HelpTicketRecord {
+  id: string;
+  reportNumber: string;
+  category: string;
+  title: string;
+  description?: string;
+  status: string;
+  urgency: string;
+  createdAt: string;
+  updatedAt: string;
+  attachments?: Array<{ id: string }>;
 }
 
 /**
@@ -91,17 +105,37 @@ export async function submitHelpReport(
 /**
  * Fetch the reporter's own tickets (requires auth token).
  */
-export async function getMyTickets(authToken: string) {
-  const base = getApiBase().replace(/\/$/, '');
+export async function getMyTickets() {
   try {
-    const res = await fetch(`${base}/api/help-reports/mine`, {
-      headers: { Authorization: `Bearer ${authToken}` },
-      signal: AbortSignal.timeout(10_000),
-    });
-    if (!res.ok) return { ok: false, reports: [] };
+    const res = await apiFetch('/api/help-reports/mine', { method: 'GET', signal: AbortSignal.timeout(10_000) }, true);
+    if (!res.ok) {
+      if (res.status === 401) return { ok: false, reports: [] as HelpTicketRecord[], authRequired: true };
+      return { ok: false, reports: [] as HelpTicketRecord[] };
+    }
     const data = await res.json();
-    return { ok: true, reports: (data as any).reports ?? [] };
+    return { ok: true, reports: ((data as any).reports ?? []) as HelpTicketRecord[] };
   } catch {
-    return { ok: false, reports: [] };
+    return { ok: false, reports: [] as HelpTicketRecord[] };
+  }
+}
+
+/**
+ * Upload attachments for a help report.
+ */
+export async function uploadHelpReportAttachments(reportId: string, files: File[]) {
+  if (!reportId || files.length === 0) return { ok: true, uploaded: 0 };
+  try {
+    const form = new FormData();
+    for (const file of files) form.append('files', file);
+    const res = await apiFetch(`/api/help-reports/${encodeURIComponent(reportId)}/attachments`, { method: 'POST', body: form }, true);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as any)?.error ?? `Upload failed (${res.status})`, uploaded: 0 };
+    }
+    const data = await res.json().catch(() => ({}));
+    const attachments = ((data as any)?.attachments ?? []) as unknown[];
+    return { ok: true, uploaded: attachments.length };
+  } catch (err: any) {
+    return { ok: false, error: err?.message ?? 'Attachment upload failed', uploaded: 0 };
   }
 }

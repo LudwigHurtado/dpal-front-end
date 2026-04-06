@@ -13,11 +13,19 @@ export function deriveStableBlockNumber(reportId: string): number {
   return 1_000_000 + (Math.abs(h) % 8_999_000);
 }
 
-/** Accepts e.g. "6843021", "#6843021", "6,843,021". */
+/** Accepts e.g. "6843021", "#6843021", "6,843,021", "rep-1775421654549". */
 export function parseBlockNumberInput(raw: string): number | null {
-  const s = raw.trim().replace(/^#/, '').replace(/,/g, '');
+  const s = raw.trim();
   if (!s) return null;
-  const n = Number.parseInt(s, 10);
+  const normalized = s.replace(/,/g, '');
+  const direct = normalized.replace(/^#/, '');
+  let candidate = direct;
+  if (!/^\d+$/.test(direct)) {
+    const matches = normalized.match(/\d{3,}/g);
+    if (!matches || matches.length === 0) return null;
+    candidate = matches.sort((a, b) => b.length - a.length)[0];
+  }
+  const n = Number.parseInt(candidate, 10);
   if (!Number.isFinite(n) || n < 0) return null;
   return n;
 }

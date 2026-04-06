@@ -936,26 +936,48 @@ const App: React.FC = () => {
 
   const handleOpenReportByBlock = useCallback(
     async (raw: string): Promise<BlockLookupResult> => {
-      const n = parseBlockNumberInput(raw);
+      const query = raw.trim();
+      if (!query) return { ok: false, reason: 'invalid' };
+
+      const openResolved = (resolved: Report): BlockLookupResult => {
+        if (!reports.some((r) => r.id === resolved.id)) {
+          flushSync(() => {
+            setReports((prev) => (prev.some((r) => r.id === resolved.id) ? prev : [resolved, ...prev]));
+          });
+        }
+        try {
+          const path = window.location.pathname;
+          const next = new URLSearchParams();
+          next.set('reportId', resolved.id);
+          window.history.replaceState({}, '', `${path}?${next.toString()}`);
+        } catch {
+          /* ignore */
+        }
+        setCompletedReport(resolved);
+        setCurrentView('reportComplete');
+        return { ok: true };
+      };
+
+      const n = parseBlockNumberInput(query);
+      if (n !== null) {
+        const resolvedByBlock = await resolveReportByBlockNumber(n, reports);
+        if (resolvedByBlock) return openResolved(resolvedByBlock);
+      }
+
+      const localKeywordMatch = reports.find((r) => reportMatchesKeywordFilter(r, query));
+      if (localKeywordMatch) return openResolved(localKeywordMatch);
+
+      const remoteFeed = await fetchReportsFeedFromApi(120);
+      const remoteKeywordMatch = remoteFeed.find((r) => reportMatchesKeywordFilter(r, query));
+      if (remoteKeywordMatch) return openResolved(remoteKeywordMatch);
+
+      if (query.toLowerCase().startsWith('rep-')) {
+        const byId = await fetchReportFromApiById(query);
+        if (byId) return openResolved(byId);
+      }
+
       if (n === null) return { ok: false, reason: 'invalid' };
-      const resolved = await resolveReportByBlockNumber(n, reports);
-      if (!resolved) return { ok: false, reason: 'not_found' };
-      if (!reports.some((r) => r.id === resolved.id)) {
-        flushSync(() => {
-          setReports((prev) => (prev.some((r) => r.id === resolved.id) ? prev : [resolved, ...prev]));
-        });
-      }
-      try {
-        const path = window.location.pathname;
-        const next = new URLSearchParams();
-        next.set('reportId', resolved.id);
-        window.history.replaceState({}, '', `${path}?${next.toString()}`);
-      } catch {
-        /* ignore */
-      }
-      setCompletedReport(resolved);
-      setCurrentView('reportComplete');
-      return { ok: true };
+      return { ok: false, reason: 'not_found' };
     },
     [reports]
   );
@@ -1371,24 +1393,6 @@ const App: React.FC = () => {
       const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
       if (!list.includes(url)) return r;
       return { ...r, imageUrls: [url, ...list.filter((u) => u !== url)] };
-    };
-    setReports((prev) => {
-      const next = prev.map((r) => patch(r));
-      const updated = next.find((x) => x.id === reportId);
-      if (updated) void persistReportForPublicLookup(updated);
-      return next;
-    });
-    setSelectedReportForIncidentRoom((cur) => (cur && cur.id === reportId ? patch(cur) : cur));
-  }, []);
-
-  const removeFilingGalleryImageAt = useCallback((reportId: string, index: number) => {
-    if (import.meta.env.VITE_INCIDENT_IMAGE_ADMIN !== 'true') return;
-    const patch = (r: Report): Report => {
-      if (r.id !== reportId) return r;
-      const list = Array.isArray(r.imageUrls) ? [...r.imageUrls] : [];
-      if (index < 0 || index >= list.length) return r;
-      list.splice(index, 1);
-      return { ...r, imageUrls: list };
     };
     setReports((prev) => {
       const next = prev.map((r) => patch(r));
@@ -2102,8 +2106,6 @@ const App: React.FC = () => {
             onSendMessage={handleSendSituationMessage}
             onFilingImageUpload={handleFilingImageUpload}
             onSetMainFilingImage={(url) => reorderFilingHeroToUrl(selectedReportForIncidentRoom.id, url)}
-            onRemoveFilingGalleryImage={(index) => removeFilingGalleryImageAt(selectedReportForIncidentRoom.id, index)}
-            canDeleteFilingImages={import.meta.env.VITE_INCIDENT_IMAGE_ADMIN === 'true'}
             roomsIndex={situationRooms}
             errorBanner={situationError}
             onJoinRoom={async (roomId) => {

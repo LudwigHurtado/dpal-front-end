@@ -1,5 +1,5 @@
-import React, { useState, useRef, useCallback } from 'react';
-import { submitHelpReport } from '../services/helpCenterService';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { submitHelpReport, getMyTickets, uploadHelpReportAttachments, type HelpTicketRecord } from '../services/helpCenterService';
 import { type View } from '../App';
 import {
   ShieldCheck, Search, AlertTriangle, Clock, CheckCircle, ChevronRight,
@@ -24,6 +24,49 @@ interface SupportTicket {
   caseNumber: string;
 }
 
+const SERVER_STATUS_TO_UI: Record<string, TicketStatus> = {
+  submitted: 'submitted',
+  triaged: 'in_review',
+  in_review: 'in_review',
+  assigned: 'in_review',
+  awaiting_evidence: 'awaiting_evidence',
+  escalated: 'escalated',
+  resolved: 'resolved',
+  closed: 'resolved',
+  emergency: 'emergency',
+};
+
+const SERVER_URGENCY_TO_UI: Record<string, SupportTicket['priority']> = {
+  low: 'low',
+  normal: 'normal',
+  high: 'high',
+  urgent: 'urgent',
+  emergency: 'urgent',
+};
+
+const timeAgo = (iso: string): string => {
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!Number.isFinite(ms) || ms < 0) return 'just now';
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min} min ago`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `${h} hr${h === 1 ? '' : 's'} ago`;
+  const d = Math.floor(h / 24);
+  return `${d} day${d === 1 ? '' : 's'} ago`;
+};
+
+const mapReportToTicket = (report: HelpTicketRecord): SupportTicket => ({
+  id: report.id,
+  caseNumber: report.reportNumber || report.id.slice(0, 10).toUpperCase(),
+  title: report.title,
+  category: report.category || 'General Support',
+  status: SERVER_STATUS_TO_UI[String(report.status || '').toLowerCase()] ?? 'submitted',
+  priority: SERVER_URGENCY_TO_UI[String(report.urgency || '').toLowerCase()] ?? 'normal',
+  created: timeAgo(report.createdAt),
+  lastUpdate: timeAgo(report.updatedAt),
+});
+
 interface HelpCategory {
   id: string;
   icon: React.ReactNode;
@@ -32,14 +75,6 @@ interface HelpCategory {
   accent: string;
   count?: number;
 }
-
-/* ─── Mock tickets ─── */
-const MOCK_TICKETS: SupportTicket[] = [
-  { id: 't1', caseNumber: 'DPAL-2024-0041', title: 'Unable to log in — account locked', category: 'Account Access', status: 'in_review', priority: 'high', created: '2 hours ago', lastUpdate: '35 min ago' },
-  { id: 't2', caseNumber: 'DPAL-2024-0039', title: 'Trip payment not received by driver', category: 'Payment Issue', status: 'awaiting_evidence', priority: 'normal', created: '1 day ago', lastUpdate: '3 hours ago' },
-  { id: 't3', caseNumber: 'DPAL-2024-0035', title: 'GPS map not working in Good Wheels', category: 'GPS / Map', status: 'resolved', priority: 'low', created: '3 days ago', lastUpdate: '1 day ago' },
-  { id: 't4', caseNumber: 'DPAL-2024-0033', title: 'False report filed against my account', category: 'Appeals / Disputes', status: 'escalated', priority: 'urgent', created: '4 days ago', lastUpdate: '2 hours ago' },
-];
 
 /* ─── Help categories ─── */
 const HELP_CATEGORIES: HelpCategory[] = [
@@ -160,12 +195,17 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [aiInput, setAiInput] = useState('');
-  const [uploadedFiles, setUploadedFiles] = useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedRef, setSubmittedRef] = useState<string | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [ticketsLoading, setTicketsLoading] = useState(false);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
+  const [ticketsAuthRequired, setTicketsAuthRequired] = useState(false);
+  const [ticketFilter, setTicketFilter] = useState<'All' | 'In Review' | 'Escalated' | 'Awaiting Evidence' | 'Resolved'>('All');
 
   // Urgent report form state
   const [urgentCategory, setUrgentCategory] = useState('');
@@ -176,12 +216,54 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const categoriesWithLiveCounts = useMemo(() => {
+    const byCategory = new Map<string, number>();
+    for (const t of tickets) {
+      const key = t.category.toLowerCase();
+      byCategory.set(key, (byCategory.get(key) ?? 0) + 1);
+    }
+    return HELP_CATEGORIES.map((c) => ({
+      ...c,
+      count: byCategory.get(c.id.toLowerCase()) ?? c.count ?? 0,
+    }));
+  }, [tickets]);
+
   const filteredCategories = searchQuery.trim()
-    ? HELP_CATEGORIES.filter(c =>
+    ? categoriesWithLiveCounts.filter(c =>
         c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         c.desc.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : HELP_CATEGORIES;
+    : categoriesWithLiveCounts;
+
+  const loadTickets = useCallback(async () => {
+    setTicketsLoading(true);
+    setTicketsError(null);
+    const result = await getMyTickets();
+    setTicketsLoading(false);
+    if (!result.ok) {
+      setTickets([]);
+      setTicketsAuthRequired(Boolean((result as { authRequired?: boolean }).authRequired));
+      if (!(result as { authRequired?: boolean }).authRequired) {
+        setTicketsError('Could not load your live tickets right now.');
+      }
+      return;
+    }
+    setTicketsAuthRequired(false);
+    setTickets(result.reports.map(mapReportToTicket));
+  }, []);
+
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
+
+  const visibleTickets = useMemo(() => {
+    if (ticketFilter === 'All') return tickets;
+    if (ticketFilter === 'In Review') return tickets.filter((t) => t.status === 'in_review');
+    if (ticketFilter === 'Escalated') return tickets.filter((t) => t.status === 'escalated' || t.status === 'emergency');
+    if (ticketFilter === 'Awaiting Evidence') return tickets.filter((t) => t.status === 'awaiting_evidence');
+    if (ticketFilter === 'Resolved') return tickets.filter((t) => t.status === 'resolved');
+    return tickets;
+  }, [ticketFilter, tickets]);
 
   /** Submit via AI chat input — sends to real backend */
   const handleAiSubmit = useCallback(async () => {
@@ -200,13 +282,22 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
 
     setSubmitting(false);
     if (result.ok) {
+      if (result.reportId && uploadedFiles.length > 0) {
+        const upload = await uploadHelpReportAttachments(result.reportId, uploadedFiles);
+        if (!upload.ok) {
+          setSubmitError(upload.error ?? 'Ticket created, but files failed to upload.');
+        } else {
+          setUploadedFiles([]);
+        }
+      }
       setSubmitSuccess(true);
       setSubmittedRef(result.reportNumber ?? null);
+      void loadTickets();
       setTimeout(() => { setSubmitSuccess(false); setAiInput(''); }, 5000);
     } else {
       setSubmitError(result.error ?? 'Submission failed. Please try again.');
     }
-  }, [aiInput, submitting]);
+  }, [aiInput, submitting, uploadedFiles, loadTickets]);
 
   /** Submit urgent escalation form — sends to real backend */
   const handleUrgentSubmit = useCallback(async () => {
@@ -229,17 +320,27 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
 
     setSubmitting(false);
     if (result.ok) {
+      if (result.reportId && uploadedFiles.length > 0) {
+        const upload = await uploadHelpReportAttachments(result.reportId, uploadedFiles);
+        if (!upload.ok) {
+          setSubmitError(upload.error ?? 'Report submitted, but file upload failed.');
+        } else {
+          setUploadedFiles([]);
+        }
+      }
       setSubmitSuccess(true);
       setSubmittedRef(result.reportNumber ?? null);
       setUrgentTitle(''); setUrgentDesc(''); setUrgentName(''); setUrgentEmail('');
+      void loadTickets();
     } else {
       setSubmitError(result.error ?? 'Submission failed. Please try again.');
     }
-  }, [urgentCategory, urgentTitle, urgentDesc, urgentName, urgentEmail, submitting]);
+  }, [urgentCategory, urgentTitle, urgentDesc, urgentName, urgentEmail, submitting, uploadedFiles, loadTickets]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setUploadedFiles(prev => [...prev, ...files.map(f => f.name)]);
+    setUploadedFiles(prev => [...prev, ...files]);
+    e.target.value = '';
   };
 
   /* ─── Ticket Detail Modal ─── */
@@ -336,7 +437,7 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
                 {uploadedFiles.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 bg-blue-50 rounded-lg px-3 py-2">
                     <Camera className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                    <span className="text-xs font-semibold text-blue-700 truncate flex-1">{f}</span>
+                    <span className="text-xs font-semibold text-blue-700 truncate flex-1">{f.name}</span>
                     <button onClick={() => setUploadedFiles(p => p.filter((_, j) => j !== i))}><X className="w-3.5 h-3.5 text-blue-400" /></button>
                   </div>
                 ))}
@@ -427,9 +528,9 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
         {/* stats strip */}
         <div className="relative flex border-t border-white/10">
           {[
-            { label: 'Open Tickets', value: '3', icon: <Activity className="w-3.5 h-3.5" /> },
-            { label: 'Avg Resolution', value: '4 hrs', icon: <Clock className="w-3.5 h-3.5" /> },
-            { label: 'Cases Resolved', value: '1.2k', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+            { label: 'Open Tickets', value: String(tickets.filter((t) => t.status !== 'resolved').length), icon: <Activity className="w-3.5 h-3.5" /> },
+            { label: 'Avg Resolution', value: tickets.length > 0 ? 'Live' : '—', icon: <Clock className="w-3.5 h-3.5" /> },
+            { label: 'Cases Resolved', value: String(tickets.filter((t) => t.status === 'resolved').length), icon: <CheckCircle className="w-3.5 h-3.5" /> },
           ].map((s, i) => (
             <div key={i} className={`flex-1 flex flex-col items-center py-3 gap-0.5 ${i < 2 ? 'border-r border-white/10' : ''}`}>
               <div className="flex items-center gap-1 text-blue-200">{s.icon}<span className="text-[9px] font-black uppercase tracking-widest">{s.label}</span></div>
@@ -444,7 +545,7 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
         <div className="flex">
           {([
             { id: 'home',    label: 'Help Home',  icon: <Shield className="w-4 h-4" /> },
-            { id: 'tickets', label: 'My Tickets', icon: <Hash className="w-4 h-4" />, badge: MOCK_TICKETS.filter(t => t.status !== 'resolved').length },
+            { id: 'tickets', label: 'My Tickets', icon: <Hash className="w-4 h-4" />, badge: tickets.filter(t => t.status !== 'resolved').length },
             { id: 'urgent',  label: 'Urgent',     icon: <AlertTriangle className="w-4 h-4" /> },
             { id: 'support', label: 'AI & Human', icon: <Sparkles className="w-4 h-4" /> },
           ] as { id: HelpTab; label: string; icon: React.ReactNode; badge?: number }[]).map(tab => (
@@ -573,16 +674,14 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
                 <div className="mt-3 flex flex-wrap gap-2">
                   {uploadedFiles.map((f, i) => (
                     <div key={i} className="flex items-center gap-1.5 bg-blue-50 text-blue-700 rounded-lg px-2.5 py-1.5 text-[11px] font-bold">
-                      <Camera className="w-3 h-3" /> {f.length > 18 ? f.slice(0, 15) + '…' : f}
+                      <Camera className="w-3 h-3" /> {f.name.length > 18 ? f.name.slice(0, 15) + '…' : f.name}
                       <button onClick={() => setUploadedFiles(p => p.filter((_, j) => j !== i))}><X className="w-3 h-3 ml-0.5 opacity-60 hover:opacity-100" /></button>
                     </div>
                   ))}
                 </div>
               )}
               {uploadedFiles.length > 0 && (
-                <button className="mt-3 w-full bg-[#0077C8] text-white rounded-xl py-2.5 font-bold text-sm hover:bg-[#005fa3] transition-colors">
-                  Attach to New Ticket
-                </button>
+              <p className="mt-3 text-[11px] font-semibold text-blue-700">Files will be attached when you submit a ticket.</p>
               )}
             </div>
 
@@ -628,18 +727,49 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
 
             {/* Status filter pills */}
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {['All', 'In Review', 'Escalated', 'Awaiting Evidence', 'Resolved'].map(f => (
+              {(['All', 'In Review', 'Escalated', 'Awaiting Evidence', 'Resolved'] as const).map(f => (
                 <button
                   key={f}
+                  onClick={() => setTicketFilter(f)}
                   className="flex-shrink-0 text-[10px] font-black px-3 py-1.5 rounded-full border transition-colors"
-                  style={f === 'All' ? { background: '#0077C8', color: 'white', borderColor: '#0077C8' } : { background: 'white', color: '#6B7280', borderColor: '#E5E7EB' }}
+                  style={f === ticketFilter ? { background: '#0077C8', color: 'white', borderColor: '#0077C8' } : { background: 'white', color: '#6B7280', borderColor: '#E5E7EB' }}
                 >
                   {f}
                 </button>
               ))}
             </div>
 
-            {MOCK_TICKETS.map(t => (
+            <div className="flex items-center justify-end">
+              <button
+                onClick={() => void loadTickets()}
+                className="inline-flex items-center gap-1.5 text-[11px] font-black text-[#0077C8] bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${ticketsLoading ? 'animate-spin' : ''}`} />
+                Refresh Live
+              </button>
+            </div>
+
+            {ticketsLoading && (
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 text-center text-sm font-semibold text-gray-500">
+                Loading your live tickets...
+              </div>
+            )}
+            {!ticketsLoading && ticketsAuthRequired && (
+              <div className="bg-amber-50 rounded-2xl p-5 border border-amber-200 text-center text-sm font-semibold text-amber-800">
+                Sign in to view your live DPAL tickets.
+              </div>
+            )}
+            {!ticketsLoading && ticketsError && (
+              <div className="bg-red-50 rounded-2xl p-5 border border-red-200 text-center text-sm font-semibold text-red-700">
+                {ticketsError}
+              </div>
+            )}
+            {!ticketsLoading && !ticketsAuthRequired && !ticketsError && visibleTickets.length === 0 && (
+              <div className="bg-white rounded-2xl p-5 border border-gray-100 text-center text-sm font-semibold text-gray-500">
+                No tickets yet. Submit one from Urgent or AI & Human tab.
+              </div>
+            )}
+            {!ticketsLoading && visibleTickets.map(t => (
               <TicketCard key={t.id} ticket={t} onClick={() => setSelectedTicket(t)} />
             ))}
 

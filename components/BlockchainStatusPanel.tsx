@@ -360,7 +360,7 @@ const BlockchainStatusPanel: React.FC<BlockchainStatusPanelProps> = ({
               <Search className="w-4 h-4 text-gray-400 shrink-0" aria-hidden />
               <input
                 type="text"
-                inputMode="numeric"
+                inputMode="text"
                 autoComplete="off"
                 placeholder={t('blockchainLookup.placeholder')}
                 value={blockInput}

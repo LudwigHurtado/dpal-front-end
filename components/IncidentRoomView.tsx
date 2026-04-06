@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react'
 import QRCode from 'qrcode';
 import type { SituationRoomSummary } from '../services/situationService';
 import { type Report, type Hero, type ChatMessage, Category } from '../types';
-import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera, Star, Trash2 } from './icons';
+import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera, Star } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
 import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
@@ -58,9 +58,6 @@ interface IncidentRoomViewProps {
     onFilingImageUpload?: (dataUrl: string) => void | Promise<void>;
     /** Move an existing URL to hero (main) without deleting others. */
     onSetMainFilingImage?: (imageUrl: string) => void;
-    /** Admin-only: remove one image from the live gallery (history kept). */
-    onRemoveFilingGalleryImage?: (index: number) => void;
-    canDeleteFilingImages?: boolean;
     roomsIndex?: SituationRoomSummary[];
     onJoinRoom?: (roomId: string) => void | Promise<void>;
     errorBanner?: string | null;
@@ -137,8 +134,6 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
     onSendMessage,
     onFilingImageUpload,
     onSetMainFilingImage,
-    onRemoveFilingGalleryImage,
-    canDeleteFilingImages,
     roomsIndex = [],
     onJoinRoom,
     errorBanner,
@@ -671,16 +666,6 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
                                                                 Set main
                                                             </button>
                                                         )
-                                                    )}
-                                                    {canDeleteFilingImages && onRemoveFilingGalleryImage && (
-                                                        <button
-                                                            type="button"
-                                                            title="Remove from live gallery only — history is kept"
-                                                            onClick={() => onRemoveFilingGalleryImage(index)}
-                                                            className="inline-flex items-center justify-center rounded-md border border-rose-900/60 bg-rose-950/50 p-1 text-rose-300 hover:bg-rose-950"
-                                                        >
-                                                            <Trash2 className="h-3.5 w-3.5" />
-                                                        </button>
                                                     )}
                                                 </div>
                                             </div>
