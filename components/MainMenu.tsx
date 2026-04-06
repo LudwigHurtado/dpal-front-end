@@ -451,7 +451,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     status="Soon"
                     colorClass="emerald"
                     bgImageUrl="/category-cards/dpal-lifts.png"
-                    onClick={() => onNavigate('dpalLifts')}
+                    onClick={() => onNavigate('goodWheels')}
                 />
 
                 <PrimaryNavModule 

@@ -41,7 +41,6 @@ import MedicalOutpostView from './components/MedicalOutpostView';
 import AcademyView from './components/AcademyView';
 import LedgerScanner from './components/LedgerScanner';
 import AiWorkDirectivesView from './components/AiWorkDirectivesView';
-import DpalLiftsView from './components/DpalLiftsView';
 import GoodWheelsStandaloneRoot from './components/GoodWheelsStandaloneRoot';
 import OutreachEscalationHub from './components/OutreachEscalationHub';
 import EcosystemOverview from './components/EcosystemOverview';
@@ -2143,12 +2142,7 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'dpalLifts' && (
-          <DpalLiftsView
-            onReturn={() => goBack('mainMenu')}
-            onOpenGoodWheels={() => handleNavigate('goodWheels')}
-          />
-        )}
+        {currentView === 'dpalLifts' && <GoodWheelsStandaloneRoot />}
 
         {currentView === 'goodWheels' && <GoodWheelsStandaloneRoot />}
 

@@ -206,6 +206,11 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
   const [ticketsError, setTicketsError] = useState<string | null>(null);
   const [ticketsAuthRequired, setTicketsAuthRequired] = useState(false);
   const [ticketFilter, setTicketFilter] = useState<'All' | 'In Review' | 'Escalated' | 'Awaiting Evidence' | 'Resolved'>('All');
+  const [showNewTicketForm, setShowNewTicketForm] = useState(false);
+  const [ticketCategory, setTicketCategory] = useState('');
+  const [ticketTitle, setTicketTitle] = useState('');
+  const [ticketDesc, setTicketDesc] = useState('');
+  const [ticketUrgency, setTicketUrgency] = useState<'normal' | 'high' | 'urgent'>('normal');
 
   // Urgent report form state
   const [urgentCategory, setUrgentCategory] = useState('');
@@ -241,7 +246,7 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
     const result = await getMyTickets();
     setTicketsLoading(false);
     if (!result.ok) {
-      setTickets([]);
+      setTickets(result.reports.map(mapReportToTicket));
       setTicketsAuthRequired(Boolean((result as { authRequired?: boolean }).authRequired));
       if (!(result as { authRequired?: boolean }).authRequired) {
         setTicketsError('Could not load your live tickets right now.');
@@ -264,6 +269,16 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
     if (ticketFilter === 'Resolved') return tickets.filter((t) => t.status === 'resolved');
     return tickets;
   }, [ticketFilter, tickets]);
+
+  const openNewTicketForm = useCallback((prefill?: { category?: string; title?: string }) => {
+    setActiveTab('tickets');
+    setShowNewTicketForm(true);
+    if (prefill?.category) setTicketCategory(prefill.category);
+    if (prefill?.title) setTicketTitle(prefill.title);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+    setSubmittedRef(null);
+  }, []);
 
   /** Submit via AI chat input — sends to real backend */
   const handleAiSubmit = useCallback(async () => {
@@ -302,6 +317,14 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
   /** Submit urgent escalation form — sends to real backend */
   const handleUrgentSubmit = useCallback(async () => {
     if (!urgentTitle.trim() || !urgentDesc.trim() || submitting) return;
+    if (urgentTitle.trim().length < 3) {
+      setSubmitError('Title must be at least 3 characters.');
+      return;
+    }
+    if (urgentDesc.trim().length < 10) {
+      setSubmitError('Description must be at least 10 characters.');
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
 
@@ -342,6 +365,50 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
     setUploadedFiles(prev => [...prev, ...files]);
     e.target.value = '';
   };
+
+  const handleStandardTicketSubmit = useCallback(async () => {
+    if (!ticketTitle.trim() || !ticketDesc.trim() || submitting) return;
+    if (ticketTitle.trim().length < 3) {
+      setSubmitError('Title must be at least 3 characters.');
+      return;
+    }
+    if (ticketDesc.trim().length < 10) {
+      setSubmitError('Description must be at least 10 characters.');
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    setSubmitSuccess(false);
+
+    const result = await submitHelpReport({
+      category: ticketCategory || 'general_support',
+      title: ticketTitle.trim(),
+      description: ticketDesc.trim(),
+      urgency: ticketUrgency,
+      source: 'web',
+    });
+
+    setSubmitting(false);
+    if (result.ok) {
+      if (result.reportId && uploadedFiles.length > 0) {
+        const upload = await uploadHelpReportAttachments(result.reportId, uploadedFiles);
+        if (!upload.ok) {
+          setSubmitError(upload.error ?? 'Ticket created, but file upload failed.');
+        } else {
+          setUploadedFiles([]);
+        }
+      }
+      setSubmitSuccess(true);
+      setSubmittedRef(result.reportNumber ?? null);
+      setShowNewTicketForm(false);
+      setTicketTitle('');
+      setTicketDesc('');
+      setTicketUrgency('normal');
+      void loadTickets();
+    } else {
+      setSubmitError(result.error ?? 'Submission failed. Please try again.');
+    }
+  }, [ticketTitle, ticketDesc, submitting, ticketCategory, ticketUrgency, uploadedFiles, loadTickets]);
 
   /* ─── Ticket Detail Modal ─── */
   if (selectedTicket) {
@@ -447,15 +514,40 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
 
           {/* Actions */}
           <div className="grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 bg-[#0077C8] text-white rounded-xl py-3 font-bold text-sm hover:bg-[#005fa3] transition-colors">
+            <button
+              onClick={() => {
+                setSelectedTicket(null);
+                setActiveTab('support');
+                setAiInput(`Reply to case ${selectedTicket.caseNumber}: `);
+              }}
+              className="flex items-center justify-center gap-2 bg-[#0077C8] text-white rounded-xl py-3 font-bold text-sm hover:bg-[#005fa3] transition-colors"
+            >
               <Send className="w-4 h-4" /> Reply to Case
             </button>
-            <button className="flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 rounded-xl py-3 font-bold text-sm hover:bg-red-100 transition-colors">
+            <button
+              onClick={() => {
+                setSelectedTicket(null);
+                setActiveTab('urgent');
+                setUrgentTitle(`Escalation for ${selectedTicket.caseNumber}`);
+                setUrgentDesc((prev) => prev || `Escalating existing case ${selectedTicket.caseNumber}.`);
+              }}
+              className="flex items-center justify-center gap-2 bg-red-50 text-red-600 border border-red-200 rounded-xl py-3 font-bold text-sm hover:bg-red-100 transition-colors"
+            >
               <AlertTriangle className="w-4 h-4" /> Escalate
             </button>
           </div>
           {selectedTicket.status === 'resolved' && (
-            <button className="w-full flex items-center justify-center gap-2 bg-gray-50 text-gray-600 border border-gray-200 rounded-xl py-3 font-bold text-sm hover:bg-gray-100 transition-colors">
+            <button
+              onClick={() => {
+                setSelectedTicket(null);
+                openNewTicketForm({
+                  category: selectedTicket.category,
+                  title: `Reopen ${selectedTicket.caseNumber}`,
+                });
+                setTicketDesc(`Requesting reopen for ${selectedTicket.caseNumber}: `);
+              }}
+              className="w-full flex items-center justify-center gap-2 bg-gray-50 text-gray-600 border border-gray-200 rounded-xl py-3 font-bold text-sm hover:bg-gray-100 transition-colors"
+            >
               <RefreshCw className="w-4 h-4" /> Reopen Ticket
             </button>
           )}
@@ -638,7 +730,13 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
                     <p className="text-[10px] text-gray-500 font-medium leading-tight">{cat.desc}</p>
                     {expandedCategory === cat.id && (
                       <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
-                        <button className="w-full text-left text-[11px] font-bold py-2 px-3 rounded-lg hover:bg-gray-50 text-blue-700 flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openNewTicketForm({ category: cat.id, title: `${cat.title} support request` });
+                          }}
+                          className="w-full text-left text-[11px] font-bold py-2 px-3 rounded-lg hover:bg-gray-50 text-blue-700 flex items-center gap-1.5"
+                        >
                           <Send className="w-3 h-3" /> Open a new ticket
                         </button>
                         <button onClick={() => setActiveTab('support')} className="w-full text-left text-[11px] font-bold py-2 px-3 rounded-lg hover:bg-gray-50 text-purple-700 flex items-center gap-1.5">
@@ -718,12 +816,77 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
         {/* ══════════════════ TICKETS TAB ══════════════════ */}
         {activeTab === 'tickets' && (
           <div className="max-w-2xl mx-auto px-4 py-5 space-y-4">
+            {submitSuccess && submittedRef && (
+              <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-3 text-sm font-semibold text-emerald-800">
+                Ticket submitted successfully — Case <span className="font-mono font-black">{submittedRef}</span>.
+              </div>
+            )}
+            {submitError && (
+              <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-sm font-semibold text-red-700">
+                {submitError}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Your Support Tickets</p>
-              <button className="flex items-center gap-1.5 text-[11px] font-black text-[#0077C8] bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors">
+              <button
+                onClick={() => setShowNewTicketForm((v) => !v)}
+                className="flex items-center gap-1.5 text-[11px] font-black text-[#0077C8] bg-blue-50 px-3 py-1.5 rounded-xl hover:bg-blue-100 transition-colors"
+              >
                 <Send className="w-3.5 h-3.5" /> New Ticket
               </button>
             </div>
+
+            {showNewTicketForm && (
+              <div className="bg-white rounded-2xl p-5 border border-blue-100 shadow-sm space-y-3">
+                <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Create New Support Ticket</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <input
+                    className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 outline-none focus:border-blue-400 transition-colors"
+                    placeholder="Category (e.g. account, payment, technical)"
+                    value={ticketCategory}
+                    onChange={(e) => setTicketCategory(e.target.value)}
+                  />
+                  <select
+                    className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 outline-none focus:border-blue-400 transition-colors"
+                    value={ticketUrgency}
+                    onChange={(e) => setTicketUrgency(e.target.value as 'normal' | 'high' | 'urgent')}
+                  >
+                    <option value="normal">Normal</option>
+                    <option value="high">High</option>
+                    <option value="urgent">Urgent</option>
+                  </select>
+                </div>
+                <input
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 outline-none focus:border-blue-400 transition-colors"
+                  placeholder="Ticket title"
+                  value={ticketTitle}
+                  onChange={(e) => setTicketTitle(e.target.value)}
+                />
+                <textarea
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 text-sm font-medium text-gray-800 resize-none outline-none focus:border-blue-400 transition-colors"
+                  rows={3}
+                  placeholder="Describe the issue and what outcome you need..."
+                  value={ticketDesc}
+                  onChange={(e) => setTicketDesc(e.target.value)}
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex items-center gap-2 bg-gray-50 border border-gray-200 text-gray-600 rounded-xl px-4 py-2.5 text-sm font-bold hover:bg-gray-100 transition-colors"
+                  >
+                    <Upload className="w-4 h-4" /> Attach Proof
+                  </button>
+                  <button
+                    onClick={() => void handleStandardTicketSubmit()}
+                    disabled={submitting || !ticketTitle.trim() || !ticketDesc.trim()}
+                    className="flex-1 bg-[#0077C8] hover:bg-[#005fa3] disabled:opacity-50 text-white rounded-xl py-2.5 font-black text-sm transition-colors flex items-center justify-center gap-2"
+                  >
+                    {submitting ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    {submitting ? 'Submitting…' : 'Submit Ticket'}
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Status filter pills */}
             <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -777,7 +940,10 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
             <div className="bg-white rounded-2xl p-5 border-2 border-dashed border-gray-200 text-center">
               <p className="text-sm font-black text-gray-500 mb-1">Need to report a new issue?</p>
               <p className="text-[11px] text-gray-400 font-semibold mb-3">Describe your problem and attach proof for the fastest resolution.</p>
-              <button className="bg-[#0077C8] text-white font-black text-sm px-6 py-2.5 rounded-xl hover:bg-[#005fa3] transition-colors">
+              <button
+                onClick={() => setShowNewTicketForm(true)}
+                className="bg-[#0077C8] text-white font-black text-sm px-6 py-2.5 rounded-xl hover:bg-[#005fa3] transition-colors"
+              >
                 Open New Support Ticket
               </button>
             </div>
@@ -808,15 +974,20 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
             {/* Emergency action grid */}
             <div className="grid grid-cols-2 gap-3">
               {[
-                { label: 'Unsafe Trip',           icon: '🚨', desc: 'In-progress trip emergency', color: '#dc2626', bg: '#FEF2F2' },
-                { label: 'Account Fraud',          icon: '🔒', desc: 'Unauthorized access detected', color: '#dc2626', bg: '#FEF2F2' },
-                { label: 'Harassment',             icon: '🛡️', desc: 'Report abuse or threats', color: '#F4A300', bg: '#FFFBEB' },
-                { label: 'False Accusation',       icon: '⚖️', desc: 'Challenge a wrong action', color: '#7C3AED', bg: '#F5F3FF' },
-                { label: 'Locked Account',         icon: '🔑', desc: 'Urgent access recovery', color: '#0077C8', bg: '#EFF6FF' },
-                { label: 'Donation Emergency',     icon: '❤️', desc: 'Charity fund issue', color: '#2FB344', bg: '#F0FDF4' },
+                { label: 'Unsafe Trip', icon: '🚨', desc: 'In-progress trip emergency', color: '#dc2626', category: 'unsafe_trip' },
+                { label: 'Account Fraud', icon: '🔒', desc: 'Unauthorized access detected', color: '#dc2626', category: 'account_fraud' },
+                { label: 'Harassment', icon: '🛡️', desc: 'Report abuse or threats', color: '#F4A300', category: 'harassment' },
+                { label: 'False Accusation', icon: '⚖️', desc: 'Challenge a wrong action', color: '#7C3AED', category: 'false_accusation' },
+                { label: 'Locked Account', icon: '🔑', desc: 'Urgent access recovery', color: '#0077C8', category: 'locked_account' },
+                { label: 'Donation Emergency', icon: '❤️', desc: 'Charity fund issue', color: '#2FB344', category: 'donation_emergency' },
               ].map((item, i) => (
                 <button
                   key={i}
+                  onClick={() => {
+                    setUrgentCategory(item.category);
+                    setUrgentTitle(item.label);
+                    setUrgentDesc((prev) => prev || `${item.label}: ${item.desc}.`);
+                  }}
                   className="text-left bg-white rounded-2xl p-4 border-2 shadow-sm hover:shadow-md transition-all active:scale-95"
                   style={{ borderColor: `${item.color}30` }}
                 >
@@ -834,11 +1005,26 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-4">Immediate Contact</p>
               <div className="space-y-3">
                 {[
-                  { icon: <Phone className="w-5 h-5" />,  label: 'Call Urgent Support Line',   sub: 'Available 24/7',         color: '#dc2626', bg: '#FEF2F2' },
-                  { icon: <Send className="w-5 h-5" />,   label: 'Live Chat with Human Agent', sub: 'Avg wait: 3 min',         color: '#0077C8', bg: '#EFF6FF' },
-                  { icon: <Mail className="w-5 h-5" />,   label: 'Escalation Email',           sub: 'urgent@dpal.network',    color: '#7C3AED', bg: '#F5F3FF' },
+                  { icon: <Phone className="w-5 h-5" />, label: 'Call Urgent Support Line', sub: 'Available 24/7', color: '#dc2626', bg: '#FEF2F2' },
+                  { icon: <Send className="w-5 h-5" />, label: 'Live Chat with Human Agent', sub: 'Avg wait: 3 min', color: '#0077C8', bg: '#EFF6FF' },
+                  { icon: <Mail className="w-5 h-5" />, label: 'Escalation Email', sub: 'urgent@dpal.network', color: '#7C3AED', bg: '#F5F3FF' },
                 ].map((c, i) => (
-                  <button key={i} className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors bg-white group">
+                  <button
+                    key={i}
+                    onClick={() => {
+                      if (c.label.includes('Call')) {
+                        window.location.href = 'tel:+18003725200';
+                        return;
+                      }
+                      if (c.label.includes('Escalation')) {
+                        window.location.href = 'mailto:urgent@dpal.network?subject=DPAL%20Urgent%20Escalation';
+                        return;
+                      }
+                      setActiveTab('support');
+                      setAiInput('I need urgent human support right now.');
+                    }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-blue-200 transition-colors bg-white group"
+                  >
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: c.bg, color: c.color }}>
                       {c.icon}
                     </div>
