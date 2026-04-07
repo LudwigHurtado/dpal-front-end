@@ -1,5 +1,16 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowRight, Check, Clock, FileText, Filter, Hash, MapPin, Search, Send, ShieldCheck, User } from './icons';
+import {
+  escalateResolutionCase,
+  fetchResolutionCasesFromApi,
+  getLocalResolutionCases,
+  issueResolutionReward,
+  persistResolutionCase,
+  progressResolutionCase,
+  submitCorrectionProof,
+  subscribeResolutionEvents,
+  type ResolutionCaseRecord,
+} from '../services/resolutionLayerService';
 
 type ResolutionStatus = 'Verified' | 'Escalated' | 'Resolved' | 'Ignored';
 type Severity = 'Low' | 'Medium' | 'High' | 'Critical';
@@ -96,16 +107,60 @@ const joinClasses = (...parts: Array<string | false | undefined>): string => par
 
 interface ResolutionLayerViewProps {
   onReturn: () => void;
+  onIssueCoins?: (amount: number) => void;
+  walletAddress?: string;
 }
 
-const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn }) => {
+const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn, onIssueCoins, walletAddress }) => {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | ResolutionStatus>('All');
-  const [selectedId, setSelectedId] = useState(CASES[0].id);
+  const [runtimeCases, setRuntimeCases] = useState<ResolutionCase[]>(() => {
+    const local = getLocalResolutionCases();
+    if (local.length === 0) return CASES;
+    const baseMap = new Map(CASES.map((item) => [item.id, item]));
+    for (const row of local) {
+      const prior = baseMap.get(row.id);
+      baseMap.set(row.id, prior ? { ...prior, ...row } : (row as ResolutionCase));
+    }
+    return Array.from(baseMap.values());
+  });
+  const [selectedId, setSelectedId] = useState(runtimeCases[0]?.id ?? CASES[0].id);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const [isEscalating, setIsEscalating] = useState(false);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [isProgressing, setIsProgressing] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    fetchResolutionCasesFromApi().then((rows) => {
+      if (!mounted || rows.length === 0) return;
+      setRuntimeCases((prev) => {
+        const map = new Map(prev.map((row) => [row.id, row]));
+        for (const row of rows) map.set(row.id, row as ResolutionCase);
+        return Array.from(map.values());
+      });
+    });
+    const unsubscribe = subscribeResolutionEvents((event) => {
+      if (event?.type === 'case.event' || event?.type === 'route.delivered' || event?.type === 'route.failed') {
+        fetchResolutionCasesFromApi().then((rows) => {
+          if (!mounted || rows.length === 0) return;
+          setRuntimeCases((prev) => {
+            const map = new Map(prev.map((row) => [row.id, row]));
+            for (const row of rows) map.set(row.id, row as ResolutionCase);
+            return Array.from(map.values());
+          });
+        });
+      }
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
 
   const filteredCases = useMemo(
     () =>
-      CASES.filter((entry) => {
+      runtimeCases.filter((entry) => {
         const q = query.trim().toLowerCase();
         const matchesQuery =
           q.length === 0 ||
@@ -119,7 +174,102 @@ const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn }) =
     [query, statusFilter]
   );
 
-  const activeCase = filteredCases.find((entry) => entry.id === selectedId) ?? filteredCases[0] ?? CASES[0];
+  const activeCase = filteredCases.find((entry) => entry.id === selectedId) ?? filteredCases[0] ?? runtimeCases[0] ?? CASES[0];
+
+  const toRecord = (entry: ResolutionCase): ResolutionCaseRecord => ({ ...entry });
+
+  const updateLocalCase = (next: ResolutionCase): void => {
+    setRuntimeCases((prev) => {
+      const idx = prev.findIndex((item) => item.id === next.id);
+      if (idx < 0) return [next, ...prev];
+      const copy = [...prev];
+      copy[idx] = next;
+      return copy;
+    });
+  };
+
+  const handlePublish = async (): Promise<void> => {
+    setIsPublishing(true);
+    setActionMessage(null);
+    const res = await persistResolutionCase(toRecord(activeCase));
+    if (res.ok) {
+      const reward = 8;
+      const rewardRes =
+        walletAddress && walletAddress.length > 0
+          ? await issueResolutionReward({
+              walletAddress,
+              caseId: activeCase.id,
+              amountCoins: reward,
+              reason: 'Published resolution case',
+            })
+          : { ok: false };
+      if (rewardRes.ok) onIssueCoins?.(reward);
+      const updated: ResolutionCase = { ...activeCase, lastUpdate: new Date().toLocaleString() };
+      updateLocalCase(updated);
+      setActionMessage(
+        rewardRes.ok
+          ? `Case published via ${res.endpoint}. +${reward} coins issued to wallet ledger.`
+          : `Case published via ${res.endpoint}. Wallet reward skipped (missing wallet or backend reward unavailable).`
+      );
+    } else {
+      setActionMessage(res.error ?? 'Saved locally, backend publish failed.');
+    }
+    setIsPublishing(false);
+  };
+
+  const handleEscalate = async (): Promise<void> => {
+    setIsEscalating(true);
+    setActionMessage(null);
+    const res = await escalateResolutionCase(toRecord(activeCase));
+    if (res.ok) {
+      const reward = 12;
+      const rewardRes =
+        walletAddress && walletAddress.length > 0
+          ? await issueResolutionReward({
+              walletAddress,
+              caseId: activeCase.id,
+              amountCoins: reward,
+              reason: 'Escalated verified case',
+            })
+          : { ok: false };
+      if (rewardRes.ok) onIssueCoins?.(reward);
+      const updated: ResolutionCase = { ...activeCase, status: 'Escalated', lastUpdate: new Date().toLocaleString() };
+      updateLocalCase(updated);
+      setActionMessage(
+        rewardRes.ok
+          ? `Escalation published via ${res.endpoint}. +${reward} coins issued to wallet ledger.`
+          : `Escalation published via ${res.endpoint}. Wallet reward skipped (missing wallet or backend reward unavailable).`
+      );
+    } else {
+      setActionMessage(res.error ?? 'Escalation failed to publish.');
+    }
+    setIsEscalating(false);
+  };
+
+  const handleProgress = async (action: 'respond' | 'correct' | 'resolve'): Promise<void> => {
+    setIsProgressing(true);
+    const result = await progressResolutionCase(activeCase.id, action, `Progressed by resolution layer: ${action}`);
+    if (!result.ok) {
+      setActionMessage(result.error ?? `Failed to ${action} case.`);
+      setIsProgressing(false);
+      return;
+    }
+    let nextStatus: ResolutionStatus = activeCase.status;
+    if (action === 'respond') nextStatus = 'Escalated';
+    if (action === 'correct') nextStatus = 'Escalated';
+    if (action === 'resolve') nextStatus = 'Resolved';
+    updateLocalCase({ ...activeCase, status: nextStatus, lastUpdate: new Date().toLocaleString() });
+    setActionMessage(`Case ${action} action saved through ${result.endpoint}.`);
+    setIsProgressing(false);
+  };
+
+  const handleProof = async (): Promise<void> => {
+    const proof = await submitCorrectionProof(activeCase.id, {
+      title: `Proof package for ${activeCase.id}`,
+      note: 'Submitted from resolution layer',
+    });
+    setActionMessage(proof.ok ? 'Proof package logged to backend audit trail.' : proof.error ?? 'Proof upload failed.');
+  };
 
   return (
     <section className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24">
@@ -137,6 +287,14 @@ const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn }) =
           >
             Back to Main Menu
           </button>
+        </div>
+        <div className="mt-4 overflow-hidden rounded-2xl border dpal-border-subtle bg-black/30">
+          <img
+            src="/main-screen/resolution-layer.png"
+            alt="Resolution ledger operator dashboard"
+            className="h-48 w-full object-cover object-center md:h-64"
+            draggable={false}
+          />
         </div>
       </div>
 
@@ -277,19 +435,44 @@ const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn }) =
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <button type="button" className="inline-flex items-center rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300">
+            <button
+              type="button"
+              onClick={handleEscalate}
+              disabled={isEscalating}
+              className="inline-flex items-center rounded-lg bg-cyan-400 px-3 py-2 text-xs font-semibold text-slate-950 hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <Send className="mr-2 h-3.5 w-3.5" />
-              Escalate Now
+              {isEscalating ? 'Escalating...' : 'Escalate Now'}
             </button>
-            <button type="button" className="inline-flex items-center rounded-lg border dpal-border-subtle bg-white/5 px-3 py-2 text-xs text-slate-100 hover:bg-white/10">
+            <button
+              type="button"
+              onClick={handlePublish}
+              disabled={isPublishing}
+              className="inline-flex items-center rounded-lg border dpal-border-subtle bg-white/5 px-3 py-2 text-xs text-slate-100 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
               <FileText className="mr-2 h-3.5 w-3.5" />
-              Export Case
+              {isPublishing ? 'Publishing...' : 'Publish + Save'}
             </button>
             <button type="button" className="inline-flex items-center rounded-lg border dpal-border-subtle bg-white/5 px-3 py-2 text-xs text-slate-100 hover:bg-white/10">
               <User className="mr-2 h-3.5 w-3.5" />
               Assign Responder
             </button>
+            <button type="button" onClick={handleProof} className="inline-flex items-center rounded-lg border dpal-border-subtle bg-white/5 px-3 py-2 text-xs text-slate-100 hover:bg-white/10">
+              Log Proof
+            </button>
+            <button type="button" onClick={() => handleProgress('respond')} disabled={isProgressing} className="inline-flex items-center rounded-lg border dpal-border-subtle bg-white/5 px-3 py-2 text-xs text-slate-100 hover:bg-white/10 disabled:opacity-60">
+              Mark Responded
+            </button>
+            <button type="button" onClick={() => handleProgress('correct')} disabled={isProgressing} className="inline-flex items-center rounded-lg border dpal-border-subtle bg-white/5 px-3 py-2 text-xs text-slate-100 hover:bg-white/10 disabled:opacity-60">
+              Mark Corrected
+            </button>
+            <button type="button" onClick={() => handleProgress('resolve')} disabled={isProgressing} className="inline-flex items-center rounded-lg border border-emerald-400/30 bg-emerald-500/15 px-3 py-2 text-xs text-emerald-100 hover:bg-emerald-500/25 disabled:opacity-60">
+              Resolve Case
+            </button>
           </div>
+          {actionMessage && (
+            <p className="mt-3 rounded-lg border border-cyan-400/25 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-100">{actionMessage}</p>
+          )}
 
           <div className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
             <div className="rounded-lg border dpal-border-subtle bg-black/20 p-3 text-xs text-slate-200">

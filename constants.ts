@@ -100,6 +100,12 @@ export const API_ROUTES = {
   AUTH_CHANGE_PASSWORD: '/api/auth/change-password',
   ADMIN_USERS: '/api/admin/users',
   ADMIN_ACTIVITY: '/api/admin/activity',
+  RESOLUTION_EVENTS: '/api/resolution/events',
+  RESOLUTION_CASES: '/api/resolution/cases',
+  RESOLUTION_ESCALATE: '/api/resolution/escalate',
+  RESOLUTION_STREAM: '/api/resolution/stream',
+  REWARDS_ISSUE: '/api/rewards/issue',
+  REWARDS_LEDGER: '/api/rewards/ledger',
 } as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */

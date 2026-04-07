@@ -225,3 +225,145 @@ model ReportCounter {
 
   @@map("report_counters")
 }
+
+enum ResolutionStatus {
+  filed
+  verified
+  escalated
+  responded
+  corrected
+  resolved
+  ignored
+  failed_delivery
+  disputed
+}
+
+enum ResolutionEventType {
+  case_filed
+  case_verified
+  case_escalated
+  agency_responded
+  correction_submitted
+  case_resolved
+  case_ignored
+  route_dispatch_attempted
+  route_dispatch_delivered
+  route_dispatch_failed
+  reward_issued
+}
+
+enum ResolutionRouteStatus {
+  pending
+  processing
+  delivered
+  failed
+}
+
+model ResolutionCase {
+  id                 String            @id @default(cuid())
+  caseId             String            @unique
+  reportId           String?
+  validatorNodeId    String?
+  title              String
+  category           String
+  location           String
+  severity           String
+  status             ResolutionStatus  @default(filed)
+  entity             String?
+  reporter           String?
+  verifier           String?
+  resolutionScore    Int               @default(0)
+  responseSlaHours   Int               @default(48)
+  summary            String?
+  publicImpact       String?
+  nextAction         String?
+  walletAddress      String?
+  metadata           Json?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  events             ResolutionEvent[]
+  routes             ResolutionRoute[]
+  artifacts          ResolutionArtifact[]
+
+  @@map("resolution_cases")
+  @@index([status, updatedAt])
+}
+
+model ResolutionEvent {
+  id                 String               @id @default(cuid())
+  caseRefId          String
+  caseRef            ResolutionCase       @relation(fields: [caseRefId], references: [id], onDelete: Cascade)
+  eventType          ResolutionEventType
+  actor              String
+  note               String?
+  payload            Json?
+  createdAt          DateTime             @default(now())
+
+  @@map("resolution_events")
+  @@index([caseRefId, createdAt])
+}
+
+model ResolutionRoute {
+  id                 String               @id @default(cuid())
+  caseRefId          String
+  caseRef            ResolutionCase       @relation(fields: [caseRefId], references: [id], onDelete: Cascade)
+  destination        String
+  channel            String
+  target             String?
+  status             ResolutionRouteStatus @default(pending)
+  attemptCount       Int                  @default(0)
+  maxAttempts        Int                  @default(5)
+  nextAttemptAt      DateTime             @default(now())
+  lastError          String?
+  deliveredAt        DateTime?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@map("resolution_routes")
+  @@index([status, nextAttemptAt])
+  @@index([caseRefId])
+}
+
+model ResolutionArtifact {
+  id                 String               @id @default(cuid())
+  caseRefId          String
+  caseRef            ResolutionCase       @relation(fields: [caseRefId], references: [id], onDelete: Cascade)
+  kind               String
+  title              String
+  url                String?
+  sha256             String?
+  uploadedBy         String?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+
+  @@map("resolution_artifacts")
+  @@index([caseRefId, createdAt])
+}
+
+model RewardWallet {
+  id                 String               @id @default(cuid())
+  walletAddress      String               @unique
+  balanceCoins       Int                  @default(0)
+  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime             @default(now())
+  entries            RewardLedgerEntry[]
+
+  @@map("reward_wallets")
+}
+
+model RewardLedgerEntry {
+  id                 String               @id @default(cuid())
+  walletId           String
+  wallet             RewardWallet         @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  caseId             String?
+  amountCoins        Int
+  reason             String
+  source             String?
+  metadata           Json?
+  createdAt          DateTime             @default(now())
+
+  @@map("reward_ledger_entries")
+  @@index([walletId, createdAt])
+}

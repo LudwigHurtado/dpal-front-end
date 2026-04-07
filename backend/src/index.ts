@@ -6,6 +6,10 @@ import rateLimit from 'express-rate-limit';
 import helpReportsRouter from './routes/helpReports';
 import adminRouter from './routes/admin';
 import geminiProxyRouter from './routes/geminiProxy';
+import resolutionRouter from './routes/resolution';
+import rewardsRouter from './routes/rewards';
+import { prisma } from './lib/prisma';
+import { startResolutionDispatcher } from './lib/resolutionDispatcher';
 
 const app  = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -78,6 +82,8 @@ app.get('/health', (_req, res) => {
 app.use('/api/ai', geminiProxyRouter);
 app.use('/api/help-reports', helpReportsRouter);
 app.use('/api/admin',        adminRouter);
+app.use('/api/resolution',   resolutionRouter);
+app.use('/api/rewards',      rewardsRouter);
 
 // Legacy /api/reports feed (compatibility with existing enterprise dashboard probe)
 app.get('/api/reports', async (_req, res) => {
@@ -147,6 +153,27 @@ app.get('/api/reports/feed', async (req, res) => {
   }
 });
 
+// POST /api/reports minimal upsert fallback for front-end compatibility.
+app.post('/api/reports', async (req, res) => {
+  try {
+    const body = req.body ?? {};
+    const reportNumber = `API-${Date.now()}`;
+    const created = await prisma.helpReport.create({
+      data: {
+        reportNumber,
+        category: String(body.category ?? 'Other'),
+        title: String(body.title ?? 'Resolution report'),
+        description: String(body.description ?? ''),
+        urgency: 'normal',
+        source: 'api',
+      },
+    });
+    res.status(201).json({ ok: true, reportId: created.id, reportNumber: created.reportNumber });
+  } catch (error: any) {
+    res.status(500).json({ ok: false, error: error?.message ?? 'Failed to persist report' });
+  }
+});
+
 // ── 404 ───────────────────────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({ error: 'Not found' });
@@ -161,5 +188,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 app.listen(PORT, () => {
   console.log(`DPAL Backend running on port ${PORT} [${process.env.NODE_ENV ?? 'development'}]`);
 });
+
+startResolutionDispatcher(prisma);
 
 export default app;

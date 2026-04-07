@@ -1651,7 +1651,16 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'resolutionLayer' && (
-          <ResolutionLayerView onReturn={() => handleNavigate('mainMenu')} />
+          <ResolutionLayerView
+            onReturn={() => handleNavigate('mainMenu')}
+            walletAddress={heroWithRank.walletAddress}
+            onIssueCoins={(amount) =>
+              setHero((prev) => ({
+                ...prev,
+                heroCredits: (prev.heroCredits || 0) + Math.max(0, Math.floor(amount)),
+              }))
+            }
+          />
         )}
 
         {currentView === 'reportProtect' && (
