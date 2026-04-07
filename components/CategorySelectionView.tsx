@@ -24,6 +24,12 @@ import {
   getCategoryCardImageSrc,
 } from '../categoryCardAssets';
 
+const HIDDEN_REPORT_PICKER_CATEGORIES = new Set<Category>([
+  Category.DpalHelp,
+  Category.DpalLifts,
+  Category.DpalWorkNetwork,
+]);
+
 interface CategorySelectionViewProps {
   onSelectCategory: (category: Category) => void;
   onSelectMissions: (category: Category) => void;
@@ -99,11 +105,6 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
   helpSectorFocusSignal = 0,
 }) => {
     const { t } = useTranslations();
-    const hiddenInReportPicker = new Set<Category>([
-      Category.DpalHelp,
-      Category.DpalLifts,
-      Category.DpalWorkNetwork,
-    ]);
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (typeof window === 'undefined') return 'classic';
         const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
@@ -164,7 +165,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
 
     const filteredCategories = useMemo(() => {
         const sorted = [...CATEGORIES_WITH_ICONS]
-          .filter((c) => !hiddenInReportPicker.has(c.value))
+          .filter((c) => !HIDDEN_REPORT_PICKER_CATEGORIES.has(c.value))
           .sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
         if (!searchQuery.trim()) return sorted;
         
@@ -181,7 +182,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
     const activeSectorCategories = activeSectorDef.categories
       .map((category) => categoryByValue.get(category))
       .filter(Boolean)
-      .filter((cat) => (cat ? !hiddenInReportPicker.has(cat.value) : false))
+      .filter((cat) => (cat ? !HIDDEN_REPORT_PICKER_CATEGORIES.has(cat.value) : false))
       .filter((cat) => {
         if (!cat) return false;
         if (!normalizedSearch) return true;
@@ -477,7 +478,11 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
             {viewMode === 'next' && (
               <section className="mt-10">
                 <CategoryMappingPanel
-                  rows={CATEGORY_MAPPINGS}
+                  rows={CATEGORY_MAPPINGS.filter(
+                    (row) =>
+                      !HIDDEN_REPORT_PICKER_CATEGORIES.has(row.classicCategory) &&
+                      !HIDDEN_REPORT_PICKER_CATEGORIES.has(row.nextCategory),
+                  )}
                   sectors={SECTORS}
                   getClassicLabel={(row) => getClassicLabel(row.classicCategory)}
                 />
