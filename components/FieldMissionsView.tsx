@@ -2,8 +2,9 @@ import React, { useState, useMemo } from 'react';
 import { ArrowLeft, Broadcast, MapPin, Loader, Send, X, Clock, Coins, Scale, Target } from './icons';
 import type { Mission } from '../types';
 import type { FieldBeacon } from '../App';
+import { DEFAULT_MAP_LOCATION } from '../constants';
 
-const DEFAULT_CENTER = 'Earth';
+const DEFAULT_CENTER = DEFAULT_MAP_LOCATION;
 const MOCK_HELP_REQUESTS: Array<{
   id: string;
   name: string;

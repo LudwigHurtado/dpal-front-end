@@ -404,6 +404,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('outreachEscalation')}
                 />
 
+                <PrimaryNavModule
+                    icon={<Scale className="w-8 h-8" />}
+                    label="Resolution Layer"
+                    subLabel="Track verified cases through outcomes and accountability"
+                    status="Live"
+                    colorClass="cyan"
+                    bgImageUrl="/main-screen/resolution-layer.png"
+                    onClick={() => onNavigate('resolutionLayer')}
+                />
+
                 <PrimaryNavModule 
                     icon={<Gem className="w-8 h-8" />}
                     label="Keepsake Studio"

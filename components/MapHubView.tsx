@@ -1,18 +1,19 @@
 import React, { useMemo, useState } from 'react';
 import { MapPin, ArrowLeft, ShieldCheck, Loader } from './icons';
+import { DEFAULT_MAP_LOCATION } from '../constants';
 
 interface MapHubViewProps {
   onReturnToMainMenu: () => void;
   onOpenFilters?: () => void;
-  /** Optional location query for map center (e.g. from filters or "Earth"). */
+  /** Optional location query for map center. */
   mapCenter?: string;
 }
 
-const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilters, mapCenter = 'Earth' }) => {
+const MapHubView: React.FC<MapHubViewProps> = ({ onReturnToMainMenu, onOpenFilters, mapCenter = DEFAULT_MAP_LOCATION }) => {
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const mapUrl = useMemo(() => {
-    const query = (mapCenter && mapCenter.trim()) || 'Earth';
+    const query = (mapCenter && mapCenter.trim()) || DEFAULT_MAP_LOCATION;
     return `https://maps.google.com/maps?q=${encodeURIComponent(query)}&t=k&z=12&ie=UTF8&iwloc=&output=embed`;
   }, [mapCenter]);
 

@@ -6,7 +6,7 @@ import { type Report, type Hero, type ChatMessage, Category } from '../types';
 import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera, Star } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
-import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS } from '../constants';
+import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS, DEFAULT_MAP_LOCATION } from '../constants';
 import { performIAReview } from '../services/geminiService';
 import { buildReportVerifyUrl, buildSituationRoomUrl } from '../utils/deepLinks';
 import {
@@ -422,14 +422,14 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
             return `https://www.google.com/maps?q=${beaconCoords.lat},${beaconCoords.lng}&z=17&output=embed`;
         }
         const z = isBeaconActive ? 16 : 15;
-        return `https://maps.google.com/maps?q=${encodeURIComponent(lockedMapLocation || 'Earth')}&t=k&z=${z}&ie=UTF8&iwloc=&output=embed`;
+        return `https://maps.google.com/maps?q=${encodeURIComponent((lockedMapLocation || '').trim() || DEFAULT_MAP_LOCATION)}&t=k&z=${z}&ie=UTF8&iwloc=&output=embed`;
     }, [lockedMapLocation, beaconCoords, isBeaconActive]);
 
     const publicMapUrl = useMemo(() => {
         if (beaconCoords && isBeaconActive) {
             return `https://www.google.com/maps?q=${beaconCoords.lat},${beaconCoords.lng}&z=17`;
         }
-        const q = lockedMapLocation.trim() || 'Earth';
+        const q = lockedMapLocation.trim() || DEFAULT_MAP_LOCATION;
         return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
     }, [beaconCoords, isBeaconActive, lockedMapLocation]);
     

@@ -51,6 +51,7 @@ export const VIEW_PATHS: Record<string, string> = {
   reportDashboard: '/report-dashboard',
   reportWorkPanel: '/report-work',
   helpCenter: '/help',
+  resolutionLayer: '/resolution',
 };
 
 export function viewToPath(view: string): string {

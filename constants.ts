@@ -9,6 +9,7 @@ import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, Tr
  */
 const DEFAULT_API_BASE = 'https://web-production-a27b.up.railway.app';
 const LOCAL_DEV_API_BASE = 'http://localhost:3001';
+export const DEFAULT_MAP_LOCATION = 'Los Angeles, CA';
 let hasWarnedMissingApiBase = false;
 
 const normalizeApiBase = (value: unknown): string => {

@@ -99,6 +99,11 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
   helpSectorFocusSignal = 0,
 }) => {
     const { t } = useTranslations();
+    const hiddenInReportPicker = new Set<Category>([
+      Category.DpalHelp,
+      Category.DpalLifts,
+      Category.DpalWorkNetwork,
+    ]);
     const [viewMode, setViewMode] = useState<ViewMode>(() => {
         if (typeof window === 'undefined') return 'classic';
         const saved = window.localStorage.getItem(VIEW_MODE_STORAGE_KEY);
@@ -158,7 +163,9 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
     };
 
     const filteredCategories = useMemo(() => {
-        const sorted = [...CATEGORIES_WITH_ICONS].sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
+        const sorted = [...CATEGORIES_WITH_ICONS]
+          .filter((c) => !hiddenInReportPicker.has(c.value))
+          .sort((a, b) => t(a.translationKey).localeCompare(t(b.translationKey)));
         if (!searchQuery.trim()) return sorted;
         
         const query = searchQuery.toLowerCase();
@@ -174,6 +181,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
     const activeSectorCategories = activeSectorDef.categories
       .map((category) => categoryByValue.get(category))
       .filter(Boolean)
+      .filter((cat) => (cat ? !hiddenInReportPicker.has(cat.value) : false))
       .filter((cat) => {
         if (!cat) return false;
         if (!normalizedSearch) return true;

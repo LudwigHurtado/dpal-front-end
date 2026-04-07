@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { CATEGORIES_WITH_ICONS } from '../constants';
+import { CATEGORIES_WITH_ICONS, DEFAULT_MAP_LOCATION } from '../constants';
 import { Search, MapPin, Loader, Target, Sparkles, Crosshair, ListFilter, Activity, ChevronRight, Hash, Maximize2, X, CheckCircle, Megaphone, Plus } from './icons';
 import { Category, Hero, Report } from '../types';
 import { useTranslations } from '../i18n';
@@ -44,9 +44,8 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
   const [isTriageExpanded, setIsTriageExpanded] = useState(false);
   
   const mapUrl = useMemo(() => {
-    return filters.location 
-        ? `https://maps.google.com/maps?q=${encodeURIComponent(filters.location)}&t=k&z=12&ie=UTF8&iwloc=&output=embed`
-        : null;
+    const q = (filters.location || '').trim() || DEFAULT_MAP_LOCATION;
+    return `https://maps.google.com/maps?q=${encodeURIComponent(q)}&t=k&z=12&ie=UTF8&iwloc=&output=embed`;
   }, [filters.location]);
 
   const matchingSignals = useMemo(() => {
@@ -110,25 +109,13 @@ const FilterPanel: React.FC<FilterPanelProps> = ({ filters, setFilters, onAnalyz
           )}
 
           <div className="relative w-full aspect-video rounded-3xl bg-[var(--dpal-background)] border border-[color:var(--dpal-border)] overflow-hidden mb-2">
-            {mapUrl ? (
-                <iframe 
-                    src={mapUrl}
-                    className="w-full h-full grayscale opacity-40 group-hover/target:opacity-60 transition-opacity"
-                    frameBorder="0"
-                    scrolling="no"
-                    title="Mini Target Map"
-                />
-            ) : (
-                <div className="absolute inset-0 flex flex-col items-center justify-center space-y-5">
-                    <div className="w-28 h-28 rounded-full border border-[color:var(--dpal-border)] relative overflow-hidden">
-                        <div className="absolute inset-0 animate-radar-sweep rounded-full"></div>
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                            <Crosshair className="w-6 h-6 text-[var(--dpal-text-muted)]" />
-                        </div>
-                    </div>
-                    <p className="text-center px-4 text-[10px] font-medium leading-relaxed tracking-wide text-[var(--dpal-text-muted)]">Add a place to see the map</p>
-                </div>
-            )}
+            <iframe 
+                src={mapUrl}
+                className="w-full h-full grayscale opacity-40 group-hover/target:opacity-60 transition-opacity"
+                frameBorder="0"
+                scrolling="no"
+                title="Mini Target Map"
+            />
             <div className="absolute top-4 left-4 flex items-center space-x-3 px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-xl border border-white/5 text-[9px] font-black uppercase text-cyan-400">
                 <div className="w-1.5 h-1.5 bg-cyan-500 animate-ping rounded-full"></div>
                 <span>Map preview</span>

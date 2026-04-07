@@ -4,7 +4,7 @@ import { useTranslations } from '../i18n';
 import { fetchLiveIntelligence, analyzeIntelSource } from '../services/geminiService';
 import { type IntelItem, type Category, type IntelAnalysis } from '../types';
 import { Loader, Search, MapPin, Crosshair, ArrowLeft, ArrowRight, FileText, Link as LinkIcon, ShieldCheck, Zap, Sparkles, Monitor, Broadcast, Target, ListFilter, CheckCircle, User, Activity, X, Send, Database, Maximize2, Megaphone } from './icons';
-import { CATEGORIES_WITH_ICONS } from '../constants';
+import { CATEGORIES_WITH_ICONS, DEFAULT_MAP_LOCATION } from '../constants';
 import { type TextScale } from '../App';
 
 interface LiveIntelligenceViewProps {
@@ -94,28 +94,19 @@ const LiveIntelligenceView: React.FC<LiveIntelligenceViewProps> = ({ onReturn, o
   };
 
   const renderTacticalMap = () => {
-    const mapUrl = heroLocation 
-        ? `https://maps.google.com/maps?q=${encodeURIComponent(heroLocation)}&t=k&z=15&ie=UTF8&iwloc=&output=embed`
-        : "about:blank";
+    const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent((heroLocation || '').trim() || DEFAULT_MAP_LOCATION)}&t=k&z=15&ie=UTF8&iwloc=&output=embed`;
 
     return (
         <div className="relative w-full aspect-video md:aspect-[21/7] rounded-[3rem] border-4 border-zinc-800 bg-zinc-900 overflow-hidden group/map shadow-3xl">
-            {heroLocation ? (
-                <iframe 
-                    src={mapUrl}
-                    className="w-full h-full grayscale opacity-40 group-hover/map:opacity-100 group-hover/map:grayscale-0 transition-all duration-1000"
-                    frameBorder="0"
-                    scrolling="no"
-                    marginHeight={0}
-                    marginWidth={0}
-                    title="Tactical Overlay"
-                />
-            ) : (
-                <div className="w-full h-full flex flex-col items-center justify-center space-y-6 bg-zinc-950">
-                    <Crosshair className="w-16 h-16 text-zinc-800 animate-pulse" />
-                    <p className="text-[10px] font-black text-zinc-700 uppercase tracking-[0.4em]">Satellite_Feed_Offline</p>
-                </div>
-            )}
+            <iframe 
+                src={mapUrl}
+                className="w-full h-full grayscale opacity-40 group-hover/map:opacity-100 group-hover/map:grayscale-0 transition-all duration-1000"
+                frameBorder="0"
+                scrolling="no"
+                marginHeight={0}
+                marginWidth={0}
+                title="Tactical Overlay"
+            />
             
             <div className="absolute inset-0 pointer-events-none z-10">
                 <div className="absolute bottom-10 right-10 p-4 bg-zinc-950/80 backdrop-blur-md rounded-2xl border border-zinc-700/50 shadow-2xl">
