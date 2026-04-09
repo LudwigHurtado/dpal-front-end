@@ -433,7 +433,10 @@ const App: React.FC = () => {
    */
   useEffect(() => {
     const path = viewToPath(currentView);
-    const full = `${path}${location.search}${location.hash}`;
+    // Keep deep-link query/hash only on report certificate or situation room views.
+    // For Home and standard app views, clear stale URL params like ?reportId=...
+    const preserveDeepLink = currentView === 'reportComplete' || currentView === 'incidentRoom';
+    const full = preserveDeepLink ? `${path}${location.search}${location.hash}` : path;
     const cur = `${location.pathname}${location.search}${location.hash}`;
     if (full === cur) return;
     navigate(full, { replace: false });
