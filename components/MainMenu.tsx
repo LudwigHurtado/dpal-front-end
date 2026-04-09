@@ -72,7 +72,8 @@ const PrimaryNavModule: React.FC<{
     status: string;
     bgImageUrl?: string;
     bgImageUrls?: string[];
-}> = ({ icon, label, subLabel, onClick, colorClass, status, bgImageUrl, bgImageUrls }) => {
+    imageCycleMs?: number;
+}> = ({ icon, label, subLabel, onClick, colorClass, status, bgImageUrl, bgImageUrls, imageCycleMs = 4500 }) => {
     const hexMap: Record<string, string> = {
         rose: '#f43f5e',
         cyan: '#22d3ee',
@@ -90,9 +91,9 @@ const PrimaryNavModule: React.FC<{
         if (imageSources.length <= 1) return;
         const interval = setInterval(() => {
             setImageIndex((prev) => (prev + 1) % imageSources.length);
-        }, 4500);
+        }, imageCycleMs);
         return () => clearInterval(interval);
-    }, [imageSources.length]);
+    }, [imageSources.length, imageCycleMs]);
 
     useEffect(() => {
         setImageIndex(0);
@@ -430,7 +431,11 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Medical QR that stays with you"
                     status="Care"
                     colorClass="rose"
-                    bgImageUrl="/main-screen/qr-live-saver.png"
+                    bgImageUrls={[
+                        "/main-screen/medical-qr-flow-en.png",
+                        "/main-screen/medical-qr-flow-es.png",
+                    ]}
+                    imageCycleMs={5000}
                     onClick={() => onNavigate('medicalOutpost')}
                 />
 

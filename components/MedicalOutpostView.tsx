@@ -25,6 +25,11 @@ const MEDICAL_FOLDERS: { id: FolderCategory, label: string, icon: React.ReactNod
     { id: 'DOCUMENTS', label: 'Provider Documents', icon: <Target className="w-5 h-5"/> },
 ];
 
+const MEDICAL_HERO_IMAGES = [
+    '/main-screen/medical-qr-flow-en.png',
+    '/main-screen/medical-qr-flow-es.png',
+];
+
 const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero, records, setRecords }) => {
     const [isCreating, setIsCreating] = useState(false);
     const [editingRecordId, setEditingRecordId] = useState<string | null>(null);
@@ -32,7 +37,15 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
     const [language, setLanguage] = useState<'EN' | 'ES'>('EN');
     const [qrAnchorState, setQrAnchorState] = useState<{ status: 'idle' | 'sealing' | 'anchored' | 'failed'; blockIndex?: number }>({ status: 'idle' });
     const [windowSizeClass, setWindowSizeClass] = useState<'compact' | 'medium' | 'expanded' | 'large' | 'extra-large'>('expanded');
+    const [heroImageIndex, setHeroImageIndex] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        const interval = window.setInterval(() => {
+            setHeroImageIndex((prev) => (prev + 1) % MEDICAL_HERO_IMAGES.length);
+        }, 5000);
+        return () => window.clearInterval(interval);
+    }, []);
 
     useEffect(() => {
         const computeWindowClass = () => {
@@ -225,12 +238,17 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
             </header>
 
             <div className="relative w-full shrink-0 overflow-hidden border-b border-slate-700 no-print">
-                <img
-                    src="/main-screen/qr-live-saver.png"
-                    alt=""
-                    className="h-44 w-full object-cover object-center md:h-52"
-                    draggable={false}
-                />
+                {MEDICAL_HERO_IMAGES.map((src, idx) => (
+                    <img
+                        key={src}
+                        src={src}
+                        alt=""
+                        className="absolute inset-0 h-44 w-full object-cover object-center transition-opacity duration-1000 md:h-52"
+                        style={{ opacity: idx === heroImageIndex ? 1 : 0 }}
+                        draggable={false}
+                    />
+                ))}
+                <div className="h-44 md:h-52" />
             </div>
 
             <main className={`flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden ${windowSizeClass === 'compact' ? 'p-4 gap-4' : windowSizeClass === 'medium' ? 'p-6 gap-6' : 'p-8 lg:p-12 gap-12'} bg-transparent`}>
