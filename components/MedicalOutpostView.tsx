@@ -205,7 +205,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
     }, [activeFolder, activeRecord]);
 
     return (
-        <div className="min-h-[92vh] rounded-[3rem] shadow-2xl animate-fade-in font-mono overflow-hidden flex flex-col relative text-zinc-100 border border-slate-700/70 bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800">
+        <div className="min-h-[92vh] rounded-[3rem] shadow-2xl animate-fade-in font-mono overflow-hidden flex flex-col relative text-zinc-100 border border-slate-600/70 bg-gradient-to-b from-slate-800 via-slate-700 to-slate-700">
             <style>{`
                 .qr-fixed-square { aspect-ratio: 1/1; width: 100%; display: flex; align-items: center; justify-content: center; background: white; border-radius: 2rem; position: relative; overflow: hidden; }
                 .qr-img-large { width: 100%; height: 100%; object-fit: contain; flex-shrink: 0; }
@@ -215,7 +215,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
             `}</style>
 
-            <header className="bg-slate-800/95 border-b border-slate-700 px-12 py-8 flex justify-between items-center z-30 shadow-sm no-print backdrop-blur">
+            <header className="bg-slate-700/95 border-b border-slate-500 px-12 py-8 flex justify-between items-center z-30 shadow-sm no-print backdrop-blur">
                 <div className="flex items-center space-x-8">
                     <div className="p-4 bg-cyan-600 rounded-3xl shadow-2xl shadow-cyan-900/20">
                         <ShieldCheck className="w-10 h-10 text-white" />
@@ -227,9 +227,9 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                 </div>
 
                 <div className="flex items-center space-x-8">
-                    <div className="flex bg-slate-900/60 p-1.5 rounded-2xl border border-slate-700">
-                        <button onClick={() => setLanguage('EN')} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${language === 'EN' ? 'bg-slate-700 text-cyan-300' : 'text-slate-400'}`}>EN</button>
-                        <button onClick={() => setLanguage('ES')} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${language === 'ES' ? 'bg-slate-700 text-cyan-300' : 'text-slate-400'}`}>ES</button>
+                    <div className="flex bg-slate-800/70 p-1.5 rounded-2xl border border-slate-500">
+                        <button onClick={() => setLanguage('EN')} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${language === 'EN' ? 'bg-slate-600 text-cyan-200' : 'text-slate-300'}`}>EN</button>
+                        <button onClick={() => setLanguage('ES')} className={`px-6 py-2 rounded-xl text-[10px] font-black transition-all ${language === 'ES' ? 'bg-slate-600 text-cyan-200' : 'text-slate-300'}`}>ES</button>
                     </div>
                     <button onClick={onReturn} className="p-4 hover:bg-zinc-800 rounded-full transition-colors text-zinc-500 hover:text-white">
                         <ArrowLeft className="w-8 h-8" />
@@ -237,21 +237,22 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                 </div>
             </header>
 
-            <div className="relative w-full shrink-0 overflow-hidden border-b border-slate-700 no-print">
+            <div className="relative w-full shrink-0 overflow-hidden border-b border-slate-500 bg-slate-100 no-print">
                 {MEDICAL_HERO_IMAGES.map((src, idx) => (
                     <img
                         key={src}
                         src={src}
                         alt=""
-                        className="absolute inset-0 h-44 w-full object-cover object-center transition-opacity duration-1000 md:h-52"
+                        className="absolute inset-0 h-full w-full object-contain object-center transition-opacity duration-1000"
+                        loading="eager"
                         style={{ opacity: idx === heroImageIndex ? 1 : 0 }}
                         draggable={false}
                     />
                 ))}
-                <div className="h-44 md:h-52" />
+                <div className="h-56 md:h-72" />
             </div>
 
-            <main className={`flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden ${windowSizeClass === 'compact' ? 'p-4 gap-4' : windowSizeClass === 'medium' ? 'p-6 gap-6' : 'p-8 lg:p-12 gap-12'} bg-transparent`}>
+            <main className={`flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden ${windowSizeClass === 'compact' ? 'p-4 gap-4' : windowSizeClass === 'medium' ? 'p-6 gap-6' : 'p-8 lg:p-12 gap-12'} bg-slate-700/20`}>
                 <aside className="lg:col-span-3 space-y-10 no-print">
                     <div className="flex items-center justify-between px-4">
                         <h2 className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Active Records</h2>
@@ -293,7 +294,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                     </div>
                 </aside>
 
-                <div className="lg:col-span-9 bg-slate-800/55 rounded-[4rem] border border-slate-700/70 overflow-y-auto custom-scrollbar p-8 lg:p-16 relative backdrop-blur-sm">
+                <div className="lg:col-span-9 bg-slate-700/60 rounded-[4rem] border border-slate-500/80 overflow-y-auto custom-scrollbar p-8 lg:p-16 relative backdrop-blur-sm">
                     {isCreating ? (
                         <div className="max-w-4xl mx-auto space-y-12 animate-fade-in no-print">
                             <header className="flex justify-between items-start">
