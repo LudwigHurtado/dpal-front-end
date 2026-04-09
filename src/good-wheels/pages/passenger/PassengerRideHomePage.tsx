@@ -15,6 +15,7 @@ import type { VehicleMapType } from '../../features/driver/driverTypes';
 type VehicleType = 'car' | 'comfort' | 'moto' | 'large';
 type ActiveField = 'pickup' | 'dropoff' | null;
 type SheetState  = 'home' | 'search' | 'options';
+type NegotiationState = 'idle' | 'pending' | 'countered' | 'accepted';
 
 /* ─────────────────────────────────────────────
    Map pin SVGs
@@ -171,6 +172,9 @@ const PassengerRideHomePage: React.FC = () => {
   const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
   const [expandedVehicleId, setExpandedVehicleId] = useState<VehicleType | null>('car');
   const [optionsPanelCollapsed, setOptionsPanelCollapsed] = useState(false);
+  const [negotiationState, setNegotiationState] = useState<NegotiationState>('idle');
+  const [driverCounterOffer, setDriverCounterOffer] = useState<number | null>(null);
+  const [negotiationNote, setNegotiationNote] = useState<string | null>(null);
   /** Driving route failed (Directions API / quota) — see `services/googleMapsLoader.ts` */
   const [directionsError, setDirectionsError] = useState<string | null>(null);
 
@@ -180,6 +184,13 @@ const PassengerRideHomePage: React.FC = () => {
     // Reset compact mode when returning to search/home.
     if (sheet !== 'options') setOptionsPanelCollapsed(false);
   }, [sheet]);
+
+  useEffect(() => {
+    // Changing price or vehicle starts a fresh negotiation.
+    setNegotiationState('idle');
+    setDriverCounterOffer(null);
+    setNegotiationNote(null);
+  }, [maxPrice, vehicleType]);
 
   const keepPointVisible = useCallback((pt: LatLng) => {
     if (!mapObjRef.current || !g) return;
@@ -484,9 +495,42 @@ const PassengerRideHomePage: React.FC = () => {
   const handleBroadcast = async () => {
     setActiveField(null);
     setBroadcasting(true);
+    setDraft({
+      notes: `Rider offer $${Number(maxPrice || 0).toFixed(2)} for ${selVehicle.label}`,
+    });
     await requestRide();
     setBroadcasting(false);
     navigate(GW_PATHS.passenger.active);
+  };
+
+  const handleSendOffer = () => {
+    const offer = Number(maxPrice);
+    if (!Number.isFinite(offer) || offer <= 0) return;
+    setNegotiationState('pending');
+    setNegotiationNote('Sending offer to nearby drivers...');
+    window.setTimeout(() => {
+      // Demo negotiation behavior: drivers may counter slightly above rider offer.
+      const counter = Number((offer + 0.5).toFixed(2));
+      setDriverCounterOffer(counter);
+      setNegotiationState('countered');
+      setNegotiationNote(`Driver countered at $${counter.toFixed(2)}. Accept or keep your offer.`);
+    }, 900);
+  };
+
+  const handleAcceptCounter = async () => {
+    if (!driverCounterOffer) return;
+    setMaxPrice(driverCounterOffer.toFixed(2));
+    setNegotiationState('accepted');
+    setNegotiationNote(`Counter accepted at $${driverCounterOffer.toFixed(2)}. Dispatching ride...`);
+    await handleBroadcast();
+  };
+
+  const handleKeepMyOffer = async () => {
+    const offer = Number(maxPrice);
+    if (!Number.isFinite(offer) || offer <= 0) return;
+    setNegotiationState('accepted');
+    setNegotiationNote(`Keeping your offer at $${offer.toFixed(2)}. Dispatching ride...`);
+    await handleBroadcast();
   };
 
   const handleTabClick = (tab: typeof activeTab) => {
@@ -938,12 +982,39 @@ const PassengerRideHomePage: React.FC = () => {
             <div style={{ padding: '14px 20px 6px' }}>
               <button
                 type="button"
-                style={S.confirmBtn(broadcasting || !maxPrice)}
-                disabled={broadcasting || !maxPrice}
-                onClick={handleBroadcast}
+                style={S.confirmBtn(broadcasting || !maxPrice || negotiationState === 'pending')}
+                disabled={broadcasting || !maxPrice || negotiationState === 'pending'}
+                onClick={handleSendOffer}
               >
-                {broadcasting ? <><Spinner color="white" /> Broadcasting…</> : confirmLabel}
+                {negotiationState === 'pending'
+                  ? <><Spinner color="white" /> Negotiating…</>
+                  : (broadcasting
+                    ? <><Spinner color="white" /> Broadcasting…</>
+                    : `Negotiate ${selVehicle.label}`)}
               </button>
+              {negotiationState === 'countered' && driverCounterOffer !== null && (
+                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => void handleAcceptCounter()}
+                    style={{ flex: 1, border: 'none', borderRadius: 10, background: '#0077C8', color: '#fff', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Accept ${driverCounterOffer.toFixed(2)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleKeepMyOffer()}
+                    style={{ flex: 1, border: '1px solid #CBD5E1', borderRadius: 10, background: '#fff', color: '#111827', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                  >
+                    Keep my offer
+                  </button>
+                </div>
+              )}
+              {negotiationNote && (
+                <p style={{ textAlign: 'center', fontSize: 11, color: '#334155', fontWeight: 700, margin: '8px 0 2px' }}>
+                  {negotiationNote}
+                </p>
+              )}
               {selectedCharity ? (
                 <p style={{ textAlign: 'center', fontSize: 11, color: '#10b981', fontWeight: 700, margin: '8px 0 2px' }}>
                   ❤️ {CHARITIES.find(c => c.id === selectedCharity)?.name} will receive 10% of your fare
