@@ -177,10 +177,16 @@ const PassengerRideHomePage: React.FC = () => {
   const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
   const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
   const [expandedVehicleId, setExpandedVehicleId] = useState<VehicleType | null>('car');
+  const [optionsPanelCollapsed, setOptionsPanelCollapsed] = useState(false);
   /** Driving route failed (Directions API / quota) — see `services/googleMapsLoader.ts` */
   const [directionsError, setDirectionsError] = useState<string | null>(null);
 
   const bothSet = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
+
+  useEffect(() => {
+    // Reset compact mode when returning to search/home.
+    if (sheet !== 'options') setOptionsPanelCollapsed(false);
+  }, [sheet]);
 
   /* Load driver vehicle data so we have the real vehicle color for the map marker */
   const hydrateDriver = useDriverStore((s) => s.hydrate);
@@ -510,7 +516,20 @@ const PassengerRideHomePage: React.FC = () => {
     pinHint: { position: 'absolute' as const, top: 76, left: '50%', transform: 'translateX(-50%)', background: 'white', borderRadius: 24, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 25, whiteSpace: 'nowrap' as const, fontSize: 13, fontWeight: 600, color: '#111827' },
 
     /* Bottom sheet wrapper */
-    sheet: { position: 'absolute' as const, bottom: 0, left: 0, right: 0, background: 'white', borderRadius: '20px 20px 0 0', zIndex: 30, boxShadow: '0 -4px 30px rgba(0,0,0,0.12)' },
+    sheet: {
+      position: 'absolute' as const,
+      bottom: 0,
+      left: 0,
+      right: 0,
+      background: 'white',
+      borderRadius: '20px 20px 0 0',
+      zIndex: 30,
+      boxShadow: '0 -4px 30px rgba(0,0,0,0.12)',
+      maxHeight: sheet === 'search' ? '36dvh' : (sheet === 'options' ? (optionsPanelCollapsed ? '24dvh' : '50dvh') : '58dvh'),
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column' as const,
+    },
     handle: { width: 36, height: 4, background: '#E5E7EB', borderRadius: 2, margin: '10px auto 0' },
 
     /* Search input row */
@@ -526,9 +545,10 @@ const PassengerRideHomePage: React.FC = () => {
     vehicleEmoji: { fontSize: 28, width: 44, textAlign: 'center' as const },
     vehicleInfo: { flex: 1 },
     vehiclePrice: (selected: boolean) => ({ fontSize: 15, fontWeight: 900, color: selected ? '#0077C8' : '#111827' }),
-    vehicleExpandBtn: { width: 26, height: 26, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 as const },
+    vehicleExpandBtn: { width: 26, height: 26, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 as const },
     vehicleDetailsWrap: { padding: '0 20px 12px 78px', background: '#F8FAFC', borderBottom: '1px solid #F3F4F6' },
     vehicleDetailsChip: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 10px', background: '#E0F2FE', color: '#0369A1', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginRight: 6 },
+    routeCollapseBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 as const },
 
     /* Confirm button */
     confirmBtn: (disabled: boolean) => ({ width: '100%', height: 54, borderRadius: 14, background: disabled ? '#9CA3AF' : '#0077C8', border: 'none', color: 'white', fontSize: 16, fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }),
@@ -639,7 +659,7 @@ const PassengerRideHomePage: React.FC = () => {
 
         {/* ════ STATE: SEARCH ════ */}
         {sheet === 'search' && (
-          <div style={{ padding: '12px 20px 0' }}>
+          <div style={{ padding: '12px 20px 0', overflowY: 'auto' }}>
             {/* Back + current location bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
               <button
@@ -716,25 +736,14 @@ const PassengerRideHomePage: React.FC = () => {
               </div>
             )}
 
-            {/* Map tap shortcuts */}
-            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-              {!pickupLL && (
-                <button type="button" onClick={() => setActiveField('pickup')} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#374151', background: '#F3F4F6', border: 'none', borderRadius: 8, padding: '9px 12px', cursor: 'pointer' }}>
-                  📍 Tap map for pickup
-                </button>
-              )}
-              {!dropoffLL && (
-                <button type="button" onClick={() => setActiveField('dropoff')} style={{ flex: 1, fontSize: 12, fontWeight: 600, color: '#0077C8', background: '#EFF6FF', border: 'none', borderRadius: 8, padding: '9px 12px', cursor: 'pointer' }}>
-                  📍 Tap map for dropoff
-                </button>
-              )}
-            </div>
+            {/* Keep search minimal so map stays visible */}
+            <div style={{ height: 8 }} />
           </div>
         )}
 
         {/* ════ STATE: RIDE OPTIONS ════ */}
         {sheet === 'options' && (
-          <div>
+          <div style={{ overflowY: 'auto' }}>
             {/* Route bar */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid #F3F4F6' }}>
               <button
@@ -757,6 +766,16 @@ const PassengerRideHomePage: React.FC = () => {
                   {dropoffText.split(',')[0]}
                 </div>
               </div>
+              <button
+                type="button"
+                aria-label={optionsPanelCollapsed ? 'Expand ride options' : 'Collapse ride options'}
+                onClick={() => setOptionsPanelCollapsed((prev) => !prev)}
+                style={S.routeCollapseBtn}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: optionsPanelCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+                  <path d="M3 5l4 4 4-4" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
             </div>
 
             {/* Vehicle options */}
@@ -772,7 +791,6 @@ const PassengerRideHomePage: React.FC = () => {
                       style={S.vehicleRow(sel)}
                       onClick={() => {
                         setVehicleType(v.id as VehicleType);
-                        setExpandedVehicleId((prev) => (prev === v.id ? null : v.id));
                       }}
                     >
                       <div style={S.vehicleEmoji}>{v.emoji}</div>
@@ -812,6 +830,8 @@ const PassengerRideHomePage: React.FC = () => {
               })}
             </div>
 
+            {!optionsPanelCollapsed && (
+              <>
             {/* ── Charity selector ── */}
             <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 20px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -925,6 +945,8 @@ const PassengerRideHomePage: React.FC = () => {
                 </p>
               )}
             </div>
+              </>
+            )}
           </div>
         )}
 
