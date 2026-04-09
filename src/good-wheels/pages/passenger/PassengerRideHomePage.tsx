@@ -172,6 +172,7 @@ const PassengerRideHomePage: React.FC = () => {
   const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
   const [expandedVehicleId, setExpandedVehicleId] = useState<VehicleType | null>('car');
   const [optionsPanelCollapsed, setOptionsPanelCollapsed] = useState(false);
+  const [homePanelCollapsed, setHomePanelCollapsed] = useState(false);
   const [negotiationState, setNegotiationState] = useState<NegotiationState>('idle');
   const [driverCounterOffer, setDriverCounterOffer] = useState<number | null>(null);
   const [negotiationNote, setNegotiationNote] = useState<string | null>(null);
@@ -616,6 +617,7 @@ const PassengerRideHomePage: React.FC = () => {
     /* Bottom tabs */
     tabBar: { display: 'flex', borderTop: '1px solid #F3F4F6', background: 'white' },
     tab: (active: boolean) => ({ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 2, padding: '10px 0 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, fontWeight: active ? 700 : 500, color: active ? '#0077C8' : '#9CA3AF' }),
+    homeCollapseBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 as const },
   };
 
   /* ─────────────────────────────────────────────
@@ -687,7 +689,19 @@ const PassengerRideHomePage: React.FC = () => {
         {sheet === 'home' && (
           <div style={{ padding: '16px 20px 0' }}>
             <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 2px', fontWeight: 500 }}>{greeting()}, {userName}</p>
-            <h2 style={{ fontSize: 24, fontWeight: 900, color: '#111827', margin: '0 0 16px', lineHeight: 1.2 }}>Where are you going?</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
+              <h2 style={{ fontSize: 24, fontWeight: 900, color: '#111827', margin: 0, lineHeight: 1.2 }}>Where are you going?</h2>
+              <button
+                type="button"
+                aria-label={homePanelCollapsed ? 'Expand home panel' : 'Collapse home panel'}
+                onClick={() => setHomePanelCollapsed((prev) => !prev)}
+                style={S.homeCollapseBtn}
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: homePanelCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+                  <path d="M3 5l4 4 4-4" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+            </div>
 
             {/* Search trigger */}
             <button
@@ -702,19 +716,20 @@ const PassengerRideHomePage: React.FC = () => {
               <span style={{ fontSize: 15, color: '#9CA3AF', fontWeight: 500, fontFamily: 'inherit' }}>Search destination</span>
             </button>
 
-            {/* Map-first A/B flow */}
-            <div style={{ marginBottom: 16, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px 12px' }}>
-              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#334155' }}>
-                Place <strong>A</strong> (pickup) and <strong>B</strong> (dropoff) directly on the map.
-              </p>
-              <button
-                type="button"
-                onClick={() => { setSheet('search'); setActiveField('pickup'); }}
-                style={{ marginTop: 8, width: '100%', border: 'none', borderRadius: 10, padding: '10px 12px', background: '#EFF6FF', color: '#0369A1', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-              >
-                Start placing A -> B
-              </button>
-            </div>
+            {!homePanelCollapsed && (
+              <div style={{ marginBottom: 16, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px 12px' }}>
+                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#334155' }}>
+                  Place <strong>A</strong> (pickup) and <strong>B</strong> (dropoff) directly on the map.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => { setSheet('search'); setActiveField('pickup'); }}
+                  style={{ marginTop: 8, width: '100%', border: 'none', borderRadius: 10, padding: '10px 12px', background: '#EFF6FF', color: '#0369A1', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                >
+                  Start placing A -> B
+                </button>
+              </div>
+            )}
           </div>
         )}
 
