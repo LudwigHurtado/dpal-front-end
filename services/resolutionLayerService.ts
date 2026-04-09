@@ -53,6 +53,12 @@ const upsertLocal = (record: ResolutionCaseRecord): void => {
 
 type PersistResult = { ok: boolean; endpoint: string; status?: number; error?: string };
 export type RewardIssueResult = { ok: boolean; newBalance?: number; ledgerEntryId?: string; error?: string };
+export type ResolutionRouteSeed = { destination: string; channel: string; target?: string };
+export type MockResolutionSeed = ResolutionCaseRecord & {
+  validatorNodeId: string;
+  walletAddress?: string;
+  routes: ResolutionRouteSeed[];
+};
 
 const postJson = async (path: string, body: unknown): Promise<Response | null> => {
   const apiBase = getApiBase().replace(/\/$/, '');
@@ -269,4 +275,137 @@ export function subscribeResolutionEvents(onEvent: (event: any) => void): () => 
     // browser will auto-reconnect for EventSource
   };
   return () => stream.close();
+}
+
+export const MOCK_VALIDATOR_PIPELINE_CASES: MockResolutionSeed[] = [
+  {
+    id: 'DPAL-2026-MOCK-1001',
+    title: 'Unsafe apartment wiring after landlord no-show',
+    category: 'Housing Conditions',
+    location: 'Santa Cruz, Bolivia',
+    severity: 'High',
+    status: 'Verified',
+    entity: 'Landlord / Property Manager',
+    reporter: 'Community Reporter',
+    verifier: 'Regional Validator Node',
+    resolutionScore: 78,
+    responseSla: '48 hours',
+    lastUpdate: new Date().toLocaleString(),
+    summary: 'Validator confirmed repeated electrical hazard with child exposure risk.',
+    publicImpact: 'Fire risk and unstable housing conditions for minors.',
+    nextAction: 'Escalate to housing office and legal aid for urgent intervention.',
+    validatorNodeId: 'validator-node-housing-01',
+    routes: [
+      { destination: 'Municipal Housing Office', channel: 'email' },
+      { destination: 'Community Legal Aid Network', channel: 'api' },
+      { destination: 'Family Safety Volunteer Team', channel: 'queue' },
+    ],
+  },
+  {
+    id: 'DPAL-2026-MOCK-1002',
+    title: 'School sanitation failure despite prior warning',
+    category: 'School Neglect / Underfunding',
+    location: 'El Alto, Bolivia',
+    severity: 'Medium',
+    status: 'Verified',
+    entity: 'School Administration',
+    reporter: 'Parent Coalition',
+    verifier: 'Education Validator Node',
+    resolutionScore: 64,
+    responseSla: '72 hours',
+    lastUpdate: new Date().toLocaleString(),
+    summary: 'Evidence bundle confirms contamination pattern in student meal prep area.',
+    publicImpact: 'Child food safety and health exposure risk.',
+    nextAction: 'Escalate to district health office and inspector queue.',
+    validatorNodeId: 'validator-node-education-01',
+    routes: [
+      { destination: 'District Health Office', channel: 'api' },
+      { destination: 'School Oversight Board', channel: 'email' },
+      { destination: 'Parent Alert Network', channel: 'sms' },
+    ],
+  },
+  {
+    id: 'DPAL-2026-MOCK-1003',
+    title: 'Road sinkhole unresolved past city commitment date',
+    category: 'Road Hazards',
+    location: 'La Paz, Bolivia',
+    severity: 'High',
+    status: 'Verified',
+    entity: 'Municipal Roads Department',
+    reporter: 'Neighborhood Mission Team',
+    verifier: 'Infrastructure Validator Node',
+    resolutionScore: 58,
+    responseSla: '7 days',
+    lastUpdate: new Date().toLocaleString(),
+    summary: 'Validator confirms safety hazard persists after published repair promise.',
+    publicImpact: 'Vehicle damage and pedestrian injury risk in active traffic corridor.',
+    nextAction: 'Escalate and publish unresolved marker to accountability scorecard.',
+    validatorNodeId: 'validator-node-infra-01',
+    routes: [
+      { destination: 'Public Works Intake', channel: 'api' },
+      { destination: 'Traffic Safety Unit', channel: 'email' },
+      { destination: 'Citizen Watch Channel', channel: 'queue' },
+    ],
+  },
+  {
+    id: 'DPAL-2026-MOCK-1004',
+    title: 'Clinic medication stockout despite emergency request',
+    category: 'Medical Negligence',
+    location: 'Cochabamba, Bolivia',
+    severity: 'Critical',
+    status: 'Verified',
+    entity: 'Regional Public Clinic',
+    reporter: 'Caregiver Group',
+    verifier: 'Health Validator Node',
+    resolutionScore: 86,
+    responseSla: '24 hours',
+    lastUpdate: new Date().toLocaleString(),
+    summary: 'Validator confirmed medicine stockout with prior documented emergency request.',
+    publicImpact: 'Immediate treatment interruption for vulnerable patients.',
+    nextAction: 'Escalate to health authority and emergency medicine response partner.',
+    validatorNodeId: 'validator-node-health-01',
+    routes: [
+      { destination: 'Regional Health Authority', channel: 'api' },
+      { destination: 'Emergency Medicine Partner', channel: 'email' },
+      { destination: 'Crisis Volunteer Dispatch', channel: 'queue' },
+    ],
+  },
+];
+
+export async function runMockValidatorPipeline(seed: MockResolutionSeed): Promise<PersistResult> {
+  upsertLocal(seed);
+
+  const eventRes = await postJson('/api/resolution/events', {
+    eventType: 'case.verified',
+    caseId: seed.id,
+    validatorNodeId: seed.validatorNodeId,
+    title: seed.title,
+    category: seed.category,
+    location: seed.location,
+    severity: seed.severity,
+    entity: seed.entity,
+    reporter: seed.reporter,
+    verifier: seed.verifier,
+    summary: seed.summary,
+    publicImpact: seed.publicImpact,
+    nextAction: seed.nextAction,
+    resolutionScore: seed.resolutionScore,
+    responseSlaHours: parseInt(seed.responseSla, 10) || 48,
+    walletAddress: seed.walletAddress,
+    actor: seed.validatorNodeId,
+    payload: { mock: true, source: 'frontend-mock-validator' },
+  });
+  if (!eventRes?.ok) {
+    return { ok: false, endpoint: '/api/resolution/events', status: eventRes?.status, error: 'Failed validator event ingestion' };
+  }
+
+  const escRes = await postJson('/api/resolution/escalate', {
+    caseId: seed.id,
+    routes: seed.routes,
+  });
+  if (!escRes?.ok) {
+    return { ok: false, endpoint: '/api/resolution/escalate', status: escRes?.status, error: 'Validator event ingested, escalation queue failed' };
+  }
+
+  return { ok: true, endpoint: '/api/resolution/escalate', status: escRes.status };
 }

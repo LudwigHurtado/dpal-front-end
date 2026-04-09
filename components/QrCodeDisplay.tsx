@@ -1,6 +1,7 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { QrCode, ShieldCheck, X, Broadcast } from './icons';
+import { anchorQrPayloadOnChain } from '../services/qrBlockchainService';
 
 interface QrCodeDisplayProps {
     type: 'mission' | 'report' | 'nft';
@@ -13,6 +14,8 @@ interface QrCodeDisplayProps {
 }
 
 const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoinSitRep, brandImageUrl, brandImageAlt }) => {
+    const [chainStatus, setChainStatus] = useState<'pending' | 'anchored' | 'failed'>('pending');
+    const [blockNumber, setBlockNumber] = useState<number | null>(null);
     const baseUrl = window.location.origin;
     const deepLinkUrl =
         type === 'mission'
@@ -21,6 +24,30 @@ const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoin
               ? `${baseUrl}?reportId=${encodeURIComponent(id)}&situationRoom=1`
               : `${baseUrl}?reportId=${encodeURIComponent(id)}`;
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(deepLinkUrl)}&bgcolor=000000&color=06b6d4&margin=20`;
+
+    useEffect(() => {
+        let active = true;
+        setChainStatus('pending');
+        void anchorQrPayloadOnChain({
+            scope: `qr-${type}`,
+            id,
+            title: `DPAL ${type.toUpperCase()} QR`,
+            description: `QR deep link anchored: ${deepLinkUrl}`,
+            location: baseUrl.replace('https://', ''),
+            trustScore: 95,
+        }).then((result) => {
+            if (!active) return;
+            if (result.ok && result.block) {
+                setBlockNumber(result.block.index);
+                setChainStatus('anchored');
+            } else {
+                setChainStatus('failed');
+            }
+        });
+        return () => {
+            active = false;
+        };
+    }, [baseUrl, deepLinkUrl, id, type]);
 
     return (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
@@ -64,6 +91,9 @@ const QrCodeDisplay: React.FC<QrCodeDisplayProps> = ({ type, id, onClose, onJoin
                         <p className="text-[10px] font-mono text-zinc-400 break-all leading-relaxed">
                             BLOCK_REF: {id.toUpperCase()}<br/>
                             DOMAIN: {baseUrl.replace('https://', '')}
+                        </p>
+                        <p className="mt-2 text-[10px] font-mono text-cyan-300 leading-relaxed">
+                            CHAIN_STATUS: {chainStatus === 'anchored' ? `ANCHORED (#${blockNumber ?? 'n/a'})` : chainStatus === 'pending' ? 'SEALING' : 'FAILED'}
                         </p>
                     </div>
 

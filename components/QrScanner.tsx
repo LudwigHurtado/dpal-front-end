@@ -1,6 +1,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Camera, X, Loader, ShieldCheck, Target, RefreshCw } from './icons';
+import { anchorQrPayloadOnChain } from '../services/qrBlockchainService';
 
 interface QrScannerProps {
     onScan: (data: string) => void;
@@ -68,7 +69,16 @@ const QrScanner: React.FC<QrScannerProps> = ({ onScan, onClose }) => {
             timestamp: Date.now()
         };
         const baseUrl = window.location.origin;
-        onScan(`${baseUrl}?parcelId=${encodeURIComponent(JSON.stringify(dummyParcel))}`);
+        const payload = `${baseUrl}?parcelId=${encodeURIComponent(JSON.stringify(dummyParcel))}`;
+        void anchorQrPayloadOnChain({
+            scope: 'scanner-simulated',
+            id: `parcel-${dummyParcel.id}`,
+            title: 'Simulated QR scan payload',
+            description: payload,
+            location: 'Scanner',
+            trustScore: 70,
+        });
+        onScan(payload);
     };
 
     return (

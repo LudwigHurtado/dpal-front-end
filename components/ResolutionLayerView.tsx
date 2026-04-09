@@ -5,8 +5,10 @@ import {
   fetchResolutionCasesFromApi,
   getLocalResolutionCases,
   issueResolutionReward,
+  MOCK_VALIDATOR_PIPELINE_CASES,
   persistResolutionCase,
   progressResolutionCase,
+  runMockValidatorPipeline,
   submitCorrectionProof,
   subscribeResolutionEvents,
   type ResolutionCaseRecord,
@@ -129,6 +131,7 @@ const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn, onI
   const [isEscalating, setIsEscalating] = useState(false);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [isProgressing, setIsProgressing] = useState(false);
+  const [isRunningMock, setIsRunningMock] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -271,6 +274,29 @@ const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn, onI
     setActionMessage(proof.ok ? 'Proof package logged to backend audit trail.' : proof.error ?? 'Proof upload failed.');
   };
 
+  const runMockSet = async (): Promise<void> => {
+    setIsRunningMock(true);
+    setActionMessage('Running validator -> resolution mock pipeline for 4 cases...');
+    let okCount = 0;
+    for (const seed of MOCK_VALIDATOR_PIPELINE_CASES) {
+      const result = await runMockValidatorPipeline({
+        ...seed,
+        walletAddress: walletAddress || seed.walletAddress,
+      });
+      if (result.ok) okCount += 1;
+    }
+    const remoteRows = await fetchResolutionCasesFromApi();
+    if (remoteRows.length > 0) {
+      setRuntimeCases((prev) => {
+        const map = new Map(prev.map((row) => [row.id, row]));
+        for (const row of remoteRows) map.set(row.id, row as ResolutionCase);
+        return Array.from(map.values());
+      });
+    }
+    setActionMessage(`Mock pipeline complete: ${okCount}/${MOCK_VALIDATOR_PIPELINE_CASES.length} cases successfully escalated with channels.`);
+    setIsRunningMock(false);
+  };
+
   return (
     <section className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24">
       <div className="rounded-3xl border dpal-border-subtle dpal-bg-panel p-5 md:p-6">
@@ -279,6 +305,16 @@ const ResolutionLayerView: React.FC<ResolutionLayerViewProps> = ({ onReturn, onI
             <p className="text-xs uppercase tracking-wider text-cyan-300">DPAL Resolution Layer</p>
             <h2 className="mt-2 text-2xl font-bold text-white">Truth to Action to Outcome</h2>
             <p className="mt-2 text-sm text-slate-300">Track verified cases from escalation through confirmation of correction.</p>
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={runMockSet}
+                disabled={isRunningMock}
+                className="rounded-lg border border-cyan-400/30 bg-cyan-500/15 px-3 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/25 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isRunningMock ? 'Running Mock Pipeline...' : 'Run 4 Mock Validator Cases (All Channels)'}
+              </button>
+            </div>
           </div>
           <button
             type="button"
