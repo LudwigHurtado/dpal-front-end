@@ -176,6 +176,7 @@ const PassengerRideHomePage: React.FC = () => {
   const [broadcasting, setBroadcasting]   = useState(false);
   const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
   const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
+  const [expandedVehicleId, setExpandedVehicleId] = useState<VehicleType | null>('car');
   /** Driving route failed (Directions API / quota) — see `services/googleMapsLoader.ts` */
   const [directionsError, setDirectionsError] = useState<string | null>(null);
 
@@ -525,6 +526,9 @@ const PassengerRideHomePage: React.FC = () => {
     vehicleEmoji: { fontSize: 28, width: 44, textAlign: 'center' as const },
     vehicleInfo: { flex: 1 },
     vehiclePrice: (selected: boolean) => ({ fontSize: 15, fontWeight: 900, color: selected ? '#0077C8' : '#111827' }),
+    vehicleExpandBtn: { width: 26, height: 26, borderRadius: '50%', border: '1px solid #E5E7EB', background: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 as const },
+    vehicleDetailsWrap: { padding: '0 20px 12px 78px', background: '#F8FAFC', borderBottom: '1px solid #F3F4F6' },
+    vehicleDetailsChip: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 10px', background: '#E0F2FE', color: '#0369A1', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginRight: 6 },
 
     /* Confirm button */
     confirmBtn: (disabled: boolean) => ({ width: '100%', height: 54, borderRadius: 14, background: disabled ? '#9CA3AF' : '#0077C8', border: 'none', color: 'white', fontSize: 16, fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }),
@@ -760,17 +764,47 @@ const PassengerRideHomePage: React.FC = () => {
               {VEHICLES.map((v) => {
                 const sel = v.id === vehicleType;
                 const price = (BASE_FARE * v.mult).toFixed(2);
+                const isExpanded = expandedVehicleId === v.id;
+                const donationEstimate = (BASE_FARE * v.mult * 0.1).toFixed(2);
                 return (
-                  <div key={v.id} style={S.vehicleRow(sel)} onClick={() => setVehicleType(v.id as VehicleType)}>
-                    <div style={S.vehicleEmoji}>{v.emoji}</div>
-                    <div style={S.vehicleInfo}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{v.label}</div>
-                      <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>{v.sub} · {v.eta}</div>
+                  <div key={v.id}>
+                    <div
+                      style={S.vehicleRow(sel)}
+                      onClick={() => {
+                        setVehicleType(v.id as VehicleType);
+                        setExpandedVehicleId((prev) => (prev === v.id ? null : v.id));
+                      }}
+                    >
+                      <div style={S.vehicleEmoji}>{v.emoji}</div>
+                      <div style={S.vehicleInfo}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{v.label}</div>
+                        <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>{v.sub} · {v.eta}</div>
+                      </div>
+                      <div style={S.vehiclePrice(sel)}>${price}</div>
+                      {sel && (
+                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#0077C8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        aria-label={isExpanded ? `Collapse ${v.label} details` : `Expand ${v.label} details`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setExpandedVehicleId((prev) => (prev === v.id ? null : v.id));
+                        }}
+                        style={S.vehicleExpandBtn}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+                          <path d="M2 4l4 4 4-4" stroke="#64748B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
                     </div>
-                    <div style={S.vehiclePrice(sel)}>${price}</div>
-                    {sel && (
-                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#0077C8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    {isExpanded && (
+                      <div style={S.vehicleDetailsWrap}>
+                        <span style={S.vehicleDetailsChip}>ETA {v.eta}</span>
+                        <span style={S.vehicleDetailsChip}>Fare x{v.mult.toFixed(2)}</span>
+                        <span style={S.vehicleDetailsChip}>Donation ~ ${donationEstimate}</span>
                       </div>
                     )}
                   </div>
