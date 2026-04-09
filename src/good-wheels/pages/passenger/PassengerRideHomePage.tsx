@@ -136,6 +136,9 @@ const PassengerRideHomePage: React.FC = () => {
   const draft      = useTripStore((s) => s.draft);
   const setDraft   = useTripStore((s) => s.setDraft);
   const requestRide = useTripStore((s) => s.requestRide);
+  const hydrateTrips = useTripStore((s) => s.hydrate);
+  const clearActiveTrip = useTripStore((s) => s.clearActiveTrip);
+  const clearDraft = useTripStore((s) => s.clearDraft);
   /* Driver vehicle — used so the map shows the driver's real car color */
   const driverVehicle = useDriverStore((s) => s.vehicle);
   const { google: g, ready } = useGoogleMaps();
@@ -548,6 +551,29 @@ const PassengerRideHomePage: React.FC = () => {
     else if (tab === 'profile') navigate(GW_PATHS.auth.profile);
   };
 
+  const handleCancelRideState = () => {
+    clearActiveTrip();
+    clearDraft();
+    setPickupText('');
+    setDropoffText('');
+    setPickupLL(null);
+    setDropoffLL(null);
+    setPickupPreds([]);
+    setDropoffPreds([]);
+    setSheet('home');
+    setNegotiationState('idle');
+    setDriverCounterOffer(null);
+    setNegotiationNote('Ride was canceled. Start a new request when ready.');
+  };
+
+  const handleRefreshRideState = async () => {
+    if (!user?.id) return;
+    setNegotiationNote('Refreshing ride state...');
+    await hydrateTrips(user.id);
+    setNegotiationState('idle');
+    setDriverCounterOffer(null);
+  };
+
   const greeting = () => {
     const h = new Date().getHours();
     if (h < 12) return 'Good morning';
@@ -664,13 +690,33 @@ const PassengerRideHomePage: React.FC = () => {
             <rect y="15" width="20" height="2" rx="1" fill="#111827" />
           </svg>
         </button>
-        <button
-          style={S.topBarBtn}
-          title="My location"
-          onClick={handlePickupGps}
-        >
-          {locatingPickup ? <Spinner /> : <GpsIcon size={20} color="#0077C8" />}
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
+          <button
+            type="button"
+            onClick={() => void handleRefreshRideState()}
+            style={{ ...S.topBarBtn, width: 42, height: 42 }}
+            title="Refresh ride"
+            aria-label="Refresh ride state"
+          >
+            <span style={{ fontSize: 15 }}>↻</span>
+          </button>
+          <button
+            type="button"
+            onClick={handleCancelRideState}
+            style={{ ...S.topBarBtn, width: 42, height: 42 }}
+            title="Cancel ride"
+            aria-label="Cancel current ride state"
+          >
+            <span style={{ fontSize: 13 }}>✕</span>
+          </button>
+          <button
+            style={S.topBarBtn}
+            title="My location"
+            onClick={handlePickupGps}
+          >
+            {locatingPickup ? <Spinner /> : <GpsIcon size={20} color="#0077C8" />}
+          </button>
+        </div>
       </div>
 
       {/* ── PIN MODE HINT ── */}

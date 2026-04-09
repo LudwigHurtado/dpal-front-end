@@ -31,6 +31,39 @@ const EMPTY_DRAFT: RideRequestDraft = {
   familySafe: true,
 };
 
+const ACTIVE_TRIP_MARKER_KEY = 'gw_active_trip_marker_v1';
+
+const setActiveTripMarker = (trip: Trip) => {
+  try {
+    localStorage.setItem(
+      ACTIVE_TRIP_MARKER_KEY,
+      JSON.stringify({
+        id: trip.id,
+        status: trip.status,
+        updatedAtIso: trip.updatedAtIso,
+      }),
+    );
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const clearActiveTripMarker = () => {
+  try {
+    localStorage.removeItem(ACTIVE_TRIP_MARKER_KEY);
+  } catch {
+    // ignore storage failures
+  }
+};
+
+const hasActiveTripMarker = (): boolean => {
+  try {
+    return Boolean(localStorage.getItem(ACTIVE_TRIP_MARKER_KEY));
+  } catch {
+    return false;
+  }
+};
+
 export const useTripStore = create<TripState>((set, get) => ({
   activeTrip: null,
   history: [],
@@ -48,7 +81,11 @@ export const useTripStore = create<TripState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const [active, hist] = await Promise.all([tripService.getActiveTrip(userId), tripService.listHistory(userId)]);
-      set({ activeTrip: active, history: hist, loading: false });
+      const keepActive =
+        Boolean(active) &&
+        Boolean(active && !TERMINAL_STATUSES.has(active.status)) &&
+        hasActiveTripMarker();
+      set({ activeTrip: keepActive ? active : null, history: hist, loading: false });
     } catch {
       set({ loading: false, error: 'Could not load trips.' });
     }
@@ -80,6 +117,7 @@ export const useTripStore = create<TripState>((set, get) => ({
     });
     try {
       const trip = await tripService.requestTrip(draft);
+      setActiveTripMarker(trip);
       set({
         activeTrip: {
           ...trip,
@@ -101,9 +139,12 @@ export const useTripStore = create<TripState>((set, get) => ({
     }
   },
   setActiveTrip(trip) {
+    if (TERMINAL_STATUSES.has(trip.status)) clearActiveTripMarker();
+    else setActiveTripMarker(trip);
     set({ activeTrip: trip, error: null });
   },
   clearActiveTrip() {
+    clearActiveTripMarker();
     set({ activeTrip: null, error: null });
   },
   clearLastTerminalTrip() {
@@ -126,12 +167,14 @@ export const useTripStore = create<TripState>((set, get) => ({
       updatedAtIso: new Date().toISOString(),
     };
     if (TERMINAL_STATUSES.has(status)) {
+      clearActiveTripMarker();
       set((s) => ({
         activeTrip: null,
         lastTerminalTrip: next,
         history: [next, ...s.history],
       }));
     } else {
+      setActiveTripMarker(next);
       set({ activeTrip: next });
     }
     if (timelineLabel) get().appendTimelineEvent(timelineLabel, timelineDetail);
