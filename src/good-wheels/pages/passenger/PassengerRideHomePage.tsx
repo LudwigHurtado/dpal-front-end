@@ -93,13 +93,6 @@ const CHARITIES: Charity[] = [
 /* ─────────────────────────────────────────────
    Saved places
 ───────────────────────────────────────────── */
-const SAVED_PLACES = [
-  { icon: '🏠', label: 'Home',       sub: 'Add home address',    color: '#0077C8' },
-  { icon: '💼', label: 'Add work',   sub: 'Save work address',   color: '#6B7280' },
-  { icon: '🎓', label: 'School',     sub: '5400 E Harrison St',  color: '#7C3AED' },
-  { icon: '💪', label: 'Gym',        sub: '623 19th Ave E',      color: '#059669' },
-];
-
 /* ─────────────────────────────────────────────
    GPS icon (small inline)
 ───────────────────────────────────────────── */
@@ -188,6 +181,15 @@ const PassengerRideHomePage: React.FC = () => {
     if (sheet !== 'options') setOptionsPanelCollapsed(false);
   }, [sheet]);
 
+  const keepPointVisible = useCallback((pt: LatLng) => {
+    if (!mapObjRef.current || !g) return;
+    mapObjRef.current.panTo(pt);
+    // Lift the focal point so it is not hidden behind the bottom sheet.
+    g.maps.event.addListenerOnce(mapObjRef.current, 'idle', () => {
+      mapObjRef.current?.panBy(0, -160);
+    });
+  }, [g]);
+
   /* Load driver vehicle data so we have the real vehicle color for the map marker */
   const hydrateDriver = useDriverStore((s) => s.hydrate);
   useEffect(() => {
@@ -241,17 +243,19 @@ const PassengerRideHomePage: React.FC = () => {
         if (activeField === 'pickup') {
           setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
           setDraft({ pickup: { label: 'Pickup', addressLine: addr, point: pt } });
+          keepPointVisible(pt);
           setActiveField('dropoff');
         } else {
           setDropoffText(addr); setDropoffLL(pt); setDropoffPreds([]);
           setDraft({ dropoff: { label: 'Dropoff', addressLine: addr, point: pt } });
+          keepPointVisible(pt);
           setActiveField(null);
         }
       });
     });
     return () => { mapClickListenerRef.current?.remove(); mapClickListenerRef.current = null; mapObjRef.current?.setOptions({ draggableCursor: '' }); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [g, activeField]);
+  }, [g, activeField, keepPointVisible]);
 
   /* ── Stop route animation helper ── */
   const stopRouteAnimation = useCallback(() => {
@@ -421,16 +425,18 @@ const PassengerRideHomePage: React.FC = () => {
           if (mode === 'pickup') {
             setPickupText(addr); if (point) setPickupLL(point); setPickupPreds([]);
             setDraft({ pickup: { label: 'Pickup', addressLine: addr, point } });
+            if (point) keepPointVisible(point);
             setActiveField('dropoff');
           } else {
             setDropoffText(addr); if (point) setDropoffLL(point); setDropoffPreds([]);
             setDraft({ dropoff: { label: 'Dropoff', addressLine: addr, point } });
+            if (point) keepPointVisible(point);
             setActiveField(null);
           }
         }
       );
     },
-    [g, setDraft]
+    [g, keepPointVisible, setDraft]
   );
 
   /* ── GPS ── */
@@ -450,6 +456,7 @@ const PassengerRideHomePage: React.FC = () => {
         gpsGeocode(pt.lat, pt.lng, (addr) => {
           setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
           setDraft({ pickup: { label: 'My Location', addressLine: addr, point: pt } });
+          keepPointVisible(pt);
           setLocatingPickup(false); setActiveField('dropoff');
         });
       },
@@ -466,6 +473,7 @@ const PassengerRideHomePage: React.FC = () => {
         gpsGeocode(pt.lat, pt.lng, (addr) => {
           setDropoffText(addr); setDropoffLL(pt); setDropoffPreds([]);
           setDraft({ dropoff: { label: 'My Location', addressLine: addr, point: pt } });
+          keepPointVisible(pt);
           setLocatingDropoff(false); setActiveField(null);
         });
       },
@@ -632,7 +640,7 @@ const PassengerRideHomePage: React.FC = () => {
             {/* Search trigger */}
             <button
               type="button"
-              onClick={() => setSheet('search')}
+              onClick={() => { setSheet('search'); setActiveField('pickup'); }}
               style={{ ...S.inputRow, width: '100%', textAlign: 'left', cursor: 'text', marginBottom: 16 }}
             >
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
@@ -642,17 +650,18 @@ const PassengerRideHomePage: React.FC = () => {
               <span style={{ fontSize: 15, color: '#9CA3AF', fontWeight: 500, fontFamily: 'inherit' }}>Search destination</span>
             </button>
 
-            {/* Saved places */}
-            <div>
-              {SAVED_PLACES.map((p) => (
-                <div key={p.label} style={S.placeRow} onClick={() => setSheet('search')}>
-                  <div style={S.placeIcon(p.color)}>{p.icon}</div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{p.label}</div>
-                    <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>{p.sub}</div>
-                  </div>
-                </div>
-              ))}
+            {/* Map-first A/B flow */}
+            <div style={{ marginBottom: 16, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px 12px' }}>
+              <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#334155' }}>
+                Place <strong>A</strong> (pickup) and <strong>B</strong> (dropoff) directly on the map.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setSheet('search'); setActiveField('pickup'); }}
+                style={{ marginTop: 8, width: '100%', border: 'none', borderRadius: 10, padding: '10px 12px', background: '#EFF6FF', color: '#0369A1', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+              >
+                Start placing A -> B
+              </button>
             </div>
           </div>
         )}
