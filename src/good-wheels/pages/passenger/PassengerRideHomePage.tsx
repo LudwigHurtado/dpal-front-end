@@ -507,13 +507,20 @@ const PassengerRideHomePage: React.FC = () => {
     const offer = Number(maxPrice);
     if (!Number.isFinite(offer) || offer <= 0) return;
     setNegotiationState('pending');
-    setNegotiationNote('Sending offer to nearby drivers...');
+    setNegotiationNote('Broadcasting your offer to nearby drivers...');
     window.setTimeout(() => {
-      // Demo negotiation behavior: drivers may counter slightly above rider offer.
-      const counter = Number((offer + 0.5).toFixed(2));
+      // Driver hears the broadcast first, then either accepts or counters.
+      const requestedFare = BASE_FARE * (VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1);
+      if (offer >= requestedFare) {
+        setNegotiationState('accepted');
+        setNegotiationNote(`Driver accepted your offer at $${offer.toFixed(2)}. Dispatching ride...`);
+        void handleBroadcast();
+        return;
+      }
+      const counter = Number((requestedFare).toFixed(2));
       setDriverCounterOffer(counter);
       setNegotiationState('countered');
-      setNegotiationNote(`Driver countered at $${counter.toFixed(2)}. Accept or keep your offer.`);
+      setNegotiationNote(`Driver heard your offer and countered at $${counter.toFixed(2)}.`);
     }, 900);
   };
 
@@ -601,6 +608,7 @@ const PassengerRideHomePage: React.FC = () => {
     vehicleDetailsWrap: { padding: '0 20px 12px 78px', background: '#F8FAFC', borderBottom: '1px solid #F3F4F6' },
     vehicleDetailsChip: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 10px', background: '#E0F2FE', color: '#0369A1', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginRight: 6 },
     routeCollapseBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 as const },
+    centerCollapseBtn: { width: 36, height: 24, borderRadius: 999, border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px auto 8px', boxShadow: '0 1px 6px rgba(15,23,42,0.08)' },
 
     /* Confirm button */
     confirmBtn: (disabled: boolean) => ({ width: '100%', height: 54, borderRadius: 14, background: disabled ? '#9CA3AF' : '#0077C8', border: 'none', color: 'white', fontSize: 16, fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }),
@@ -831,7 +839,20 @@ const PassengerRideHomePage: React.FC = () => {
               </button>
             </div>
 
+            {/* Extra center collapse control */}
+            <button
+              type="button"
+              aria-label={optionsPanelCollapsed ? 'Expand options panel' : 'Collapse options panel'}
+              onClick={() => setOptionsPanelCollapsed((prev) => !prev)}
+              style={S.centerCollapseBtn}
+            >
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: optionsPanelCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+                <path d="M3 5l4 4 4-4" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
             {/* Vehicle options */}
+            {!optionsPanelCollapsed && (
             <div>
               {VEHICLES.map((v) => {
                 const sel = v.id === vehicleType;
@@ -882,9 +903,8 @@ const PassengerRideHomePage: React.FC = () => {
                 );
               })}
             </div>
+            )}
 
-            {!optionsPanelCollapsed && (
-              <>
             {/* ── Charity selector ── */}
             <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 20px 10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -980,35 +1000,39 @@ const PassengerRideHomePage: React.FC = () => {
 
             {/* Confirm CTA */}
             <div style={{ padding: '14px 20px 6px' }}>
-              <button
-                type="button"
-                style={S.confirmBtn(broadcasting || !maxPrice || negotiationState === 'pending')}
-                disabled={broadcasting || !maxPrice || negotiationState === 'pending'}
-                onClick={handleSendOffer}
-              >
-                {negotiationState === 'pending'
-                  ? <><Spinner color="white" /> Negotiating…</>
-                  : (broadcasting
-                    ? <><Spinner color="white" /> Broadcasting…</>
-                    : `Negotiate ${selVehicle.label}`)}
-              </button>
-              {negotiationState === 'countered' && driverCounterOffer !== null && (
-                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+              {!optionsPanelCollapsed && (
+                <>
                   <button
                     type="button"
-                    onClick={() => void handleAcceptCounter()}
-                    style={{ flex: 1, border: 'none', borderRadius: 10, background: '#0077C8', color: '#fff', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                    style={S.confirmBtn(broadcasting || !maxPrice || negotiationState === 'pending')}
+                    disabled={broadcasting || !maxPrice || negotiationState === 'pending'}
+                    onClick={handleSendOffer}
                   >
-                    Accept ${driverCounterOffer.toFixed(2)}
+                    {negotiationState === 'pending'
+                      ? <><Spinner color="white" /> Negotiating…</>
+                      : (broadcasting
+                        ? <><Spinner color="white" /> Broadcasting…</>
+                        : `Negotiate ${selVehicle.label}`)}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => void handleKeepMyOffer()}
-                    style={{ flex: 1, border: '1px solid #CBD5E1', borderRadius: 10, background: '#fff', color: '#111827', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                  >
-                    Keep my offer
-                  </button>
-                </div>
+                  {negotiationState === 'countered' && driverCounterOffer !== null && (
+                    <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => void handleAcceptCounter()}
+                        style={{ flex: 1, border: 'none', borderRadius: 10, background: '#0077C8', color: '#fff', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        Accept ${driverCounterOffer.toFixed(2)}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleKeepMyOffer()}
+                        style={{ flex: 1, border: '1px solid #CBD5E1', borderRadius: 10, background: '#fff', color: '#111827', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        Keep my offer
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
               {negotiationNote && (
                 <p style={{ textAlign: 'center', fontSize: 11, color: '#334155', fontWeight: 700, margin: '8px 0 2px' }}>
@@ -1025,25 +1049,25 @@ const PassengerRideHomePage: React.FC = () => {
                 </p>
               )}
             </div>
-              </>
-            )}
           </div>
         )}
 
         {/* ── Bottom tab bar ── */}
-        <nav style={S.tabBar}>
-          {TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              style={S.tab(activeTab === tab.id)}
-              onClick={() => handleTabClick(tab.id)}
-            >
-              <span style={{ fontSize: 22 }}>{tab.icon}</span>
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
+        {!(sheet === 'options' && optionsPanelCollapsed) && (
+          <nav style={S.tabBar}>
+            {TABS.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                style={S.tab(activeTab === tab.id)}
+                onClick={() => handleTabClick(tab.id)}
+              >
+                <span style={{ fontSize: 22 }}>{tab.icon}</span>
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+        )}
       </div>
 
       <style>{`@keyframes gw-spin { to { transform: rotate(360deg); } }`}</style>
