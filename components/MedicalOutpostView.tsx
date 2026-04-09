@@ -29,6 +29,7 @@ const MEDICAL_HERO_IMAGES = [
     '/main-screen/medical-qr-flow-en.png',
     '/main-screen/medical-qr-flow-es.png',
 ];
+const MEDICAL_HERO_FALLBACK = '/main-screen/qr-live-saver.png';
 
 const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero, records, setRecords }) => {
     const [isCreating, setIsCreating] = useState(false);
@@ -38,14 +39,24 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
     const [qrAnchorState, setQrAnchorState] = useState<{ status: 'idle' | 'sealing' | 'anchored' | 'failed'; blockIndex?: number }>({ status: 'idle' });
     const [windowSizeClass, setWindowSizeClass] = useState<'compact' | 'medium' | 'expanded' | 'large' | 'extra-large'>('expanded');
     const [heroImageIndex, setHeroImageIndex] = useState(0);
+    const [heroImageErrors, setHeroImageErrors] = useState<Record<string, boolean>>({});
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const visibleHeroImages = useMemo(() => {
+        const ok = MEDICAL_HERO_IMAGES.filter((src) => !heroImageErrors[src]);
+        return ok.length > 0 ? ok : [MEDICAL_HERO_FALLBACK];
+    }, [heroImageErrors]);
 
     useEffect(() => {
         const interval = window.setInterval(() => {
-            setHeroImageIndex((prev) => (prev + 1) % MEDICAL_HERO_IMAGES.length);
+            setHeroImageIndex((prev) => (prev + 1) % visibleHeroImages.length);
         }, 5000);
         return () => window.clearInterval(interval);
-    }, []);
+    }, [visibleHeroImages.length]);
+
+    useEffect(() => {
+        setHeroImageIndex((prev) => (prev >= visibleHeroImages.length ? 0 : prev));
+    }, [visibleHeroImages.length]);
 
     useEffect(() => {
         const computeWindowClass = () => {
@@ -238,14 +249,15 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
             </header>
 
             <div className="relative w-full shrink-0 overflow-hidden border-b border-slate-500 bg-slate-100 no-print">
-                {MEDICAL_HERO_IMAGES.map((src, idx) => (
+                {visibleHeroImages.map((src, idx) => (
                     <img
                         key={src}
                         src={src}
                         alt=""
-                        className="absolute inset-0 h-full w-full object-contain object-center transition-opacity duration-1000"
+                        className="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000"
                         loading="eager"
                         style={{ opacity: idx === heroImageIndex ? 1 : 0 }}
+                        onError={() => setHeroImageErrors((prev) => ({ ...prev, [src]: true }))}
                         draggable={false}
                     />
                 ))}
