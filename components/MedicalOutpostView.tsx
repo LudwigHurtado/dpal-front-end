@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { type Hero, type HealthRecord } from '../types';
-import { ArrowLeft, Activity, ShieldCheck, Plus, Database, Cloud, X, QrCode, User, Heart, Trash2, Printer, Pill, Smile, FileCode, Check, Pencil, Globe, Target, Camera, Sparkles, Monitor, RefreshCw } from './icons';
+import { ArrowLeft, Activity, ShieldCheck, Plus, Database, Cloud, X, QrCode, User, Heart, Trash2, Printer, Pill, Smile, FileCode, Check, Pencil, Globe, Target, Camera, Sparkles, Monitor, RefreshCw, Send, Link } from './icons';
 import { anchorQrPayloadOnChain } from '../services/qrBlockchainService';
 import '@material/web/button/filled-button.js';
 import '@material/web/button/outlined-button.js';
@@ -40,6 +40,8 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
     const [windowSizeClass, setWindowSizeClass] = useState<'compact' | 'medium' | 'expanded' | 'large' | 'extra-large'>('expanded');
     const [heroImageIndex, setHeroImageIndex] = useState(0);
     const [heroImageErrors, setHeroImageErrors] = useState<Record<string, boolean>>({});
+    const [isShareMenuOpen, setIsShareMenuOpen] = useState(false);
+    const [shareFeedback, setShareFeedback] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const visibleHeroImages = useMemo(() => {
@@ -186,6 +188,80 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
     };
 
     const qrImageUrl = (val: string) => `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(val)}&bgcolor=ffffff&color=0f172a&margin=10`;
+
+    const getRemoteConnectUrl = () => {
+        if (!activeRecord) return '';
+        const url = new URL('/medical', window.location.origin);
+        url.searchParams.set('record', activeRecord.id);
+        url.searchParams.set('folder', activeFolder);
+        url.searchParams.set('medQr', getQrValue(activeFolder));
+        return url.toString();
+    };
+
+    const setShareStatus = (message: string) => {
+        setShareFeedback(message);
+        window.setTimeout(() => setShareFeedback(''), 2200);
+    };
+
+    const handleNativeShare = async () => {
+        if (!activeRecord) return;
+        const shareUrl = getRemoteConnectUrl();
+        const text = `Medical QR for ${activeRecord.ownerName}`;
+        try {
+            if (navigator.share) {
+                await navigator.share({ title: 'DPAL Medical QR', text, url: shareUrl });
+                setShareStatus('Shared successfully');
+            } else {
+                await navigator.clipboard.writeText(shareUrl);
+                setShareStatus('Link copied');
+            }
+        } catch {
+            setShareStatus('Share cancelled');
+        } finally {
+            setIsShareMenuOpen(false);
+        }
+    };
+
+    const handleCopyAppLink = async () => {
+        try {
+            await navigator.clipboard.writeText(getRemoteConnectUrl());
+            setShareStatus('App link copied');
+        } catch {
+            setShareStatus('Could not copy link');
+        } finally {
+            setIsShareMenuOpen(false);
+        }
+    };
+
+    const handleCopyQrPayload = async () => {
+        try {
+            await navigator.clipboard.writeText(getQrValue(activeFolder));
+            setShareStatus('QR payload copied');
+        } catch {
+            setShareStatus('Could not copy payload');
+        } finally {
+            setIsShareMenuOpen(false);
+        }
+    };
+
+    const handleDownloadQr = async () => {
+        try {
+            const src = qrImageUrl(getQrValue(activeFolder));
+            const response = await fetch(src);
+            const blob = await response.blob();
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `medical-qr-${activeFolder.toLowerCase()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setShareStatus('QR downloaded');
+        } catch {
+            setShareStatus('Could not download QR');
+        } finally {
+            setIsShareMenuOpen(false);
+        }
+    };
 
     useEffect(() => {
         if (!activeRecord) {
@@ -398,12 +474,38 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center space-x-4">
+                                <div className="flex items-center space-x-4 relative">
                                     <button onClick={() => window.print()} className="p-4 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-2xl transition-all border border-slate-700"><Printer className="w-6 h-6"/></button>
                                     <button onClick={() => handleOpenEdit(activeRecord)} className="p-4 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-2xl transition-all border border-slate-700"><Pencil className="w-6 h-6"/></button>
                                     <button onClick={() => handleDelete(activeRecord.id)} className="p-4 bg-slate-800 hover:bg-rose-950 text-slate-300 hover:text-rose-400 rounded-2xl transition-all border border-slate-700"><Trash2 className="w-6 h-6"/></button>
+                                    <button onClick={() => setIsShareMenuOpen((v) => !v)} className="p-4 bg-cyan-900/60 hover:bg-cyan-700/70 text-cyan-200 hover:text-white rounded-2xl transition-all border border-cyan-700">
+                                        <Send className="w-6 h-6"/>
+                                    </button>
+                                    {isShareMenuOpen && (
+                                        <div className="absolute top-20 right-0 z-40 w-64 rounded-2xl border border-slate-600 bg-slate-900/95 shadow-2xl p-2 backdrop-blur">
+                                            <button type="button" onClick={handleNativeShare} className="w-full px-4 py-3 rounded-xl hover:bg-slate-800 text-left text-sm text-slate-100 flex items-center gap-3">
+                                                <Send className="w-4 h-4 text-cyan-300" />
+                                                <span>Share now</span>
+                                            </button>
+                                            <button type="button" onClick={handleCopyAppLink} className="w-full px-4 py-3 rounded-xl hover:bg-slate-800 text-left text-sm text-slate-100 flex items-center gap-3">
+                                                <Link className="w-4 h-4 text-cyan-300" />
+                                                <span>Copy app link</span>
+                                            </button>
+                                            <button type="button" onClick={handleCopyQrPayload} className="w-full px-4 py-3 rounded-xl hover:bg-slate-800 text-left text-sm text-slate-100 flex items-center gap-3">
+                                                <QrCode className="w-4 h-4 text-cyan-300" />
+                                                <span>Copy QR payload</span>
+                                            </button>
+                                            <button type="button" onClick={handleDownloadQr} className="w-full px-4 py-3 rounded-xl hover:bg-slate-800 text-left text-sm text-slate-100 flex items-center gap-3">
+                                                <Printer className="w-4 h-4 text-cyan-300" />
+                                                <span>Download QR image</span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+                            {shareFeedback ? (
+                                <p className="no-print -mt-8 text-xs font-bold uppercase tracking-widest text-cyan-300">{shareFeedback}</p>
+                            ) : null}
 
                             <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
                                 <div className="lg:col-span-7 space-y-16">
@@ -471,13 +573,9 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                         <div className="qr-fixed-square border-[15px] border-white shadow-2xl hover:scale-[1.02] transition-transform duration-1000 group cursor-pointer relative">
                                             <img src={qrImageUrl(getQrValue(activeFolder))} alt="Main QR" className="qr-img-large" />
                                             
-                                            <div className="qr-profile-overlay flex items-center justify-center border-[4px] border-white shadow-2xl scale-110">
-                                                <img 
-                                                  src={(activeRecord as any).profilePicture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${activeRecord.ownerName}`} 
-                                                  alt="QR Icon" 
-                                                  className="w-full h-full object-cover scale-110"
-                                                />
-                                            </div>
+                                        <div className="qr-profile-overlay flex items-center justify-center border-[4px] border-white shadow-2xl scale-110 bg-slate-900">
+                                            <Heart className="w-3/5 h-3/5 text-white" />
+                                        </div>
                                         </div>
 
                                         <div className="p-8 bg-slate-900/60 rounded-[2.5rem] border-2 border-slate-600 border-dashed">
