@@ -175,7 +175,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
             scope: `medical-${activeFolder.toLowerCase()}`,
             id: activeRecord.id,
             title: `Medical QR ${activeFolder}`,
-            description: `Medical shard QR for ${activeRecord.ownerName}: ${qrPayload}`,
+            description: `Medical record QR for ${activeRecord.ownerName}: ${qrPayload}`,
             location: 'Medical Outpost',
             trustScore: 97,
         }).then((result) => {
@@ -280,8 +280,8 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                         <div className="max-w-4xl mx-auto space-y-12 animate-fade-in no-print">
                             <header className="flex justify-between items-start">
                                 <div>
-                                    <h2 className="text-5xl font-black tracking-tighter text-white uppercase leading-none">{editingRecordId ? 'Update Shard' : 'Initialize Shard'}</h2>
-                                    <p className="text-zinc-500 font-bold mt-4 tracking-widest uppercase text-[10px]">Configure identity and digital vault link</p>
+                                    <h2 className="text-5xl font-black tracking-tighter text-white uppercase leading-none">{editingRecordId ? 'Update Record' : 'Create Record'}</h2>
+                                    <p className="text-zinc-500 font-bold mt-4 tracking-widest uppercase text-[10px]">Enter patient information and optional cloud folder link</p>
                                 </div>
                                 <button onClick={() => setIsCreating(false)} className="p-4 bg-zinc-900 rounded-2xl hover:bg-zinc-800 transition-all"><X className="w-8 h-8 text-zinc-500"/></button>
                             </header>
@@ -320,7 +320,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-4">Emergency Contact</label>
-                                        <input value={formRecord.emergencyContact} onChange={e => setFormRecord({...formRecord, emergencyContact: e.target.value})} className="w-full bg-zinc-950 border-2 border-zinc-800 rounded-2xl p-5 outline-none focus:border-cyan-600 transition-all shadow-inner font-bold text-white text-sm" placeholder="Node Phone" />
+                                        <input value={formRecord.emergencyContact} onChange={e => setFormRecord({...formRecord, emergencyContact: e.target.value})} className="w-full bg-zinc-950 border-2 border-zinc-800 rounded-2xl p-5 outline-none focus:border-cyan-600 transition-all shadow-inner font-bold text-white text-sm" placeholder="Emergency phone number" />
                                     </div>
                                     <div className="md:col-span-2 space-y-2">
                                         <label className="text-[10px] font-black uppercase text-zinc-600 tracking-widest ml-4 flex items-center space-x-3">
@@ -337,7 +337,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                 onClick={handleCreateOrUpdate}
                                 className="w-full [&::part(container)]:min-h-[56px]"
                             >
-                                {editingRecordId ? 'Update identity shard' : 'Commit medical identity'}
+                                {editingRecordId ? 'Update medical record' : 'Save medical record'}
                             </md-filled-button>
                         </div>
                     ) : activeRecord ? (
@@ -399,7 +399,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                     <section className="space-y-10">
                                         <h3 className="text-[10px] font-black uppercase text-zinc-600 tracking-[0.4em] flex items-center space-x-4">
                                             <Cloud className="w-6 h-6 text-cyan-600"/>
-                                            <span>Distributed Medical Sync Node</span>
+                                            <span>Medical Sync</span>
                                         </h3>
                                         <div className="bg-zinc-950 rounded-[3rem] p-10 text-white relative overflow-hidden shadow-2xl border border-zinc-800">
                                             <div className="absolute top-0 right-0 p-10 opacity-5"><Cloud className="w-80 h-80"/></div>
@@ -432,7 +432,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                                 <QrCode className="w-10 h-10 text-white" />
                                             </div>
                                             <h4 className="text-3xl font-black uppercase tracking-tighter text-white leading-none">
-                                                {activeFolder === 'PROFILE' ? 'Master Shard' : MEDICAL_FOLDERS.find(f => f.id === activeFolder)?.label}
+                                                {activeFolder === 'PROFILE' ? 'Primary Record QR' : MEDICAL_FOLDERS.find(f => f.id === activeFolder)?.label}
                                             </h4>
                                             <p className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.4em]">Identity Signature</p>
                                         </div>
@@ -451,7 +451,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
 
                                         <div className="p-8 bg-zinc-900/40 rounded-[2.5rem] border-2 border-zinc-800 border-dashed">
                                           <p className="text-[9px] text-zinc-500 font-black leading-relaxed uppercase tracking-widest italic">
-                                              SUBMIT THIS SHARD TO MEDICAL TERMINALS FOR INSTANT CLINICAL HISTORY INGESTION.
+                                              Present this QR at authorized clinics to quickly open the linked medical record.
                                           </p>
                                           <p className="mt-3 text-[9px] font-mono text-cyan-300">
                                               CHAIN_STATUS: {qrAnchorState.status === 'anchored'
@@ -465,7 +465,7 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                         </div>
 
                                         <md-filled-button type="button" onClick={() => window.print()} className="w-full [&::part(container)]:min-h-[48px]">
-                                            Export secure shard
+                                            Export record QR
                                         </md-filled-button>
                                     </div>
 
@@ -492,14 +492,14 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                                 </div>
                             </div>
                             <div className="space-y-6">
-                                <h3 className="text-5xl font-black uppercase text-white tracking-tighter leading-none">Health Identity Gateway</h3>
+                                <h3 className="text-5xl font-black uppercase text-white tracking-tighter leading-none">Medical Records Center</h3>
                                 <p className="text-xs text-zinc-600 font-black uppercase tracking-[0.5em] max-w-2xl mx-auto leading-relaxed">
-                                    INITIALIZE SECURE CLINICAL SHARDS FOR FAMILY MEMBERS TO ENABLE P2P RECORDS SHARING.
+                                    Create and manage patient medical records for secure sharing and emergency access.
                                 </p>
                             </div>
                             <div className="flex flex-wrap justify-center gap-8">
-                                <md-filled-button type="button" onClick={() => setIsCreating(true)} className="[&::part(container)]:min-h-[52px]">Materialize shard</md-filled-button>
-                                <md-outlined-button type="button" onClick={loadDemoData} className="[&::part(container)]:min-h-[52px]">Sync sample node</md-outlined-button>
+                                <md-filled-button type="button" onClick={() => setIsCreating(true)} className="[&::part(container)]:min-h-[52px]">Create record</md-filled-button>
+                                <md-outlined-button type="button" onClick={loadDemoData} className="[&::part(container)]:min-h-[52px]">Load sample record</md-outlined-button>
                             </div>
                         </div>
                     )}
