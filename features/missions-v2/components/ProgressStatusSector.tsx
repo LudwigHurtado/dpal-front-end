@@ -9,20 +9,17 @@ interface ProgressStatusSectorProps {
 
 const ProgressStatusSector: React.FC<ProgressStatusSectorProps> = ({ progress, onAddMember }) => {
   return (
-    <SectorCard title="Progress & Status Sector" subtitle="Live mission progress, status, and quick actions">
-      <div className="space-y-3 text-xs text-zinc-300">
-        <p><span className="text-zinc-500">Status:</span> {progress.statusLabel}</p>
-        <div className="h-2 w-full rounded-full bg-zinc-800">
-          <div className="h-2 rounded-full bg-cyan-500" style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }} />
+    <SectorCard title="Progress & Status">
+      <div className="space-y-3 text-sm text-slate-700">
+        <button type="button" className="w-full rounded-md bg-emerald-500 px-3 py-2 font-semibold text-white">
+          + In Progress
+        </button>
+        <div className="h-5 w-full rounded-md border border-slate-300 bg-white p-0.5">
+          <div className="h-full rounded bg-blue-500" style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }} />
         </div>
-        <p>{progress.percent}% complete</p>
-        <ul className="list-disc space-y-1 pl-4 text-zinc-400">
-          {progress.timeline.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        <button type="button" onClick={onAddMember} className="rounded-lg bg-zinc-800 px-3 py-2 text-[11px] font-semibold text-zinc-100">
-          Add Member (mock)
+        <p className="text-center font-semibold text-slate-700">{progress.percent}% Completed</p>
+        <button type="button" onClick={onAddMember} className="w-full rounded-md bg-blue-600 px-3 py-2 font-semibold text-white">
+          Add Member +
         </button>
       </div>
     </SectorCard>

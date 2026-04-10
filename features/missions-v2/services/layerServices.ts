@@ -63,7 +63,7 @@ export function assignTeamPlaceholder(model: MissionAssignmentV2Model): MissionA
     ...model,
     team: [
       ...model.team,
-      { role: 'Helper', name: 'Backup Ops', permissions: ['execute', 'upload proof'] },
+      { id: `tm-${Date.now()}`, role: 'Helper', name: 'Backup Ops', profile: '@backup.ops', permissions: ['execute', 'upload proof'] },
     ],
   };
 }

@@ -22,9 +22,10 @@ interface TransparencyDatabaseViewProps {
     location: string;
   }>>;
   onJoinReportChat: (report: Report) => void;
+  onEnterMissionV2?: (report: Report) => void;
 }
 
-const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onReturn, reports, filters, setFilters, onJoinReportChat }) => {
+const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onReturn, reports, filters, setFilters, onJoinReportChat, onEnterMissionV2 }) => {
   const [showIntro, setShowIntro] = useState(true);
   const [showOnlyActionable, setShowOnlyActionable] = useState(false);
 
@@ -43,10 +44,8 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
       const set = new Set(filters.selectedCategories);
       result = result.filter(r => set.has(r.category));
     }
-    if (filters.location) {
-        const qLoc = filters.location.toLowerCase();
-        result = result.filter(r => (r.location || '').toString().toLowerCase().includes(qLoc));
-    }
+    // Do not force a hidden location constraint in this view.
+    // Transparency search should behave like a global ledger lookup.
     const toTime = (r: Report) => (r.timestamp instanceof Date ? r.timestamp : new Date((r as any).timestamp)).getTime();
     return result.sort((a, b) => toTime(b) - toTime(a));
   }, [reports, filters, showOnlyActionable]);
@@ -105,12 +104,13 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                     <div className="space-y-6">
                         <label className="text-[10px] font-black uppercase text-[var(--dpal-text-muted)] tracking-[0.3em] ml-2">Search</label>
                         <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--dpal-text-muted)] group-focus-within:text-[var(--dpal-accent)] transition-colors" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--dpal-text-muted)] group-focus-within:text-[var(--dpal-accent)] transition-colors pointer-events-none" />
                             <input 
                                 value={filters.keyword}
                                 onChange={(e) => setFilters(prev => ({ ...prev, keyword: e.target.value }))}
                                 placeholder="ID, block #, transaction, title…"
-                                className="dpal-input w-full border-2 pl-12 pr-4 py-4 text-[11px] font-semibold placeholder:normal-case"
+                                className="dpal-input w-full border-2 pr-4 py-4 text-[11px] font-semibold placeholder:normal-case"
+                                style={{ paddingLeft: '2.75rem' }}
                                 aria-label="Search public records by ID, block number, or transaction"
                             />
                         </div>
@@ -160,14 +160,15 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                             Search by report ID, block number, transaction hash, or keywords
                         </label>
                         <div className="relative group">
-                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--dpal-text-muted)] group-focus-within:text-[var(--dpal-accent)] transition-colors pointer-events-none" />
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-[var(--dpal-text-muted)] group-focus-within:text-[var(--dpal-accent)] transition-colors pointer-events-none" />
                             <input
                                 id="public-record-search"
                                 type="search"
                                 value={filters.keyword}
                                 onChange={(e) => setFilters((prev) => ({ ...prev, keyword: e.target.value }))}
                                 placeholder="Search by report ID, block number, or transaction…"
-                                className="dpal-input w-full py-4 pl-12 pr-4 text-sm font-medium shadow-sm"
+                                className="dpal-input w-full py-4 pr-4 text-sm font-medium shadow-sm"
+                                style={{ paddingLeft: '2.75rem' }}
                                 autoComplete="off"
                             />
                         </div>
@@ -190,14 +191,14 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                         {filteredReports.length > 0 ? (
                             filteredReports.map(report => (
                                 /* FIX: Changed onJoinReportChat to onJoinChat to satisfy ReportCardProps interface */
-                                <ReportCard key={report.id} report={report} onAddImage={() => {}} onJoinChat={onJoinReportChat} />
+                                <ReportCard key={report.id} report={report} onAddImage={() => {}} onJoinChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} />
                             ))
                         ) : (
-                            <div className="py-40 text-center border-4 border-dashed border-[var(--dpal-border)] rounded-[4rem] bg-[var(--dpal-surface)]">
-                                <AlertTriangle className="w-20 h-20 text-[var(--dpal-text-muted)] mx-auto mb-8" />
+                            <div className="py-14 text-center border-2 border-dashed border-[var(--dpal-border)] rounded-3xl bg-[var(--dpal-surface)]">
+                                <AlertTriangle className="w-12 h-12 text-[var(--dpal-text-muted)] mx-auto mb-4" />
                                 <p className="text-sm font-semibold text-[var(--dpal-text-secondary)]">No matching records</p>
                                 <p className="mt-2 text-xs text-[var(--dpal-text-muted)]">Try another ID, block number, transaction, or keyword.</p>
-                                <button type="button" onClick={() => { setFilters({keyword: '', selectedCategories: [], location: ''}); setShowOnlyActionable(false); }} className="mt-8 text-sm font-semibold text-[var(--dpal-accent)] hover:underline">Clear filters</button>
+                                <button type="button" onClick={() => { setFilters({keyword: '', selectedCategories: [], location: ''}); setShowOnlyActionable(false); }} className="mt-4 text-sm font-semibold text-[var(--dpal-accent)] hover:underline">Clear filters</button>
                             </div>
                         )}
                     </div>

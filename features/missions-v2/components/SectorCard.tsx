@@ -4,15 +4,17 @@ interface SectorCardProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
+  className?: string;
 }
 
-const SectorCard: React.FC<SectorCardProps> = ({ title, subtitle, children }) => {
+const SectorCard: React.FC<SectorCardProps> = ({ title, subtitle, children, className }) => {
   return (
-    <section className="rounded-2xl border border-zinc-800 bg-zinc-950/70 p-4 md:p-5">
-      <div className="mb-3">
-        <h3 className="text-xs font-black uppercase tracking-wider text-cyan-300">{title}</h3>
-        {subtitle ? <p className="mt-1 text-xs text-zinc-400">{subtitle}</p> : null}
+    <section className={`rounded-xl border border-slate-300 bg-slate-100 p-3 md:p-4 ${className ?? ''}`}>
+      <div className="mb-2 flex items-center gap-2">
+        <h3 className="text-2xl font-bold tracking-tight text-slate-800">{title}</h3>
+        <div className="h-px flex-1 bg-slate-300" />
       </div>
+      {subtitle ? <p className="mb-3 text-[11px] text-slate-500">{subtitle}</p> : null}
       {children}
     </section>
   );

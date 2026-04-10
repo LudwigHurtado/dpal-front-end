@@ -13,6 +13,7 @@ interface FeedPanelProps {
   onCloseAnalysis: () => void;
   onAddReportImage: (reportId: string, imageUrl: string) => void;
   onJoinReportChat: (report: Report) => void;
+  onEnterMissionV2?: (report: Report) => void;
 }
 
 type SortByType = 'recent' | 'oldest' | 'category';
@@ -35,7 +36,7 @@ const TopicButton: React.FC<{ topic: string | null, activeTopic: string | null, 
     );
 };
 
-const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError, onCloseAnalysis, onAddReportImage, onJoinReportChat }) => {
+const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError, onCloseAnalysis, onAddReportImage, onJoinReportChat, onEnterMissionV2 }) => {
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortByType>('recent');
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
@@ -182,6 +183,7 @@ const FeedPanel: React.FC<FeedPanelProps> = ({ reports, analysis, analysisError,
               report={report} 
               onAddImage={(imageUrl) => onAddReportImage(report.id, imageUrl)}
               onJoinChat={onJoinReportChat}
+              onEnterMissionV2={onEnterMissionV2}
             />
           ))}
         </div>

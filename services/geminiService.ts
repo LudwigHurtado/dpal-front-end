@@ -878,6 +878,241 @@ export async function getMissionTaskAdvice(
   }
 }
 
+export async function generateMissionTaskList(input: {
+  missionTitle: string;
+  missionType: string;
+  objective: string;
+  location: string;
+  issueType: string;
+  reportSnapshot: string;
+}): Promise<Array<{ title: string; proofRequired: string }>> {
+  if (!isAiEnabled()) {
+    return [
+      { title: "Inspect and secure the affected area", proofRequired: "GPS check-in + photo" },
+      { title: "Document key hazards and current conditions", proofRequired: "At least 2 photos" },
+      { title: "Coordinate helper actions and cleanup sequence", proofRequired: "Verifier note" },
+      { title: "Submit final completion summary", proofRequired: "Beneficiary confirmation" },
+    ];
+  }
+
+  try {
+    const prompt = `
+      You are DPAL Mission Planner AI.
+      Build a concise task list for a mission based on this report context.
+
+      Mission title: ${input.missionTitle}
+      Mission type: ${input.missionType}
+      Objective: ${input.objective}
+      Location: ${input.location}
+      Issue type: ${input.issueType}
+      Report snapshot: ${input.reportSnapshot}
+
+      Requirements:
+      - Return 4 to 7 tasks.
+      - Tasks must be operational and ordered.
+      - Each task must have "title" and "proofRequired".
+      - Keep title under 80 chars.
+      - proofRequired should be short and concrete.
+      - Output JSON array only.
+    `;
+
+    const response = await runGeminiGenerate({
+      model: FLASH_TEXT_MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0.35,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              proofRequired: { type: Type.STRING },
+            },
+            required: ["title", "proofRequired"],
+          },
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "[]");
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      throw new Error("Empty AI task list");
+    }
+
+    return parsed
+      .filter((item) => item && typeof item.title === "string" && typeof item.proofRequired === "string")
+      .slice(0, 7)
+      .map((item) => ({
+        title: item.title.trim(),
+        proofRequired: item.proofRequired.trim(),
+      }));
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function generateMissionDetailsFromReport(input: {
+  title: string;
+  description: string;
+  category: string;
+  severity: string;
+  location: string;
+}): Promise<{
+  missionType: string;
+  objective: string;
+  deadline: string;
+  rewardLabel: string;
+  rewardType: 'Coins' | 'Tokens' | 'HC';
+  rewardAmount: number;
+  escrowLabel: string;
+  rules: string[];
+  objectivePhases: Array<{
+    id: string;
+    title: string;
+    items: Array<{ id: string; label: string; done: boolean; images: string[] }>;
+  }>;
+}> {
+  if (!isAiEnabled()) {
+    return {
+      missionType: "Report Response Mission",
+      objective: `Resolve and verify: ${input.title}`,
+      deadline: "Due in 72 hours",
+      rewardLabel: input.severity === "Critical" || input.severity === "Catastrophic" ? "2,000 HC + Escrow Release" : "1,000 HC + Escrow Release",
+      rewardType: 'HC',
+      rewardAmount: input.severity === "Critical" || input.severity === "Catastrophic" ? 2000 : 1000,
+      escrowLabel: "Escrow pending validator lock",
+      rules: [
+        "Lead approval required before closure.",
+        "Verifier sign-off required before payout.",
+        "At least one evidence item required for each completed task.",
+      ],
+      objectivePhases: [
+        {
+          id: 'phase-beginning-objective',
+          title: 'Beginning Objective',
+          items: [
+            { id: 'obj-1', label: `Resolve and verify: ${input.title}`, done: false, images: [] },
+            { id: 'obj-2', label: 'Attach initial phase evidence photos', done: false, images: [] },
+          ],
+        },
+      ],
+    };
+  }
+
+  try {
+    const prompt = `
+      You are DPAL Mission Planner.
+      Build concise mission metadata from this report:
+      Title: ${input.title}
+      Description: ${input.description}
+      Category: ${input.category}
+      Severity: ${input.severity}
+      Location: ${input.location}
+
+      Return JSON object with:
+      - missionType (short label)
+      - objective (single concise sentence)
+      - deadline (human friendly)
+      - rewardLabel
+      - rewardType (Coins, Tokens, or HC)
+      - rewardAmount (number only)
+      - escrowLabel
+      - rules (array of 3 short operational rules)
+      - objectivePhases (array of 1-3 phases, each with title and checkbox items)
+    `;
+
+    const response = await runGeminiGenerate({
+      model: FLASH_TEXT_MODEL,
+      contents: prompt,
+      config: {
+        temperature: 0.35,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            missionType: { type: Type.STRING },
+            objective: { type: Type.STRING },
+            deadline: { type: Type.STRING },
+            rewardLabel: { type: Type.STRING },
+            rewardType: { type: Type.STRING, enum: ["Coins", "Tokens", "HC"] },
+            rewardAmount: { type: Type.NUMBER },
+            escrowLabel: { type: Type.STRING },
+            rules: { type: Type.ARRAY, items: { type: Type.STRING } },
+            objectivePhases: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  title: { type: Type.STRING },
+                  items: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        id: { type: Type.STRING },
+                        label: { type: Type.STRING },
+                        done: { type: Type.BOOLEAN },
+                        images: { type: Type.ARRAY, items: { type: Type.STRING } },
+                      },
+                      required: ["id", "label", "done", "images"],
+                    },
+                  },
+                },
+                required: ["id", "title", "items"],
+              },
+            },
+          },
+          required: ["missionType", "objective", "deadline", "rewardLabel", "rewardType", "rewardAmount", "escrowLabel", "rules", "objectivePhases"],
+        },
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    return {
+      missionType: String(parsed.missionType || "Report Response Mission"),
+      objective: String(parsed.objective || `Resolve and verify: ${input.title}`),
+      deadline: String(parsed.deadline || "Due in 72 hours"),
+      rewardLabel: String(parsed.rewardLabel || "1,000 HC + Escrow Release"),
+      rewardType: parsed.rewardType === 'Coins' || parsed.rewardType === 'Tokens' || parsed.rewardType === 'HC' ? parsed.rewardType : 'HC',
+      rewardAmount: Number(parsed.rewardAmount || 1000),
+      escrowLabel: String(parsed.escrowLabel || "Escrow pending validator lock"),
+      rules: Array.isArray(parsed.rules) ? parsed.rules.slice(0, 5).map((r: unknown) => String(r)) : [
+        "Lead approval required before closure.",
+        "Verifier sign-off required before payout.",
+        "At least one evidence item required for each completed task.",
+      ],
+      objectivePhases: Array.isArray(parsed.objectivePhases) && parsed.objectivePhases.length
+        ? parsed.objectivePhases.slice(0, 3).map((phase: any, pIdx: number) => ({
+            id: String(phase?.id || `phase-${pIdx + 1}`),
+            title: String(phase?.title || `Phase ${pIdx + 1}`),
+            items: Array.isArray(phase?.items)
+              ? phase.items.slice(0, 8).map((item: any, iIdx: number) => ({
+                  id: String(item?.id || `item-${pIdx + 1}-${iIdx + 1}`),
+                  label: String(item?.label || `Checklist item ${iIdx + 1}`),
+                  done: Boolean(item?.done),
+                  images: Array.isArray(item?.images) ? item.images.filter((v: unknown) => typeof v === 'string') : [],
+                }))
+              : [],
+          }))
+        : [
+            {
+              id: 'phase-beginning-objective',
+              title: 'Beginning Objective',
+              items: [
+                { id: 'obj-1', label: String(parsed.objective || `Resolve and verify: ${input.title}`), done: false, images: [] },
+                { id: 'obj-2', label: 'Attach initial phase evidence photos', done: false, images: [] },
+              ],
+            },
+          ],
+    };
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
 export async function getLiveIntelligenceUpdate(currentState: any): Promise<any> {
   if (!isAiEnabled())
     return { ui: { next: "Offline Analysis", why: "Neural link unconfigured.", need: [], risk: "Low", eta: 0, score: 0 }, patch: {} };

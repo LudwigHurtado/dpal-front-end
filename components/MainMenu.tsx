@@ -460,6 +460,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<Target className="w-8 h-8" />}
+                    label="Mission Assignment V2"
+                    subLabel="Preview modular mission sectors and layer actions"
+                    status="Preview"
+                    colorClass="blue"
+                    bgImageUrl="/main-screen/mission-assignment-v2-reference.png"
+                    onClick={() => onNavigate('missionAssignmentV2')}
+                />
+
+                <PrimaryNavModule
                     icon={<ShieldCheck className="w-8 h-8" />}
                     label="DPAL Lifts"
                     subLabel="Decentralized Public Assistance Lifts"

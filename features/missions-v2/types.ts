@@ -11,19 +11,34 @@ export interface MissionIdentity {
 }
 
 export interface MissionReportOverview {
+  title: string;
   reportId: string;
   issueType: string;
   location: string;
   snapshot: string;
-  imageUrl: string;
+  imageUrl?: string;
 }
 
 export interface MissionDetails {
+  missionType: string;
   objective: string;
   deadline: string;
   rewardLabel: string;
+  rewardType: 'Coins' | 'Tokens' | 'HC';
+  rewardAmount: number;
   escrowLabel: string;
   rules: string[];
+  objectivePhases: Array<{
+    id: string;
+    title: string;
+    items: Array<{
+      id: string;
+      label: string;
+      done: boolean;
+      notes?: string;
+      images: string[];
+    }>;
+  }>;
 }
 
 export interface MissionTask {
@@ -33,10 +48,20 @@ export interface MissionTask {
   proofRequired: string;
 }
 
+export interface TeamPrivateMessage {
+  id: string;
+  body: string;
+  sentAt: string;
+  from: string;
+}
+
 export interface TeamMemberAssignment {
+  id: string;
   role: 'Lead' | 'Helper' | 'Verifier' | 'Witness';
   name: string;
+  profile: string;
   permissions: string[];
+  privateMessages?: TeamPrivateMessage[];
 }
 
 export interface MissionProgress {

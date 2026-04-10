@@ -51,6 +51,7 @@ const CERTIFICATE_QR_OPTIONS = {
 interface IncidentRoomViewProps {
     report: Report;
     onReturn: () => void;
+    onEnterMissionRoom?: (report: Report) => void;
     hero: Hero;
     messages: ChatMessage[];
     onSendMessage: (text: string, imageUrl?: string, audioUrl?: string) => void;
@@ -129,6 +130,7 @@ function collectFilingHistoryUrls(report: Report): string[] {
 const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
     report,
     onReturn,
+    onEnterMissionRoom,
     hero,
     messages,
     onSendMessage,
@@ -186,6 +188,15 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
 
     const activeSector = useMemo(() => sectors.find(s => s.id === activeSectorId) || sectors[0], [sectors, activeSectorId]);
     const roomNumber = report.id.split('-').pop()?.toUpperCase() || '0000';
+    const categoryLabel = useMemo(() => {
+        const fromCatalog = CATEGORIES_WITH_ICONS.find((c) => c.value === report.category);
+        if (fromCatalog?.value) return String(fromCatalog.value);
+        return String(report.category || Category.Other);
+    }, [report.category]);
+    const situationRoomTitle = useMemo(
+        () => `${categoryLabel.toUpperCase()} SITUATION ROOM`,
+        [categoryLabel]
+    );
     const verifyUrl = useMemo(() => buildReportVerifyUrl(report.id), [report.id]);
     const roomShareUrl = useMemo(() => buildSituationRoomUrl(report.id), [report.id]);
     const [copyVerifyOk, setCopyVerifyOk] = useState(false);
@@ -450,12 +461,27 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
                     </div>
                     <div>
                         <div className="flex flex-col md:flex-row md:items-center md:space-x-6">
-                            <h1 className="text-lg md:text-2xl font-black uppercase tracking-tighter truncate text-emerald-400">SITUATION_ROOM</h1>
+                            <h1 className="text-base md:text-2xl font-black uppercase tracking-tighter truncate text-emerald-400">
+                                {situationRoomTitle}
+                            </h1>
                             <span className="bg-emerald-600 text-black px-3 py-1 rounded-xl text-[8px] md:text-xs font-black uppercase tracking-widest mt-1 md:mt-0 w-fit">FRAGMENT_{roomNumber}</span>
                         </div>
+                        <p className="mt-1 text-[9px] md:text-[10px] font-bold uppercase tracking-wider text-zinc-400 truncate">
+                            Report: {report.title || `Untitled ${categoryLabel}`}
+                        </p>
                     </div>
                 </div>
                 <div className="flex items-center gap-4 md:gap-8">
+                    {onEnterMissionRoom && (
+                        <button
+                            type="button"
+                            onClick={() => onEnterMissionRoom(report)}
+                            className="hidden sm:inline-flex items-center space-x-2 text-[10px] md:text-xs font-black uppercase tracking-[0.2em] text-cyan-400 hover:text-cyan-300 transition-colors"
+                        >
+                            <Target className="w-4 h-4 md:w-5 md:h-5" />
+                            <span>ENTER_MISSIONS_ROOM</span>
+                        </button>
+                    )}
                     <button onClick={onReturn} className="flex items-center space-x-2 md:space-x-3 text-[10px] md:text-xs font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-white transition-colors group">
                         <ArrowLeft className="w-4 h-4 md:w-5 md:h-5 transition-transform group-hover:-translate-x-1" />
                         <span>Term_Exit</span>

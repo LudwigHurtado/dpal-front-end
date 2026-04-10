@@ -10,9 +10,10 @@ interface ReportCardProps {
   report: Report;
   onAddImage: (imageUrl: string) => void;
   onJoinChat?: (report: Report) => void;
+  onEnterMissionV2?: (report: Report) => void;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat, onEnterMissionV2 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageUrlsToDisplay, setImageUrlsToDisplay] = useState<string[]>([]);
   const [showQr, setShowQr] = useState(false);
@@ -199,7 +200,17 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat 
                   </div>
               </div>
 
-              <div className="flex items-center gap-4 w-full sm:w-auto">
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                   {onEnterMissionV2 && (
+                      <button
+                        type="button"
+                        onClick={() => onEnterMissionV2(report)}
+                        className="flex items-center justify-center space-x-3 font-black py-3 px-5 rounded-2xl transition-all border border-cyan-500/60 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-800/40 w-full sm:w-auto"
+                      >
+                        <Target className="w-5 h-5" />
+                        <span className="uppercase text-[10px] tracking-[0.2em]">ENTER_MISSIONS_ROOM</span>
+                      </button>
+                   )}
                    {onJoinChat && (
                       <button 
                         onClick={() => onJoinChat(report)} 

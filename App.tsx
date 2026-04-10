@@ -323,6 +323,7 @@ const App: React.FC = () => {
   const [itemForPayment, setItemForPayment] = useState<IapPack | StoreItem | null>(null);
   const [selectedMissionForDetail, setSelectedMissionForDetail] = useState<Mission | null>(null);
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
+  const [missionV2SourceReport, setMissionV2SourceReport] = useState<Report | null>(null);
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -927,9 +928,18 @@ const App: React.FC = () => {
             setHubTab('my_reports');
           }
         }
+        if (view === 'missionAssignmentV2') {
+          setMissionV2SourceReport(null);
+        }
         setCurrentView(view); 
     }
   }
+
+  const openMissionV2FromReport = useCallback((report: Report) => {
+    setPrevView(currentView);
+    setMissionV2SourceReport(report);
+    setCurrentView('missionAssignmentV2');
+  }, [currentView]);
 
   const goToCategorySelectionHelpSector = () => {
     setHelpSectorFocusSignal((n) => n + 1);
@@ -1699,7 +1709,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'missionAssignmentV2' && (
-          <MissionAssignmentV2Page onReturn={() => goBack('mainMenu')} />
+          <MissionAssignmentV2Page onReturn={() => goBack('mainMenu')} sourceReport={missionV2SourceReport} />
         )}
 
         {currentView === 'helpCenter' && (
@@ -1923,6 +1933,7 @@ const App: React.FC = () => {
                     onAddReportImage={() => {}}
                     onReturnToMainMenu={() => goBack('mainMenu')}
                     onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+                    onEnterMissionV2={(report) => openMissionV2FromReport(report)}
                     activeTab={hubTab}
                     setActiveTab={setHubTab}
                     onAddNewReport={() => handleNavigate('categorySelection')}
@@ -2013,7 +2024,14 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'transparencyDatabase' && (
-          <TransparencyDatabaseView onReturn={() => goBack('mainMenu')} reports={reports} filters={filters} setFilters={setFilters} onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }} />
+          <TransparencyDatabaseView
+            onReturn={() => goBack('mainMenu')}
+            reports={reports}
+            filters={filters}
+            setFilters={setFilters}
+            onJoinReportChat={(r) => { setSelectedReportForIncidentRoom(r); setCurrentView('incidentRoom'); }}
+            onEnterMissionV2={(report) => openMissionV2FromReport(report)}
+          />
         )}
 
         {currentView === 'fieldMissions' && (
@@ -2123,6 +2141,7 @@ const App: React.FC = () => {
             report={selectedReportForIncidentRoom}
             hero={heroWithRank}
             onReturn={() => goBack('hub')}
+            onEnterMissionRoom={(report) => openMissionV2FromReport(report)}
             messages={situationMessages}
             onSendMessage={handleSendSituationMessage}
             onFilingImageUpload={handleFilingImageUpload}

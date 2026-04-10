@@ -11,21 +11,43 @@ export const mockMissionAssignmentV2: MissionAssignmentV2Model = {
     status: 'draft',
   },
   report: {
+    title: 'Abandoned Lot Cleanup',
     reportId: 'rep-773120',
     issueType: 'Hazard and obstruction',
     location: 'Main Avenue, District 4',
     snapshot: 'Initial report includes crowd photos and route blockage details.',
-    imageUrl: 'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=1280&q=80',
+    imageUrl: '/main-screen/file-a-report.png',
   },
   details: {
+    missionType: 'Field Verification',
     objective: 'Clear the route safely, verify conditions, and confirm reopening evidence.',
     deadline: '2026-04-12 18:00',
     rewardLabel: '1,250 HC + Escrow Release',
+    rewardType: 'HC',
+    rewardAmount: 1250,
     escrowLabel: 'Escrow #ESC-9942 (sponsor funded)',
     rules: [
       'Lead must approve task completion order.',
       'Verifier sign-off required before payout.',
       'At least 2 proof items required for final closure.',
+    ],
+    objectivePhases: [
+      {
+        id: 'phase-beginning',
+        title: 'Beginning Objective',
+        items: [
+          { id: 'bo-1', label: 'Capture arrival condition photo set', done: false, images: [] },
+          { id: 'bo-2', label: 'Confirm safety perimeter and access', done: false, images: [] },
+        ],
+      },
+      {
+        id: 'phase-validation',
+        title: 'Validation Objective',
+        items: [
+          { id: 'vo-1', label: 'Upload before/after proof', done: false, images: [] },
+          { id: 'vo-2', label: 'Verifier checklist sign-off', done: false, images: [] },
+        ],
+      },
     ],
   },
   tasks: [
@@ -35,10 +57,10 @@ export const mockMissionAssignmentV2: MissionAssignmentV2Model = {
     { id: 't4', title: 'Submit final beneficiary confirmation', done: false, proofRequired: 'Beneficiary signature' },
   ],
   team: [
-    { role: 'Lead', name: 'A. Rivera', permissions: ['assign', 'start', 'pause'] },
-    { role: 'Helper', name: 'S. Kim', permissions: ['execute', 'upload proof'] },
-    { role: 'Verifier', name: 'M. Soto', permissions: ['approve', 'reject'] },
-    { role: 'Witness', name: 'L. Reed', permissions: ['observe', 'attest'] },
+    { id: 'tm-1', role: 'Lead', name: 'A. Rivera', profile: '@a.rivera', permissions: ['assign', 'start', 'pause'] },
+    { id: 'tm-2', role: 'Helper', name: 'S. Kim', profile: '@s.kim', permissions: ['execute', 'upload proof'] },
+    { id: 'tm-3', role: 'Verifier', name: 'M. Soto', profile: '@m.soto', permissions: ['approve', 'reject'] },
+    { id: 'tm-4', role: 'Witness', name: 'L. Reed', profile: '@l.reed', permissions: ['observe', 'attest'] },
   ],
   progress: {
     percent: 25,

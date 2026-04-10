@@ -18,6 +18,7 @@ interface MainContentPanelProps {
   onAddReportImage: (reportId: string, imageUrl: string) => void;
   onReturnToMainMenu: () => void;
   onJoinReportChat: (report: Report) => void;
+  onEnterMissionV2?: (report: Report) => void;
   activeTab: HubTab;
   setActiveTab: (tab: HubTab) => void;
   onAddNewReport: () => void;
@@ -26,7 +27,7 @@ interface MainContentPanelProps {
   mapCenter?: string;
 }
 
-const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, activeTab, setActiveTab, onAddNewReport, mapCenter, onOpenFilters, ...rest }) => {
+const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredReports, onReturnToMainMenu, onJoinReportChat, onEnterMissionV2, activeTab, setActiveTab, onAddNewReport, mapCenter, onOpenFilters, ...rest }) => {
   const { t } = useTranslations();
   
   const tabs = [
@@ -49,7 +50,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
           />
         );
       case 'community':
-        return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} {...rest} />;
+        return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} {...rest} />;
       case 'work_feed':
         return <CommunityWorkFeed />;
       case 'map':
