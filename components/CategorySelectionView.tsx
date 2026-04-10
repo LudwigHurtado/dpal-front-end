@@ -481,7 +481,7 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
                   rows={CATEGORY_MAPPINGS.filter(
                     (row) =>
                       !HIDDEN_REPORT_PICKER_CATEGORIES.has(row.classicCategory) &&
-                      !HIDDEN_REPORT_PICKER_CATEGORIES.has(row.nextCategory),
+                      !HIDDEN_REPORT_PICKER_CATEGORIES.has(row.nextCategory as Category),
                   )}
                   sectors={SECTORS}
                   getClassicLabel={(row) => getClassicLabel(row.classicCategory)}

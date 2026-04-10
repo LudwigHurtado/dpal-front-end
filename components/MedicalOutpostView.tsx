@@ -325,19 +325,20 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
             </header>
 
             <div className="relative w-full shrink-0 overflow-hidden border-b border-slate-500 bg-slate-100 no-print">
-                {visibleHeroImages.map((src, idx) => (
-                    <img
-                        key={src}
-                        src={src}
-                        alt=""
-                        className="absolute inset-0 h-full w-full object-cover object-center transition-opacity duration-1000"
-                        loading="eager"
-                        style={{ opacity: idx === heroImageIndex ? 1 : 0 }}
-                        onError={() => setHeroImageErrors((prev) => ({ ...prev, [src]: true }))}
-                        draggable={false}
-                    />
-                ))}
-                <div className="h-56 md:h-72" />
+                <div className="relative mx-auto w-full max-w-5xl px-4 sm:px-6 h-56 sm:h-60 md:h-64 lg:h-52 xl:h-56 max-h-[min(42vh,300px)] lg:max-h-[min(32vh,240px)]">
+                    {visibleHeroImages.map((src, idx) => (
+                        <img
+                            key={src}
+                            src={src}
+                            alt=""
+                            className="absolute inset-0 h-full w-full object-contain object-center transition-opacity duration-1000"
+                            loading="eager"
+                            style={{ opacity: idx === heroImageIndex ? 1 : 0 }}
+                            onError={() => setHeroImageErrors((prev) => ({ ...prev, [src]: true }))}
+                            draggable={false}
+                        />
+                    ))}
+                </div>
             </div>
 
             <main className={`flex-grow grid grid-cols-1 lg:grid-cols-12 overflow-hidden ${windowSizeClass === 'compact' ? 'p-4 gap-4' : windowSizeClass === 'medium' ? 'p-6 gap-6' : 'p-8 lg:p-12 gap-12'} bg-slate-700/20`}>

@@ -772,7 +772,7 @@ const PassengerRideHomePage: React.FC = () => {
                   onClick={() => { setSheet('search'); setActiveField('pickup'); }}
                   style={{ marginTop: 8, width: '100%', border: 'none', borderRadius: 10, padding: '10px 12px', background: '#EFF6FF', color: '#0369A1', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
                 >
-                  Start placing A -> B
+                  Start placing A -&gt; B
                 </button>
               </div>
             )}
