@@ -1,9 +1,35 @@
 import { mockMissionAssignmentV2 } from '../data/mockMissionData';
-import { DEFAULT_LAYER_EXECUTION_STATE, type MissionAssignmentV2Model } from '../types';
+import {
+  DEFAULT_LAYER_EXECUTION_STATE,
+  type MissionAssignmentV2Model,
+  type MissionCommunityMeta,
+  type MissionParticipationSettings,
+} from '../types';
 import type { Report } from '../../../types';
 import { generateMissionDetailsFromReport } from '../../../services/geminiService';
 import { loadMissionWorkspaceV2 } from './missionWorkspaceService';
 import { recalculateMissionProgress } from './layerServices';
+
+const DEFAULT_PARTICIPATION: MissionParticipationSettings = {
+  visibility: 'public',
+  joinPolicy: 'approval_required',
+  participantLimit: 50,
+  allowRoleSelection: true,
+  requiresLeadApproval: true,
+};
+
+/** Older saved workspaces may omit participation/community — keep one engine shape. */
+export function ensureMissionV2Defaults(model: MissionAssignmentV2Model): MissionAssignmentV2Model {
+  const participation: MissionParticipationSettings = model.participation ?? DEFAULT_PARTICIPATION;
+  const community: MissionCommunityMeta = model.community ?? {
+    sourceType: 'report_derived',
+    createdAt: new Date().toISOString(),
+    invitees: [],
+    joinRequests: [],
+    tags: [],
+  };
+  return { ...model, participation, community };
+}
 
 function buildObjectivePhases(objective: string, rules: string[]): MissionAssignmentV2Model['details']['objectivePhases'] {
   const ruleItems = (rules || []).slice(0, 4).map((rule, idx) => ({
@@ -138,8 +164,64 @@ async function missionFromReport(report: Report): Promise<MissionAssignmentV2Mod
     },
     /** Live validator escrow is not wired per-report yet — avoid showing mock escrow rows as real. */
     escrowConditions: [],
+    participation: {
+      visibility: 'public',
+      joinPolicy: 'approval_required',
+      participantLimit: 100,
+      allowRoleSelection: true,
+      requiresLeadApproval: true,
+    },
+    community: {
+      sourceType: 'report_derived',
+      createdAt: new Date().toISOString(),
+      invitees: [],
+      joinRequests: [],
+      tags: [String(report.category || 'General').trim() || 'General', report.id].filter(Boolean),
+    },
   };
-  return recalculateMissionProgress(built);
+  return recalculateMissionProgress(ensureMissionV2Defaults(built));
+}
+
+/**
+ * Merge persisted workspace for a user-created or prefetched mission (same as report path, different base).
+ */
+export async function hydrateMissionWorkspaceWithPersistence(
+  initial: MissionAssignmentV2Model,
+): Promise<MissionAssignmentV2Model> {
+  const base = ensureMissionV2Defaults(recalculateMissionProgress(initial));
+  const persisted = await loadMissionWorkspaceV2(base.report.reportId);
+  if (!persisted.data) return base;
+
+  const fallbackDetails = base.details;
+  const persistedDetails = persisted.data.details;
+  const merged: MissionAssignmentV2Model = {
+    ...persisted.data,
+    report: {
+      ...persisted.data.report,
+      reportId: base.report.reportId,
+      title: base.report.title || persisted.data.report.title,
+      location: base.report.location || persisted.data.report.location,
+      snapshot: base.report.snapshot || persisted.data.report.snapshot,
+    },
+    details: {
+      ...persistedDetails,
+      missionType: persistedDetails?.missionType || fallbackDetails.missionType,
+      rewardType: persistedDetails?.rewardType || fallbackDetails.rewardType,
+      rewardAmount: Number(persistedDetails?.rewardAmount ?? fallbackDetails.rewardAmount),
+      objectivePhases:
+        persistedDetails?.objectivePhases && persistedDetails.objectivePhases.length > 0
+          ? persistedDetails.objectivePhases
+          : fallbackDetails.objectivePhases,
+    },
+    participation: persisted.data.participation ?? base.participation,
+    community: persisted.data.community ?? base.community,
+    layerExecution: {
+      ...DEFAULT_LAYER_EXECUTION_STATE,
+      ...persisted.data.layerExecution,
+      mission: persisted.data.identity.status,
+    },
+  };
+  return recalculateMissionProgress(ensureMissionV2Defaults(merged));
 }
 
 export async function loadMissionAssignmentV2(sourceReport?: Report | null): Promise<MissionAssignmentV2Model> {
@@ -170,15 +252,17 @@ export async function loadMissionAssignmentV2(sourceReport?: Report | null): Pro
               : fallbackDetails.objectivePhases,
         },
         // Restore platform layer pipeline; keep `mission` in sync with persisted lifecycle (defaults used `draft`).
+        participation: persisted.data.participation ?? generated.participation,
+        community: persisted.data.community ?? generated.community,
         layerExecution: {
           ...DEFAULT_LAYER_EXECUTION_STATE,
           ...persisted.data.layerExecution,
           mission: persisted.data.identity.status,
         },
       };
-      return recalculateMissionProgress(merged);
+      return recalculateMissionProgress(ensureMissionV2Defaults(merged));
     }
-    return generated;
+    return ensureMissionV2Defaults(generated);
   }
-  return Promise.resolve(recalculateMissionProgress(mockMissionAssignmentV2));
+  return Promise.resolve(recalculateMissionProgress(ensureMissionV2Defaults(mockMissionAssignmentV2)));
 }

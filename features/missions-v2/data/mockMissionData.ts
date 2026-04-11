@@ -78,4 +78,18 @@ export const mockMissionAssignmentV2: MissionAssignmentV2Model = {
     { id: 'p3', label: 'Final verification package', completed: false },
     { id: 'p4', label: 'Beneficiary confirmation', completed: false },
   ],
+  participation: {
+    visibility: 'public',
+    joinPolicy: 'approval_required',
+    participantLimit: 50,
+    allowRoleSelection: true,
+    requiresLeadApproval: true,
+  },
+  community: {
+    sourceType: 'report_derived',
+    createdAt: '2026-01-01T00:00:00.000Z',
+    invitees: [],
+    joinRequests: [],
+    tags: ['demo', 'preview'],
+  },
 };

@@ -7,7 +7,7 @@ interface MissionDetailsSectorProps {
   details: MissionDetails;
   onToggleObjectiveItem: (phaseId: string, itemId: string) => void;
   onAddObjectiveItemImage: (phaseId: string, itemId: string, imageDataUrl: string) => void;
-  onRewardSelection: (rewardType: 'Coins' | 'Tokens' | 'HC', rewardAmount: number) => void;
+  onRewardSelection: (rewardType: 'Coins' | 'Tokens' | 'HC' | 'None', rewardAmount: number) => void;
 }
 
 const MissionDetailsSector: React.FC<MissionDetailsSectorProps> = ({
@@ -20,7 +20,7 @@ const MissionDetailsSector: React.FC<MissionDetailsSectorProps> = ({
   const [openPhases, setOpenPhases] = useState<Record<string, boolean>>({});
   const rowClass = 'grid grid-cols-[110px_1fr] items-center gap-3';
   const valueClass = 'rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700';
-  const rewardOptions: Array<'Coins' | 'Tokens' | 'HC'> = ['Coins', 'Tokens', 'HC'];
+  const rewardOptions: Array<'Coins' | 'Tokens' | 'HC' | 'None'> = ['Coins', 'Tokens', 'HC', 'None'];
 
   const onAttachImage = async (phaseId: string, itemId: string, file: File | null) => {
     if (!file) return;
@@ -54,20 +54,26 @@ const MissionDetailsSector: React.FC<MissionDetailsSectorProps> = ({
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={details.rewardType}
-                onChange={(e) => onRewardSelection(e.target.value as 'Coins' | 'Tokens' | 'HC', details.rewardAmount)}
+                onChange={(e) =>
+                  onRewardSelection(e.target.value as 'Coins' | 'Tokens' | 'HC' | 'None', details.rewardAmount)
+                }
                 className="rounded border border-slate-300 bg-white px-2 py-1 text-xs"
               >
                 {rewardOptions.map((option) => (
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
-              <input
-                type="number"
-                min={1}
-                value={details.rewardAmount}
-                onChange={(e) => onRewardSelection(details.rewardType, Math.max(1, Number(e.target.value || 1)))}
-                className="w-28 rounded border border-slate-300 bg-white px-2 py-1 text-xs"
-              />
+              {details.rewardType !== 'None' ? (
+                <input
+                  type="number"
+                  min={1}
+                  value={details.rewardAmount}
+                  onChange={(e) => onRewardSelection(details.rewardType, Math.max(1, Number(e.target.value || 1)))}
+                  className="w-28 rounded border border-slate-300 bg-white px-2 py-1 text-xs"
+                />
+              ) : (
+                <span className="text-xs text-slate-500">—</span>
+              )}
             </div>
           </div>
         </div>

@@ -53,6 +53,7 @@ export const VIEW_PATHS: Record<string, string> = {
   helpCenter: '/help',
   resolutionLayer: '/resolution',
   missionAssignmentV2: '/missions/v2',
+  createMission: '/missions/create',
 };
 
 export function viewToPath(view: string): string {

@@ -24,7 +24,7 @@ export interface MissionDetails {
   objective: string;
   deadline: string;
   rewardLabel: string;
-  rewardType: 'Coins' | 'Tokens' | 'HC';
+  rewardType: 'Coins' | 'Tokens' | 'HC' | 'None';
   rewardAmount: number;
   escrowLabel: string;
   rules: string[];
@@ -55,13 +55,82 @@ export interface TeamPrivateMessage {
   from: string;
 }
 
+/** Roles for V2 team assignments (extends prior four with coordination roles). */
+export type MissionTeamRole =
+  | 'Lead'
+  | 'Helper'
+  | 'Verifier'
+  | 'Witness'
+  | 'Driver'
+  | 'Support'
+  | 'Coordinator';
+
 export interface TeamMemberAssignment {
   id: string;
-  role: 'Lead' | 'Helper' | 'Verifier' | 'Witness';
+  role: MissionTeamRole;
   name: string;
   profile: string;
   permissions: string[];
   privateMessages?: TeamPrivateMessage[];
+}
+
+export type MissionSourceType = 'report_derived' | 'user_created' | 'ai_suggested';
+
+export type MissionVisibility = 'public' | 'invite_only' | 'hybrid';
+
+export type MissionJoinPolicy = 'open' | 'approval_required' | 'invite_only';
+
+export type MissionParticipantStatus = 'invited' | 'requested' | 'accepted' | 'declined' | 'removed';
+
+export interface MissionCreator {
+  userId: string;
+  displayName: string;
+  profileHandle: string;
+}
+
+export interface MissionInvite {
+  id: string;
+  userId: string;
+  displayName: string;
+  profileHandle: string;
+  role: MissionTeamRole;
+  status: MissionParticipantStatus;
+  sentAt: string;
+  respondedAt?: string;
+  note?: string;
+}
+
+export interface MissionJoinRequest {
+  id: string;
+  userId: string;
+  displayName: string;
+  profileHandle: string;
+  requestedRole: MissionTeamRole;
+  message?: string;
+  status: 'pending' | 'approved' | 'declined';
+  requestedAt: string;
+  reviewedAt?: string;
+}
+
+export interface MissionParticipationSettings {
+  visibility: MissionVisibility;
+  joinPolicy: MissionJoinPolicy;
+  participantLimit: number;
+  allowRoleSelection: boolean;
+  requiresLeadApproval: boolean;
+  minimumTrustScore?: number;
+  ageRestricted?: boolean;
+  localOnly?: boolean;
+}
+
+export interface MissionCommunityMeta {
+  sourceType: MissionSourceType;
+  createdBy?: MissionCreator;
+  createdAt: string;
+  startsAt?: string;
+  invitees: MissionInvite[];
+  joinRequests: MissionJoinRequest[];
+  tags: string[];
 }
 
 export interface MissionProgress {
@@ -90,6 +159,10 @@ export interface MissionAssignmentV2Model {
   progress: MissionProgress;
   escrowConditions: EscrowCondition[];
   proof: ProofRequirement[];
+  /** How participants join and visibility (same engine for report- and user-sourced missions). */
+  participation: MissionParticipationSettings;
+  /** Creator, invites, join requests — Phase 2+ fill invitees/requests. */
+  community: MissionCommunityMeta;
   /** Platform layer pipeline — persisted with workspace when present. */
   layerExecution?: LayerExecutionState;
 }

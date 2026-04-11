@@ -66,6 +66,9 @@ import LayoutV2 from './layouts/LayoutV2';
 import { featureFlags } from './features/featureFlags';
 import MobileCommunityFeedView from './components/mobile/MobileCommunityFeedView';
 import MissionAssignmentV2Page from './features/missions-v2/pages/MissionAssignmentV2Page';
+import CreateMissionView from './features/missions-v2/pages/CreateMissionView';
+import type { MissionAssignmentV2Model } from './features/missions-v2/types';
+import { saveMissionWorkspaceV2 } from './features/missions-v2/services/missionWorkspaceService';
 import { Category, SubscriptionTier, type Report, type Mission, type FeedAnalysis, type Hero, type Rank, SkillLevel, type EducationRole, NftRarity, IapPack, StoreItem, NftTheme, type ChatMessage, IntelItem, type HeroPersona, type TacticalDossier, type TeamMessage, type HealthRecord, Archetype, type SkillType, type AiDirective, SimulationMode, type MissionCompletionSummary, MissionApproach, MissionGoal } from './types';
 import { MOCK_REPORTS, INITIAL_HERO_PROFILE, RANKS, IAP_PACKS, STORE_ITEMS, STARTER_MISSION, getStoredHomeLayout, HOME_LAYOUT_STORAGE_KEY, getApiBase, CATEGORIES_WITH_ICONS, DEFAULT_MAP_LOCATION } from './constants';
 import type { HomeLayout } from './constants';
@@ -97,7 +100,7 @@ import { useTranslations } from './i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { pathToView, viewToPath } from './utils/appRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionAssignmentV2';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionAssignmentV2' | 'createMission';
 
 /** Beacon published to the map for others to see (location shared with group) */
 export interface FieldBeacon {
@@ -330,6 +333,8 @@ const App: React.FC = () => {
   const [selectedMissionForDetail, setSelectedMissionForDetail] = useState<Mission | null>(null);
   const [selectedReportForIncidentRoom, setSelectedReportForIncidentRoom] = useState<Report | null>(null);
   const [missionV2SourceReport, setMissionV2SourceReport] = useState<Report | null>(null);
+  /** User-created (or prefetched) V2 model — same workspace as report-driven when opened. */
+  const [missionV2PrefetchedModel, setMissionV2PrefetchedModel] = useState<MissionAssignmentV2Model | null>(null);
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -918,6 +923,10 @@ const App: React.FC = () => {
         }
         if (view === 'missionAssignmentV2') {
           setMissionV2SourceReport(null);
+          setMissionV2PrefetchedModel(null);
+        }
+        if (view === 'createMission') {
+          setMissionV2PrefetchedModel(null);
         }
         setCurrentView(view); 
     }
@@ -925,9 +934,21 @@ const App: React.FC = () => {
 
   const openMissionV2FromReport = useCallback((report: Report) => {
     setPrevView(currentView);
+    setMissionV2PrefetchedModel(null);
     setMissionV2SourceReport(report);
     setCurrentView('missionAssignmentV2');
   }, [currentView]);
+
+  const openCreatedMissionWorkspace = useCallback(
+    (model: MissionAssignmentV2Model) => {
+      void saveMissionWorkspaceV2(model.report.reportId, model);
+      setMissionV2PrefetchedModel(model);
+      setMissionV2SourceReport(null);
+      setPrevView(currentView);
+      setCurrentView('missionAssignmentV2');
+    },
+    [currentView],
+  );
 
   const goToCategorySelectionHelpSector = () => {
     setHelpSectorFocusSignal((n) => n + 1);
@@ -1696,8 +1717,22 @@ const App: React.FC = () => {
           <ReportWorkPanel onOpenMasterPanel={() => setCurrentView('reportProtect')} />
         )}
 
+        {currentView === 'createMission' && (
+          <CreateMissionView
+            onCancel={() => goBack('mainMenu')}
+            onComplete={(model) => openCreatedMissionWorkspace(model)}
+          />
+        )}
+
         {currentView === 'missionAssignmentV2' && (
-          <MissionAssignmentV2Page onReturn={() => goBack('mainMenu')} sourceReport={missionV2SourceReport} />
+          <MissionAssignmentV2Page
+            onReturn={() => {
+              setMissionV2PrefetchedModel(null);
+              goBack('mainMenu');
+            }}
+            sourceReport={missionV2SourceReport}
+            prefetchedModel={missionV2PrefetchedModel}
+          />
         )}
 
         {currentView === 'helpCenter' && (

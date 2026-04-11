@@ -98,14 +98,17 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
     });
   }, []);
 
-  const handleRewardSelection = useCallback((rewardType: 'Coins' | 'Tokens' | 'HC', rewardAmount: number) => {
+  const handleRewardSelection = useCallback((rewardType: 'Coins' | 'Tokens' | 'HC' | 'None', rewardAmount: number) => {
     setModel((prev) => ({
       ...prev,
       details: {
         ...prev.details,
         rewardType,
-        rewardAmount,
-        rewardLabel: `${rewardAmount.toLocaleString()} ${rewardType} + Escrow Release`,
+        rewardAmount: rewardType === 'None' ? 0 : rewardAmount,
+        rewardLabel:
+          rewardType === 'None'
+            ? 'No monetary reward'
+            : `${rewardAmount.toLocaleString()} ${rewardType} + Escrow Release`,
       },
     }));
   }, []);

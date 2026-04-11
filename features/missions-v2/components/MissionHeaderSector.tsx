@@ -3,9 +3,11 @@ import type { MissionIdentity } from '../types';
 
 interface MissionHeaderSectorProps {
   identity: MissionIdentity;
+  /** Short label for mission source (report vs user vs AI). */
+  sourceLabel?: string;
 }
 
-const MissionHeaderSector: React.FC<MissionHeaderSectorProps> = ({ identity }) => {
+const MissionHeaderSector: React.FC<MissionHeaderSectorProps> = ({ identity, sourceLabel }) => {
   return (
     <header className="rounded-t-xl border border-blue-700 bg-gradient-to-r from-blue-800 via-blue-700 to-blue-600 px-5 py-4 text-white">
       <div className="flex items-start gap-4">
@@ -19,6 +21,9 @@ const MissionHeaderSector: React.FC<MissionHeaderSectorProps> = ({ identity }) =
         </div>
       </div>
       <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+        {sourceLabel ? (
+          <span className="rounded bg-cyan-600/90 px-2 py-1 font-semibold">{sourceLabel}</span>
+        ) : null}
         <span className="rounded bg-blue-900/50 px-2 py-1">#{identity.id}</span>
         <span className="rounded bg-blue-900/50 px-2 py-1">{identity.missionType}</span>
         <span className="rounded bg-blue-900/50 px-2 py-1">{identity.category}</span>

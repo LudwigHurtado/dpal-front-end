@@ -470,6 +470,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<Sparkles className="w-8 h-8" />}
+                    label="Create Mission"
+                    subLabel="User-created mission — same V2 workspace as report missions"
+                    status="New"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/dpal-work-network.png"
+                    onClick={() => onNavigate('createMission')}
+                />
+
+                <PrimaryNavModule
                     icon={<ShieldCheck className="w-8 h-8" />}
                     label="DPAL Lifts"
                     subLabel="Decentralized Public Assistance Lifts"

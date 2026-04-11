@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { MissionAssignmentV2Model } from '../types';
-import { loadMissionAssignmentV2 } from '../services/adapters';
+import type { MissionAssignmentV2Model, MissionSourceType } from '../types';
+import { hydrateMissionWorkspaceWithPersistence, loadMissionAssignmentV2 } from '../services/adapters';
 import { useMissionWorkspaceV2 } from '../hooks/useMissionWorkspaceV2';
 import type { Report } from '../../../types';
 import MissionHeaderSector from '../components/MissionHeaderSector';
@@ -14,28 +14,55 @@ import PrimaryActionSector from '../components/PrimaryActionSector';
 import ProofCompletionSector from '../components/ProofCompletionSector';
 import PlatformLayersSector from '../components/PlatformLayersSector';
 
+function missionSourceLabel(source: MissionSourceType): string {
+  switch (source) {
+    case 'report_derived':
+      return 'Report mission';
+    case 'user_created':
+      return 'User-created';
+    case 'ai_suggested':
+      return 'AI-suggested';
+    default:
+      return 'Mission';
+  }
+}
+
 interface MissionAssignmentV2PageProps {
   onReturn: () => void;
   sourceReport?: Report | null;
+  /** When set (e.g. after Create Mission), load merges persisted workspace for this id — same V2 board as report-driven. */
+  prefetchedModel?: MissionAssignmentV2Model | null;
 }
 
-const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onReturn, sourceReport }) => {
+const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onReturn, sourceReport, prefetchedModel }) => {
   const [initialModel, setInitialModel] = useState<MissionAssignmentV2Model | null>(null);
   /** Bumps on each successful load so the board remounts when re-opening the same report. */
   const [loadGeneration, setLoadGeneration] = useState(0);
 
+  const prefetchKey = prefetchedModel?.report.reportId ?? '';
+  const sourceReportId = sourceReport?.id ?? '';
+
   useEffect(() => {
     let mounted = true;
-    loadMissionAssignmentV2(sourceReport).then((data) => {
+    (async () => {
+      if (prefetchedModel) {
+        const data = await hydrateMissionWorkspaceWithPersistence(prefetchedModel);
+        if (mounted) {
+          setInitialModel(data);
+          setLoadGeneration((g) => g + 1);
+        }
+        return;
+      }
+      const data = await loadMissionAssignmentV2(sourceReport ?? null);
       if (mounted) {
         setInitialModel(data);
         setLoadGeneration((g) => g + 1);
       }
-    });
+    })();
     return () => {
       mounted = false;
     };
-  }, [sourceReport]);
+  }, [sourceReportId, prefetchKey, prefetchedModel]);
 
   if (!initialModel) {
     return <div className="py-10 text-center text-zinc-400">Loading mission workspace...</div>;
@@ -48,6 +75,7 @@ const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onRet
       key={`${initialModel.report.reportId}-${loadGeneration}`}
       onReturn={onReturn}
       initialModel={initialModel}
+      sourceLabel={missionSourceLabel(initialModel.community.sourceType)}
     />
   );
 };
@@ -55,9 +83,10 @@ const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onRet
 interface MissionAssignmentV2BoardProps {
   onReturn: () => void;
   initialModel: MissionAssignmentV2Model;
+  sourceLabel: string;
 }
 
-const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onReturn, initialModel }) => {
+const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onReturn, initialModel, sourceLabel }) => {
   const {
     model,
     layers,
@@ -94,7 +123,7 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
         Back
       </button>
 
-      <MissionHeaderSector identity={model.identity} />
+      <MissionHeaderSector identity={model.identity} sourceLabel={sourceLabel} />
       <div className="rounded-b-xl border border-t-0 border-slate-300 bg-slate-200 p-4">
         {/* Row 1 — report context + progress & actions above the fold */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
