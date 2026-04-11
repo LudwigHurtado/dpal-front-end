@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useAuth } from '../../../auth/AuthContext';
 import type { MissionAssignmentV2Model } from '../types';
 import { buildUserCreatedMission } from '../services/createMissionAdapter';
@@ -6,15 +6,14 @@ import type { CreateMissionInput } from '../createMissionTypes';
 import {
   USER_MISSION_TYPE_OPTIONS,
   MISSION_CATEGORY_CARDS,
-  SUGGESTED_JOIN_MISSIONS,
-  QUICK_START_PRESETS,
+  MISSION_ENTRY_TYPE_CHIPS,
 } from '../createMissionTypes';
 
 interface CreateMissionViewProps {
   onCancel: () => void;
   /** Emits a full V2 model — parent saves and opens MissionAssignmentV2. */
   onComplete: (model: MissionAssignmentV2Model) => void;
-  /** “Browse missions” — Mission Assignment V2 hub. */
+  /** Mission Assignment V2 hub (browse / join). */
   onBrowseMissions: () => void;
 }
 
@@ -23,27 +22,25 @@ const MISSION_CONTROL_HERO_SRC = '/main-screen/dpal-mission-control-hero.png';
 
 const shell = 'min-h-full bg-slate-950 text-slate-100';
 const card =
-  'rounded-2xl border border-cyan-500/20 bg-slate-900/85 shadow-[0_0_40px_rgba(0,198,255,0.08)] backdrop-blur-sm';
-const cardInner = 'border border-white/5';
-const labelCls =
-  'text-[11px] font-semibold uppercase tracking-wider text-cyan-200/75';
+  'rounded-2xl border border-cyan-500/25 bg-slate-900/90 shadow-[0_0_48px_rgba(0,198,255,0.1)] backdrop-blur-sm';
+const cardInner = 'rounded-xl border border-white/[0.06] bg-slate-950/40';
+const sectionTitle =
+  'mb-4 flex items-baseline gap-2 border-b border-cyan-500/35 pb-2.5 text-[12px] font-bold uppercase tracking-[0.18em] text-cyan-100/95';
+const labelCls = 'text-[11px] font-semibold uppercase tracking-wider text-cyan-200/80';
 const field =
-  'mt-1 w-full rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500/50 focus:outline-none focus:ring-1 focus:ring-cyan-400/30';
+  'mt-1 w-full rounded-lg border border-slate-600/90 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-400/25';
 const btnPrimary =
-  'rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 px-4 py-2.5 text-sm font-bold text-slate-950 shadow-[0_0_24px_rgba(34,211,238,0.35)] hover:from-cyan-500 hover:to-cyan-400';
+  'rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-[0_0_28px_rgba(34,211,238,0.45)] transition hover:from-cyan-400 hover:to-cyan-300 hover:shadow-[0_0_36px_rgba(34,211,238,0.55)]';
 const btnGhost =
-  'rounded-xl border border-slate-600 bg-slate-900/60 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-cyan-500/40 hover:bg-slate-800';
+  'rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-2.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/45 hover:bg-slate-800';
 const btnChip =
   'rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors';
-const btnChipOn = 'border-cyan-400/60 bg-cyan-500/15 text-cyan-100 shadow-[0_0_16px_rgba(34,211,238,0.2)]';
-const btnChipOff = 'border-slate-600 bg-slate-900/50 text-slate-300 hover:border-slate-500';
+const btnChipOn = 'border-cyan-400/60 bg-cyan-500/15 text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.22)]';
+const btnChipOff = 'border-slate-600 bg-slate-900/55 text-slate-300 hover:border-slate-500';
 
-const CreateMissionView: React.FC<CreateMissionViewProps> = ({
-  onCancel,
-  onComplete,
-  onBrowseMissions,
-}) => {
+const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onComplete, onBrowseMissions }) => {
   const { user } = useAuth();
+  const formRef = useRef<HTMLFormElement>(null);
   const creator = useMemo(
     () => ({
       userId: user?.id ?? 'local',
@@ -53,9 +50,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
     [user],
   );
 
-  const [step, setStep] = useState<'choice' | 'create'>('choice');
-  const [browseTab, setBrowseTab] = useState<'suggested' | 'community'>('suggested');
-  const [selectedPresetKey, setSelectedPresetKey] = useState<string | null>(null);
+  const [selectedEntryChip, setSelectedEntryChip] = useState<string | null>(null);
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState(MISSION_CATEGORY_CARDS[0]!.value);
@@ -79,21 +74,14 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
 
   const [error, setError] = useState<string | null>(null);
 
-  const applyPreset = (p: (typeof QUICK_START_PRESETS)[number]) => {
+  const applyEntryChip = (p: (typeof MISSION_ENTRY_TYPE_CHIPS)[number]) => {
     setCategory(p.category);
     setMissionType(p.missionType);
-    setSelectedPresetKey(p.label);
+    setSelectedEntryChip(p.label);
   };
 
-  const startCreating = () => {
-    const preset = selectedPresetKey
-      ? QUICK_START_PRESETS.find((x) => x.label === selectedPresetKey)
-      : undefined;
-    if (preset) {
-      setCategory(preset.category);
-      setMissionType(preset.missionType);
-    }
-    setStep('create');
+  const scrollToForm = () => {
+    formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const addProof = () => {
@@ -153,210 +141,129 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
     onComplete(buildUserCreatedMission(input));
   };
 
-  if (step === 'choice') {
-    return (
-      <div className={`${shell} pb-24`}>
-        <div className="mx-auto max-w-[1200px] px-4 pt-4">
-          <div className="relative overflow-hidden rounded-2xl border border-cyan-500/25 shadow-[0_0_60px_rgba(0,198,255,0.12)]">
+  return (
+    <div className={`${shell} pb-28`}>
+      <div className="mx-auto max-w-[880px] px-4 pt-4">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-400/90">DPAL Mission Control</p>
+          <button type="button" onClick={onCancel} className={btnGhost}>
+            Exit to home
+          </button>
+        </div>
+
+        {/* Interactive mission entry — not a passive banner */}
+        <section
+          className={`${card} overflow-hidden`}
+          aria-label="How do you want to begin?"
+        >
+          <div className="relative min-h-[200px]">
             <img
               src={MISSION_CONTROL_HERO_SRC}
               alt=""
-              className="h-[min(42vh,360px)] w-full object-cover object-center opacity-95"
-              loading="eager"
+              className="absolute inset-0 h-full w-full object-cover object-center"
             />
             <div
-              className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-transparent"
+              className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/88 to-slate-950/40"
               aria-hidden
             />
-            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-cyan-300/90">
-                DPAL Mission Control
-              </p>
-              <h1 className="mt-1 font-mono text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                Start a Mission
+            <div className="relative z-10 px-5 pb-5 pt-8 sm:px-8 sm:pt-10">
+              <h1 className="font-mono text-3xl font-bold tracking-tight text-white sm:text-[2rem]">
+                Create Your Own Mission
               </h1>
-              <p className="mt-2 max-w-xl text-sm text-slate-300">
-                Join an existing mission or create your own — same V2 workspace as report-driven missions.
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
+                Browse active missions in the hub, or build a custom mission for your community, team, or cause. Pick a
+                mission type below, then complete the details — you&apos;ll land in the same Mission Assignment V2
+                workspace as report-linked missions.
               </p>
             </div>
           </div>
 
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
-            {(['suggested', 'community'] as const).map((tab) => (
+          <div className="space-y-6 border-t border-cyan-500/20 bg-slate-950/55 px-5 py-6 sm:px-8 sm:py-8">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Choose how to begin</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <button
-                key={tab}
                 type="button"
-                onClick={() => setBrowseTab(tab)}
-                className={`${btnChip} ${
-                  browseTab === tab ? btnChipOn : btnChipOff
-                }`}
+                onClick={onBrowseMissions}
+                className="group flex flex-col rounded-2xl border border-slate-600/90 bg-slate-900/80 p-6 text-left transition hover:border-slate-500 hover:bg-slate-800/80"
               >
-                {tab === 'suggested' ? 'Suggested Missions' : 'Community Missions'}
+                <span className="text-2xl" aria-hidden>
+                  🗂️
+                </span>
+                <span className="mt-3 font-mono text-lg font-bold text-white">Browse Missions</span>
+                <span className="mt-2 text-sm text-slate-400">
+                  Open the mission hub — see workspaces, tasks, and teams.
+                </span>
+                <span className="mt-4 text-xs font-semibold uppercase tracking-wide text-cyan-500/90 group-hover:text-cyan-400">
+                  Go to hub →
+                </span>
               </button>
-            ))}
-          </div>
 
-          <p className="mt-4 text-center text-xs text-slate-500">
-            Quick mission themes — select one, then choose <span className="text-cyan-400/90">Start Creating</span> on the
-            right.
-          </p>
-          <div className="mt-3 flex flex-wrap justify-center gap-2">
-            {QUICK_START_PRESETS.map((p) => (
               <button
-                key={p.label}
                 type="button"
-                onClick={() => applyPreset(p)}
-                className={`${btnChip} ${
-                  selectedPresetKey === p.label ? btnChipOn : btnChipOff
-                }`}
+                onClick={scrollToForm}
+                className="relative flex flex-col overflow-hidden rounded-2xl border-2 border-cyan-400/45 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-slate-950 p-6 text-left shadow-[0_0_40px_rgba(34,211,238,0.18)] ring-1 ring-cyan-400/25 transition hover:border-cyan-300/60 hover:shadow-[0_0_52px_rgba(34,211,238,0.28)]"
               >
-                {p.label}
+                <span className="text-2xl" aria-hidden>
+                  ✨
+                </span>
+                <span className="mt-3 font-mono text-lg font-bold text-white">Create Your Own Mission</span>
+                <span className="mt-2 text-sm text-cyan-100/85">
+                  Define title, location, rewards, and proof — then create &amp; open your workspace.
+                </span>
+                <span className="mt-4 inline-flex items-center text-xs font-bold uppercase tracking-wide text-cyan-200">
+                  Continue to mission details ↓
+                </span>
               </button>
-            ))}
-          </div>
+            </div>
 
-          <div className="mt-10 grid grid-cols-1 gap-6 xl:grid-cols-12 xl:gap-8">
-            <div className="space-y-4 xl:col-span-7">
-              <h2 className="font-mono text-sm font-bold uppercase tracking-wide text-cyan-200/80">
-                {browseTab === 'suggested' ? 'Join / pick a mission' : 'Community missions'}
-              </h2>
-              {browseTab === 'suggested' ? (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  {SUGGESTED_JOIN_MISSIONS.map((m) => (
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Mission type</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Sets your category and mission type — refine anything in the form below.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {MISSION_ENTRY_TYPE_CHIPS.map((p) => {
+                  const on = selectedEntryChip === p.label;
+                  return (
                     <button
-                      key={m.id}
+                      key={p.label}
                       type="button"
-                      onClick={onBrowseMissions}
-                      className={`${card} p-4 text-left transition hover:border-cyan-400/40 hover:shadow-[0_0_28px_rgba(34,211,238,0.12)]`}
+                      onClick={() => {
+                        applyEntryChip(p);
+                        scrollToForm();
+                      }}
+                      className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                        on
+                          ? 'border-cyan-400/55 bg-cyan-500/15 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.2)]'
+                          : 'border-slate-600 bg-slate-950/50 text-slate-300 hover:border-slate-500'
+                      }`}
                     >
-                      <div className="flex gap-3">
-                        <span className="text-2xl" aria-hidden>
-                          {m.icon}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-white">{m.title}</p>
-                          <p className="mt-1 line-clamp-2 text-xs text-slate-400">{m.description}</p>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
-                            {m.tags.map((tag) => (
-                              <span
-                                key={tag}
-                                className="rounded border border-slate-600/80 bg-slate-950/50 px-1.5 py-0.5 text-[10px] text-slate-400"
-                              >
-                                {tag}
-                              </span>
-                            ))}
-                          </div>
-                          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                            <span>{m.isRemote ? 'Remote' : m.locationLabel}</span>
-                            <span>·</span>
-                            <span>{m.hasReward ? m.rewardLabel : 'No reward'}</span>
-                            <span>·</span>
-                            <span>{m.participantCount} joined</span>
-                          </div>
-                        </div>
-                      </div>
+                      <span aria-hidden>{p.icon}</span>
+                      <span className="font-medium leading-tight">{p.label}</span>
                     </button>
-                  ))}
-                </div>
-              ) : (
-                <div className={`${card} p-8 text-center`}>
-                  <p className="text-slate-400">
-                    Community-wide listings will connect here. For now, browse suggested missions or open the mission
-                    hub.
-                  </p>
-                  <button type="button" onClick={onBrowseMissions} className={`${btnPrimary} mt-6`}>
-                    Open mission hub
-                  </button>
-                </div>
-              )}
-
-              <div className={`${card} p-4`}>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold text-white">Browse all active missions</p>
-                    <p className="text-xs text-slate-500">Mission Assignment V2 — workspaces, tasks, and teams.</p>
-                  </div>
-                  <button type="button" onClick={onBrowseMissions} className={btnPrimary}>
-                    Browse missions
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="xl:col-span-5">
-              <div
-                className={`${card} sticky top-4 overflow-hidden xl:min-h-[420px]`}
-                style={{ boxShadow: '0 0 48px rgba(34, 211, 238, 0.12)' }}
-              >
-                <div className="border-b border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 to-transparent px-5 py-5">
-                  <p className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">Option 2</p>
-                  <h3 className="mt-1 font-mono text-xl font-bold text-white">Create your own mission</h3>
-                  <p className="mt-2 text-sm text-slate-400">
-                    Start a mission for your community, team, family, or cause. You’ll fill details on the next screen.
-                  </p>
-                </div>
-                <div className="space-y-3 p-5">
-                  <ul className="space-y-2 text-xs text-slate-400">
-                    <li className="flex gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      Same V2 board as report-linked missions
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      Proof, rewards, and tasks you define
-                    </li>
-                    <li className="flex gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      Invites & join flow in a later phase
-                    </li>
-                  </ul>
-                  <button type="button" onClick={startCreating} className={`${btnPrimary} w-full py-3 text-base`}>
-                    Start creating
-                  </button>
-                  <button type="button" onClick={onCancel} className={`${btnGhost} w-full`}>
-                    Back to home
-                  </button>
-                </div>
+                  );
+                })}
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    );
-  }
+        </section>
 
-  return (
-    <div className={`${shell} pb-24`}>
-      <div className="mx-auto max-w-[760px] px-4 pt-4">
-        <div className="relative overflow-hidden rounded-2xl border border-cyan-500/20">
-          <img
-            src={MISSION_CONTROL_HERO_SRC}
-            alt=""
-            className="max-h-[200px] w-full object-cover object-center opacity-90"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
-          <div className="absolute bottom-3 left-4 right-4">
-            <h1 className="font-mono text-2xl font-bold text-white">Create your own mission</h1>
-            <p className="text-xs text-slate-400">Define the mission — you’ll open the V2 workspace after submit.</p>
-          </div>
-        </div>
+        <p className="mt-8 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+          Mission details
+        </p>
 
-        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-          <button type="button" onClick={() => setStep('choice')} className={btnGhost}>
-            ← Mission choice
-          </button>
-          <div className="flex gap-2">
-            <button type="button" onClick={onCancel} className={btnGhost}>
-              Exit
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className={`${card} mt-6 space-y-8 p-5 sm:p-6`}>
-          <section className={`space-y-4 ${cardInner} rounded-xl p-4`}>
-            <h2 className={labelCls}>1 · Mission basics</h2>
+        <form
+          ref={formRef}
+          id="create-mission-details"
+          onSubmit={handleSubmit}
+          className={`${card} mt-3 space-y-8 p-5 sm:p-8`}
+        >
+          <section className={`space-y-5 p-1`}>
+            <h2 className={sectionTitle}>
+              <span className="text-cyan-400/90">01</span> Mission basics
+            </h2>
             <label className="block text-sm">
-              <span className="text-slate-300">Title</span>
+              <span className="text-slate-200">Title</span>
               <input
                 required
                 value={title}
@@ -366,9 +273,9 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
               />
             </label>
             <div>
-              <p className="text-slate-300">Category</p>
-              <p className="mt-0.5 text-[11px] text-slate-500">Pick one — drives how the mission reads in lists.</p>
-              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <p className={labelCls}>Category</p>
+              <p className="mt-1 text-xs text-slate-500">How this mission reads in lists and filters.</p>
+              <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                 {MISSION_CATEGORY_CARDS.map((c) => {
                   const on = category === c.value;
                   return (
@@ -376,10 +283,10 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
                       key={c.value}
                       type="button"
                       onClick={() => setCategory(c.value)}
-                      className={`flex items-start gap-3 rounded-xl border px-3 py-3 text-left transition ${
+                      className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
                         on
-                          ? 'border-cyan-400/50 bg-cyan-500/10 shadow-[0_0_20px_rgba(34,211,238,0.15)]'
-                          : 'border-slate-600 bg-slate-950/40 hover:border-slate-500'
+                          ? 'border-cyan-400/55 bg-cyan-500/12 shadow-[0_0_22px_rgba(34,211,238,0.14)]'
+                          : 'border-slate-600/90 bg-slate-950/50 hover:border-slate-500'
                       }`}
                     >
                       <span className="text-xl" aria-hidden>
@@ -395,7 +302,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
               </div>
             </div>
             <label className="block text-sm">
-              <span className="text-slate-300">Description</span>
+              <span className="text-slate-200">Description</span>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -406,7 +313,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
             </label>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block text-sm">
-                <span className="text-slate-300">Location</span>
+                <span className="text-slate-200">Location</span>
                 <input
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
@@ -427,7 +334,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <label className="block text-sm">
-                <span className="text-slate-300">Urgency</span>
+                <span className="text-slate-200">Urgency</span>
                 <select
                   value={urgency}
                   onChange={(e) => setUrgency(e.target.value as typeof urgency)}
@@ -439,7 +346,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-slate-300">Start (optional)</span>
+                <span className="text-slate-200">Start (optional)</span>
                 <input
                   type="datetime-local"
                   value={startsAt}
@@ -448,7 +355,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
                 />
               </label>
               <label className="block text-sm">
-                <span className="text-slate-300">Deadline (optional)</span>
+                <span className="text-slate-200">Deadline (optional)</span>
                 <input
                   type="datetime-local"
                   value={deadline}
@@ -458,7 +365,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
               </label>
             </div>
             <label className="block text-sm">
-              <span className="text-slate-300">Max participants</span>
+              <span className="text-slate-200">Max participants</span>
               <input
                 type="number"
                 min={1}
@@ -469,27 +376,33 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
             </label>
           </section>
 
-          <section className={`space-y-3 ${cardInner} rounded-xl p-4`}>
-            <h2 className={labelCls}>2 · Mission type</h2>
-            <div className="flex flex-wrap gap-2">
-              {USER_MISSION_TYPE_OPTIONS.map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setMissionType(opt.value)}
-                  className={`${btnChip} ${missionType === opt.value ? btnChipOn : btnChipOff}`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          <section className={`space-y-4 p-1`}>
+            <h2 className={sectionTitle}>
+              <span className="text-cyan-400/90">02</span> Mission type
+            </h2>
+            <div className={`${cardInner} p-4`}>
+              <div className="flex flex-wrap gap-2">
+                {USER_MISSION_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setMissionType(opt.value)}
+                    className={`${btnChip} ${missionType === opt.value ? btnChipOn : btnChipOff}`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </section>
 
-          <section className={`space-y-3 ${cardInner} rounded-xl p-4`}>
-            <h2 className={labelCls}>3 · Participation</h2>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <section className={`space-y-4 p-1`}>
+            <h2 className={sectionTitle}>
+              <span className="text-cyan-400/90">03</span> Participation
+            </h2>
+            <div className={`${cardInner} grid grid-cols-1 gap-4 p-4 sm:grid-cols-2`}>
               <label className="block text-sm">
-                <span className="text-slate-300">Visibility</span>
+                <span className="text-slate-200">Visibility</span>
                 <select
                   value={visibility}
                   onChange={(e) => setVisibility(e.target.value as CreateMissionInput['visibility'])}
@@ -501,7 +414,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
                 </select>
               </label>
               <label className="block text-sm">
-                <span className="text-slate-300">Join policy</span>
+                <span className="text-slate-200">Join policy</span>
                 <select
                   value={joinPolicy}
                   onChange={(e) => setJoinPolicy(e.target.value as CreateMissionInput['joinPolicy'])}
@@ -515,120 +428,128 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({
             </div>
           </section>
 
-          <section className={`space-y-4 ${cardInner} rounded-xl p-4`}>
-            <h2 className={labelCls}>4 · Rewards & proof</h2>
-            <div>
-              <p className="text-slate-300">Reward type</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {(['None', 'HC', 'Coins', 'Tokens'] as const).map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => setRewardType(r)}
-                    className={`${btnChip} ${rewardType === r ? btnChipOn : btnChipOff}`}
-                  >
-                    {r === 'None' ? 'No reward' : r === 'HC' ? 'DPAL HC' : r}
+          <section className={`space-y-5 p-1`}>
+            <h2 className={sectionTitle}>
+              <span className="text-cyan-400/90">04</span> Rewards &amp; proof
+            </h2>
+            <div className={`${cardInner} space-y-4 p-4`}>
+              <div>
+                <p className="text-sm text-slate-200">Reward type</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {(['None', 'HC', 'Coins', 'Tokens'] as const).map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => setRewardType(r)}
+                      className={`${btnChip} ${rewardType === r ? btnChipOn : btnChipOff}`}
+                    >
+                      {r === 'None' ? 'No reward' : r === 'HC' ? 'DPAL HC' : r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {rewardType !== 'None' ? (
+                <label className="block text-sm">
+                  <span className="text-slate-200">Amount</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={rewardAmount}
+                    onChange={(e) => setRewardAmount(Math.max(0, Number(e.target.value || 0)))}
+                    className={`${field} max-w-[200px]`}
+                  />
+                </label>
+              ) : null}
+              <label className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={requiresProof}
+                  onChange={(e) => setRequiresProof(e.target.checked)}
+                  className="rounded border-slate-500 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
+                />
+                Require proof items for completion
+              </label>
+              <div>
+                <p className="text-sm text-slate-200">Proof items</p>
+                <p className="text-[11px] text-slate-500">Add each requirement as its own line.</p>
+                <ul className="mt-2 space-y-2">
+                  {proofItems.map((line, i) => (
+                    <li
+                      key={`${line}-${i}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/90 bg-slate-950/70 px-3 py-2 text-sm text-slate-200"
+                    >
+                      <span>{line}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeProof(i)}
+                        className="shrink-0 text-xs text-rose-400/95 hover:text-rose-300"
+                      >
+                        Remove
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <input
+                    value={newProof}
+                    onChange={(e) => setNewProof(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProof())}
+                    className={`${field} min-w-[200px] flex-1`}
+                    placeholder="e.g. Photo at drop-off"
+                  />
+                  <button type="button" onClick={addProof} className={btnGhost}>
+                    Add proof item
                   </button>
-                ))}
+                </div>
               </div>
             </div>
-            {rewardType !== 'None' ? (
-              <label className="block text-sm">
-                <span className="text-slate-300">Amount</span>
-                <input
-                  type="number"
-                  min={0}
-                  value={rewardAmount}
-                  onChange={(e) => setRewardAmount(Math.max(0, Number(e.target.value || 0)))}
-                  className={`${field} max-w-[200px]`}
-                />
-              </label>
-            ) : null}
-            <label className="flex items-center gap-2 text-sm text-slate-300">
-              <input
-                type="checkbox"
-                checked={requiresProof}
-                onChange={(e) => setRequiresProof(e.target.checked)}
-                className="rounded border-slate-500 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
-              />
-              Require proof items for completion
-            </label>
-            <div>
-              <p className="text-slate-300">Proof items</p>
-              <p className="text-[11px] text-slate-500">Add each requirement as its own line.</p>
-              <ul className="mt-2 space-y-2">
-                {proofItems.map((line, i) => (
+          </section>
+
+          <section className={`space-y-4 p-1`}>
+            <h2 className={sectionTitle}>
+              <span className="text-cyan-400/90">05</span> Initial tasks (optional)
+            </h2>
+            <div className={`${cardInner} space-y-3 p-4`}>
+              <ul className="space-y-2">
+                {taskItems.map((line, i) => (
                   <li
                     key={`${line}-${i}`}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/90 bg-slate-950/70 px-3 py-2 text-sm text-slate-200"
                   >
                     <span>{line}</span>
                     <button
                       type="button"
-                      onClick={() => removeProof(i)}
-                      className="shrink-0 text-xs text-rose-400 hover:text-rose-300"
+                      onClick={() => removeTask(i)}
+                      className="text-xs text-rose-400/95 hover:text-rose-300"
                     >
                       Remove
                     </button>
                   </li>
                 ))}
               </ul>
-              <div className="mt-2 flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2">
                 <input
-                  value={newProof}
-                  onChange={(e) => setNewProof(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addProof())}
+                  value={newTask}
+                  onChange={(e) => setNewTask(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTask())}
                   className={`${field} min-w-[200px] flex-1`}
-                  placeholder="e.g. Photo at drop-off"
+                  placeholder="First checkpoint, handoff, etc."
                 />
-                <button type="button" onClick={addProof} className={btnGhost}>
-                  Add proof item
+                <button type="button" onClick={addTask} className={btnGhost}>
+                  Add task
                 </button>
               </div>
             </div>
           </section>
 
-          <section className={`space-y-3 ${cardInner} rounded-xl p-4`}>
-            <h2 className={labelCls}>Initial tasks (optional)</h2>
-            <ul className="space-y-2">
-              {taskItems.map((line, i) => (
-                <li
-                  key={`${line}-${i}`}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-sm text-slate-200"
-                >
-                  <span>{line}</span>
-                  <button
-                    type="button"
-                    onClick={() => removeTask(i)}
-                    className="text-xs text-rose-400 hover:text-rose-300"
-                  >
-                    Remove
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={newTask}
-                onChange={(e) => setNewTask(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addTask())}
-                className={`${field} min-w-[200px] flex-1`}
-                placeholder="First checkpoint, handoff, etc."
-              />
-              <button type="button" onClick={addTask} className={btnGhost}>
-                Add task
-              </button>
-            </div>
-          </section>
-
           {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
-          <div className="flex flex-wrap gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3 border-t border-cyan-500/20 pt-6">
             <button type="submit" className={btnPrimary}>
               Create &amp; open workspace
             </button>
-            <button type="button" onClick={() => setStep('choice')} className={btnGhost}>
-              Back
+            <button type="button" onClick={onCancel} className={btnGhost}>
+              Cancel
             </button>
           </div>
         </form>

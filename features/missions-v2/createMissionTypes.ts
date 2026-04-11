@@ -51,15 +51,22 @@ export const MISSION_CATEGORY_CARDS: {
   { value: 'Accountability Follow-Up', label: 'Accountability Follow-Up', short: 'Reporting follow-through', icon: '📋' },
 ];
 
-/** Quick chips on the choice screen — prefill category + mission type when starting the wizard. */
-export const QUICK_START_PRESETS: { label: string; category: string; missionType: string }[] = [
-  { label: 'Cleanup', category: 'Community Cleanup', missionType: 'cleanup' },
-  { label: 'Community Help', category: 'Community Help', missionType: 'community_help' },
-  { label: 'Rescue Support', category: 'Community Help', missionType: 'escort_support' },
-  { label: 'Supply Delivery', category: 'Supply Delivery', missionType: 'donation_supply' },
-  { label: 'Family Safe', category: 'Family Safe', missionType: 'good_deed' },
-  { label: 'Neighborhood Watch', category: 'Neighborhood Watch', missionType: 'neighborhood_watch' },
-  { label: 'Accountability Follow-Up', category: 'Accountability Follow-Up', missionType: 'accountability_followup' },
+/**
+ * Mission entry row on `/missions/create` — prefill category + mission type.
+ * Labels match product copy (e.g. “Family Support” maps to Family Safe + good_deed).
+ */
+export const MISSION_ENTRY_TYPE_CHIPS: {
+  label: string;
+  category: string;
+  missionType: string;
+  icon: string;
+}[] = [
+  { label: 'Cleanup', category: 'Community Cleanup', missionType: 'cleanup', icon: '🧹' },
+  { label: 'Community Help', category: 'Community Help', missionType: 'community_help', icon: '🤝' },
+  { label: 'Family Support', category: 'Family Safe', missionType: 'good_deed', icon: '🏠' },
+  { label: 'Delivery / Supply Run', category: 'Supply Delivery', missionType: 'donation_supply', icon: '📦' },
+  { label: 'Volunteer Coordination', category: 'Community Help', missionType: 'volunteer_coordination', icon: '📣' },
+  { label: 'Accountability Follow-Up', category: 'Accountability Follow-Up', missionType: 'accountability_followup', icon: '📋' },
 ];
 
 export interface SuggestedJoinMissionCard {
