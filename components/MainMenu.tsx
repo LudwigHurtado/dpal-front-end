@@ -285,7 +285,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="V2 assignment workspace — tasks, proof, escrow, and service layers"
                     status="Main"
                     colorClass="blue"
-                    bgImageUrl="/main-screen/dpal-mission-control-hero.png"
+                    bgImageUrl="/main-screen/dpal-work-network.png"
                     onClick={() => onNavigate('missionMarketplace')}
                 />
 
@@ -419,7 +419,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Mission marketplace — choose work that matters"
                     status="Bright"
                     colorClass="amber"
-                    bgImageUrl="/main-screen/dpal-work-network.png"
+                    bgImageUrl="/main-screen/dpal-mission-control-hero.png"
                     onClick={() => onNavigate('aiWorkDirectives')}
                 />
 
