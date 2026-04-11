@@ -158,21 +158,25 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
           className={`${card} overflow-hidden`}
           aria-label="How do you want to begin?"
         >
-          <div className="relative min-h-[200px]">
+          <div className="relative bg-teal-950">
+            {/*
+              Full image visible: object-contain + intrinsic height (not cover/crop).
+              Cap height so very tall art still fits the viewport; letterboxing uses bg-teal-950.
+            */}
             <img
               src={MISSION_CONTROL_HERO_SRC}
-              alt=""
-              className="absolute inset-0 h-full w-full object-cover object-center"
+              alt="DPAL Mission Control"
+              className="block w-full max-h-[min(78vh,680px)] object-contain object-center"
             />
             <div
-              className="absolute inset-0 bg-gradient-to-t from-teal-950 via-teal-950/90 to-teal-950/35"
+              className="pointer-events-none absolute bottom-0 left-0 right-0 h-[min(45%,220px)] bg-gradient-to-t from-teal-950 via-teal-950/75 to-transparent"
               aria-hidden
             />
-            <div className="relative z-10 px-5 pb-5 pt-8 sm:px-8 sm:pt-10">
-              <h1 className="font-mono text-3xl font-bold tracking-tight text-white sm:text-[2rem]">
+            <div className="absolute bottom-0 left-0 right-0 z-10 px-5 pb-5 pt-10 sm:px-8 sm:pb-6">
+              <h1 className="font-mono text-3xl font-bold tracking-tight text-white drop-shadow-sm sm:text-[2rem]">
                 Create Your Own Mission
               </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-200 drop-shadow-sm">
                 Browse active missions in the hub, or build a custom mission for your community, team, or cause. Pick a
                 mission type below, then complete the details — you&apos;ll land in the same Mission Assignment V2
                 workspace as report-linked missions.

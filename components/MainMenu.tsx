@@ -198,8 +198,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     style={{
                         width: '100%',
                         display: 'block',
-                        maxHeight: '520px',
-                        objectFit: 'cover',
+                        maxHeight: 'min(78vh, 680px)',
+                        objectFit: 'contain',
+                        objectPosition: 'center top',
                     }}
                 />
                 {/* Subtle bottom gradient fade into page */}
