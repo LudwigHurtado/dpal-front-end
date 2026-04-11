@@ -14,9 +14,6 @@ const ProgressStatusSector: React.FC<ProgressStatusSectorProps> = ({ progress, o
         <p className="text-center text-xs font-semibold uppercase tracking-wide text-slate-600">
           {progress.statusLabel}
         </p>
-        <button type="button" className="w-full rounded-md bg-emerald-500 px-3 py-2 font-semibold text-white">
-          + In Progress
-        </button>
         <div className="h-5 w-full rounded-md border border-slate-300 bg-white p-0.5">
           <div className="h-full rounded bg-blue-500" style={{ width: `${Math.max(0, Math.min(100, progress.percent))}%` }} />
         </div>

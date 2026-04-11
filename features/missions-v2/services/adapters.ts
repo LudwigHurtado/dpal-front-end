@@ -136,6 +136,8 @@ async function missionFromReport(report: Report): Promise<MissionAssignmentV2Mod
             aiDetails?.rules?.length ? aiDetails.rules : fallbackDetails.rules,
           ),
     },
+    /** Live validator escrow is not wired per-report yet — avoid showing mock escrow rows as real. */
+    escrowConditions: [],
   };
   return recalculateMissionProgress(built);
 }

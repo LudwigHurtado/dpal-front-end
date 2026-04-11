@@ -96,9 +96,22 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
 
       <MissionHeaderSector identity={model.identity} />
       <div className="rounded-b-xl border border-t-0 border-slate-300 bg-slate-200 p-4">
+        {/* Row 1 — report context + progress & actions above the fold */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <div className="space-y-3 lg:col-span-6">
             <ReportOverviewSector report={model.report} />
+          </div>
+          <div className="space-y-3 lg:col-span-6">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <ProgressStatusSector progress={model.progress} onAddMember={handleAddMember} />
+              <PrimaryActionSector missionStatus={model.identity.status} onMissionStatusChange={updateMissionStatus} />
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2 — tasks + mission details */}
+        <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-12">
+          <div className="space-y-3 lg:col-span-6">
             <TaskListSector
               tasks={model.tasks}
               onToggleTask={handleToggleTask}
@@ -108,7 +121,6 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
               onDismissAiError={clearAiTaskError}
             />
           </div>
-
           <div className="space-y-3 lg:col-span-6">
             <MissionDetailsSector
               missionType={model.identity.missionType}
@@ -117,28 +129,27 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
               onAddObjectiveItemImage={handleAddObjectiveItemImage}
               onRewardSelection={handleRewardSelection}
             />
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <AssignedTeamSector
-                team={model.team}
-                onUpdateMember={handleUpdateMember}
-                onDeleteMember={handleDeleteMember}
-                onSendPrivateMessage={handleSendPrivateMessage}
-              />
-              <ProgressStatusSector progress={model.progress} onAddMember={handleAddMember} />
-            </div>
           </div>
         </div>
 
+        {/* Row 3 — team + proof */}
         <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-12">
-          <div className="lg:col-span-4">
-            <EscrowConditionsSector conditions={model.escrowConditions} />
+          <div className="lg:col-span-6">
+            <AssignedTeamSector
+              team={model.team}
+              onUpdateMember={handleUpdateMember}
+              onDeleteMember={handleDeleteMember}
+              onSendPrivateMessage={handleSendPrivateMessage}
+            />
           </div>
-          <div className="lg:col-span-4">
-            <PrimaryActionSector missionStatus={model.identity.status} onMissionStatusChange={updateMissionStatus} />
-          </div>
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-6">
             <ProofCompletionSector proof={model.proof} onToggleProof={handleToggleProof} />
           </div>
+        </div>
+
+        {/* Row 4 — escrow (optional; clearly labeled when preview-only) */}
+        <div className="mt-3">
+          <EscrowConditionsSector conditions={model.escrowConditions} />
         </div>
 
         <div className="mt-3 rounded-md border border-slate-300 bg-white p-2 text-center text-xs text-slate-600">
