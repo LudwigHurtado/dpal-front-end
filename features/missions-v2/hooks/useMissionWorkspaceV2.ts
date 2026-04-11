@@ -143,13 +143,34 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
     try {
       const next = await runLayerAction(action, layers);
       setLayers(next);
+      /** Explicit server push — auto-save may fail on payload size; Sync Report retries with slimmer payloads in `saveMissionWorkspaceV2`. */
+      if (action === 'syncReport') {
+        const reportId = model.report.reportId;
+        if (reportId) {
+          setWorkspaceSaveStatus('saving');
+          setWorkspaceSaveError(null);
+          try {
+            const source = await saveMissionWorkspaceV2(reportId, { ...model, layerExecution: next });
+            if (source === 'server') {
+              setWorkspaceSaveStatus('saved_server');
+            } else if (source === 'local') {
+              setWorkspaceSaveStatus('saved_local');
+            } else {
+              setWorkspaceSaveStatus('idle');
+            }
+          } catch (err: unknown) {
+            setWorkspaceSaveStatus('error');
+            setWorkspaceSaveError(err instanceof Error ? err.message : 'Could not save mission workspace.');
+          }
+        }
+      }
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : `Layer action failed: ${action}`;
       setLayerActionError(msg);
     } finally {
       setActiveLayerAction(null);
     }
-  }, [layers]);
+  }, [layers, model]);
 
   const clearLayerActionError = useCallback(() => {
     setLayerActionError(null);

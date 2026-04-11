@@ -42,6 +42,76 @@ function unwrapReportPayload(data: unknown): Record<string, unknown> {
   return o;
 }
 
+const DATA_URL = /^data:/i;
+
+/** Drop embedded photos from the workspace JSON so POST stays under typical body limits. */
+export function stripDataUrlImagesFromMissionModel(model: MissionAssignmentV2Model): MissionAssignmentV2Model {
+  const stripUrl = (u: string) => (DATA_URL.test(u) ? '' : u);
+  return {
+    ...model,
+    report: {
+      ...model.report,
+      imageUrl: model.report.imageUrl && !DATA_URL.test(model.report.imageUrl) ? model.report.imageUrl : undefined,
+    },
+    details: {
+      ...model.details,
+      objectivePhases: model.details.objectivePhases.map((phase) => ({
+        ...phase,
+        items: phase.items.map((item) => ({
+          ...item,
+          images: item.images.map(stripUrl).filter((u) => u.length > 0),
+        })),
+      })),
+    },
+  };
+}
+
+async function postReportBodiesToLedger(serialized: string): Promise<boolean> {
+  const apiBase = getApiBase().replace(/\/$/, '');
+
+  async function postPlain(path: string, body: string): Promise<Response | null> {
+    try {
+      return await fetch(`${apiBase}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  try {
+    const authed = await apiFetch(API_ROUTES.REPORTS_UPSERT, { method: 'POST', body: serialized }, true);
+    if (authed.ok) return true;
+  } catch {
+    /* continue */
+  }
+
+  const primary = await postPlain(API_ROUTES.REPORTS_UPSERT, serialized);
+  if (primary?.ok) return true;
+
+  const useAnchorFallback =
+    primary == null ||
+    primary.status === 404 ||
+    primary.status === 405 ||
+    primary.status === 413 ||
+    primary.status >= 500;
+
+  if (useAnchorFallback) {
+    try {
+      const a1 = await apiFetch('/api/reports/anchor', { method: 'POST', body: serialized }, true);
+      if (a1.ok) return true;
+    } catch {
+      /* continue */
+    }
+    const anchor = await postPlain('/api/reports/anchor', serialized);
+    if (anchor?.ok) return true;
+  }
+
+  return false;
+}
+
 /**
  * Persist mission workspace on the ledger by upserting the report document with `missionWorkspaceV2`,
  * matching what `loadMissionWorkspaceV2` reads from GET /api/reports/:id.
@@ -65,54 +135,28 @@ async function persistMissionWorkspaceViaReportUpsert(
     /* empty base — POST may still create/merge if the API allows */
   }
 
-  const body: Record<string, unknown> = {
+  const merged: Record<string, unknown> = {
     ...baseDoc,
     id: reportId,
     reportId,
     missionWorkspaceV2: model,
   };
-  const serialized = JSON.stringify(body);
+  if (await postReportBodiesToLedger(JSON.stringify(merged))) return true;
 
-  async function postPlain(path: string): Promise<Response | null> {
-    try {
-      return await fetch(`${apiBase}${path}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: serialized,
-      });
-    } catch {
-      return null;
-    }
-  }
+  const minimal: Record<string, unknown> = {
+    id: reportId,
+    reportId,
+    missionWorkspaceV2: model,
+  };
+  if (await postReportBodiesToLedger(JSON.stringify(minimal))) return true;
 
-  try {
-    const authed = await apiFetch(API_ROUTES.REPORTS_UPSERT, { method: 'POST', body: serialized }, true);
-    if (authed.ok) return true;
-  } catch {
-    /* continue */
-  }
-
-  const primary = await postPlain(API_ROUTES.REPORTS_UPSERT);
-  if (primary?.ok) return true;
-
-  const useAnchorFallback =
-    primary == null ||
-    primary.status === 404 ||
-    primary.status === 405 ||
-    primary.status >= 500;
-
-  if (useAnchorFallback) {
-    try {
-      const a1 = await apiFetch('/api/reports/anchor', { method: 'POST', body: serialized }, true);
-      if (a1.ok) return true;
-    } catch {
-      /* continue */
-    }
-    const anchor = await postPlain('/api/reports/anchor');
-    if (anchor?.ok) return true;
-  }
-
-  return false;
+  const slim = stripDataUrlImagesFromMissionModel(model);
+  const slimBody: Record<string, unknown> = {
+    id: reportId,
+    reportId,
+    missionWorkspaceV2: slim,
+  };
+  return postReportBodiesToLedger(JSON.stringify(slimBody));
 }
 
 export async function loadMissionWorkspaceV2(reportId: string): Promise<MissionWorkspaceLoadResult> {

@@ -188,7 +188,8 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
         <div className="mt-2 rounded-md border border-slate-300 bg-white p-2 text-center text-xs text-slate-600">
           {workspaceSaveStatus === 'saving' && 'Saving mission workspace...'}
           {workspaceSaveStatus === 'saved_server' && 'Mission workspace saved to server.'}
-          {workspaceSaveStatus === 'saved_local' && 'Server unavailable: mission workspace saved locally on this device.'}
+          {workspaceSaveStatus === 'saved_local' &&
+            'Could not sync to the server; a copy is saved on this device. Tap Sync Report (Service Layer) to retry.'}
           {workspaceSaveStatus === 'error' && `Save failed: ${workspaceSaveError || 'unknown error'}`}
           {workspaceSaveStatus === 'idle' && 'Mission workspace ready.'}
         </div>
