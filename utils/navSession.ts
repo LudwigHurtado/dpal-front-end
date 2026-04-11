@@ -50,6 +50,7 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'reportWorkPanel',
   'helpCenter',
   'resolutionLayer',
+  'missionMarketplace',
   'missionAssignmentV2',
   'createMission',
 ]);

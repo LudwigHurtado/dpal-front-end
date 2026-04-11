@@ -286,7 +286,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     status="Main"
                     colorClass="blue"
                     bgImageUrl="/main-screen/dpal-mission-control-hero.png"
-                    onClick={() => onNavigate('missionAssignmentV2')}
+                    onClick={() => onNavigate('missionMarketplace')}
                 />
 
                 <PrimaryNavModule 

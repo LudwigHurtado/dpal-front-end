@@ -340,7 +340,7 @@ const Header: React.FC<HeaderProps> = ({
               <NavIcon label="Share A Report" color="rose" icon={<Megaphone className="w-5 h-5"/>} onClick={() => onNavigate('categorySelection')} />
               <NavIcon label="Public feed" color="blue" icon={<List className="w-5 h-5"/>} onClick={() => onNavigate('hub', undefined, 'work_feed')} />
               <NavIcon label="Public Record" color="emerald" icon={<Database className="w-5 h-5"/>} onClick={() => onNavigate('transparencyDatabase')} />
-              <NavIcon label="Missions" title="Mission Assignment V2 — workspace" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
+              <NavIcon label="Missions" title="Mission marketplace — browse and join" color="amber" icon={<Target className="w-5 h-5"/>} onClick={onNavigateMissions} />
               <NavIcon label="Create mission" title="New mission wizard" color="emerald" icon={<Sparkles className="w-5 h-5"/>} onClick={() => onNavigate('createMission')} />
               <NavIcon label="DPAL Lifts" title="DPAL Lifts — Decentralized Public Assistance Lifts" color="emerald" icon={<Shield className="w-5 h-5"/>} onClick={() => onNavigate('dpalLifts')} />
               <NavIcon label="Work Network" title="DPAL Work Network" color="blue" icon={<Briefcase className="w-5 h-5"/>} onClick={() => onNavigate('aiWorkDirectives')} />

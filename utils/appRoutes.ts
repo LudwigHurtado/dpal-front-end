@@ -51,6 +51,7 @@ export const VIEW_PATHS: Record<string, string> = {
   reportWorkPanel: '/report-work',
   helpCenter: '/help',
   resolutionLayer: '/resolution',
+  missionMarketplace: '/missions',
   missionAssignmentV2: '/missions/v2',
   createMission: '/missions/create',
 };
@@ -62,8 +63,8 @@ export function viewToPath(view: string): string {
 /** Normalize pathname and resolve to a view id, or null if unknown. */
 export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
-  /** Legacy map/beacon screen removed — land on Mission Assignment V2. */
-  if (normalized === '/field-missions') return 'missionAssignmentV2';
+  /** Legacy map/beacon screen removed — land on Mission Marketplace. */
+  if (normalized === '/field-missions') return 'missionMarketplace';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';
     return seg === normalized;

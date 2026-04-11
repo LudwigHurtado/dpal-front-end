@@ -65,6 +65,7 @@ import LayoutV2 from './layouts/LayoutV2';
 import { featureFlags } from './features/featureFlags';
 import MobileCommunityFeedView from './components/mobile/MobileCommunityFeedView';
 import MissionAssignmentV2Page from './features/missions-v2/pages/MissionAssignmentV2Page';
+import MissionMarketplacePage from './features/missions-v2/pages/MissionMarketplacePage';
 import CreateMissionView from './features/missions-v2/pages/CreateMissionView';
 import type { MissionAssignmentV2Model } from './features/missions-v2/types';
 import { saveMissionWorkspaceV2 } from './features/missions-v2/services/missionWorkspaceService';
@@ -99,7 +100,7 @@ import { useTranslations } from './i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { pathToView, viewToPath } from './utils/appRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionAssignmentV2' | 'createMission';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'missionAssignmentV2' | 'createMission';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -1625,7 +1626,7 @@ const App: React.FC = () => {
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'mint')} 
           onNavigateHome={navigateHome} 
           onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
-          onNavigateMissions={() => handleNavigate('missionAssignmentV2')}
+          onNavigateMissions={() => handleNavigate('missionMarketplace')}
           onNavigate={handleNavigate} 
           hero={heroWithRank} 
           textScale={globalTextScale} 
@@ -1633,7 +1634,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -1711,7 +1712,15 @@ const App: React.FC = () => {
           <CreateMissionView
             onCancel={() => goBack('mainMenu')}
             onComplete={(model) => openCreatedMissionWorkspace(model)}
-            onBrowseMissions={() => handleNavigate('missionAssignmentV2')}
+            onBrowseMissions={() => handleNavigate('missionMarketplace')}
+          />
+        )}
+
+        {currentView === 'missionMarketplace' && (
+          <MissionMarketplacePage
+            onBack={() => goBack('mainMenu')}
+            onOpenWorkspace={() => handleNavigate('missionAssignmentV2')}
+            onCreateMission={() => handleNavigate('createMission')}
           />
         )}
 
@@ -2201,7 +2210,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
+      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionMarketplace', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
         <BottomNav
           currentView={currentView}
           onNavigate={(view) => (view === 'mainMenu' ? navigateHome() : handleNavigate(view))}
