@@ -75,7 +75,7 @@ export const translations = {
       voiceError: "Speech recognition error",
     },
     feedPanel: {
-        title: "Community Stories",
+        title: "Public feed",
         expandAria: "Expand community feed",
         collapseAria: "Contraer feed de la comunidad",
         analysisAria: "Feed Analysis",
@@ -95,7 +95,8 @@ export const translations = {
     },
     mainContent: {
       myReports: "My Contributions",
-      communityFeed: "Community Stories",
+      communityFeed: "Public feed",
+      publicFeed: "Public feed",
       returnToMainMenu: "Return to Main Menu",
       noReports: "You haven't submitted any reports yet",
       beTheFirst: "Be the first to create one",

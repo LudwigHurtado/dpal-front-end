@@ -23,7 +23,7 @@ import {
 import type { View } from '../../App';
 
 type FeedUrgency = 'any' | 'urgent';
-type FeedCategory = 'any' | 'safety' | 'environment' | 'community';
+type FeedCategory = 'any' | 'safety' | 'environment';
 
 interface MobileCommunityFeedViewProps {
   reports: Report[];
@@ -59,7 +59,7 @@ function isUrgent(report: Report): boolean {
   return report.severity === 'Critical' || report.severity === 'Catastrophic';
 }
 
-function categoryGroup(report: Report): FeedCategory {
+function categoryGroup(report: Report): 'safety' | 'environment' | 'other' {
   const c = report.category;
   if (
     c === 'Public Safety Alerts' ||
@@ -72,8 +72,7 @@ function categoryGroup(report: Report): FeedCategory {
   if (c === 'Environment' || c === 'Fire & Environmental Hazards' || c === 'Water Related Violations') {
     return 'environment';
   }
-  // Default to "community" for civic duty and everything else.
-  return 'community';
+  return 'other';
 }
 
 function badgeBg(sev: Report['severity']): string {
@@ -107,7 +106,10 @@ const MobileCommunityFeedView: React.FC<MobileCommunityFeedViewProps> = ({
     }
 
     if (feedCategory !== 'any') {
-      list = list.filter((r) => categoryGroup(r) === feedCategory);
+      list = list.filter((r) => {
+        const g = categoryGroup(r);
+        return g === feedCategory;
+      });
     }
 
     if (urgency === 'urgent') {
@@ -198,7 +200,7 @@ const MobileCommunityFeedView: React.FC<MobileCommunityFeedViewProps> = ({
           className="w-[148px] h-[38px] rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-100 font-black text-[12px] touch-manipulation shadow-[0_0_18px_rgba(16,185,129,0.18)]"
           aria-current="page"
         >
-          Community Stories
+          Public feed
         </button>
 
         <button
@@ -253,13 +255,6 @@ const MobileCommunityFeedView: React.FC<MobileCommunityFeedViewProps> = ({
             className={`${chipStyle} ${feedCategory === 'environment' ? 'bg-amber-500/15 border-amber-500/40 text-amber-200' : ''}`}
           >
             Environment
-          </button>
-          <button
-            type="button"
-            onClick={() => setFeedCategory('community')}
-            className={`${chipStyle} ${feedCategory === 'community' ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-200' : ''}`}
-          >
-            Community
           </button>
           <button
             type="button"

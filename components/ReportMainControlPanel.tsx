@@ -56,7 +56,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({
         onGoToTransparency();
         break;
       case 'search':
-        onGoToHub('community');
+        onGoToHub('work_feed');
         break;
       case 'lostP':
       case 'lostPe':
@@ -103,7 +103,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({
             </div>
           </div>
           <nav className="hidden flex-wrap items-center gap-4 text-sm text-zinc-300 lg:flex">
-            <button type="button" onClick={() => onGoToHub('community')} className="inline-flex items-center gap-2 hover:text-cyan-300">
+            <button type="button" onClick={() => onGoToHub('work_feed')} className="inline-flex items-center gap-2 hover:text-cyan-300">
               <Search className="h-4 w-4" />
               Search
             </button>
@@ -119,7 +119,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({
               <User className="h-4 w-4" />
               My Contributions
             </button>
-            <button type="button" onClick={() => onGoToHub('community')} className="inline-flex items-center gap-2 hover:text-cyan-300">
+            <button type="button" onClick={() => onGoToHub('work_feed')} className="inline-flex items-center gap-2 hover:text-cyan-300">
               <Heart className="h-4 w-4" />
               Community
             </button>
@@ -141,7 +141,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onGoToHub('community')}
+              onClick={() => onGoToHub('work_feed')}
               className="rounded-xl border border-zinc-700 bg-zinc-900/80 p-2"
               aria-label="Community alerts"
             >
@@ -210,7 +210,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({
                   placeholder="Search DPAL Reports..."
                   className="w-full rounded-xl border border-zinc-700 bg-zinc-950 py-2 pl-10 pr-3 text-sm"
                   readOnly
-                  onFocus={() => onGoToHub('community')}
+                  onFocus={() => onGoToHub('work_feed')}
                 />
               </div>
               <div className="flex flex-wrap gap-2">
@@ -218,7 +218,7 @@ const ReportMainControlPanel: React.FC<ReportMainControlPanelProps> = ({
                   <button
                     key={f}
                     type="button"
-                    onClick={() => (idx === 0 ? onOpenReportFlow() : onGoToHub('community'))}
+                    onClick={() => (idx === 0 ? onOpenReportFlow() : onGoToHub('work_feed'))}
                     className={`rounded-xl border px-3 py-2 text-xs font-black uppercase tracking-wider ${
                       idx === 0 ? 'border-rose-500/50 bg-rose-600/20 text-rose-200' : 'border-zinc-700 bg-zinc-950 text-zinc-300'
                     }`}

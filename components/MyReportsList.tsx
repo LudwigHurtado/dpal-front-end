@@ -112,7 +112,7 @@ const NAV_LINKS: {
 }[] = [
   { label: 'Home', action: 'home' },
   { label: 'Report', action: 'report' },
-  { label: 'Community Stories', action: 'community' },
+  { label: 'Public feed', action: 'community' },
   { label: 'Public Record', action: 'ledger' },
   { label: 'Help Center', action: 'help' },
   { label: 'Missions', action: 'missions' },

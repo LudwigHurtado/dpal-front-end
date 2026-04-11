@@ -16,7 +16,7 @@ import {
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 
 /** Matches `HubTab` in App — duplicated here to avoid circular imports */
-export type ReportDashboardHubTab = 'my_reports' | 'community' | 'work_feed' | 'map';
+export type ReportDashboardHubTab = 'my_reports' | 'work_feed' | 'map';
 
 export interface ReportProtectPageNavProps {
   /** Main menu */
@@ -158,7 +158,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
         onGoToTransparency();
         break;
       case 'search-reports':
-        onGoToHub('community');
+        onGoToHub('work_feed');
         break;
       case 'lost-pets':
       case 'lost-persons':
@@ -342,7 +342,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
           <nav className="hidden flex-wrap items-center gap-x-6 gap-y-2 text-base text-slate-200 xl:flex">
             <button
               type="button"
-              onClick={() => onGoToHub('community')}
+              onClick={() => onGoToHub('work_feed')}
               className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
             >
               <Search className="h-4 w-4" />
@@ -374,11 +374,11 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onGoToHub('community')}
+              onClick={() => onGoToHub('work_feed')}
               className="inline-flex items-center gap-2.5 rounded-xl px-1 py-1 transition hover:text-cyan-200"
             >
               <Heart className="h-4 w-4" />
-              Community
+              Public feed
             </button>
           </nav>
 
@@ -391,10 +391,10 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => onGoToHub('community')}
+              onClick={() => onGoToHub('work_feed')}
               className="rounded-2xl border border-white/15 bg-slate-900/75 p-3 transition-colors hover:bg-slate-800/90"
-              aria-label="Community alerts"
-              title="Open community feed"
+              aria-label="Public feed"
+              title="Open public feed"
             >
               <AlertCircle className="h-5 w-5 text-zinc-300" />
             </button>
@@ -413,7 +413,7 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
         className="mt-3 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-white/10 bg-slate-900/70 px-3 py-2.5 text-sm text-slate-200 xl:hidden"
         aria-label="Quick dashboard links"
       >
-        <button type="button" onClick={() => onGoToHub('community')} className="rounded-lg px-2 py-1 hover:bg-white/10">
+        <button type="button" onClick={() => onGoToHub('work_feed')} className="rounded-lg px-2 py-1 hover:bg-white/10">
           Search
         </button>
         <span className="text-slate-600">·</span>
@@ -429,8 +429,8 @@ const ReportProtectPage: React.FC<ReportProtectPageProps> = ({
           My contributions
         </button>
         <span className="text-slate-600">·</span>
-        <button type="button" onClick={() => onGoToHub('community')} className="rounded-lg px-2 py-1 hover:bg-white/10">
-          Community
+        <button type="button" onClick={() => onGoToHub('work_feed')} className="rounded-lg px-2 py-1 hover:bg-white/10">
+          Public feed
         </button>
       </nav>
 

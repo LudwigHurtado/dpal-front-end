@@ -3,10 +3,9 @@ import React, { useState, useEffect } from 'react';
 import type { Report, FeedAnalysis } from '../types';
 import FeedPanel from './FeedPanel';
 import MyReportsList from './MyReportsList';
-import CommunityWorkFeed from './CommunityWorkFeed';
 import MapHubView from './MapHubView';
 import { useTranslations } from '../i18n';
-import { User, List, ArrowLeft, Zap, ShieldCheck, Activity, ListFilter, Map } from './icons';
+import { User, List, ArrowLeft, Zap, ShieldCheck, ListFilter, Map } from './icons';
 import { type HubTab } from '../App';
 
 interface MainContentPanelProps {
@@ -32,8 +31,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
   
   const tabs = [
     { id: 'my_reports', label: t('mainContent.myReports'), icon: User },
-    { id: 'community', label: t('mainContent.communityFeed'), icon: List },
-    { id: 'work_feed', label: 'Community Timeline', icon: Activity },
+    { id: 'work_feed', label: t('mainContent.publicFeed'), icon: List },
     { id: 'map', label: 'Map', icon: Map },
   ];
 
@@ -46,13 +44,11 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
             onJoinReportChat={onJoinReportChat}
             onAddNewReport={onAddNewReport}
             onReturnHome={onReturnToMainMenu}
-            onOpenCommunityFeed={() => setActiveTab('community')}
+            onOpenCommunityFeed={() => setActiveTab('work_feed')}
           />
         );
-      case 'community':
-        return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} {...rest} />;
       case 'work_feed':
-        return <CommunityWorkFeed />;
+        return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} {...rest} />;
       case 'map':
         return <MapHubView onReturnToMainMenu={onReturnToMainMenu} onOpenFilters={onOpenFilters} mapCenter={mapCenter} />;
       default:

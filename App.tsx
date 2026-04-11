@@ -127,7 +127,6 @@ export type HeroHubTab =
 
 export type HubTab =
   | 'my_reports'
-  | 'community'
   | 'work_feed'
   | 'map';
 
@@ -555,7 +554,7 @@ const App: React.FC = () => {
     return () => window.removeEventListener('dpal-navigate', onNavigate as EventListener);
   }, [handleNavigate, navigate]);
   const useMobileLayout = isMobileViewport;
-  const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'community';
+  const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'work_feed';
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
@@ -914,7 +913,7 @@ const App: React.FC = () => {
 
         // ✅ SAFE hub navigation
         if (view === 'hub') {
-          const allowedHubTabs: HubTab[] = ['my_reports', 'community', 'work_feed', 'map'];
+          const allowedHubTabs: HubTab[] = ['my_reports', 'work_feed', 'map'];
           if (targetTab && allowedHubTabs.includes(targetTab as HubTab)) {
             setHubTab(targetTab as HubTab);
           } else {
