@@ -51,6 +51,7 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'helpCenter',
   'resolutionLayer',
   'missionMarketplace',
+  'marketplaceMissionDetail',
   'missionAssignmentV2',
   'createMission',
 ]);

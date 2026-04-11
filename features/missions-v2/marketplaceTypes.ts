@@ -33,3 +33,30 @@ export interface MarketplaceListing {
   postedByLabel: string;
   slotsOpen?: number;
 }
+
+/** Display lifecycle for marketplace detail (aligns with future API + V2 engine). */
+export type MarketplaceDisplayStatus =
+  | 'open'
+  | 'in_progress'
+  | 'awaiting_proof'
+  | 'under_validation'
+  | 'published';
+
+export interface MarketplaceListingDetail extends MarketplaceListing {
+  fullDescription: string;
+  categoryLabel: string;
+  missionTypeLabel: string;
+  deadlineLabel: string;
+  maxParticipants: number;
+  participantCount: number;
+  trustLevel: 'standard' | 'elevated' | 'verified';
+  proofRequirements: string[];
+  safetyNotes: string;
+  checklist: string[];
+  visibilityLabel: string;
+  validationNote: string;
+  formatLabel: 'solo' | 'team';
+  realmLabel: 'field' | 'remote' | 'mixed';
+  linkedReportId: string | null;
+  displayStatus: MarketplaceDisplayStatus;
+}

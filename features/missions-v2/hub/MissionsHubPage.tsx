@@ -15,9 +15,15 @@ interface MissionsHubPageProps {
   onBack: () => void;
   onOpenWorkspace: () => void;
   onCreateMission: () => void;
+  onOpenListing: (listingId: string) => void;
 }
 
-const MissionsHubPage: React.FC<MissionsHubPageProps> = ({ onBack, onOpenWorkspace, onCreateMission }) => {
+const MissionsHubPage: React.FC<MissionsHubPageProps> = ({
+  onBack,
+  onOpenWorkspace,
+  onCreateMission,
+  onOpenListing,
+}) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const section = useMemo(
@@ -113,6 +119,7 @@ const MissionsHubPage: React.FC<MissionsHubPageProps> = ({ onBack, onOpenWorkspa
               embedded
               onOpenWorkspace={onOpenWorkspace}
               onCreateMission={onCreateMission}
+              onOpenListing={onOpenListing}
             />
           ) : null}
 

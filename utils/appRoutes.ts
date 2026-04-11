@@ -3,6 +3,20 @@
  * Keep paths stable — bookmarks and shared links depend on them.
  */
 
+/** Marketplace listing detail — not in VIEW_PATHS; path includes id (see `marketplaceMissionDetailPath`). */
+export const MARKETPLACE_MISSION_DETAIL_PREFIX = '/missions/m';
+
+export function marketplaceMissionDetailPath(listingId: string): string {
+  return `${MARKETPLACE_MISSION_DETAIL_PREFIX}/${encodeURIComponent(listingId)}`;
+}
+
+/** Returns raw id segment or null if pathname is not a marketplace mission detail URL. */
+export function parseMarketplaceListingIdFromPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  const m = normalized.match(/^\/missions\/m\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
 /** view id → pathname (single segment or nested, no trailing slash except root). */
 export const VIEW_PATHS: Record<string, string> = {
   mainMenu: '/',
@@ -66,6 +80,7 @@ export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
   /** Legacy map/beacon screen removed — land on Mission Marketplace. */
   if (normalized === '/field-missions') return 'missionMarketplace';
+  if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';
     return seg === normalized;

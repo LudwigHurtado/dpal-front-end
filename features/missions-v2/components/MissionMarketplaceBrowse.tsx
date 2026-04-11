@@ -28,6 +28,8 @@ function urgencyClass(u: MarketplaceListing['urgency']): string {
 export interface MissionMarketplaceBrowseProps {
   onOpenWorkspace: () => void;
   onCreateMission: () => void;
+  /** Navigate to `/missions/m/:id` detail (full brief before V2). */
+  onOpenListing: (listingId: string) => void;
   /** When true, omits standalone page chrome (used inside Missions Hub). */
   embedded?: boolean;
 }
@@ -38,6 +40,7 @@ export interface MissionMarketplaceBrowseProps {
 const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
   onOpenWorkspace,
   onCreateMission,
+  onOpenListing,
   embedded = false,
 }) => {
   const [kind, setKind] = useState<FilterKey>('all');
@@ -127,7 +130,13 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
               key={m.id}
               className={`${mw.sectorCard} flex flex-col border-teal-800/50 transition hover:border-teal-600/40`}
             >
-              <div className="mb-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onOpenListing(m.id)}
+                className="mb-1 w-full rounded-lg text-left outline-none ring-teal-500/0 transition hover:ring-2 hover:ring-teal-500/25 focus-visible:ring-2 focus-visible:ring-teal-400/40"
+              >
+                <span className="sr-only">Open mission details for </span>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
                 <span className={`rounded border px-2 py-0.5 text-[10px] font-bold uppercase ${urgencyClass(m.urgency)}`}>
                   {m.urgency} urgency
                 </span>
@@ -139,9 +148,10 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
                     {MARKETPLACE_KIND_LABEL[k]}
                   </span>
                 ))}
-              </div>
-              <h3 className="font-mono text-lg font-bold text-teal-50">{m.title}</h3>
-              <p className="mt-2 flex-1 text-sm text-teal-100/85">{m.summary}</p>
+                </div>
+                <h3 className="font-mono text-lg font-bold text-teal-50">{m.title}</h3>
+                <p className="mt-2 text-sm text-teal-100/85">{m.summary}</p>
+              </button>
               <dl className="mt-3 space-y-1 text-xs text-teal-300/90">
                 <div className="flex justify-between gap-2">
                   <dt className={mw.textMuted}>Where</dt>
@@ -163,10 +173,17 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
                 ) : null}
               </dl>
               <div className="mt-4 flex flex-wrap gap-2 border-t border-teal-900/40 pt-3">
-                <button type="button" onClick={onOpenWorkspace} className={`${mw.btnPrimary} py-2 text-xs`}>
+                <button
+                  type="button"
+                  onClick={() => onOpenListing(m.id)}
+                  className={`${mw.btnPrimary} py-2 text-xs`}
+                >
+                  View details
+                </button>
+                <button type="button" onClick={onOpenWorkspace} className={`${mw.btnGhost} py-2 text-xs`}>
                   Open in workspace
                 </button>
-                <span className={`self-center text-[11px] ${mw.textMuted}`}>Accept / invite flow hooks to API later.</span>
+                <span className={`self-center text-[11px] ${mw.textMuted}`}>Join flow via API later.</span>
               </div>
             </li>
           ))}

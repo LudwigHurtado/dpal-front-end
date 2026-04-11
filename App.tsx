@@ -66,6 +66,8 @@ import { featureFlags } from './features/featureFlags';
 import MobileCommunityFeedView from './components/mobile/MobileCommunityFeedView';
 import MissionAssignmentV2Page from './features/missions-v2/pages/MissionAssignmentV2Page';
 import MissionsHubPage from './features/missions-v2/hub/MissionsHubPage';
+import MissionMarketplaceDetailPage from './features/missions-v2/pages/MissionMarketplaceDetailPage';
+import { getMarketplaceListingDetail } from './features/missions-v2/data/getMarketplaceListingDetail';
 import CreateMissionView from './features/missions-v2/pages/CreateMissionView';
 import type { MissionAssignmentV2Model } from './features/missions-v2/types';
 import { saveMissionWorkspaceV2 } from './features/missions-v2/services/missionWorkspaceService';
@@ -98,9 +100,14 @@ import { readNavSession, writeNavSession, categoryFromSession } from './utils/na
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { pathToView, viewToPath } from './utils/appRoutes';
+import {
+  marketplaceMissionDetailPath,
+  parseMarketplaceListingIdFromPath,
+  pathToView,
+  viewToPath,
+} from './utils/appRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'missionAssignmentV2' | 'createMission';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -260,6 +267,12 @@ const getInitialHero = (): Hero => {
   return base;
 };
 
+function getInitialMarketplaceListingIdFromWindow(): string | null {
+  if (typeof window === 'undefined') return null;
+  const normalized = window.location.pathname.replace(/\/$/, '') || '/';
+  return parseMarketplaceListingIdFromPath(normalized);
+}
+
 function getInitialCurrentView(): View {
   if (typeof window === 'undefined') return 'mainMenu';
   const params = new URLSearchParams(window.location.search);
@@ -325,6 +338,10 @@ const App: React.FC = () => {
   const [missionV2SourceReport, setMissionV2SourceReport] = useState<Report | null>(null);
   /** User-created (or prefetched) V2 model — same workspace as report-driven when opened. */
   const [missionV2PrefetchedModel, setMissionV2PrefetchedModel] = useState<MissionAssignmentV2Model | null>(null);
+  /** `/missions/m/:id` — marketplace listing detail (not Hero `missionDetail`). */
+  const [marketplaceDetailListingId, setMarketplaceDetailListingId] = useState<string | null>(
+    getInitialMarketplaceListingIdFromWindow,
+  );
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -415,6 +432,17 @@ const App: React.FC = () => {
       }
     }
 
+    const listingIdFromPath = parseMarketplaceListingIdFromPath(normalizedPath);
+    if (listingIdFromPath) {
+      setMarketplaceDetailListingId(listingIdFromPath);
+      setCurrentView((prev) => {
+        if (prev === 'marketplaceMissionDetail') return prev;
+        backNavRef.current = true;
+        return 'marketplaceMissionDetail';
+      });
+      return;
+    }
+
     const v = pathToView(location.pathname);
     if (v == null) {
       if (location.pathname !== '/' && location.pathname !== '/index.html') {
@@ -436,6 +464,13 @@ const App: React.FC = () => {
    * `history.replaceState` from situation-room / deep-link helpers and caused rapid navigate + flicker.
    */
   useLayoutEffect(() => {
+    if (currentView === 'marketplaceMissionDetail' && marketplaceDetailListingId) {
+      const path = marketplaceMissionDetailPath(marketplaceDetailListingId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
@@ -451,7 +486,7 @@ const App: React.FC = () => {
     if (full === cur) return;
     navigate(full, { replace: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync only when view changes; do not re-run on every query/hash change
-  }, [currentView, navigate]);
+  }, [currentView, marketplaceDetailListingId, navigate]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {
@@ -481,6 +516,13 @@ const App: React.FC = () => {
       setCurrentView('heroHub');
       return;
     }
+    if (currentView === 'marketplaceMissionDetail') {
+      if (!marketplaceDetailListingId || !getMarketplaceListingDetail(marketplaceDetailListingId)) {
+        navigate('/missions?section=marketplace', { replace: true });
+        setCurrentView('missionMarketplace');
+      }
+      return;
+    }
     if (currentView === 'missionComplete' && !completedMissionSummary) {
       setCurrentView('mainMenu');
       return;
@@ -501,10 +543,12 @@ const App: React.FC = () => {
     currentView,
     selectedIntelForMission,
     selectedMissionForDetail,
+    marketplaceDetailListingId,
     completedMissionSummary,
     selectedReportForIncidentRoom,
     gatewayCategory,
     modeShell,
+    navigate,
   ]);
 
   /** Do not bounce off certificate view while a ?reportId= / ?roomId= link is resolving (async) — that produced a blank hub with no report UI. */
@@ -946,6 +990,23 @@ const App: React.FC = () => {
     },
     [currentView],
   );
+
+  const openMarketplaceListing = useCallback((listingId: string) => {
+    setMarketplaceDetailListingId(listingId);
+    setPrevView(currentView);
+    setCurrentView('marketplaceMissionDetail');
+  }, [currentView]);
+
+  const marketplaceListingDetail = useMemo(() => {
+    if (!marketplaceDetailListingId) return null;
+    return getMarketplaceListingDetail(marketplaceDetailListingId);
+  }, [marketplaceDetailListingId]);
+
+  useEffect(() => {
+    if (currentView !== 'marketplaceMissionDetail') {
+      setMarketplaceDetailListingId(null);
+    }
+  }, [currentView]);
 
   const goToCategorySelectionHelpSector = () => {
     setHelpSectorFocusSignal((n) => n + 1);
@@ -1640,7 +1701,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -1722,11 +1783,20 @@ const App: React.FC = () => {
           />
         )}
 
+        {currentView === 'marketplaceMissionDetail' && marketplaceListingDetail ? (
+          <MissionMarketplaceDetailPage
+            listing={marketplaceListingDetail}
+            onBack={() => navigate('/missions?section=marketplace', { replace: false })}
+            onOpenWorkspace={() => handleNavigate('missionAssignmentV2')}
+          />
+        ) : null}
+
         {currentView === 'missionMarketplace' && (
           <MissionsHubPage
             onBack={() => goBack('mainMenu')}
             onOpenWorkspace={() => handleNavigate('missionAssignmentV2')}
             onCreateMission={() => handleNavigate('createMission')}
+            onOpenListing={openMarketplaceListing}
           />
         )}
 
@@ -2216,7 +2286,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionMarketplace', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
+      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
         <BottomNav
           currentView={currentView}
           onNavigate={(view) => (view === 'mainMenu' ? navigateHome() : handleNavigate(view))}

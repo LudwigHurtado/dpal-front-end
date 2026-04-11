@@ -7,12 +7,14 @@ interface MissionMarketplacePageProps {
   onBack: () => void;
   onOpenWorkspace: () => void;
   onCreateMission: () => void;
+  onOpenListing: (listingId: string) => void;
 }
 
 const MissionMarketplacePage: React.FC<MissionMarketplacePageProps> = ({
   onBack,
   onOpenWorkspace,
   onCreateMission,
+  onOpenListing,
 }) => (
   <div className={`${mw.shell} pb-28`}>
     <div className="mx-auto max-w-[1100px] px-4 pt-4">
@@ -29,7 +31,12 @@ const MissionMarketplacePage: React.FC<MissionMarketplacePageProps> = ({
           </button>
         </div>
       </div>
-      <MissionMarketplaceBrowse embedded onOpenWorkspace={onOpenWorkspace} onCreateMission={onCreateMission} />
+      <MissionMarketplaceBrowse
+        embedded
+        onOpenWorkspace={onOpenWorkspace}
+        onCreateMission={onCreateMission}
+        onOpenListing={onOpenListing}
+      />
     </div>
   </div>
 );
