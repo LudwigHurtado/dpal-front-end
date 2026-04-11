@@ -180,7 +180,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     return (
         <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
 
-            {/* ── Hero Video ── */}
+            {/* ── Hero (Mission Control — same asset as Create mission) ── */}
             <div style={{
                 position: 'relative',
                 width: '100%',
@@ -192,11 +192,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 background: '#000',
                 marginTop: '0.5rem',
             }}>
-                <video
-                    src="/dpal-hero.mp4"
-                    autoPlay
-                    playsInline
-                    controls
+                <img
+                    src="/main-screen/dpal-mission-control-hero.png"
+                    alt="DPAL Mission Control"
                     style={{
                         width: '100%',
                         display: 'block',

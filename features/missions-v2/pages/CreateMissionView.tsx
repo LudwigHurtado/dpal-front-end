@@ -13,6 +13,9 @@ interface CreateMissionViewProps {
 
 const emptyTaskLines = '';
 
+/** Shared with MainMenu hero — `public/main-screen/dpal-mission-control-hero.png` */
+const MISSION_CONTROL_HERO_SRC = '/main-screen/dpal-mission-control-hero.png';
+
 const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onComplete }) => {
   const { user } = useAuth();
   const creator = useMemo(
@@ -87,6 +90,15 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
 
   return (
     <div className="mx-auto max-w-[720px] space-y-4 pb-24 text-slate-800">
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-black shadow-lg">
+        <img
+          src={MISSION_CONTROL_HERO_SRC}
+          alt="DPAL Mission Control"
+          className="h-auto w-full max-h-[min(52vh,320px)] object-cover object-center"
+          loading="eager"
+          decoding="async"
+        />
+      </div>
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-slate-900">Create mission</h1>
         <button
