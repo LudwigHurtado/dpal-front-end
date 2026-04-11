@@ -80,7 +80,13 @@ import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uplo
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { persistReportForPublicLookup } from './services/reportPersistenceService';
-import { resolveReportByBlockNumber, fetchReportFromApiById, fetchReportsFeedFromApi } from './services/blockchainLookupService';
+import {
+  resolveReportByBlockNumber,
+  fetchReportFromApiById,
+  fetchReportsFeedFromApi,
+  mergeReportsIntoPrevious,
+  fetchReportsMissingFromChain,
+} from './services/blockchainLookupService';
 import { parseBlockNumberInput, deriveStableBlockNumber } from './utils/blockchainLookup';
 import { addBlockToChain, DPAL_CHAIN_ID } from './services/dpalChainService';
 import { reportMatchesKeywordFilter } from './utils/reportSearch';
@@ -575,39 +581,21 @@ const App: React.FC = () => {
     setScopedItem('health-records', JSON.stringify(healthRecords));
   }, [hero, reports, missions, directives, healthRecords]);
 
-  /** Best-effort: hydrate community feed from backend so other users see recent filings. */
+  /** Best-effort: hydrate community feed from backend; backfill any reportIds on the local DPAL chain missing from state. */
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const remote = await fetchReportsFeedFromApi(80);
-      if (cancelled || remote.length === 0) return;
+      const remote = await fetchReportsFeedFromApi(120);
+      if (cancelled) return;
       setReports((prev) => {
-        const seen = new Set(prev.map((r) => r.id));
-        const merged = [...prev];
-        for (const r of remote) {
-          if (!seen.has(r.id)) {
-            merged.push(r);
-            continue;
-          }
-          const i = merged.findIndex((x) => x.id === r.id);
-          if (i < 0) continue;
-          const cur = merged[i];
-          let next = cur;
-          if (r.isAuthor && !cur.isAuthor) next = { ...next, isAuthor: true };
-          const remoteImgs = Array.isArray(r.imageUrls) ? r.imageUrls.filter((u) => typeof u === 'string' && u.length > 0) : [];
-          if (remoteImgs.length > 0 && (!cur.imageUrls || cur.imageUrls.length === 0)) {
-            next = { ...next, imageUrls: remoteImgs };
-          }
-          const remoteHist = Array.isArray(r.filingImageHistory)
-            ? r.filingImageHistory.filter((u) => typeof u === 'string' && u.length > 0)
-            : [];
-          if (remoteHist.length > 0 && (!cur.filingImageHistory || cur.filingImageHistory.length === 0)) {
-            next = { ...next, filingImageHistory: remoteHist };
-          }
-          if (next !== cur) merged[i] = next;
-        }
-        merged.sort((a, b) => new Date(b.timestamp as any).getTime() - new Date(a.timestamp as any).getTime());
-        return merged;
+        const afterFeed = mergeReportsIntoPrevious(prev, remote);
+        const ids = new Set(afterFeed.map((r) => r.id));
+        void (async () => {
+          const extras = await fetchReportsMissingFromChain(ids);
+          if (cancelled || extras.length === 0) return;
+          setReports((p) => mergeReportsIntoPrevious(p, extras));
+        })();
+        return afterFeed;
       });
     })();
     return () => {

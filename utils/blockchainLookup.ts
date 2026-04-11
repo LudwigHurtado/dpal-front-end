@@ -30,9 +30,14 @@ export function parseBlockNumberInput(raw: string): number | null {
   return n;
 }
 
-/** Match anchored block or NFT mint block on a report. */
+/** Match anchored block, NFT mint block, stable id-derived index, or same numeric string. */
 export function findReportByBlockNumber(reports: Report[], blockNumber: number): Report | undefined {
-  return reports.find(
-    (r) => r.blockNumber === blockNumber || r.earnedNft?.blockNumber === blockNumber
+  const byStored = reports.find(
+    (r) =>
+      r.blockNumber === blockNumber ||
+      r.earnedNft?.blockNumber === blockNumber ||
+      (r.blockNumber != null && Number(r.blockNumber) === blockNumber),
   );
+  if (byStored) return byStored;
+  return reports.find((r) => deriveStableBlockNumber(r.id) === blockNumber);
 }

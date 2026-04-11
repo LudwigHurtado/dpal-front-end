@@ -1,4 +1,5 @@
 import { getApiBase } from '../constants';
+import { getChain } from './dpalChainService';
 import { findReportByBlockNumber } from '../utils/blockchainLookup';
 import { Category, type Report } from '../types';
 
@@ -38,37 +39,89 @@ export async function fetchReportFromApiById(reportId: string): Promise<Report |
 
 /**
  * Fetch a feed list of reports for community viewing.
- * Backend may implement either:
- * - GET /api/reports
- * - GET /api/reports?limit=50
- * This client treats it as best-effort and falls back to empty list on any error.
+ * Merges every successful endpoint (feed + legacy list) and dedupes by id so filings
+ * are not dropped when only one route returns them.
  */
-export async function fetchReportsFeedFromApi(limit = 60): Promise<Report[]> {
+export async function fetchReportsFeedFromApi(limit = 120): Promise<Report[]> {
   try {
     const apiBase = getApiBase().replace(/\/$/, "");
-    /** dpal-ai-server exposes `GET /api/reports/feed` (not `GET /api/reports`). */
+    /** dpal-ai-server exposes `GET /api/reports/feed` (not always `GET /api/reports`). */
     const urls = [
       `${apiBase}/api/reports/feed?limit=${encodeURIComponent(String(limit))}`,
       `${apiBase}/api/reports?limit=${encodeURIComponent(String(limit))}`,
       `${apiBase}/api/reports`,
     ];
+    const flat: Report[] = [];
+    let idx = 0;
     for (const url of urls) {
       const res = await fetch(url);
       if (!res.ok) continue;
       const data = await res.json();
       const raw = (data as any)?.items ?? (data as any)?.reports ?? data;
       const list = Array.isArray(raw) ? raw : [];
-      if (!Array.isArray(list) || list.length === 0) continue;
-      return list
-        .map((item: any, idx: number) =>
-          mapApiReportToReport(item, item?.id ?? item?.reportId ?? item?._id ?? `api-${idx}`)
-        )
-        .filter((r: Report | null): r is Report => Boolean(r));
+      for (const item of list) {
+        const row = item as Record<string, unknown>;
+        const mapped = mapApiReportToReport(row, pickReportIdFromApiPayload(row, `api-${idx}`));
+        idx += 1;
+        if (mapped) flat.push(mapped);
+      }
     }
-    return [];
+    return mergeReportsIntoPrevious([], flat);
   } catch {
     return [];
   }
+}
+
+/** Merge remote feed into existing list (hub / transparency). Exported for chain hydration ordering. */
+export function mergeReportsIntoPrevious(prev: Report[], remote: Report[]): Report[] {
+  const seen = new Set(prev.map((r) => r.id));
+  const merged = [...prev];
+  for (const r of remote) {
+    if (!seen.has(r.id)) {
+      merged.push(r);
+      seen.add(r.id);
+      continue;
+    }
+    const i = merged.findIndex((x) => x.id === r.id);
+    if (i < 0) continue;
+    const cur = merged[i]!;
+    let next = cur;
+    if (r.isAuthor && !cur.isAuthor) next = { ...next, isAuthor: true };
+    const remoteImgs = Array.isArray(r.imageUrls) ? r.imageUrls.filter((u) => typeof u === 'string' && u.length > 0) : [];
+    if (remoteImgs.length > 0 && (!cur.imageUrls || cur.imageUrls.length === 0)) {
+      next = { ...next, imageUrls: remoteImgs };
+    }
+    const remoteHist = Array.isArray(r.filingImageHistory)
+      ? r.filingImageHistory.filter((u) => typeof u === 'string' && u.length > 0)
+      : [];
+    if (remoteHist.length > 0 && (!cur.filingImageHistory || cur.filingImageHistory.length === 0)) {
+      next = { ...next, filingImageHistory: remoteHist };
+    }
+    if (next !== cur) merged[i] = next;
+  }
+  merged.sort((a, b) => new Date(b.timestamp as any).getTime() - new Date(a.timestamp as any).getTime());
+  return merged;
+}
+
+/**
+ * For each reportId anchored on the local DPAL chain, fetch the full report if missing from state.
+ * Fills the gap when the API feed is capped or this browser lost localStorage rows.
+ */
+export async function fetchReportsMissingFromChain(existingIds: Set<string>): Promise<Report[]> {
+  const chainIds = [
+    ...new Set(
+      getChain()
+        .filter((b) => b.reportId && b.reportId !== 'DPAL_GENESIS')
+        .map((b) => b.reportId),
+    ),
+  ];
+  const missing = chainIds.filter((id) => !existingIds.has(id));
+  const out: Report[] = [];
+  for (const id of missing) {
+    const r = await fetchReportFromApiById(id);
+    if (r) out.push(r);
+  }
+  return out;
 }
 
 /**
@@ -77,6 +130,17 @@ export async function fetchReportsFeedFromApi(limit = 60): Promise<Report[]> {
 export async function resolveReportByBlockNumber(blockNumber: number, reports: Report[]): Promise<Report | null> {
   const local = findReportByBlockNumber(reports, blockNumber);
   if (local) return local;
+
+  const fromChain = getChain().find(
+    (b) => b.index === blockNumber && b.reportId && b.reportId !== 'DPAL_GENESIS',
+  );
+  if (fromChain) {
+    const hit = reports.find((r) => r.id === fromChain.reportId);
+    if (hit) return hit;
+    const fetched = await fetchReportFromApiById(fromChain.reportId);
+    if (fetched) return fetched;
+  }
+
   const id = await fetchReportIdByBlockNumber(blockNumber);
   if (!id) return null;
   const byId = reports.find((r) => r.id === id);
@@ -84,13 +148,29 @@ export async function resolveReportByBlockNumber(blockNumber: number, reports: R
   return fetchReportFromApiById(id);
 }
 
+function pickReportIdFromApiPayload(data: Record<string, unknown>, fallbackId: string): string {
+  const reportIdStr = typeof data.reportId === 'string' ? data.reportId.trim() : '';
+  const idStr = typeof data.id === 'string' ? data.id.trim() : '';
+  if (reportIdStr.startsWith('rep-')) return reportIdStr;
+  if (idStr.startsWith('rep-')) return idStr;
+  if (reportIdStr.length > 0) return reportIdStr;
+  if (idStr.length > 0) return idStr;
+  const legacy = typeof data._id === 'string' ? data._id.trim() : '';
+  if (legacy.length > 0) return legacy;
+  return fallbackId;
+}
+
+function parseBlockNumberField(data: Record<string, unknown>): number | undefined {
+  if (typeof data.blockNumber === 'number' && Number.isFinite(data.blockNumber)) return data.blockNumber;
+  if (typeof data.blockNumber === 'string' && /^\d+$/.test(data.blockNumber.trim())) {
+    const n = Number.parseInt(data.blockNumber.trim(), 10);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
 function mapApiReportToReport(data: Record<string, unknown>, fallbackId: string): Report | null {
-  const id =
-    typeof data.id === 'string'
-      ? data.id
-      : typeof data.reportId === 'string'
-        ? data.reportId
-        : fallbackId;
+  const id = pickReportIdFromApiPayload(data, fallbackId);
   const ts = data.timestamp ? new Date(String(data.timestamp)) : new Date();
   const safeTs = Number.isNaN(ts.getTime()) ? new Date() : ts;
 
@@ -115,7 +195,7 @@ function mapApiReportToReport(data: Record<string, unknown>, fallbackId: string)
     timestamp: safeTs,
     hash: typeof data.hash === 'string' ? data.hash : `0x${Math.random().toString(16).slice(2)}`,
     blockchainRef: typeof data.blockchainRef === 'string' ? data.blockchainRef : typeof data.txHash === 'string' ? data.txHash : '',
-    blockNumber: typeof data.blockNumber === 'number' ? data.blockNumber : undefined,
+    blockNumber: parseBlockNumberField(data),
     txHash: typeof data.txHash === 'string' ? data.txHash : undefined,
     chain: typeof data.chain === 'string' ? data.chain : undefined,
     anchoredAt: data.anchoredAt ? new Date(String(data.anchoredAt)) : undefined,
