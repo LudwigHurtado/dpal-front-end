@@ -51,6 +51,7 @@ export const VIEW_PATHS: Record<string, string> = {
   reportWorkPanel: '/report-work',
   helpCenter: '/help',
   resolutionLayer: '/resolution',
+  /** Missions Hub (marketplace, emergency shell, dashboards; `?section=` tabs). */
   missionMarketplace: '/missions',
   missionAssignmentV2: '/missions/v2',
   createMission: '/missions/create',

@@ -65,7 +65,7 @@ import LayoutV2 from './layouts/LayoutV2';
 import { featureFlags } from './features/featureFlags';
 import MobileCommunityFeedView from './components/mobile/MobileCommunityFeedView';
 import MissionAssignmentV2Page from './features/missions-v2/pages/MissionAssignmentV2Page';
-import MissionMarketplacePage from './features/missions-v2/pages/MissionMarketplacePage';
+import MissionsHubPage from './features/missions-v2/hub/MissionsHubPage';
 import CreateMissionView from './features/missions-v2/pages/CreateMissionView';
 import type { MissionAssignmentV2Model } from './features/missions-v2/types';
 import { saveMissionWorkspaceV2 } from './features/missions-v2/services/missionWorkspaceService';
@@ -440,7 +440,13 @@ const App: React.FC = () => {
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
     const preserveDeepLink = currentView === 'reportComplete' || currentView === 'incidentRoom';
-    const full = preserveDeepLink ? `${path}${location.search}${location.hash}` : path;
+    /** Keep `?section=` when switching hub tabs so refresh/bookmark retain the active panel. */
+    const preserveMissionsHubSection =
+      currentView === 'missionMarketplace' && /[?&]section=/.test(location.search);
+    const full =
+      preserveDeepLink || preserveMissionsHubSection
+        ? `${path}${location.search}${location.hash}`
+        : path;
     const cur = `${location.pathname}${location.search}${location.hash}`;
     if (full === cur) return;
     navigate(full, { replace: false });
@@ -1717,7 +1723,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'missionMarketplace' && (
-          <MissionMarketplacePage
+          <MissionsHubPage
             onBack={() => goBack('mainMenu')}
             onOpenWorkspace={() => handleNavigate('missionAssignmentV2')}
             onCreateMission={() => handleNavigate('createMission')}
