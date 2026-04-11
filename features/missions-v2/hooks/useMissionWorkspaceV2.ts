@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_LAYER_EXECUTION_STATE,
+  layerEscrowDisplayFromRecord,
   type LayerAction,
   type LayerExecutionState,
   type MissionAssignmentV2Model,
@@ -8,6 +9,12 @@ import {
 } from '../types';
 import { generateMissionTaskList } from '../../../services/geminiService';
 import { saveMissionWorkspaceV2 } from '../services/missionWorkspaceService';
+import {
+  buildDefaultEscrow,
+  getLeadMember,
+  getVerifierMember,
+  isMissionReadyForRelease,
+} from '../services/missionEscrowHelpers';
 import {
   applyMissionState,
   assignTeamPlaceholder,
@@ -19,7 +26,12 @@ import {
 import { runLayerAction } from '../services/layers/layerActionRunner';
 
 function layersFromModel(model: MissionAssignmentV2Model): LayerExecutionState {
-  return model.layerExecution ?? DEFAULT_LAYER_EXECUTION_STATE;
+  const base = model.layerExecution ?? DEFAULT_LAYER_EXECUTION_STATE;
+  return {
+    ...base,
+    escrow: layerEscrowDisplayFromRecord(model.escrow),
+    mission: model.identity.status,
+  };
 }
 
 /** Parent should remount when `reportId` (or workspace load) changes — see MissionAssignmentV2Page board `key`. */
@@ -99,18 +111,108 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
   }, []);
 
   const handleRewardSelection = useCallback((rewardType: 'Coins' | 'Tokens' | 'HC' | 'None', rewardAmount: number) => {
-    setModel((prev) => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        rewardType,
-        rewardAmount: rewardType === 'None' ? 0 : rewardAmount,
-        rewardLabel:
-          rewardType === 'None'
-            ? 'No monetary reward'
-            : `${rewardAmount.toLocaleString()} ${rewardType} + Escrow Release`,
-      },
-    }));
+    const amount = rewardType === 'None' ? 0 : rewardAmount;
+    const nextEscrow = buildDefaultEscrow(rewardType, amount);
+    setModel((prev) =>
+      recalculateMissionProgress({
+        ...prev,
+        details: {
+          ...prev.details,
+          rewardType,
+          rewardAmount: amount,
+          rewardLabel:
+            rewardType === 'None'
+              ? 'No monetary reward'
+              : `${amount.toLocaleString()} ${rewardType} + Escrow Release`,
+        },
+        escrow: nextEscrow,
+      }),
+    );
+    setLayers((prev) => ({ ...prev, escrow: layerEscrowDisplayFromRecord(nextEscrow) }));
+  }, []);
+
+  const handleLockEscrow = useCallback(() => {
+    setModel((prev) => {
+      if (!prev.escrow.enabled) return prev;
+      if (prev.escrow.status !== 'pending_funding') return prev;
+      const lead = getLeadMember(prev);
+      return recalculateMissionProgress({
+        ...prev,
+        escrow: {
+          ...prev.escrow,
+          status: 'locked',
+          lockedAt: new Date().toISOString(),
+          lockedBy: lead?.name || 'Lead',
+        },
+      });
+    });
+    setLayers((prev) => ({ ...prev, escrow: 'locked' }));
+  }, []);
+
+  const handleRequestEscrowRelease = useCallback(() => {
+    setModel((prev) => {
+      if (!prev.escrow.enabled) return prev;
+      if (prev.escrow.status !== 'locked') return prev;
+      if (layers.validation !== 'approved') return prev;
+      if (!isMissionReadyForRelease(prev)) return prev;
+
+      const lead = getLeadMember(prev);
+      return recalculateMissionProgress({
+        ...prev,
+        escrow: {
+          ...prev.escrow,
+          status: 'release_requested',
+          releaseRequestedAt: new Date().toISOString(),
+          releaseRequestedBy: lead?.name || 'Lead',
+        },
+      });
+    });
+    setLayers((prev) => ({ ...prev, escrow: 'release_requested' }));
+  }, [layers.validation]);
+
+  const handleApproveEscrowRelease = useCallback(() => {
+    setModel((prev) => {
+      if (!prev.escrow.enabled) return prev;
+      if (prev.escrow.status !== 'release_requested') return prev;
+
+      const verifier = getVerifierMember(prev);
+      if (!verifier) return prev;
+
+      return recalculateMissionProgress({
+        ...prev,
+        escrow: {
+          ...prev.escrow,
+          status: 'released',
+          approvedAt: new Date().toISOString(),
+          approvedBy: verifier.name,
+        },
+      });
+    });
+    setLayers((prev) => ({ ...prev, escrow: 'released' }));
+  }, []);
+
+  const handleDisputeEscrow = useCallback((reason: string) => {
+    const cleaned = reason.trim();
+    if (!cleaned) return;
+
+    setModel((prev) => {
+      if (!prev.escrow.enabled) return prev;
+      if (prev.escrow.status !== 'release_requested') return prev;
+      const verifier = getVerifierMember(prev);
+      if (!verifier) return prev;
+
+      return recalculateMissionProgress({
+        ...prev,
+        escrow: {
+          ...prev.escrow,
+          status: 'disputed',
+          disputeReason: cleaned,
+          disputedAt: new Date().toISOString(),
+          disputedBy: verifier.name,
+        },
+      });
+    });
+    setLayers((prev) => ({ ...prev, escrow: 'disputed' }));
   }, []);
 
   const handleSendPrivateMessage = useCallback((memberId: string, message: string) => {
@@ -283,5 +385,10 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
     handleLayerAction,
     clearLayerActionError,
     clearAiTaskError,
+    handleLockEscrow,
+    handleRequestEscrowRelease,
+    handleApproveEscrowRelease,
+    handleDisputeEscrow,
+    isMissionReadyForRelease,
   };
 }

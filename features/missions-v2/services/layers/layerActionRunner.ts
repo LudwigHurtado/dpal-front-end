@@ -3,7 +3,6 @@ import { getLayerGateReason } from '../layerGating';
 import { syncReportLayer } from './reportLayerService';
 import { collectEvidenceLayer } from './evidenceLayerService';
 import { approveValidationLayer, rejectValidationLayer } from './validationLayerService';
-import { lockEscrowLayer, releaseEscrowLayer, disputeEscrowLayer } from './escrowLayerService';
 import { startResolutionLayer, resolveCaseLayer } from './resolutionLayerService';
 import { recordOutcomeLayer } from './outcomeLayerService';
 import { awardReputationLayer } from './reputationLayerService';
@@ -23,12 +22,6 @@ export async function runLayerAction(action: LayerAction, prev: LayerExecutionSt
       return approveValidationLayer(prev);
     case 'rejectValidation':
       return rejectValidationLayer(prev);
-    case 'lockEscrow':
-      return lockEscrowLayer(prev);
-    case 'releaseEscrow':
-      return releaseEscrowLayer(prev);
-    case 'disputeEscrow':
-      return disputeEscrowLayer(prev);
     case 'startResolution':
       return startResolutionLayer(prev);
     case 'resolveCase':

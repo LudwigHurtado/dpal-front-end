@@ -1,4 +1,5 @@
 import type { MissionAssignmentV2Model } from '../types';
+import { buildDefaultEscrow } from '../services/missionEscrowHelpers';
 
 export const mockMissionAssignmentV2: MissionAssignmentV2Model = {
   identity: {
@@ -78,6 +79,7 @@ export const mockMissionAssignmentV2: MissionAssignmentV2Model = {
     { id: 'p3', label: 'Final verification package', completed: false },
     { id: 'p4', label: 'Beneficiary confirmation', completed: false },
   ],
+  escrow: buildDefaultEscrow('HC', 1250),
   participation: {
     visibility: 'public',
     joinPolicy: 'approval_required',

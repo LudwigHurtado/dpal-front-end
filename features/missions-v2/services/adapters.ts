@@ -9,6 +9,7 @@ import type { Report } from '../../../types';
 import { generateMissionDetailsFromReport } from '../../../services/geminiService';
 import { loadMissionWorkspaceV2 } from './missionWorkspaceService';
 import { recalculateMissionProgress } from './layerServices';
+import { buildDefaultEscrow } from './missionEscrowHelpers';
 
 const DEFAULT_PARTICIPATION: MissionParticipationSettings = {
   visibility: 'public',
@@ -18,17 +19,26 @@ const DEFAULT_PARTICIPATION: MissionParticipationSettings = {
   requiresLeadApproval: true,
 };
 
-/** Older saved workspaces may omit participation/community — keep one engine shape. */
+function ensureEscrowDefaults(model: MissionAssignmentV2Model): MissionAssignmentV2Model {
+  if (model.escrow) return model;
+  return {
+    ...model,
+    escrow: buildDefaultEscrow(model.details.rewardType, model.details.rewardAmount),
+  };
+}
+
+/** Older saved workspaces may omit participation/community/escrow — keep one engine shape. */
 export function ensureMissionV2Defaults(model: MissionAssignmentV2Model): MissionAssignmentV2Model {
-  const participation: MissionParticipationSettings = model.participation ?? DEFAULT_PARTICIPATION;
-  const community: MissionCommunityMeta = model.community ?? {
+  const withEscrow = ensureEscrowDefaults(model);
+  const participation: MissionParticipationSettings = withEscrow.participation ?? DEFAULT_PARTICIPATION;
+  const community: MissionCommunityMeta = withEscrow.community ?? {
     sourceType: 'report_derived',
     createdAt: new Date().toISOString(),
     invitees: [],
     joinRequests: [],
     tags: [],
   };
-  return { ...model, participation, community };
+  return { ...withEscrow, participation, community };
 }
 
 function buildObjectivePhases(objective: string, rules: string[]): MissionAssignmentV2Model['details']['objectivePhases'] {
@@ -162,7 +172,10 @@ async function missionFromReport(report: Report): Promise<MissionAssignmentV2Mod
             aiDetails?.rules?.length ? aiDetails.rules : fallbackDetails.rules,
           ),
     },
-    /** Live validator escrow is not wired per-report yet — avoid showing mock escrow rows as real. */
+    escrow: buildDefaultEscrow(
+      aiDetails?.rewardType || fallbackDetails.rewardType,
+      aiDetails?.rewardAmount ?? fallbackDetails.rewardAmount,
+    ),
     escrowConditions: [],
     participation: {
       visibility: 'public',
@@ -215,6 +228,7 @@ export async function hydrateMissionWorkspaceWithPersistence(
     },
     participation: persisted.data.participation ?? base.participation,
     community: persisted.data.community ?? base.community,
+    escrow: persisted.data.escrow ?? base.escrow,
     layerExecution: {
       ...DEFAULT_LAYER_EXECUTION_STATE,
       ...persisted.data.layerExecution,
@@ -254,6 +268,7 @@ export async function loadMissionAssignmentV2(sourceReport?: Report | null): Pro
         // Restore platform layer pipeline; keep `mission` in sync with persisted lifecycle (defaults used `draft`).
         participation: persisted.data.participation ?? generated.participation,
         community: persisted.data.community ?? generated.community,
+        escrow: persisted.data.escrow ?? generated.escrow,
         layerExecution: {
           ...DEFAULT_LAYER_EXECUTION_STATE,
           ...persisted.data.layerExecution,

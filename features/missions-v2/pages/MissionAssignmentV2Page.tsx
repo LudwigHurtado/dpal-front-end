@@ -111,7 +111,14 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
     handleLayerAction,
     clearLayerActionError,
     clearAiTaskError,
+    handleLockEscrow,
+    handleRequestEscrowRelease,
+    handleApproveEscrowRelease,
+    handleDisputeEscrow,
+    isMissionReadyForRelease,
   } = useMissionWorkspaceV2(initialModel);
+
+  const hasVerifier = model.team.some((m) => m.role === 'Verifier');
 
   return (
     <div className="mx-auto max-w-[1220px] space-y-3 pb-24 text-slate-800">
@@ -176,9 +183,27 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
           </div>
         </div>
 
-        {/* Row 4 — escrow (optional; clearly labeled when preview-only) */}
+        {/* Row 4 — escrow workflow */}
         <div className="mt-3">
-          <EscrowConditionsSector conditions={model.escrowConditions} />
+          <EscrowConditionsSector
+            conditions={model.escrowConditions}
+            escrow={model.escrow}
+            canLock={model.escrow.enabled && model.escrow.status === 'pending_funding'}
+            canRequestRelease={
+              model.escrow.enabled &&
+              model.escrow.status === 'locked' &&
+              layers.validation === 'approved' &&
+              isMissionReadyForRelease(model)
+            }
+            canApproveRelease={
+              model.escrow.enabled && model.escrow.status === 'release_requested' && hasVerifier
+            }
+            canDispute={model.escrow.enabled && model.escrow.status === 'release_requested' && hasVerifier}
+            onLock={handleLockEscrow}
+            onRequestRelease={handleRequestEscrowRelease}
+            onApproveRelease={handleApproveEscrowRelease}
+            onDispute={handleDisputeEscrow}
+          />
         </div>
 
         <div className="mt-3 rounded-md border border-slate-300 bg-white p-2 text-center text-xs text-slate-600">

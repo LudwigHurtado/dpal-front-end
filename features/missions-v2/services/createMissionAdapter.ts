@@ -1,6 +1,7 @@
 import type { MissionAssignmentV2Model } from '../types';
 import { DEFAULT_LAYER_EXECUTION_STATE } from '../types';
 import type { CreateMissionInput } from '../createMissionTypes';
+import { buildDefaultEscrow } from './missionEscrowHelpers';
 import { recalculateMissionProgress } from './layerServices';
 
 function labelForMissionType(value: string): string {
@@ -104,6 +105,10 @@ export function buildUserCreatedMission(input: CreateMissionInput): MissionAssig
     },
     escrowConditions: [],
     proof,
+    escrow: buildDefaultEscrow(
+      input.rewardType === 'None' ? 'None' : input.rewardType,
+      input.rewardType === 'None' ? 0 : Math.max(0, input.rewardAmount),
+    ),
     participation: {
       visibility: input.visibility,
       joinPolicy: input.joinPolicy,

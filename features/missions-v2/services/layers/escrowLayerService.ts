@@ -1,18 +1,17 @@
+/**
+ * Escrow state transitions are implemented in `useMissionWorkspaceV2` + `EscrowConditionsSector`,
+ * not as generic layer toggles. This module is kept for backwards compatibility with older imports.
+ */
 import type { LayerExecutionState } from '../../types';
 
-const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export async function lockEscrowLayer(prev: LayerExecutionState): Promise<LayerExecutionState> {
-  await wait(280);
-  return { ...prev, escrow: 'locked' };
+  return prev;
 }
 
 export async function releaseEscrowLayer(prev: LayerExecutionState): Promise<LayerExecutionState> {
-  await wait(280);
-  return { ...prev, escrow: 'released' };
+  return prev;
 }
 
 export async function disputeEscrowLayer(prev: LayerExecutionState): Promise<LayerExecutionState> {
-  await wait(280);
-  return { ...prev, escrow: 'disputed' };
+  return prev;
 }

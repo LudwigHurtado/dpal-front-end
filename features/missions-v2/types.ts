@@ -150,6 +150,33 @@ export interface ProofRequirement {
   completed: boolean;
 }
 
+export type MissionEscrowStatus =
+  | 'not_applicable'
+  | 'pending_funding'
+  | 'locked'
+  | 'release_requested'
+  | 'released'
+  | 'disputed'
+  | 'cancelled';
+
+export interface MissionEscrowRecord {
+  enabled: boolean;
+  status: MissionEscrowStatus;
+  rewardType: 'Coins' | 'Tokens' | 'HC' | 'None';
+  rewardAmount: number;
+  fundedBy?: string;
+  lockedAt?: string;
+  lockedBy?: string;
+  releaseRequestedAt?: string;
+  releaseRequestedBy?: string;
+  approvedAt?: string;
+  approvedBy?: string;
+  disputeReason?: string;
+  disputedAt?: string;
+  disputedBy?: string;
+  notes?: string;
+}
+
 export interface MissionAssignmentV2Model {
   identity: MissionIdentity;
   report: MissionReportOverview;
@@ -159,6 +186,8 @@ export interface MissionAssignmentV2Model {
   progress: MissionProgress;
   escrowConditions: EscrowCondition[];
   proof: ProofRequirement[];
+  /** Tracked escrow workflow (Lead lock → request release → Verifier approve/dispute). */
+  escrow: MissionEscrowRecord;
   /** How participants join and visibility (same engine for report- and user-sourced missions). */
   participation: MissionParticipationSettings;
   /** Creator, invites, join requests — Phase 2+ fill invitees/requests. */
@@ -167,12 +196,34 @@ export interface MissionAssignmentV2Model {
   layerExecution?: LayerExecutionState;
 }
 
+/** Maps persisted escrow status to the read-only Service Layer strip (escrow actions live on EscrowConditionsSector). */
+export function layerEscrowDisplayFromRecord(record: MissionEscrowRecord): LayerExecutionState['escrow'] {
+  switch (record.status) {
+    case 'not_applicable':
+      return 'not_applicable';
+    case 'pending_funding':
+      return 'pending';
+    case 'locked':
+      return 'locked';
+    case 'release_requested':
+      return 'release_requested';
+    case 'released':
+      return 'released';
+    case 'disputed':
+      return 'disputed';
+    case 'cancelled':
+      return 'pending';
+    default:
+      return 'pending';
+  }
+}
+
 export interface LayerExecutionState {
   report: 'ready' | 'synced';
   evidence: 'pending' | 'collected';
   validation: 'pending' | 'approved' | 'rejected';
   mission: MissionLifecycleStatus;
-  escrow: 'pending' | 'locked' | 'released' | 'disputed';
+  escrow: 'not_applicable' | 'pending' | 'locked' | 'release_requested' | 'released' | 'disputed';
   resolution: 'idle' | 'in_progress' | 'resolved';
   outcome: 'pending' | 'recorded';
   reputation: 'unchanged' | 'awarded';
@@ -192,14 +243,12 @@ export const DEFAULT_LAYER_EXECUTION_STATE: LayerExecutionState = {
   governance: 'open',
 };
 
+/** Escrow workflow is driven from `EscrowConditionsSector`, not generic layer buttons. */
 export type LayerAction =
   | 'syncReport'
   | 'collectEvidence'
   | 'approveValidation'
   | 'rejectValidation'
-  | 'lockEscrow'
-  | 'releaseEscrow'
-  | 'disputeEscrow'
   | 'startResolution'
   | 'resolveCase'
   | 'recordOutcome'

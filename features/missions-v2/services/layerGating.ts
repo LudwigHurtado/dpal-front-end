@@ -2,7 +2,8 @@ import type { LayerAction, LayerExecutionState } from '../types';
 
 /**
  * Returns a user-facing reason if the action is not allowed in the current pipeline, or null if allowed.
- * Linear pipeline: report sync → evidence → validation → escrow → resolution → outcome → reputation → governance.
+ * Linear pipeline: report sync → evidence → validation → (escrow card) → resolution → outcome → reputation → governance.
+ * Escrow lock/release/approve/dispute are not LayerActions — see EscrowConditionsSector.
  */
 export function getLayerGateReason(action: LayerAction, layers: LayerExecutionState): string | null {
   switch (action) {
@@ -15,19 +16,17 @@ export function getLayerGateReason(action: LayerAction, layers: LayerExecutionSt
       return layers.evidence === 'collected'
         ? null
         : 'Collect evidence before validation.';
-    case 'lockEscrow':
-      if (layers.validation !== 'approved') return 'Validation must be approved before locking escrow.';
-      if (layers.escrow !== 'pending') return 'Escrow is already advanced past lock.';
-      return null;
-    case 'releaseEscrow':
-      return layers.escrow === 'locked' ? null : 'Lock escrow before release.';
-    case 'disputeEscrow':
-      return layers.escrow === 'locked' ? null : 'Escrow must be locked to open a dispute.';
-    case 'startResolution':
+    case 'startResolution': {
+      if (layers.escrow === 'not_applicable') {
+        return layers.validation === 'approved'
+          ? null
+          : 'Approve validation before starting resolution (no escrow on this mission).';
+      }
       if (layers.escrow !== 'released' && layers.escrow !== 'disputed') {
-        return 'Release or dispute escrow before starting resolution.';
+        return 'Complete escrow release or dispute before starting resolution.';
       }
       return layers.resolution === 'idle' ? null : 'Resolution already started or finished.';
+    }
     case 'resolveCase':
       return layers.resolution === 'in_progress' ? null : 'Start resolution before resolving the case.';
     case 'recordOutcome':

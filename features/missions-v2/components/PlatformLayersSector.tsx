@@ -37,21 +37,33 @@ const PlatformLayersSector: React.FC<PlatformLayersSectorProps> = ({
     );
   };
   return (
-    <SectorCard title="Service Layer Controls" subtitle="Report, evidence, validation, escrow, resolution, outcome, reputation, governance">
+    <SectorCard
+      title="Service Layer Controls"
+      subtitle="Report, evidence, validation, resolution — use the Escrow card above for lock / release / dispute"
+    >
       <div className="space-y-2 text-xs text-slate-700">
-        <p>Report: <span className="font-semibold">{layers.report}</span> · Evidence: <span className="font-semibold">{layers.evidence}</span></p>
-        <p>Validation: <span className="font-semibold">{layers.validation}</span> · Escrow: <span className="font-semibold">{layers.escrow}</span></p>
-        <p>Resolution: <span className="font-semibold">{layers.resolution}</span> · Outcome: <span className="font-semibold">{layers.outcome}</span></p>
-        <p>Reputation: <span className="font-semibold">{layers.reputation}</span> · Governance: <span className="font-semibold">{layers.governance}</span></p>
+        <p>
+          Report: <span className="font-semibold">{layers.report}</span> · Evidence:{' '}
+          <span className="font-semibold">{layers.evidence}</span>
+        </p>
+        <p>
+          Validation: <span className="font-semibold">{layers.validation}</span> · Escrow (read-only):{' '}
+          <span className="font-semibold">{layers.escrow}</span>
+        </p>
+        <p>
+          Resolution: <span className="font-semibold">{layers.resolution}</span> · Outcome:{' '}
+          <span className="font-semibold">{layers.outcome}</span>
+        </p>
+        <p>
+          Reputation: <span className="font-semibold">{layers.reputation}</span> · Governance:{' '}
+          <span className="font-semibold">{layers.governance}</span>
+        </p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {layerBtn('syncReport', 'Sync Report', 'Syncing...')}
         {layerBtn('collectEvidence', 'Collect Evidence', 'Collecting...')}
         {layerBtn('approveValidation', 'Approve', 'Approving...')}
         {layerBtn('rejectValidation', 'Reject', 'Rejecting...')}
-        {layerBtn('lockEscrow', 'Lock Escrow', 'Locking...')}
-        {layerBtn('releaseEscrow', 'Release Escrow', 'Releasing...')}
-        {layerBtn('disputeEscrow', 'Dispute Escrow', 'Disputing...')}
         {layerBtn('startResolution', 'Start Resolution', 'Starting...')}
         {layerBtn('resolveCase', 'Resolve', 'Resolving...')}
         {layerBtn('recordOutcome', 'Record Outcome', 'Recording...')}

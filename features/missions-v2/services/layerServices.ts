@@ -127,9 +127,6 @@ export function nextLayerState(
     | 'collectEvidence'
     | 'approveValidation'
     | 'rejectValidation'
-    | 'lockEscrow'
-    | 'releaseEscrow'
-    | 'disputeEscrow'
     | 'startResolution'
     | 'resolveCase'
     | 'recordOutcome'
@@ -145,12 +142,6 @@ export function nextLayerState(
       return { ...prev, validation: 'approved' };
     case 'rejectValidation':
       return { ...prev, validation: 'rejected' };
-    case 'lockEscrow':
-      return { ...prev, escrow: 'locked' };
-    case 'releaseEscrow':
-      return { ...prev, escrow: 'released' };
-    case 'disputeEscrow':
-      return { ...prev, escrow: 'disputed' };
     case 'startResolution':
       return { ...prev, resolution: 'in_progress' };
     case 'resolveCase':
