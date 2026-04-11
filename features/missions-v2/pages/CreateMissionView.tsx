@@ -20,23 +20,25 @@ interface CreateMissionViewProps {
 /** Shared with MainMenu hero — `public/main-screen/dpal-mission-control-hero.png` */
 const MISSION_CONTROL_HERO_SRC = '/main-screen/dpal-mission-control-hero.png';
 
-const shell = 'min-h-full bg-slate-950 text-slate-100';
+/** Dark teal shell — aligned with DPAL civic / mission-control teal (not bright cyan). */
+const shell = 'min-h-full bg-teal-950 text-slate-100';
 const card =
-  'rounded-2xl border border-cyan-500/25 bg-slate-900/90 shadow-[0_0_48px_rgba(0,198,255,0.1)] backdrop-blur-sm';
-const cardInner = 'rounded-xl border border-white/[0.06] bg-slate-950/40';
+  'rounded-2xl border border-teal-800/40 bg-teal-950/70 shadow-[0_0_48px_rgba(13,148,136,0.12)] backdrop-blur-sm';
+const cardInner = 'rounded-xl border border-teal-900/45 bg-slate-950/55';
 const sectionTitle =
-  'mb-4 flex items-baseline gap-2 border-b border-cyan-500/35 pb-2.5 text-[12px] font-bold uppercase tracking-[0.18em] text-cyan-100/95';
-const labelCls = 'text-[11px] font-semibold uppercase tracking-wider text-cyan-200/80';
+  'mb-4 flex items-baseline gap-2 border-b border-teal-800/45 pb-2.5 text-[12px] font-bold uppercase tracking-[0.18em] text-teal-100/95';
+const labelCls = 'text-[11px] font-semibold uppercase tracking-wider text-teal-300/80';
 const field =
-  'mt-1 w-full rounded-lg border border-slate-600/90 bg-slate-950/90 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-cyan-500/55 focus:outline-none focus:ring-2 focus:ring-cyan-400/25';
+  'mt-1 w-full rounded-lg border border-teal-900/55 bg-slate-950/95 px-3 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-600/55 focus:outline-none focus:ring-2 focus:ring-teal-500/25';
 const btnPrimary =
-  'rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-400 px-5 py-3 text-sm font-bold text-slate-950 shadow-[0_0_28px_rgba(34,211,238,0.45)] transition hover:from-cyan-400 hover:to-cyan-300 hover:shadow-[0_0_36px_rgba(34,211,238,0.55)]';
+  'rounded-xl bg-gradient-to-r from-teal-800 to-teal-600 px-5 py-3 text-sm font-bold text-teal-50 shadow-[0_0_28px_rgba(13,148,136,0.4)] transition hover:from-teal-700 hover:to-teal-500 hover:shadow-[0_0_36px_rgba(13,148,136,0.5)]';
 const btnGhost =
-  'rounded-xl border border-slate-600 bg-slate-900/70 px-4 py-2.5 text-xs font-semibold text-slate-200 transition hover:border-cyan-500/45 hover:bg-slate-800';
+  'rounded-xl border border-teal-900/65 bg-teal-950/60 px-4 py-2.5 text-xs font-semibold text-slate-200 transition hover:border-teal-700/60 hover:bg-teal-950/90';
 const btnChip =
   'rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors';
-const btnChipOn = 'border-cyan-400/60 bg-cyan-500/15 text-cyan-50 shadow-[0_0_18px_rgba(34,211,238,0.22)]';
-const btnChipOff = 'border-slate-600 bg-slate-900/55 text-slate-300 hover:border-slate-500';
+const btnChipOn =
+  'border-teal-500/50 bg-teal-950/90 text-teal-100 shadow-[0_0_18px_rgba(13,148,136,0.22)]';
+const btnChipOff = 'border-teal-900/55 bg-teal-950/45 text-slate-300 hover:border-teal-800/80';
 
 const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onComplete, onBrowseMissions }) => {
   const { user } = useAuth();
@@ -145,7 +147,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
     <div className={`${shell} pb-28`}>
       <div className="mx-auto max-w-[880px] px-4 pt-4">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-400/90">DPAL Mission Control</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-teal-400/90">DPAL Mission Control</p>
           <button type="button" onClick={onCancel} className={btnGhost}>
             Exit to home
           </button>
@@ -163,7 +165,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
               className="absolute inset-0 h-full w-full object-cover object-center"
             />
             <div
-              className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/88 to-slate-950/40"
+              className="absolute inset-0 bg-gradient-to-t from-teal-950 via-teal-950/90 to-teal-950/35"
               aria-hidden
             />
             <div className="relative z-10 px-5 pb-5 pt-8 sm:px-8 sm:pt-10">
@@ -178,13 +180,13 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
             </div>
           </div>
 
-          <div className="space-y-6 border-t border-cyan-500/20 bg-slate-950/55 px-5 py-6 sm:px-8 sm:py-8">
+          <div className="space-y-6 border-t border-teal-800/35 bg-teal-950/80 px-5 py-6 sm:px-8 sm:py-8">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Choose how to begin</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <button
                 type="button"
                 onClick={onBrowseMissions}
-                className="group flex flex-col rounded-2xl border border-slate-600/90 bg-slate-900/80 p-6 text-left transition hover:border-slate-500 hover:bg-slate-800/80"
+                className="group flex flex-col rounded-2xl border border-teal-900/70 bg-teal-950/70 p-6 text-left transition hover:border-teal-800 hover:bg-teal-950/95"
               >
                 <span className="text-2xl" aria-hidden>
                   🗂️
@@ -193,7 +195,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
                 <span className="mt-2 text-sm text-slate-400">
                   Open the mission hub — see workspaces, tasks, and teams.
                 </span>
-                <span className="mt-4 text-xs font-semibold uppercase tracking-wide text-cyan-500/90 group-hover:text-cyan-400">
+                <span className="mt-4 text-xs font-semibold uppercase tracking-wide text-teal-400/90 group-hover:text-teal-300">
                   Go to hub →
                 </span>
               </button>
@@ -201,16 +203,16 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
               <button
                 type="button"
                 onClick={scrollToForm}
-                className="relative flex flex-col overflow-hidden rounded-2xl border-2 border-cyan-400/45 bg-gradient-to-br from-cyan-500/20 via-slate-900/90 to-slate-950 p-6 text-left shadow-[0_0_40px_rgba(34,211,238,0.18)] ring-1 ring-cyan-400/25 transition hover:border-cyan-300/60 hover:shadow-[0_0_52px_rgba(34,211,238,0.28)]"
+                className="relative flex flex-col overflow-hidden rounded-2xl border-2 border-teal-500/45 bg-gradient-to-br from-teal-800/35 via-teal-950/90 to-slate-950 p-6 text-left shadow-[0_0_40px_rgba(13,148,136,0.22)] ring-1 ring-teal-500/30 transition hover:border-teal-400/55 hover:shadow-[0_0_52px_rgba(13,148,136,0.32)]"
               >
                 <span className="text-2xl" aria-hidden>
                   ✨
                 </span>
                 <span className="mt-3 font-mono text-lg font-bold text-white">Create Your Own Mission</span>
-                <span className="mt-2 text-sm text-cyan-100/85">
+                <span className="mt-2 text-sm text-teal-100/90">
                   Define title, location, rewards, and proof — then create &amp; open your workspace.
                 </span>
-                <span className="mt-4 inline-flex items-center text-xs font-bold uppercase tracking-wide text-cyan-200">
+                <span className="mt-4 inline-flex items-center text-xs font-bold uppercase tracking-wide text-teal-200/95">
                   Continue to mission details ↓
                 </span>
               </button>
@@ -234,8 +236,8 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
                       }}
                       className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
                         on
-                          ? 'border-cyan-400/55 bg-cyan-500/15 text-cyan-50 shadow-[0_0_20px_rgba(34,211,238,0.2)]'
-                          : 'border-slate-600 bg-slate-950/50 text-slate-300 hover:border-slate-500'
+                          ? 'border-teal-500/50 bg-teal-950/90 text-teal-50 shadow-[0_0_20px_rgba(13,148,136,0.22)]'
+                          : 'border-teal-900/60 bg-teal-950/40 text-slate-300 hover:border-teal-800'
                       }`}
                     >
                       <span aria-hidden>{p.icon}</span>
@@ -248,7 +250,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
           </div>
         </section>
 
-        <p className="mt-8 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <p className="mt-8 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-600/80">
           Mission details
         </p>
 
@@ -260,7 +262,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
         >
           <section className={`space-y-5 p-1`}>
             <h2 className={sectionTitle}>
-              <span className="text-cyan-400/90">01</span> Mission basics
+              <span className="text-teal-400/95">01</span> Mission basics
             </h2>
             <label className="block text-sm">
               <span className="text-slate-200">Title</span>
@@ -285,8 +287,8 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
                       onClick={() => setCategory(c.value)}
                       className={`flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
                         on
-                          ? 'border-cyan-400/55 bg-cyan-500/12 shadow-[0_0_22px_rgba(34,211,238,0.14)]'
-                          : 'border-slate-600/90 bg-slate-950/50 hover:border-slate-500'
+                          ? 'border-teal-500/50 bg-teal-950/80 shadow-[0_0_22px_rgba(13,148,136,0.18)]'
+                          : 'border-teal-900/60 bg-teal-950/45 hover:border-teal-800'
                       }`}
                     >
                       <span className="text-xl" aria-hidden>
@@ -327,7 +329,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
                   type="checkbox"
                   checked={isRemote}
                   onChange={(e) => setIsRemote(e.target.checked)}
-                  className="rounded border-slate-500 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
+                  className="rounded border-teal-800 bg-teal-950 text-teal-500 focus:ring-teal-500/40"
                 />
                 Remote / online
               </label>
@@ -378,7 +380,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
 
           <section className={`space-y-4 p-1`}>
             <h2 className={sectionTitle}>
-              <span className="text-cyan-400/90">02</span> Mission type
+              <span className="text-teal-400/95">02</span> Mission type
             </h2>
             <div className={`${cardInner} p-4`}>
               <div className="flex flex-wrap gap-2">
@@ -398,7 +400,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
 
           <section className={`space-y-4 p-1`}>
             <h2 className={sectionTitle}>
-              <span className="text-cyan-400/90">03</span> Participation
+              <span className="text-teal-400/95">03</span> Participation
             </h2>
             <div className={`${cardInner} grid grid-cols-1 gap-4 p-4 sm:grid-cols-2`}>
               <label className="block text-sm">
@@ -430,7 +432,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
 
           <section className={`space-y-5 p-1`}>
             <h2 className={sectionTitle}>
-              <span className="text-cyan-400/90">04</span> Rewards &amp; proof
+              <span className="text-teal-400/95">04</span> Rewards &amp; proof
             </h2>
             <div className={`${cardInner} space-y-4 p-4`}>
               <div>
@@ -465,7 +467,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
                   type="checkbox"
                   checked={requiresProof}
                   onChange={(e) => setRequiresProof(e.target.checked)}
-                  className="rounded border-slate-500 bg-slate-900 text-cyan-500 focus:ring-cyan-500/40"
+                  className="rounded border-teal-800 bg-teal-950 text-teal-500 focus:ring-teal-500/40"
                 />
                 Require proof items for completion
               </label>
@@ -476,7 +478,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
                   {proofItems.map((line, i) => (
                     <li
                       key={`${line}-${i}`}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/90 bg-slate-950/70 px-3 py-2 text-sm text-slate-200"
+                      className="flex items-center justify-between gap-2 rounded-lg border border-teal-900/50 bg-teal-950/60 px-3 py-2 text-sm text-slate-200"
                     >
                       <span>{line}</span>
                       <button
@@ -507,14 +509,14 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
 
           <section className={`space-y-4 p-1`}>
             <h2 className={sectionTitle}>
-              <span className="text-cyan-400/90">05</span> Initial tasks (optional)
+              <span className="text-teal-400/95">05</span> Initial tasks (optional)
             </h2>
             <div className={`${cardInner} space-y-3 p-4`}>
               <ul className="space-y-2">
                 {taskItems.map((line, i) => (
                   <li
                     key={`${line}-${i}`}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-slate-700/90 bg-slate-950/70 px-3 py-2 text-sm text-slate-200"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-teal-900/50 bg-teal-950/60 px-3 py-2 text-sm text-slate-200"
                   >
                     <span>{line}</span>
                     <button
@@ -544,7 +546,7 @@ const CreateMissionView: React.FC<CreateMissionViewProps> = ({ onCancel, onCompl
 
           {error ? <p className="text-sm text-rose-400">{error}</p> : null}
 
-          <div className="flex flex-wrap items-center gap-3 border-t border-cyan-500/20 pt-6">
+          <div className="flex flex-wrap items-center gap-3 border-t border-teal-800/40 pt-6">
             <button type="submit" className={btnPrimary}>
               Create &amp; open workspace
             </button>
