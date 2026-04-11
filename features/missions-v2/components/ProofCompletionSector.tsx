@@ -23,11 +23,11 @@ const ProofCompletionSector: React.FC<ProofCompletionSectorProps> = ({ proof, on
             key={item.id}
             type="button"
             onClick={() => onToggleProof(item.id)}
-            className="rounded-md border border-slate-300 bg-white p-3 text-center"
+            className="rounded-lg border border-teal-900/50 bg-teal-950/50 p-3 text-center transition hover:border-teal-700/60 hover:bg-teal-950/80"
           >
             <span className="block text-2xl">{iconById[item.id] ?? '•'}</span>
-            <span className="mt-1 block text-xs text-slate-700">{item.label}</span>
-            <span className={`mt-1 block text-[11px] ${item.completed ? 'text-emerald-600' : 'text-slate-500'}`}>
+            <span className="mt-1 block text-xs text-teal-100/90">{item.label}</span>
+            <span className={`mt-1 block text-[11px] ${item.completed ? 'text-emerald-400' : 'text-teal-600'}`}>
               {item.completed ? 'Done' : 'Pending'}
             </span>
           </button>

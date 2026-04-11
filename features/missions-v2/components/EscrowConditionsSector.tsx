@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { EscrowCondition, MissionEscrowRecord, MissionEscrowStatus } from '../types';
+import { mw } from '../missionWorkspaceTheme';
 
 function formatEscrowStatus(status: MissionEscrowStatus): string {
   switch (status) {
@@ -57,56 +58,56 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
   const controlsDisabled = !escrow.enabled || escrow.status === 'not_applicable';
 
   return (
-    <div className="rounded-xl border border-slate-300 bg-white p-4 shadow-sm">
-      <h3 className="text-sm font-bold text-slate-800">Escrow</h3>
-      <p className="mt-0.5 text-xs text-slate-500">Lead locks funds and requests release; Verifier approves or disputes.</p>
+    <div className={`${mw.sectorCard}`}>
+      <h3 className="text-sm font-bold text-teal-100">Escrow</h3>
+      <p className={`mt-0.5 ${mw.textMuted}`}>Lead locks funds and requests release; Verifier approves or disputes.</p>
 
       {escrow.status === 'not_applicable' || !escrow.enabled ? (
-        <p className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+        <p className={`mt-3 rounded-lg border border-teal-900/50 ${mw.innerWell} p-3 text-sm text-teal-100/90`}>
           No escrow required for this mission.
         </p>
       ) : (
         <>
-          <dl className="mt-3 space-y-2 text-xs text-slate-700">
-            <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-2">
-              <dt className="font-semibold text-slate-500">Escrow status</dt>
+          <dl className="mt-3 space-y-2 text-xs text-teal-100/90">
+            <div className="flex flex-wrap justify-between gap-2 border-b border-teal-900/40 pb-2">
+              <dt className={`font-semibold ${mw.textMuted}`}>Escrow status</dt>
               <dd className="font-medium">{formatEscrowStatus(escrow.status)}</dd>
             </div>
-            <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-2">
-              <dt className="font-semibold text-slate-500">Reward</dt>
+            <div className="flex flex-wrap justify-between gap-2 border-b border-teal-900/40 pb-2">
+              <dt className={`font-semibold ${mw.textMuted}`}>Reward</dt>
               <dd>{rewardLabel}</dd>
             </div>
             {escrow.lockedAt ? (
-              <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-2">
-                <dt className="font-semibold text-slate-500">Locked</dt>
+              <div className="flex flex-wrap justify-between gap-2 border-b border-teal-900/40 pb-2">
+                <dt className={`font-semibold ${mw.textMuted}`}>Locked</dt>
                 <dd className="text-right">
                   {escrow.lockedBy ?? '—'} · {new Date(escrow.lockedAt).toLocaleString()}
                 </dd>
               </div>
             ) : null}
             {escrow.releaseRequestedAt ? (
-              <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-2">
-                <dt className="font-semibold text-slate-500">Release requested</dt>
+              <div className="flex flex-wrap justify-between gap-2 border-b border-teal-900/40 pb-2">
+                <dt className={`font-semibold ${mw.textMuted}`}>Release requested</dt>
                 <dd className="text-right">
                   {escrow.releaseRequestedBy ?? '—'} · {new Date(escrow.releaseRequestedAt).toLocaleString()}
                 </dd>
               </div>
             ) : null}
             {escrow.approvedAt ? (
-              <div className="flex flex-wrap justify-between gap-2 border-b border-slate-100 pb-2">
-                <dt className="font-semibold text-slate-500">Approved</dt>
+              <div className="flex flex-wrap justify-between gap-2 border-b border-teal-900/40 pb-2">
+                <dt className={`font-semibold ${mw.textMuted}`}>Approved</dt>
                 <dd className="text-right">
                   {escrow.approvedBy ?? '—'} · {new Date(escrow.approvedAt).toLocaleString()}
                 </dd>
               </div>
             ) : null}
             {escrow.disputedAt && escrow.disputeReason ? (
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                <dt className="font-semibold text-amber-900">Dispute</dt>
-                <dd className="mt-1 text-amber-950">
+              <div className="rounded-lg border border-amber-800/45 bg-amber-950/35 p-2">
+                <dt className="font-semibold text-amber-200">Dispute</dt>
+                <dd className="mt-1 text-amber-100/95">
                   {escrow.disputedBy ?? 'Verifier'} · {new Date(escrow.disputedAt).toLocaleString()}
                 </dd>
-                <dd className="mt-1 whitespace-pre-wrap text-amber-950">{escrow.disputeReason}</dd>
+                <dd className="mt-1 whitespace-pre-wrap text-amber-100/90">{escrow.disputeReason}</dd>
               </div>
             ) : null}
           </dl>
@@ -116,7 +117,7 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
               type="button"
               disabled={controlsDisabled || !canLock}
               onClick={onLock}
-              className="rounded-md border border-slate-300 bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-teal-900/60 bg-teal-950/70 px-3 py-1.5 text-xs font-semibold text-teal-100 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-teal-900/80"
             >
               Lock Escrow
             </button>
@@ -124,7 +125,7 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
               type="button"
               disabled={controlsDisabled || !canRequestRelease}
               onClick={onRequestRelease}
-              className="rounded-md border border-cyan-600 bg-cyan-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-teal-600/50 bg-gradient-to-r from-teal-800 to-teal-600 px-3 py-1.5 text-xs font-semibold text-teal-50 shadow-[0_0_12px_rgba(13,148,136,0.35)] disabled:cursor-not-allowed disabled:opacity-50 hover:from-teal-700 hover:to-teal-500"
             >
               Request Release
             </button>
@@ -132,15 +133,15 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
               type="button"
               disabled={controlsDisabled || !canApproveRelease}
               onClick={onApproveRelease}
-              className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+              className="rounded-lg border border-emerald-700/50 bg-emerald-900/80 px-3 py-1.5 text-xs font-semibold text-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-800/90"
             >
               Approve Release
             </button>
           </div>
 
           {escrow.status === 'release_requested' && canDispute ? (
-            <div className="mt-3 rounded-md border border-rose-200 bg-rose-50/80 p-3">
-              <label className="text-xs font-semibold text-rose-900" htmlFor="escrow-dispute-reason">
+            <div className="mt-3 rounded-lg border border-rose-800/50 bg-rose-950/35 p-3">
+              <label className="text-xs font-semibold text-rose-200" htmlFor="escrow-dispute-reason">
                 Dispute (verifier — reason required)
               </label>
               <textarea
@@ -148,7 +149,7 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
                 rows={2}
                 value={disputeDraft}
                 onChange={(e) => setDisputeDraft(e.target.value)}
-                className="mt-1 w-full rounded border border-rose-200 bg-white px-2 py-1 text-xs text-slate-800"
+                className="mt-1 w-full rounded-lg border border-rose-800/50 bg-slate-950/80 px-2 py-1 text-xs text-rose-100 placeholder:text-rose-900/50"
                 placeholder="Explain why release should not proceed…"
               />
               <button
@@ -158,7 +159,7 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
                   onDispute(disputeDraft);
                   setDisputeDraft('');
                 }}
-                className="mt-2 rounded-md border border-rose-600 bg-rose-600 px-3 py-1.5 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-2 rounded-lg border border-rose-700/50 bg-rose-900/80 px-3 py-1.5 text-xs font-semibold text-rose-50 disabled:cursor-not-allowed disabled:opacity-50 hover:bg-rose-800/90"
               >
                 Dispute
               </button>
@@ -168,12 +169,12 @@ const EscrowConditionsSector: React.FC<EscrowConditionsSectorProps> = ({
       )}
 
       {hasRows ? (
-        <div className="mt-4 border-t border-slate-200 pt-3">
-          <p className="text-xs font-semibold text-slate-500">Reference conditions</p>
-          <ul className="mt-2 space-y-1.5 text-xs text-slate-600">
+        <div className="mt-4 border-t border-teal-900/40 pt-3">
+          <p className={`text-xs font-semibold ${mw.textMuted}`}>Reference conditions</p>
+          <ul className="mt-2 space-y-1.5 text-xs text-teal-200/85">
             {conditions.map((item) => (
-              <li key={item.label} className="rounded border border-slate-100 bg-slate-50/80 px-2 py-1">
-                <span className="font-medium text-slate-700">{item.label}:</span> {item.value}
+              <li key={item.label} className={`rounded border border-teal-900/45 ${mw.innerWell} px-2 py-1`}>
+                <span className="font-medium text-teal-100">{item.label}:</span> {item.value}
               </li>
             ))}
           </ul>

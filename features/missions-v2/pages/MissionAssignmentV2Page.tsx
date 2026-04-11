@@ -13,6 +13,7 @@ import EscrowConditionsSector from '../components/EscrowConditionsSector';
 import PrimaryActionSector from '../components/PrimaryActionSector';
 import ProofCompletionSector from '../components/ProofCompletionSector';
 import PlatformLayersSector from '../components/PlatformLayersSector';
+import { mw } from '../missionWorkspaceTheme';
 
 function missionSourceLabel(source: MissionSourceType): string {
   switch (source) {
@@ -72,7 +73,9 @@ const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({
   }, [sourceReportId, prefetchKey, prefetchedModel]);
 
   if (!initialModel) {
-    return <div className="py-10 text-center text-zinc-400">Loading mission workspace...</div>;
+    return (
+      <div className={`${mw.shell} py-16 text-center text-teal-300/90`}>Loading mission workspace...</div>
+    );
   }
 
   // Remount on report id + load generation so workspace state never survives a different report
@@ -135,26 +138,19 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({
   const hasVerifier = model.team.some((m) => m.role === 'Verifier');
 
   return (
-    <div className="mx-auto max-w-[1220px] space-y-3 pb-24 text-slate-800">
+    <div className={mw.shell}>
+      <div className={mw.page}>
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onReturn}
-          className="rounded-md border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-        >
+        <button type="button" onClick={onReturn} className={mw.btnGhost}>
           Back
         </button>
-        <button
-          type="button"
-          onClick={onOpenCreateMission}
-          className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
-        >
+        <button type="button" onClick={onOpenCreateMission} className={mw.btnPrimary}>
           Create mission
         </button>
       </div>
 
       <MissionHeaderSector identity={model.identity} sourceLabel={sourceLabel} />
-      <div className="rounded-b-xl border border-t-0 border-slate-300 bg-slate-200 p-4">
+      <div className={mw.panel}>
         {/* Row 1 — report context + progress & actions above the fold */}
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
           <div className="space-y-3 lg:col-span-6">
@@ -229,11 +225,11 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({
           />
         </div>
 
-        <div className="mt-3 rounded-md border border-slate-300 bg-white p-2 text-center text-xs text-slate-600">
+        <div className={`mt-3 ${mw.statusLine}`}>
           Tasks: {summary.doneTasks}/{summary.totalTasks} · Proof: {summary.doneProof}/{summary.totalProof}
         </div>
 
-        <div className="mt-2 rounded-md border border-slate-300 bg-white p-2 text-center text-xs text-slate-600">
+        <div className={`mt-2 ${mw.statusLine}`}>
           {workspaceSaveStatus === 'saving' && 'Saving mission workspace...'}
           {workspaceSaveStatus === 'saved_server' && 'Mission workspace saved to server.'}
           {workspaceSaveStatus === 'saved_local' &&
@@ -251,6 +247,7 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({
             onDismissError={clearLayerActionError}
           />
         </div>
+      </div>
       </div>
     </div>
   );

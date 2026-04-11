@@ -1,4 +1,5 @@
 import React from 'react';
+import { mw } from '../missionWorkspaceTheme';
 
 interface SectorCardProps {
   title: string;
@@ -9,12 +10,12 @@ interface SectorCardProps {
 
 const SectorCard: React.FC<SectorCardProps> = ({ title, subtitle, children, className }) => {
   return (
-    <section className={`rounded-xl border border-slate-300 bg-slate-100 p-3 md:p-4 ${className ?? ''}`}>
+    <section className={`${mw.sectorCard} ${className ?? ''}`}>
       <div className="mb-2 flex items-center gap-2">
-        <h3 className="text-2xl font-bold tracking-tight text-slate-800">{title}</h3>
-        <div className="h-px flex-1 bg-slate-300" />
+        <h3 className={mw.sectorTitle}>{title}</h3>
+        <div className={mw.sectorDivider} />
       </div>
-      {subtitle ? <p className="mb-3 text-[11px] text-slate-500">{subtitle}</p> : null}
+      {subtitle ? <p className={mw.sectorSubtitle}>{subtitle}</p> : null}
       {children}
     </section>
   );

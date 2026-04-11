@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { TeamMemberAssignment } from '../types';
+import { mw } from '../missionWorkspaceTheme';
 import SectorCard from './SectorCard';
 
 interface AssignedTeamSectorProps {
@@ -9,7 +10,12 @@ interface AssignedTeamSectorProps {
   onSendPrivateMessage: (memberId: string, message: string) => void;
 }
 
-const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateMember, onDeleteMember, onSendPrivateMessage }) => {
+const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({
+  team,
+  onUpdateMember,
+  onDeleteMember,
+  onSendPrivateMessage,
+}) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editProfile, setEditProfile] = useState('');
@@ -34,26 +40,31 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
     <SectorCard title="Assigned Team">
       <ul className="space-y-2">
         {team.map((member) => (
-          <li key={member.id} className="rounded-md border border-slate-300 bg-white p-2 text-sm text-slate-700">
-            <div className="flex items-center gap-2">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
+          <li
+            key={member.id}
+            className="rounded-md border border-teal-900/50 bg-slate-950/50 p-2 text-sm text-teal-100/90"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-teal-700/40 bg-teal-950/80 text-xs font-bold text-teal-200">
                 {initials(member.name)}
               </span>
-              <div className="flex-1">
-                <p className="font-semibold">{member.role}: {member.name}</p>
-                <p className="text-xs text-slate-500">Profile: {member.profile}</p>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold text-teal-50">
+                  {member.role}: {member.name}
+                </p>
+                <p className={`text-xs ${mw.textMuted}`}>Profile: {member.profile}</p>
               </div>
               <button
                 type="button"
                 onClick={() => startEdit(member)}
-                className="rounded bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-700"
+                className="rounded-lg border border-teal-800/60 bg-teal-950/70 px-2 py-1 text-xs font-semibold text-teal-200 hover:bg-teal-900/80"
               >
                 Edit
               </button>
               <button
                 type="button"
                 onClick={() => onDeleteMember(member.id)}
-                className="rounded bg-rose-100 px-2 py-1 text-xs font-semibold text-rose-700"
+                className="rounded-lg border border-rose-800/50 bg-rose-950/40 px-2 py-1 text-xs font-semibold text-rose-200 hover:bg-rose-950/70"
               >
                 Delete
               </button>
@@ -63,7 +74,7 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
                   setMessagingId(member.id);
                   setPrivateMessage('');
                 }}
-                className="rounded bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700"
+                className="rounded-lg border border-violet-800/50 bg-violet-950/40 px-2 py-1 text-xs font-semibold text-violet-200 hover:bg-violet-950/70"
               >
                 Message
               </button>
@@ -74,29 +85,29 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   placeholder="Member name"
-                  className="rounded border border-slate-300 px-2 py-1 text-sm"
+                  className={mw.field}
                 />
                 <input
                   value={editProfile}
                   onChange={(e) => setEditProfile(e.target.value)}
                   placeholder="@profile"
-                  className="rounded border border-slate-300 px-2 py-1 text-sm"
+                  className={mw.field}
                 />
-                <div className="sm:col-span-2 flex gap-2">
+                <div className="flex gap-2 sm:col-span-2">
                   <button
                     type="button"
                     onClick={() => {
                       onUpdateMember(member.id, { name: editName, profile: editProfile });
                       setEditingId(null);
                     }}
-                    className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700"
+                    className="rounded-lg border border-emerald-700/50 bg-emerald-950/50 px-2 py-1 text-xs font-semibold text-emerald-200 hover:bg-emerald-950/80"
                   >
                     Save
                   </button>
                   <button
                     type="button"
                     onClick={() => setEditingId(null)}
-                    className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                    className="rounded-lg border border-teal-900/60 bg-teal-950/60 px-2 py-1 text-xs font-semibold text-teal-200 hover:bg-teal-900/80"
                   >
                     Cancel
                   </button>
@@ -105,14 +116,14 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
             ) : null}
 
             {messagingId === member.id ? (
-              <div className="mt-2 rounded border border-violet-200 bg-violet-50 p-2">
-                <p className="mb-1 text-xs font-semibold text-violet-800">Private message to {member.name}</p>
+              <div className="mt-2 rounded-lg border border-violet-800/45 bg-violet-950/35 p-2">
+                <p className="mb-1 text-xs font-semibold text-violet-200">Private message to {member.name}</p>
                 <textarea
                   value={privateMessage}
                   onChange={(e) => setPrivateMessage(e.target.value)}
                   placeholder="Write a private instruction..."
                   rows={3}
-                  className="w-full rounded border border-violet-200 bg-white px-2 py-1 text-sm"
+                  className="w-full rounded-lg border border-violet-800/50 bg-slate-950/80 px-2 py-1 text-sm text-violet-100 placeholder:text-violet-700/70"
                 />
                 <div className="mt-2 flex gap-2">
                   <button
@@ -122,7 +133,7 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
                       setMessagingId(null);
                       setPrivateMessage('');
                     }}
-                    className="rounded bg-violet-600 px-2 py-1 text-xs font-semibold text-white"
+                    className="rounded-lg border border-violet-600/60 bg-violet-900/80 px-2 py-1 text-xs font-semibold text-violet-50 hover:bg-violet-800/90"
                   >
                     Send Private
                   </button>
@@ -132,7 +143,7 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
                       setMessagingId(null);
                       setPrivateMessage('');
                     }}
-                    className="rounded bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+                    className="rounded-lg border border-teal-900/60 bg-teal-950/60 px-2 py-1 text-xs font-semibold text-teal-200"
                   >
                     Cancel
                   </button>
@@ -141,8 +152,9 @@ const AssignedTeamSector: React.FC<AssignedTeamSectorProps> = ({ team, onUpdateM
             ) : null}
 
             {member.privateMessages?.length ? (
-              <p className="mt-2 text-xs text-slate-500">
-                Last private message: {new Date(member.privateMessages[member.privateMessages.length - 1].sentAt).toLocaleString()}
+              <p className={`mt-2 text-xs ${mw.textMuted}`}>
+                Last private message:{' '}
+                {new Date(member.privateMessages[member.privateMessages.length - 1].sentAt).toLocaleString()}
               </p>
             ) : null}
           </li>
