@@ -9,7 +9,7 @@ interface PrimaryActionSectorProps {
 
 const PrimaryActionSector: React.FC<PrimaryActionSectorProps> = ({ missionStatus, onMissionStatusChange }) => {
   return (
-    <SectorCard title="Progress & Status">
+    <SectorCard title="Mission Actions">
       <div className="space-y-3">
         <button
           type="button"

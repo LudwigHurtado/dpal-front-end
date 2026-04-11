@@ -90,6 +90,8 @@ export interface MissionAssignmentV2Model {
   progress: MissionProgress;
   escrowConditions: EscrowCondition[];
   proof: ProofRequirement[];
+  /** Platform layer pipeline — persisted with workspace when present. */
+  layerExecution?: LayerExecutionState;
 }
 
 export interface LayerExecutionState {
@@ -103,6 +105,19 @@ export interface LayerExecutionState {
   reputation: 'unchanged' | 'awarded';
   governance: 'open' | 'closed';
 }
+
+/** Single source of truth for initial layer pipeline — hook and adapter merge both use this. */
+export const DEFAULT_LAYER_EXECUTION_STATE: LayerExecutionState = {
+  report: 'ready',
+  evidence: 'pending',
+  validation: 'pending',
+  mission: 'draft',
+  escrow: 'pending',
+  resolution: 'idle',
+  outcome: 'pending',
+  reputation: 'unchanged',
+  governance: 'open',
+};
 
 export type LayerAction =
   | 'syncReport'

@@ -1,8 +1,9 @@
 import { mockMissionAssignmentV2 } from '../data/mockMissionData';
-import type { MissionAssignmentV2Model } from '../types';
+import { DEFAULT_LAYER_EXECUTION_STATE, type MissionAssignmentV2Model } from '../types';
 import type { Report } from '../../../types';
 import { generateMissionDetailsFromReport } from '../../../services/geminiService';
 import { loadMissionWorkspaceV2 } from './missionWorkspaceService';
+import { recalculateMissionProgress } from './layerServices';
 
 function buildObjectivePhases(objective: string, rules: string[]): MissionAssignmentV2Model['details']['objectivePhases'] {
   const ruleItems = (rules || []).slice(0, 4).map((rule, idx) => ({
@@ -100,7 +101,7 @@ async function missionFromReport(report: Report): Promise<MissionAssignmentV2Mod
     aiDetails = null;
   }
 
-  return {
+  const built: MissionAssignmentV2Model = {
     ...mockMissionAssignmentV2,
     identity: {
       ...mockMissionAssignmentV2.identity,
@@ -136,6 +137,7 @@ async function missionFromReport(report: Report): Promise<MissionAssignmentV2Mod
           ),
     },
   };
+  return recalculateMissionProgress(built);
 }
 
 export async function loadMissionAssignmentV2(sourceReport?: Report | null): Promise<MissionAssignmentV2Model> {
@@ -145,7 +147,7 @@ export async function loadMissionAssignmentV2(sourceReport?: Report | null): Pro
     if (persisted.data) {
       const fallbackDetails = generated.details;
       const persistedDetails = persisted.data.details;
-      return {
+      const merged: MissionAssignmentV2Model = {
         ...persisted.data,
         // Keep report identity current if report was updated elsewhere.
         report: {
@@ -165,9 +167,16 @@ export async function loadMissionAssignmentV2(sourceReport?: Report | null): Pro
               ? persistedDetails.objectivePhases
               : fallbackDetails.objectivePhases,
         },
+        // Restore platform layer pipeline; keep `mission` in sync with persisted lifecycle (defaults used `draft`).
+        layerExecution: {
+          ...DEFAULT_LAYER_EXECUTION_STATE,
+          ...persisted.data.layerExecution,
+          mission: persisted.data.identity.status,
+        },
       };
+      return recalculateMissionProgress(merged);
     }
     return generated;
   }
-  return Promise.resolve(mockMissionAssignmentV2);
+  return Promise.resolve(recalculateMissionProgress(mockMissionAssignmentV2));
 }

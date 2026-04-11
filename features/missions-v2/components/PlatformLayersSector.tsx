@@ -1,5 +1,6 @@
 import React from 'react';
 import type { LayerAction, LayerExecutionState } from '../types';
+import { getLayerGateReason } from '../services/layerGating';
 import SectorCard from './SectorCard';
 
 interface PlatformLayersSectorProps {
@@ -19,6 +20,22 @@ const PlatformLayersSector: React.FC<PlatformLayersSectorProps> = ({
 }) => {
   const isRunning = (action: LayerAction) => activeAction === action;
   const btnBase = 'rounded border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 disabled:opacity-50';
+  const layerBtn = (action: LayerAction, label: string, runningLabel: string) => {
+    const gate = getLayerGateReason(action, layers);
+    const disabled = !!activeAction || !!gate;
+    const title = gate || undefined;
+    return (
+      <button
+        disabled={disabled}
+        type="button"
+        title={title}
+        onClick={() => onAction(action)}
+        className={btnBase}
+      >
+        {isRunning(action) ? runningLabel : label}
+      </button>
+    );
+  };
   return (
     <SectorCard title="Service Layer Controls" subtitle="Report, evidence, validation, escrow, resolution, outcome, reputation, governance">
       <div className="space-y-2 text-xs text-slate-700">
@@ -28,18 +45,18 @@ const PlatformLayersSector: React.FC<PlatformLayersSectorProps> = ({
         <p>Reputation: <span className="font-semibold">{layers.reputation}</span> · Governance: <span className="font-semibold">{layers.governance}</span></p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('syncReport')} className={btnBase}>{isRunning('syncReport') ? 'Syncing...' : 'Sync Report'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('collectEvidence')} className={btnBase}>{isRunning('collectEvidence') ? 'Collecting...' : 'Collect Evidence'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('approveValidation')} className={btnBase}>{isRunning('approveValidation') ? 'Approving...' : 'Approve'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('rejectValidation')} className={btnBase}>{isRunning('rejectValidation') ? 'Rejecting...' : 'Reject'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('lockEscrow')} className={btnBase}>{isRunning('lockEscrow') ? 'Locking...' : 'Lock Escrow'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('releaseEscrow')} className={btnBase}>{isRunning('releaseEscrow') ? 'Releasing...' : 'Release Escrow'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('disputeEscrow')} className={btnBase}>{isRunning('disputeEscrow') ? 'Disputing...' : 'Dispute Escrow'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('startResolution')} className={btnBase}>{isRunning('startResolution') ? 'Starting...' : 'Start Resolution'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('resolveCase')} className={btnBase}>{isRunning('resolveCase') ? 'Resolving...' : 'Resolve'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('recordOutcome')} className={btnBase}>{isRunning('recordOutcome') ? 'Recording...' : 'Record Outcome'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('awardReputation')} className={btnBase}>{isRunning('awardReputation') ? 'Awarding...' : 'Award Reputation'}</button>
-        <button disabled={!!activeAction} type="button" onClick={() => onAction('closeGovernance')} className={btnBase}>{isRunning('closeGovernance') ? 'Closing...' : 'Close Governance'}</button>
+        {layerBtn('syncReport', 'Sync Report', 'Syncing...')}
+        {layerBtn('collectEvidence', 'Collect Evidence', 'Collecting...')}
+        {layerBtn('approveValidation', 'Approve', 'Approving...')}
+        {layerBtn('rejectValidation', 'Reject', 'Rejecting...')}
+        {layerBtn('lockEscrow', 'Lock Escrow', 'Locking...')}
+        {layerBtn('releaseEscrow', 'Release Escrow', 'Releasing...')}
+        {layerBtn('disputeEscrow', 'Dispute Escrow', 'Disputing...')}
+        {layerBtn('startResolution', 'Start Resolution', 'Starting...')}
+        {layerBtn('resolveCase', 'Resolve', 'Resolving...')}
+        {layerBtn('recordOutcome', 'Record Outcome', 'Recording...')}
+        {layerBtn('awardReputation', 'Award Reputation', 'Awarding...')}
+        {layerBtn('closeGovernance', 'Close Governance', 'Closing...')}
       </div>
       {error ? (
         <div className="mt-3 flex items-center justify-between rounded border border-rose-300 bg-rose-50 p-2 text-xs text-rose-700">

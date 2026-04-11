@@ -21,11 +21,16 @@ interface MissionAssignmentV2PageProps {
 
 const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onReturn, sourceReport }) => {
   const [initialModel, setInitialModel] = useState<MissionAssignmentV2Model | null>(null);
+  /** Bumps on each successful load so the board remounts when re-opening the same report. */
+  const [loadGeneration, setLoadGeneration] = useState(0);
 
   useEffect(() => {
     let mounted = true;
     loadMissionAssignmentV2(sourceReport).then((data) => {
-      if (mounted) setInitialModel(data);
+      if (mounted) {
+        setInitialModel(data);
+        setLoadGeneration((g) => g + 1);
+      }
     });
     return () => {
       mounted = false;
@@ -36,7 +41,15 @@ const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onRet
     return <div className="py-10 text-center text-zinc-400">Loading mission workspace...</div>;
   }
 
-  return <MissionAssignmentV2Board onReturn={onReturn} initialModel={initialModel} />;
+  // Remount on report id + load generation so workspace state never survives a different report
+  // or a fresh load of the same report (aligns with persisted layerExecution + model).
+  return (
+    <MissionAssignmentV2Board
+      key={`${initialModel.report.reportId}-${loadGeneration}`}
+      onReturn={onReturn}
+      initialModel={initialModel}
+    />
+  );
 };
 
 interface MissionAssignmentV2BoardProps {

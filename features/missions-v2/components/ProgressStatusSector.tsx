@@ -9,8 +9,11 @@ interface ProgressStatusSectorProps {
 
 const ProgressStatusSector: React.FC<ProgressStatusSectorProps> = ({ progress, onAddMember }) => {
   return (
-    <SectorCard title="Progress & Status">
+    <SectorCard title="Mission Progress">
       <div className="space-y-3 text-sm text-slate-700">
+        <p className="text-center text-xs font-semibold uppercase tracking-wide text-slate-600">
+          {progress.statusLabel}
+        </p>
         <button type="button" className="w-full rounded-md bg-emerald-500 px-3 py-2 font-semibold text-white">
           + In Progress
         </button>

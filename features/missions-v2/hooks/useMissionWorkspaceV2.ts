@@ -1,30 +1,31 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { LayerAction, LayerExecutionState, MissionAssignmentV2Model, MissionLifecycleStatus } from '../types';
+import {
+  DEFAULT_LAYER_EXECUTION_STATE,
+  type LayerAction,
+  type LayerExecutionState,
+  type MissionAssignmentV2Model,
+  type MissionLifecycleStatus,
+} from '../types';
 import { generateMissionTaskList } from '../../../services/geminiService';
 import { saveMissionWorkspaceV2 } from '../services/missionWorkspaceService';
 import {
   applyMissionState,
   assignTeamPlaceholder,
+  recalculateMissionProgress,
+  toggleObjectiveItemState,
   toggleProofState,
   toggleTaskState,
 } from '../services/layerServices';
 import { runLayerAction } from '../services/layers/layerActionRunner';
 
-const initialLayerState: LayerExecutionState = {
-  report: 'ready',
-  evidence: 'pending',
-  validation: 'pending',
-  mission: 'draft',
-  escrow: 'pending',
-  resolution: 'idle',
-  outcome: 'pending',
-  reputation: 'unchanged',
-  governance: 'open',
-};
+function layersFromModel(model: MissionAssignmentV2Model): LayerExecutionState {
+  return model.layerExecution ?? DEFAULT_LAYER_EXECUTION_STATE;
+}
 
+/** Parent should remount when `reportId` (or workspace load) changes — see MissionAssignmentV2Page board `key`. */
 export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
   const [model, setModel] = useState<MissionAssignmentV2Model>(initialModel);
-  const [layers, setLayers] = useState<LayerExecutionState>(initialLayerState);
+  const [layers, setLayers] = useState<LayerExecutionState>(() => layersFromModel(initialModel));
   const [activeLayerAction, setActiveLayerAction] = useState<LayerAction | null>(null);
   const [layerActionError, setLayerActionError] = useState<string | null>(null);
   const [isAiGeneratingTasks, setIsAiGeneratingTasks] = useState(false);
@@ -89,24 +90,27 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
 
   const handleAddObjectiveItemImage = useCallback((phaseId: string, itemId: string, imageDataUrl: string) => {
     if (!imageDataUrl) return;
-    setModel((prev) => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        objectivePhases: prev.details.objectivePhases.map((phase) => (
-          phase.id !== phaseId
-            ? phase
-            : {
-                ...phase,
-                items: phase.items.map((item) => (
-                  item.id === itemId
-                    ? { ...item, images: [...item.images, imageDataUrl].slice(-6) }
-                    : item
-                )),
-              }
-        )),
-      },
-    }));
+    setModel((prev) => {
+      const next: MissionAssignmentV2Model = {
+        ...prev,
+        details: {
+          ...prev.details,
+          objectivePhases: prev.details.objectivePhases.map((phase) => (
+            phase.id !== phaseId
+              ? phase
+              : {
+                  ...phase,
+                  items: phase.items.map((item) => (
+                    item.id === itemId
+                      ? { ...item, images: [...item.images, imageDataUrl].slice(-6) }
+                      : item
+                  )),
+                }
+          )),
+        },
+      };
+      return recalculateMissionProgress(next);
+    });
   }, []);
 
   const handleRewardSelection = useCallback((rewardType: 'Coins' | 'Tokens' | 'HC', rewardAmount: number) => {
@@ -151,8 +155,9 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
     try {
       const next = await runLayerAction(action, layers);
       setLayers(next);
-    } catch {
-      setLayerActionError(`Layer action failed: ${action}`);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : `Layer action failed: ${action}`;
+      setLayerActionError(msg);
     } finally {
       setActiveLayerAction(null);
     }
@@ -186,15 +191,15 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
           proofRequired: task.proofRequired,
           done: false,
         }));
-        return {
+        const withTasks = {
           ...prev,
           tasks: nextTasks,
           progress: {
             ...prev.progress,
-            percent: 0,
             timeline: ['AI generated mission task list', ...prev.progress.timeline].slice(0, 8),
           },
         };
+        return recalculateMissionProgress(withTasks);
       });
     } catch (error: any) {
       setAiTaskError(error?.message || 'AI could not generate tasks right now.');
@@ -228,7 +233,7 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
       setWorkspaceSaveStatus('saving');
       setWorkspaceSaveError(null);
       try {
-        const source = await saveMissionWorkspaceV2(reportId, model);
+        const source = await saveMissionWorkspaceV2(reportId, { ...model, layerExecution: layers });
         if (source === 'server') {
           setWorkspaceSaveStatus('saved_server');
         } else if (source === 'local') {
@@ -243,7 +248,7 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
     }, 550);
 
     return () => window.clearTimeout(timer);
-  }, [model]);
+  }, [model, layers]);
 
   return {
     model,
