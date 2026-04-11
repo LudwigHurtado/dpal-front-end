@@ -1711,6 +1711,7 @@ const App: React.FC = () => {
           <CreateMissionView
             onCancel={() => goBack('mainMenu')}
             onComplete={(model) => openCreatedMissionWorkspace(model)}
+            onBrowseMissions={() => handleNavigate('missionAssignmentV2')}
           />
         )}
 
