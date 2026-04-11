@@ -4,6 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import helpReportsRouter from './routes/helpReports';
+import dpalAuthRouter from './routes/dpalAuth';
+import dpalAdminUsersRouter from './routes/dpalAdminUsers';
 import adminRouter from './routes/admin';
 import geminiProxyRouter from './routes/geminiProxy';
 import resolutionRouter from './routes/resolution';
@@ -81,7 +83,10 @@ app.get('/health', (_req, res) => {
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/ai', geminiProxyRouter);
 app.use('/api/help-reports', helpReportsRouter);
-app.use('/api/admin',        adminRouter);
+/** DPAL identity — register/login/me/presence (PostgreSQL + bcrypt + JWT). Mount before legacy admin so /api/admin/users is handled first. */
+app.use('/api/auth', dpalAuthRouter);
+app.use('/api/admin', dpalAdminUsersRouter);
+app.use('/api/admin', adminRouter);
 app.use('/api/resolution',   resolutionRouter);
 app.use('/api/rewards',      rewardsRouter);
 

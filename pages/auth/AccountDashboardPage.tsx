@@ -64,6 +64,38 @@ function AccountDashboardInner() {
               {user.emailVerified ? "Yes" : "No"}
             </dd>
           </div>
+          {user.heroCredits != null ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--dpal-text-muted)]">Hero Credits (HC)</dt>
+              <dd className="text-white font-medium text-right">{user.heroCredits.toLocaleString()}</dd>
+            </div>
+          ) : null}
+          {user.dpalCoins != null ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--dpal-text-muted)]">DPAL Coins</dt>
+              <dd className="text-white font-medium text-right">{user.dpalCoins.toLocaleString()}</dd>
+            </div>
+          ) : null}
+          {user.reputationScore != null ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--dpal-text-muted)]">Reputation</dt>
+              <dd className="text-white font-medium text-right">{user.reputationScore}</dd>
+            </div>
+          ) : null}
+          {user.trustScore != null ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--dpal-text-muted)]">Trust</dt>
+              <dd className="text-white font-medium text-right">{user.trustScore}</dd>
+            </div>
+          ) : null}
+          {user.isOnline != null ? (
+            <div className="flex justify-between gap-4">
+              <dt className="text-[var(--dpal-text-muted)]">Presence</dt>
+              <dd className="text-white font-medium text-right">
+                {user.isOnline ? `Online (${user.onlineStatus ?? "online"})` : "Offline"}
+              </dd>
+            </div>
+          ) : null}
         </dl>
         {!user.emailVerified ? (
           <p className="text-amber-200/90 text-xs">

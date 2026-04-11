@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { AuthUser } from "./authApi";
-import { fetchMe, loginRequest, logoutRequest, registerAccount } from "./authApi";
+import { fetchMe, loginRequest, logoutRequest, presencePing, registerAccount } from "./authApi";
 import { clearTokens, getRefreshToken, setTokens } from "./authStorage";
 import { apiUrl, API_ROUTES } from "../constants";
 
@@ -73,6 +73,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    const id = window.setInterval(() => {
+      presencePing("online").catch(() => {});
+    }, 45_000);
+    return () => window.clearInterval(id);
+  }, [user?.id]);
+
   const login = useCallback(async (identifier: string, password: string) => {
     const data = await loginRequest(identifier, password);
     setUser(data.user);
@@ -85,8 +93,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string;
       phone?: string;
       password: string;
+      location?: string;
+      profileImageUrl?: string;
     }) => {
-      await registerAccount(p);
+      const reg = await registerAccount(p);
+      if (reg.user && reg.accessToken && reg.refreshToken) {
+        setUser(reg.user);
+        return;
+      }
       const data = await loginRequest(p.email, p.password);
       setUser(data.user);
     },
@@ -94,6 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    try {
+      await presencePing("offline");
+    } catch {
+      /* still log out locally */
+    }
     await logoutRequest();
     setUser(null);
   }, []);

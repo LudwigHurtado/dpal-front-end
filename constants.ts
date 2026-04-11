@@ -98,6 +98,8 @@ export const API_ROUTES = {
   AUTH_RESET: '/api/auth/reset-password',
   AUTH_VERIFY_EMAIL: '/api/auth/verify-email',
   AUTH_CHANGE_PASSWORD: '/api/auth/change-password',
+  /** POST { onlineStatus: 'online' | 'away' | 'offline' } — heartbeat / presence */
+  AUTH_PRESENCE: '/api/auth/presence',
   ADMIN_USERS: '/api/admin/users',
   ADMIN_ACTIVITY: '/api/admin/activity',
   RESOLUTION_EVENTS: '/api/resolution/events',

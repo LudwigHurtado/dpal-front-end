@@ -367,3 +367,87 @@ model RewardLedgerEntry {
   @@map("reward_ledger_entries")
   @@index([walletId, createdAt])
 }
+
+// ─── DPAL app users (JWT + bcrypt; production identity layer) ───────────────
+
+enum DpalAccountStatus {
+  active
+  pending_verification
+  suspended
+  banned
+}
+
+enum DpalOnlineStatus {
+  offline
+  online
+  away
+}
+
+enum DpalUserRole {
+  standard
+  moderator
+  admin
+  validator
+  support_agent
+}
+
+model DpalUser {
+  id           String @id @default(cuid())
+  username     String @unique
+  email        String @unique
+  passwordHash String
+
+  displayName String
+  phone       String?
+  location    String?
+
+  profileImageUrl String?
+
+  role            DpalUserRole      @default(standard)
+  accountStatus   DpalAccountStatus @default(active)
+  emailVerified   Boolean           @default(false)
+  profileCompleted Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lastLoginAt DateTime?
+  lastSeenAt  DateTime?
+
+  isOnline           Boolean          @default(false)
+  onlineStatus       DpalOnlineStatus @default(offline)
+  presenceUpdatedAt  DateTime?
+
+  starterCredits Int @default(0)
+  starterCoins   Int @default(0)
+  heroCredits    Int @default(0)
+  dpalCoins      Int @default(0)
+
+  reputationScore Int @default(0)
+  trustScore      Int @default(0)
+
+  /// Optional JSON: starter badges, prefs, mission defaults metadata
+  profileMetadata Json?
+
+  refreshTokens RefreshToken[]
+
+  @@map("dpal_users")
+  @@index([email])
+  @@index([username])
+  @@index([accountStatus])
+  @@index([isOnline])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      DpalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  revokedAt DateTime?
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("dpal_refresh_tokens")
+}

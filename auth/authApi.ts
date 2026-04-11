@@ -7,13 +7,25 @@ export type AuthUser = {
   username: string;
   fullName: string;
   phone?: string;
+  location?: string;
   role: string;
   status: string;
   profilePhotoUrl?: string;
   emailVerified: boolean;
+  profileCompleted?: boolean;
   preferences?: Record<string, unknown>;
   createdAt?: string;
   lastLoginAt?: string | null;
+  lastSeenAt?: string | null;
+  isOnline?: boolean;
+  onlineStatus?: string;
+  presenceUpdatedAt?: string | null;
+  starterCredits?: number;
+  starterCoins?: number;
+  heroCredits?: number;
+  dpalCoins?: number;
+  reputationScore?: number;
+  trustScore?: number;
 };
 
 async function parseJson(res: Response) {
@@ -76,6 +88,8 @@ export async function registerAccount(body: {
   email: string;
   phone?: string;
   password: string;
+  location?: string;
+  profileImageUrl?: string;
 }) {
   const res = await apiFetch(
     API_ROUTES.AUTH_REGISTER,
@@ -84,7 +98,17 @@ export async function registerAccount(body: {
   );
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
-  return data as { ok: boolean; user: AuthUser; emailVerificationToken?: string };
+  const out = data as {
+    ok: boolean;
+    user: AuthUser;
+    accessToken?: string;
+    refreshToken?: string;
+    emailVerificationToken?: string;
+  };
+  if (out.accessToken && out.refreshToken) {
+    setTokens(out.accessToken, out.refreshToken);
+  }
+  return out;
 }
 
 export async function loginRequest(identifier: string, password: string) {
@@ -174,6 +198,28 @@ export async function adminListActivity(page = 1, limit = 50, userId?: string) {
   const data = await parseJson(res);
   if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
   return data;
+}
+
+export async function presencePing(onlineStatus: "online" | "away" | "offline") {
+  const res = await apiFetch(API_ROUTES.AUTH_PRESENCE, {
+    method: "POST",
+    body: JSON.stringify({ onlineStatus }),
+  });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  return data as { ok: boolean; user: AuthUser };
+}
+
+export async function updateProfile(patch: {
+  displayName?: string;
+  phone?: string | null;
+  location?: string | null;
+  profileImageUrl?: string | null;
+}) {
+  const res = await apiFetch(API_ROUTES.AUTH_ME, { method: "PATCH", body: JSON.stringify(patch) });
+  const data = await parseJson(res);
+  if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+  return data as { ok: boolean; user: AuthUser };
 }
 
 export async function adminPatchUser(
