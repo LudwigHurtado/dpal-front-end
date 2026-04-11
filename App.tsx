@@ -399,7 +399,8 @@ const App: React.FC = () => {
    * Deep links use `/?reportId=`, `/?block=`, etc. with pathname still `/`. Do not map `/` → mainMenu in that
    * case or we fight incident room / certificate flows and cause URL flicker.
    */
-  useEffect(() => {
+  /** URL → view: useLayoutEffect so pathname and screen stay aligned before paint (avoids flash on /missions/create etc.). */
+  useLayoutEffect(() => {
     const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
     const params = new URLSearchParams(location.search);
     if (normalizedPath === '/') {
@@ -429,10 +430,11 @@ const App: React.FC = () => {
 
   /**
    * currentView → URL: keep the address bar in sync after in-app navigation.
+   * useLayoutEffect pairs with URL→view above so we don't paint one frame with the wrong view for the path.
    * Depend only on `currentView` — listing `location.search`/`hash` here re-ran the effect on every
    * `history.replaceState` from situation-room / deep-link helpers and caused rapid navigate + flicker.
    */
-  useEffect(() => {
+  useLayoutEffect(() => {
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
@@ -1718,6 +1720,7 @@ const App: React.FC = () => {
               setMissionV2PrefetchedModel(null);
               goBack('mainMenu');
             }}
+            onOpenCreateMission={() => handleNavigate('createMission')}
             sourceReport={missionV2SourceReport}
             prefetchedModel={missionV2PrefetchedModel}
           />

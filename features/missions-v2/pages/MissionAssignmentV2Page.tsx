@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import type { MissionAssignmentV2Model, MissionSourceType } from '../types';
 import { hydrateMissionWorkspaceWithPersistence, loadMissionAssignmentV2 } from '../services/adapters';
 import { useMissionWorkspaceV2 } from '../hooks/useMissionWorkspaceV2';
@@ -30,12 +29,19 @@ function missionSourceLabel(source: MissionSourceType): string {
 
 interface MissionAssignmentV2PageProps {
   onReturn: () => void;
+  /** Same as main menu / header — updates App view + URL together (avoids URL/view flicker). */
+  onOpenCreateMission: () => void;
   sourceReport?: Report | null;
   /** When set (e.g. after Create Mission), load merges persisted workspace for this id — same V2 board as report-driven. */
   prefetchedModel?: MissionAssignmentV2Model | null;
 }
 
-const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onReturn, sourceReport, prefetchedModel }) => {
+const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({
+  onReturn,
+  onOpenCreateMission,
+  sourceReport,
+  prefetchedModel,
+}) => {
   const [initialModel, setInitialModel] = useState<MissionAssignmentV2Model | null>(null);
   /** Bumps on each successful load so the board remounts when re-opening the same report. */
   const [loadGeneration, setLoadGeneration] = useState(0);
@@ -75,6 +81,7 @@ const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onRet
     <MissionAssignmentV2Board
       key={`${initialModel.report.reportId}-${loadGeneration}`}
       onReturn={onReturn}
+      onOpenCreateMission={onOpenCreateMission}
       initialModel={initialModel}
       sourceLabel={missionSourceLabel(initialModel.community.sourceType)}
     />
@@ -83,12 +90,17 @@ const MissionAssignmentV2Page: React.FC<MissionAssignmentV2PageProps> = ({ onRet
 
 interface MissionAssignmentV2BoardProps {
   onReturn: () => void;
+  onOpenCreateMission: () => void;
   initialModel: MissionAssignmentV2Model;
   sourceLabel: string;
 }
 
-const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onReturn, initialModel, sourceLabel }) => {
-  const navigate = useNavigate();
+const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({
+  onReturn,
+  onOpenCreateMission,
+  initialModel,
+  sourceLabel,
+}) => {
   const {
     model,
     layers,
@@ -134,7 +146,7 @@ const MissionAssignmentV2Board: React.FC<MissionAssignmentV2BoardProps> = ({ onR
         </button>
         <button
           type="button"
-          onClick={() => navigate('/missions/create')}
+          onClick={onOpenCreateMission}
           className="rounded-md border border-emerald-600 bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-500"
         >
           Create mission
