@@ -70,22 +70,7 @@ export function useMissionWorkspaceV2(initialModel: MissionAssignmentV2Model) {
   }, []);
 
   const handleToggleObjectiveItem = useCallback((phaseId: string, itemId: string) => {
-    setModel((prev) => ({
-      ...prev,
-      details: {
-        ...prev.details,
-        objectivePhases: prev.details.objectivePhases.map((phase) => (
-          phase.id !== phaseId
-            ? phase
-            : {
-                ...phase,
-                items: phase.items.map((item) => (
-                  item.id === itemId ? { ...item, done: !item.done } : item
-                )),
-              }
-        )),
-      },
-    }));
+    setModel((prev) => toggleObjectiveItemState(prev, phaseId, itemId));
   }, []);
 
   const handleAddObjectiveItemImage = useCallback((phaseId: string, itemId: string, imageDataUrl: string) => {
