@@ -41,7 +41,6 @@ export const VIEW_PATHS: Record<string, string> = {
   coinLaunch: '/coin',
   subscription: '/subscription',
   aiSetup: '/ai-setup',
-  fieldMissions: '/field-missions',
   goodDeedsMissions: '/good-deeds',
   storage: '/storage',
   politicianTransparency: '/politician',
@@ -63,6 +62,8 @@ export function viewToPath(view: string): string {
 /** Normalize pathname and resolve to a view id, or null if unknown. */
 export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
+  /** Legacy map/beacon screen removed — land on Mission Assignment V2. */
+  if (normalized === '/field-missions') return 'missionAssignmentV2';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';
     return seg === normalized;

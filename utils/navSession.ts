@@ -40,7 +40,6 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'coinLaunch',
   'subscription',
   'aiSetup',
-  'fieldMissions',
   'goodDeedsMissions',
   'storage',
   'politicianTransparency',
@@ -50,6 +49,9 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'reportDashboard',
   'reportWorkPanel',
   'helpCenter',
+  'resolutionLayer',
+  'missionAssignmentV2',
+  'createMission',
 ]);
 
 export type NavSessionPayload = {

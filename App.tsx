@@ -48,7 +48,6 @@ import SustainmentCenter from './components/SustainmentCenter';
 import OffsetMarketplaceView from './components/OffsetMarketplaceView';
 import SubscriptionView from './components/SubscriptionView';
 import AiSetupView from './components/AiSetupView';
-import FieldMissionsView from './components/FieldMissionsView';
 import GoodDeedsMissionsView from './components/GoodDeedsMissionsView';
 import EscrowServiceView from './components/EscrowServiceView';
 import StorageView from './components/StorageView';
@@ -100,17 +99,8 @@ import { useTranslations } from './i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { pathToView, viewToPath } from './utils/appRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'fieldMissions' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionAssignmentV2' | 'createMission';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionAssignmentV2' | 'createMission';
 
-/** Beacon published to the map for others to see (location shared with group) */
-export interface FieldBeacon {
-  id: string;
-  latitude: number;
-  longitude: number;
-  label?: string;
-  isOwn: boolean;
-  timestamp: number;
-}
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
 // ✅ ADD: strict tab types (removes `any`)
@@ -337,7 +327,6 @@ const App: React.FC = () => {
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
-  const [fieldBeacons, setFieldBeacons] = useState<FieldBeacon[]>([]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
   const [directives, setDirectives] = useState<AiDirective[]>(() => {
@@ -1634,7 +1623,7 @@ const App: React.FC = () => {
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'mint')} 
           onNavigateHome={navigateHome} 
           onNavigateToReputationAndCurrency={() => setCurrentView('reputationAndCurrency')} 
-          onNavigateMissions={() => handleNavigate('liveIntelligence')} 
+          onNavigateMissions={() => handleNavigate('missionAssignmentV2')}
           onNavigate={handleNavigate} 
           hero={heroWithRank} 
           textScale={globalTextScale} 
@@ -1642,7 +1631,7 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'fieldMissions', 'storage', 'resolutionLayer'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
+      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -2056,27 +2045,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'fieldMissions' && (
-          <FieldMissionsView
-            onReturn={() => goBack('mainMenu')}
-            missions={missions}
-            beacons={fieldBeacons}
-            onPublishBeacon={(latitude, longitude, label) => {
-              setFieldBeacons((prev) => [
-                ...prev,
-                {
-                  id: `beacon-${Date.now()}`,
-                  latitude,
-                  longitude,
-                  label,
-                  isOwn: true,
-                  timestamp: Date.now(),
-                },
-              ]);
-            }}
-          />
-        )}
-
         {currentView === 'goodDeedsMissions' && (
           <GoodDeedsMissionsView onReturn={() => goBack('categorySelection')} />
         )}
@@ -2229,7 +2197,7 @@ const App: React.FC = () => {
         )}
       </main>
 
-      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'fieldMissions'].includes(currentView) && !(isMobileCommunityFeed) && (
+      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
         <BottomNav
           currentView={currentView}
           onNavigate={(view) => (view === 'mainMenu' ? navigateHome() : handleNavigate(view))}

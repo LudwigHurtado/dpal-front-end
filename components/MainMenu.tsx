@@ -315,14 +315,24 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('hub', undefined, 'my_reports')}
                 />
 
-                <PrimaryNavModule 
+                <PrimaryNavModule
                     icon={<Target className="w-8 h-8" />}
-                    label="Neighbors & Missions"
-                    subLabel="Offer a hand or ask for help nearby"
-                    status="Active"
-                    colorClass="amber"
-                    bgImageUrl="/main-screen/field-missions.png"
-                    onClick={() => onNavigate('fieldMissions')}
+                    label="Missions"
+                    subLabel="V2 assignment workspace — tasks, proof, escrow, and service layers"
+                    status="Main"
+                    colorClass="blue"
+                    bgImageUrl="/main-screen/mission-assignment-v2-reference.png"
+                    onClick={() => onNavigate('missionAssignmentV2')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Sparkles className="w-8 h-8" />}
+                    label="Create mission"
+                    subLabel="Step through the wizard, then open the same V2 board"
+                    status="Start here"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/dpal-work-network.png"
+                    onClick={() => onNavigate('createMission')}
                 />
 
                 <PrimaryNavModule 
@@ -457,26 +467,6 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     colorClass="amber"
                     bgImageUrl="/main-screen/dpal-work-network.png"
                     onClick={() => onNavigate('aiWorkDirectives')}
-                />
-
-                <PrimaryNavModule
-                    icon={<Target className="w-8 h-8" />}
-                    label="Mission Assignment V2"
-                    subLabel="Preview modular mission sectors and layer actions"
-                    status="Preview"
-                    colorClass="blue"
-                    bgImageUrl="/main-screen/mission-assignment-v2-reference.png"
-                    onClick={() => onNavigate('missionAssignmentV2')}
-                />
-
-                <PrimaryNavModule
-                    icon={<Sparkles className="w-8 h-8" />}
-                    label="Create Mission"
-                    subLabel="User-created mission — same V2 workspace as report missions"
-                    status="New"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/dpal-work-network.png"
-                    onClick={() => onNavigate('createMission')}
                 />
 
                 <PrimaryNavModule
