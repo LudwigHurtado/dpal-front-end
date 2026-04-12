@@ -466,11 +466,12 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             <div className="text-xs text-[var(--dpal-text-muted)]">Tap a category to browse assignments</div>
           </div>
 
-          <div className="relative">
+          {/* Arrow + scroll row */}
+          <div className="flex items-center gap-2">
             {/* Left arrow */}
             <button
               onClick={() => scrollCategories('left')}
-              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
               aria-label="Scroll categories left"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -479,7 +480,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             {/* Scrollable row */}
             <div
               ref={categoryScrollRef}
-              className="flex gap-3 overflow-x-auto overflow-y-hidden px-10 pb-3 [-ms-overflow-style:none] [scrollbar-width:thin] [scrollbar-color:var(--dpal-border)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--dpal-border)]"
+              className="flex-1 flex gap-3 overflow-x-auto overflow-y-hidden pb-2 [scrollbar-width:thin] [scrollbar-color:var(--dpal-border)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--dpal-border)]"
             >
               {WORK_MARKETPLACE_CATEGORIES.map((cat) => {
                 const selected = cat.id === selectedMarketplaceCategoryId;
@@ -487,7 +488,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                   <button
                     key={cat.id}
                     onClick={() => handleCategorySelect(cat)}
-                    className={`shrink-0 min-w-[180px] text-left rounded-2xl border p-4 transition-all ${
+                    className={`shrink-0 min-w-[140px] text-left rounded-2xl border p-4 transition-all ${
                       selected
                         ? 'bg-[var(--dpal-support-cyan)] border-[color:var(--dpal-support-cyan-bright)] text-white shadow-[0_10px_28px_-16px_var(--dpal-support-cyan-glow)]'
                         : 'bg-[var(--dpal-card)] border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:border-[color:var(--dpal-border-strong)] hover:bg-[var(--dpal-card-hover)]'
@@ -503,7 +504,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             {/* Right arrow */}
             <button
               onClick={() => scrollCategories('right')}
-              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
               aria-label="Scroll categories right"
             >
               <ChevronRight className="w-4 h-4" />
