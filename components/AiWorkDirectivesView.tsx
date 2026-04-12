@@ -4,7 +4,7 @@ import { type Hero, type AiDirective, Category, type Report, type WorkPhase, typ
 import {
   Activity, AlertTriangle, ArrowLeft, Loader,
   MapPin, Search, ShieldCheck, Sparkles, Target, Zap,
-  CheckCircle, Coins, Award
+  CheckCircle, Coins, Award, ChevronLeft, ChevronRight
 } from './icons';
 import { generateAiDirectives, generateAiDirectivesBudget, isAiEnabled, AiError } from '../services/geminiService';
 import { buildDirectiveAuditHash } from '../services/directivePacket';
@@ -67,6 +67,12 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
   const [missionFilter, setMissionFilter] = useState<'all' | 'active' | 'completed' | 'high_reward'>('all');
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
   const [savedMissionIds, setSavedMissionIds] = useState<Record<string, boolean>>({});
+  const categoryScrollRef = useRef<HTMLDivElement>(null);
+
+  const scrollCategories = (dir: 'left' | 'right') => {
+    if (!categoryScrollRef.current) return;
+    categoryScrollRef.current.scrollBy({ left: dir === 'right' ? 220 : -220, behavior: 'smooth' });
+  };
 
   // Initialize directive with phases if it doesn't have them (backward compatibility)
   useEffect(() => {
@@ -460,24 +466,48 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             <div className="text-xs text-[var(--dpal-text-muted)]">Tap a category to browse assignments</div>
           </div>
 
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-            {WORK_MARKETPLACE_CATEGORIES.map((cat) => {
-              const selected = cat.id === selectedMarketplaceCategoryId;
-              return (
-                <button
-                  key={cat.id}
-                  onClick={() => handleCategorySelect(cat)}
-                  className={`shrink-0 min-w-[180px] text-left rounded-2xl border p-4 transition-all ${
-                    selected
-                      ? 'bg-[var(--dpal-support-cyan)] border-[color:var(--dpal-support-cyan-bright)] text-white shadow-[0_10px_28px_-16px_var(--dpal-support-cyan-glow)]'
-                      : 'bg-[var(--dpal-card)] border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:border-[color:var(--dpal-border-strong)] hover:bg-[var(--dpal-card-hover)]'
-                  }`}
-                >
-                  <div className="text-xl mb-2">{cat.icon}</div>
-                  <div className="text-sm font-bold leading-tight">{cat.label}</div>
-                </button>
-              );
-            })}
+          <div className="relative">
+            {/* Left arrow */}
+            <button
+              onClick={() => scrollCategories('left')}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
+              aria-label="Scroll categories left"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            {/* Scrollable row */}
+            <div
+              ref={categoryScrollRef}
+              className="flex gap-3 overflow-x-auto overflow-y-hidden px-10 pb-3 [-ms-overflow-style:none] [scrollbar-width:thin] [scrollbar-color:var(--dpal-border)_transparent] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-[var(--dpal-border)]"
+            >
+              {WORK_MARKETPLACE_CATEGORIES.map((cat) => {
+                const selected = cat.id === selectedMarketplaceCategoryId;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => handleCategorySelect(cat)}
+                    className={`shrink-0 min-w-[180px] text-left rounded-2xl border p-4 transition-all ${
+                      selected
+                        ? 'bg-[var(--dpal-support-cyan)] border-[color:var(--dpal-support-cyan-bright)] text-white shadow-[0_10px_28px_-16px_var(--dpal-support-cyan-glow)]'
+                        : 'bg-[var(--dpal-card)] border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:border-[color:var(--dpal-border-strong)] hover:bg-[var(--dpal-card-hover)]'
+                    }`}
+                  >
+                    <div className="text-xl mb-2">{cat.icon}</div>
+                    <div className="text-sm font-bold leading-tight">{cat.label}</div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right arrow */}
+            <button
+              onClick={() => scrollCategories('right')}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
+              aria-label="Scroll categories right"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </section>
 
