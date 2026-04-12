@@ -67,6 +67,8 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
   const [missionFilter, setMissionFilter] = useState<'all' | 'active' | 'completed' | 'high_reward'>('all');
   const [expandedMissionId, setExpandedMissionId] = useState<string | null>(null);
   const [savedMissionIds, setSavedMissionIds] = useState<Record<string, boolean>>({});
+  const [missionNotes, setMissionNotes] = useState<Record<string, string>>({});
+  const [missionCheckedSteps, setMissionCheckedSteps] = useState<Record<string, number[]>>({});
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   const scrollCategories = (dir: 'left' | 'right') => {
@@ -280,6 +282,30 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
     } catch (e) {
       setError(new AiError('TEMPORARY_FAILURE', 'Ledger commit failed.'));
     }
+  };
+
+  const handleCompleteSimple = async (directive: AiDirective) => {
+    try {
+      const auditHash = await buildDirectiveAuditHash({ ...directive, heroLocation });
+      const completed: AiDirective = { ...directive, status: 'completed', auditHash };
+      setDirectives((prev) => prev.map((d) => (d.id === directive.id ? completed : d)));
+      setActiveDirective(completed);
+      setExpandedMissionId(null);
+      onCompleteDirective(completed);
+      setShowCreatedState(true);
+    } catch {
+      setError(new AiError('TEMPORARY_FAILURE', 'Could not complete mission. Try again.'));
+    }
+  };
+
+  const toggleSimpleStep = (missionId: string, stepIdx: number) => {
+    setMissionCheckedSteps((prev) => {
+      const current = prev[missionId] || [];
+      const updated = current.includes(stepIdx)
+        ? current.filter((i) => i !== stepIdx)
+        : [...current, stepIdx];
+      return { ...prev, [missionId]: updated };
+    });
   };
 
   const currentPhase = activeDirective?.phases?.[activeDirective.currentPhaseIndex || 0];
@@ -614,7 +640,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                     <div className="flex flex-wrap items-center gap-2">
                       <button onClick={() => handleStartMission(directive)} className="dpal-btn-primary">
                         <Activity className="w-4 h-4" />
-                        <span>Start Mission</span>
+                        <span>{directive.status === 'in_progress' ? 'Track Progress' : 'Start Mission'}</span>
                       </button>
                       <button onClick={() => handleAskAiForMission(directive)} className="dpal-btn">
                         <Sparkles className="w-4 h-4" />
@@ -679,8 +705,78 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                               </button>
                             )}
                           </>
+                        ) : missionActive.status === 'in_progress' ? (
+                          <>
+                            {/* In-progress indicator */}
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                              <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Mission In Progress</span>
+                            </div>
+
+                            {/* Step checklist */}
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Steps — tap each when done</p>
+                              {(missionActive.packet?.steps?.length
+                                ? missionActive.packet.steps.map((s) => ({ label: s.detail, sub: `${s.verb} · ${s.eta}` }))
+                                : objectives.map((o) => ({ label: o, sub: '' }))
+                              ).map((step, idx) => {
+                                const done = (missionCheckedSteps[missionActive.id] || []).includes(idx);
+                                return (
+                                  <button
+                                    key={idx}
+                                    onClick={() => toggleSimpleStep(missionActive.id, idx)}
+                                    className={`w-full text-left rounded-xl border p-3 transition-all ${
+                                      done
+                                        ? 'border-emerald-500/40 bg-emerald-500/10'
+                                        : 'border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] hover:border-[color:var(--dpal-border-strong)]'
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <span className="text-sm font-semibold text-[var(--dpal-text-primary)]">{step.label}</span>
+                                      {done && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
+                                    </div>
+                                    {step.sub && <p className="text-xs text-[var(--dpal-text-secondary)] mt-1">{step.sub}</p>}
+                                  </button>
+                                );
+                              })}
+                            </div>
+
+                            {/* Proof needed reminder */}
+                            {proofNeeds.length > 0 && (
+                              <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3 space-y-1">
+                                <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Proof Required</p>
+                                {proofNeeds.map((p) => (
+                                  <div key={p} className="flex items-center gap-2 text-sm text-[var(--dpal-text-secondary)]">
+                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                    <span>{p}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Field notes */}
+                            <div className="space-y-1.5">
+                              <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Field Notes &amp; Proof</p>
+                              <textarea
+                                value={missionNotes[missionActive.id] || ''}
+                                onChange={(e) => setMissionNotes((prev) => ({ ...prev, [missionActive.id]: e.target.value }))}
+                                placeholder="Describe what you found, observed, or completed. Add evidence notes, links, or photo descriptions here…"
+                                rows={3}
+                                className="w-full rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3 text-sm text-[var(--dpal-text-primary)] placeholder:text-[var(--dpal-text-muted)] resize-none focus:outline-none focus:border-[color:var(--dpal-border-strong)] transition-colors"
+                              />
+                            </div>
+
+                            {/* Complete */}
+                            <button
+                              onClick={() => handleCompleteSimple(missionActive)}
+                              className="w-full dpal-btn-primary"
+                            >
+                              <CheckCircle className="w-4 h-4" />
+                              <span>Mark Complete &amp; Claim {missionActive.rewardHc} Coins</span>
+                            </button>
+                          </>
                         ) : (
-                          <p className="text-sm text-[var(--dpal-text-secondary)]">Detailed steps will appear once this mission is activated.</p>
+                          <p className="text-sm text-[var(--dpal-text-secondary)]">Hit <strong className="text-[var(--dpal-text-primary)]">Start Mission</strong> to begin tracking steps and submitting proof.</p>
                         )}
                       </div>
                     )}
