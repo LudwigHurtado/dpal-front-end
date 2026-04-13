@@ -9,7 +9,53 @@ import {
 import { generateAiDirectives, generateAiDirectivesBudget, isAiEnabled, AiError } from '../services/geminiService';
 import { buildDirectiveAuditHash } from '../services/directivePacket';
 import { useTranslations } from '../i18n';
-import { CATEGORIES_WITH_ICONS } from '../constants';
+import { CATEGORIES_WITH_ICONS, API_ROUTES, apiUrl } from '../constants';
+
+/** POST mission progress + proof to Railway; falls back silently to localStorage only. */
+async function saveMissionProgressToServer(
+  directive: AiDirective,
+  notes: string,
+  checkedSteps: number[],
+  proofImageUrls: string[]
+): Promise<boolean> {
+  try {
+    const res = await fetch(apiUrl(API_ROUTES.DIRECTIVES_SAVE), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        directiveId: directive.id,
+        title: directive.title,
+        category: directive.category,
+        status: directive.status,
+        auditHash: directive.auditHash,
+        notes,
+        checkedSteps,
+        proofImageUrls,
+        heroLocation: '',
+        completedAt: directive.status === 'completed' ? Date.now() : null,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** Upload a proof image using the same Situation Room media endpoint. */
+async function uploadProofImage(directiveId: string, dataUrl: string): Promise<string> {
+  try {
+    const res = await fetch(apiUrl(API_ROUTES.SITUATION_MEDIA), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ roomId: `mission-${directiveId}`, type: 'image', dataUrl }),
+    });
+    if (!res.ok) return dataUrl;
+    const data = await res.json();
+    return data.url || dataUrl;
+  } catch {
+    return dataUrl;
+  }
+}
 
 type WorkMarketplaceCategory = {
   id: string;
@@ -69,6 +115,9 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
   const [savedMissionIds, setSavedMissionIds] = useState<Record<string, boolean>>({});
   const [missionNotes, setMissionNotes] = useState<Record<string, string>>({});
   const [missionCheckedSteps, setMissionCheckedSteps] = useState<Record<string, number[]>>({});
+  const [missionProofImages, setMissionProofImages] = useState<Record<string, string[]>>({});
+  const [missionSaveStatus, setMissionSaveStatus] = useState<Record<string, 'saving' | 'saved' | 'local'>>({});
+  const [uploadingProof, setUploadingProof] = useState<Record<string, boolean>>({});
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   const scrollCategories = (dir: 'left' | 'right') => {
@@ -290,11 +339,40 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
       const completed: AiDirective = { ...directive, status: 'completed', auditHash };
       setDirectives((prev) => prev.map((d) => (d.id === directive.id ? completed : d)));
       setActiveDirective(completed);
+      // Save to server — validator node and admin panel read from /api/directives
+      setMissionSaveStatus((prev) => ({ ...prev, [directive.id]: 'saving' }));
+      const saved = await saveMissionProgressToServer(
+        completed,
+        missionNotes[directive.id] || '',
+        missionCheckedSteps[directive.id] || [],
+        missionProofImages[directive.id] || []
+      );
+      setMissionSaveStatus((prev) => ({ ...prev, [directive.id]: saved ? 'saved' : 'local' }));
       setExpandedMissionId(null);
       onCompleteDirective(completed);
       setShowCreatedState(true);
     } catch {
       setError(new AiError('TEMPORARY_FAILURE', 'Could not complete mission. Try again.'));
+    }
+  };
+
+  const handleProofImageUpload = async (directiveId: string, file: File) => {
+    setUploadingProof((prev) => ({ ...prev, [directiveId]: true }));
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string;
+        const url = await uploadProofImage(directiveId, dataUrl);
+        setMissionProofImages((prev) => ({
+          ...prev,
+          [directiveId]: [...(prev[directiveId] || []), url],
+        }));
+        setMissionSaveStatus((prev) => ({ ...prev, [directiveId]: 'local' }));
+        setUploadingProof((prev) => ({ ...prev, [directiveId]: false }));
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setUploadingProof((prev) => ({ ...prev, [directiveId]: false }));
     }
   };
 
@@ -321,12 +399,18 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
 
   const getDirectiveObjectives = (directive: AiDirective): string[] => {
     if (directive.phases?.length) {
-      return directive.phases.flatMap((phase) => phase.steps.map((step) => step.task)).slice(0, 4);
+      const tasks = directive.phases
+        .flatMap((phase) => phase.steps.map((step) => step.task || step.name || step.instruction || ''))
+        .filter(Boolean)
+        .slice(0, 4);
+      if (tasks.length) return tasks;
     }
     if (directive.packet?.steps?.length) {
-      return directive.packet.steps.map((s) => s.detail).slice(0, 4);
+      const items = directive.packet.steps.map((s) => s.detail || s.verb || '').filter(Boolean).slice(0, 4);
+      if (items.length) return items;
     }
-    return [directive.instruction];
+    if (directive.description) return [directive.description];
+    return [directive.instruction || 'Complete field investigation and document findings.'];
   };
 
   const getDirectiveProofNeeds = (directive: AiDirective): string[] => {
@@ -673,7 +757,9 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                             </div>
                             <p className="text-sm text-[var(--dpal-text-secondary)]">{activeMissionPhase.description}</p>
                             <div className="space-y-2">
-                              {activeMissionPhase.steps.map((step) => {
+                              {(activeMissionPhase.steps.length > 0 ? activeMissionPhase.steps : objectives.map((o, i) => ({
+                                id: `fallback-${i}`, name: o, task: o, instruction: o, isComplete: false, requiresProof: false, order: i + 1,
+                              }))).map((step) => {
                                 const previousSteps = activeMissionPhase.steps.filter((s) => s.order < step.order);
                                 const canComplete = previousSteps.every((s) => s.isComplete) || step.order === 1;
                                 return (
@@ -709,16 +795,27 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                         ) : missionActive.status === 'in_progress' ? (
                           <>
                             {/* In-progress indicator */}
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                              <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Mission In Progress</span>
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <div className="flex items-center gap-2">
+                                <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                                <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Mission In Progress</span>
+                              </div>
+                              {missionSaveStatus[missionActive.id] === 'saved' && (
+                                <span className="text-xs text-emerald-400 flex items-center gap-1"><CheckCircle className="w-3 h-3" /> Synced to server</span>
+                              )}
+                              {missionSaveStatus[missionActive.id] === 'saving' && (
+                                <span className="text-xs text-[var(--dpal-text-muted)] flex items-center gap-1"><Loader className="w-3 h-3 animate-spin" /> Saving…</span>
+                              )}
+                              {missionSaveStatus[missionActive.id] === 'local' && (
+                                <span className="text-xs text-amber-400">Saved locally</span>
+                              )}
                             </div>
 
                             {/* Step checklist */}
                             <div className="space-y-2">
                               <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Steps — tap each when done</p>
                               {(missionActive.packet?.steps?.length
-                                ? missionActive.packet.steps.map((s) => ({ label: s.detail, sub: `${s.verb} · ${s.eta}` }))
+                                ? missionActive.packet.steps.map((s) => ({ label: s.detail || s.verb || 'Complete step', sub: s.eta ? `ETA: ${s.eta}` : '' }))
                                 : objectives.map((o) => ({ label: o, sub: '' }))
                               ).map((step, idx) => {
                                 const done = (missionCheckedSteps[missionActive.id] || []).includes(idx);
@@ -742,35 +839,52 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
                               })}
                             </div>
 
-                            {/* Proof needed reminder */}
-                            {proofNeeds.length > 0 && (
-                              <div className="rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3 space-y-1">
-                                <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Proof Required</p>
-                                {proofNeeds.map((p) => (
-                                  <div key={p} className="flex items-center gap-2 text-sm text-[var(--dpal-text-secondary)]">
-                                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                    <span>{p}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-
                             {/* Field notes */}
                             <div className="space-y-1.5">
-                              <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Field Notes &amp; Proof</p>
+                              <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Field Notes</p>
                               <textarea
                                 value={missionNotes[missionActive.id] || ''}
                                 onChange={(e) => setMissionNotes((prev) => ({ ...prev, [missionActive.id]: e.target.value }))}
-                                placeholder="Describe what you found, observed, or completed. Add evidence notes, links, or photo descriptions here…"
+                                placeholder="Describe what you found, observed, or completed. Add evidence notes here…"
                                 rows={3}
                                 className="w-full rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-background-secondary)] p-3 text-sm text-[var(--dpal-text-primary)] placeholder:text-[var(--dpal-text-muted)] resize-none focus:outline-none focus:border-[color:var(--dpal-border-strong)] transition-colors"
                               />
                             </div>
 
+                            {/* Proof image upload */}
+                            <div className="space-y-2">
+                              <p className="text-[11px] font-bold uppercase text-[var(--dpal-text-muted)]">Upload Proof Images</p>
+                              <label className={`flex items-center gap-2 px-4 py-2 rounded-xl border border-dashed cursor-pointer transition-all text-sm font-semibold ${uploadingProof[missionActive.id] ? 'opacity-50 cursor-wait' : 'border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/10'}`}>
+                                {uploadingProof[missionActive.id] ? <Loader className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                                <span>{uploadingProof[missionActive.id] ? 'Uploading…' : 'Add photo evidence'}</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  disabled={uploadingProof[missionActive.id]}
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleProofImageUpload(missionActive.id, file);
+                                    e.target.value = '';
+                                  }}
+                                />
+                              </label>
+                              {(missionProofImages[missionActive.id] || []).length > 0 && (
+                                <div className="flex flex-wrap gap-2">
+                                  {(missionProofImages[missionActive.id] || []).map((url, i) => (
+                                    <div key={i} className="relative">
+                                      <img src={url} alt={`Proof ${i + 1}`} className="w-20 h-20 rounded-xl object-cover border border-emerald-500/40" />
+                                      <span className="absolute -top-1 -right-1 bg-emerald-500 text-black text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{i + 1}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+
                             {/* Complete */}
                             <button
                               onClick={() => handleCompleteSimple(missionActive)}
-                              className="w-full dpal-btn-primary"
+                              className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_16px_-4px_rgba(6,182,212,0.7)] transition-all"
                             >
                               <CheckCircle className="w-4 h-4" />
                               <span>Mark Complete &amp; Claim {missionActive.rewardHc} Coins</span>

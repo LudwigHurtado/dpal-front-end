@@ -108,6 +108,10 @@ export const API_ROUTES = {
   RESOLUTION_STREAM: '/api/resolution/stream',
   REWARDS_ISSUE: '/api/rewards/issue',
   REWARDS_LEDGER: '/api/rewards/ledger',
+  /** POST mission progress + proof; consumed by validator node and admin panel. */
+  DIRECTIVES_SAVE: '/api/directives/save',
+  /** POST { roomId, type, dataUrl } — reused for mission proof image upload. */
+  SITUATION_MEDIA: '/api/situation/media',
 } as const;
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
