@@ -459,6 +459,15 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             <button onClick={cycleMissionFilter} className="px-4 py-3 rounded-xl border border-[color:var(--dpal-border)] bg-[var(--dpal-surface-alt)] text-[var(--dpal-text-secondary)] hover:text-[var(--dpal-text-primary)] hover:border-[color:var(--dpal-border-strong)] transition-all text-sm font-semibold">
               Filter: {missionFilter.replace('_', ' ')}
             </button>
+            {/* Generate button — always visible in sticky header */}
+            <button
+              onClick={handleRefresh}
+              disabled={isGenerating}
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-bold text-sm bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_20px_-4px_rgba(6,182,212,0.8)] disabled:opacity-60 disabled:cursor-not-allowed transition-all whitespace-nowrap"
+            >
+              {isGenerating ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>{isGenerating ? 'Generating...' : 'Generate AI Missions'}</span>
+            </button>
           </div>
         </div>
       </header>
@@ -541,14 +550,6 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
         <section className="rounded-3xl border border-[color:var(--dpal-border)] bg-[color-mix(in_srgb,var(--dpal-panel)_50%,transparent)] p-4 md:p-6 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-black text-[var(--dpal-text-primary)]">{selectedMarketplaceCategory.label}</h3>
-            <button
-              onClick={handleRefresh}
-              disabled={!heroLocation.trim() || isGenerating}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_16px_-4px_rgba(6,182,212,0.7)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            >
-              {isGenerating ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>{isGenerating ? 'Generating...' : 'Generate AI Missions'}</span>
-            </button>
           </div>
 
           <div className="flex flex-wrap gap-2">
