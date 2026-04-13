@@ -63,7 +63,6 @@ export const VIEW_PATHS: Record<string, string> = {
   gameHub: '/games',
   reportProtect: '/report-protect',
   reportDashboard: '/report-dashboard',
-  reportWorkPanel: '/report-work',
   helpCenter: '/help',
   resolutionLayer: '/resolution',
   /** Missions Hub (marketplace, emergency shell, dashboards; `?section=` tabs). */

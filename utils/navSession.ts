@@ -47,7 +47,6 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'gameHub',
   'reportProtect',
   'reportDashboard',
-  'reportWorkPanel',
   'helpCenter',
   'resolutionLayer',
   'missionMarketplace',

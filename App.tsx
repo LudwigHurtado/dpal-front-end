@@ -57,7 +57,6 @@ import LocatorPage from './components/LocatorPage';
 import DpalGameHubView from './components/DpalGameHubView';
 import ReportProtectPage from './components/ReportProtectPage';
 import ReportMainControlPanel from './components/ReportMainControlPanel';
-import ReportWorkPanel from './components/ReportWorkPanel';
 import CoinLaunchView from './components/CoinLaunchView';
 import EducationRoleSelectionView from './components/EducationRoleSelectionView';
 import ResolutionLayerView from './components/ResolutionLayerView';
@@ -108,7 +107,7 @@ import {
   viewToPath,
 } from './utils/appRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'reportWorkPanel' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -1705,7 +1704,7 @@ const App: React.FC = () => {
           </button>
         </div>
       )}
-      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'reportWorkPanel' && (
+      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'mint')} 
           onNavigateHome={navigateHome} 
@@ -1736,7 +1735,7 @@ const App: React.FC = () => {
             }}
             onDispatchPlay={goToCategorySelectionHelpSector}
             onDispatchHelp={goToCategorySelectionHelpSector}
-            onDispatchWork={() => handleNavigate('reportWorkPanel')}
+            onDispatchWork={() => handleNavigate('aiWorkDirectives')}
             onDispatchMissions={(cat) => {
               if (cat === Category.GoodDeeds) {
                 handleNavigate('goodDeedsMissions');
@@ -1764,7 +1763,7 @@ const App: React.FC = () => {
         {currentView === 'reportProtect' && (
           <ReportMainControlPanel
             onOpenReportFlow={() => handleNavigate('categorySelection')}
-            onOpenWorkPanel={() => setCurrentView('reportWorkPanel')}
+            onOpenWorkPanel={() => handleNavigate('aiWorkDirectives')}
             onOpenDashboard={() => setCurrentView('reportDashboard')}
             onReturnHome={() => handleNavigate('mainMenu')}
             onGoBack={() => goBack('mainMenu')}
@@ -1788,9 +1787,6 @@ const App: React.FC = () => {
           />
         )}
 
-        {currentView === 'reportWorkPanel' && (
-          <ReportWorkPanel onOpenMasterPanel={() => setCurrentView('reportProtect')} />
-        )}
 
         {currentView === 'createMission' && (
           <CreateMissionView
@@ -1856,7 +1852,7 @@ const App: React.FC = () => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');
             }} 
-            onSelectWork={() => handleNavigate('reportWorkPanel')}
+            onSelectWork={() => handleNavigate('aiWorkDirectives')}
             onSelectPlay={goToCategorySelectionHelpSector}
             onSelectHelp={goToCategorySelectionHelpSector}
             onSelectActionsReport={() => handleNavigate('reportDashboard')}
