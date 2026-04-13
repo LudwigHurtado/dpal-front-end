@@ -122,11 +122,29 @@ export const API_ROUTES = {
   OFFSETS_ACTIVITY: '/api/offsets/activity/feed',
   OFFSETS_PARCELS: '/api/offsets/parcels',
   OFFSETS_PARCELS_REGISTER: '/api/offsets/parcels/register',
+  /** Carbon MRV Engine */
+  CARBON_PROJECTS: '/api/carbon/projects',
+  CARBON_SATELLITE_SNAPSHOT: '/api/carbon/satellite/snapshot',
+  CARBON_MRV_SCORE: '/api/carbon/mrv/score',
+  CARBON_MARKETPLACE: '/api/carbon/marketplace',
+  CARBON_MARKETPLACE_LIST: '/api/carbon/marketplace/list',
+  CARBON_MARKETPLACE_BUY: '/api/carbon/marketplace/buy',
+  CARBON_MARKETPLACE_RETIRE: '/api/carbon/marketplace/retire',
+  CARBON_VALIDATOR_QUEUE: '/api/carbon/validators/queue',
+  CARBON_VALIDATOR_REVIEW: '/api/carbon/validators/review',
+  CARBON_LEDGER: '/api/carbon/ledger',
+  CARBON_STATS: '/api/carbon/stats',
 } as const;
 
 export const OFFSETS_PORTFOLIO = (userId: string) => apiUrl(`/api/offsets/portfolio/${encodeURIComponent(userId)}`);
 export const OFFSETS_COALITION = (projectId: string) => apiUrl(`/api/offsets/coalition/${encodeURIComponent(projectId)}`);
 export const OFFSETS_MY_PARCELS = (heroId: string) => apiUrl(`/api/offsets/parcels?heroId=${encodeURIComponent(heroId)}`);
+export const CARBON_PROJECT_DETAIL = (projectId: string) => apiUrl(`/api/carbon/projects/${encodeURIComponent(projectId)}`);
+export const CARBON_SATELLITE_HISTORY = (projectId: string) => apiUrl(`/api/carbon/satellite/${encodeURIComponent(projectId)}`);
+export const CARBON_MRV_HISTORY = (projectId: string) => apiUrl(`/api/carbon/mrv/${encodeURIComponent(projectId)}`);
+export const CARBON_CREDITS_OWNED = (userId: string) => apiUrl(`/api/carbon/credits/${encodeURIComponent(userId)}`);
+export const CARBON_PROJECT_LEDGER = (projectId: string) => apiUrl(`/api/carbon/ledger/${encodeURIComponent(projectId)}`);
+export const CARBON_PROJECTS_BY_OWNER = (ownerId: string) => apiUrl(`/api/carbon/projects?ownerId=${encodeURIComponent(ownerId)}`);
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
 export type HomeLayout = 'feed' | 'map' | 'categories';

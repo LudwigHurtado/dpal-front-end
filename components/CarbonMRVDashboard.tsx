@@ -1,0 +1,1198 @@
+/**
+ * DPAL Carbon MRV Engine — Frontend Dashboard
+ *
+ * Views:
+ *   dashboard  — overview + my projects + marketplace credits
+ *   create     — register a new carbon project
+ *   project    — project detail: satellite monitoring, MRV score, blockchain ledger
+ *   validator  — validator queue: review MRV reports, approve/reject
+ */
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import {
+  ArrowLeft, MapPin, CheckCircle, Search, Loader, Sparkles, Activity,
+  ShieldCheck, Award, Zap, Globe, Plus, X, ChevronLeft, ChevronRight,
+  Camera, Users, AlertTriangle, RefreshCw, Eye,
+} from './icons';
+import {
+  API_ROUTES, apiUrl,
+  CARBON_PROJECT_DETAIL, CARBON_SATELLITE_HISTORY, CARBON_MRV_HISTORY,
+  CARBON_CREDITS_OWNED, CARBON_PROJECTS_BY_OWNER, CARBON_PROJECT_LEDGER,
+} from '../constants';
+import { isAiEnabled } from '../services/geminiService';
+import type { Hero } from '../types';
+
+const CarbonWorldMap = lazy(() => import('./CarbonWorldMap'));
+
+// ── Types ──────────────────────────────────────────────────────────────────────
+
+interface GPSPoint { lat: number; lng: number; }
+
+interface CarbonProject {
+  projectId: string;
+  ownerId: string;
+  ownerName: string;
+  projectName: string;
+  projectType: string;
+  description: string;
+  location: { country: string; region: string; city: string; gpsCenter: GPSPoint; polygon: GPSPoint[] };
+  totalAcres: number;
+  baselineDate: string;
+  baselineNdvi: number;
+  status: string;
+  evidenceUrls: string[];
+  createdAt: string;
+}
+
+interface SatelliteSnapshot {
+  snapshotId: string;
+  captureDate: string;
+  ndviScore: number;
+  ndviPrevious: number;
+  ndviChange: number;
+  vegetationChangePercent: number;
+  deforestationAlert: boolean;
+  cloudCoverPercent: number;
+  landCoverType: string;
+  provider: string;
+  isBaseline: boolean;
+}
+
+interface MRVReport {
+  reportId: string;
+  reportDate: string;
+  carbonScore: number;
+  creditEstimateTons: number;
+  ndviImprovement: number;
+  noDeforestationScore: number;
+  protectedAreaScore: number;
+  validatorTrustScore: number;
+  riskLevel: string;
+  aiSummary: string;
+  status: string;
+  validatorNotes: string;
+}
+
+interface CarbonCredit {
+  creditId: string;
+  projectId: string;
+  projectName: string;
+  creditAmountTons: number;
+  verificationStatus: string;
+  marketplaceStatus: string;
+  pricePerTon: number;
+  blockchainHash: string;
+  issuedAt: number;
+  retirementCertHash?: string;
+}
+
+interface TxRecord {
+  txId: string;
+  txType: string;
+  amountTons: number;
+  priceUsd: number;
+  blockchainHash: string;
+  note: string;
+  ts: number;
+}
+
+interface CarbonMRVDashboardProps {
+  onReturn: () => void;
+  hero?: Hero;
+}
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const PROJECT_TYPES = [
+  { key: 'forest',        label: 'Forest',          icon: '🌲', rate: 2.5 },
+  { key: 'reforestation', label: 'Reforestation',   icon: '🌱', rate: 3.2 },
+  { key: 'mangrove',      label: 'Mangrove',        icon: '🌊', rate: 5.5 },
+  { key: 'wetland',       label: 'Wetland',         icon: '💧', rate: 3.8 },
+  { key: 'peatland',      label: 'Peatland',        icon: '🍂', rate: 4.0 },
+  { key: 'grassland',     label: 'Grassland',       icon: '🌾', rate: 0.6 },
+  { key: 'farm',          label: 'Regenerative Farm', icon: '🚜', rate: 0.5 },
+  { key: 'methane',       label: 'Methane Capture', icon: '♻️', rate: 0 },
+  { key: 'solar',         label: 'Solar / Clean Energy', icon: '☀️', rate: 0 },
+  { key: 'other',         label: 'Other',           icon: '🌍', rate: 1.0 },
+];
+
+const STATUS_STYLE: Record<string, string> = {
+  submitted:   'bg-slate-700/40 text-slate-300 border-slate-600',
+  monitoring:  'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  review:      'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  approved:    'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  rejected:    'bg-rose-500/15 text-rose-300 border-rose-500/30',
+  listed:      'bg-violet-500/15 text-violet-300 border-violet-500/30',
+};
+
+const RISK_STYLE: Record<string, string> = {
+  low:    'text-emerald-400',
+  medium: 'text-amber-400',
+  high:   'text-rose-400',
+};
+
+function scoreBar(value: number, max = 1, width = 'w-full') {
+  const pct = Math.round((value / max) * 100);
+  const color = pct >= 70 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-rose-500';
+  return (
+    <div className={`h-1.5 rounded-full bg-slate-800 overflow-hidden ${width}`}>
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+    </div>
+  );
+}
+
+function relTime(ts: number) {
+  const d = Date.now() - ts;
+  if (d < 60000)    return 'just now';
+  if (d < 3600000)  return `${Math.floor(d / 60000)}m ago`;
+  if (d < 86400000) return `${Math.floor(d / 3600000)}h ago`;
+  return `${Math.floor(d / 86400000)}d ago`;
+}
+
+function projectTypeInfo(type: string) {
+  return PROJECT_TYPES.find((t) => t.key === type) || { icon: '🌍', label: type, rate: 1 };
+}
+
+// ── Create Project Form ────────────────────────────────────────────────────────
+
+interface CreateFormState {
+  projectName: string; projectType: string; description: string;
+  country: string; region: string; city: string;
+  lat: string; lng: string;
+  totalAcres: string; baselineDate: string;
+}
+
+const BLANK_CREATE: CreateFormState = {
+  projectName: '', projectType: '', description: '',
+  country: '', region: '', city: '',
+  lat: '', lng: '',
+  totalAcres: '', baselineDate: new Date().toISOString().split('T')[0],
+};
+
+const COUNTRIES = [
+  'USA','Brazil','Colombia','Argentina','D.R. Congo','Kenya','Senegal',
+  'Malaysia','Bangladesh','Finland','Australia','Canada','India',
+  'Indonesia','Peru','Mexico','Tanzania','Mozambique','Papua New Guinea',
+  'Ecuador','Bolivia','Chile','Norway','Sweden','Russia','China','Philippines',
+];
+
+function CreateProjectForm({ hero, onCreated, onCancel }: {
+  hero?: Hero;
+  onCreated: (project: CarbonProject) => void;
+  onCancel: () => void;
+}) {
+  const [step, setStep] = useState(1);
+  const [form, setForm] = useState<CreateFormState>(BLANK_CREATE);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
+
+  const set = (k: keyof CreateFormState, v: string) => setForm((f) => ({ ...f, [k]: v }));
+  const pType = projectTypeInfo(form.projectType);
+  const acres = parseFloat(form.totalAcres) || 0;
+  const estCredits = acres > 0 ? Math.round(acres * (pType.rate || 1)) : 0;
+
+  const canNext: Record<number, boolean> = {
+    1: !!form.projectName && !!form.projectType,
+    2: !!form.country && !!form.lat && !!form.lng && acres > 0,
+    3: true,
+  };
+
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_PROJECTS), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ownerId: hero?.id || 'anonymous',
+          ownerName: hero?.heroName || 'Anonymous',
+          projectName: form.projectName,
+          projectType: form.projectType,
+          description: form.description,
+          country: form.country,
+          region: form.region,
+          city: form.city,
+          lat: Number(form.lat),
+          lng: Number(form.lng),
+          totalAcres: Number(form.totalAcres),
+          baselineDate: form.baselineDate,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || 'Failed'); return; }
+      onCreated(d.project);
+    } catch {
+      setError('Network error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-4 md:p-6">
+      <div className="flex items-center gap-3 mb-6">
+        <button onClick={onCancel}
+          className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-all">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">DPAL Carbon MRV</p>
+          <h2 className="text-xl font-black text-white">Register Carbon Project</h2>
+        </div>
+      </div>
+
+      {/* Step indicator */}
+      <div className="flex items-center gap-2 mb-6">
+        {[1, 2, 3, 4].map((s) => (
+          <div key={s} className="flex items-center gap-2 flex-1">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all shrink-0
+              ${s < step ? 'bg-emerald-500 text-black' : s === step ? 'bg-emerald-500/20 border-2 border-emerald-500 text-emerald-300' : 'bg-slate-800 text-slate-500'}`}>
+              {s < step ? '✓' : s}
+            </div>
+            {s < 4 && <div className={`flex-1 h-0.5 rounded ${s < step ? 'bg-emerald-500' : 'bg-slate-700'}`} />}
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5 space-y-4">
+        {/* Step 1: Project identity */}
+        {step === 1 && <>
+          <div>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Project Name *</label>
+            <input value={form.projectName} onChange={(e) => set('projectName', e.target.value)}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all"
+              placeholder="e.g. Amazon Corridor Restoration Project" />
+          </div>
+          <div>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2 block">Project Type *</label>
+            <div className="grid grid-cols-2 gap-2">
+              {PROJECT_TYPES.map((t) => (
+                <button key={t.key} onClick={() => set('projectType', t.key)}
+                  className={`flex items-center gap-2 p-2.5 rounded-xl border text-left transition-all
+                    ${form.projectType === t.key ? 'border-emerald-500 bg-emerald-900/30' : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'}`}>
+                  <span className="text-lg">{t.icon}</span>
+                  <div>
+                    <p className="text-xs font-bold text-white leading-tight">{t.label}</p>
+                    {t.rate > 0 && <p className="text-[10px] text-emerald-400">{t.rate} tCO2e/ac/yr</p>}
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Description</label>
+            <textarea value={form.description} onChange={(e) => set('description', e.target.value)}
+              rows={3}
+              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all resize-none"
+              placeholder="Describe the project goals, existing ecosystem, and conservation strategy…" />
+          </div>
+        </>}
+
+        {/* Step 2: Location + acreage */}
+        {step === 2 && <>
+          <p className="text-sm text-slate-300">Enter the GPS center-point of the project boundary. Google Maps right-click provides coordinates.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Country *</label>
+              <select value={form.country} onChange={(e) => set('country', e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all">
+                <option value="">Select…</option>
+                {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Region / State</label>
+              <input value={form.region} onChange={(e) => set('region', e.target.value)}
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all"
+                placeholder="e.g. Amazonas" />
+            </div>
+            <div>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Latitude *</label>
+              <input value={form.lat} onChange={(e) => set('lat', e.target.value)}
+                type="number" step="0.0001"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all"
+                placeholder="-3.4653" />
+            </div>
+            <div>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Longitude *</label>
+              <input value={form.lng} onChange={(e) => set('lng', e.target.value)}
+                type="number" step="0.0001"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all"
+                placeholder="-62.2159" />
+            </div>
+            <div>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Total Acres *</label>
+              <input value={form.totalAcres} onChange={(e) => set('totalAcres', e.target.value)}
+                type="number" min="1"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all"
+                placeholder="500000" />
+            </div>
+            <div>
+              <label className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1.5 block">Baseline Date</label>
+              <input value={form.baselineDate} onChange={(e) => set('baselineDate', e.target.value)}
+                type="date"
+                className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white outline-none focus:border-emerald-500 transition-all" />
+            </div>
+          </div>
+
+          {/* Live estimate */}
+          {acres > 0 && form.projectType && (
+            <div className="rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-4">
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div>
+                  <p className="text-xl font-black text-white">{acres.toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400">Total Acres</p>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-emerald-400">{estCredits.toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400">tCO2e/yr est.</p>
+                </div>
+                <div>
+                  <p className="text-xl font-black text-amber-400">${(estCredits * 12).toLocaleString()}</p>
+                  <p className="text-[10px] text-slate-400">Revenue/yr est.</p>
+                </div>
+              </div>
+              <p className="text-[10px] text-white/40 mt-2 text-center">Estimates at ~{pType.rate} tCO2e/acre/year, $12/tonne avg. Actual credits depend on MRV score.</p>
+            </div>
+          )}
+        </>}
+
+        {/* Step 3: Additional info */}
+        {step === 3 && <>
+          <div className="rounded-xl bg-sky-900/20 border border-sky-500/30 p-4 space-y-2">
+            <p className="text-xs font-black text-sky-300 uppercase tracking-wider">MRV Process Overview</p>
+            {[
+              ['🛰️ Baseline snapshot', 'Satellite imagery pulled to establish NDVI baseline'],
+              ['📊 Monthly monitoring', 'Automated satellite comparisons track vegetation change'],
+              ['🧮 Carbon scoring', 'AI calculates DPAL Carbon Score (0–100) from NDVI + alerts'],
+              ['✅ Validator review', 'Verified validator approves or rejects MRV report'],
+              ['🪙 Credit issuance', 'Verified credits issued on DPAL blockchain ledger'],
+              ['🏪 Marketplace listing', 'Approved credits listed for buyers worldwide'],
+            ].map(([icon, text]) => (
+              <div key={icon as string} className="flex items-start gap-2 text-xs text-slate-300">
+                <span className="shrink-0">{icon}</span>{text}
+              </div>
+            ))}
+          </div>
+          <div className="rounded-xl bg-amber-900/20 border border-amber-500/30 p-4">
+            <p className="text-xs font-black text-amber-300 uppercase tracking-wider mb-1.5">Legal Notice</p>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              DPAL issues <strong>DPAL Verified Carbon Impact Credits</strong> — an internal impact token.
+              These are not Verra VCS or Gold Standard certified credits. For global compliance markets,
+              third-party registry certification is required. DPAL credits demonstrate verified impact and
+              can be retired for corporate ESG reporting.
+            </p>
+          </div>
+        </>}
+
+        {/* Step 4: Review + submit */}
+        {step === 4 && <>
+          <div className="rounded-2xl bg-gradient-to-br from-emerald-950 to-teal-900 border border-white/10 p-5">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">{pType.icon}</span>
+              <div>
+                <p className="text-[10px] text-white/50 uppercase tracking-wider">New Carbon Project</p>
+                <p className="text-lg font-black text-white">{form.projectName}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              {[
+                ['Type', pType.label],
+                ['Country', form.country],
+                ['Region', form.region || '—'],
+                ['Acres', Number(form.totalAcres).toLocaleString()],
+                ['GPS', `${Number(form.lat).toFixed(4)}, ${Number(form.lng).toFixed(4)}`],
+                ['Baseline', form.baselineDate],
+              ].map(([k, v]) => (
+                <div key={k as string}>
+                  <p className="text-white/50 text-[10px] uppercase tracking-wider">{k}</p>
+                  <p className="text-white font-bold">{v}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-4 text-center">
+            <p className="text-2xl font-black text-emerald-400 mb-1">{estCredits.toLocaleString()} tCO2e/yr</p>
+            <p className="text-xs text-slate-400">Estimated annual credits (subject to MRV verification)</p>
+          </div>
+          {error && <div className="rounded-xl bg-rose-900/30 border border-rose-500/40 p-3 text-sm text-rose-300">{error}</div>}
+        </>}
+      </div>
+
+      {/* Footer */}
+      <div className="flex items-center gap-3 mt-4">
+        {step > 1 && (
+          <button onClick={() => setStep((s) => s - 1)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-sm font-bold hover:bg-slate-800 transition-all">
+            <ChevronLeft className="w-4 h-4" /> Back
+          </button>
+        )}
+        <div className="flex-1" />
+        {step < 4 ? (
+          <button onClick={() => setStep((s) => s + 1)} disabled={!canNext[step]}
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-black transition-all disabled:opacity-40">
+            Continue <ChevronRight className="w-4 h-4" />
+          </button>
+        ) : (
+          <button onClick={handleSubmit} disabled={submitting}
+            className="flex items-center gap-1.5 px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-black transition-all disabled:opacity-50">
+            {submitting ? <><Loader className="w-4 h-4 animate-spin" /> Submitting…</> : <><CheckCircle className="w-4 h-4" /> Register Project</>}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
+
+type DashView = 'dashboard' | 'create' | 'project' | 'validator';
+
+const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero }) => {
+  const [view, setView] = useState<DashView>('dashboard');
+  const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger'>('myprojects');
+
+  // Data
+  const [projects, setProjects] = useState<CarbonProject[]>([]);
+  const [marketCredits, setMarketCredits] = useState<CarbonCredit[]>([]);
+  const [stats, setStats] = useState({ totalProjects: 0, approvedProjects: 0, totalCreditsTons: 0, listedCredits: 0 });
+  const [globalTxs, setGlobalTxs] = useState<TxRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Selected project detail
+  const [selectedProject, setSelectedProject] = useState<CarbonProject | null>(null);
+  const [snapshots, setSnapshots] = useState<SatelliteSnapshot[]>([]);
+  const [mrvReports, setMrvReports] = useState<MRVReport[]>([]);
+  const [projectTxs, setProjectTxs] = useState<TxRecord[]>([]);
+  const [runningSnapshot, setRunningSnapshot] = useState(false);
+  const [runningMRV, setRunningMRV] = useState(false);
+  const [mrvMsg, setMrvMsg] = useState('');
+
+  // Validator queue
+  const [validatorQueue, setValidatorQueue] = useState<any[]>([]);
+  const [reviewing, setReviewing] = useState<string | null>(null);
+  const [reviewNotes, setReviewNotes] = useState('');
+  const [reviewingId, setReviewingId] = useState<string | null>(null);
+
+  const userId = hero?.id || 'anonymous';
+  const userName = hero?.heroName || 'Anonymous';
+
+  // ── Fetch ──────────────────────────────────────────────────────────────────
+
+  const fetchDashboard = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [projRes, mktRes, statsRes, ledgerRes] = await Promise.all([
+        fetch(CARBON_PROJECTS_BY_OWNER(userId)),
+        fetch(apiUrl(API_ROUTES.CARBON_MARKETPLACE)),
+        fetch(apiUrl(API_ROUTES.CARBON_STATS)),
+        fetch(apiUrl(API_ROUTES.CARBON_LEDGER)),
+      ]);
+      if (projRes.ok) setProjects((await projRes.json()).projects || []);
+      if (mktRes.ok) setMarketCredits((await mktRes.json()).credits || []);
+      if (statsRes.ok) setStats((await statsRes.json()).stats || stats);
+      if (ledgerRes.ok) setGlobalTxs((await ledgerRes.json()).transactions || []);
+    } catch { /* silent */ }
+    finally { setLoading(false); }
+  }, [userId]);
+
+  const fetchProjectDetail = useCallback(async (project: CarbonProject) => {
+    const [snapRes, mrvRes, txRes] = await Promise.all([
+      fetch(CARBON_SATELLITE_HISTORY(project.projectId)),
+      fetch(CARBON_MRV_HISTORY(project.projectId)),
+      fetch(CARBON_PROJECT_LEDGER(project.projectId)),
+    ]);
+    if (snapRes.ok) setSnapshots((await snapRes.json()).snapshots || []);
+    if (mrvRes.ok) setMrvReports((await mrvRes.json()).reports || []);
+    if (txRes.ok) setProjectTxs((await txRes.json()).transactions || []);
+  }, []);
+
+  const fetchValidatorQueue = useCallback(async () => {
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_VALIDATOR_QUEUE));
+      if (res.ok) setValidatorQueue((await res.json()).queue || []);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { void fetchDashboard(); }, [userId]);
+
+  const openProject = (project: CarbonProject) => {
+    setSelectedProject(project);
+    setView('project');
+    void fetchProjectDetail(project);
+  };
+
+  // ── Actions ────────────────────────────────────────────────────────────────
+
+  const runSnapshot = async () => {
+    if (!selectedProject) return;
+    setRunningSnapshot(true);
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_SATELLITE_SNAPSHOT), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: selectedProject.projectId }),
+      });
+      if (res.ok) await fetchProjectDetail(selectedProject);
+    } catch { /* silent */ }
+    finally { setRunningSnapshot(false); }
+  };
+
+  const runMRV = async () => {
+    if (!selectedProject) return;
+    setRunningMRV(true);
+    setMrvMsg('');
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_MRV_SCORE), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: selectedProject.projectId, validatorTrustScore: 0.5 }),
+      });
+      const d = await res.json();
+      if (res.ok) {
+        setMrvMsg(`Carbon Score: ${d.report.carbonScore}/100 — ${d.report.creditEstimateTons.toLocaleString()} tCO2e estimated`);
+        await fetchProjectDetail(selectedProject);
+        await fetchDashboard();
+      } else {
+        setMrvMsg(d.error || 'MRV failed');
+      }
+    } catch { setMrvMsg('Network error'); }
+    finally { setRunningMRV(false); }
+  };
+
+  const submitReview = async (reportId: string, decision: 'approved' | 'rejected') => {
+    setReviewingId(reportId);
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_VALIDATOR_REVIEW), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reportId,
+          validatorId: userId,
+          validatorName: userName,
+          decision,
+          trustScore: 0.85,
+          notes: reviewNotes,
+        }),
+      });
+      if (res.ok) {
+        setReviewing(null);
+        setReviewNotes('');
+        await fetchValidatorQueue();
+        await fetchDashboard();
+      }
+    } catch { /* silent */ }
+    finally { setReviewingId(null); }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
+  if (view === 'create') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <CreateProjectForm
+          hero={hero}
+          onCancel={() => setView('dashboard')}
+          onCreated={(project) => {
+            void fetchDashboard();
+            openProject(project);
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (view === 'project' && selectedProject) {
+    const latestSnap = snapshots[0] || null;
+    const latestMRV = mrvReports[0] || null;
+    const pType = projectTypeInfo(selectedProject.projectType);
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        {/* Header */}
+        <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setView('dashboard')}
+            className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-all">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">{pType.icon} {pType.label}</p>
+            <h2 className="text-base font-black text-white truncate">{selectedProject.projectName}</h2>
+          </div>
+          <span className={`text-[10px] font-black px-2 py-1 rounded-full border ${STATUS_STYLE[selectedProject.status] || ''}`}>
+            {selectedProject.status}
+          </span>
+        </div>
+
+        <div className="p-4 md:p-6 space-y-5 max-w-4xl mx-auto">
+
+          {/* Location card */}
+          <div className="rounded-2xl bg-gradient-to-br from-emerald-950 to-teal-900 border border-white/10 p-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+              {[
+                { label: 'Country', value: selectedProject.location.country },
+                { label: 'Region', value: selectedProject.location.region || '—' },
+                { label: 'Total Acres', value: selectedProject.totalAcres.toLocaleString() },
+                { label: 'Baseline', value: selectedProject.baselineDate || '—' },
+              ].map((s) => (
+                <div key={s.label}>
+                  <p className="text-[10px] text-white/50 uppercase tracking-wider">{s.label}</p>
+                  <p className="text-sm font-black text-white mt-0.5">{s.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Satellite panel */}
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <div>
+                <p className="text-xs font-black text-slate-400 uppercase tracking-wider">Satellite Monitoring</p>
+                {latestSnap && (
+                  <p className="text-xs text-slate-500 mt-0.5">Last scan: {latestSnap.captureDate}</p>
+                )}
+              </div>
+              <button onClick={runSnapshot} disabled={runningSnapshot}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50">
+                {runningSnapshot ? <Loader className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                Pull Snapshot
+              </button>
+            </div>
+
+            {latestSnap ? (
+              <div className="p-4 space-y-4">
+                {/* NDVI metrics */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'NDVI Score', value: latestSnap.ndviScore.toFixed(3), color: 'text-emerald-400', subtitle: 'vegetation index' },
+                    { label: 'NDVI Change', value: (latestSnap.ndviChange >= 0 ? '+' : '') + latestSnap.ndviChange.toFixed(3), color: latestSnap.ndviChange >= 0 ? 'text-emerald-400' : 'text-rose-400', subtitle: 'vs. previous scan' },
+                    { label: 'Veg Change', value: `${latestSnap.vegetationChangePercent > 0 ? '+' : ''}${latestSnap.vegetationChangePercent}%`, color: latestSnap.vegetationChangePercent >= 0 ? 'text-emerald-400' : 'text-rose-400', subtitle: 'vegetation area' },
+                    { label: 'Cloud Cover', value: `${latestSnap.cloudCoverPercent}%`, color: 'text-slate-300', subtitle: 'at capture' },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl bg-slate-800 p-3 text-center">
+                      <p className={`text-lg font-black ${s.color}`}>{s.value}</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-wider">{s.label}</p>
+                      <p className="text-[9px] text-slate-600">{s.subtitle}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Deforestation alert */}
+                {latestSnap.deforestationAlert && (
+                  <div className="flex items-center gap-2 rounded-xl bg-rose-900/30 border border-rose-500/40 p-3">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <p className="text-sm text-rose-300 font-bold">Deforestation alert detected — project escalated to review</p>
+                  </div>
+                )}
+
+                {/* Land cover type */}
+                <div className="flex items-center gap-2 text-xs text-slate-400">
+                  <span className="font-bold text-white">Land cover:</span>
+                  {latestSnap.landCoverType.replace(/_/g, ' ')}
+                  <span className="ml-auto text-slate-600">Provider: {latestSnap.provider}</span>
+                </div>
+
+                {/* NDVI bar */}
+                <div>
+                  <div className="flex justify-between text-xs mb-1.5">
+                    <span className="text-slate-400">NDVI</span>
+                    <span className="text-emerald-400 font-bold">{latestSnap.ndviScore.toFixed(3)}</span>
+                  </div>
+                  {scoreBar(latestSnap.ndviScore, 1)}
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-slate-500 text-sm">
+                No satellite data yet — click "Pull Snapshot" to run baseline analysis
+              </div>
+            )}
+
+            {/* Snapshot history */}
+            {snapshots.length > 1 && (
+              <div className="border-t border-slate-800 p-4">
+                <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-2">Snapshot History</p>
+                <div className="space-y-1.5 max-h-32 overflow-y-auto">
+                  {snapshots.slice(1).map((s) => (
+                    <div key={s.snapshotId} className="flex items-center gap-3 text-xs">
+                      <span className="text-slate-500 w-20 shrink-0">{s.captureDate}</span>
+                      <span className={`font-bold ${s.ndviChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        NDVI {s.ndviScore.toFixed(3)} ({s.ndviChange >= 0 ? '+' : ''}{s.ndviChange.toFixed(3)})
+                      </span>
+                      {s.deforestationAlert && <AlertTriangle className="w-3 h-3 text-rose-400" />}
+                      {s.isBaseline && <span className="text-sky-400 ml-auto">BASELINE</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* MRV Carbon Score panel */}
+          <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-800">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-wider">MRV Carbon Score</p>
+              <button onClick={runMRV} disabled={runningMRV || !latestSnap}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold hover:bg-violet-500/30 transition-all disabled:opacity-50">
+                {runningMRV ? <Loader className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                Run MRV Score
+              </button>
+            </div>
+
+            {mrvMsg && (
+              <div className="mx-4 mt-3 rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-3 text-sm text-emerald-300">
+                {mrvMsg}
+              </div>
+            )}
+
+            {latestMRV ? (
+              <div className="p-4 space-y-4">
+                {/* Score display */}
+                <div className="flex items-center gap-6">
+                  <div className="text-center">
+                    <div className="relative w-24 h-24">
+                      <svg className="w-24 h-24 -rotate-90" viewBox="0 0 96 96">
+                        <circle cx="48" cy="48" r="38" fill="none" stroke="#1e293b" strokeWidth="10" />
+                        <circle cx="48" cy="48" r="38" fill="none"
+                          stroke={latestMRV.carbonScore >= 70 ? '#10b981' : latestMRV.carbonScore >= 40 ? '#f59e0b' : '#ef4444'}
+                          strokeWidth="10"
+                          strokeDasharray={`${(latestMRV.carbonScore / 100) * 238.76} 238.76`}
+                          strokeLinecap="round" />
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <p className="text-2xl font-black text-white">{latestMRV.carbonScore}</p>
+                        <p className="text-[9px] text-slate-400">/ 100</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Carbon Score</p>
+                  </div>
+                  <div className="flex-1 space-y-2">
+                    <div>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span className="text-slate-400">NDVI Improvement (×40)</span>
+                        <span className="text-white font-bold">{(latestMRV.ndviImprovement * 40).toFixed(1)} pts</span>
+                      </div>
+                      {scoreBar(latestMRV.ndviImprovement)}
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span className="text-slate-400">Protected Area (×25)</span>
+                        <span className="text-white font-bold">{(latestMRV.protectedAreaScore * 25).toFixed(1)} pts</span>
+                      </div>
+                      {scoreBar(latestMRV.protectedAreaScore)}
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span className="text-slate-400">No Deforestation (×20)</span>
+                        <span className="text-white font-bold">{(latestMRV.noDeforestationScore * 20).toFixed(1)} pts</span>
+                      </div>
+                      {scoreBar(latestMRV.noDeforestationScore)}
+                    </div>
+                    <div>
+                      <div className="flex justify-between text-[10px] mb-1">
+                        <span className="text-slate-400">Validator Trust (×15)</span>
+                        <span className="text-white font-bold">{(latestMRV.validatorTrustScore * 15).toFixed(1)} pts</span>
+                      </div>
+                      {scoreBar(latestMRV.validatorTrustScore)}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Credit estimate */}
+                <div className="flex items-center gap-4 rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-3">
+                  <div>
+                    <p className="text-2xl font-black text-emerald-400">{latestMRV.creditEstimateTons.toLocaleString()} tCO2e</p>
+                    <p className="text-xs text-slate-400">Verified carbon credits</p>
+                  </div>
+                  <div className="ml-auto text-right">
+                    <p className={`text-sm font-black uppercase ${RISK_STYLE[latestMRV.riskLevel]}`}>{latestMRV.riskLevel} risk</p>
+                    <p className={`text-[10px] font-black px-2 py-0.5 rounded-full border inline-block mt-1
+                      ${latestMRV.status === 'validated' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : latestMRV.status === 'rejected' ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                        : 'bg-amber-500/15 text-amber-300 border-amber-500/30'}`}>
+                      {latestMRV.status}
+                    </p>
+                  </div>
+                </div>
+
+                {/* AI summary */}
+                <div className="rounded-xl bg-slate-800 p-3">
+                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5">AI Analysis</p>
+                  <p className="text-sm text-slate-300 leading-relaxed">{latestMRV.aiSummary}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="p-8 text-center text-slate-500 text-sm">
+                {latestSnap
+                  ? 'Satellite data ready — click "Run MRV Score" to calculate your carbon score'
+                  : 'Pull a satellite snapshot first, then run the MRV score'}
+              </div>
+            )}
+          </div>
+
+          {/* Blockchain ledger */}
+          {projectTxs.length > 0 && (
+            <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+              <p className="text-xs font-black text-slate-400 uppercase tracking-wider mb-3">Blockchain Audit Log</p>
+              <div className="space-y-2">
+                {projectTxs.map((tx) => (
+                  <div key={tx.txId}
+                    className="flex items-start gap-3 p-2.5 rounded-xl bg-slate-800 border border-slate-700">
+                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-sm shrink-0
+                      ${tx.txType === 'issue' ? 'bg-emerald-500/20' : tx.txType === 'buy' ? 'bg-sky-500/20' : tx.txType === 'retire' ? 'bg-violet-500/20' : 'bg-slate-700'}`}>
+                      {tx.txType === 'issue' ? '🪙' : tx.txType === 'buy' ? '🛒' : tx.txType === 'retire' ? '✅' : tx.txType === 'list' ? '🏪' : '📋'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white capitalize">{tx.txType}</span>
+                        {tx.amountTons > 0 && <span className="text-xs text-emerald-400">{tx.amountTons.toLocaleString()} tCO2e</span>}
+                        {tx.priceUsd > 0 && <span className="text-xs text-amber-400">${tx.priceUsd.toLocaleString()}</span>}
+                        <span className="ml-auto text-[10px] text-slate-500">{relTime(tx.ts)}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{tx.note}</p>
+                      <p className="text-[9px] font-mono text-slate-600 mt-0.5 truncate">{tx.blockchainHash}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (view === 'validator') {
+    return (
+      <div className="min-h-screen bg-slate-950 text-white">
+        <div className="sticky top-0 z-20 bg-slate-950/95 backdrop-blur border-b border-slate-800 px-4 py-3 flex items-center gap-3">
+          <button onClick={() => setView('dashboard')}
+            className="p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-all">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-widest text-violet-400">Validator Portal</p>
+            <h2 className="text-base font-black text-white">MRV Review Queue</h2>
+          </div>
+          <button onClick={fetchValidatorQueue}
+            className="ml-auto p-2 rounded-xl hover:bg-slate-800 text-slate-400 transition-all">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="p-4 md:p-6 space-y-4 max-w-3xl mx-auto">
+          {validatorQueue.length === 0 && (
+            <div className="text-center py-16 text-slate-500">
+              <ShieldCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">No reports awaiting review.</p>
+              <button onClick={fetchValidatorQueue}
+                className="mt-3 text-xs text-emerald-400 underline">Refresh queue</button>
+            </div>
+          )}
+
+          {validatorQueue.map((item: any) => {
+            const report: MRVReport = item;
+            const proj: CarbonProject = item.project;
+            const snap: SatelliteSnapshot = item.snapshot;
+            const pType = projectTypeInfo(proj?.projectType || 'other');
+            const isReviewing = reviewing === report.reportId;
+
+            return (
+              <div key={report.reportId}
+                className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center gap-3 p-4 border-b border-slate-800 bg-slate-900/50">
+                  <span className="text-2xl">{pType.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-black text-white truncate">{proj?.projectName || report.projectId}</p>
+                    <p className="text-xs text-slate-400">{proj?.location?.country} · {proj?.totalAcres?.toLocaleString()} acres · {report.reportDate}</p>
+                  </div>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${RISK_STYLE[report.riskLevel] || ''} border-current bg-current/10`}>
+                    {report.riskLevel} risk
+                  </span>
+                </div>
+
+                {/* Satellite before/after */}
+                <div className="grid grid-cols-2 gap-0 border-b border-slate-800">
+                  {[
+                    { label: 'BASELINE', ndvi: proj?.baselineNdvi ?? 0.3 },
+                    { label: 'CURRENT', ndvi: snap?.ndviScore ?? report.ndviImprovement + (proj?.baselineNdvi ?? 0.3) },
+                  ].map((s) => (
+                    <div key={s.label} className="p-3 text-center border-r border-slate-800 last:border-r-0">
+                      <div
+                        className="h-20 rounded-xl mb-2 flex items-center justify-center text-3xl"
+                        style={{ background: `linear-gradient(135deg, #052e16 0%, hsl(${s.ndvi * 140 + 60}, 70%, ${s.ndvi * 20 + 10}%) 100%)` }}
+                      >
+                        🛰️
+                      </div>
+                      <p className="text-[9px] text-slate-500 uppercase tracking-wider">{s.label}</p>
+                      <p className="text-sm font-black text-white">NDVI {s.ndvi.toFixed(3)}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Carbon score breakdown */}
+                <div className="p-4 space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className="text-center">
+                      <p className="text-3xl font-black text-white">{report.carbonScore}</p>
+                      <p className="text-[10px] text-slate-400">/ 100</p>
+                    </div>
+                    <div className="flex-1 space-y-1.5">
+                      {[
+                        ['NDVI ×40', report.ndviImprovement * 40],
+                        ['Protected ×25', report.protectedAreaScore * 25],
+                        ['No-Deforest ×20', report.noDeforestationScore * 20],
+                        ['Validator ×15', report.validatorTrustScore * 15],
+                      ].map(([label, pts]) => (
+                        <div key={label as string} className="flex items-center gap-2 text-[10px]">
+                          <span className="text-slate-500 w-24 shrink-0">{label}</span>
+                          {scoreBar(pts as number, 40, 'flex-1')}
+                          <span className="text-white font-bold w-8 text-right">{(pts as number).toFixed(0)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-black text-emerald-400">{report.creditEstimateTons.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400">tCO2e</p>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-400 leading-relaxed">{report.aiSummary}</p>
+
+                  {/* Review controls */}
+                  {!isReviewing ? (
+                    <button onClick={() => setReviewing(report.reportId)}
+                      className="w-full py-2.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 text-sm font-bold hover:bg-violet-500/30 transition-all">
+                      <Eye className="w-4 h-4 inline mr-1.5" />
+                      Review This Report
+                    </button>
+                  ) : (
+                    <div className="space-y-3">
+                      <textarea value={reviewNotes} onChange={(e) => setReviewNotes(e.target.value)}
+                        rows={3} placeholder="Validator notes — observations, evidence, concerns…"
+                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-violet-500 transition-all resize-none" />
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => submitReview(report.reportId, 'rejected')}
+                          disabled={reviewingId === report.reportId}
+                          className="flex-1 py-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-300 text-sm font-bold hover:bg-rose-500/30 transition-all disabled:opacity-50">
+                          {reviewingId === report.reportId ? <Loader className="w-4 h-4 animate-spin inline" /> : '✗'} Reject
+                        </button>
+                        <button
+                          onClick={() => submitReview(report.reportId, 'approved')}
+                          disabled={reviewingId === report.reportId}
+                          className="flex-1 py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-bold hover:bg-emerald-500/30 transition-all disabled:opacity-50">
+                          {reviewingId === report.reportId ? <Loader className="w-4 h-4 animate-spin inline" /> : '✓'} Approve & Issue Credits
+                        </button>
+                      </div>
+                      <button onClick={() => setReviewing(null)}
+                        className="w-full text-xs text-slate-500 hover:text-white transition-all">Cancel</button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  // ── Dashboard view ─────────────────────────────────────────────────────────
+
+  return (
+    <div className="flex flex-col min-h-screen bg-slate-950 text-white">
+
+      {/* Hero banner */}
+      <div className="relative bg-gradient-to-br from-slate-900 via-emerald-950 to-teal-950 px-5 pt-12 pb-6 overflow-hidden">
+        <button onClick={onReturn}
+          className="absolute top-4 left-4 p-2 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur border border-white/10 transition-all">
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="absolute top-4 right-4 flex gap-2">
+          <button onClick={() => { setView('validator'); void fetchValidatorQueue(); }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold hover:bg-violet-500/30 transition-all">
+            <ShieldCheck className="w-3.5 h-3.5" /> Validator
+          </button>
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Carbon MRV Engine</p>
+        <h1 className="text-2xl md:text-3xl font-black">Carbon Impact Platform</h1>
+        <p className="text-sm text-slate-300 mt-1.5">Register land · Monitor · Score · Verify · Issue credits · Trade</p>
+
+        {/* Platform stats */}
+        <div className="grid grid-cols-4 gap-2 mt-5">
+          {[
+            { label: 'Projects', value: stats.totalProjects },
+            { label: 'Approved', value: stats.approvedProjects },
+            { label: 'tCO2e Issued', value: stats.totalCreditsTons.toLocaleString() },
+            { label: 'Listed', value: stats.listedCredits },
+          ].map((s) => (
+            <div key={s.label} className="rounded-xl bg-black/30 border border-white/10 p-2.5 text-center">
+              <p className="text-lg font-black text-emerald-400">{s.value}</p>
+              <p className="text-[9px] text-white/50 uppercase tracking-wider">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex border-b border-slate-800 shrink-0">
+        {([
+          { id: 'myprojects', label: `My Projects${projects.length ? ` (${projects.length})` : ''}` },
+          { id: 'marketplace', label: `Marketplace${marketCredits.length ? ` (${marketCredits.length})` : ''}` },
+          { id: 'ledger', label: 'Global Ledger' },
+        ] as const).map((t) => (
+          <button key={t.id} onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 shrink-0
+              ${activeTab === t.id ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto">
+
+        {/* My Projects tab */}
+        {activeTab === 'myprojects' && (
+          <div className="p-4 md:p-6 space-y-4">
+            <button onClick={() => setView('create')}
+              className="w-full py-3.5 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm transition-all flex items-center justify-center gap-2">
+              <Plus className="w-4 h-4" /> Register New Carbon Project
+            </button>
+
+            {loading && (
+              <div className="flex items-center justify-center py-10 text-slate-500">
+                <Loader className="w-5 h-5 animate-spin mr-2" /> Loading…
+              </div>
+            )}
+
+            {!loading && projects.length === 0 && (
+              <div className="text-center py-12 text-slate-500">
+                <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No carbon projects yet. Register your first project above.</p>
+              </div>
+            )}
+
+            {projects.map((project) => {
+              const pType = projectTypeInfo(project.projectType);
+              return (
+                <button key={project.projectId} onClick={() => openProject(project)}
+                  className="w-full text-left rounded-2xl bg-slate-900 border border-slate-800 hover:border-emerald-500/40 transition-all overflow-hidden">
+                  <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+                  <div className="p-4 flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-emerald-900/30 border border-emerald-500/20 flex items-center justify-center text-2xl shrink-0">
+                      {pType.icon}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-black text-white">{project.projectName}</p>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full border shrink-0 ${STATUS_STYLE[project.status] || ''}`}>
+                          {project.status}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {project.location.country}{project.location.region ? `, ${project.location.region}` : ''}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-xs text-emerald-400 font-bold">{project.totalAcres.toLocaleString()} acres</span>
+                        <span className="text-xs text-slate-500">{pType.label}</span>
+                        <span className="text-xs text-amber-400 font-bold">{(project.totalAcres * (pType.rate || 1)).toLocaleString()} tCO2e/yr est.</span>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-600 shrink-0 mt-1" />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Marketplace tab */}
+        {activeTab === 'marketplace' && (
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="rounded-xl bg-emerald-900/20 border border-emerald-500/30 p-4 text-center">
+              <p className="text-xs font-black text-emerald-400 uppercase tracking-wider mb-1">DPAL Verified Carbon Impact Credits</p>
+              <p className="text-xs text-slate-400">All credits verified by MRV Engine + validator review. Blockchain-anchored.</p>
+            </div>
+
+            {marketCredits.length === 0 && (
+              <div className="text-center py-12 text-slate-500">
+                <Award className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm">No credits listed yet. Register and verify a project to list credits.</p>
+              </div>
+            )}
+
+            {marketCredits.map((credit) => (
+              <div key={credit.creditId}
+                className="rounded-2xl bg-slate-900 border border-slate-800 p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-black text-white">{credit.projectName}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">{credit.creditId}</p>
+                  </div>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 shrink-0">
+                    Verified
+                  </span>
+                </div>
+                <div className="flex gap-4 text-sm">
+                  <div><p className="text-xs text-slate-500">Tonnes</p><p className="font-black text-white">{credit.creditAmountTons.toLocaleString()} tCO2e</p></div>
+                  <div><p className="text-xs text-slate-500">Price</p><p className="font-black text-amber-400">${credit.pricePerTon}/t</p></div>
+                  <div><p className="text-xs text-slate-500">Total</p><p className="font-black text-emerald-400">${(credit.creditAmountTons * credit.pricePerTon).toLocaleString()}</p></div>
+                </div>
+                <p className="text-[9px] font-mono text-slate-600 break-all">{credit.blockchainHash}</p>
+                <button
+                  onClick={async () => {
+                    const res = await fetch(apiUrl(API_ROUTES.CARBON_MARKETPLACE_BUY), {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ creditId: credit.creditId, buyerId: userId, buyerName: userName }),
+                    });
+                    if (res.ok) await fetchDashboard();
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-sm font-bold hover:bg-emerald-500/30 transition-all">
+                  <Zap className="w-3.5 h-3.5 inline mr-1.5" />
+                  Buy {credit.creditAmountTons} tCO2e — ${(credit.creditAmountTons * credit.pricePerTon).toLocaleString()}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Global Ledger tab */}
+        {activeTab === 'ledger' && (
+          <div className="p-4 md:p-6 space-y-2.5">
+            <p className="text-xs font-black text-slate-500 uppercase tracking-wider mb-3">Recent Blockchain Transactions</p>
+            {globalTxs.length === 0 && (
+              <div className="text-center py-12 text-slate-500 text-sm">
+                <Activity className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                No blockchain transactions yet.
+              </div>
+            )}
+            {globalTxs.map((tx) => (
+              <div key={tx.txId}
+                className="flex items-start gap-3 rounded-xl bg-slate-900 border border-slate-800 p-3">
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0
+                  ${tx.txType === 'issue' ? 'bg-emerald-500/20' : tx.txType === 'buy' ? 'bg-sky-500/20' : tx.txType === 'retire' ? 'bg-violet-500/20' : 'bg-slate-700'}`}>
+                  {tx.txType === 'issue' ? '🪙' : tx.txType === 'buy' ? '🛒' : tx.txType === 'retire' ? '✅' : tx.txType === 'list' ? '🏪' : '📋'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-white capitalize">{tx.txType}</span>
+                    {tx.amountTons > 0 && <span className="text-xs text-emerald-400">{tx.amountTons.toLocaleString()} tCO2e</span>}
+                    {tx.priceUsd > 0 && <span className="text-xs text-amber-400">${tx.priceUsd.toLocaleString()}</span>}
+                    <span className="ml-auto text-[10px] text-slate-500">{relTime(tx.ts)}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">{tx.note}</p>
+                  <p className="text-[9px] font-mono text-slate-600 mt-0.5 truncate">{tx.blockchainHash}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default CarbonMRVDashboard;

@@ -51,6 +51,7 @@ export const VIEW_PATHS: Record<string, string> = {
   ecosystem: '/ecosystem',
   sustainmentCenter: '/sustainment',
   offsetMarketplace: '/offsets',
+  carbonMRV: '/carbon',
   escrowService: '/escrow',
   coinLaunch: '/coin',
   subscription: '/subscription',

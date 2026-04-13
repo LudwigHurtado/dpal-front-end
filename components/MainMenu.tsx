@@ -359,7 +359,17 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('offsetMarketplace')}
                 />
 
-                <PrimaryNavModule 
+                <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
+                    label="Carbon MRV Engine"
+                    subLabel="Register land · Monitor · Verify · Issue credits"
+                    status="New"
+                    colorClass="teal"
+                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    onClick={() => onNavigate('carbonMRV')}
+                />
+
+                <PrimaryNavModule
                     icon={<Phone className="w-8 h-8" />}
                     label="Urgent Help Line"
                     subLabel="Reach caring support when minutes matter"
