@@ -544,10 +544,10 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             <button
               onClick={handleRefresh}
               disabled={!heroLocation.trim() || isGenerating}
-              className="dpal-btn-primary disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm bg-cyan-500 hover:bg-cyan-400 text-black shadow-[0_0_16px_-4px_rgba(6,182,212,0.7)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
               {isGenerating ? <Loader className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>Refresh AI assignments</span>
+              <span>{isGenerating ? 'Generating...' : 'Generate AI Missions'}</span>
             </button>
           </div>
 
