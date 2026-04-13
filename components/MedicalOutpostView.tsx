@@ -181,10 +181,9 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
 
     const activeRecord = useMemo(() => records.find(r => r.id === editingRecordId), [records, editingRecordId]);
 
-    const getQrValue = (cat: FolderCategory | 'PROFILE') => {
+    const getQrValue = (_cat: FolderCategory | 'PROFILE') => {
         if (!activeRecord) return '';
-        const folderPrefix = cat !== 'PROFILE' ? `:${cat}` : '';
-        return `QRATE_MED:${activeRecord.id}${folderPrefix}:VAULT:${activeRecord.sharedFolderUri || 'AUTH_PENDING'}`;
+        return activeRecord.sharedFolderUri || '';
     };
 
     const qrImageUrl = (val: string) => `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(val)}&bgcolor=ffffff&color=0f172a&margin=10`;
