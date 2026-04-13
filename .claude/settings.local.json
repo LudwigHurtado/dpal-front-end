@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(find C:/dpal-front-end/features/missions-v2 -name *.png -o -name *.jpg -o -name *.svg)"
+    ]
+  }
+}

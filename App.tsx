@@ -1797,6 +1797,7 @@ const App: React.FC = () => {
             onOpenWorkspace={() => handleNavigate('missionAssignmentV2')}
             onCreateMission={() => handleNavigate('createMission')}
             onOpenListing={openMarketplaceListing}
+            heroLocation={heroLocation}
           />
         )}
 
