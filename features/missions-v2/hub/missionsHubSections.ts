@@ -24,7 +24,7 @@ export const MISSIONS_HUB_SECTIONS: {
   { id: 'emergency', label: 'Emergency board', short: 'Emergency', stub: true },
   { id: 'myMissions', label: 'My missions', short: 'Mine', stub: true },
   { id: 'rewards', label: 'Rewards center', short: 'Rewards', stub: true },
-  { id: 'local', label: 'Local map & list', short: 'Local', stub: true },
+  { id: 'local', label: 'Local map & list', short: 'Local' },
   { id: 'org', label: 'Organization missions', short: 'Orgs', stub: true },
   { id: 'validator', label: 'Validator review', short: 'Review', stub: true },
   { id: 'analytics', label: 'Mission analytics', short: 'Stats', stub: true },

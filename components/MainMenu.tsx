@@ -403,17 +403,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('medicalOutpost')}
                 />
 
-                <PrimaryNavModule 
-                    icon={<Activity className="w-8 h-8" />}
-                    label="Community Timeline"
-                    subLabel="Good news and honest work from neighbors"
-                    status="Sharing"
-                    colorClass="blue"
-                    bgImageUrl="/main-screen/weekly-work-log.png"
-                    onClick={() => onNavigate('hub', undefined, 'work_feed')}
-                />
-
-                <PrimaryNavModule
+<PrimaryNavModule
                     icon={<Coins className="w-8 h-8" />}
                     label="DPAL Work Network"
                     subLabel="Mission marketplace — choose work that matters"

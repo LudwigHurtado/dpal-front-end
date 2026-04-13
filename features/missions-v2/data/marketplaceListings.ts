@@ -14,6 +14,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'high',
     postedByLabel: 'DPAL AI + Education coalition',
     slotsOpen: 6,
+    coords: [33.9534, -117.3963],
   },
   {
     id: 'mp-ai-2',
@@ -25,6 +26,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'medium',
     postedByLabel: 'AI routing — Streets & Safety',
     slotsOpen: 12,
+    coords: [42.3776, -83.0953],
   },
   {
     id: 'mp-user-1',
@@ -36,6 +38,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'high',
     postedByLabel: 'Community — @neighbor_help',
     slotsOpen: 2,
+    coords: [42.3248, -83.0653],
   },
   {
     id: 'mp-user-2',
@@ -47,6 +50,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'medium',
     postedByLabel: 'Tenant circle — Oak Park',
     slotsOpen: 4,
+    // no coords — remote mission
   },
   {
     id: 'mp-org-1',
@@ -58,6 +62,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'low',
     postedByLabel: 'Greenways Alliance',
     slotsOpen: 20,
+    coords: [42.9634, -85.6681],
   },
   {
     id: 'mp-org-2',
@@ -69,6 +74,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'medium',
     postedByLabel: 'Midtown Mutual Aid',
     slotsOpen: 8,
+    coords: [42.3398, -83.0558],
   },
   {
     id: 'mp-em-1',
@@ -80,6 +86,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'high',
     postedByLabel: 'County OEM + DPAL',
     slotsOpen: 15,
+    coords: [42.3367, -83.0155],
   },
   {
     id: 'mp-em-2',
@@ -91,6 +98,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'high',
     postedByLabel: 'Emergency ops cell',
     slotsOpen: 30,
+    coords: [42.2967, -83.1255],
   },
   {
     id: 'mp-local-1',
@@ -102,6 +110,7 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'low',
     postedByLabel: 'Walkable Streets — volunteers',
     slotsOpen: 5,
+    coords: [42.3445, -83.0556],
   },
   {
     id: 'mp-reward-1',
@@ -113,5 +122,6 @@ export const MARKETPLACE_SAMPLE_LISTINGS: MarketplaceListing[] = [
     urgency: 'medium',
     postedByLabel: 'AI batch + City accessibility office',
     slotsOpen: 3,
+    coords: [42.3314, -83.0488],
   },
 ];

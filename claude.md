@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-06 (help center + ledger lookup + situation room media)
+Last updated: 2026-04-12 (missions-v2 stabilization, in-progress tracking panel, scroll UX, menu cleanup)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -120,6 +120,27 @@ If a dashboard shows “disconnected” or wrong API:
 - **`App.tsx`** syncs `currentView` with `location.pathname` / search / hash (reports, situation room, etc.).  
 - Report sharing: **`?reportId=<id>`** and related query params — see `App.tsx` comments around report fetch and anchor.
 
+### Key routes (stable — do not rename)
+
+| View ID | Path | Notes |
+|---------|------|-------|
+| `mainMenu` | `/` | Main tile grid |
+| `categorySelection` | `/categories` | Report category picker |
+| `hub` | `/hub` | My Reports + Feed + Map tabs |
+| `heroHub` | `/hero` | Hero profile, missions, vault, mint |
+| `transparencyDatabase` | `/ledger` | Public blockchain ledger |
+| `missionMarketplace` | `/missions` | **Missions Hub V2** (Hub home + sections via `?section=`) |
+| `missionAssignmentV2` | `/missions/v2` | Mission workspace engine |
+| `createMission` | `/missions/create` | Create a new mission |
+| `marketplaceMissionDetail` | `/missions/m/:id` | Mission detail page |
+| `aiWorkDirectives` | `/directives` | AI-guided community work marketplace |
+| `politicianTransparency` | `/politician` | Public Accountability Engine |
+| `helpCenter` | `/help` | Help Center tickets |
+| `incidentRoom` | `/situation` | Situation Room (with `?roomId=`) |
+| `escrowService` | `/escrow` | Trusted Escrow |
+| `dpalLocator` | `/locator` | Family / asset locator |
+| `offsetMarketplace` | `/offset` | Green Impact marketplace |
+
 ### Accounts & authentication (MongoDB users on `dpal-ai-server`)
 
 - **`AppBootstrap.tsx`** wraps **`AuthProvider`** and defines **auth routes first**; the **`*`** route renders the main **`App`**. That way **`/login`**, **`/signup`**, etc. are real URLs and are **not** swallowed by `App.tsx` view state.
@@ -137,6 +158,7 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 |------|----------------|
 | Main shell & view switching | `App.tsx` |
 | Auth pages, login URL | `AppBootstrap.tsx`, `pages/auth/*`, `auth/AuthContext.tsx` |
+| Main menu tiles | `components/MainMenu.tsx` — 20 `PrimaryNavModule` tiles; images live in `public/main-screen/` |
 | Category / sector “Next view” | `CategorySelectionView.tsx`, `components/sectors/*`, `sectorDefinitions.ts` — sectors named (Safety, Financial, Health, Government, Property, Digital, Community), `SectorGatewayGrid`, `CategoryMappingPanel` |
 | Politician Transparency | `PoliticianTransparencyView.tsx` — **Public Accountability Engine** workflow: target fields → accountability focus grid → evidence query + source filters → DuckDuckGo search; OpenAI refine; evidence lab + localStorage draft |
 | Politician OpenAI | `services/politicianOpenAiService.ts` |
@@ -150,20 +172,39 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | i18n | `i18n/` — `useTranslations()`, `translations.ts` |
 | Feature flags | `features/featureFlags.ts` |
 | Category images / galleries | `categoryCardAssets.ts`, `CategorySelectionView` (`CATEGORY_GALLERY_IMAGES` crossfade for e.g. Police Misconduct) |
+| **Missions V2 — Hub** | `features/missions-v2/hub/MissionsHubPage.tsx` — sections: home, marketplace, emergency, myMissions, rewards, local, org, validator, analytics. Section driven by `?section=` URL param. |
+| **Missions V2 — Marketplace** | `features/missions-v2/pages/MissionMarketplacePage.tsx` — browse listings; `features/missions-v2/pages/MissionMarketplaceDetailPage.tsx` — detail at `/missions/m/:id` |
+| **Missions V2 — Workspace** | `features/missions-v2/pages/MissionAssignmentV2Page.tsx` — assignment engine; phases, escrow, validators, proof |
+| **Missions V2 — Create** | `features/missions-v2/pages/CreateMissionView.tsx` — mission creation form |
+| **Missions V2 — Services** | `features/missions-v2/services/` — layer services (escrow, evidence, governance, outcome, report, reputation, resolution, validation) + adapters |
+| **Missions V2 — Types** | `features/missions-v2/types.ts`, `marketplaceTypes.ts`, `createMissionTypes.ts` |
+| **Missions V2 — Theme** | `features/missions-v2/missionWorkspaceTheme.ts` — `mw.*` class helpers (teal/dark palette) |
+| **AI Work Directives (Work Network)** | `components/AiWorkDirectivesView.tsx` — AI-guided community work marketplace; 15 categories; in-progress step tracking, proof notes, claim coins flow |
 
 ---
 
 ## Recent Front-End Work (Session History)
 
+### 2026-04-12 — Missions V2 stabilization + UX fixes
+
+- **Missions V2 shell shipped:** `features/missions-v2/` now has a full Hub (`/missions`), Marketplace (`/missions` → `?section=marketplace`), detail page (`/missions/m/:id`), workspace (`/missions/v2`), and create flow (`/missions/create`). All wired through `App.tsx` and `utils/appRoutes.ts`.
+- **Mission Categories scroll UX fixed** (`components/AiWorkDirectivesView.tsx`): replaced hidden `no-scrollbar` row with left/right `ChevronLeft`/`ChevronRight` arrow buttons as **flex siblings** (not absolutely positioned — avoids clipping by parent overflow) + a visible thin scrollbar at the bottom. Works on all screen sizes including mobile.
+- **Start Mission now has a real tracking panel** (`components/AiWorkDirectivesView.tsx`): clicking Start Mission opens an in-progress tracking panel with: pulsing “Mission In Progress” indicator, checkable step list from AI packet steps or objectives, proof required reminder, field notes / proof textarea, and “Mark Complete & Claim Coins” button that runs the audit hash. Button label changes to “Track Progress” when mission is already running. Replaces the dead-end “steps will appear once activated” message.
+- **Community Timeline tile removed** from `components/MainMenu.tsx`. The tile navigated to `hub/work_feed` and is no longer needed.
+- **Community guidelines link removed** from `components/MyReportsList.tsx` sidebar — it was a dead button with no handler.
+- **Main menu “Missions” tile** now uses `dpal-work-network.png` and navigates to `missionMarketplace` (Missions Hub). The separate “DPAL Work Network” tile navigates to `aiWorkDirectives` (AI-guided work marketplace).
+
+### 2026-04-06 — Help center + ledger + situation room
+
 - **Help Center made live:** `components/HelpCenterView.tsx` now uses real `/api/help-reports/mine` ticket data, live status filtering/refresh, and real attachment upload flow via `services/helpCenterService.ts` (`uploadHelpReportAttachments`).
 - **Ledger lookup improved:** block search now accepts flexible combos (`#6843021`, `rep-177...`, comma formats, partial numeric tokens) and falls back through exact block match → local keyword match → API feed match → direct `rep-` fetch (`App.tsx`, `utils/blockchainLookup.ts`, `components/BlockchainStatusPanel.tsx`).
-- **Situation Room media safety:** in-room filing images can be uploaded/updated and "set main", while delete controls were removed from the user-facing gallery (`components/IncidentRoomView.tsx`, `App.tsx`).
+- **Situation Room media safety:** in-room filing images can be uploaded/updated and “set main”, while delete controls were removed from the user-facing gallery (`components/IncidentRoomView.tsx`, `App.tsx`).
 - **Main menu work tile image updated:** `public/main-screen/dpal-work-network.png` replaced with the latest provided artwork.
-- **Server-side Gemini path:** `VITE_USE_SERVER_AI`, **`POST /api/ai/gemini`** on **`dpal-ai-server`**, optional removal of **`VITE_GEMINI_API_KEY`** from Vercel after verification.  
-- **Politician intel section** redesigned as a serious **accountability workflow** (cards, target first, investigation modes, source toggles, results preview column). DuckDuckGo query built from combined fields + focus labels + source hints.  
-- **OpenAI** integrated for search query refine and evidence draft; dev uses Vite **`/openai-proxy`**.  
-- **Evidence draft auto-save** debounced (~550ms) so **“Draft saved”** does not update on every keystroke (was causing visible flashing / excessive re-renders).  
-- **Material Web** + theme bridge for evidence form controls (`MaterialWebEvidenceFields.tsx`, CSS under `styles/`).  
+- **Server-side Gemini path:** `VITE_USE_SERVER_AI`, **`POST /api/ai/gemini`** on **`dpal-ai-server`**, optional removal of **`VITE_GEMINI_API_KEY`** from Vercel after verification.
+- **Politician intel section** redesigned as a serious **accountability workflow** (cards, target first, investigation modes, source toggles, results preview column). DuckDuckGo query built from combined fields + focus labels + source hints.
+- **OpenAI** integrated for search query refine and evidence draft; dev uses Vite **`/openai-proxy`**.
+- **Evidence draft auto-save** debounced (~550ms) so **”Draft saved”** does not update on every keystroke (was causing visible flashing / excessive re-renders).
+- **Material Web** + theme bridge for evidence form controls (`MaterialWebEvidenceFields.tsx`, CSS under `styles/`).
 - **Sectors** in category hub: labels, hero assets (`SECTOR_HERO_ASSET`), gateway grid.
 
 ---

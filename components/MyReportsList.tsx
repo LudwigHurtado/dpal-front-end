@@ -560,20 +560,6 @@ const MyReportsList: React.FC<MyReportsListProps> = ({
             </div>
             <p className="mt-2 text-xs text-[var(--dpal-text-muted)]">Constructive accountability builds confidence over time.</p>
           </SideCard>
-          <SideCard title="Helpful resources" icon={<Book className="h-4 w-4 text-cyan-600" />}>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <button type="button" className="font-medium text-[var(--dpal-primary-hover)] hover:underline">
-                  Community guidelines
-                </button>
-              </li>
-              <li>
-                <button type="button" className="font-medium text-[var(--dpal-primary-hover)] hover:underline">
-                  Safety & privacy basics
-                </button>
-              </li>
-            </ul>
-          </SideCard>
         </aside>
       </div>
       <style>{`

@@ -1,6 +1,8 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import MissionMarketplaceBrowse from '../components/MissionMarketplaceBrowse';
+import MissionLocalMap from '../../../components/missions/MissionLocalMap';
+import { MARKETPLACE_SAMPLE_LISTINGS } from '../data/marketplaceListings';
 import { mw } from '../missionWorkspaceTheme';
 import {
   DEFAULT_MISSIONS_HUB_SECTION,
@@ -16,6 +18,7 @@ interface MissionsHubPageProps {
   onOpenWorkspace: () => void;
   onCreateMission: () => void;
   onOpenListing: (listingId: string) => void;
+  heroLocation?: string;
 }
 
 const MissionsHubPage: React.FC<MissionsHubPageProps> = ({
@@ -23,6 +26,7 @@ const MissionsHubPage: React.FC<MissionsHubPageProps> = ({
   onOpenWorkspace,
   onCreateMission,
   onOpenListing,
+  heroLocation,
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -145,9 +149,9 @@ const MissionsHubPage: React.FC<MissionsHubPageProps> = ({
           ) : null}
 
           {section === 'local' ? (
-            <HubStubPanel
-              title="Local missions — map & list"
-              body="City, neighborhood, zone, and “near me” discovery. Pairs with Locator / maps when integrated."
+            <LocalMapPanel
+              onOpenListing={onOpenListing}
+              heroLocation={heroLocation}
             />
           ) : null}
 
@@ -250,6 +254,100 @@ const QuickCard: React.FC<{
     <p className={`mt-1 text-xs ${mw.textMuted}`}>{hint}</p>
   </button>
 );
+
+const LocalMapPanel: React.FC<{
+  onOpenListing: (id: string) => void;
+  heroLocation?: string;
+}> = ({ onOpenListing, heroLocation }) => {
+  const [locationInput, setLocationInput] = useState(heroLocation || '');
+  const [activeCity, setActiveCity] = useState(heroLocation || '');
+  const [kindFilter, setKindFilter] = useState<'all' | 'local' | 'emergency'>('all');
+
+  const filtered = MARKETPLACE_SAMPLE_LISTINGS.filter((l) => {
+    if (kindFilter === 'local') return l.kinds.includes('local');
+    if (kindFilter === 'emergency') return l.kinds.includes('emergency');
+    return true;
+  });
+
+  return (
+    <div className="space-y-5">
+      <div className={`${mw.sectorCard} space-y-4 p-4`}>
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-teal-400/90">
+            Local Missions Map
+          </p>
+          <p className="mt-1 text-sm text-teal-200/75">
+            Missions near you — powered by OpenStreetMap. Enter your city or neighborhood to center the map.
+          </p>
+        </div>
+
+        {/* City input + filters */}
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-semibold text-teal-200/80 mb-1">
+              Your city or neighborhood
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={locationInput}
+                onChange={(e) => setLocationInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && setActiveCity(locationInput)}
+                placeholder="e.g. Los Angeles, CA"
+                className={`${mw.field} flex-1`}
+              />
+              <button
+                type="button"
+                onClick={() => setActiveCity(locationInput)}
+                className={mw.btnPrimary}
+              >
+                Go
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-1.5">
+            {(['all', 'local', 'emergency'] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKindFilter(k)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                  kindFilter === k
+                    ? 'border-teal-400/50 bg-teal-900/60 text-teal-50'
+                    : 'border-teal-900/55 bg-teal-950/45 text-teal-300/80 hover:border-teal-700'
+                }`}
+              >
+                {k === 'all' ? 'All' : k === 'local' ? 'Local' : 'Emergency'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 text-xs text-teal-300/70">
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full bg-rose-500" /> High urgency
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full bg-amber-500" /> Medium
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="inline-block h-3 w-3 rounded-full bg-teal-500" /> Low
+          </span>
+        </div>
+      </div>
+
+      {/* The map */}
+      <MissionLocalMap
+        listings={filtered}
+        cityQuery={activeCity}
+        height="h-[480px]"
+        onSelectListing={onOpenListing}
+      />
+    </div>
+  );
+};
 
 const HubStubPanel: React.FC<{ title: string; body: string }> = ({ title, body }) => (
   <div className={`${mw.sectorCard} max-w-3xl space-y-3`}>

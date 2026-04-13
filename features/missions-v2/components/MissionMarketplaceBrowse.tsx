@@ -6,6 +6,7 @@ import {
   type MarketplaceListing,
 } from '../marketplaceTypes';
 import { mw } from '../missionWorkspaceTheme';
+import MissionLocalMap from '../../../components/missions/MissionLocalMap';
 
 type FilterKey = 'all' | MarketplaceMissionKind;
 
@@ -32,6 +33,8 @@ export interface MissionMarketplaceBrowseProps {
   onOpenListing: (listingId: string) => void;
   /** When true, omits standalone page chrome (used inside Missions Hub). */
   embedded?: boolean;
+  /** Hero's city — passed to map view for centering */
+  heroLocation?: string;
 }
 
 /**
@@ -42,9 +45,11 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
   onCreateMission,
   onOpenListing,
   embedded = false,
+  heroLocation,
 }) => {
   const [kind, setKind] = useState<FilterKey>('all');
   const [locationQ, setLocationQ] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const filtered = useMemo(() => {
     const q = locationQ.trim().toLowerCase();
@@ -88,6 +93,32 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
           </p>
         </header>
 
+        {/* List / Map toggle */}
+        <div className="mb-4 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setViewMode('list')}
+            className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${
+              viewMode === 'list'
+                ? 'border-teal-400/50 bg-teal-900/60 text-teal-50'
+                : 'border-teal-900/55 bg-teal-950/45 text-teal-300/80 hover:border-teal-700'
+            }`}
+          >
+            ☰ List
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode('map')}
+            className={`rounded-lg border px-4 py-1.5 text-xs font-semibold transition ${
+              viewMode === 'map'
+                ? 'border-teal-400/50 bg-teal-900/60 text-teal-50'
+                : 'border-teal-900/55 bg-teal-950/45 text-teal-300/80 hover:border-teal-700'
+            }`}
+          >
+            🗺 Map
+          </button>
+        </div>
+
         <div className={`${mw.sectorCard} mb-6 space-y-4`}>
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => {
@@ -124,7 +155,19 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
           Showing {filtered.length} of {MARKETPLACE_SAMPLE_LISTINGS.length} sample listings (replace with live API).
         </p>
 
-        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        {/* Map view */}
+        {viewMode === 'map' ? (
+          <MissionLocalMap
+            listings={filtered}
+            cityQuery={locationQ.trim() || heroLocation}
+            height="h-[500px]"
+            onSelectListing={onOpenListing}
+          />
+        ) : null}
+
+        {/* List view */}
+        {viewMode === 'list' ? (
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {filtered.map((m) => (
             <li
               key={m.id}
@@ -188,8 +231,9 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
             </li>
           ))}
         </ul>
+        ) : null}
 
-        {filtered.length === 0 ? (
+        {viewMode === 'list' && filtered.length === 0 ? (
           <p className="mt-8 text-center text-sm text-teal-500">No missions match these filters.</p>
         ) : null}
       </div>

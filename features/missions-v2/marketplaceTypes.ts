@@ -32,6 +32,8 @@ export interface MarketplaceListing {
   /** Shown as source line */
   postedByLabel: string;
   slotsOpen?: number;
+  /** [lat, lng] — used by MissionLocalMap. Omit for remote/no-location missions. */
+  coords?: [number, number];
 }
 
 /** Display lifecycle for marketplace detail (aligns with future API + V2 engine). */
