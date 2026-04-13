@@ -497,7 +497,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             {/* Left arrow */}
             <button
               onClick={() => scrollCategories('left')}
-              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/10 border border-white/25 text-white hover:bg-white/20 shadow-lg transition-all"
               aria-label="Scroll categories left"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -530,7 +530,7 @@ const AiWorkDirectivesView: React.FC<AiWorkDirectivesViewProps> = ({
             {/* Right arrow */}
             <button
               onClick={() => scrollCategories('right')}
-              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-[var(--dpal-card)] border border-[color:var(--dpal-border)] text-[var(--dpal-text-secondary)] hover:bg-[var(--dpal-card-hover)] hover:text-white shadow-md transition-all"
+              className="shrink-0 flex items-center justify-center w-8 h-8 rounded-full bg-white/10 border border-white/25 text-white hover:bg-white/20 shadow-lg transition-all"
               aria-label="Scroll categories right"
             >
               <ChevronRight className="w-4 h-4" />
