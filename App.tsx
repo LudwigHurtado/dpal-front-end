@@ -2299,7 +2299,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'offsetMarketplace' && (
-          <OffsetMarketplaceView onReturn={() => goBack('mainMenu')} />
+          <OffsetMarketplaceView onReturn={() => goBack('mainMenu')} hero={hero} />
         )}
       </main>
 

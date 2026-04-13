@@ -1,376 +1,407 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, MapPin, QrCode, CheckCircle, Upload, Search, ChevronDown, ChevronUp } from './icons';
-import QrCodeDisplay from './QrCodeDisplay';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { ArrowLeft, MapPin, CheckCircle, Search, ChevronDown, ChevronUp, Loader, Sparkles, Users, Zap, Award, ShieldCheck, Activity } from './icons';
+import { API_ROUTES, apiUrl, OFFSETS_PORTFOLIO, OFFSETS_COALITION } from '../constants';
+import { isAiEnabled } from '../services/geminiService';
+import type { Hero } from '../types';
 
-/** Single high-resolution hero + parcel art (DPAL sustainability collage) */
 const SUSTAINABILITY_COLLAGE = '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png';
-const QR_LIFE_SAVER_IMAGE = '/main-screen/Offset-Marketplace/qr-life-saver-see-my-life.png';
-const HERO_ROTATION = [SUSTAINABILITY_COLLAGE] as const;
 
-interface OffsetMarketplaceViewProps {
-  onReturn: () => void;
-}
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 type ParcelStatus = 'Verified' | 'In Progress' | 'Needs Review';
 
-interface ParcelItem {
-  id: string;
+interface OffsetProject {
+  _id: string;
   projectId: string;
   name: string;
   location: string;
   address: string;
   siteUrl: string;
-  units: number;
+  imageUrl: string;
+  totalUnits: number;
+  availableUnits: number;
+  retiredUnits: number;
+  pricePerTonne: number;
   status: ParcelStatus;
   mission: string;
-  imageUrl: string;
+  description: string;
+  credibilityScore: number;
+  credibilityNote: string;
+  groupTarget: number;
+  groupFunded: number;
+  coalitionCount: number;
+  priceHistory: { date: number; priceUsd: number }[];
 }
 
-interface ReportingEntry {
-  id: string;
+interface Purchase {
+  purchaseId: string;
   projectId: string;
-  reportType: 'Mission Verification' | 'Satellite Review' | 'Carbon Batch' | 'Registry Packet';
-  status: 'Approved' | 'Pending' | 'Flagged';
-  submittedAt: string;
-  reviewer: string;
-  summary: string;
+  projectName: string;
+  units: number;
+  pricePerTonne: number;
+  totalUsd: number;
+  retired: boolean;
+  retiredAt?: number;
+  certificateHash?: string;
+  createdAt: string;
 }
 
-const PARCELS: ParcelItem[] = [
-  {
-    id: 'parcel-cr-14527',
-    projectId: 'CR-14527',
-    name: 'Protected Parcel North',
-    location: 'Rainforest Zone A',
-    address: 'Km 14 Forest Service Road, Rio Verde, Amazon Basin',
-    siteUrl: 'https://example.org/projects/cr-14527',
-    units: 1250,
-    status: 'Verified',
-    mission: 'Tree Health Check',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'parcel-cr-14528',
-    projectId: 'CR-14528',
-    name: 'Mangrove Block 2',
-    location: 'Coastal Recovery Area',
-    address: 'Muelle 8, Delta Verde Coast, Pacific Region',
-    siteUrl: 'https://example.org/projects/cr-14528',
-    units: 620,
-    status: 'In Progress',
-    mission: 'Biodiversity Survey',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'parcel-cr-14529',
-    projectId: 'CR-14529',
-    name: 'Agroforestry Patch West',
-    location: 'Community Farmland',
-    address: 'Lot 27, San Isidro Cooperative, Valley District',
-    siteUrl: 'https://example.org/projects/cr-14529',
-    units: 910,
-    status: 'Needs Review',
-    mission: 'Methane Reduction Audit',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'parcel-cr-14530',
-    projectId: 'CR-14530',
-    name: 'Cloud Forest Ridge',
-    location: 'Highland Reserve',
-    address: 'Sector Alto 3, Sierra Cloud Park, North Highlands',
-    siteUrl: 'https://example.org/projects/cr-14530',
-    units: 1430,
-    status: 'Verified',
-    mission: 'Canopy Growth Verification',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'parcel-cr-14531',
-    projectId: 'CR-14531',
-    name: 'Wetland Buffer East',
-    location: 'River Protection Belt',
-    address: 'Route 5 Mile 42, Azul River Wetlands',
-    siteUrl: 'https://example.org/projects/cr-14531',
-    units: 540,
-    status: 'In Progress',
-    mission: 'Waterline & Soil Carbon Check',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'parcel-cr-14532',
-    projectId: 'CR-14532',
-    name: 'Community Cookstove Cluster',
-    location: 'Rural Energy Zone',
-    address: 'Barrio Nuevo Community Center, Plot C12',
-    siteUrl: 'https://example.org/projects/cr-14532',
-    units: 780,
-    status: 'Verified',
-    mission: 'Clean Cookstove Usage Validation',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-  {
-    id: 'parcel-cr-14533',
-    projectId: 'CR-14533',
-    name: 'Biogas Pilot Corridor',
-    location: 'Sustainable Farming Strip',
-    address: 'Greenbelt Line 9, Campo Vivo Municipality',
-    siteUrl: 'https://example.org/projects/cr-14533',
-    units: 860,
-    status: 'Needs Review',
-    mission: 'Digestor Output Measurement',
-    imageUrl: SUSTAINABILITY_COLLAGE,
-  },
-];
+interface FeedItem {
+  type: 'purchase' | 'join';
+  id: string;
+  userName: string;
+  projectName?: string;
+  projectId: string;
+  units?: number;
+  retired?: boolean;
+  role?: string;
+  ts: number;
+}
 
-const REPORTING_ENTRIES: ReportingEntry[] = [
-  {
-    id: 'rep-cr-9012',
-    projectId: 'CR-14527',
-    reportType: 'Mission Verification',
-    status: 'Approved',
-    submittedAt: '2026-03-25T14:22:00Z',
-    reviewer: 'Field Verifier Node 12',
-    summary: 'Tree survival mission approved with geo-tagged evidence and QR chain match.',
-  },
-  {
-    id: 'rep-cr-9013',
-    projectId: 'CR-14531',
-    reportType: 'Satellite Review',
-    status: 'Pending',
-    submittedAt: '2026-03-26T09:10:00Z',
-    reviewer: 'Remote Sensing Queue',
-    summary: 'Wetland parcel anomaly queued for satellite NDVI comparison.',
-  },
-  {
-    id: 'rep-cr-9014',
-    projectId: 'CR-14533',
-    reportType: 'Mission Verification',
-    status: 'Flagged',
-    submittedAt: '2026-03-26T18:40:00Z',
-    reviewer: 'Compliance Desk',
-    summary: 'Digestor output proof requires duplicate-claim review before approval.',
-  },
-  {
-    id: 'rep-cr-9015',
-    projectId: 'CR-14530',
-    reportType: 'Carbon Batch',
-    status: 'Approved',
-    submittedAt: '2026-03-27T08:05:00Z',
-    reviewer: 'Accounting Engine v2.3',
-    summary: 'Batch calculation validated against methodology and verification logs.',
-  },
-  {
-    id: 'rep-cr-9016',
-    projectId: 'CR-14532',
-    reportType: 'Registry Packet',
-    status: 'Pending',
-    submittedAt: '2026-03-27T10:15:00Z',
-    reviewer: 'Registry Prep Unit',
-    summary: 'Issuance support packet generated and awaiting final legal docs.',
-  },
-];
+interface OffsetMarketplaceViewProps {
+  onReturn: () => void;
+  hero?: Hero;
+}
 
-const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn }) => {
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+const statusColor: Record<ParcelStatus, string> = {
+  Verified: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  'In Progress': 'bg-amber-500/15 text-amber-300 border-amber-500/30',
+  'Needs Review': 'bg-rose-500/15 text-rose-300 border-rose-500/30',
+};
+
+function scoreColor(score: number) {
+  if (score >= 80) return 'text-emerald-400';
+  if (score >= 60) return 'text-amber-400';
+  return 'text-rose-400';
+}
+
+function relTime(ts: number) {
+  const diff = Date.now() - ts;
+  if (diff < 60000) return 'just now';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
+  return `${Math.floor(diff / 86400000)}d ago`;
+}
+
+// ── Mini price sparkline ───────────────────────────────────────────────────────
+
+function Sparkline({ data }: { data: { date: number; priceUsd: number }[] }) {
+  if (!data.length) return null;
+  const prices = data.map((d) => d.priceUsd);
+  const min = Math.min(...prices);
+  const max = Math.max(...prices);
+  const range = max - min || 1;
+  const W = 120, H = 36;
+  const pts = prices.map((p, i) => {
+    const x = (i / (prices.length - 1 || 1)) * W;
+    const y = H - ((p - min) / range) * (H - 4) - 2;
+    return `${x},${y}`;
+  }).join(' ');
+  const trend = prices[prices.length - 1] >= prices[0];
+  return (
+    <svg width={W} height={H} className="shrink-0">
+      <polyline points={pts} fill="none" stroke={trend ? '#34d399' : '#f87171'} strokeWidth="2" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
+
+const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn, hero }) => {
+  // Data state
+  const [projects, setProjects] = useState<OffsetProject[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [portfolio, setPortfolio] = useState<Purchase[]>([]);
+  const [feed, setFeed] = useState<FeedItem[]>([]);
+
+  // UI state
   const [query, setQuery] = useState('');
-  const [activeParcelId, setActiveParcelId] = useState<string | null>(PARCELS[0].id);
-  const [showQr, setShowQr] = useState(false);
-  const [rotationIndex, setRotationIndex] = useState(0);
-  const [heroPaused, setHeroPaused] = useState(false);
-  const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
-  const [reportingScope, setReportingScope] = useState<'active' | 'network'>('active');
+  const [activeProjectId, setActiveProjectId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<'market' | 'portfolio' | 'feed'>('market');
+
+  // Buy flow
+  const [buyQty, setBuyQty] = useState(1);
+  const [buyGroup, setBuyGroup] = useState(false);
+  const [buying, setBuying] = useState(false);
+  const [buySuccess, setBuySuccess] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
+
+  // Coalition
+  const [joiningId, setJoiningId] = useState<string | null>(null);
+  const [joinedIds, setJoinedIds] = useState<Set<string>>(new Set());
+
+  // Retire
+  const [retiringId, setRetiringId] = useState<string | null>(null);
+
+  // AI score
+  const [scoringId, setScoringId] = useState<string | null>(null);
+
+  // Verify
+  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [verifyNotes, setVerifyNotes] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const [verifyDone, setVerifyDone] = useState(false);
+
+  const userId = hero?.id || 'anonymous';
+  const userName = hero?.heroName || 'Anonymous';
+
+  // ── Fetch ────────────────────────────────────────────────────────────────────
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [projRes, feedRes] = await Promise.all([
+        fetch(apiUrl(API_ROUTES.OFFSETS_LIST)),
+        fetch(apiUrl(API_ROUTES.OFFSETS_ACTIVITY)),
+      ]);
+      if (projRes.ok) {
+        const d = await projRes.json();
+        const list: OffsetProject[] = d.projects || [];
+        setProjects(list);
+        if (list.length && !activeProjectId) setActiveProjectId(list[0].projectId);
+      }
+      if (feedRes.ok) {
+        const d = await feedRes.json();
+        setFeed(d.feed || []);
+      }
+    } catch {
+      // server unavailable — keep empty state
+    } finally {
+      setLoading(false);
+    }
+  }, [activeProjectId]);
+
+  const fetchPortfolio = useCallback(async () => {
+    if (userId === 'anonymous') return;
+    try {
+      const res = await fetch(OFFSETS_PORTFOLIO(userId));
+      if (res.ok) {
+        const d = await res.json();
+        setPortfolio(d.purchases || []);
+      }
+    } catch { /* silent */ }
+  }, [userId]);
+
+  useEffect(() => { void fetchAll(); }, []);
+  useEffect(() => { void fetchPortfolio(); }, [userId]);
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return PARCELS;
-    return PARCELS.filter((p) =>
-      `${p.projectId} ${p.name} ${p.location} ${p.address} ${p.mission}`.toLowerCase().includes(q)
+    if (!q) return projects;
+    return projects.filter((p) =>
+      `${p.name} ${p.projectId} ${p.location} ${p.mission} ${p.status}`.toLowerCase().includes(q)
     );
-  }, [query]);
+  }, [projects, query]);
 
-  const activeParcel = PARCELS.find((p) => p.id === activeParcelId) || visible[0];
-  const rotatingImage = HERO_ROTATION[rotationIndex % HERO_ROTATION.length];
-  const reportingTotals = useMemo(() => {
-    const approved = REPORTING_ENTRIES.filter((r) => r.status === 'Approved').length;
-    const pending = REPORTING_ENTRIES.filter((r) => r.status === 'Pending').length;
-    const flagged = REPORTING_ENTRIES.filter((r) => r.status === 'Flagged').length;
-    return { approved, pending, flagged };
-  }, []);
-
-  const networkTotals = useMemo(() => {
-    const units = PARCELS.reduce((sum, p) => sum + p.units, 0);
-    const verified = PARCELS.filter((p) => p.status === 'Verified').length;
-    return { parcels: PARCELS.length, units, verified };
-  }, []);
-
-  const statusStyle = (status: ParcelStatus) => {
-    if (status === 'Verified') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
-    if (status === 'In Progress') return 'border-amber-500/40 bg-amber-500/10 text-amber-200';
-    return 'border-rose-500/40 bg-rose-500/10 text-rose-200';
-  };
-
-  useEffect(() => {
-    if (heroPaused || HERO_ROTATION.length <= 1) return;
-    const timer = setInterval(() => {
-      setRotationIndex((prev) => (prev + 1) % HERO_ROTATION.length);
-    }, 4800);
-    return () => clearInterval(timer);
-  }, [heroPaused]);
-
-  const reportingRows = useMemo(
-    () =>
-      reportingScope === 'active'
-        ? REPORTING_ENTRIES.filter((r) => r.projectId === activeParcel?.projectId)
-        : REPORTING_ENTRIES,
-    [reportingScope, activeParcel?.projectId]
+  const activeProject = useMemo(
+    () => projects.find((p) => p.projectId === activeProjectId) || null,
+    [projects, activeProjectId]
   );
 
+  const networkTotals = useMemo(() => ({
+    projects: projects.length,
+    units: projects.reduce((s, p) => s + p.totalUnits, 0),
+    verified: projects.filter((p) => p.status === 'Verified').length,
+    retired: projects.reduce((s, p) => s + p.retiredUnits, 0),
+  }), [projects]);
+
+  const portfolioTotals = useMemo(() => ({
+    total: portfolio.reduce((s, p) => s + p.units, 0),
+    retired: portfolio.filter((p) => p.retired).reduce((s, p) => s + p.units, 0),
+    active: portfolio.filter((p) => !p.retired).reduce((s, p) => s + p.units, 0),
+  }), [portfolio]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────────
+
+  const handleBuy = async () => {
+    if (!activeProject || buyQty <= 0) return;
+    setBuying(true);
+    setBuyError(null);
+    setBuySuccess(null);
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.OFFSETS_BUY), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          projectId: activeProject.projectId,
+          userId,
+          userName,
+          units: buyQty,
+          coinsSpent: buyQty * 10,
+          isGroupPurchase: buyGroup,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setBuyError(d.error || 'Purchase failed'); return; }
+      setBuySuccess(`Purchased ${buyQty} tCO2e from ${activeProject.name}`);
+      await Promise.all([fetchAll(), fetchPortfolio()]);
+    } catch { setBuyError('Network error. Try again.'); }
+    finally { setBuying(false); }
+  };
+
+  const handleJoin = async (projectId: string) => {
+    setJoiningId(projectId);
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.OFFSETS_JOIN), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId, userId, userName }),
+      });
+      if (res.ok) {
+        setJoinedIds((prev) => new Set([...prev, projectId]));
+        await fetchAll();
+      }
+    } catch { /* silent */ }
+    finally { setJoiningId(null); }
+  };
+
+  const handleRetire = async (purchase: Purchase) => {
+    setRetiringId(purchase.purchaseId);
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.OFFSETS_RETIRE), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purchaseId: purchase.purchaseId, userId }),
+      });
+      if (res.ok) await fetchPortfolio();
+    } catch { /* silent */ }
+    finally { setRetiringId(null); }
+  };
+
+  const handleAiScore = async (project: OffsetProject) => {
+    if (!isAiEnabled()) return;
+    setScoringId(project.projectId);
+    try {
+      const { runGeminiGenerate } = await import('../services/geminiService');
+      const prompt = `You are a carbon credit auditor. Rate this project's credibility from 0-100 and give a one-sentence note.
+Project: ${project.name}
+Location: ${project.location}
+Mission: ${project.mission}
+Description: ${project.description}
+Units: ${project.totalUnits} tCO2e
+Respond ONLY with JSON: {"score": number, "note": "string"}`;
+      const text = await runGeminiGenerate(prompt);
+      const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
+      if (parsed.score != null) {
+        setProjects((prev) => prev.map((p) =>
+          p.projectId === project.projectId
+            ? { ...p, credibilityScore: Number(parsed.score), credibilityNote: String(parsed.note || '') }
+            : p
+        ));
+      }
+    } catch { /* silent */ }
+    finally { setScoringId(null); }
+  };
+
+  const handleVerify = async () => {
+    if (!activeProject) return;
+    setVerifying(true);
+    try {
+      await fetch(apiUrl(API_ROUTES.OFFSETS_VERIFY), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: activeProject.projectId, userId, userName, summary: verifyNotes, proofImageUrls: [] }),
+      });
+      setVerifyDone(true);
+      setVerifyNotes('');
+    } catch { /* silent */ }
+    finally { setVerifying(false); }
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+
   return (
-    <div className="animate-fade-in max-w-6xl mx-auto pb-24 text-zinc-100">
-      <div className="rounded-[2rem] border border-emerald-950/40 bg-gradient-to-b from-emerald-950/25 via-zinc-950/80 to-zinc-950 p-4 sm:p-6 md:p-8">
-        <button
-          onClick={onReturn}
-          className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-emerald-400 transition-colors mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          Return
-        </button>
+    <div className="flex flex-col min-h-screen bg-slate-950 text-white font-sans">
 
-        <header
-          className="relative min-h-[min(42vw,280px)] overflow-hidden rounded-2xl border border-emerald-200/25 bg-emerald-950/20 shadow-xl shadow-emerald-950/30"
-          onMouseEnter={() => setHeroPaused(true)}
-          onMouseLeave={() => setHeroPaused(false)}
-        >
-          <img
-            src={rotatingImage}
-            alt=""
-            className="absolute inset-0 h-full w-full object-cover opacity-100 saturate-[1.05] transition-[transform,opacity] duration-700 ease-out"
-            style={{ transform: heroPaused ? 'scale(1.02)' : 'scale(1)' }}
-            draggable={false}
-          />
-          <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-emerald-950/25 via-transparent to-sky-100/10"
-            aria-hidden
-          />
-          <div className="relative z-10 flex flex-col gap-5 px-5 py-6 md:px-8 md:py-8">
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div className="max-w-xl rounded-2xl border border-white/25 bg-white/20 px-5 py-4 shadow-lg backdrop-blur-md md:px-6 md:py-5">
-                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-emerald-900/90">Offset Marketplace</p>
-                <h1 className="mt-1 text-3xl md:text-4xl font-black uppercase tracking-tight text-white drop-shadow-[0_2px_12px_rgba(0,0,0,0.35)]">
-                  Carbon Operations MVP
-                </h1>
-                <p className="mt-3 text-xs md:text-sm text-white/95 normal-case tracking-normal max-w-lg [text-shadow:0_1px_8px_rgba(0,0,0,0.35)]">
-                  Registry-grade parcel view: search projects, inspect missions, and follow verification activity in one flow.
-                </p>
-              </div>
-              {HERO_ROTATION.length > 1 && (
-                <div className="flex flex-col items-stretch gap-0.5 rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 backdrop-blur-sm md:min-w-[200px]">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/90">
-                    {heroPaused ? 'Paused — hover to explore' : 'Scene rotation'}
-                  </span>
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    {HERO_ROTATION.map((_, idx) => (
-                      <button
-                        key={`hero-dot-${idx}`}
-                        type="button"
-                        aria-label={`Show scene ${idx + 1}`}
-                        onClick={() => setRotationIndex(idx)}
-                        className={`h-2.5 w-2.5 rounded-full transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300 ${
-                          idx === rotationIndex % HERO_ROTATION.length
-                            ? 'scale-125 bg-white shadow-[0_0_0_2px_rgba(16,185,129,0.6)]'
-                            : 'bg-white/40 hover:bg-white/70'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-              {HERO_ROTATION.length <= 1 && (
-                <div className="rounded-xl border border-white/20 bg-black/10 px-3 py-2.5 backdrop-blur-sm md:min-w-[200px]">
-                  <span className="text-[10px] uppercase tracking-[0.2em] text-white/90">High-resolution hero</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </header>
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/60 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-emerald-500/30">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-zinc-500">Parcels live</p>
-            <p className="text-2xl font-black text-white mt-0.5">{networkTotals.parcels}</p>
-          </div>
-          <div className="rounded-2xl border border-emerald-800/40 bg-emerald-950/30 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-emerald-400/50">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-emerald-200/80">Verified sites</p>
-            <p className="text-2xl font-black text-emerald-100 mt-0.5">{networkTotals.verified}</p>
-          </div>
-          <div className="rounded-2xl border border-amber-900/35 bg-amber-950/25 px-4 py-3 transition-transform duration-200 hover:scale-[1.02] hover:border-amber-400/50">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-amber-200/80">Network tCO2e</p>
-            <p className="text-2xl font-black text-amber-100 mt-0.5">{networkTotals.units.toLocaleString()}</p>
-          </div>
+      {/* Hero banner */}
+      <div className="relative h-44 md:h-56 overflow-hidden shrink-0">
+        <img src={SUSTAINABILITY_COLLAGE} alt="Carbon Market" className="w-full h-full object-cover opacity-60" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/40 to-slate-950" />
+        <div className="absolute inset-0 flex flex-col justify-end p-5 md:p-8">
+          <button onClick={onReturn} className="absolute top-4 left-4 p-2 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur border border-white/10 transition-all">
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Green Network</p>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight">Carbon Credit Market</h1>
+          <p className="text-sm text-slate-300 mt-1">Buy, retire, and verify real carbon offsets. Join coalitions. Earn impact.</p>
         </div>
+      </div>
 
-        <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)] lg:items-start">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
-            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Parcel registry</p>
-                <h2 className="text-lg font-black uppercase tracking-tight text-white">Projects & missions</h2>
+      {/* Network stats */}
+      <div className="grid grid-cols-4 gap-px bg-slate-800/50 border-y border-slate-800">
+        {[
+          { label: 'Projects', value: networkTotals.projects },
+          { label: 'Verified', value: networkTotals.verified },
+          { label: 'tCO2e Available', value: networkTotals.units.toLocaleString() },
+          { label: 'tCO2e Retired', value: networkTotals.retired.toLocaleString() },
+        ].map((s) => (
+          <div key={s.label} className="bg-slate-950 py-3 px-2 text-center">
+            <p className="text-lg font-black text-emerald-400">{s.value}</p>
+            <p className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tab bar */}
+      <div className="flex border-b border-slate-800 shrink-0">
+        {(['market', 'portfolio', 'feed'] as const).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-5 py-3 text-sm font-bold capitalize transition-all border-b-2 ${activeTab === tab ? 'border-emerald-500 text-emerald-400' : 'border-transparent text-slate-400 hover:text-white'}`}
+          >
+            {tab === 'portfolio' ? `My Credits${portfolioTotals.total ? ` (${portfolioTotals.total})` : ''}` : tab === 'feed' ? 'Impact Feed' : 'Market'}
+          </button>
+        ))}
+      </div>
+
+      {/* ── MARKET TAB ── */}
+      {activeTab === 'market' && (
+        <div className="flex-1 flex flex-col lg:flex-row gap-0 overflow-hidden">
+
+          {/* Left: project list */}
+          <div className="lg:w-[360px] shrink-0 border-r border-slate-800 flex flex-col">
+            <div className="p-3 border-b border-slate-800">
+              <div className="relative">
+                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search projects…"
+                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pl-9 pr-3 py-2 text-sm text-white placeholder:text-slate-500 outline-none focus:border-emerald-500 transition-all"
+                />
               </div>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wider">{visible.length} shown</p>
             </div>
-            <div className="relative mb-4">
-              <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search by ID, place, or mission..."
-                className="w-full rounded-xl border border-zinc-700 bg-zinc-950/60 pl-9 pr-3 py-2.5 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-emerald-500/80 focus:ring-1 focus:ring-emerald-500/30"
-              />
-            </div>
-
-            <div className="max-h-[min(70vh,520px)] overflow-y-auto pr-1 space-y-2.5">
-              {visible.map((p) => (
+            <div className="flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="flex items-center justify-center py-16 text-slate-500">
+                  <Loader className="w-5 h-5 animate-spin mr-2" /> Loading projects…
+                </div>
+              ) : visible.map((p) => (
                 <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setActiveParcelId(p.id)}
-                  className={`group w-full text-left rounded-2xl border transition-all duration-200 ${
-                    p.id === activeParcel?.id
-                      ? 'border-emerald-500/50 bg-emerald-500/10 ring-1 ring-emerald-500/20 shadow-[0_0_24px_-8px_rgba(52,211,153,0.35)]'
-                      : 'border-zinc-800 bg-zinc-950/50 hover:border-emerald-600/40 hover:bg-zinc-900/80'
-                  }`}
+                  key={p.projectId}
+                  onClick={() => setActiveProjectId(p.projectId)}
+                  className={`w-full text-left p-4 border-b border-slate-800 transition-all ${activeProjectId === p.projectId ? 'bg-emerald-900/20 border-l-2 border-l-emerald-500' : 'hover:bg-slate-900'}`}
                 >
-                  <div className="flex gap-3 p-3">
-                    <div className="relative h-[4.5rem] w-[5.5rem] shrink-0 overflow-hidden rounded-xl border border-zinc-700 bg-zinc-900 ring-0 transition-[box-shadow] duration-200 group-hover:ring-2 group-hover:ring-emerald-500/30">
-                      <img
-                        src={p.imageUrl}
-                        alt=""
-                        className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-110"
-                      />
+                  <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-slate-800 shrink-0 overflow-hidden">
+                      <img src={SUSTAINABILITY_COLLAGE} alt="" className="w-full h-full object-cover opacity-70" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-white uppercase truncate">{p.name}</p>
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-zinc-500 mt-0.5 font-mono">{p.projectId}</p>
-                        </div>
-                        <span
-                          className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${statusStyle(
-                            p.status
-                          )}`}
-                        >
-                          {p.status}
-                        </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-white truncate">{p.name}</span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusColor[p.status]}`}>{p.status}</span>
                       </div>
-                      <p className="mt-1.5 text-[11px] text-zinc-400 line-clamp-1">
-                        <span className="inline-flex items-center gap-1">
-                          <MapPin className="w-3 h-3 shrink-0 text-zinc-500" />
-                          {p.location}
-                        </span>
-                        <span className="text-zinc-600 mx-1.5">·</span>
-                        <span className="text-amber-200/90">{p.units} tCO2e</span>
-                      </p>
-                      <p className="mt-1 text-[10px] uppercase tracking-[0.15em] text-zinc-500 truncate">{p.mission}</p>
+                      <p className="text-xs text-slate-400 mt-0.5 flex items-center gap-1"><MapPin className="w-3 h-3" />{p.location}</p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="text-xs text-emerald-400 font-bold">{p.availableUnits.toLocaleString()} tCO2e</span>
+                        <span className="text-xs text-amber-400 font-bold">${p.pricePerTonne}/t</span>
+                        <span className="text-xs text-slate-500 flex items-center gap-1"><Users className="w-3 h-3" />{p.coalitionCount}</span>
+                      </div>
                     </div>
                   </div>
                 </button>
@@ -378,214 +409,261 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn 
             </div>
           </div>
 
-          <div className="lg:sticky lg:top-4 space-y-4">
-            <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
-              {activeParcel ? (
-                <>
-                  <div className="group overflow-hidden rounded-2xl border border-zinc-700 aspect-[16/10] max-h-56 bg-zinc-900 shadow-lg">
-                    <img
-                      src={activeParcel.imageUrl}
-                      alt=""
-                      className="h-full w-full object-cover transition duration-500 ease-out group-hover:scale-[1.04]"
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500">Selected parcel</p>
-                    <h2 className="text-xl font-black uppercase tracking-tight mt-1 text-white">{activeParcel.name}</h2>
-                    <p className="text-[11px] text-zinc-400 mt-1 font-mono">{activeParcel.projectId}</p>
-                  </div>
+          {/* Right: project detail */}
+          {activeProject ? (
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
 
-                  <dl className="mt-4 grid gap-2 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm">
-                    <div className="flex justify-between gap-3 border-b border-zinc-800/80 pb-2">
-                      <dt className="text-zinc-500">Location</dt>
-                      <dd className="font-semibold text-right text-zinc-100">{activeParcel.location}</dd>
-                    </div>
-                    <div className="flex justify-between gap-3 border-b border-zinc-800/80 pb-2">
-                      <dt className="text-zinc-500">Carbon units</dt>
-                      <dd className="font-black text-amber-300">{activeParcel.units} tCO2e</dd>
-                    </div>
-                    <div className="flex justify-between gap-3 border-b border-zinc-800/80 pb-2">
-                      <dt className="text-zinc-500">Mission</dt>
-                      <dd className="font-semibold text-right text-emerald-200/90">{activeParcel.mission}</dd>
-                    </div>
-                    <div className="pt-1">
-                      <dt className="text-zinc-500 text-xs">Address</dt>
-                      <dd className="mt-1 text-xs text-zinc-300 leading-relaxed">{activeParcel.address}</dd>
-                    </div>
-                  </dl>
+              {/* Header */}
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${statusColor[activeProject.status]}`}>{activeProject.status}</span>
+                  <h2 className="text-xl font-black mt-1">{activeProject.name}</h2>
+                  <p className="text-sm text-slate-400 flex items-center gap-1 mt-0.5"><MapPin className="w-3.5 h-3.5" />{activeProject.location}</p>
+                  <p className="text-sm text-slate-300 mt-2">{activeProject.description}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleAiScore(activeProject)}
+                    disabled={scoringId === activeProject.projectId}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/15 border border-violet-500/30 text-violet-300 text-xs font-bold hover:bg-violet-500/25 transition-all disabled:opacity-50"
+                  >
+                    {scoringId === activeProject.projectId ? <Loader className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                    AI Score
+                  </button>
+                  <button
+                    onClick={() => handleJoin(activeProject.projectId)}
+                    disabled={joiningId === activeProject.projectId || joinedIds.has(activeProject.projectId)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500/25 transition-all disabled:opacity-50"
+                  >
+                    {joiningId === activeProject.projectId ? <Loader className="w-3 h-3 animate-spin" /> : <Users className="w-3 h-3" />}
+                    {joinedIds.has(activeProject.projectId) ? 'Joined ✓' : 'Join Coalition'}
+                  </button>
+                </div>
+              </div>
 
-                  <div className="mt-4 rounded-2xl border border-zinc-600 bg-white p-3 shadow-inner">
-                    <p className="text-center text-[9px] font-black uppercase tracking-[0.28em] text-zinc-600">QR life saver</p>
-                    <img
-                      src={QR_LIFE_SAVER_IMAGE}
-                      alt="See my life — QR life saver"
-                      className="mx-auto mt-2 max-h-44 w-full max-w-[220px] object-contain"
-                      draggable={false}
-                    />
-                    <p className="mt-2 text-center text-[10px] font-semibold uppercase tracking-[0.12em] text-zinc-700">
-                      See my life
-                    </p>
+              {/* AI credibility score */}
+              {activeProject.credibilityScore > 0 && (
+                <div className="rounded-2xl bg-violet-900/20 border border-violet-500/25 p-4">
+                  <p className="text-[10px] font-black uppercase text-violet-400 mb-1">AI Credibility Score</p>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-3xl font-black ${scoreColor(activeProject.credibilityScore)}`}>{activeProject.credibilityScore}</span>
+                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 rounded-full transition-all" style={{ width: `${activeProject.credibilityScore}%` }} />
+                    </div>
+                    <span className="text-xs text-slate-400">/100</span>
                   </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowQr(true)}
-                      className="rounded-xl border border-cyan-500/40 bg-cyan-500/10 text-cyan-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-cyan-400 transition-colors"
-                    >
-                      <QrCode className="w-4 h-4 inline mr-1 align-text-bottom" />
-                      Track QR
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 text-emerald-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-emerald-400 transition-colors"
-                    >
-                      <CheckCircle className="w-4 h-4 inline mr-1 align-text-bottom" />
-                      Verify
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-amber-400 transition-colors"
-                    >
-                      <Upload className="w-4 h-4 inline mr-1 align-text-bottom" />
-                      Evidence
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-xl border border-zinc-700 bg-zinc-950/60 text-zinc-200 py-2.5 text-[11px] font-black uppercase tracking-wider hover:border-zinc-500 transition-colors"
-                      onClick={() => window.open(activeParcel.siteUrl, '_blank', 'noopener,noreferrer')}
-                    >
-                      Open site
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 p-6 text-center text-xs uppercase tracking-[0.2em] text-zinc-500">
-                  No parcel selected
+                  {activeProject.credibilityNote && <p className="text-xs text-slate-300 mt-2">{activeProject.credibilityNote}</p>}
                 </div>
               )}
-            </div>
-          </div>
-        </section>
 
-        <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-4 sm:p-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500">Official reporting</p>
-              <h3 className="text-lg font-black uppercase tracking-tight text-white">Verification & registry</h3>
-            </div>
-            <div className="inline-flex rounded-xl border border-zinc-700 bg-zinc-950/60 p-1 text-[10px] font-black uppercase tracking-wider">
-              <button
-                type="button"
-                onClick={() => setReportingScope('active')}
-                className={`rounded-lg px-3 py-1.5 transition-colors ${
-                  reportingScope === 'active' ? 'bg-emerald-600/40 text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                This parcel
-              </button>
-              <button
-                type="button"
-                onClick={() => setReportingScope('network')}
-                className={`rounded-lg px-3 py-1.5 transition-colors ${
-                  reportingScope === 'network' ? 'bg-emerald-600/40 text-white' : 'text-zinc-500 hover:text-zinc-300'
-                }`}
-              >
-                Full network
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 transition duration-200 hover:scale-[1.02] hover:border-emerald-400/50">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-200">Approved</p>
-              <p className="text-2xl font-black text-emerald-100 mt-1">{reportingTotals.approved}</p>
-            </div>
-            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 transition duration-200 hover:scale-[1.02] hover:border-amber-400/50">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-amber-200">Pending</p>
-              <p className="text-2xl font-black text-amber-100 mt-1">{reportingTotals.pending}</p>
-            </div>
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 transition duration-200 hover:scale-[1.02] hover:border-rose-400/50">
-              <p className="text-[10px] uppercase tracking-[0.25em] text-rose-200">Flagged</p>
-              <p className="text-2xl font-black text-rose-100 mt-1">{reportingTotals.flagged}</p>
-            </div>
-          </div>
-
-          <div className="space-y-2.5">
-            {reportingRows.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-zinc-700 bg-zinc-950/40 px-4 py-8 text-center text-sm text-zinc-500">
-                {reportingScope === 'active'
-                  ? 'No verification reports are linked to this parcel in the demo dataset.'
-                  : 'No reporting records loaded.'}
+              {/* Stats grid */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {[
+                  { label: 'Total tCO2e', value: activeProject.totalUnits.toLocaleString(), color: 'text-white' },
+                  { label: 'Available', value: activeProject.availableUnits.toLocaleString(), color: 'text-emerald-400' },
+                  { label: 'Retired', value: activeProject.retiredUnits.toLocaleString(), color: 'text-cyan-400' },
+                  { label: 'Price / tonne', value: `$${activeProject.pricePerTonne}`, color: 'text-amber-400' },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl bg-slate-900 border border-slate-700 p-3">
+                    <p className="text-[10px] text-slate-500 uppercase font-bold">{s.label}</p>
+                    <p className={`text-xl font-black ${s.color}`}>{s.value}</p>
+                  </div>
+                ))}
               </div>
-            ) : (
-              reportingRows.map((entry) => {
-                const expanded = expandedReportId === entry.id;
-                return (
-                  <div
-                    key={entry.id}
-                    className="rounded-2xl border border-zinc-800/90 bg-zinc-950/50 transition-colors hover:border-emerald-700/40"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setExpandedReportId((prev) => (prev === entry.id ? null : entry.id))}
-                      className="flex w-full flex-wrap items-start justify-between gap-3 p-4 text-left text-inherit focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 rounded-2xl"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-black text-white uppercase">{entry.reportType}</p>
-                        <p className="text-[10px] uppercase tracking-[0.25em] text-zinc-500 mt-1 font-mono">
-                          {entry.id} · {entry.projectId}
-                        </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
-                        <span
-                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
-                            entry.status === 'Approved'
-                              ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-                              : entry.status === 'Pending'
-                              ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                              : 'border-rose-500/40 bg-rose-500/10 text-rose-200'
-                          }`}
-                        >
-                          {entry.status}
-                        </span>
-                        {expanded ? (
-                          <ChevronUp className="h-4 w-4 text-zinc-500" aria-hidden />
-                        ) : (
-                          <ChevronDown className="h-4 w-4 text-zinc-500" aria-hidden />
-                        )}
-                      </div>
-                    </button>
-                    <div className="px-4 pb-3">
-                      <p className="text-sm text-zinc-300 leading-relaxed">{entry.summary}</p>
-                      <div className="mt-3 flex flex-wrap items-center gap-4 text-[10px] uppercase tracking-[0.2em] text-zinc-500">
-                        <span>Reviewer: {entry.reviewer}</span>
-                        <span>{new Date(entry.submittedAt).toLocaleString()}</span>
-                      </div>
+
+              {/* Price sparkline */}
+              {activeProject.priceHistory.length > 1 && (
+                <div className="rounded-2xl bg-slate-900 border border-slate-700 p-4">
+                  <p className="text-[10px] font-black uppercase text-slate-400 mb-3">Price History (7d)</p>
+                  <div className="flex items-end gap-4">
+                    <Sparkline data={activeProject.priceHistory} />
+                    <div>
+                      <p className="text-xs text-slate-400">Current</p>
+                      <p className="text-lg font-black text-white">${activeProject.pricePerTonne}/t</p>
                     </div>
-                    {expanded && (
-                      <div className="border-t border-zinc-800/80 bg-zinc-950/80 px-4 py-3 text-xs leading-relaxed text-zinc-400">
-                        Demo row: in production this expands to signer hashes, methodology link, and immutable audit references
-                        for project {entry.projectId}.
-                      </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Group purchase */}
+              {activeProject.groupTarget > 0 && (
+                <div className="rounded-2xl bg-cyan-900/20 border border-cyan-500/25 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-black text-cyan-300">Community Group Buy</p>
+                    <span className="text-xs text-slate-400">{activeProject.groupFunded} / {activeProject.groupTarget} tCO2e funded</span>
+                  </div>
+                  <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, (activeProject.groupFunded / activeProject.groupTarget) * 100)}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-slate-400">Pool your purchase with the community to hit the group target and unlock bonus retirement certificates.</p>
+                </div>
+              )}
+
+              {/* Buy flow */}
+              <div className="rounded-2xl bg-slate-900 border border-slate-700 p-5 space-y-4">
+                <p className="text-sm font-black uppercase tracking-wide text-slate-300">Purchase Credits</p>
+                <div className="flex items-center gap-3">
+                  <label className="text-xs text-slate-400 font-bold">Quantity (tCO2e)</label>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setBuyQty((q) => Math.max(1, q - 1))} className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-lg font-bold flex items-center justify-center hover:bg-slate-700 transition-all">−</button>
+                    <span className="text-lg font-black w-8 text-center">{buyQty}</span>
+                    <button onClick={() => setBuyQty((q) => q + 1)} className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-600 text-lg font-bold flex items-center justify-center hover:bg-slate-700 transition-all">+</button>
+                  </div>
+                  <span className="text-sm text-amber-400 font-bold ml-auto">${(buyQty * activeProject.pricePerTonne).toFixed(2)}</span>
+                </div>
+                <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer select-none">
+                  <input type="checkbox" checked={buyGroup} onChange={(e) => setBuyGroup(e.target.checked)} className="w-4 h-4 accent-cyan-500" />
+                  Contribute to community group buy
+                </label>
+                {buySuccess && <p className="text-sm text-emerald-400 flex items-center gap-1"><CheckCircle className="w-4 h-4" />{buySuccess}</p>}
+                {buyError && <p className="text-sm text-rose-400">{buyError}</p>}
+                <button
+                  onClick={handleBuy}
+                  disabled={buying || activeProject.availableUnits < 1}
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl font-black text-sm bg-emerald-500 hover:bg-emerald-400 text-black disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-[0_0_20px_-4px_rgba(52,211,153,0.6)]"
+                >
+                  {buying ? <Loader className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  {buying ? 'Processing…' : `Buy ${buyQty} tCO2e`}
+                </button>
+              </div>
+
+              {/* Coalition */}
+              <div className="rounded-2xl bg-slate-900 border border-slate-700 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm font-black text-slate-300">Coalition Members</p>
+                  <span className="text-xs text-cyan-400 font-bold">{activeProject.coalitionCount} joined</span>
+                </div>
+                <p className="text-xs text-slate-400">Coalition members steward this project — verifying progress, submitting field reports, and pledging community support.</p>
+              </div>
+
+              {/* Verification */}
+              <div className="rounded-2xl bg-slate-900 border border-slate-700 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-black text-slate-300">Submit Verification</p>
+                  <button onClick={() => setVerifyOpen((v) => !v)} className="text-xs text-amber-400">
+                    {verifyOpen ? 'Cancel' : 'Open'}
+                  </button>
+                </div>
+                {verifyOpen && !verifyDone && (
+                  <>
+                    <textarea
+                      value={verifyNotes}
+                      onChange={(e) => setVerifyNotes(e.target.value)}
+                      placeholder="Describe what you observed on site — tree cover, water levels, equipment, etc."
+                      rows={3}
+                      className="w-full bg-slate-800 border border-slate-600 rounded-xl p-3 text-sm text-white placeholder:text-slate-500 resize-none outline-none focus:border-amber-500 transition-all"
+                    />
+                    <button
+                      onClick={handleVerify}
+                      disabled={verifying || !verifyNotes.trim()}
+                      className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black font-bold text-sm disabled:opacity-50 transition-all"
+                    >
+                      {verifying ? 'Submitting…' : 'Submit to Validator Node'}
+                    </button>
+                  </>
+                )}
+                {verifyDone && <p className="text-sm text-emerald-400 flex items-center gap-1"><ShieldCheck className="w-4 h-4" /> Verification submitted to validator queue.</p>}
+              </div>
+
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-500">
+              {loading ? <Loader className="w-5 h-5 animate-spin" /> : 'Select a project'}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── PORTFOLIO TAB ── */}
+      {activeTab === 'portfolio' && (
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-5">
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Total Owned', value: `${portfolioTotals.total} tCO2e`, color: 'text-white' },
+              { label: 'Active', value: `${portfolioTotals.active} tCO2e`, color: 'text-emerald-400' },
+              { label: 'Retired', value: `${portfolioTotals.retired} tCO2e`, color: 'text-cyan-400' },
+            ].map((s) => (
+              <div key={s.label} className="rounded-2xl bg-slate-900 border border-slate-700 p-4 text-center">
+                <p className="text-[10px] text-slate-500 uppercase font-bold">{s.label}</p>
+                <p className={`text-xl font-black mt-1 ${s.color}`}>{s.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {portfolio.length === 0 ? (
+            <div className="text-center py-16 text-slate-500">
+              <Award className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p className="font-bold">No credits yet</p>
+              <p className="text-sm mt-1">Buy credits from the Market tab to build your portfolio.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {portfolio.map((p) => (
+                <div key={p.purchaseId} className="rounded-2xl bg-slate-900 border border-slate-700 p-4">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="font-bold text-white">{p.projectName}</p>
+                      <p className="text-xs text-slate-400 mt-0.5">{p.units} tCO2e · ${p.pricePerTonne}/t · ${p.totalUsd.toFixed(2)} total</p>
+                      {p.retired && (
+                        <div className="mt-1">
+                          <span className="text-[10px] bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 rounded-full px-2 py-0.5 font-bold">Retired</span>
+                          {p.certificateHash && (
+                            <p className="text-[10px] text-slate-500 mt-1 font-mono break-all">cert: {p.certificateHash.slice(0, 24)}…</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {!p.retired && (
+                      <button
+                        onClick={() => handleRetire(p)}
+                        disabled={retiringId === p.purchaseId}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-bold hover:bg-cyan-500/25 transition-all disabled:opacity-50"
+                      >
+                        {retiringId === p.purchaseId ? <Loader className="w-3 h-3 animate-spin" /> : <CheckCircle className="w-3 h-3" />}
+                        Retire & Certify
+                      </button>
                     )}
                   </div>
-                );
-              })
-            )}
-          </div>
-        </section>
-      </div>
-
-      {showQr && activeParcel && (
-        <QrCodeDisplay
-          type="report"
-          id={activeParcel.id}
-          onClose={() => setShowQr(false)}
-          brandImageUrl={QR_LIFE_SAVER_IMAGE}
-          brandImageAlt="See my life — QR life saver"
-        />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
+
+      {/* ── IMPACT FEED TAB ── */}
+      {activeTab === 'feed' && (
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-3">
+          <p className="text-sm font-black uppercase text-slate-400 tracking-wide">Live Network Activity</p>
+          {feed.length === 0 ? (
+            <div className="text-center py-16 text-slate-500">
+              <Activity className="w-10 h-10 mx-auto mb-3 opacity-40" />
+              <p className="font-bold">No activity yet</p>
+              <p className="text-sm mt-1">Purchases and coalition joins will appear here.</p>
+            </div>
+          ) : feed.map((item) => (
+            <div key={item.id} className="rounded-xl bg-slate-900 border border-slate-800 p-3 flex items-start gap-3">
+              <div className={`w-8 h-8 rounded-full shrink-0 flex items-center justify-center text-sm ${item.type === 'purchase' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                {item.type === 'purchase' ? '🌱' : '🤝'}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-white">
+                  <span className="font-bold">{item.userName}</span>{' '}
+                  {item.type === 'purchase'
+                    ? <>{item.retired ? 'retired' : 'purchased'} <span className="text-emerald-400 font-bold">{item.units} tCO2e</span> from {item.projectName}</>
+                    : <>joined <span className="text-cyan-400 font-bold">{item.projectId}</span> as {item.role}</>
+                  }
+                </p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{relTime(item.ts)}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
     </div>
   );
 };

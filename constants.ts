@@ -112,7 +112,18 @@ export const API_ROUTES = {
   DIRECTIVES_SAVE: '/api/directives/save',
   /** POST { roomId, type, dataUrl } — reused for mission proof image upload. */
   SITUATION_MEDIA: '/api/situation/media',
+  /** Carbon credit market */
+  OFFSETS_LIST: '/api/offsets',
+  OFFSETS_BUY: '/api/offsets/buy',
+  OFFSETS_JOIN: '/api/offsets/join',
+  OFFSETS_LEAVE: '/api/offsets/leave',
+  OFFSETS_RETIRE: '/api/offsets/retire',
+  OFFSETS_VERIFY: '/api/offsets/verify',
+  OFFSETS_ACTIVITY: '/api/offsets/activity/feed',
 } as const;
+
+export const OFFSETS_PORTFOLIO = (userId: string) => apiUrl(`/api/offsets/portfolio/${encodeURIComponent(userId)}`);
+export const OFFSETS_COALITION = (projectId: string) => apiUrl(`/api/offsets/coalition/${encodeURIComponent(projectId)}`);
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
 export type HomeLayout = 'feed' | 'map' | 'categories';
