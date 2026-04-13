@@ -1,7 +1,7 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState, Suspense, lazy } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import MissionMarketplaceBrowse from '../components/MissionMarketplaceBrowse';
-import MissionLocalMap from '../../../components/missions/MissionLocalMap';
+const MissionLocalMap = lazy(() => import('../../../components/missions/MissionLocalMap'));
 import { MARKETPLACE_SAMPLE_LISTINGS } from '../data/marketplaceListings';
 import { mw } from '../missionWorkspaceTheme';
 import {
@@ -338,13 +338,15 @@ const LocalMapPanel: React.FC<{
         </div>
       </div>
 
-      {/* The map */}
-      <MissionLocalMap
-        listings={filtered}
-        cityQuery={activeCity}
-        height="h-[480px]"
-        onSelectListing={onOpenListing}
-      />
+      {/* The map — lazy loaded so Leaflet CSS doesn't inject on every page navigation */}
+      <Suspense fallback={<div className="h-[480px] rounded-2xl bg-black/20 animate-pulse" />}>
+        <MissionLocalMap
+          listings={filtered}
+          cityQuery={activeCity}
+          height="h-[480px]"
+          onSelectListing={onOpenListing}
+        />
+      </Suspense>
     </div>
   );
 };

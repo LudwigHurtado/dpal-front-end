@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, Suspense, lazy } from 'react';
 import { MARKETPLACE_SAMPLE_LISTINGS } from '../data/marketplaceListings';
 import {
   MARKETPLACE_KIND_LABEL,
@@ -6,7 +6,7 @@ import {
   type MarketplaceListing,
 } from '../marketplaceTypes';
 import { mw } from '../missionWorkspaceTheme';
-import MissionLocalMap from '../../../components/missions/MissionLocalMap';
+const MissionLocalMap = lazy(() => import('../../../components/missions/MissionLocalMap'));
 
 type FilterKey = 'all' | MarketplaceMissionKind;
 
@@ -155,14 +155,16 @@ const MissionMarketplaceBrowse: React.FC<MissionMarketplaceBrowseProps> = ({
           Showing {filtered.length} of {MARKETPLACE_SAMPLE_LISTINGS.length} sample listings (replace with live API).
         </p>
 
-        {/* Map view */}
+        {/* Map view — lazy loaded so Leaflet CSS doesn't inject on every page navigation */}
         {viewMode === 'map' ? (
-          <MissionLocalMap
-            listings={filtered}
-            cityQuery={locationQ.trim() || heroLocation}
-            height="h-[500px]"
-            onSelectListing={onOpenListing}
-          />
+          <Suspense fallback={<div className="h-[500px] rounded-2xl bg-black/20 animate-pulse" />}>
+            <MissionLocalMap
+              listings={filtered}
+              cityQuery={locationQ.trim() || heroLocation}
+              height="h-[500px]"
+              onSelectListing={onOpenListing}
+            />
+          </Suspense>
         ) : null}
 
         {/* List view */}

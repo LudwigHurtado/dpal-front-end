@@ -620,11 +620,27 @@ const App: React.FC = () => {
   }, [globalTextScale]);
 
   useEffect(() => {
-    setScopedItem('hero', JSON.stringify(hero));
-    setScopedItem('reports', JSON.stringify(reports));
-    setScopedItem('missions', JSON.stringify(missions));
-    setScopedItem('directives', JSON.stringify(directives));
-    setScopedItem('health-records', JSON.stringify(healthRecords));
+    const trySave = (key: string, value: string) => {
+      try {
+        setScopedItem(key, value);
+      } catch (e: any) {
+        if (e?.name === 'QuotaExceededError' || e?.code === 22) {
+          // Storage full — retry with a trimmed slice (keep newest 40 items for arrays)
+          try {
+            const parsed = JSON.parse(value);
+            const trimmed = Array.isArray(parsed) ? parsed.slice(-40) : parsed;
+            setScopedItem(key, JSON.stringify(trimmed));
+          } catch {
+            /* give up silently — data will reload from API on next session */
+          }
+        }
+      }
+    };
+    trySave('hero', JSON.stringify(hero));
+    trySave('reports', JSON.stringify(reports));
+    trySave('missions', JSON.stringify(missions));
+    trySave('directives', JSON.stringify(directives));
+    trySave('health-records', JSON.stringify(healthRecords));
   }, [hero, reports, missions, directives, healthRecords]);
 
   /** Best-effort: hydrate community feed from backend; backfill any reportIds on the local DPAL chain missing from state. */
