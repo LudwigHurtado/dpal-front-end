@@ -120,10 +120,13 @@ export const API_ROUTES = {
   OFFSETS_RETIRE: '/api/offsets/retire',
   OFFSETS_VERIFY: '/api/offsets/verify',
   OFFSETS_ACTIVITY: '/api/offsets/activity/feed',
+  OFFSETS_PARCELS: '/api/offsets/parcels',
+  OFFSETS_PARCELS_REGISTER: '/api/offsets/parcels/register',
 } as const;
 
 export const OFFSETS_PORTFOLIO = (userId: string) => apiUrl(`/api/offsets/portfolio/${encodeURIComponent(userId)}`);
 export const OFFSETS_COALITION = (projectId: string) => apiUrl(`/api/offsets/coalition/${encodeURIComponent(projectId)}`);
+export const OFFSETS_MY_PARCELS = (heroId: string) => apiUrl(`/api/offsets/parcels?heroId=${encodeURIComponent(heroId)}`);
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
 export type HomeLayout = 'feed' | 'map' | 'categories';
