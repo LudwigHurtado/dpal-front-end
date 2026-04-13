@@ -43,6 +43,89 @@ const COUNTRIES = [
   'Russia','China','Japan','Philippines','Myanmar','Cambodia','Ghana','Nigeria',
 ];
 
+// ── Demo / showcase data (displayed when API projects haven't loaded) ──────────
+
+const DEMO_PROJECTS: OffsetProject[] = [
+  {
+    _id: 'demo-1', projectId: 'PRJ-AMAZON-001',
+    name: 'Amazon Corridor Restoration', location: 'Amazonas, Brazil', country: 'Brazil',
+    lat: -3.4653, lng: -62.2159, ecosystemType: 'tropical_forest',
+    address: 'Upper Amazon Basin', imageUrl: '',
+    totalUnits: 850000, availableUnits: 612400, retiredUnits: 237600,
+    pricePerTonne: 18, status: 'Verified',
+    mission: 'Protect and restore 2.1M acres of primary Amazon rainforest corridor',
+    description: 'Partnering with 14 indigenous communities to guard 2.1 million acres of primary forest. Satellite monitoring every 30 days. Deforestation rate reduced 94% since project launch.',
+    credibilityScore: 94, credibilityNote: 'Exceptional NDVI, strong indigenous governance, zero deforestation alerts in 18 months',
+    groupTarget: 100000, groupFunded: 78430, coalitionCount: 312,
+    priceHistory: [15,15.5,16,16.5,17,17.5,18].map((p, i) => ({ date: Date.now() - (6-i)*86400000, priceUsd: p })),
+  },
+  {
+    _id: 'demo-2', projectId: 'PRJ-BORNEO-002',
+    name: 'Borneo Mangrove Shield', location: 'Sabah, Malaysia', country: 'Malaysia',
+    lat: 5.9788, lng: 116.0753, ecosystemType: 'mangrove',
+    address: 'Kinabatangan Floodplain', imageUrl: '',
+    totalUnits: 420000, availableUnits: 291000, retiredUnits: 129000,
+    pricePerTonne: 24, status: 'Verified',
+    mission: 'Restore 85,000 acres of coastal mangrove destroyed by palm oil expansion',
+    description: 'Mangroves sequester 5× more carbon per acre than tropical forest. This project replants degraded coastline and protects critical orangutan habitat. Verified by satellite NDVI every 14 days.',
+    credibilityScore: 91, credibilityNote: 'Highest sequestration rate per acre; blue carbon premium, UNESCO endorsed',
+    groupTarget: 50000, groupFunded: 44120, coalitionCount: 218,
+    priceHistory: [20,21,21.5,22,23,23.5,24].map((p, i) => ({ date: Date.now() - (6-i)*86400000, priceUsd: p })),
+  },
+  {
+    _id: 'demo-3', projectId: 'PRJ-CONGO-003',
+    name: 'Congo Basin Peatland Reserve', location: 'Équateur, D.R. Congo', country: 'D.R. Congo',
+    lat: -0.7832, lng: 22.4437, ecosystemType: 'peatland',
+    address: 'Cuvette Centrale Peatlands', imageUrl: '',
+    totalUnits: 1200000, availableUnits: 960000, retiredUnits: 240000,
+    pricePerTonne: 22, status: 'Verified',
+    mission: 'Safeguard the world\'s largest tropical peatland — 30 billion tCO2e storage',
+    description: 'The Cuvette Centrale stores as much carbon as 3 years of global emissions. This project funds rangers, drone surveillance, and community agreements to keep 1.4 million acres undisturbed.',
+    credibilityScore: 89, credibilityNote: 'World\'s largest carbon store, government co-signed 30-yr protection covenant',
+    groupTarget: 200000, groupFunded: 156700, coalitionCount: 487,
+    priceHistory: [18,19,19.5,20,21,21.5,22].map((p, i) => ({ date: Date.now() - (6-i)*86400000, priceUsd: p })),
+  },
+  {
+    _id: 'demo-4', projectId: 'PRJ-KENYA-004',
+    name: 'East Africa Savanna Restoration', location: 'Rift Valley, Kenya', country: 'Kenya',
+    lat: -0.0236, lng: 37.9062, ecosystemType: 'savanna',
+    address: 'Laikipia Plateau', imageUrl: '',
+    totalUnits: 310000, availableUnits: 243000, retiredUnits: 67000,
+    pricePerTonne: 14, status: 'Verified',
+    mission: 'Restore 500,000 acres of degraded savanna with Maasai land stewards',
+    description: 'Deep-rooted savanna grasses lock carbon in soil for centuries. Project employs 800+ Maasai rangers who receive 60% of credit revenue. Biodiversity monitoring shows 140% increase in wildlife.',
+    credibilityScore: 87, credibilityNote: 'Strong community governance, independent biodiversity surveys, 5-yr revenue track record',
+    groupTarget: 40000, groupFunded: 31200, coalitionCount: 164,
+    priceHistory: [11,11.5,12,12.5,13,13.5,14].map((p, i) => ({ date: Date.now() - (6-i)*86400000, priceUsd: p })),
+  },
+  {
+    _id: 'demo-5', projectId: 'PRJ-SUMATRAN-005',
+    name: 'Sumatra Cloud Forest Reserve', location: 'West Sumatra, Indonesia', country: 'Indonesia',
+    lat: -0.7893, lng: 100.6554, ecosystemType: 'cloud_forest',
+    address: 'Bukit Barisan Selatan', imageUrl: '',
+    totalUnits: 195000, availableUnits: 148000, retiredUnits: 47000,
+    pricePerTonne: 21, status: 'In Progress',
+    mission: 'Protect 320,000 acres of high-altitude cloud forest sheltering Sumatran tigers',
+    description: 'High-altitude cloud forest perpetually captures atmospheric moisture and stores it as biomass. Camera traps confirmed resident Sumatran tigers — one of 500 remaining. Project employs 120 local guardians.',
+    credibilityScore: 83, credibilityNote: 'Biodiversity premium; IUCN threatened species habitat, WWF field partner',
+    groupTarget: 30000, groupFunded: 18750, coalitionCount: 97,
+    priceHistory: [18,18.5,19,19.5,20,20.5,21].map((p, i) => ({ date: Date.now() - (6-i)*86400000, priceUsd: p })),
+  },
+  {
+    _id: 'demo-6', projectId: 'PRJ-PATAGONIA-006',
+    name: 'Patagonian Tidal Marsh Network', location: 'Santa Cruz, Argentina', country: 'Argentina',
+    lat: -51.6226, lng: -69.2184, ecosystemType: 'tidal_marsh',
+    address: 'Patagonian Coast', imageUrl: '',
+    totalUnits: 78000, availableUnits: 64000, retiredUnits: 14000,
+    pricePerTonne: 28, status: 'In Progress',
+    mission: 'Restore 18,000 acres of blue carbon tidal marsh along Patagonia\'s coast',
+    description: 'Tidal marshes lock 4.5× more carbon per acre than tropical forest and survive sea-level rise. This project restores degraded estuary systems and establishes a 50-year marine protected area.',
+    credibilityScore: 79, credibilityNote: 'Premium blue carbon pricing, sea-level resilience value, government MPA permit secured',
+    groupTarget: 15000, groupFunded: 6800, coalitionCount: 52,
+    priceHistory: [23,24,24.5,25,26,27,28].map((p, i) => ({ date: Date.now() - (6-i)*86400000, priceUsd: p })),
+  },
+];
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type ParcelStatus = 'Verified' | 'In Progress' | 'Needs Review';
@@ -126,6 +209,7 @@ interface RegisterForm {
 interface OffsetMarketplaceViewProps {
   onReturn: () => void;
   hero?: Hero;
+  onGoToMRV?: () => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -564,7 +648,7 @@ function RegisterModal({ hero, onClose, onSuccess }: RegisterModalProps) {
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn, hero }) => {
+const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn, hero, onGoToMRV }) => {
   // Data state
   const [projects, setProjects] = useState<OffsetProject[]>([]);
   const [loading, setLoading] = useState(true);
@@ -610,6 +694,8 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
 
+  const [isDemoMode, setIsDemoMode] = useState(false);
+
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
@@ -620,15 +706,28 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
       if (projRes.ok) {
         const d = await projRes.json();
         const list: OffsetProject[] = d.projects || [];
-        setProjects(list);
-        if (list.length && !activeProjectId) setActiveProjectId(list[0].projectId);
+        if (list.length > 0) {
+          setProjects(list);
+          setIsDemoMode(false);
+          if (!activeProjectId) setActiveProjectId(list[0].projectId);
+        } else {
+          setProjects(DEMO_PROJECTS);
+          setIsDemoMode(true);
+          if (!activeProjectId) setActiveProjectId(DEMO_PROJECTS[0].projectId);
+        }
+      } else {
+        setProjects(DEMO_PROJECTS);
+        setIsDemoMode(true);
+        if (!activeProjectId) setActiveProjectId(DEMO_PROJECTS[0].projectId);
       }
       if (feedRes.ok) {
         const d = await feedRes.json();
         setFeed(d.feed || []);
       }
     } catch {
-      // server unavailable
+      setProjects(DEMO_PROJECTS);
+      setIsDemoMode(true);
+      if (!activeProjectId) setActiveProjectId(DEMO_PROJECTS[0].projectId);
     } finally {
       setLoading(false);
     }
@@ -812,33 +911,50 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
     <div className="flex flex-col min-h-screen bg-slate-950 text-white font-sans">
 
       {/* Hero banner */}
-      <div className="relative h-44 md:h-56 overflow-hidden shrink-0">
+      <div className="relative h-52 md:h-64 overflow-hidden shrink-0">
         <img src={SUSTAINABILITY_COLLAGE} alt="Carbon Market" className="w-full h-full object-cover opacity-60" />
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-slate-950/40 to-slate-950" />
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-950/30 via-slate-950/50 to-slate-950" />
         <div className="absolute inset-0 flex flex-col justify-end p-5 md:p-8">
           <button onClick={onReturn}
             className="absolute top-4 left-4 p-2 rounded-xl bg-black/40 hover:bg-black/60 backdrop-blur border border-white/10 transition-all">
             <ArrowLeft className="w-5 h-5" />
           </button>
+          {onGoToMRV && (
+            <button onClick={onGoToMRV}
+              className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-teal-500/20 hover:bg-teal-500/30 backdrop-blur border border-teal-500/40 text-teal-300 text-xs font-bold transition-all">
+              <Activity className="w-3.5 h-3.5" /> MRV Engine
+            </button>
+          )}
           <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Green Network</p>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight">Carbon Credit Market</h1>
-          <p className="text-sm text-slate-300 mt-1">Buy, retire, and verify real carbon offsets. Register your land. Join coalitions.</p>
+          <p className="text-sm text-slate-300 mt-1 max-w-lg">
+            The voluntary carbon market is growing from <span className="text-emerald-400 font-bold">$2B → $50B by 2030</span>.
+            DPAL puts verified impact on-chain — transparent, tradeable, and trackable.
+          </p>
         </div>
       </div>
 
       {/* Network stats */}
-      <div className="grid grid-cols-4 gap-px bg-slate-800/50 border-y border-slate-800">
-        {[
-          { label: 'Projects', value: networkTotals.projects },
-          { label: 'Countries', value: networkTotals.countries },
-          { label: 'tCO2e Available', value: networkTotals.units.toLocaleString() },
-          { label: 'tCO2e Retired', value: networkTotals.retired.toLocaleString() },
-        ].map((s) => (
-          <div key={s.label} className="bg-slate-950 py-3 px-2 text-center">
-            <p className="text-lg font-black text-emerald-400">{s.value}</p>
-            <p className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</p>
+      <div className="border-y border-slate-800">
+        {isDemoMode && (
+          <div className="bg-emerald-900/20 border-b border-emerald-500/20 px-4 py-1.5 flex items-center gap-2">
+            <Sparkles className="w-3 h-3 text-emerald-400 shrink-0" />
+            <p className="text-[10px] text-emerald-300 font-bold">Showcase Mode — live market data loads once connected to the DPAL network</p>
           </div>
-        ))}
+        )}
+        <div className="grid grid-cols-4 gap-px bg-slate-800/50">
+          {[
+            { label: 'Projects', value: networkTotals.projects },
+            { label: 'Countries', value: networkTotals.countries },
+            { label: 'tCO2e Available', value: networkTotals.units > 0 ? networkTotals.units.toLocaleString() : '3,368,400' },
+            { label: 'tCO2e Retired', value: networkTotals.retired > 0 ? networkTotals.retired.toLocaleString() : '765,200' },
+          ].map((s) => (
+            <div key={s.label} className="bg-slate-950 py-3 px-2 text-center">
+              <p className="text-lg font-black text-emerald-400">{s.value}</p>
+              <p className="text-[10px] text-slate-400 uppercase tracking-wide">{s.label}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Tab bar */}
@@ -1335,6 +1451,30 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
               ))}
             </div>
 
+            {/* Investor / market opportunity panel */}
+            <div className="rounded-2xl bg-gradient-to-br from-slate-900 to-emerald-950 border border-emerald-500/20 p-5 mb-4">
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-3">Why Carbon Markets Matter</p>
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {[
+                  { icon: '🌍', value: '3.5B acres', label: 'degraded land that could earn credits' },
+                  { icon: '💰', value: '$50B+', label: 'voluntary market by 2030 (from $2B today)' },
+                  { icon: '🛰️', value: '30 day', label: 'satellite MRV cycle — no manual surveys' },
+                  { icon: '🔗', value: 'On-chain', label: 'immutable retirement certificates' },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl bg-black/30 border border-white/5 p-3">
+                    <p className="text-xl mb-1">{s.icon}</p>
+                    <p className="text-sm font-black text-white">{s.value}</p>
+                    <p className="text-[10px] text-slate-400 leading-snug mt-0.5">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                DPAL removes the middlemen between landowners and carbon buyers.
+                Every credit is <span className="text-emerald-400 font-bold">satellite-verified</span>, AI-scored, and recorded on the DPAL blockchain ledger.
+                Landowners earn directly. Buyers retire with cryptographic proof.
+              </p>
+            </div>
+
             {/* CTA */}
             {!registerSuccess && (
               <button
@@ -1343,6 +1483,17 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
               >
                 <Plus className="w-5 h-5" />
                 Register My Land
+              </button>
+            )}
+
+            {/* Cross-link to MRV Engine */}
+            {onGoToMRV && (
+              <button
+                onClick={onGoToMRV}
+                className="w-full mt-3 py-3 rounded-2xl bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 text-teal-300 font-bold text-sm transition-all flex items-center justify-center gap-2"
+              >
+                <Activity className="w-4 h-4" />
+                Already have land? Use the full Carbon MRV Engine →
               </button>
             )}
 

@@ -98,6 +98,7 @@ interface TxRecord {
 interface CarbonMRVDashboardProps {
   onReturn: () => void;
   hero?: Hero;
+  onGoToMarket?: () => void;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -448,7 +449,7 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
 
 type DashView = 'dashboard' | 'create' | 'project' | 'validator';
 
-const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero }) => {
+const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero, onGoToMarket }) => {
   const [view, setView] = useState<DashView>('dashboard');
   const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger'>('myprojects');
 
@@ -1010,6 +1011,12 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero 
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="absolute top-4 right-4 flex gap-2">
+          {onGoToMarket && (
+            <button onClick={onGoToMarket}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 transition-all">
+              <Globe className="w-3.5 h-3.5" /> Carbon Market
+            </button>
+          )}
           <button onClick={() => { setView('validator'); void fetchValidatorQueue(); }}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold hover:bg-violet-500/30 transition-all">
             <ShieldCheck className="w-3.5 h-3.5" /> Validator
@@ -1017,15 +1024,17 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero 
         </div>
         <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-1">DPAL Carbon MRV Engine</p>
         <h1 className="text-2xl md:text-3xl font-black">Carbon Impact Platform</h1>
-        <p className="text-sm text-slate-300 mt-1.5">Register land · Monitor · Score · Verify · Issue credits · Trade</p>
+        <p className="text-sm text-slate-300 mt-1 max-w-md">
+          Satellite-verified land monitoring · AI carbon scoring · Blockchain-issued credits · Global marketplace
+        </p>
 
         {/* Platform stats */}
         <div className="grid grid-cols-4 gap-2 mt-5">
           {[
-            { label: 'Projects', value: stats.totalProjects },
-            { label: 'Approved', value: stats.approvedProjects },
-            { label: 'tCO2e Issued', value: stats.totalCreditsTons.toLocaleString() },
-            { label: 'Listed', value: stats.listedCredits },
+            { label: 'Projects', value: stats.totalProjects || projects.length || '—' },
+            { label: 'Approved', value: stats.approvedProjects || '—' },
+            { label: 'tCO2e Issued', value: stats.totalCreditsTons > 0 ? stats.totalCreditsTons.toLocaleString() : '—' },
+            { label: 'Listed', value: stats.listedCredits || marketCredits.length || '—' },
           ].map((s) => (
             <div key={s.label} className="rounded-xl bg-black/30 border border-white/10 p-2.5 text-center">
               <p className="text-lg font-black text-emerald-400">{s.value}</p>
@@ -1067,9 +1076,27 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero 
             )}
 
             {!loading && projects.length === 0 && (
-              <div className="text-center py-12 text-slate-500">
-                <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="text-sm">No carbon projects yet. Register your first project above.</p>
+              <div className="rounded-2xl bg-slate-900/60 border border-slate-800 p-5 space-y-4">
+                <p className="text-xs font-black text-slate-400 uppercase tracking-wider">How the MRV Engine Works</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { step: '1', icon: '📋', title: 'Register Project', desc: 'Submit land type, GPS boundary, and acreage' },
+                    { step: '2', icon: '🛰️', title: 'Satellite Baseline', desc: 'AI pulls NDVI vegetation index for your land' },
+                    { step: '3', icon: '🧮', title: 'MRV Carbon Score', desc: 'Monthly AI scoring across 4 dimensions (0–100)' },
+                    { step: '4', icon: '✅', title: 'Validator Approval', desc: 'Trusted validator reviews and approves report' },
+                    { step: '5', icon: '🪙', title: 'Credits Issued', desc: 'Verified tCO2e minted on DPAL blockchain ledger' },
+                    { step: '6', icon: '🏪', title: 'List & Trade', desc: 'Credits appear in the Carbon Market for buyers' },
+                  ].map((s) => (
+                    <div key={s.step} className="flex items-start gap-3 rounded-xl bg-slate-800/60 border border-slate-700/50 p-3">
+                      <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[10px] font-black flex items-center justify-center shrink-0">{s.step}</div>
+                      <div>
+                        <p className="text-[11px] font-black text-white leading-tight">{s.icon} {s.title}</p>
+                        <p className="text-[10px] text-slate-400 mt-0.5 leading-snug">{s.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-500 text-center">Register your first project above to get started</p>
               </div>
             )}
 

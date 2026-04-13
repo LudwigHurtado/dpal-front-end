@@ -2296,11 +2296,19 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'offsetMarketplace' && (
-          <OffsetMarketplaceView onReturn={() => goBack('mainMenu')} hero={hero} />
+          <OffsetMarketplaceView
+            onReturn={() => goBack('mainMenu')}
+            hero={hero}
+            onGoToMRV={() => setCurrentView('carbonMRV')}
+          />
         )}
 
         {currentView === 'carbonMRV' && (
-          <CarbonMRVDashboard onReturn={() => goBack('mainMenu')} hero={hero} />
+          <CarbonMRVDashboard
+            onReturn={() => goBack('mainMenu')}
+            hero={hero}
+            onGoToMarket={() => setCurrentView('offsetMarketplace')}
+          />
         )}
       </main>
 
