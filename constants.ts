@@ -143,7 +143,16 @@ export const API_ROUTES = {
   WATER_ACTIVITY_FEED: '/api/water/activity/feed',
   WATER_SATELLITE_PREVIEW: '/api/water/satellite-preview',
   DISASTERS_FEED: '/api/disasters/feed',
+  /** DPAL Global Signals Engine */
+  SIGNALS_LIST:          '/api/signals',
+  SIGNALS_STATS:         '/api/signals/stats',
+  SIGNALS_IMPORT:        '/api/signals/import',
 } as const;
+
+export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
+export const SIGNAL_STATUS        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}/status`);
+export const SIGNAL_ENRICH        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}/enrich`);
+export const SIGNAL_CREATE_MISSION = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}/create-mission`);
 
 export const OFFSETS_PORTFOLIO = (userId: string) => apiUrl(`/api/offsets/portfolio/${encodeURIComponent(userId)}`);
 export const OFFSETS_COALITION = (projectId: string) => apiUrl(`/api/offsets/coalition/${encodeURIComponent(projectId)}`);

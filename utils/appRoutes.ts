@@ -71,6 +71,8 @@ export const VIEW_PATHS: Record<string, string> = {
   createMission: '/missions/create',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   waterMonitor: '/water',
+  /** DPAL Global Signals Engine — live feeds from USGS / NASA EONET / OpenAQ */
+  globalSignals: '/global-signals',
 };
 
 export function viewToPath(view: string): string {

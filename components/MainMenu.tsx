@@ -372,6 +372,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<Activity className="w-8 h-8" />}
+                    label="Global Signals"
+                    subLabel="USGS · NASA EONET · OpenAQ · live hazard feeds · mission conversion"
+                    status="Live"
+                    colorClass="amber"
+                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    onClick={() => onNavigate('globalSignals')}
+                />
+
+                <PrimaryNavModule
                     icon={<Waves className="w-8 h-8" />}
                     label="Water Satellite Monitor"
                     subLabel="Live SMAP · SWOT · GRACE-FO · GIBS · Copernicus readings"
