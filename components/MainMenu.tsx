@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from '../i18n';
-import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint } from './icons';
+import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves } from './icons';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS, getValidatorPortalUrl } from '../constants';
 import {
@@ -80,7 +80,9 @@ const PrimaryNavModule: React.FC<{
         amber: '#f59e0b',
         emerald: '#10b981',
         blue: '#3b82f6',
-        purple: '#a855f7'
+        purple: '#a855f7',
+        teal: '#14b8a6',
+        sky: '#0ea5e9',
     };
     const imageSources = (bgImageUrls && bgImageUrls.length > 0)
       ? bgImageUrls
@@ -367,6 +369,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     colorClass="teal"
                     bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
                     onClick={() => onNavigate('carbonMRV')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Waves className="w-8 h-8" />}
+                    label="Water Satellite Monitor"
+                    subLabel="Live SMAP · SWOT · GRACE-FO · GIBS · Copernicus readings"
+                    status="Live"
+                    colorClass="sky"
+                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    onClick={() => onNavigate('waterMonitor')}
                 />
 
                 <PrimaryNavModule

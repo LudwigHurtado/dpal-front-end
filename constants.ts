@@ -134,6 +134,14 @@ export const API_ROUTES = {
   CARBON_VALIDATOR_REVIEW: '/api/carbon/validators/review',
   CARBON_LEDGER: '/api/carbon/ledger',
   CARBON_STATS: '/api/carbon/stats',
+  /** DPAL Water Monitor + Verified Water Impact Credits */
+  WATER_PROJECTS: '/api/water/projects',
+  WATER_CREDITS: '/api/water/credits',
+  WATER_VALIDATOR_QUEUE: '/api/water/validator/queue',
+  WATER_VALIDATOR_REVIEWS: '/api/water/validator/reviews',
+  WATER_STATS: '/api/water/stats',
+  WATER_ACTIVITY_FEED: '/api/water/activity/feed',
+  WATER_SATELLITE_PREVIEW: '/api/water/satellite-preview',
 } as const;
 
 export const OFFSETS_PORTFOLIO = (userId: string) => apiUrl(`/api/offsets/portfolio/${encodeURIComponent(userId)}`);
@@ -145,6 +153,16 @@ export const CARBON_MRV_HISTORY = (projectId: string) => apiUrl(`/api/carbon/mrv
 export const CARBON_CREDITS_OWNED = (userId: string) => apiUrl(`/api/carbon/credits/${encodeURIComponent(userId)}`);
 export const CARBON_PROJECT_LEDGER = (projectId: string) => apiUrl(`/api/carbon/ledger/${encodeURIComponent(projectId)}`);
 export const CARBON_PROJECTS_BY_OWNER = (ownerId: string) => apiUrl(`/api/carbon/projects?ownerId=${encodeURIComponent(ownerId)}`);
+
+// ── Water Monitor helpers ─────────────────────────────────────────────────────
+export const WATER_PROJECT_DETAIL    = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}`);
+export const WATER_PROJECT_SNAPSHOTS = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/snapshots`);
+export const WATER_MOCK_REFRESH      = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/snapshots/mock-refresh`);
+export const WATER_PROJECT_REPORTS   = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/reports`);
+export const WATER_GENERATE_REPORT   = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/reports/generate`);
+export const WATER_ISSUE_CREDITS     = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/credits/issue`);
+export const WATER_CREDIT_LIST       = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/list`);
+export const WATER_CREDIT_RETIRE     = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/retire`);
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
 export type HomeLayout = 'feed' | 'map' | 'categories';
