@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-12 (missions-v2 stabilization, in-progress tracking panel, scroll UX, menu cleanup)
+Last updated: 2026-04-13 (water monitor MVP, carbon market investor UX, Learn tab, cross-navigation)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -72,7 +72,10 @@ See **`vite-env.d.ts`** for the full typed list.
 
 3. **`dpal-ai-server`** (separate GitHub repo, **not** this tree)  
    - **`LudwigHurtado/dpal-ai-server`** — this is what usually backs **`https://web-production-a27b.up.railway.app`**.  
-   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, etc.
+   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, carbon MRV, offsets, **water monitor**, etc.
+   - **Water Monitor routes** (`/api/water/*`) added in `src/routes/water.routes.ts` — registered in `src/index.ts`. Models in `src/models/Water*.ts`. Satellite adapters in `src/services/adapters/*.adapter.ts`.
+   - **Carbon MRV routes** (`/api/carbon/*`) in `src/routes/carbon.routes.ts`.
+   - **Offsets routes** (`/api/offsets/*`) in `src/routes/offsets.routes.ts`.
 
 When debugging “API issues,” confirm whether the app is pointed at Railway **`dpal-ai-server`** or local `3001` Prisma backend.
 
@@ -139,7 +142,9 @@ If a dashboard shows “disconnected” or wrong API:
 | `incidentRoom` | `/situation` | Situation Room (with `?roomId=`) |
 | `escrowService` | `/escrow` | Trusted Escrow |
 | `dpalLocator` | `/locator` | Family / asset locator |
-| `offsetMarketplace` | `/offset` | Green Impact marketplace |
+| `offsetMarketplace` | `/offsets` | Carbon Credit Market (buy, retire, register land, learn) |
+| `carbonMRV` | `/carbon` | Carbon MRV Engine (register projects, satellite, score, validator, credits) |
+| `waterMonitor` | `/water` | **Water Monitor** (water projects, satellite snapshots, impact score, validator, credits) |
 
 ### Accounts & authentication (MongoDB users on `dpal-ai-server`)
 
@@ -180,10 +185,56 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | **Missions V2 — Types** | `features/missions-v2/types.ts`, `marketplaceTypes.ts`, `createMissionTypes.ts` |
 | **Missions V2 — Theme** | `features/missions-v2/missionWorkspaceTheme.ts` — `mw.*` class helpers (teal/dark palette) |
 | **AI Work Directives (Work Network)** | `components/AiWorkDirectivesView.tsx` — AI-guided community work marketplace; 15 categories; in-progress step tracking, proof notes, claim coins flow |
+| **Carbon Credit Market** | `components/OffsetMarketplaceView.tsx` — tabs: Market (buy/sell, world map, sparklines), My Credits (retire/certify), Impact Feed, Register Land (4-step wizard), **Learn** (Venn diagram, market data, registry comparison). Demo data fallback when API cold. Cross-links to Carbon MRV. |
+| **Carbon MRV Engine** | `components/CarbonMRVDashboard.tsx` — tabs: My Projects, Marketplace, Global Ledger. Views: dashboard, create (4-step), project detail (satellite NDVI, MRV score circular gauge, blockchain ledger), validator portal. Cross-links to Carbon Market. |
+| **DPAL Water Monitor** | `components/WaterMonitorView.tsx` — tabs: Dashboard, My Projects, Validator Queue, Credits. Views: dashboard (platform stats, WaterGlobe), create project (8 types, GPS polygon), project detail (satellite pull with 5 adapters, Water Impact Score 0–100, reports), validator review, credit issuance & marketplace. |
+| **Water Globe** | `components/WaterGlobe.tsx` — animated world globe for water project pins and alert indicators. |
 
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-13 — Water Monitor MVP + Carbon investor UX
+
+#### Carbon Credit Market (`/offsets`) — `OffsetMarketplaceView.tsx`
+- **Demo data fallback:** 6 global showcase projects (Amazon, Borneo, Congo, Kenya, Sumatra, Patagonia) render when API is unavailable. "Showcase Mode" banner makes state transparent.
+- **Investor hero copy:** hero banner updated — "$2B → $50B by 2030" market opportunity messaging.
+- **`📚 Learn` tab added:** full investor education section — Credits vs Offsets Venn diagram (3-column styled component), market growth bar chart (2018–2030), 5 key concept definitions (Additionality, MRV, NDVI, Retirement, tCO₂e), ecosystem sequestration rates, DPAL vs Verra VCS vs Gold Standard comparison table, dual CTA cards (For Buyers / For Landowners).
+- **Cross-navigation:** `onGoToMRV` prop → "MRV Engine" button in header + "use full Carbon MRV Engine →" in Register tab.
+- **`Why Carbon Markets Matter`** investor panel in Register Land tab.
+
+#### Carbon MRV Engine (`/carbon`) — `CarbonMRVDashboard.tsx`
+- **Cross-navigation:** `onGoToMarket` prop → "Carbon Market" button in header.
+- **Better empty state:** My Projects tab now shows a 6-step MRV workflow diagram instead of blank text.
+- **Fallback stats:** platform stats show `—` instead of `0` when API is cold.
+
+#### DPAL Water Monitor (`/water`) — **NEW full MVP**
+- **Frontend:** `components/WaterMonitorView.tsx` (2 052 lines), `components/WaterGlobe.tsx`
+  - 5 internal views: dashboard, create project, project detail, validator queue, credits marketplace
+  - 8 project types: farm_irrigation, reservoir_monitoring, wetland_restoration, leak_reduction, community_conservation, drought_response, school_or_facility_savings, other
+  - Satellite pull triggers all 5 adapters in parallel; anomaly flags surface inline
+  - Water Impact Score circular gauge (0–100, A–F grade, 5 component bars)
+  - Validator workflow: approve / reject / request evidence
+  - DPAL Verified Water Impact Credits: issue, list, retire with blockchain hash placeholder
+- **Backend** (in `dpal-ai-server`):
+  - **Models:** `WaterProject`, `WaterSnapshot`, `WaterImpactReport`, `WaterCredit`, `WaterTransaction`
+  - **Adapters:** `smap.adapter.ts`, `swot.adapter.ts`, `grace.adapter.ts`, `gibs.adapter.ts`, `copernicus.adapter.ts` — all return realistic mock data; TODO comments show exact NASA/Copernicus API integration points
+  - **Score service:** `waterImpactScore.service.ts` — 5-component 0–100 scoring (baseline improvement 30 pts, moisture stability 20 pts, drought risk reduction 15 pts, proof completeness 15 pts, validator confidence 20 pts)
+  - **Routes:** `water.routes.ts` registered at `/api/water` — 18 endpoints (project CRUD, mock-refresh, report generate, validator queue/review, credit issue/list/retire, stats, activity feed)
+- **Constants:** `API_ROUTES.WATER_*` + helper functions `WATER_PROJECT_DETAIL`, `WATER_MOCK_REFRESH`, etc. in `constants.ts`
+- **Routing:** `waterMonitor` view at `/water` in `utils/appRoutes.ts`; `App.tsx` renders `<WaterMonitorView />`; MainMenu tile "Water Satellite Monitor" navigates to `waterMonitor`
+- **All credits labelled** "DPAL Verified Water Impact Credits" — not real regulated commodities
+
+#### App.tsx wiring
+- `OffsetMarketplaceView` receives `onGoToMRV={() => setCurrentView('carbonMRV')}`
+- `CarbonMRVDashboard` receives `onGoToMarket={() => setCurrentView('offsetMarketplace')}`
+- `WaterMonitorView` wired at `currentView === 'waterMonitor'`
+
+#### Build status
+- Frontend TypeScript: 10 pre-existing errors (hero.id, Users icon, runGeminiGenerate) — unchanged, zero new errors
+- All water monitor JSX duplicate-`className` errors fixed (6 locations in `WaterMonitorView.tsx`)
+
+---
 
 ### 2026-04-12 — Missions V2 stabilization + UX fixes
 

@@ -466,7 +466,7 @@ function CreateProjectForm({
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onCancel} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition">
-          <ArrowLeft size={18} />
+          <ArrowLeft className="w-[18px] h-[18px]" />
         </button>
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Register Water Project</h2>
@@ -508,7 +508,7 @@ function CreateProjectForm({
                     disabled={aiLoading || !canSuggest}
                     className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-700/25 hover:bg-violet-700/40 border border-violet-600/40 text-violet-300 text-[11px] font-semibold transition disabled:opacity-40"
                   >
-                    <Sparkles size={11} className={aiLoading ? 'animate-pulse' : ''} />
+                    <Sparkles className={`w-3 h-3 ${aiLoading ? 'animate-pulse' : ''}`} />
                     {aiLoading ? 'Generating…' : 'Suggest with AI'}
                   </button>
                 ) : (
@@ -528,7 +528,7 @@ function CreateProjectForm({
           {/* AI error */}
           {aiErr && (
             <div className="flex items-center gap-2 bg-rose-950/30 border border-rose-800/40 rounded-lg px-3 py-2 text-xs text-rose-400">
-              <AlertTriangle size={12} className="shrink-0" />{aiErr}
+              <AlertTriangle className="w-3 h-3 shrink-0" />{aiErr}
             </div>
           )}
 
@@ -536,7 +536,7 @@ function CreateProjectForm({
           {suggestions.length > 0 && (
             <div ref={suggestionsRef} className="space-y-3 pt-1">
               <div className="flex items-center gap-2">
-                <Sparkles size={13} className="text-violet-400" />
+                <Sparkles className="w-3.5 h-3.5 text-violet-400" />
                 <p className="text-xs font-semibold text-violet-300">AI Suggestions — click one to apply</p>
                 <span className="text-[10px] text-slate-500 ml-auto">Based on your project type &amp; location</span>
               </div>
@@ -558,7 +558,7 @@ function CreateProjectForm({
                     </span>
                     {selectedSuggestion === idx ? (
                       <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
-                        <CheckCircle size={11} /> Applied
+                        <CheckCircle className="w-3 h-3" /> Applied
                       </span>
                     ) : (
                       <span className="text-[10px] text-slate-500">Click to apply</span>
@@ -601,7 +601,7 @@ function CreateProjectForm({
                 disabled={aiLoading}
                 className="w-full text-[10px] text-slate-500 hover:text-violet-400 transition py-1 flex items-center justify-center gap-1.5"
               >
-                <RefreshCw size={10} className={aiLoading ? 'animate-spin' : ''} />
+                <RefreshCw className={`w-2.5 h-2.5 ${aiLoading ? 'animate-spin' : ''}`} />
                 Regenerate suggestions
               </button>
             </div>
@@ -634,7 +634,7 @@ function CreateProjectForm({
             </div>
           </div>
           <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800/50 p-4 text-center">
-            <MapPin size={20} className="mx-auto text-teal-500 mb-2" />
+            <MapPin className="w-5 h-5 mx-auto text-teal-500 mb-2" />
             <p className="text-xs text-slate-400 font-medium">GPS center coordinates are used for satellite data queries</p>
             <p className="text-[10px] text-slate-600 mt-0.5">Interactive boundary drawing coming in a future update</p>
           </div>
@@ -653,7 +653,7 @@ function CreateProjectForm({
                 <label className={labelCls + ' mb-0'}>Improvement Goal</label>
                 {selectedSuggestion !== null && suggestions[selectedSuggestion]?.improvementGoal && (
                   <span className="text-[10px] text-emerald-500 flex items-center gap-1">
-                    <CheckCircle size={10} /> Filled by AI
+                    <CheckCircle className="w-2.5 h-2.5" /> Filled by AI
                   </span>
                 )}
               </div>
@@ -676,7 +676,7 @@ function CreateProjectForm({
             Cancel
           </button>
           <button type="submit" disabled={busy} className="px-6 py-2.5 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-medium transition text-sm flex items-center gap-2">
-            {busy ? <RefreshCw size={14} className="animate-spin" /> : <Plus size={14} />}
+            {busy ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
             {busy ? 'Registering…' : 'Register Project'}
           </button>
         </div>
@@ -713,9 +713,9 @@ function ProjectCard({
         </span>
       </div>
       <div className="flex items-center gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-1"><MapPin size={10} />{project.location.city || project.location.country}</span>
+        <span className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{project.location.city || project.location.country}</span>
         {project.totalAcres > 0 && <span>{project.totalAcres.toLocaleString()} ac</span>}
-        <span className="ml-auto flex items-center gap-1"><ChevronRight size={12} className="text-teal-500 opacity-0 group-hover:opacity-100 transition" /></span>
+        <span className="ml-auto flex items-center gap-1"><ChevronRight className="w-3 h-3 text-teal-500 opacity-0 group-hover:opacity-100 transition" /></span>
       </div>
     </button>
   );
@@ -803,7 +803,7 @@ function ProjectDetailView({
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <RefreshCw size={20} className="animate-spin text-teal-400 mr-2" />
+      <RefreshCw className="w-5 h-5 animate-spin text-teal-400 mr-2" />
       <span className="text-slate-400 text-sm">Loading project…</span>
     </div>
   );
@@ -818,14 +818,14 @@ function ProjectDetailView({
   const canIssueCredits = project.status === 'approved'
     && latestReport?.validatorStatus === 'approved'
     && latestReport?.eligibleForCredits
-    && project.status !== 'credited';
+   ;
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start gap-3">
         <button onClick={onBack} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition mt-0.5">
-          <ArrowLeft size={18} />
+          <ArrowLeft className="w-[18px] h-[18px]" />
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -841,12 +841,12 @@ function ProjectDetailView({
 
       {notice && (
         <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg px-4 py-3 text-sm text-teal-300">
-          <CheckCircle size={14} className="inline mr-2" />{notice}
+          <CheckCircle className="w-3.5 h-3.5 inline mr-2" />{notice}
         </div>
       )}
       {err && (
         <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-4 py-3 text-sm text-rose-300">
-          <AlertTriangle size={14} className="inline mr-2" />{err}
+          <AlertTriangle className="w-3.5 h-3.5 inline mr-2" />{err}
           <button onClick={() => setErr('')} className="ml-2 underline text-xs">dismiss</button>
         </div>
       )}
@@ -858,7 +858,7 @@ function ProjectDetailView({
           disabled={refreshing}
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-700/30 hover:bg-teal-700/50 border border-teal-600/40 text-teal-300 text-sm transition disabled:opacity-50"
         >
-          <RefreshCw size={14} className={refreshing ? 'animate-spin' : ''} />
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Pulling data…' : 'Pull Satellite Data'}
         </button>
         <button
@@ -867,7 +867,7 @@ function ProjectDetailView({
           className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-700/30 hover:bg-indigo-700/50 border border-indigo-600/40 text-indigo-300 text-sm transition disabled:opacity-50"
           title={snapshots.length === 0 ? 'Pull satellite data first' : undefined}
         >
-          <FileText size={14} className={generating ? 'animate-pulse' : ''} />
+          <FileText className={`w-3.5 h-3.5 ${generating ? 'animate-pulse' : ''}`} />
           {generating ? 'Generating…' : 'Generate Impact Report'}
         </button>
         {canIssueCredits && (
@@ -876,7 +876,7 @@ function ProjectDetailView({
             disabled={issuingCredits}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-700/30 hover:bg-emerald-700/50 border border-emerald-600/40 text-emerald-300 text-sm transition disabled:opacity-50"
           >
-            <Award size={14} />
+            <Award className="w-3.5 h-3.5" />
             {issuingCredits ? 'Issuing…' : 'Issue Water Impact Credits'}
           </button>
         )}
@@ -942,7 +942,7 @@ function ProjectDetailView({
             <div className="flex flex-wrap gap-2">
               {latestSnap.anomalyFlags.map((flag) => (
                 <span key={flag} className="text-[10px] bg-rose-500/10 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                  <AlertTriangle size={8} className="inline mr-1" />{flag.replace(/_/g, ' ')}
+                  <AlertTriangle className="w-2 h-2 inline mr-1" />{flag.replace(/_/g, ' ')}
                 </span>
               ))}
             </div>
@@ -1030,14 +1030,14 @@ function ProjectDetailView({
             {snapshots.map((snap) => (
               <div key={snap.snapshotId} className="flex items-start gap-3 text-xs">
                 <div className="shrink-0 mt-0.5">
-                  <Activity size={12} className="text-teal-400" />
+                  <Activity className="w-3 h-3 text-teal-400" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-slate-300 font-medium">{snap.captureDate}</span>
                     {snap.isBaseline && <span className="text-[9px] bg-teal-500/15 text-teal-400 px-1.5 py-0.5 rounded uppercase">Baseline</span>}
                     {snap.anomalyFlags.length > 0 && (
-                      <AlertTriangle size={10} className="text-amber-400" />
+                      <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />
                     )}
                   </div>
                   <p className="text-slate-500 truncate">{snap.source} · SMI: {fmtPct(snap.metrics.soilMoistureIndex)} · Drought: {fmtPct(snap.metrics.droughtRisk)}</p>
@@ -1158,20 +1158,20 @@ function ValidatorView({ onBack }: { onBack: () => void }) {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition">
-          <ArrowLeft size={18} />
+          <ArrowLeft className="w-[18px] h-[18px]" />
         </button>
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Validator Review Queue</h2>
           <p className="text-xs text-slate-400">Review water impact reports and approve or reject them</p>
         </div>
         <button onClick={loadQueue} className="ml-auto p-2 rounded-lg hover:bg-slate-800 text-slate-400 transition">
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       {notice && (
         <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg px-4 py-3 text-sm text-teal-300">
-          <CheckCircle size={14} className="inline mr-2" />{notice}
+          <CheckCircle className="w-3.5 h-3.5 inline mr-2" />{notice}
         </div>
       )}
       {err && (
@@ -1180,13 +1180,13 @@ function ValidatorView({ onBack }: { onBack: () => void }) {
 
       {loading && (
         <div className="flex items-center gap-2 py-10 justify-center text-slate-400 text-sm">
-          <RefreshCw size={16} className="animate-spin" /> Loading queue…
+          <RefreshCw className="w-4 h-4 animate-spin" /> Loading queue…
         </div>
       )}
 
       {!loading && queue.length === 0 && (
         <div className="text-center py-16">
-          <ShieldCheck size={40} className="mx-auto text-teal-500/40 mb-3" />
+          <ShieldCheck className="w-10 h-10 mx-auto text-teal-500/40 mb-3" />
           <p className="text-slate-400 text-sm">No pending reports in the validator queue.</p>
           <p className="text-slate-500 text-xs mt-1">Generate a report from a project to populate this queue.</p>
         </div>
@@ -1228,7 +1228,7 @@ function ValidatorView({ onBack }: { onBack: () => void }) {
 
             {/* Eligibility badge */}
             <div className={`inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border ${item.eligibleForCredits ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-slate-700/40 text-slate-400 border-slate-600'}`}>
-              {item.eligibleForCredits ? <CheckCircle size={11} /> : <AlertTriangle size={11} />}
+              {item.eligibleForCredits ? <CheckCircle className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
               {item.eligibleForCredits ? 'Credit-eligible (score ≥ 70)' : 'Not yet credit-eligible'}
             </div>
 
@@ -1256,21 +1256,21 @@ function ValidatorView({ onBack }: { onBack: () => void }) {
                 disabled={busy}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-700/30 hover:bg-emerald-700/50 border border-emerald-600/40 text-emerald-300 text-xs font-medium transition disabled:opacity-50"
               >
-                <CheckCircle size={13} />Approve
+                <CheckCircle className="w-3.5 h-3.5" />Approve
               </button>
               <button
                 onClick={() => decide(item.reportId, 'needs_evidence')}
                 disabled={busy}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-amber-700/30 hover:bg-amber-700/50 border border-amber-600/40 text-amber-300 text-xs font-medium transition disabled:opacity-50"
               >
-                <FileText size={13} />Request Evidence
+                <FileText className="w-3.5 h-3.5" />Request Evidence
               </button>
               <button
                 onClick={() => decide(item.reportId, 'rejected')}
                 disabled={busy}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-rose-700/20 hover:bg-rose-700/40 border border-rose-600/30 text-rose-300 text-xs font-medium transition disabled:opacity-50"
               >
-                <AlertTriangle size={13} />Reject
+                <AlertTriangle className="w-3.5 h-3.5" />Reject
               </button>
             </div>
           </div>
@@ -1347,7 +1347,7 @@ function CreditsView({ onBack }: { onBack: () => void }) {
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition">
-          <ArrowLeft size={18} />
+          <ArrowLeft className="w-[18px] h-[18px]" />
         </button>
         <div>
           <h2 className="text-lg font-semibold text-slate-100">Water Impact Credits</h2>
@@ -1357,7 +1357,7 @@ function CreditsView({ onBack }: { onBack: () => void }) {
 
       {notice && (
         <div className="bg-teal-500/10 border border-teal-500/30 rounded-lg px-4 py-3 text-sm text-teal-300">
-          <CheckCircle size={14} className="inline mr-2" />{notice}
+          <CheckCircle className="w-3.5 h-3.5 inline mr-2" />{notice}
         </div>
       )}
       {err && (
@@ -1367,10 +1367,10 @@ function CreditsView({ onBack }: { onBack: () => void }) {
       {/* Portfolio stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Total Credits', value: fmtKL(totalKL), icon: <Droplets size={16} className="text-teal-400" /> },
-          { label: 'Verified', value: fmtKL(verifiedKL), icon: <ShieldCheck size={16} className="text-emerald-400" /> },
-          { label: 'Listed', value: String(listedCount), icon: <Globe size={16} className="text-indigo-400" /> },
-          { label: 'Retired', value: String(retiredCount), icon: <Award size={16} className="text-violet-400" /> },
+          { label: 'Total Credits', value: fmtKL(totalKL), icon: <Droplets className="w-4 h-4 text-teal-400" /> },
+          { label: 'Verified', value: fmtKL(verifiedKL), icon: <ShieldCheck className="w-4 h-4 text-emerald-400" /> },
+          { label: 'Listed', value: String(listedCount), icon: <Globe className="w-4 h-4 text-indigo-400" /> },
+          { label: 'Retired', value: String(retiredCount), icon: <Award className="w-4 h-4 text-violet-400" /> },
         ].map(({ label, value, icon }) => (
           <div key={label} className="bg-slate-900 border border-slate-700 rounded-xl p-4 flex items-center gap-3">
             {icon}
@@ -1384,19 +1384,19 @@ function CreditsView({ onBack }: { onBack: () => void }) {
 
       {/* Disclaimer banner */}
       <div className="bg-amber-500/10 border border-amber-500/25 rounded-lg px-4 py-3 text-xs text-amber-300">
-        <AlertTriangle size={12} className="inline mr-1.5" />
+        <AlertTriangle className="w-3 h-3 inline mr-1.5" />
         <strong>Internal Credits Only:</strong> DPAL Verified Water Impact Credits are an internal measurement and recognition system. They do not represent regulated environmental commodities. Third-party certification integration is planned for future releases.
       </div>
 
       {loading && (
         <div className="flex items-center justify-center py-10 text-slate-400 text-sm gap-2">
-          <RefreshCw size={16} className="animate-spin" /> Loading credits…
+          <RefreshCw className="w-4 h-4 animate-spin" /> Loading credits…
         </div>
       )}
 
       {!loading && credits.length === 0 && (
         <div className="text-center py-16">
-          <Award size={40} className="mx-auto text-teal-500/30 mb-3" />
+          <Award className="w-10 h-10 mx-auto text-teal-500/30 mb-3" />
           <p className="text-slate-400 text-sm">No water impact credits yet.</p>
           <p className="text-slate-500 text-xs mt-1">Approve a project and generate an impact report with score ≥ 70 to issue credits.</p>
         </div>
@@ -1411,7 +1411,7 @@ function CreditsView({ onBack }: { onBack: () => void }) {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
-                    <Droplets size={16} className="text-teal-400" />
+                    <Droplets className="w-4 h-4 text-teal-400" />
                     <p className="font-semibold text-slate-100 text-sm">{fmtKL(credit.amountKiloLitres)}</p>
                     <span className="text-xs text-slate-500">DPAL Verified Water Impact</span>
                   </div>
@@ -1467,14 +1467,14 @@ function CreditsView({ onBack }: { onBack: () => void }) {
                     disabled={isBusy}
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-teal-700/30 hover:bg-teal-700/50 border border-teal-600/40 text-teal-300 text-xs transition disabled:opacity-50"
                   >
-                    <Globe size={12} />List on Marketplace
+                    <Globe className="w-3 h-3" />List on Marketplace
                   </button>
                   <button
                     onClick={() => retireCredit(credit.creditId)}
                     disabled={isBusy}
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-violet-700/20 hover:bg-violet-700/40 border border-violet-600/30 text-violet-300 text-xs transition disabled:opacity-50"
                   >
-                    <Award size={12} />Retire
+                    <Award className="w-3 h-3" />Retire
                   </button>
                 </div>
               )}
@@ -1484,7 +1484,7 @@ function CreditsView({ onBack }: { onBack: () => void }) {
                   disabled={isBusy}
                   className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-violet-700/20 hover:bg-violet-700/40 border border-violet-600/30 text-violet-300 text-xs transition disabled:opacity-50"
                 >
-                  <Award size={12} />Retire Credit
+                  <Award className="w-3 h-3" />Retire Credit
                 </button>
               )}
             </div>
@@ -1500,9 +1500,9 @@ function CreditsView({ onBack }: { onBack: () => void }) {
             {feed.slice(0, 15).map((tx) => (
               <div key={tx.txId} className="flex items-start gap-3 text-xs">
                 <div className="shrink-0 mt-0.5">
-                  {tx.txType === 'issue'  && <Zap size={11} className="text-teal-400" />}
-                  {tx.txType === 'list'   && <Globe size={11} className="text-indigo-400" />}
-                  {tx.txType === 'retire' && <Award size={11} className="text-violet-400" />}
+                  {tx.txType === 'issue'  && <Zap className="w-3 h-3 text-teal-400" />}
+                  {tx.txType === 'list'   && <Globe className="w-3 h-3 text-indigo-400" />}
+                  {tx.txType === 'retire' && <Award className="w-3 h-3 text-violet-400" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-slate-300 truncate">{tx.note}</p>
@@ -1582,7 +1582,7 @@ function SatelliteLiveFeed() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <div className="relative">
-            <Waves size={18} className="text-cyan-400" />
+            <Waves className="w-[18px] h-[18px] text-cyan-400" />
             {!loading && !err && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
             )}
@@ -1599,7 +1599,7 @@ function SatelliteLiveFeed() {
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-800/20 hover:bg-cyan-700/30 border border-cyan-700/30 text-cyan-400 text-xs transition disabled:opacity-50"
         >
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Fetching…' : 'Refresh'}
         </button>
       </div>
@@ -1615,14 +1615,14 @@ function SatelliteLiveFeed() {
 
       {loading && (
         <div className="flex items-center justify-center py-6 gap-2 text-slate-500 text-xs">
-          <RefreshCw size={14} className="animate-spin text-teal-400" />
+          <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-400" />
           Contacting satellites…
         </div>
       )}
 
       {err && !loading && (
         <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg px-4 py-3 text-xs text-rose-300 flex items-center gap-2">
-          <AlertTriangle size={12} />
+          <AlertTriangle className="w-3 h-3" />
           {err} — check Railway backend connection
         </div>
       )}
@@ -1802,7 +1802,7 @@ function Dashboard({
         <div className="relative flex items-start justify-between gap-4 flex-wrap">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <Waves size={22} className="text-teal-400" />
+              <Waves className="w-5 h-5 text-teal-400" />
               <span className="text-xs font-semibold text-teal-400 uppercase tracking-widest">DPAL Water Monitor</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">Verified Water Impact</h1>
@@ -1814,7 +1814,7 @@ function Dashboard({
             onClick={onCreateProject}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-medium text-sm transition shadow-lg shadow-teal-900/40"
           >
-            <Plus size={16} />Register Project
+            <Plus className="w-4 h-4" />Register Project
           </button>
         </div>
       </div>
@@ -1830,10 +1830,10 @@ function Dashboard({
       {stats && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: 'Total Projects',   value: String(stats.totalProjects),   icon: <Globe size={16} className="text-teal-400" /> },
-            { label: 'Approved',         value: String(stats.approvedProjects), icon: <ShieldCheck size={16} className="text-emerald-400" /> },
-            { label: 'Credits Issued',   value: fmtKL(stats.totalCreditsKL),   icon: <Award size={16} className="text-violet-400" /> },
-            { label: 'Listed on Market', value: String(stats.listedCredits),   icon: <BarChart2 size={16} className="text-indigo-400" /> },
+            { label: 'Total Projects',   value: String(stats.totalProjects),   icon: <Globe className="w-4 h-4 text-teal-400" /> },
+            { label: 'Approved',         value: String(stats.approvedProjects), icon: <ShieldCheck className="w-4 h-4 text-emerald-400" /> },
+            { label: 'Credits Issued',   value: fmtKL(stats.totalCreditsKL),   icon: <Award className="w-4 h-4 text-violet-400" /> },
+            { label: 'Listed on Market', value: String(stats.listedCredits),   icon: <BarChart2 className="w-4 h-4 text-indigo-400" /> },
           ].map(({ label, value, icon }) => (
             <div key={label} className="bg-slate-900 border border-slate-700 rounded-xl p-4 flex items-center gap-3">
               {icon}
@@ -1850,7 +1850,7 @@ function Dashboard({
       <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
           <div className="flex items-center gap-2 flex-wrap">
-            <Globe size={15} className="text-teal-400" />
+            <Globe className="w-[15px] h-[15px] text-teal-400" />
             <span className="text-sm font-semibold text-slate-200">Project World Map</span>
             {globePins.length > 0 && (
               <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">
@@ -1890,9 +1890,9 @@ function Dashboard({
       {/* Quick nav */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: 'Validator Queue', icon: <ShieldCheck size={18} className="text-amber-400" />, desc: 'Review pending impact reports', onClick: onOpenValidator, accent: 'border-amber-700/40 hover:border-amber-500/60' },
-          { label: 'Water Credits', icon: <Award size={18} className="text-violet-400" />, desc: 'Manage and trade impact credits', onClick: onOpenCredits, accent: 'border-violet-700/40 hover:border-violet-500/60' },
-          { label: 'Register Project', icon: <Plus size={18} className="text-teal-400" />, desc: 'Start a new water project', onClick: onCreateProject, accent: 'border-teal-700/40 hover:border-teal-500/60' },
+          { label: 'Validator Queue', icon: <ShieldCheck className="w-[18px] h-[18px] text-amber-400" />, desc: 'Review pending impact reports', onClick: onOpenValidator, accent: 'border-amber-700/40 hover:border-amber-500/60' },
+          { label: 'Water Credits', icon: <Award className="w-[18px] h-[18px] text-violet-400" />, desc: 'Manage and trade impact credits', onClick: onOpenCredits, accent: 'border-violet-700/40 hover:border-violet-500/60' },
+          { label: 'Register Project', icon: <Plus className="w-[18px] h-[18px] text-teal-400" />, desc: 'Start a new water project', onClick: onCreateProject, accent: 'border-teal-700/40 hover:border-teal-500/60' },
         ].map(({ label, icon, desc, onClick, accent }) => (
           <button
             key={label}
@@ -1913,19 +1913,19 @@ function Dashboard({
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-sm font-semibold text-slate-200">Water Projects</h2>
           <button onClick={onCreateProject} className="text-xs text-teal-400 hover:text-teal-300 transition flex items-center gap-1">
-            <Plus size={12} />Add
+            <Plus className="w-3 h-3" />Add
           </button>
         </div>
 
         {loading && (
           <div className="flex items-center justify-center py-10 text-slate-400 text-sm gap-2">
-            <RefreshCw size={16} className="animate-spin" /> Loading…
+            <RefreshCw className="w-4 h-4 animate-spin" /> Loading…
           </div>
         )}
 
         {!loading && projects.length === 0 && (
           <div className="text-center py-12 bg-slate-900 border border-dashed border-slate-700 rounded-xl">
-            <Droplets size={36} className="mx-auto text-teal-500/30 mb-3" />
+            <Droplets className="w-9 h-9 mx-auto text-teal-500/30 mb-3" />
             <p className="text-slate-400 text-sm">No water projects registered yet.</p>
             <button onClick={onCreateProject} className="mt-3 text-teal-400 text-xs hover:underline">Register your first project →</button>
           </div>
@@ -1946,9 +1946,9 @@ function Dashboard({
             {feed.slice(0, 8).map((tx) => (
               <div key={tx.txId} className="flex items-start gap-3 text-xs">
                 <span className="shrink-0 mt-0.5">
-                  {tx.txType === 'issue'  && <Zap size={11} className="text-teal-400" />}
-                  {tx.txType === 'list'   && <Globe size={11} className="text-indigo-400" />}
-                  {tx.txType === 'retire' && <Award size={11} className="text-violet-400" />}
+                  {tx.txType === 'issue'  && <Zap className="w-3 h-3 text-teal-400" />}
+                  {tx.txType === 'list'   && <Globe className="w-3 h-3 text-indigo-400" />}
+                  {tx.txType === 'retire' && <Award className="w-3 h-3 text-violet-400" />}
                 </span>
                 <p className="text-slate-400 flex-1 truncate">{tx.note}</p>
                 <span className="text-slate-600 shrink-0">{relTime(tx.ts)}</span>
@@ -1988,10 +1988,10 @@ export default function WaterMonitorView({ onReturn }: WaterMonitorViewProps) {
             className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"
             aria-label="Return to main menu"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft className="w-[18px] h-[18px]" />
           </button>
           <div className="flex items-center gap-2">
-            <Waves size={18} className="text-teal-400" />
+            <Waves className="w-[18px] h-[18px] text-teal-400" />
             <span className="text-sm font-semibold text-slate-100">Water Monitor</span>
           </div>
 
