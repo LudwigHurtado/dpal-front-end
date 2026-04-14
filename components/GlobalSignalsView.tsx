@@ -334,7 +334,7 @@ const GlobalSignalsView: React.FC<GlobalSignalsViewProps> = ({ onReturn }) => {
   const [selected, setSelected]       = useState<GlobalSignal | null>(null);
   const [filterCat, setFilterCat]     = useState<SignalCategory | 'all'>('all');
   const [filterRisk, setFilterRisk]   = useState<RiskLevel | 'all'>('all');
-  const [filterStatus, setFilterStatus] = useState<SignalStatus | 'new'>('new');
+  const [filterStatus, setFilterStatus] = useState<SignalStatus | 'all'>('new');
 
   const loadData = useCallback(async () => {
     setLoading(true); setErr('');

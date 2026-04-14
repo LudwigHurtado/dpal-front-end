@@ -13,14 +13,14 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { WaterGlobe, type WaterProjectPin } from './WaterGlobe';
+import { WaterGlobe, type WaterProjectPin, type WaterAlertPin } from './WaterGlobe';
 import { isAiEnabled } from '../services/geminiService';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
   ShieldCheck, Award, Zap, Plus, RefreshCw, Eye,
   Droplets, Waves, TrendingUp, TrendingDown, Globe, ChevronRight,
-  FileText, BarChart2, Star, Clock, Filter,
+  FileText, BarChart2, Star, Clock, Filter, Sparkles,
 } from './icons';
 import {
   apiUrl,
@@ -1679,6 +1679,23 @@ function SatelliteLiveFeed() {
   );
 }
 
+// ── Global reference water monitoring stations (always shown as base layer) ────
+// These are real-world water stress hotspots used as reference markers when
+// no registered projects are present, ensuring the map is never empty.
+
+const REFERENCE_STATIONS: WaterAlertPin[] = [
+  { id: 'ref-colorado',   title: 'Colorado River Basin — Chronic over-allocation drought stress',       description: 'Lake Mead & Lake Powell at historic lows. Critical water supply for 40M people.',    lat: 36.0,   lng: -114.7,  severity: 'critical', source: 'USGS Reference', isReference: true },
+  { id: 'ref-lakeChad',   title: 'Lake Chad Basin — 90% shrinkage since 1960',                          description: 'Severe desertification affecting Nigeria, Niger, Chad and Cameroon.',               lat: 13.3,   lng: 14.0,    severity: 'critical', source: 'FAO Reference',  isReference: true },
+  { id: 'ref-aral',       title: 'Aral Sea Region — Near-total desiccation',                            description: 'Once the 4th largest lake; now 10% of original volume. Central Asia crisis.',       lat: 44.5,   lng: 59.5,    severity: 'high',     source: 'NASA Reference', isReference: true },
+  { id: 'ref-ganges',     title: 'Ganges-Brahmaputra Delta — Seasonal flood & drought cycle',           description: 'Groundwater depletion + monsoon flooding affects 500M people in South Asia.',       lat: 24.0,   lng: 88.0,    severity: 'high',     source: 'FAO Reference',  isReference: true },
+  { id: 'ref-mekong',     title: 'Mekong River Delta — Upstream dam impacts + saltwater intrusion',     description: 'Vietnam delta facing salinization; 20M farmers dependent on water flow.',           lat: 10.5,   lng: 105.5,   severity: 'high',     source: 'EONET Reference',isReference: true },
+  { id: 'ref-murray',     title: 'Murray-Darling Basin — Australia drought & over-extraction',          description: 'Prolonged drought; river flow reduced >50%. Threatens agricultural output.',         lat: -34.0,  lng: 142.0,   severity: 'moderate', source: 'BOM Reference',  isReference: true },
+  { id: 'ref-nile',       title: 'Nile Delta — Freshwater scarcity & GERD dam dispute',                 description: 'Egypt, Ethiopia and Sudan in dispute over Grand Ethiopian Renaissance Dam.',         lat: 30.5,   lng: 31.2,    severity: 'moderate', source: 'FAO Reference',  isReference: true },
+  { id: 'ref-indus',      title: 'Indus Basin — Glacial melt acceleration + political tension',         description: 'Pakistan & India share the Indus; 270M depend on glacially-fed rivers.',            lat: 30.0,   lng: 71.0,    severity: 'moderate', source: 'FAO Reference',  isReference: true },
+  { id: 'ref-amazon',     title: 'Amazon River — Record 2023-2024 drought',                             description: 'Drought cut off river communities; 50M+ people and global carbon sink at risk.',    lat: -3.5,   lng: -62.0,   severity: 'high',     source: 'INPE Reference', isReference: true },
+  { id: 'ref-yellowRiver',title: 'Yellow River — Seasonal dry-out reaching sea stopped 200+ days/yr',  description: 'Heavy extraction and climate shifts; drying episodes increasing in northern China.',  lat: 35.5,   lng: 109.0,   severity: 'moderate', source: 'CWR Reference',  isReference: true },
+];
+
 // ── Dashboard (main view) ──────────────────────────────────────────────────────
 
 function Dashboard({
@@ -1692,17 +1709,23 @@ function Dashboard({
   onOpenValidator: () => void;
   onOpenCredits: () => void;
 }) {
-  const [projects, setProjects] = useState<WaterProject[]>([]);
-  const [stats, setStats] = useState<PlatformStats | null>(null);
-  const [feed, setFeed] = useState<TxRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState('');
-  const [showGlobe, setShowGlobe] = useState(true);
+  const [projects, setProjects]       = useState<WaterProject[]>([]);
+  const [stats, setStats]             = useState<PlatformStats | null>(null);
+  const [feed, setFeed]               = useState<TxRecord[]>([]);
+  const [loading, setLoading]         = useState(true);
+  const [err, setErr]                 = useState('');
+  const [showGlobe, setShowGlobe]     = useState(true);
+  const [hazardSignals, setHazardSignals] = useState<WaterAlertPin[]>([]);
 
-  // Convert WaterProject[] → WaterProjectPin[] for the globe
+  // Fix: exclude 0,0 default coords — only include projects with real GPS
   const globePins = useMemo<WaterProjectPin[]>(() =>
     projects
-      .filter((p) => p.location?.gpsCenter?.lat && p.location?.gpsCenter?.lng)
+      .filter((p) => {
+        const lat = p.location?.gpsCenter?.lat;
+        const lng = p.location?.gpsCenter?.lng;
+        return lat != null && lng != null && (lat !== 0 || lng !== 0);
+      })
+      .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
       .map((p) => ({
         projectId:   p.projectId,
         projectName: p.projectName,
@@ -1717,6 +1740,12 @@ function Dashboard({
     [projects]
   );
 
+  // Alert pins = hazard signals from GlobalSignals API + reference stations when no user projects
+  const alertPins = useMemo<WaterAlertPin[]>(() => {
+    const base = globePins.length === 0 ? REFERENCE_STATIONS : [];
+    return [...base, ...hazardSignals];
+  }, [globePins.length, hazardSignals]);
+
   useEffect(() => {
     async function load() {
       setLoading(true);
@@ -1726,9 +1755,9 @@ function Dashboard({
           apiFetch<{ ok: boolean; stats: PlatformStats }>(apiUrl(API_ROUTES.WATER_STATS)),
           apiFetch<{ ok: boolean; feed: TxRecord[] }>(apiUrl(API_ROUTES.WATER_ACTIVITY_FEED)),
         ]);
-        setProjects(pd.projects);
+        setProjects(pd.projects ?? []);
         setStats(sd.stats);
-        setFeed(fd.feed);
+        setFeed(fd.feed ?? []);
       } catch (ex: unknown) {
         setErr(ex instanceof Error ? ex.message : String(ex));
       } finally {
@@ -1736,6 +1765,31 @@ function Dashboard({
       }
     }
     load();
+
+    // Pull environmental hazard + pollution signals to show on map
+    async function loadSignals() {
+      try {
+        const url = apiUrl('/api/signals') + '?riskLevel=high&limit=30';
+        const data = await apiFetch<{ ok: boolean; signals: Array<{ signalId: string; title: string; description: string; category: string; riskLevel: string; latitude?: number; longitude?: number; sourceName: string }> }>(url);
+        const pins: WaterAlertPin[] = (data.signals ?? [])
+          .filter((s) => s.latitude != null && s.longitude != null && s.latitude !== 0 && s.longitude !== 0)
+          .filter((s) => ['environmental_hazard', 'pollution', 'climate_risk', 'fire_smoke'].includes(s.category))
+          .map((s) => ({
+            id: s.signalId,
+            title: s.title,
+            description: s.description,
+            lat: s.latitude!,
+            lng: s.longitude!,
+            severity: s.riskLevel as WaterAlertPin['severity'],
+            source: s.sourceName,
+            isReference: false,
+          }));
+        setHazardSignals(pins);
+      } catch {
+        // signals not critical — fail silently
+      }
+    }
+    loadSignals();
   }, []);
 
   return (
@@ -1795,12 +1849,19 @@ function Dashboard({
       {/* World Map */}
       <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Globe size={15} className="text-teal-400" />
             <span className="text-sm font-semibold text-slate-200">Project World Map</span>
             {globePins.length > 0 && (
               <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">
                 {globePins.length} project{globePins.length !== 1 ? 's' : ''}
+              </span>
+            )}
+            {alertPins.length > 0 && (
+              <span className="text-[10px] bg-orange-500/15 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded-full">
+                {alertPins.filter(a => !a.isReference).length > 0
+                  ? `${alertPins.filter(a => !a.isReference).length} hazard signal${alertPins.filter(a => !a.isReference).length !== 1 ? 's' : ''}`
+                  : `${alertPins.length} reference station${alertPins.length !== 1 ? 's' : ''}`}
               </span>
             )}
           </div>
@@ -1814,9 +1875,15 @@ function Dashboard({
         {showGlobe && (
           <WaterGlobe
             projects={globePins}
+            alertPins={alertPins}
             onSelectProject={onViewProject}
-            height="h-[380px]"
+            height="h-[440px]"
           />
+        )}
+        {showGlobe && globePins.length === 0 && (
+          <p className="px-4 py-2 text-[10px] text-slate-600 border-t border-slate-800">
+            Showing global reference water stress stations · Register a project to add your own pins
+          </p>
         )}
       </div>
 

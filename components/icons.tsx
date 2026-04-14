@@ -1,20 +1,20 @@
 
 import React from 'react';
 
-type IconProps = React.SVGProps<SVGSVGElement>;
+export type IconProps = React.SVGProps<SVGSVGElement> & { size?: number };
 
 /** FIX: Helper to create SVG components to avoid repetitive boilerplate and resolve circular definitions */
-const Icon = (path: React.ReactNode): React.FC<IconProps> => ({ className, ...props }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width="24" 
-    height="24" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
+const Icon = (path: React.ReactNode): React.FC<IconProps> => ({ className, size, width, height, ...props }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={size ?? width ?? 24}
+    height={size ?? height ?? 24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
     className={className}
     {...props}
   >
