@@ -142,6 +142,7 @@ export const API_ROUTES = {
   WATER_STATS: '/api/water/stats',
   WATER_ACTIVITY_FEED: '/api/water/activity/feed',
   WATER_SATELLITE_PREVIEW: '/api/water/satellite-preview',
+  DISASTERS_FEED: '/api/disasters/feed',
 } as const;
 
 export const OFFSETS_PORTFOLIO = (userId: string) => apiUrl(`/api/offsets/portfolio/${encodeURIComponent(userId)}`);

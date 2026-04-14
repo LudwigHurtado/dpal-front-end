@@ -6,6 +6,7 @@ import { type Report, type Hero, type ChatMessage, Category } from '../types';
 import { ArrowLeft, Broadcast, ShieldCheck, Zap, Target, Clock, MapPin, CheckCircle, Search, FileText, Activity, Heart, Scale, User, Info, Pill, Home, Database, RefreshCw, Loader, ChevronRight, Send, Sparkles, Maximize2, Minimize2, AlertTriangle, Link, ChevronDown, GripVertical, Camera, Star } from './icons';
 import MissionChatroom from './MissionChatroom';
 import DeployBeaconPanel, { type BeaconCoordStatus } from './DeployBeaconPanel';
+import { GlobalAlertsPanel } from './GlobalAlertsPanel';
 import { CATEGORIES_WITH_ICONS, CHAT_SURFACE_CLASS, DEFAULT_MAP_LOCATION } from '../constants';
 import { performIAReview } from '../services/geminiService';
 import { buildReportVerifyUrl, buildSituationRoomUrl } from '../utils/deepLinks';
@@ -740,6 +741,12 @@ const IncidentRoomView: React.FC<IncidentRoomViewProps> = ({
                         </div>
                     )}
                 </section>
+
+                {/* Live Global Alerts — USGS + NASA EONET real-time feed */}
+                <GlobalAlertsPanel
+                    reportLocation={report.location}
+                    reportCategory={report.category}
+                />
 
                 {/* Chat — user-resizable height (drag handle + presets), persisted in localStorage */}
                 <section id="situation-chat" className="flex shrink-0 flex-col scroll-mt-4 border-b border-zinc-800/80 bg-zinc-950 px-3 pb-3 pt-2 md:px-6 md:pb-4 md:pt-3">
