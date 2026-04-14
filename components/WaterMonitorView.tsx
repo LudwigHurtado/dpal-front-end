@@ -12,8 +12,10 @@
  * No real regulated commodity. Future third-party certification adds external status.
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { WaterGlobe, type WaterProjectPin } from './WaterGlobe';
+import { isAiEnabled } from '../services/geminiService';
+import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
   ShieldCheck, Award, Zap, Plus, RefreshCw, Eye,
@@ -295,6 +297,78 @@ const EMPTY_FORM: CreateFormState = {
   totalAcres: '', baselineDate: new Date().toISOString().split('T')[0], improvementGoal: '',
 };
 
+// ── AI suggestion types ────────────────────────────────────────────────────────
+
+interface AiProjectSuggestion {
+  description: string;
+  improvementGoal: string;
+  challenges: string[];
+  approach: string;
+}
+
+const PROJECT_TYPE_CONTEXT: Record<string, string> = {
+  farm_irrigation:           'agricultural irrigation efficiency and crop water management',
+  reservoir_monitoring:      'reservoir level tracking, evaporation losses, and water storage capacity',
+  wetland_restoration:       'wetland ecosystem recovery, biodiversity, and natural water filtration',
+  leak_reduction:            'infrastructure leak detection, pipeline integrity, and water loss prevention',
+  community_conservation:    'community water access, equitable distribution, and local stewardship',
+  drought_response:          'drought resilience, emergency water supply, and demand management',
+  school_or_facility_savings:'institutional water efficiency, fixture upgrades, and behavioral conservation',
+  other:                     'water conservation and sustainable water management',
+};
+
+async function generateWaterProjectSuggestions(
+  form: CreateFormState
+): Promise<AiProjectSuggestion[]> {
+  const typeContext = PROJECT_TYPE_CONTEXT[form.projectType] || 'water conservation';
+  const locationParts = [form.city, form.region, form.country].filter(Boolean).join(', ');
+  const location = locationParts || 'the project area';
+  const nameHint = form.projectName.trim() ? `named "${form.projectName.trim()}"` : '';
+  const acresHint = form.totalAcres ? `covering approximately ${form.totalAcres} acres` : '';
+
+  const prompt = `You are a water conservation and environmental monitoring expert. A user is registering a water project on the DPAL satellite monitoring platform.
+
+Project context:
+- Type: ${PROJECT_TYPES.find(t => t.key === form.projectType)?.label ?? form.projectType}
+- Focus area: ${typeContext}
+- Location: ${location}
+- Project name: ${nameHint || '(not yet named)'}
+- ${acresHint || ''}
+
+Generate 3 different AI-assisted project descriptions tailored to this specific project type and location. Each must be grounded in real water challenges for this area.
+
+Respond ONLY with a JSON array of exactly 3 objects, no extra text:
+[
+  {
+    "description": "2-3 sentence project description mentioning specific local water challenges and the monitoring approach",
+    "improvementGoal": "specific measurable goal with timeframe e.g. reduce irrigation by 25% in 12 months",
+    "challenges": ["challenge 1", "challenge 2", "challenge 3"],
+    "approach": "one-sentence monitoring strategy"
+  },
+  ...
+]
+
+Be specific to ${location}. If the location mentions Colorado River, reference over-allocation, drought, salinity, agricultural demand, or tribal water rights as relevant. If it mentions farms, reference irrigation efficiency and soil moisture targets. If it mentions leaks, reference loss percentages and detection methods.`;
+
+  const res = await fetch(buildApiUrl(ALL_ROUTES.AI_GEMINI), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'gemini-2.0-flash',
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: { temperature: 0.7, maxOutputTokens: 1200 },
+    }),
+  });
+  if (!res.ok) throw new Error(`AI HTTP ${res.status}`);
+  const json = await res.json() as { text?: string; candidates?: { content: { parts: { text: string }[] } }[] };
+  const raw = json.text ?? json.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+  // Extract JSON array from response
+  const match = raw.match(/\[[\s\S]*\]/);
+  if (!match) throw new Error('AI returned unexpected format');
+  return JSON.parse(match[0]) as AiProjectSuggestion[];
+}
+
 function CreateProjectForm({
   onCreated,
   onCancel,
@@ -306,9 +380,53 @@ function CreateProjectForm({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
 
+  // AI suggestion state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiErr, setAiErr] = useState('');
+  const [suggestions, setSuggestions] = useState<AiProjectSuggestion[]>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState<number | null>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
   const set = (k: keyof CreateFormState) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
+
+  // Clear suggestions when type or location changes significantly
+  const prevTypeRef = useRef(form.projectType);
+  useEffect(() => {
+    if (prevTypeRef.current !== form.projectType) {
+      setSuggestions([]);
+      setSelectedSuggestion(null);
+      prevTypeRef.current = form.projectType;
+    }
+  }, [form.projectType]);
+
+  async function handleAiSuggest() {
+    setAiLoading(true);
+    setAiErr('');
+    setSuggestions([]);
+    setSelectedSuggestion(null);
+    try {
+      const results = await generateWaterProjectSuggestions(form);
+      setSuggestions(results);
+      setTimeout(() => suggestionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
+    } catch (ex: unknown) {
+      setAiErr(ex instanceof Error ? ex.message : 'AI suggestion failed. Check AI is enabled.');
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function applySuggestion(idx: number) {
+    const s = suggestions[idx];
+    if (!s) return;
+    setSelectedSuggestion(idx);
+    setForm((f) => ({
+      ...f,
+      description: s.description,
+      improvementGoal: s.improvementGoal,
+    }));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -341,6 +459,8 @@ function CreateProjectForm({
 
   const inputCls = 'w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-500 focus:outline-none focus:border-teal-500 transition';
   const labelCls = 'block text-xs font-medium text-slate-400 mb-1';
+  const aiEnabled = isAiEnabled();
+  const canSuggest = aiEnabled && (form.projectType || form.city || form.country || form.projectName);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -362,7 +482,7 @@ function CreateProjectForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className={labelCls}>Project Name *</label>
-              <input className={inputCls} placeholder="e.g. Sonora Valley Water Restoration" value={form.projectName} onChange={set('projectName')} required />
+              <input className={inputCls} placeholder="e.g. Colorado River Farm Conservation" value={form.projectName} onChange={set('projectName')} required />
             </div>
             <div>
               <label className={labelCls}>Project Type *</label>
@@ -376,11 +496,116 @@ function CreateProjectForm({
               <label className={labelCls}>Total Area (acres)</label>
               <input className={inputCls} type="number" min="0" step="0.1" placeholder="e.g. 450" value={form.totalAcres} onChange={set('totalAcres')} />
             </div>
+
+            {/* Description with AI button */}
             <div className="sm:col-span-2">
-              <label className={labelCls}>Description</label>
-              <textarea className={inputCls} rows={3} placeholder="Describe the water source, current challenge, and conservation approach…" value={form.description} onChange={set('description') as never} />
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls + ' mb-0'}>Description</label>
+                {aiEnabled ? (
+                  <button
+                    type="button"
+                    onClick={handleAiSuggest}
+                    disabled={aiLoading || !canSuggest}
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-violet-700/25 hover:bg-violet-700/40 border border-violet-600/40 text-violet-300 text-[11px] font-semibold transition disabled:opacity-40"
+                  >
+                    <Sparkles size={11} className={aiLoading ? 'animate-pulse' : ''} />
+                    {aiLoading ? 'Generating…' : 'Suggest with AI'}
+                  </button>
+                ) : (
+                  <span className="text-[10px] text-slate-600">AI not configured</span>
+                )}
+              </div>
+              <textarea
+                className={inputCls}
+                rows={3}
+                placeholder="Describe the water source, current challenge, and conservation approach… or click 'Suggest with AI' above"
+                value={form.description}
+                onChange={set('description') as never}
+              />
             </div>
           </div>
+
+          {/* AI error */}
+          {aiErr && (
+            <div className="flex items-center gap-2 bg-rose-950/30 border border-rose-800/40 rounded-lg px-3 py-2 text-xs text-rose-400">
+              <AlertTriangle size={12} className="shrink-0" />{aiErr}
+            </div>
+          )}
+
+          {/* AI Suggestions panel */}
+          {suggestions.length > 0 && (
+            <div ref={suggestionsRef} className="space-y-3 pt-1">
+              <div className="flex items-center gap-2">
+                <Sparkles size={13} className="text-violet-400" />
+                <p className="text-xs font-semibold text-violet-300">AI Suggestions — click one to apply</p>
+                <span className="text-[10px] text-slate-500 ml-auto">Based on your project type &amp; location</span>
+              </div>
+
+              {suggestions.map((s, idx) => (
+                <div
+                  key={idx}
+                  className={`rounded-xl border p-4 cursor-pointer transition-all space-y-3 ${
+                    selectedSuggestion === idx
+                      ? 'border-violet-500/60 bg-violet-900/20 ring-1 ring-violet-500/30'
+                      : 'border-slate-700 bg-slate-800/60 hover:border-violet-600/40 hover:bg-slate-800'
+                  }`}
+                  onClick={() => applySuggestion(idx)}
+                >
+                  {/* Header */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-violet-400">
+                      Option {idx + 1}
+                    </span>
+                    {selectedSuggestion === idx ? (
+                      <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-semibold">
+                        <CheckCircle size={11} /> Applied
+                      </span>
+                    ) : (
+                      <span className="text-[10px] text-slate-500">Click to apply</span>
+                    )}
+                  </div>
+
+                  {/* Description */}
+                  <p className="text-xs text-slate-200 leading-relaxed">{s.description}</p>
+
+                  {/* Goal */}
+                  <div className="bg-teal-900/20 border border-teal-700/30 rounded-lg px-3 py-2">
+                    <p className="text-[10px] font-semibold text-teal-400 uppercase tracking-wide mb-0.5">Improvement Goal</p>
+                    <p className="text-xs text-teal-200">{s.improvementGoal}</p>
+                  </div>
+
+                  {/* Challenges */}
+                  {s.challenges?.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Key challenges identified</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {s.challenges.map((c, ci) => (
+                          <span key={ci} className="text-[10px] bg-amber-900/20 border border-amber-700/30 text-amber-300 px-2 py-0.5 rounded-full">
+                            {c}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Approach */}
+                  {s.approach && (
+                    <p className="text-[10px] text-slate-400 italic border-t border-slate-700/50 pt-2">{s.approach}</p>
+                  )}
+                </div>
+              ))}
+
+              <button
+                type="button"
+                onClick={handleAiSuggest}
+                disabled={aiLoading}
+                className="w-full text-[10px] text-slate-500 hover:text-violet-400 transition py-1 flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw size={10} className={aiLoading ? 'animate-spin' : ''} />
+                Regenerate suggestions
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Location */}
@@ -389,34 +614,29 @@ function CreateProjectForm({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className={labelCls}>Country *</label>
-              <input className={inputCls} placeholder="e.g. Mexico" value={form.country} onChange={set('country')} required />
+              <input className={inputCls} placeholder="e.g. USA" value={form.country} onChange={set('country')} required />
             </div>
             <div>
               <label className={labelCls}>Region / State</label>
-              <input className={inputCls} placeholder="e.g. Sonora" value={form.region} onChange={set('region')} />
+              <input className={inputCls} placeholder="e.g. Arizona" value={form.region} onChange={set('region')} />
             </div>
             <div>
               <label className={labelCls}>City / Area</label>
-              <input className={inputCls} placeholder="e.g. Hermosillo" value={form.city} onChange={set('city')} />
+              <input className={inputCls} placeholder="e.g. Colorado River Basin" value={form.city} onChange={set('city')} />
             </div>
             <div>
               <label className={labelCls}>GPS Latitude</label>
-              <input className={inputCls} type="number" step="any" placeholder="e.g. 29.0729" value={form.lat} onChange={set('lat')} />
+              <input className={inputCls} type="number" step="any" placeholder="e.g. 36.1069" value={form.lat} onChange={set('lat')} />
             </div>
             <div>
               <label className={labelCls}>GPS Longitude</label>
-              <input className={inputCls} type="number" step="any" placeholder="e.g. -110.9559" value={form.lng} onChange={set('lng')} />
+              <input className={inputCls} type="number" step="any" placeholder="e.g. -114.0596" value={form.lng} onChange={set('lng')} />
             </div>
           </div>
-          {/* Polygon placeholder — MapLibre / Leaflet integration TODO */}
-          <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800/50 p-5 text-center">
-            <MapPin size={24} className="mx-auto text-teal-500 mb-2" />
-            <p className="text-sm text-slate-300 font-medium">Polygon Boundary</p>
-            <p className="text-xs text-slate-500 mt-1">
-              Interactive map boundary drawing is available when MapLibre / Leaflet is wired.
-              {/* TODO: integrate react-leaflet PolygonDrawer or MapLibre GL Draw here */}
-              GPS center coordinates above are used for satellite data queries in the MVP.
-            </p>
+          <div className="rounded-lg border border-dashed border-slate-600 bg-slate-800/50 p-4 text-center">
+            <MapPin size={20} className="mx-auto text-teal-500 mb-2" />
+            <p className="text-xs text-slate-400 font-medium">GPS center coordinates are used for satellite data queries</p>
+            <p className="text-[10px] text-slate-600 mt-0.5">Interactive boundary drawing coming in a future update</p>
           </div>
         </div>
 
@@ -429,8 +649,20 @@ function CreateProjectForm({
               <input className={inputCls} type="date" value={form.baselineDate} onChange={set('baselineDate')} />
             </div>
             <div className="sm:col-span-2">
-              <label className={labelCls}>Improvement Goal</label>
-              <input className={inputCls} placeholder="e.g. Reduce irrigation usage by 30% within 18 months" value={form.improvementGoal} onChange={set('improvementGoal')} />
+              <div className="flex items-center justify-between mb-1">
+                <label className={labelCls + ' mb-0'}>Improvement Goal</label>
+                {selectedSuggestion !== null && suggestions[selectedSuggestion]?.improvementGoal && (
+                  <span className="text-[10px] text-emerald-500 flex items-center gap-1">
+                    <CheckCircle size={10} /> Filled by AI
+                  </span>
+                )}
+              </div>
+              <input
+                className={inputCls}
+                placeholder="e.g. Reduce Colorado River water usage by 30% within 18 months"
+                value={form.improvementGoal}
+                onChange={set('improvementGoal')}
+              />
             </div>
           </div>
         </div>
