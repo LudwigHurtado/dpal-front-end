@@ -69,6 +69,8 @@ export const VIEW_PATHS: Record<string, string> = {
   missionMarketplace: '/missions',
   missionAssignmentV2: '/missions/v2',
   createMission: '/missions/create',
+  /** DPAL Water Monitor + Verified Water Impact Credits */
+  waterMonitor: '/water',
 };
 
 export function viewToPath(view: string): string {
