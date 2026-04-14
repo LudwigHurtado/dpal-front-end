@@ -659,7 +659,7 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
   // UI state
   const [query, setQuery] = useState('');
   const [activeProjectId, setActiveProjectId] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<'market' | 'portfolio' | 'feed' | 'register'>('market');
+  const [activeTab, setActiveTab] = useState<'market' | 'portfolio' | 'feed' | 'register' | 'learn'>('market');
   const [showMap, setShowMap] = useState(false);
 
   // Buy flow
@@ -964,13 +964,14 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
           { id: 'portfolio', label: portfolioTotals.total ? `My Credits (${portfolioTotals.total})` : 'My Credits' },
           { id: 'feed',      label: 'Impact Feed' },
           { id: 'register',  label: '+ Register Land' },
+          { id: 'learn',     label: '📚 Learn' },
         ] as const).map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
             className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 shrink-0
               ${activeTab === t.id
-                ? t.id === 'register' ? 'border-emerald-500 text-emerald-400' : 'border-emerald-500 text-emerald-400'
+                ? 'border-emerald-500 text-emerald-400'
                 : 'border-transparent text-slate-400 hover:text-white'}`}
           >
             {t.label}
@@ -1524,6 +1525,338 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════════════════════════════
+          LEARN TAB — Carbon Markets: The Complete Guide
+      ══════════════════════════════════════════════════════════════════════ */}
+      {activeTab === 'learn' && (
+        <div className="flex-1 overflow-y-auto">
+
+          {/* ── Hero header ─────────────────────────────────────────────── */}
+          <div className="relative bg-gradient-to-br from-slate-900 via-blue-950 to-emerald-950 px-5 pt-8 pb-6 overflow-hidden">
+            <div className="absolute inset-0 opacity-5">
+              <div className="absolute top-0 left-1/4 w-64 h-64 rounded-full bg-blue-400 blur-3xl" />
+              <div className="absolute top-0 right-1/4 w-64 h-64 rounded-full bg-emerald-400 blur-3xl" />
+            </div>
+            <div className="relative z-10 text-center max-w-xl mx-auto">
+              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-400 mb-2">DPAL Carbon Education</p>
+              <h2 className="text-2xl md:text-3xl font-black text-white mb-2">Carbon Markets:<br />Credits vs. Offsets</h2>
+              <p className="text-sm text-slate-300 leading-relaxed">
+                Understanding the two sides of the carbon market — and exactly where DPAL operates — is the key to investing in this $50B opportunity.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 md:p-6 space-y-8 max-w-3xl mx-auto">
+
+            {/* ── Venn Diagram ─────────────────────────────────────────── */}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4 text-center">Comparing Carbon Markets</p>
+
+              {/* Venn layout */}
+              <div className="rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-700 p-5 overflow-hidden">
+                {/* Title row */}
+                <div className="grid grid-cols-3 gap-2 mb-5 text-center">
+                  <div>
+                    <p className="text-xs font-black text-blue-300 uppercase tracking-wider">Carbon Credit</p>
+                    <p className="text-[10px] text-blue-400/70">(Allowance)</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Shared</p>
+                    <p className="text-[10px] text-slate-500">Attributes</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-emerald-300 uppercase tracking-wider">Carbon Offset</p>
+                    <p className="text-[10px] text-emerald-400/70">(Offset Credit)</p>
+                  </div>
+                </div>
+
+                {/* Three-column content */}
+                <div className="grid grid-cols-3 gap-0 rounded-2xl overflow-hidden border border-white/5">
+                  {/* Left: Credits */}
+                  <div className="bg-blue-900/30 border-r border-white/5 p-3 space-y-2">
+                    {[
+                      { icon: '⚖️', text: 'Compliance Market (Regulated)' },
+                      { icon: '📜', text: 'Mandatory by Law' },
+                      { icon: '🏛️', text: '"Right to Emit" 1 ton CO₂' },
+                      { icon: '🏦', text: 'Issued by Governments' },
+                      { icon: '🔄', text: 'Distributed via Cap-and-Trade' },
+                      { icon: '🏭', text: 'Traded between regulated entities' },
+                      { icon: '🎯', text: 'Aim: Limit total regional emissions' },
+                    ].map((item) => (
+                      <div key={item.text} className="flex items-start gap-1.5">
+                        <span className="text-sm shrink-0 leading-tight">{item.icon}</span>
+                        <p className="text-[10px] text-blue-100/80 leading-snug">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Center: Shared */}
+                  <div className="bg-slate-800/60 p-3 space-y-2 relative">
+                    <div className="absolute inset-0 bg-gradient-to-b from-blue-900/10 to-emerald-900/10" />
+                    <div className="relative z-10 space-y-2">
+                      {[
+                        'Represent 1 metric ton of CO₂ (or equivalent)',
+                        'Measurable, verifiable units',
+                        'Market-based mechanisms',
+                        'Ultimate goal: combat climate change',
+                        'Increasing convergence (as of 2026)',
+                      ].map((text) => (
+                        <div key={text} className="rounded-lg bg-white/5 border border-white/8 p-2">
+                          <p className="text-[10px] text-white/80 text-center leading-snug font-medium">{text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right: Offsets */}
+                  <div className="bg-emerald-900/30 border-l border-white/5 p-3 space-y-2">
+                    {[
+                      { icon: '🌱', text: 'Voluntary Market (Discretionary)' },
+                      { icon: '🎯', text: 'Used for goals (e.g. Net Zero)' },
+                      { icon: '♻️', text: '1 ton CO₂ removed or avoided' },
+                      { icon: '🏗️', text: 'Generated by specific projects' },
+                      { icon: '🌳', text: 'Project types: reforestation, renewable energy' },
+                      { icon: '✅', text: 'Requires "additionality"' },
+                      { icon: '🏢', text: 'Bought by corporations / individuals' },
+                    ].map((item) => (
+                      <div key={item.text} className="flex items-start gap-1.5">
+                        <span className="text-sm shrink-0 leading-tight">{item.icon}</span>
+                        <p className="text-[10px] text-emerald-100/80 leading-snug">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-center text-[10px] text-slate-600 mt-3">April 2026</p>
+              </div>
+            </div>
+
+            {/* ── Where DPAL Fits ──────────────────────────────────────── */}
+            <div className="rounded-2xl bg-gradient-to-br from-emerald-950 to-teal-950 border border-emerald-500/30 p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-xl shrink-0">🌍</div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Where DPAL Fits</p>
+                  <p className="text-base font-black text-white">The Voluntary Carbon Offset Market</p>
+                </div>
+              </div>
+              <p className="text-sm text-slate-300 leading-relaxed mb-4">
+                DPAL operates entirely in the <span className="text-emerald-400 font-bold">voluntary offset market</span> — the fast-growing right side of the Venn diagram. We do not compete with government cap-and-trade systems. We make it radically easier for <span className="text-white font-bold">landowners to generate</span> verified offsets and for <span className="text-white font-bold">corporations and individuals to buy and retire</span> them with cryptographic proof.
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { icon: '🛰️', label: 'Satellite MRV', desc: 'Automated NDVI monitoring every 30 days — no expensive field surveys' },
+                  { icon: '🤖', label: 'AI Carbon Score', desc: '0–100 score across 4 dimensions: NDVI, protected area, deforestation, validator trust' },
+                  { icon: '🔗', label: 'Blockchain Ledger', desc: 'Every credit issued, traded, and retired is immutably recorded on-chain' },
+                  { icon: '🌐', label: 'Open Marketplace', desc: 'Any verified landowner lists credits; any buyer worldwide purchases and retires them' },
+                ].map((s) => (
+                  <div key={s.label} className="rounded-xl bg-black/30 border border-white/5 p-3">
+                    <p className="text-lg mb-1">{s.icon}</p>
+                    <p className="text-xs font-black text-white mb-0.5">{s.label}</p>
+                    <p className="text-[10px] text-slate-400 leading-snug">{s.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Market Opportunity Timeline ──────────────────────────── */}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Voluntary Carbon Market Growth</p>
+              <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5">
+                <div className="flex items-end justify-between gap-2 mb-4">
+                  {[
+                    { year: '2018', value: 0.3, label: '$300M', color: 'bg-slate-600' },
+                    { year: '2020', value: 1,   label: '$1B',   color: 'bg-blue-700' },
+                    { year: '2022', value: 2,   label: '$2B',   color: 'bg-blue-600' },
+                    { year: '2023', value: 2.5, label: '$2.5B', color: 'bg-teal-600' },
+                    { year: '2025', value: 5,   label: '$5B',   color: 'bg-teal-500' },
+                    { year: '2027', value: 15,  label: '$15B',  color: 'bg-emerald-500', proj: true },
+                    { year: '2030', value: 50,  label: '$50B+', color: 'bg-emerald-400', proj: true },
+                  ].map((d) => (
+                    <div key={d.year} className="flex-1 flex flex-col items-center gap-1">
+                      <p className={`text-[9px] font-black ${d.proj ? 'text-emerald-400' : 'text-white'}`}>{d.label}</p>
+                      <div
+                        className={`w-full rounded-t-lg ${d.color} ${d.proj ? 'opacity-80' : ''} transition-all`}
+                        style={{ height: `${Math.max(d.value / 50 * 120, 6)}px` }}
+                      />
+                      <p className="text-[9px] text-slate-500">{d.year}</p>
+                      {d.proj && <p className="text-[8px] text-emerald-600 font-bold">proj.</p>}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-4 justify-center text-[10px]">
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-blue-600 inline-block" /> Actual</span>
+                  <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-400 inline-block" /> Projected (McKinsey / BloombergNEF)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ── Key Concepts Explained ───────────────────────────────── */}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Key Concepts Explained</p>
+              <div className="space-y-3">
+                {[
+                  {
+                    term: 'Additionality',
+                    color: 'border-sky-500/30 bg-sky-900/10',
+                    labelColor: 'text-sky-400',
+                    def: 'A carbon offset is only valid if the sequestration would NOT have happened without the project. DPAL\'s satellite baseline proves this — we capture the state of the land before and after.',
+                  },
+                  {
+                    term: 'MRV — Measurement, Reporting & Verification',
+                    color: 'border-violet-500/30 bg-violet-900/10',
+                    labelColor: 'text-violet-400',
+                    def: 'The three pillars of a credible carbon credit. DPAL automates all three: satellite NDVI measures vegetation change, AI generates the report, and trusted validators verify it — no expensive consultants required.',
+                  },
+                  {
+                    term: 'NDVI (Normalized Difference Vegetation Index)',
+                    color: 'border-emerald-500/30 bg-emerald-900/10',
+                    labelColor: 'text-emerald-400',
+                    def: 'A satellite-derived index (0–1 scale) measuring how much living green vegetation covers a land area. Higher NDVI = more photosynthesis = more CO₂ being absorbed. DPAL\'s baseline snapshot locks this value at project start.',
+                  },
+                  {
+                    term: 'Retirement',
+                    color: 'border-amber-500/30 bg-amber-900/10',
+                    labelColor: 'text-amber-400',
+                    def: 'When a buyer "retires" a credit, it is permanently cancelled — it cannot be resold or double-counted. DPAL records the retirement on-chain and issues a cryptographic certificate the buyer can use for ESG reporting.',
+                  },
+                  {
+                    term: 'tCO₂e (tonnes of CO₂ equivalent)',
+                    color: 'border-rose-500/30 bg-rose-900/10',
+                    labelColor: 'text-rose-400',
+                    def: 'The universal unit of carbon markets. 1 tCO₂e = the warming effect of 1 metric ton of CO₂. Other greenhouse gases (methane, nitrous oxide) are converted to their CO₂-equivalent warming potential.',
+                  },
+                ].map((c) => (
+                  <div key={c.term} className={`rounded-2xl border ${c.color} p-4`}>
+                    <p className={`text-xs font-black uppercase tracking-wider mb-2 ${c.labelColor}`}>{c.term}</p>
+                    <p className="text-sm text-slate-300 leading-relaxed">{c.def}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Ecosystem Sequestration Rates ────────────────────────── */}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Carbon Sequestration by Ecosystem</p>
+              <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+                <div className="grid grid-cols-1 divide-y divide-slate-800">
+                  {Object.entries(ECOSYSTEM_META)
+                    .sort((a, b) => b[1].seqRate - a[1].seqRate)
+                    .map(([, m]) => {
+                      const pct = (m.seqRate / 5.5) * 100;
+                      return (
+                        <div key={m.label} className="flex items-center gap-3 px-4 py-3">
+                          <span className="text-xl shrink-0 w-8 text-center">{m.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <p className="text-xs font-bold text-white">{m.label}</p>
+                              <p className="text-xs font-black shrink-0 ml-2" style={{ color: m.color }}>{m.seqRate} tCO₂e/ac/yr</p>
+                            </div>
+                            <div className="h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                              <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: m.color }} />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+
+            {/* ── DPAL vs Traditional Registries ───────────────────────── */}
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">DPAL vs Traditional Carbon Registries</p>
+              <div className="rounded-2xl bg-slate-900 border border-slate-800 overflow-hidden">
+                <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-800/40">
+                  <div className="p-3 col-span-1" />
+                  {['Verra VCS', 'Gold Standard', 'DPAL'].map((h, i) => (
+                    <div key={h} className={`p-3 text-center ${i === 2 ? 'bg-emerald-900/30' : ''}`}>
+                      <p className={`text-xs font-black ${i === 2 ? 'text-emerald-400' : 'text-slate-300'}`}>{h}</p>
+                    </div>
+                  ))}
+                </div>
+                {[
+                  { label: 'Verification cost',       verra: '$50K–$200K',     gold: '$80K–$250K',    dpal: 'Free (satellite)' },
+                  { label: 'Time to first credit',     verra: '12–24 months',   gold: '18–36 months',  dpal: '30–90 days' },
+                  { label: 'MRV method',               verra: 'Manual surveys', gold: 'Manual surveys', dpal: 'AI + satellite' },
+                  { label: 'Blockchain ledger',        verra: '✗',              gold: '✗',             dpal: '✓ on-chain' },
+                  { label: 'Open marketplace',         verra: '✗',              gold: '✗',             dpal: '✓ built-in' },
+                  { label: 'Smallholder access',       verra: '✗ (min 50K ac)', gold: '✗ (min 25K ac)', dpal: '✓ any size' },
+                  { label: 'Real-time monitoring',     verra: 'Annual',         gold: 'Annual',        dpal: '30-day cycle' },
+                  { label: 'Retirement certificate',   verra: 'PDF report',     gold: 'PDF report',    dpal: 'Cryptographic hash' },
+                ].map((row) => (
+                  <div key={row.label} className="grid grid-cols-4 border-b border-slate-800 last:border-0">
+                    <div className="p-3 col-span-1">
+                      <p className="text-[11px] text-slate-400 leading-snug">{row.label}</p>
+                    </div>
+                    <div className="p-3 text-center border-l border-slate-800">
+                      <p className="text-[11px] text-slate-500">{row.verra}</p>
+                    </div>
+                    <div className="p-3 text-center border-l border-slate-800">
+                      <p className="text-[11px] text-slate-500">{row.gold}</p>
+                    </div>
+                    <div className="p-3 text-center border-l border-slate-800 bg-emerald-900/10">
+                      <p className="text-[11px] text-emerald-400 font-bold">{row.dpal}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── For Buyers / For Landowners CTA ─────────────────────── */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* For Buyers */}
+              <div className="rounded-2xl bg-gradient-to-br from-sky-950 to-blue-900 border border-sky-500/30 p-5">
+                <p className="text-2xl mb-3">🏢</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-sky-400 mb-1">For Corporations & Individuals</p>
+                <h3 className="text-base font-black text-white mb-2">Offset Your Footprint</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mb-4">
+                  Browse verified projects, purchase credits from satellite-monitored land, and retire them with on-chain certificates for your ESG and net-zero reporting.
+                </p>
+                <ul className="space-y-1.5 mb-4">
+                  {['AI credibility scores on every project', 'Transparent price history charts', 'Group coalition purchases', 'Blockchain retirement certificates'].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-xs text-sky-200">
+                      <CheckCircle className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={() => setActiveTab('market')}
+                  className="w-full py-2.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-black font-black text-sm transition-all">
+                  Browse Carbon Market →
+                </button>
+              </div>
+
+              {/* For Landowners */}
+              <div className="rounded-2xl bg-gradient-to-br from-emerald-950 to-teal-900 border border-emerald-500/30 p-5">
+                <p className="text-2xl mb-3">🌳</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">For Landowners & Farmers</p>
+                <h3 className="text-base font-black text-white mb-2">Monetise Your Land</h3>
+                <p className="text-sm text-slate-300 leading-relaxed mb-4">
+                  Register your land, let DPAL satellites monitor your ecosystem, and earn verified carbon credits — no expensive consultants, no 2-year waits.
+                </p>
+                <ul className="space-y-1.5 mb-4">
+                  {['Any acreage — no minimum', 'First credits in as little as 30 days', '11 ecosystem types supported', 'Direct revenue — no middleman'].map((item) => (
+                    <li key={item} className="flex items-center gap-2 text-xs text-emerald-200">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+                <button onClick={() => setActiveTab('register')}
+                  className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-black text-sm transition-all">
+                  Register My Land →
+                </button>
+              </div>
+            </div>
+
+            {/* ── Bottom spacer ────────────────────────────────────────── */}
+            <div className="h-6" />
+
           </div>
         </div>
       )}
