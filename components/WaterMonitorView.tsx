@@ -12,7 +12,8 @@
  * No real regulated commodity. Future third-party certification adds external status.
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { WaterGlobe, type WaterProjectPin } from './WaterGlobe';
 import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
   ShieldCheck, Award, Zap, Plus, RefreshCw, Eye,
@@ -1464,6 +1465,25 @@ function Dashboard({
   const [feed, setFeed] = useState<TxRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [showGlobe, setShowGlobe] = useState(true);
+
+  // Convert WaterProject[] → WaterProjectPin[] for the globe
+  const globePins = useMemo<WaterProjectPin[]>(() =>
+    projects
+      .filter((p) => p.location?.gpsCenter?.lat && p.location?.gpsCenter?.lng)
+      .map((p) => ({
+        projectId:   p.projectId,
+        projectName: p.projectName,
+        projectType: p.projectType,
+        status:      p.status,
+        country:     p.location.country,
+        city:        p.location.city,
+        totalAcres:  p.totalAcres,
+        lat:         p.location.gpsCenter.lat,
+        lng:         p.location.gpsCenter.lng,
+      })),
+    [projects]
+  );
 
   useEffect(() => {
     async function load() {
@@ -1539,6 +1559,34 @@ function Dashboard({
           ))}
         </div>
       )}
+
+      {/* World Map */}
+      <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+          <div className="flex items-center gap-2">
+            <Globe size={15} className="text-teal-400" />
+            <span className="text-sm font-semibold text-slate-200">Project World Map</span>
+            {globePins.length > 0 && (
+              <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">
+                {globePins.length} project{globePins.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setShowGlobe((v) => !v)}
+            className="text-xs text-slate-500 hover:text-slate-300 transition px-2 py-1 rounded hover:bg-slate-800"
+          >
+            {showGlobe ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        {showGlobe && (
+          <WaterGlobe
+            projects={globePins}
+            onSelectProject={onViewProject}
+            height="h-[380px]"
+          />
+        )}
+      </div>
 
       {/* Quick nav */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
