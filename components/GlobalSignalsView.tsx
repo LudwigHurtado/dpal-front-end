@@ -344,12 +344,13 @@ const GlobalSignalsView: React.FC<GlobalSignalsViewProps> = ({ onReturn }) => {
       if (filterRisk   !== 'all') params.set('riskLevel', filterRisk);
       if (filterStatus !== 'all') params.set('status',    filterStatus);
 
-      const [sd, stD] = await Promise.all([
+      const [sdResult, stResult] = await Promise.allSettled([
         apiFetch<{ ok: boolean; signals: GlobalSignal[] }>(apiUrl(API_ROUTES.SIGNALS_LIST) + '?' + params.toString()),
         apiFetch<{ ok: boolean; stats: SignalStats }>(apiUrl(API_ROUTES.SIGNALS_STATS)),
       ]);
-      setSignals(sd.signals);
-      setStats(stD.stats);
+      if (sdResult.status === 'rejected') throw sdResult.reason;
+      setSignals(sdResult.value.signals);
+      if (stResult.status === 'fulfilled') setStats(stResult.value.stats);
     } catch (ex: unknown) { setErr(ex instanceof Error ? ex.message : String(ex)); }
     finally { setLoading(false); }
   }, [filterCat, filterRisk, filterStatus]);
