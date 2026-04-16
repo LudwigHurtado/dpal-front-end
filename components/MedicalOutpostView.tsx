@@ -296,9 +296,31 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                 .qr-fixed-square { aspect-ratio: 1/1; width: 100%; display: flex; align-items: center; justify-content: center; background: white; border-radius: 2rem; position: relative; overflow: hidden; }
                 .qr-img-large { width: 100%; height: 100%; object-fit: contain; flex-shrink: 0; }
                 .qr-profile-overlay { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 22%; height: 22%; border-radius: 20%; border: 4px solid white; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 10; overflow: hidden; }
-                @media print { .no-print { display: none !important; } .print-area { display: block !important; } }
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+                /* ── Print styles ────────────────────────────────── */
+                @media screen { .print-only { display: none !important; } }
+                @media print {
+                  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                  body, html { background: white !important; color: #111 !important; }
+                  .no-print { display: none !important; }
+                  .print-only { display: block !important; }
+                  .print-only-flex { display: flex !important; }
+                  /* Reset dark container for print */
+                  .min-h-\\[92vh\\], .bg-gradient-to-b, .bg-slate-700\\/20, .bg-slate-700\\/60 {
+                    background: white !important; border: none !important; border-radius: 0 !important; box-shadow: none !important;
+                  }
+                  /* Force all text dark */
+                  [class*="text-"] { color: #111 !important; }
+                  /* Remove dark card backgrounds */
+                  [class*="bg-slate-"], [class*="bg-zinc-"], [class*="bg-cyan-"] { background: white !important; }
+                  /* Keep borders subtle */
+                  [class*="border-slate-"], [class*="border-zinc-"] { border-color: #ccc !important; }
+                  /* SVG icon strokes */
+                  svg { stroke: #111 !important; }
+                  /* Page setup */
+                  @page { margin: 18mm; size: A4; }
+                }
             `}</style>
 
             <header className="bg-slate-700/95 border-b border-slate-500 px-12 py-8 flex justify-between items-center z-30 shadow-sm no-print backdrop-blur">
@@ -634,6 +656,118 @@ const MedicalOutpostView: React.FC<MedicalOutpostViewProps> = ({ onReturn, hero,
                     )}
                 </div>
             </main>
+
+            {/* ── PRINT-ONLY medical card ─────────────────────────────────── */}
+            {activeRecord && (
+                <div className="print-only" style={{ fontFamily: 'sans-serif', color: '#111', background: 'white', padding: '0' }}>
+                    {/* Header bar */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0e7490', paddingBottom: '12px', marginBottom: '20px' }}>
+                        <div>
+                            <p style={{ fontSize: '9px', fontWeight: 900, letterSpacing: '0.3em', textTransform: 'uppercase', color: '#0e7490', margin: 0 }}>DPAL Medical Record</p>
+                            <h1 style={{ fontSize: '26px', fontWeight: 900, textTransform: 'uppercase', margin: '4px 0 0' }}>{activeRecord.ownerName}</h1>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <p style={{ fontSize: '9px', color: '#555', margin: 0, textTransform: 'uppercase', letterSpacing: '0.2em' }}>Validated Health Identity</p>
+                            <p style={{ fontSize: '9px', color: '#555', margin: '4px 0 0', fontFamily: 'monospace' }}>ID: {activeRecord.id}</p>
+                        </div>
+                    </div>
+
+                    {/* Two-column layout: info left, QR right */}
+                    <div style={{ display: 'flex', gap: '32px' }}>
+                        {/* Left — patient info */}
+                        <div style={{ flex: 1 }}>
+                            {/* Critical row */}
+                            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+                                {[
+                                    { label: 'Blood Type', value: activeRecord.bloodType || 'N/A' },
+                                    { label: 'Date of Birth', value: (activeRecord as any).dob || 'N/A' },
+                                    { label: 'Relationship', value: activeRecord.relationship },
+                                ].map(({ label, value }) => (
+                                    <div key={label} style={{ flex: 1, border: '1px solid #ccc', borderRadius: '8px', padding: '8px 12px' }}>
+                                        <p style={{ fontSize: '8px', textTransform: 'uppercase', letterSpacing: '0.2em', color: '#666', margin: 0 }}>{label}</p>
+                                        <p style={{ fontSize: '14px', fontWeight: 900, margin: '4px 0 0', textTransform: 'uppercase' }}>{value}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Emergency contact */}
+                            <div style={{ border: '2px solid #dc2626', borderRadius: '8px', padding: '10px 14px', marginBottom: '16px', background: '#fef2f2' }}>
+                                <p style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#dc2626', margin: 0 }}>⚠ Emergency Contact</p>
+                                <p style={{ fontSize: '16px', fontWeight: 900, margin: '4px 0 0' }}>{activeRecord.emergencyContact || 'Not provided'}</p>
+                            </div>
+
+                            {/* Allergies */}
+                            {activeRecord.allergies.length > 0 && (
+                                <div style={{ marginBottom: '14px' }}>
+                                    <p style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#555', margin: '0 0 6px' }}>Allergies</p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {activeRecord.allergies.map((a: string) => (
+                                            <span key={a} style={{ border: '1px solid #dc2626', color: '#dc2626', borderRadius: '20px', padding: '2px 10px', fontSize: '10px', fontWeight: 700 }}>{a}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Medications */}
+                            {activeRecord.medications.length > 0 && (
+                                <div style={{ marginBottom: '14px' }}>
+                                    <p style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#555', margin: '0 0 6px' }}>Current Medications</p>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                        {activeRecord.medications.map((m: string) => (
+                                            <span key={m} style={{ border: '1px solid #0e7490', color: '#0e7490', borderRadius: '20px', padding: '2px 10px', fontSize: '10px', fontWeight: 700 }}>{m}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Critical notes */}
+                            {(activeRecord as any).criticalNotes && (
+                                <div style={{ marginBottom: '14px' }}>
+                                    <p style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#555', margin: '0 0 6px' }}>Critical Notes</p>
+                                    <p style={{ fontSize: '11px', border: '1px solid #ccc', borderRadius: '8px', padding: '8px 12px', margin: 0 }}>{(activeRecord as any).criticalNotes}</p>
+                                </div>
+                            )}
+
+                            {/* Category vaults list */}
+                            <div>
+                                <p style={{ fontSize: '8px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.2em', color: '#555', margin: '0 0 8px' }}>Medical Category Vaults</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                    {MEDICAL_FOLDERS.map(f => (
+                                        <div key={f.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '7px 10px', fontSize: '10px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#333' }}>
+                                            {f.label}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right — QR code */}
+                        <div style={{ width: '180px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px' }}>
+                            <div style={{ width: '160px', height: '160px', border: '8px solid #111', borderRadius: '12px', overflow: 'hidden', background: 'white' }}>
+                                <img
+                                    src={qrImageUrl(getQrValue('PROFILE'))}
+                                    alt="Medical QR"
+                                    style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
+                                />
+                            </div>
+                            <p style={{ fontSize: '8px', textAlign: 'center', color: '#555', margin: 0, textTransform: 'uppercase', letterSpacing: '0.15em', lineHeight: '1.4' }}>
+                                Scan at authorized clinics to access linked medical record
+                            </p>
+                            {activeRecord.sharedFolderUri && (
+                                <p style={{ fontSize: '7px', fontFamily: 'monospace', color: '#0e7490', wordBreak: 'break-all', textAlign: 'center', margin: 0 }}>
+                                    {activeRecord.sharedFolderUri}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Footer */}
+                    <div style={{ marginTop: '20px', borderTop: '1px solid #ccc', paddingTop: '10px', display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: '#888' }}>
+                        <span>DPAL Validated Health Identity Layer — dpal-front-end.vercel.app/medical</span>
+                        <span style={{ fontFamily: 'monospace' }}>Printed: {new Date().toISOString().split('T')[0]}</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
