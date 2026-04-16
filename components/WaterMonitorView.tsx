@@ -2019,50 +2019,144 @@ function SatelliteLiveFeed({ monitoringProject }: {
 
   const s = data?.summary;
 
+  const projectLabel = monitoringProject
+    ? [monitoringProject.projectName, monitoringProject.city, monitoringProject.country].filter(Boolean).join(' — ')
+    : null;
+
+  // Plain-English interpretation of each metric
+  const interpretation = s ? [
+    {
+      icon: '💧',
+      label: 'Soil Moisture',
+      value: fmtPct(s.soilMoistureIndex),
+      source: 'NASA SMAP satellite',
+      what: `How wet the ground is at your project location right now.`,
+      meaning: s.soilMoistureIndex >= 0.6
+        ? 'Soil is well saturated — good water retention.'
+        : s.soilMoistureIndex >= 0.4
+        ? 'Adequate moisture. Normal conditions.'
+        : s.soilMoistureIndex >= 0.2
+        ? 'Soil is drying out. Monitor irrigation needs.'
+        : 'Very dry soil. Risk of crop stress and water loss.',
+      status: s.soilMoistureIndex >= 0.4 ? 'good' : s.soilMoistureIndex >= 0.2 ? 'warn' : 'bad',
+    },
+    {
+      icon: '🌊',
+      label: 'Surface Water Level',
+      value: `${s.surfaceWaterLevel.toFixed(2)} m`,
+      source: 'NASA SWOT satellite',
+      what: 'Height of water in rivers, lakes, or reservoirs near your location.',
+      meaning: s.surfaceWaterLevel > 3
+        ? 'High water levels. Possible flood risk downstream.'
+        : s.surfaceWaterLevel > 1.5
+        ? 'Normal surface water levels for this region.'
+        : 'Low surface water. Rivers or reservoirs may be depleted.',
+      status: s.surfaceWaterLevel > 3 ? 'warn' : s.surfaceWaterLevel > 1 ? 'good' : 'warn',
+    },
+    {
+      icon: '📉',
+      label: 'Water Storage Trend',
+      value: `${s.waterStorageTrend >= 0 ? '+' : ''}${s.waterStorageTrend.toFixed(1)} mm/mo`,
+      source: 'GRACE-FO gravity satellite',
+      what: 'Whether total water in the ground (including deep aquifers) is increasing or decreasing month over month.',
+      meaning: s.waterStorageTrend > 2
+        ? 'Groundwater is recovering. Good trend for long-term water security.'
+        : s.waterStorageTrend > -2
+        ? 'Groundwater storage is roughly stable.'
+        : s.waterStorageTrend > -10
+        ? 'Groundwater is declining. Conservation measures recommended.'
+        : 'Rapid groundwater depletion detected. Urgent water management needed.',
+      status: s.waterStorageTrend > 0 ? 'good' : s.waterStorageTrend > -5 ? 'warn' : 'bad',
+    },
+    {
+      icon: '☀️',
+      label: 'Drought Risk',
+      value: fmtPct(s.droughtRisk),
+      source: 'Copernicus Climate Change Service',
+      what: 'Probability that this area is experiencing or heading toward drought conditions.',
+      meaning: s.droughtRisk < 0.25
+        ? 'Low drought risk. Conditions are normal.'
+        : s.droughtRisk < 0.5
+        ? 'Moderate drought risk. Watch for rainfall deficits.'
+        : s.droughtRisk < 0.75
+        ? 'High drought risk. Reduced water availability likely.'
+        : 'Extreme drought conditions. Immediate water conservation critical.',
+      status: s.droughtRisk < 0.3 ? 'good' : s.droughtRisk < 0.6 ? 'warn' : 'bad',
+    },
+    {
+      icon: '🌿',
+      label: 'Vegetation Stress',
+      value: fmtPct(s.vegetationStress),
+      source: 'NASA GIBS / MODIS NDVI',
+      what: 'How stressed the plants and vegetation are at your project site — caused by lack of water or heat.',
+      meaning: s.vegetationStress < 0.25
+        ? 'Plants are healthy. Good vegetation water status.'
+        : s.vegetationStress < 0.5
+        ? 'Mild plant stress. Possible irrigation or rainfall deficit.'
+        : s.vegetationStress < 0.75
+        ? 'Significant vegetation stress. Plants showing water deficiency.'
+        : 'Severe plant stress. Vegetation at risk of permanent damage.',
+      status: s.vegetationStress < 0.3 ? 'good' : s.vegetationStress < 0.6 ? 'warn' : 'bad',
+    },
+  ] : [];
+
+  const statusColor = (st: string) =>
+    st === 'good' ? 'text-emerald-400' : st === 'warn' ? 'text-amber-400' : 'text-rose-400';
+  const statusBg = (st: string) =>
+    st === 'good' ? 'bg-emerald-500/10 border-emerald-500/20' : st === 'warn' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-rose-500/10 border-rose-500/20';
+
   return (
     <div className="bg-slate-900/80 border border-cyan-700/30 rounded-2xl p-5 space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Waves className="w-[18px] h-[18px] text-cyan-400" />
+
+      {/* ── What is this panel ── */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-start gap-3">
+          <div className="relative mt-0.5">
+            <Waves className="w-5 h-5 text-cyan-400" />
             {!loading && !err && (
               <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
             )}
           </div>
           <div>
-            <p className="text-xs font-bold text-cyan-300 uppercase tracking-widest">Live Satellite Readings</p>
-            {lastRefresh && (
-              <p className="text-[10px] text-slate-500">Updated {lastRefresh.toLocaleTimeString()}</p>
-            )}
+            <p className="text-sm font-bold text-cyan-200">Live Satellite Readings</p>
+            <p className="text-xs text-slate-400 mt-0.5 leading-relaxed max-w-lg">
+              {monitoringProject
+                ? <>5 NASA &amp; ESA satellites are scanning <span className="text-cyan-300 font-semibold">{monitoringProject.projectName}</span> right now. These numbers tell you the current water health of your land.</>
+                : 'Satellite water health data. Register a project with GPS coordinates to see readings for your specific land.'}
+            </p>
+            {lastRefresh && <p className="text-[10px] text-slate-600 mt-1">Updated {lastRefresh.toLocaleTimeString()}</p>}
           </div>
         </div>
         <button
           onClick={load}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-800/20 hover:bg-cyan-700/30 border border-cyan-700/30 text-cyan-400 text-xs transition disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-800/20 hover:bg-cyan-700/30 border border-cyan-700/30 text-cyan-400 text-xs transition disabled:opacity-50 shrink-0"
         >
           <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Fetching…' : 'Refresh'}
         </button>
       </div>
 
-      {/* Monitoring area banner */}
-      <div className="flex items-center gap-2 rounded-lg bg-slate-800/60 border border-slate-700/60 px-3 py-2">
-        <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-        <div className="min-w-0">
-          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Monitoring Area · </span>
-          <span className="text-xs text-slate-200 font-medium">
-            {data?.areaLabel ?? (monitoringProject
-              ? [monitoringProject.projectName, monitoringProject.city, monitoringProject.country].filter(Boolean).join(' — ')
-              : 'Los Angeles Basin (reference)'
-            )}
-          </span>
+      {/* ── Project identity banner ── */}
+      <div className={`rounded-xl px-4 py-3 flex items-center gap-3 ${monitoringProject ? 'bg-teal-900/20 border border-teal-700/30' : 'bg-slate-800/60 border border-slate-700/40'}`}>
+        <MapPin className={`w-4 h-4 shrink-0 ${monitoringProject ? 'text-teal-400' : 'text-slate-500'}`} />
+        <div className="flex-1 min-w-0">
+          {monitoringProject ? (
+            <>
+              <p className="text-xs font-bold text-teal-200">Reading for: {projectLabel}</p>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Coordinates: {monitoringProject.lat.toFixed(4)}, {monitoringProject.lng.toFixed(4)} · All metrics below apply to this exact location
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs font-semibold text-slate-400">No project GPS set — showing reference area</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Add GPS to your project card to see readings for your land</p>
+            </>
+          )}
         </div>
         {data?.centerLat != null && (
-          <span className="ml-auto text-[10px] text-slate-600 shrink-0 tabular-nums">
-            {data.centerLat.toFixed(3)}, {data.centerLng?.toFixed(3)}
-          </span>
+          <span className="text-[10px] text-slate-600 font-mono shrink-0">{data.centerLat.toFixed(3)}, {data.centerLng?.toFixed(3)}</span>
         )}
       </div>
 
@@ -2076,7 +2170,7 @@ function SatelliteLiveFeed({ monitoringProject }: {
       </div>
 
       {loading && (
-        <div className="flex items-center justify-center py-6 gap-2 text-slate-500 text-xs">
+        <div className="flex items-center justify-center py-8 gap-2 text-slate-500 text-xs">
           <RefreshCw className="w-3.5 h-3.5 animate-spin text-teal-400" />
           Contacting satellites…
         </div>
@@ -2089,54 +2183,48 @@ function SatelliteLiveFeed({ monitoringProject }: {
         </div>
       )}
 
+      {/* ── Metric cards with plain-English explanations ── */}
       {s && !loading && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <MetricTile
-            label="Soil Moisture Index"
-            value={fmtPct(s.soilMoistureIndex)}
-            sub="NASA SMAP"
-            good={s.soilMoistureIndex >= 0.4}
-            warn={s.soilMoistureIndex < 0.2}
-          />
-          <MetricTile
-            label="Surface Water Level"
-            value={`${s.surfaceWaterLevel.toFixed(2)} m`}
-            sub="NASA SWOT"
-          />
-          <MetricTile
-            label="Water Storage Trend"
-            value={`${s.waterStorageTrend >= 0 ? '+' : ''}${s.waterStorageTrend.toFixed(1)} mm/mo`}
-            sub="GRACE-FO"
-            good={s.waterStorageTrend > 0}
-            warn={s.waterStorageTrend < -3}
-          />
-          <MetricTile
-            label="Drought Risk"
-            value={fmtPct(s.droughtRisk)}
-            sub="Copernicus"
-            good={s.droughtRisk < 0.3}
-            warn={s.droughtRisk > 0.6}
-            invertColor
-          />
-          <MetricTile
-            label="Vegetation Stress"
-            value={fmtPct(s.vegetationStress)}
-            sub="NASA GIBS"
-            warn={s.vegetationStress > 0.6}
-            invertColor
-          />
-          <MetricTile
-            label="Avg Confidence"
-            value={fmtPct(s.confidenceScore)}
-            sub="5-adapter avg"
-            good={s.confidenceScore >= 0.7}
-          />
+        <div className="space-y-3">
+          {interpretation.map((item) => (
+            <div key={item.label} className={`rounded-xl border p-4 ${statusBg(item.status)}`}>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0 mt-0.5">{item.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs font-bold text-slate-200 uppercase tracking-wide">{item.label}</p>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xl font-black tabular-nums ${statusColor(item.status)}`}>{item.value}</span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    <span className="text-slate-500">What this is: </span>{item.what}
+                  </p>
+                  <p className={`text-[11px] font-semibold mt-1.5 leading-relaxed ${statusColor(item.status)}`}>
+                    → {item.meaning}
+                  </p>
+                  <p className="text-[10px] text-slate-600 mt-1">Source: {item.source}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Overall confidence */}
+          <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-slate-300">Overall Data Confidence</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Average reliability across all 5 satellite sources</p>
+            </div>
+            <span className={`text-2xl font-black tabular-nums ${s.confidenceScore >= 0.7 ? 'text-emerald-400' : 'text-amber-400'}`}>
+              {fmtPct(s.confidenceScore)}
+            </span>
+          </div>
         </div>
       )}
 
       <p className="text-[10px] text-slate-600 border-t border-slate-800 pt-3">
-        5 NASA/ESA adapters (SMAP · SWOT · GRACE-FO · NASA GIBS · Copernicus) ·{' '}
-        {monitoringProject ? 'readings reflect your registered project location' : 'using reference polygon — register a project to monitor your specific area'}
+        Data from 5 NASA/ESA satellites: SMAP · SWOT · GRACE-FO · NASA GIBS · Copernicus ·{' '}
+        {monitoringProject ? `readings for ${monitoringProject.projectName}` : 'register a project to monitor your specific land'}
       </p>
     </div>
   );
@@ -2402,9 +2490,9 @@ function Dashboard({
         </div>
       )}
 
-      {/* Live Satellite Feed — uses first live project GPS if available */}
+      {/* Live Satellite Feed — uses first project with valid GPS (including demo projects) */}
       <SatelliteLiveFeed monitoringProject={(() => {
-        const liveProject = projects.find(p => !p.projectId.startsWith('demo-') && p.location?.gpsCenter?.lat && p.location?.gpsCenter?.lng);
+        const liveProject = projects.find(p => p.location?.gpsCenter?.lat && p.location?.gpsCenter?.lng && p.location.gpsCenter.lat !== 0 && p.location.gpsCenter.lng !== 0);
         if (!liveProject) return null;
         return {
           projectName: liveProject.projectName,
