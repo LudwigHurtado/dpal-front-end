@@ -15,6 +15,7 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { WaterGlobe, type WaterProjectPin, type WaterAlertPin } from './WaterGlobe';
+import { GibsTileViewer } from './GibsTileViewer';
 import { isAiEnabled } from '../services/geminiService';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
@@ -1315,6 +1316,30 @@ function ProjectDetailView({
                 <span className="text-slate-600 shrink-0">{fmtPct(snap.metrics.confidenceScore)} conf</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* NASA GIBS Satellite Imagery Viewer */}
+      {project && (
+        <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+            <div>
+              <span className="text-xs font-semibold text-slate-300">NASA GIBS Satellite Imagery</span>
+              <span className="ml-2 text-[10px] text-slate-600">18 products · MODIS · VIIRS · SMAP · daily</span>
+            </div>
+            <span className="text-[10px] text-teal-500 bg-teal-500/10 border border-teal-500/30 px-2 py-0.5 rounded-full">Live NASA data</span>
+          </div>
+          <div className="p-3">
+            <GibsTileViewer
+              lat={project.location.gpsCenter.lat}
+              lng={project.location.gpsCenter.lng}
+              polygon={project.location.polygon}
+              projectName={project.projectName}
+              totalAcres={project.totalAcres}
+              defaultLayerId="SMAP_L3_Passive_Day_SoilMoisture_Option1"
+              height={340}
+            />
           </div>
         </div>
       )}

@@ -26,6 +26,7 @@ const CarbonWorldMap = lazy(() => import('./CarbonWorldMap'));
 // ── SnapshotMap — Google Maps satellite view for a project location ─────────────
 
 import { loadGoogleMaps } from '../services/googleMapsLoader';
+import { GibsTileViewer } from './GibsTileViewer';
 
 interface SnapshotMapProps {
   lat: number;
@@ -810,6 +811,25 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                   </div>
                   {scoreBar(latestSnap.ndviScore, 1)}
                 </div>
+
+                {/* NASA GIBS multi-layer imagery viewer */}
+                <div className="border-t border-slate-800 pt-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-semibold text-slate-300">NASA GIBS Satellite Imagery</p>
+                    <span className="text-[10px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                      NDVI · SMAP · True Color · +15 layers
+                    </span>
+                  </div>
+                  <GibsTileViewer
+                    lat={selectedProject.location.gpsCenter.lat}
+                    lng={selectedProject.location.gpsCenter.lng}
+                    polygon={selectedProject.location.polygon}
+                    projectName={selectedProject.projectName}
+                    totalAcres={selectedProject.totalAcres}
+                    defaultLayerId="MODIS_Terra_NDVI_8Day"
+                    height={320}
+                  />
+                </div>
               </div>
             ) : (
               <div className="p-4 space-y-4">
@@ -822,9 +842,22 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                     totalAcres={selectedProject.totalAcres}
                   />
                 </Suspense>
-                <p className="text-center text-slate-500 text-sm">
+                <p className="text-center text-slate-500 text-sm mb-4">
                   No NDVI data yet — click <span className="text-sky-400 font-bold">Pull Snapshot</span> to run baseline analysis
                 </p>
+                {/* Show GIBS true color before first snapshot */}
+                <div className="border-t border-slate-800 pt-4">
+                  <p className="text-xs font-semibold text-slate-300 mb-3">NASA GIBS Satellite Imagery</p>
+                  <GibsTileViewer
+                    lat={selectedProject.location.gpsCenter.lat}
+                    lng={selectedProject.location.gpsCenter.lng}
+                    polygon={selectedProject.location.polygon}
+                    projectName={selectedProject.projectName}
+                    totalAcres={selectedProject.totalAcres}
+                    defaultLayerId="MODIS_Terra_CorrectedReflectance_TrueColor"
+                    height={300}
+                  />
+                </div>
               </div>
             )}
 
