@@ -830,6 +830,9 @@ function ProjectDetailView({
   const [issuingCredits, setIssuingCredits] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
+  const [editingGps, setEditingGps] = useState(false);
+  const [gpsDraft, setGpsDraft] = useState({ lat: '', lng: '' });
+  const [savingGps, setSavingGps] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -889,6 +892,46 @@ function ProjectDetailView({
       setErr(ex instanceof Error ? ex.message : String(ex));
     } finally {
       setIssuingCredits(false);
+    }
+  }
+
+  function openGpsEdit() {
+    if (!project) return;
+    setGpsDraft({
+      lat: String(project.location.gpsCenter.lat || ''),
+      lng: String(project.location.gpsCenter.lng || ''),
+    });
+    setEditingGps(true);
+  }
+
+  async function saveGps() {
+    if (!project) return;
+    const lat = parseFloat(gpsDraft.lat);
+    const lng = parseFloat(gpsDraft.lng);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setErr('Invalid coordinates. Latitude must be −90 to 90, longitude −180 to 180.');
+      return;
+    }
+    setSavingGps(true);
+    setErr('');
+    try {
+      await apiFetch(WATER_PROJECT_DETAIL(projectId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: {
+            ...project.location,
+            gpsCenter: { lat, lng },
+          },
+        }),
+      });
+      await load();
+      setEditingGps(false);
+      setNotice(`GPS updated → ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : String(ex));
+    } finally {
+      setSavingGps(false);
     }
   }
 
@@ -978,8 +1021,61 @@ function ProjectDetailView({
         <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Project Location — Satellite View</span>
-            <span className="text-[10px] text-slate-600">ESRI World Imagery</span>
+            <button
+              onClick={openGpsEdit}
+              className="text-[10px] text-teal-400 hover:text-teal-300 underline underline-offset-2 transition"
+            >
+              {project.location.gpsCenter.lat
+                ? `${project.location.gpsCenter.lat.toFixed(4)}, ${project.location.gpsCenter.lng.toFixed(4)}`
+                : 'Set GPS coordinates'}
+              {' '}· Edit
+            </button>
           </div>
+
+          {/* Inline GPS edit form */}
+          {editingGps && (
+            <div className="px-4 py-3 bg-slate-800/60 border-b border-slate-700 flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Latitude (−90 to 90)</label>
+                <input
+                  type="number" step="any"
+                  placeholder="e.g. 36.1069"
+                  value={gpsDraft.lat}
+                  onChange={e => setGpsDraft(d => ({ ...d, lat: e.target.value }))}
+                  className="w-36 bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Longitude (−180 to 180)</label>
+                <input
+                  type="number" step="any"
+                  placeholder="e.g. −114.0596"
+                  value={gpsDraft.lng}
+                  onChange={e => setGpsDraft(d => ({ ...d, lng: e.target.value }))}
+                  className="w-36 bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={saveGps}
+                  disabled={savingGps}
+                  className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition disabled:opacity-50"
+                >
+                  {savingGps ? 'Saving…' : 'Save GPS'}
+                </button>
+                <button
+                  onClick={() => setEditingGps(false)}
+                  className="px-3 py-1.5 rounded-lg border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition"
+                >
+                  Cancel
+                </button>
+              </div>
+              <p className="w-full text-[10px] text-slate-500">
+                Nevada example: lat 36.1069, lng −114.0596 · For USA always use negative longitude (West)
+              </p>
+            </div>
+          )}
+
           <div className="p-3">
             <WaterSnapshotMap
               lat={project.location.gpsCenter.lat}
