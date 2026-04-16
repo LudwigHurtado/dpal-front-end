@@ -13,6 +13,9 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { WaterGlobe, type WaterProjectPin, type WaterAlertPin } from './WaterGlobe';
 import { GibsTileViewer } from './GibsTileViewer';
@@ -2159,6 +2162,85 @@ function SatelliteLiveFeed({ monitoringProject }: {
           <span className="text-[10px] text-slate-600 font-mono shrink-0">{data.centerLat.toFixed(3)}, {data.centerLng?.toFixed(3)}</span>
         )}
       </div>
+
+      {/* ── LOCATION MAP — shows exactly what area is being read ── */}
+      {monitoringProject && (
+        <div className="rounded-xl overflow-hidden border border-slate-700/60" style={{ height: 200 }}>
+          <style>{`
+            .sat-map-pin { background: none; border: none; }
+          `}</style>
+          <MapContainer
+            key={`sat-map-${monitoringProject.lat.toFixed(3)}-${monitoringProject.lng.toFixed(3)}`}
+            center={[monitoringProject.lat, monitoringProject.lng]}
+            zoom={10}
+            zoomControl={false}
+            scrollWheelZoom={false}
+            dragging={false}
+            doubleClickZoom={false}
+            style={{ height: '100%', width: '100%', background: '#0f172a' }}
+            attributionControl={false}
+          >
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              maxZoom={20}
+            />
+            {/* Satellite reading radius — ~50km bounding box shown as circle */}
+            <Circle
+              center={[monitoringProject.lat, monitoringProject.lng]}
+              radius={50000}
+              pathOptions={{ color: '#14b8a6', weight: 1.5, fillColor: '#14b8a6', fillOpacity: 0.06, dashArray: '4 6' }}
+            />
+            {/* Inner project area */}
+            <Circle
+              center={[monitoringProject.lat, monitoringProject.lng]}
+              radius={8000}
+              pathOptions={{ color: '#22d3ee', weight: 2, fillColor: '#22d3ee', fillOpacity: 0.12 }}
+            />
+            {/* Project pin */}
+            <Marker
+              position={[monitoringProject.lat, monitoringProject.lng]}
+              icon={L.divIcon({
+                className: 'sat-map-pin',
+                html: `<div style="
+                  width:14px;height:14px;border-radius:50%;
+                  background:#14b8a6;border:3px solid #fff;
+                  box-shadow:0 0 0 4px rgba(20,184,166,0.35),0 0 16px rgba(20,184,166,0.6);
+                "></div>`,
+                iconSize: [14, 14],
+                iconAnchor: [7, 7],
+              })}
+            >
+              <Popup>
+                <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#0f172a', padding: 4 }}>
+                  <strong>{monitoringProject.projectName}</strong><br />
+                  {[monitoringProject.city, monitoringProject.country].filter(Boolean).join(', ')}<br />
+                  <span style={{ color: '#0e7490' }}>{monitoringProject.lat.toFixed(4)}, {monitoringProject.lng.toFixed(4)}</span>
+                </div>
+              </Popup>
+            </Marker>
+          </MapContainer>
+          {/* Map label overlay */}
+          <div className="relative -mt-7 mx-2 mb-1 z-[500] flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-950/80 backdrop-blur-sm border border-slate-700/50 pointer-events-none">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse shrink-0" />
+              <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider">Satellite Reading Area</span>
+            </div>
+            <span className="text-[10px] text-slate-400 font-medium">
+              {monitoringProject.projectName}{[monitoringProject.city, monitoringProject.country].filter(Boolean).length > 0 ? ' · ' + [monitoringProject.city, monitoringProject.country].filter(Boolean).join(', ') : ''}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {!monitoringProject && (
+        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-800/30 flex items-center justify-center gap-3 px-4 py-6 text-center">
+          <MapPin className="w-5 h-5 text-slate-600 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-slate-400">No location set</p>
+            <p className="text-xs text-slate-600 mt-0.5">Add GPS coordinates to your project card to see a map of what the satellites are reading</p>
+          </div>
+        </div>
+      )}
 
       {/* Adapter status badges */}
       <div className="flex flex-wrap gap-2">
