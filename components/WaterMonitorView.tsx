@@ -1728,6 +1728,9 @@ function CreditsView({ onBack }: { onBack: () => void }) {
 
 interface SatellitePreview {
   capturedAt: string;
+  areaLabel?: string;
+  centerLat?: number;
+  centerLng?: number;
   adapters: {
     smap:      { ok: boolean; soilMoistureIndex?: number; confidenceScore?: number };
     swot:      { ok: boolean; surfaceWaterLevel?: number; waterExtentKm2?: number; confidenceScore?: number };
@@ -1756,7 +1759,9 @@ function AdapterBadge({ name, ok, conf }: { name: string; ok: boolean; conf?: nu
   );
 }
 
-function SatelliteLiveFeed() {
+function SatelliteLiveFeed({ monitoringProject }: {
+  monitoringProject?: { projectName: string; city?: string; country?: string; lat: number; lng: number } | null;
+}) {
   const [data, setData] = useState<SatellitePreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -1766,9 +1771,15 @@ function SatelliteLiveFeed() {
     setLoading(true);
     setErr('');
     try {
-      const result = await apiFetch<{ ok: boolean } & SatellitePreview>(
-        apiUrl(API_ROUTES.WATER_SATELLITE_PREVIEW)
-      );
+      let url = apiUrl(API_ROUTES.WATER_SATELLITE_PREVIEW);
+      if (monitoringProject && monitoringProject.lat && monitoringProject.lng) {
+        const label = encodeURIComponent(
+          [monitoringProject.projectName, monitoringProject.city, monitoringProject.country]
+            .filter(Boolean).join(' — ')
+        );
+        url += `?lat=${monitoringProject.lat}&lng=${monitoringProject.lng}&areaLabel=${label}`;
+      }
+      const result = await apiFetch<{ ok: boolean } & SatellitePreview>(url);
       setData(result);
       setLastRefresh(new Date());
     } catch (ex: unknown) {
@@ -1776,7 +1787,7 @@ function SatelliteLiveFeed() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [monitoringProject]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -1808,6 +1819,25 @@ function SatelliteLiveFeed() {
           <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
           {loading ? 'Fetching…' : 'Refresh'}
         </button>
+      </div>
+
+      {/* Monitoring area banner */}
+      <div className="flex items-center gap-2 rounded-lg bg-slate-800/60 border border-slate-700/60 px-3 py-2">
+        <MapPin className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+        <div className="min-w-0">
+          <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Monitoring Area · </span>
+          <span className="text-xs text-slate-200 font-medium">
+            {data?.areaLabel ?? (monitoringProject
+              ? [monitoringProject.projectName, monitoringProject.city, monitoringProject.country].filter(Boolean).join(' — ')
+              : 'Los Angeles Basin (reference)'
+            )}
+          </span>
+        </div>
+        {data?.centerLat != null && (
+          <span className="ml-auto text-[10px] text-slate-600 shrink-0 tabular-nums">
+            {data.centerLat.toFixed(3)}, {data.centerLng?.toFixed(3)}
+          </span>
+        )}
       </div>
 
       {/* Adapter status badges */}
@@ -1879,7 +1909,8 @@ function SatelliteLiveFeed() {
       )}
 
       <p className="text-[10px] text-slate-600 border-t border-slate-800 pt-3">
-        Demo readings · 5 NASA/ESA adapters · Los Angeles basin reference polygon · Real integrations pending
+        5 NASA/ESA adapters (SMAP · SWOT · GRACE-FO · NASA GIBS · Copernicus) ·{' '}
+        {monitoringProject ? 'readings reflect your registered project location' : 'using reference polygon — register a project to monitor your specific area'}
       </p>
     </div>
   );
@@ -2145,8 +2176,18 @@ function Dashboard({
         </div>
       )}
 
-      {/* Live Satellite Feed — always visible, no project needed */}
-      <SatelliteLiveFeed />
+      {/* Live Satellite Feed — uses first live project GPS if available */}
+      <SatelliteLiveFeed monitoringProject={(() => {
+        const liveProject = projects.find(p => !p.projectId.startsWith('demo-') && p.location?.gpsCenter?.lat && p.location?.gpsCenter?.lng);
+        if (!liveProject) return null;
+        return {
+          projectName: liveProject.projectName,
+          city: liveProject.location.city,
+          country: liveProject.location.country,
+          lat: liveProject.location.gpsCenter.lat,
+          lng: liveProject.location.gpsCenter.lng,
+        };
+      })()} />
 
       {/* Platform stats */}
       {stats && (
