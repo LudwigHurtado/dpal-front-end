@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useGwLang } from '../../i18n/useGwLang';
 import { GW_PATHS } from '../../routes/paths';
 import { useGoogleMaps } from '../../features/map/useGoogleMaps';
 import { useTripStore } from '../../features/trips/tripStore';
@@ -131,6 +132,7 @@ const TABS = [
 ───────────────────────────────────────────── */
 const PassengerRideHomePage: React.FC = () => {
   const navigate   = useNavigate();
+  const t          = useGwLang((s) => s.t);
   const signOut    = useAuthStore((s) => s.signOut);
   const user       = useAuthStore((s) => s.user);
   const draft      = useTripStore((s) => s.draft);
@@ -722,7 +724,7 @@ const PassengerRideHomePage: React.FC = () => {
       {/* ── PIN MODE HINT ── */}
       {activeField && (
         <div style={{ ...S.pinHint, borderLeft: `3px solid ${activeField === 'pickup' ? '#111827' : '#0077C8'}` }}>
-          <span>{reverseGeoLoading ? '📍 Reading…' : activeField === 'pickup' ? '📍 Tap map to set pickup' : '📍 Tap map to set dropoff'}</span>
+          <span>{reverseGeoLoading ? '📍 Reading…' : `📍 ${t('tapMapPickup')}`}</span>
           <button type="button" onClick={() => setActiveField(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9CA3AF', fontSize: 16, lineHeight: 1, padding: 0 }}>✕</button>
         </div>
       )}

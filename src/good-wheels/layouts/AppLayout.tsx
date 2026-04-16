@@ -5,6 +5,8 @@ import { useTripStore } from '../features/trips/tripStore';
 import { GW_PATHS } from '../routes/paths';
 import { useDriverStore } from '../features/driver/driverStore';
 import DevicePreview, { readGwPreviewDevice, type GwPreviewDeviceId, GW_PREVIEW_DEVICES, writeGwPreviewDevice } from '../components/dev/DevicePreview';
+import { useGwLang } from '../i18n/useGwLang';
+import type { GwLang } from '../i18n/gwTranslations';
 
 const AppLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -14,6 +16,10 @@ const AppLayout: React.FC = () => {
   const signOut = useAuthStore((s) => s.signOut);
   const hydrate = useTripStore((s) => s.hydrate);
   const hydrateDriver = useDriverStore((s) => s.hydrate);
+
+  const lang    = useGwLang((s) => s.lang);
+  const setLang = useGwLang((s) => s.setLang);
+  const t       = useGwLang((s) => s.t);
 
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 860 : false));
   const isDev = Boolean((import.meta as any).env?.DEV);
@@ -41,30 +47,30 @@ const AppLayout: React.FC = () => {
   const mobileTabs = useMemo(() => {
     if (role === 'driver') {
       return [
-        { to: GW_PATHS.driver.dashboard, label: 'Ride' },
-        { to: GW_PATHS.driver.queue, label: 'Queue' },
-        { to: GW_PATHS.driver.active, label: 'On Trip' },
-        { to: GW_PATHS.driver.vehicle, label: 'Profile' },
+        { to: GW_PATHS.driver.dashboard, label: t('ride') },
+        { to: GW_PATHS.driver.queue,     label: t('queue') },
+        { to: GW_PATHS.driver.active,    label: t('onTrip') },
+        { to: GW_PATHS.driver.vehicle,   label: t('profile') },
       ];
     }
     if (role === 'passenger') {
       return [
-        { to: GW_PATHS.passenger.dashboard, label: 'Ride' },
-        { to: GW_PATHS.passenger.charities, label: 'Charities' },
-        { to: GW_PATHS.passenger.donations, label: 'Donations' },
-        { to: GW_PATHS.auth.profile, label: 'Profile' },
+        { to: GW_PATHS.passenger.dashboard, label: t('ride') },
+        { to: GW_PATHS.passenger.charities, label: t('charities') },
+        { to: GW_PATHS.passenger.donations, label: t('donations') },
+        { to: GW_PATHS.auth.profile,        label: t('profile') },
       ];
     }
     if (role === 'worker') {
       return [
-        { to: GW_PATHS.worker.dashboard, label: 'Home' },
-        { to: GW_PATHS.worker.dispatch, label: 'Dispatch' },
-        { to: GW_PATHS.worker.tasks, label: 'Tasks' },
-        { to: GW_PATHS.auth.profile, label: 'Profile' },
+        { to: GW_PATHS.worker.dashboard, label: t('home') },
+        { to: GW_PATHS.worker.dispatch,  label: t('dispatch') },
+        { to: GW_PATHS.worker.tasks,     label: t('tasks') },
+        { to: GW_PATHS.auth.profile,     label: t('profile') },
       ];
     }
     return [];
-  }, [role]);
+  }, [role, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'}>
@@ -82,18 +88,42 @@ const AppLayout: React.FC = () => {
       <header className="gw-appbar">
         <div className="gw-container gw-appbar-inner">
           <button type="button" className="gw-button gw-button-ghost" onClick={() => navigate(GW_PATHS.public.home)}>
-            Good Wheels
+            {t('appName')}
           </button>
           <div className="gw-appbar-spacer" />
           {isDev && (
             <button type="button" className="gw-button gw-button-secondary" onClick={() => setPreviewOpen(true)}>
-              Device preview
+              {t('devicePreview')}
             </button>
           )}
-          {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">Notifications</NavLink>}
-          {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">Settings</NavLink>}
+          {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">{t('notifications')}</NavLink>}
+          {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">{t('settings')}</NavLink>}
+          {/* Language toggle */}
+          <div style={{ display: 'flex', gap: 2, background: 'rgba(0,0,0,0.15)', borderRadius: 8, padding: 2 }}>
+            {(['EN', 'ES'] as GwLang[]).map((l) => (
+              <button
+                key={l}
+                type="button"
+                onClick={() => setLang(l)}
+                style={{
+                  padding: '3px 10px',
+                  borderRadius: 6,
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.05em',
+                  background: lang === l ? '#fff' : 'transparent',
+                  color: lang === l ? '#0e7490' : 'rgba(255,255,255,0.6)',
+                  transition: 'all 0.15s',
+                }}
+              >
+                {l}
+              </button>
+            ))}
+          </div>
           <button type="button" className="gw-button gw-button-ghost" onClick={() => void signOut().then(() => navigate(GW_PATHS.public.home))}>
-            Sign out
+            {t('signOut')}
           </button>
         </div>
       </header>
@@ -103,38 +133,38 @@ const AppLayout: React.FC = () => {
         <aside className="gw-sidenav">
           <div className="gw-sidenav-card">
             <div className="gw-sidenav-title">{user?.fullName ?? '—'}</div>
-            <div className="gw-sidenav-sub">Role: {role ?? '—'}</div>
+            <div className="gw-sidenav-sub">{t('role')}: {role ? t(`roleName_${role}` as any) : '—'}</div>
           </div>
 
           {role === 'passenger' && (
             <nav className="gw-sidenav-links">
-              <NavLink to={GW_PATHS.passenger.dashboard} className="gw-sidenav-link">Dashboard</NavLink>
-              <NavLink to={GW_PATHS.passenger.request} className="gw-sidenav-link">Request a Ride</NavLink>
-              <NavLink to={GW_PATHS.passenger.active} className="gw-sidenav-link">Active Trip</NavLink>
-              <NavLink to={GW_PATHS.passenger.history} className="gw-sidenav-link">Ride History</NavLink>
-              <NavLink to={GW_PATHS.passenger.places} className="gw-sidenav-link">Saved Places</NavLink>
-              <NavLink to={GW_PATHS.passenger.support} className="gw-sidenav-link">Support</NavLink>
+              <NavLink to={GW_PATHS.passenger.dashboard} className="gw-sidenav-link">{t('dashboard')}</NavLink>
+              <NavLink to={GW_PATHS.passenger.request} className="gw-sidenav-link">{t('requestRide')}</NavLink>
+              <NavLink to={GW_PATHS.passenger.active} className="gw-sidenav-link">{t('activeTrip')}</NavLink>
+              <NavLink to={GW_PATHS.passenger.history} className="gw-sidenav-link">{t('rideHistory')}</NavLink>
+              <NavLink to={GW_PATHS.passenger.places} className="gw-sidenav-link">{t('savedPlaces')}</NavLink>
+              <NavLink to={GW_PATHS.passenger.support} className="gw-sidenav-link">{t('support')}</NavLink>
             </nav>
           )}
 
           {role === 'driver' && (
             <nav className="gw-sidenav-links">
-              <NavLink to={GW_PATHS.driver.dashboard} className="gw-sidenav-link">Dashboard</NavLink>
-              <NavLink to={GW_PATHS.driver.queue} className="gw-sidenav-link">Queue</NavLink>
-              <NavLink to={GW_PATHS.driver.active} className="gw-sidenav-link">Active Trip</NavLink>
-              <NavLink to={GW_PATHS.driver.earnings} className="gw-sidenav-link">Earnings</NavLink>
-              <NavLink to={GW_PATHS.driver.vehicle} className="gw-sidenav-link">Vehicle</NavLink>
-              <NavLink to={GW_PATHS.driver.history} className="gw-sidenav-link">History</NavLink>
+              <NavLink to={GW_PATHS.driver.dashboard} className="gw-sidenav-link">{t('dashboard')}</NavLink>
+              <NavLink to={GW_PATHS.driver.queue} className="gw-sidenav-link">{t('queue')}</NavLink>
+              <NavLink to={GW_PATHS.driver.active} className="gw-sidenav-link">{t('activeTrip')}</NavLink>
+              <NavLink to={GW_PATHS.driver.earnings} className="gw-sidenav-link">{t('earnings')}</NavLink>
+              <NavLink to={GW_PATHS.driver.vehicle} className="gw-sidenav-link">{t('vehicle')}</NavLink>
+              <NavLink to={GW_PATHS.driver.history} className="gw-sidenav-link">{t('history')}</NavLink>
             </nav>
           )}
 
           {role === 'worker' && (
             <nav className="gw-sidenav-links">
-              <NavLink to={GW_PATHS.worker.dashboard} className="gw-sidenav-link">Dashboard</NavLink>
-              <NavLink to={GW_PATHS.worker.tasks} className="gw-sidenav-link">Tasks</NavLink>
-              <NavLink to={GW_PATHS.worker.dispatch} className="gw-sidenav-link">Dispatch</NavLink>
-              <NavLink to={GW_PATHS.worker.history} className="gw-sidenav-link">History</NavLink>
-              <NavLink to={GW_PATHS.worker.impact} className="gw-sidenav-link">Impact</NavLink>
+              <NavLink to={GW_PATHS.worker.dashboard} className="gw-sidenav-link">{t('dashboard')}</NavLink>
+              <NavLink to={GW_PATHS.worker.tasks} className="gw-sidenav-link">{t('tasks')}</NavLink>
+              <NavLink to={GW_PATHS.worker.dispatch} className="gw-sidenav-link">{t('dispatch')}</NavLink>
+              <NavLink to={GW_PATHS.worker.history} className="gw-sidenav-link">{t('history')}</NavLink>
+              <NavLink to={GW_PATHS.worker.impact} className="gw-sidenav-link">{t('impact')}</NavLink>
             </nav>
           )}
         </aside>

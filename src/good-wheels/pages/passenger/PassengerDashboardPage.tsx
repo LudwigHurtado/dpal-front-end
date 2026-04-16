@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useGwLang } from '../../i18n/useGwLang';
 import { useAuthStore } from '../../store/useAuthStore';
 import { GW_PATHS } from '../../routes/paths';
 import { useTripStore } from '../../features/trips/tripStore';
@@ -12,6 +13,7 @@ import { MOCK_SUPPORT_CATEGORIES } from '../../data/mock/mockSupportCategories';
 
 const PassengerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const activeTrip = useTripStore((s) => s.activeTrip);
   const loading = useTripStore((s) => s.loading);
@@ -53,7 +55,7 @@ const PassengerDashboardPage: React.FC = () => {
             <h1 className="gw-h2">Welcome back{user?.fullName ? `, ${user.fullName}` : ''}</h1>
             <p className="gw-muted">Request a ride, track your trip, and connect help to real outcomes.</p>
           </div>
-          <Link to={GW_PATHS.passenger.request} className="gw-button gw-button-primary">Request a Ride</Link>
+          <Link to={GW_PATHS.passenger.request} className="gw-button gw-button-primary">{t('requestRideBtn')}</Link>
         </div>
       )}
 
