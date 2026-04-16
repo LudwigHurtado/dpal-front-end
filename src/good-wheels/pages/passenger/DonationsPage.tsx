@@ -361,6 +361,74 @@ const DonationsPage: React.FC = () => {
           </>
         )}
 
+        {/* ── CRYPTO REWARDS TRACKER ── */}
+        <div style={{
+          background: 'linear-gradient(135deg, #0D1117, #1a2744)',
+          borderRadius: 20, padding: '18px',
+          border: '1px solid rgba(247,147,26,0.30)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+              background: 'linear-gradient(135deg, #F7931A, #e8830a)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 18,
+            }}>₿</div>
+            <div>
+              <div style={{ color: '#F7931A', fontWeight: 900, fontSize: 14 }}>Your Crypto Rewards</div>
+              <div style={{ color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: 600 }}>
+                Every ride & report builds your block
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+            {[
+              { label: 'Pending Rewards', value: '₿ 0.00012', sub: '~$4.80 USD', color: '#F7931A' },
+              { label: 'Block Progress', value: '3 / 10', sub: 'reports in block', color: '#2FB344' },
+              { label: 'Reports Filed', value: '3', sub: 'verified actions', color: '#0077C8' },
+              { label: 'Blocks Completed', value: '0', sub: 'payout pending', color: '#8B5CF6' },
+            ].map((stat) => (
+              <div key={stat.label} style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                borderRadius: 12, padding: '10px 12px',
+              }}>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.45)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  {stat.label}
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 900, color: stat.color }}>{stat.value}</div>
+                <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.40)', fontWeight: 600, marginTop: 2 }}>{stat.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Block progress bar */}
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 700 }}>Block completion</span>
+              <span style={{ fontSize: 11, color: '#F7931A', fontWeight: 800 }}>3 / 10 reports</span>
+            </div>
+            <div style={{ height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 999, overflow: 'hidden' }}>
+              <div style={{ width: '30%', height: '100%', background: 'linear-gradient(90deg, #F7931A, #2FB344)', borderRadius: 999 }} />
+            </div>
+            <div style={{ marginTop: 6, fontSize: 10, color: 'rgba(255,255,255,0.40)', fontWeight: 600 }}>
+              7 more verified actions to seal this block and trigger payout
+            </div>
+          </div>
+
+          <div style={{
+            background: 'rgba(247,147,26,0.07)', border: '1px solid rgba(247,147,26,0.18)',
+            borderRadius: 10, padding: '9px 12px',
+          }}>
+            <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.65)', lineHeight: 1.55 }}>
+              <span style={{ color: '#F7931A', fontWeight: 800 }}>How payouts work:</span>{' '}
+              Your reports fill a verification block. When the block seals — every contributor earns their Bitcoin reward automatically.
+              No action needed. Your next report brings payout closer.
+            </p>
+          </div>
+        </div>
+
         {/* ── Save button ── */}
         <button
           type="button"
