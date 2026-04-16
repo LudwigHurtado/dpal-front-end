@@ -303,7 +303,7 @@ function RegisterModal({ hero, onClose, onSuccess }: RegisterModalProps) {
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<RegisterForm>({
     ...BLANK_FORM,
-    ownerName: hero?.heroName || '',
+    ownerName: hero?.name || '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -332,7 +332,7 @@ function RegisterModal({ hero, onClose, onSuccess }: RegisterModalProps) {
         body: JSON.stringify({
           ownerName: form.ownerName,
           ownerEmail: form.ownerEmail,
-          heroId: hero?.id || '',
+          heroId: hero?.operativeId || '',
           country: form.country,
           region: form.region,
           totalAcres: Number(form.totalAcres),
@@ -689,8 +689,8 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
   const [registerOpen, setRegisterOpen] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState<{ parcelId: string; credits: number } | null>(null);
 
-  const userId = hero?.id || 'anonymous';
-  const userName = hero?.heroName || 'Anonymous';
+  const userId = hero?.operativeId || 'anonymous';
+  const userName = hero?.name || 'Anonymous';
 
   // ── Fetch ────────────────────────────────────────────────────────────────────
 
@@ -866,7 +866,7 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
     if (!isAiEnabled()) return;
     setScoringId(project.projectId);
     try {
-      const { runGeminiGenerate } = await import('../services/geminiService');
+      const { runGeminiPrompt } = await import('../services/geminiService');
       const prompt = `You are a carbon credit auditor. Rate this project's credibility from 0-100 and give a one-sentence note.
 Project: ${project.name}
 Location: ${project.location}
@@ -874,7 +874,7 @@ Mission: ${project.mission}
 Description: ${project.description}
 Units: ${project.totalUnits} tCO2e
 Respond ONLY with JSON: {"score": number, "note": "string"}`;
-      const text = await runGeminiGenerate(prompt);
+      const text = await runGeminiPrompt(prompt);
       const parsed = JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] || '{}');
       if (parsed.score != null) {
         setProjects((prev) => prev.map((p) =>

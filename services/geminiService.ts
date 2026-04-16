@@ -112,6 +112,19 @@ async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: 
   return { text: String(data.text ?? "") };
 }
 
+/**
+ * Simple exported helper: run a plain text prompt through Gemini and return
+ * the raw response string. Used by components that need ad-hoc AI scoring
+ * without building a full GeminiGenerateParams object.
+ */
+export async function runGeminiPrompt(prompt: string): Promise<string> {
+  const { text } = await runGeminiGenerate({
+    model: "gemini-2.0-flash",
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  });
+  return text;
+}
+
 const handleApiError = (error: any): never => {
   console.error(`Backend API Error:`, error);
 

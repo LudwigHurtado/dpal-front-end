@@ -304,8 +304,8 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ownerId: hero?.id || 'anonymous',
-          ownerName: hero?.heroName || 'Anonymous',
+          ownerId: hero?.operativeId || 'anonymous',
+          ownerName: hero?.name || 'Anonymous',
           projectName: form.projectName,
           projectType: form.projectType,
           description: form.description,
@@ -574,8 +574,8 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
-  const userId = hero?.id || 'anonymous';
-  const userName = hero?.heroName || 'Anonymous';
+  const userId = hero?.operativeId || 'anonymous';
+  const userName = hero?.name || 'Anonymous';
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
 
@@ -1057,7 +1057,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 <div className="flex items-center gap-3 p-4 border-b border-slate-800 bg-slate-900/50">
                   <span className="text-2xl">{pType.icon}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-white truncate">{proj?.projectName || report.projectId}</p>
+                    <p className="text-sm font-black text-white truncate">{proj?.projectName || report.reportId}</p>
                     <p className="text-xs text-slate-400">{proj?.location?.country} · {proj?.totalAcres?.toLocaleString()} acres · {report.reportDate}</p>
                   </div>
                   <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${RISK_STYLE[report.riskLevel] || ''} border-current bg-current/10`}>
