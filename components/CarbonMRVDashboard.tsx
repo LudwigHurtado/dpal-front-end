@@ -7,7 +7,7 @@
  *   project    — project detail: satellite monitoring, MRV score, blockchain ledger
  *   validator  — validator queue: review MRV reports, approve/reject
  */
-import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense, useRef } from 'react';
 import {
   ArrowLeft, MapPin, CheckCircle, Search, Loader, Sparkles, Activity,
   ShieldCheck, Award, Zap, Globe, Plus, X, ChevronLeft, ChevronRight,
@@ -22,6 +22,104 @@ import { isAiEnabled } from '../services/geminiService';
 import type { Hero } from '../types';
 
 const CarbonWorldMap = lazy(() => import('./CarbonWorldMap'));
+
+// ── SnapshotMap — Google Maps satellite view for a project location ─────────────
+
+import { loadGoogleMaps } from '../services/googleMapsLoader';
+
+interface SnapshotMapProps {
+  lat: number;
+  lng: number;
+  projectName: string;
+  totalAcres: number;
+  ndviScore?: number;
+}
+
+function SnapshotMap({ lat, lng, projectName, totalAcres, ndviScore }: SnapshotMapProps) {
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapErr, setMapErr]     = useState(false);
+
+  const hasCoords = lat && lng && (lat !== 0 || lng !== 0);
+
+  useEffect(() => {
+    if (!hasCoords || !mapDivRef.current) return;
+    let cancelled = false;
+    const ndviColor = ndviScore != null
+      ? (ndviScore >= 0.6 ? '#22c55e' : ndviScore >= 0.3 ? '#f59e0b' : '#f43f5e')
+      : '#22c55e';
+    const radiusM = Math.sqrt((totalAcres * 4047) / Math.PI);
+
+    loadGoogleMaps().then((g) => {
+      if (cancelled || !mapDivRef.current) return;
+      const map = new g.maps.Map(mapDivRef.current, {
+        center: { lat, lng },
+        zoom: 14,
+        mapTypeId: 'satellite',
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+        tilt: 0,
+      });
+      new g.maps.Circle({
+        map,
+        center: { lat, lng },
+        radius: radiusM,
+        strokeColor: ndviColor,
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        fillColor: ndviColor,
+        fillOpacity: 0.08,
+      });
+      new g.maps.InfoWindow({
+        content: `<div style="font-family:monospace;font-size:11px;padding:6px 8px;background:#0f172a;color:#e2e8f0;border-radius:6px">
+          <strong>${projectName}</strong><br/>
+          ${totalAcres.toLocaleString()} acres
+          ${ndviScore != null ? `<br/><span style="color:${ndviColor}">NDVI ${ndviScore.toFixed(3)}</span>` : ''}
+        </div>`,
+        position: { lat, lng },
+      }).open(map);
+      setMapReady(true);
+    }).catch(() => { if (!cancelled) setMapErr(true); });
+
+    return () => { cancelled = true; };
+  }, [lat, lng, totalAcres, ndviScore, hasCoords]);
+
+  if (!hasCoords) {
+    return (
+      <div className="h-52 flex items-center justify-center bg-slate-800/60 rounded-xl border border-slate-700 text-center px-4">
+        <div>
+          <p className="text-2xl mb-2">📍</p>
+          <p className="font-bold text-slate-400 text-sm">No GPS coordinates set</p>
+          <p className="text-xs text-slate-600 mt-1">Edit the project to add a GPS center point</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative rounded-xl overflow-hidden border border-slate-700/60" style={{ height: '240px' }}>
+      {!mapReady && !mapErr && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10">
+          <Loader className="w-6 h-6 text-emerald-400 animate-spin" />
+        </div>
+      )}
+      {mapErr && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10 text-center px-4">
+          <div>
+            <p className="text-slate-400 text-sm font-bold mb-1">Satellite view unavailable</p>
+            <p className="text-slate-600 text-xs">Check VITE_GOOGLE_MAPS_API_KEY</p>
+          </div>
+        </div>
+      )}
+      <div ref={mapDivRef} className="w-full h-full" />
+      <div className="absolute top-2 right-2 z-10">
+        <span className="text-[8px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider">Google Satellite</span>
+      </div>
+    </div>
+  );
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -662,6 +760,17 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
             {latestSnap ? (
               <div className="p-4 space-y-4">
+                {/* Satellite imagery map */}
+                <Suspense fallback={<div className="h-52 rounded-xl bg-slate-800 animate-pulse" />}>
+                  <SnapshotMap
+                    lat={selectedProject.location.gpsCenter.lat}
+                    lng={selectedProject.location.gpsCenter.lng}
+                    projectName={selectedProject.projectName}
+                    totalAcres={selectedProject.totalAcres}
+                    ndviScore={latestSnap.ndviScore}
+                  />
+                </Suspense>
+
                 {/* NDVI metrics */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
@@ -703,8 +812,19 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 </div>
               </div>
             ) : (
-              <div className="p-8 text-center text-slate-500 text-sm">
-                No satellite data yet — click "Pull Snapshot" to run baseline analysis
+              <div className="p-4 space-y-4">
+                {/* Show the project location even before first snapshot */}
+                <Suspense fallback={<div className="h-52 rounded-xl bg-slate-800 animate-pulse" />}>
+                  <SnapshotMap
+                    lat={selectedProject.location.gpsCenter.lat}
+                    lng={selectedProject.location.gpsCenter.lng}
+                    projectName={selectedProject.projectName}
+                    totalAcres={selectedProject.totalAcres}
+                  />
+                </Suspense>
+                <p className="text-center text-slate-500 text-sm">
+                  No NDVI data yet — click <span className="text-sky-400 font-bold">Pull Snapshot</span> to run baseline analysis
+                </p>
               </div>
             )}
 

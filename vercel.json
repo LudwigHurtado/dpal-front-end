@@ -5,7 +5,7 @@
       "destination": "https://web-production-a27b.up.railway.app/api/:path*"
     },
     {
-      "source": "/((?!.*\\..*).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],

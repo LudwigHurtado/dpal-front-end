@@ -12,7 +12,8 @@
  * No real regulated commodity. Future third-party certification adds external status.
  */
 
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
+import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { WaterGlobe, type WaterProjectPin, type WaterAlertPin } from './WaterGlobe';
 import { isAiEnabled } from '../services/geminiService';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
@@ -153,6 +154,96 @@ interface PlatformStats {
 interface WaterMonitorViewProps {
   onReturn: () => void;
   hero?: Hero;
+}
+
+// ── Satellite imagery map for project detail view (Google Maps) ───────────────
+
+function WaterSnapshotMap({ lat, lng, projectName, totalAcres, soilMoisture }: {
+  lat: number; lng: number; projectName: string; totalAcres: number; soilMoisture?: number;
+}) {
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const [mapReady, setMapReady] = useState(false);
+  const [mapErr, setMapErr]     = useState(false);
+
+  const hasCoords = lat && lng && (lat !== 0 || lng !== 0);
+
+  useEffect(() => {
+    if (!hasCoords || !mapDivRef.current) return;
+    let cancelled = false;
+    const ringColor = soilMoisture != null
+      ? (soilMoisture >= 0.4 ? '#14b8a6' : soilMoisture >= 0.25 ? '#f59e0b' : '#f43f5e')
+      : '#14b8a6';
+    const radiusM = Math.sqrt((totalAcres * 4047) / Math.PI);
+
+    loadGoogleMaps().then((g) => {
+      if (cancelled || !mapDivRef.current) return;
+      const map = new g.maps.Map(mapDivRef.current, {
+        center: { lat, lng },
+        zoom: 14,
+        mapTypeId: 'satellite',
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        zoomControl: true,
+        tilt: 0,
+      });
+      new g.maps.Circle({
+        map,
+        center: { lat, lng },
+        radius: radiusM,
+        strokeColor: ringColor,
+        strokeOpacity: 0.9,
+        strokeWeight: 2.5,
+        fillColor: ringColor,
+        fillOpacity: 0.07,
+      });
+      new g.maps.InfoWindow({
+        content: `<div style="font-family:monospace;font-size:11px;padding:6px 8px;background:#0f172a;color:#e2e8f0;border-radius:6px">
+          <strong>${projectName}</strong><br/>
+          ${totalAcres.toLocaleString()} acres
+          ${soilMoisture != null ? `<br/><span style="color:${ringColor}">Soil moisture ${(soilMoisture * 100).toFixed(0)}%</span>` : ''}
+        </div>`,
+        position: { lat, lng },
+      }).open(map);
+      setMapReady(true);
+    }).catch(() => { if (!cancelled) setMapErr(true); });
+
+    return () => { cancelled = true; };
+  }, [lat, lng, totalAcres, soilMoisture, hasCoords]);
+
+  if (!hasCoords) {
+    return (
+      <div className="h-52 flex items-center justify-center bg-slate-800/60 rounded-xl border border-slate-700 text-center px-4">
+        <div>
+          <p className="text-2xl mb-2">📍</p>
+          <p className="font-bold text-slate-400 text-sm">No GPS coordinates set</p>
+          <p className="text-xs text-slate-600 mt-1">Edit the project to add a GPS center point</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative rounded-xl overflow-hidden border border-slate-700/60" style={{ height: '240px' }}>
+      {!mapReady && !mapErr && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10">
+          <RefreshCw className="w-6 h-6 text-teal-400 animate-spin" />
+        </div>
+      )}
+      {mapErr && (
+        <div className="absolute inset-0 flex items-center justify-center bg-slate-900 z-10 text-center px-4">
+          <div>
+            <p className="text-slate-400 text-sm font-bold mb-1">Satellite view unavailable</p>
+            <p className="text-slate-600 text-xs">Check VITE_GOOGLE_MAPS_API_KEY</p>
+          </div>
+        </div>
+      )}
+      <div ref={mapDivRef} className="w-full h-full" />
+      <div className="absolute top-2 right-2 z-10">
+        <span className="text-[8px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider">Google Satellite</span>
+      </div>
+    </div>
+  );
 }
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -881,6 +972,25 @@ function ProjectDetailView({
           </button>
         )}
       </div>
+
+      {/* Satellite imagery map — always visible */}
+      {project && (
+        <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
+            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Project Location — Satellite View</span>
+            <span className="text-[10px] text-slate-600">ESRI World Imagery</span>
+          </div>
+          <div className="p-3">
+            <WaterSnapshotMap
+              lat={project.location.gpsCenter.lat}
+              lng={project.location.gpsCenter.lng}
+              projectName={project.projectName}
+              totalAcres={project.totalAcres}
+              soilMoisture={latestSnap?.metrics.soilMoistureIndex}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Latest metrics */}
       {latestSnap && (
@@ -1683,6 +1793,103 @@ function SatelliteLiveFeed() {
 // These are real-world water stress hotspots used as reference markers when
 // no registered projects are present, ensuring the map is never empty.
 
+// ── Demo showcase projects (shown when API is unavailable / no registered projects) ──
+
+const DEMO_WATER_PROJECTS: WaterProject[] = [
+  {
+    projectId: 'demo-wp-001', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Indus Valley Irrigation Efficiency',
+    projectType: 'farm_irrigation',
+    description: 'Satellite-monitored drip-irrigation rollout across 4,200 acres in Punjab province. Targets 35% water savings vs. flood irrigation baseline through SMAP-guided scheduling.',
+    location: { country: 'Pakistan', region: 'Punjab', city: 'Lahore', gpsCenter: { lat: 30.5, lng: 72.5 }, polygon: [] },
+    totalAcres: 4200, baselineDate: '2024-03-01', baselineWaterIndex: 0.38,
+    improvementGoal: 'Reduce irrigation draw by 35% within 18 months',
+    status: 'monitoring', evidenceUrls: [], adminNotes: '', createdAt: '2024-03-01T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-002', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Lake Victoria Wetland Restoration',
+    projectType: 'wetland_restoration',
+    description: 'Ecological recovery of 1,800 acres of degraded papyrus wetlands along the Kenyan shoreline. GRACE telemetry tracks groundwater recharge and biodiversity recovery index.',
+    location: { country: 'Kenya', region: 'Kisumu', city: 'Kisumu', gpsCenter: { lat: -0.5, lng: 33.5 }, polygon: [] },
+    totalAcres: 1800, baselineDate: '2024-01-15', baselineWaterIndex: 0.22,
+    improvementGoal: 'Restore 70% wetland function and increase groundwater recharge by 20%',
+    status: 'approved', evidenceUrls: [], adminNotes: '', createdAt: '2024-01-15T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-003', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Colorado River Drought Response',
+    projectType: 'drought_response',
+    description: 'Emergency conservation program across Lake Mead tributary agriculture zone. SWOT satellite monitors surface water drawdown; growers receive alerts to pause irrigation during critical periods.',
+    location: { country: 'United States', region: 'Nevada', city: 'Las Vegas', gpsCenter: { lat: 36.2, lng: -115.0 }, polygon: [] },
+    totalAcres: 9800, baselineDate: '2023-09-01', baselineWaterIndex: 0.15,
+    improvementGoal: 'Cut agricultural water demand by 40% during Tier 2 shortage',
+    status: 'credited', evidenceUrls: [], adminNotes: '', createdAt: '2023-09-01T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-004', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Mekong Delta Community Conservation',
+    projectType: 'community_conservation',
+    description: 'Smart water-sharing network serving 48 farming villages in the Mekong delta. Copernicus Sentinel-2 tracks salinity intrusion and river flow to optimise community storage rotation.',
+    location: { country: 'Vietnam', region: 'Can Tho', city: 'Can Tho', gpsCenter: { lat: 10.2, lng: 105.8 }, polygon: [] },
+    totalAcres: 3100, baselineDate: '2024-05-10', baselineWaterIndex: 0.44,
+    improvementGoal: 'Achieve equitable 7-day storage rotation for all 48 villages',
+    status: 'monitoring', evidenceUrls: [], adminNotes: '', createdAt: '2024-05-10T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-005', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Amsterdam Canal Leak Reduction',
+    projectType: 'leak_reduction',
+    description: 'IoT pressure-sensor network across 620 km of water mains in greater Amsterdam. SMAP moisture mapping identifies subsurface leaks; autonomous shut-off valves reduce loss by 28%.',
+    location: { country: 'Netherlands', region: 'North Holland', city: 'Amsterdam', gpsCenter: { lat: 52.37, lng: 4.9 }, polygon: [] },
+    totalAcres: 480, baselineDate: '2024-02-20', baselineWaterIndex: 0.62,
+    improvementGoal: 'Reduce non-revenue water losses by 30% within 12 months',
+    status: 'approved', evidenceUrls: [], adminNotes: '', createdAt: '2024-02-20T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-006', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Murray-Darling Basin Smart Irrigation',
+    projectType: 'farm_irrigation',
+    description: 'Precision soil-moisture scheduling across three pastoral stations in New South Wales. SMAP and GRACE data feed automated drip control, eliminating over-irrigation during cool periods.',
+    location: { country: 'Australia', region: 'New South Wales', city: 'Dubbo', gpsCenter: { lat: -32.3, lng: 148.6 }, polygon: [] },
+    totalAcres: 6700, baselineDate: '2024-04-01', baselineWaterIndex: 0.29,
+    improvementGoal: 'Reduce irrigation volume by 25% and maintain yields across 3 seasons',
+    status: 'under_review', evidenceUrls: [], adminNotes: '', createdAt: '2024-04-01T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-007', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'São Francisco Reservoir Monitoring',
+    projectType: 'reservoir_monitoring',
+    description: 'Continuous SWOT + GRACE monitoring of the Sobradinho reservoir, one of Brazil\'s largest. Tracks evaporation losses and inflow trends to support downstream allocation decisions.',
+    location: { country: 'Brazil', region: 'Bahia', city: 'Juazeiro', gpsCenter: { lat: -9.4, lng: -40.5 }, polygon: [] },
+    totalAcres: 14000, baselineDate: '2023-11-01', baselineWaterIndex: 0.51,
+    improvementGoal: 'Improve forecast accuracy to reduce emergency spill events by 50%',
+    status: 'monitoring', evidenceUrls: [], adminNotes: '', createdAt: '2023-11-01T00:00:00Z',
+  },
+  {
+    projectId: 'demo-wp-008', ownerId: 'demo', ownerName: 'DPAL Showcase',
+    projectName: 'Rajasthan School Water Initiative',
+    projectType: 'school_or_facility_savings',
+    description: 'Low-cost rainwater harvesting and greywater reuse across 220 rural schools in Rajasthan. Sensor-equipped tanks report daily usage; AI alerts flag leaks and over-consumption.',
+    location: { country: 'India', region: 'Rajasthan', city: 'Jaipur', gpsCenter: { lat: 26.9, lng: 75.8 }, polygon: [] },
+    totalAcres: 95, baselineDate: '2024-06-01', baselineWaterIndex: 0.18,
+    improvementGoal: 'Cut per-student water use by 45% across 220 schools by end of monsoon season',
+    status: 'submitted', evidenceUrls: [], adminNotes: '', createdAt: '2024-06-01T00:00:00Z',
+  },
+];
+
+// soilMoisture values for demo globe pins (separate from full project data)
+const DEMO_GLOBE_SOIL_MOISTURE: Record<string, number> = {
+  'demo-wp-001': 0.42,
+  'demo-wp-002': 0.19, // drought stress → pulsing ring
+  'demo-wp-003': 0.12, // drought stress → pulsing ring
+  'demo-wp-004': 0.55,
+  'demo-wp-005': 0.68,
+  'demo-wp-006': 0.33,
+  'demo-wp-007': 0.57,
+  'demo-wp-008': 0.14, // drought stress → pulsing ring
+};
+
 const REFERENCE_STATIONS: WaterAlertPin[] = [
   { id: 'ref-colorado',   title: 'Colorado River Basin — Chronic over-allocation drought stress',       description: 'Lake Mead & Lake Powell at historic lows. Critical water supply for 40M people.',    lat: 36.0,   lng: -114.7,  severity: 'critical', source: 'USGS Reference', isReference: true },
   { id: 'ref-lakeChad',   title: 'Lake Chad Basin — 90% shrinkage since 1960',                          description: 'Severe desertification affecting Nigeria, Niger, Chad and Cameroon.',               lat: 13.3,   lng: 14.0,    severity: 'critical', source: 'FAO Reference',  isReference: true },
@@ -1716,6 +1923,7 @@ function Dashboard({
   const [err, setErr]                 = useState('');
   const [showGlobe, setShowGlobe]     = useState(true);
   const [hazardSignals, setHazardSignals] = useState<WaterAlertPin[]>([]);
+  const [isDemoMode, setIsDemoMode]   = useState(false);
 
   // Fix: exclude 0,0 default coords — only include projects with real GPS
   const globePins = useMemo<WaterProjectPin[]>(() =>
@@ -1727,15 +1935,16 @@ function Dashboard({
       })
       .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
       .map((p) => ({
-        projectId:   p.projectId,
-        projectName: p.projectName,
-        projectType: p.projectType,
-        status:      p.status,
-        country:     p.location.country,
-        city:        p.location.city,
-        totalAcres:  p.totalAcres,
-        lat:         p.location.gpsCenter.lat,
-        lng:         p.location.gpsCenter.lng,
+        projectId:    p.projectId,
+        projectName:  p.projectName,
+        projectType:  p.projectType,
+        status:       p.status,
+        country:      p.location.country,
+        city:         p.location.city,
+        totalAcres:   p.totalAcres,
+        lat:          p.location.gpsCenter.lat,
+        lng:          p.location.gpsCenter.lng,
+        soilMoisture: DEMO_GLOBE_SOIL_MOISTURE[p.projectId],
       })),
     [projects]
   );
@@ -1755,11 +1964,21 @@ function Dashboard({
           apiFetch<{ ok: boolean; stats: PlatformStats }>(apiUrl(API_ROUTES.WATER_STATS)),
           apiFetch<{ ok: boolean; feed: TxRecord[] }>(apiUrl(API_ROUTES.WATER_ACTIVITY_FEED)),
         ]);
-        setProjects(pd.projects ?? []);
+        const liveProjects = pd.projects ?? [];
+        if (liveProjects.length === 0) {
+          setProjects(DEMO_WATER_PROJECTS);
+          setIsDemoMode(true);
+        } else {
+          setProjects(liveProjects);
+          setIsDemoMode(false);
+        }
         setStats(sd.stats);
         setFeed(fd.feed ?? []);
       } catch (ex: unknown) {
-        setErr(ex instanceof Error ? ex.message : String(ex));
+        // API unavailable — show demo showcase projects
+        setProjects(DEMO_WATER_PROJECTS);
+        setIsDemoMode(true);
+        setErr('');
       } finally {
         setLoading(false);
       }
@@ -1823,6 +2042,13 @@ function Dashboard({
         <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg px-4 py-3 text-sm text-rose-300">{err}</div>
       )}
 
+      {isDemoMode && (
+        <div className="flex items-center gap-3 bg-teal-500/10 border border-teal-500/30 rounded-lg px-4 py-2.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-teal-400 bg-teal-500/20 border border-teal-500/40 px-2 py-0.5 rounded-full shrink-0">Showcase Mode</span>
+          <span className="text-xs text-slate-400">Displaying 8 global water projects · Register your own project to add live monitoring data</span>
+        </div>
+      )}
+
       {/* Live Satellite Feed — always visible, no project needed */}
       <SatelliteLiveFeed />
 
@@ -1854,7 +2080,7 @@ function Dashboard({
             <span className="text-sm font-semibold text-slate-200">Project World Map</span>
             {globePins.length > 0 && (
               <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">
-                {globePins.length} project{globePins.length !== 1 ? 's' : ''}
+                {globePins.length} project{globePins.length !== 1 ? 's' : ''}{isDemoMode ? ' · showcase' : ''}
               </span>
             )}
             {alertPins.length > 0 && (
@@ -1880,9 +2106,11 @@ function Dashboard({
             height="h-[440px]"
           />
         )}
-        {showGlobe && globePins.length === 0 && (
+        {showGlobe && (
           <p className="px-4 py-2 text-[10px] text-slate-600 border-t border-slate-800">
-            Showing global reference water stress stations · Register a project to add your own pins
+            {isDemoMode
+              ? '8 showcase projects · 10 global water stress reference stations · Register a project to add live monitoring pins'
+              : 'Showing your registered projects · Reference water stress stations shown when no projects are registered'}
           </p>
         )}
       </div>

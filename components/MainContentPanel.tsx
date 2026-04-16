@@ -50,7 +50,7 @@ const MainContentPanel: React.FC<MainContentPanelProps> = ({ reports, filteredRe
       case 'work_feed':
         return <FeedPanel reports={filteredReports} onJoinReportChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} {...rest} />;
       case 'map':
-        return <MapHubView onReturnToMainMenu={onReturnToMainMenu} onOpenFilters={onOpenFilters} mapCenter={mapCenter} />;
+        return <MapHubView onReturnToMainMenu={onReturnToMainMenu} onOpenFilters={onOpenFilters} mapCenter={mapCenter} reports={reports} filteredReports={filteredReports} />;
       default:
         return null;
     }
