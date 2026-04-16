@@ -21,7 +21,7 @@ import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
   ShieldCheck, Award, Zap, Plus, RefreshCw, Eye,
   Droplets, Waves, TrendingUp, TrendingDown, Globe, ChevronRight,
-  FileText, BarChart2, Star, Clock, Filter, Sparkles,
+  FileText, BarChart2, Star, Clock, Filter, Sparkles, X,
 } from './icons';
 import {
   apiUrl,
@@ -1004,6 +1004,13 @@ function ProjectDetailView({
           <FileText className={`w-3.5 h-3.5 ${generating ? 'animate-pulse' : ''}`} />
           {generating ? 'Generating…' : 'Generate Impact Report'}
         </button>
+        <button
+          onClick={openGpsEdit}
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/40 hover:bg-slate-700/70 border border-slate-600 text-slate-300 hover:text-slate-100 text-sm transition"
+        >
+          <MapPin className="w-3.5 h-3.5 text-teal-400" />
+          Edit GPS
+        </button>
         {canIssueCredits && (
           <button
             onClick={issueCredits}
@@ -1015,6 +1022,63 @@ function ProjectDetailView({
           </button>
         )}
       </div>
+
+      {/* GPS edit panel — shown when editingGps is true */}
+      {editingGps && (
+        <div className="bg-slate-900 border border-teal-600/40 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-100">Edit GPS Coordinates</h3>
+              <p className="text-xs text-slate-500 mt-0.5">These coordinates determine where satellite data is pulled from and where the pin appears on the map</p>
+            </div>
+            <button onClick={() => setEditingGps(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Latitude <span className="text-slate-600 font-normal">(−90 to 90)</span></label>
+              <input
+                type="number" step="any"
+                placeholder="e.g. 37.5623"
+                value={gpsDraft.lat}
+                onChange={e => setGpsDraft(d => ({ ...d, lat: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Longitude <span className="text-slate-600 font-normal">(−180 to 180)</span></label>
+              <input
+                type="number" step="any"
+                placeholder="e.g. −118.9664"
+                value={gpsDraft.lng}
+                onChange={e => setGpsDraft(d => ({ ...d, lng: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+              />
+            </div>
+          </div>
+          <div className="bg-slate-800/60 rounded-lg px-4 py-3 text-xs text-slate-400 space-y-1">
+            <p><span className="text-teal-400 font-semibold">Duck Lake Loop (Inyo NF, CA):</span> lat 37.5623 · lng −118.9664</p>
+            <p>USA locations always use <span className="text-amber-400">negative</span> longitude. Find your coordinates at maps.google.com — right-click the location.</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={saveGps}
+              disabled={savingGps}
+              className="flex items-center gap-2 px-5 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition disabled:opacity-50"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              {savingGps ? 'Saving…' : 'Save GPS Coordinates'}
+            </button>
+            <button
+              onClick={() => setEditingGps(false)}
+              className="px-4 py-2 rounded-lg border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Satellite imagery map — always visible */}
       {project && (
@@ -1281,6 +1345,32 @@ function ProjectDetailView({
               <dd className="text-slate-300">{project.description}</dd>
             </div>
           )}
+          <div className="col-span-2 border-t border-slate-800 pt-3 mt-1">
+            <dt className="text-slate-500 mb-1.5">GPS Coordinates <span className="text-slate-600">(used for satellite data + map pin)</span></dt>
+            <dd className="flex items-center gap-3">
+              {project.location.gpsCenter.lat && project.location.gpsCenter.lng
+                ? (
+                  <span className="font-mono text-slate-300">
+                    {project.location.gpsCenter.lat.toFixed(4)}, {project.location.gpsCenter.lng.toFixed(4)}
+                  </span>
+                )
+                : <span className="text-amber-400 italic">Not set — satellite data uses reference area</span>
+              }
+              <button
+                onClick={openGpsEdit}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-700/30 hover:bg-teal-700/50 border border-teal-600/40 text-teal-300 text-xs transition"
+              >
+                <MapPin className="w-3 h-3" />
+                Edit GPS
+              </button>
+            </dd>
+          </div>
+          <div className="col-span-2">
+            <dt className="text-slate-500">Location</dt>
+            <dd className="text-slate-300">
+              {[project.location.city, project.location.region, project.location.country].filter(Boolean).join(', ') || '—'}
+            </dd>
+          </div>
         </dl>
       </div>
     </div>
