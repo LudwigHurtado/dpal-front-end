@@ -782,34 +782,145 @@ function CreateProjectForm({
 function ProjectCard({
   project,
   onClick,
+  onGpsSaved,
 }: {
   project: WaterProject;
   onClick: () => void;
+  onGpsSaved?: (projectId: string, lat: number, lng: number) => void;
 }) {
   const { icon, label } = projectTypeInfo(project.projectType);
+  const [editingGps, setEditingGps] = useState(false);
+  const [latVal, setLatVal]         = useState(String(project.location.gpsCenter?.lat || ''));
+  const [lngVal, setLngVal]         = useState(String(project.location.gpsCenter?.lng || ''));
+  const [saving, setSaving]         = useState(false);
+  const [gpsErr, setGpsErr]         = useState('');
+
+  const hasGps = project.location.gpsCenter?.lat && project.location.gpsCenter?.lng;
+  const gpsLabel = hasGps
+    ? `${project.location.gpsCenter.lat.toFixed(4)}, ${project.location.gpsCenter.lng.toFixed(4)}`
+    : 'No GPS set';
+
+  async function saveGps(e: React.MouseEvent) {
+    e.stopPropagation();
+    const lat = parseFloat(latVal);
+    const lng = parseFloat(lngVal);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      setGpsErr('Lat: −90–90 · Lng: −180–180. US locations need negative longitude.');
+      return;
+    }
+    setSaving(true);
+    setGpsErr('');
+    try {
+      await apiFetch(WATER_PROJECT_DETAIL(project.projectId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          location: { ...project.location, gpsCenter: { lat, lng } },
+        }),
+      });
+      setEditingGps(false);
+      onGpsSaved?.(project.projectId, lat, lng);
+    } catch (ex: unknown) {
+      setGpsErr(ex instanceof Error ? ex.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
-    <button
-      onClick={onClick}
-      className="w-full text-left bg-slate-900 border border-slate-700 rounded-xl p-5 hover:border-teal-500/40 hover:bg-slate-800/50 transition group"
-    >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{icon}</span>
-          <div>
-            <p className="font-semibold text-slate-100 group-hover:text-teal-300 transition text-sm leading-tight">{project.projectName}</p>
-            <p className="text-xs text-slate-500">{label}</p>
+    <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden hover:border-teal-500/30 transition">
+      {/* Main clickable row */}
+      <button
+        onClick={onClick}
+        className="w-full text-left p-5 group"
+      >
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">{icon}</span>
+            <div>
+              <p className="font-semibold text-slate-100 group-hover:text-teal-300 transition text-sm leading-tight">{project.projectName}</p>
+              <p className="text-xs text-slate-500">{label}</p>
+            </div>
           </div>
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide whitespace-nowrap ${STATUS_STYLE[project.status] ?? STATUS_STYLE.submitted}`}>
+            {statusLabel(project.status)}
+          </span>
         </div>
-        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase tracking-wide whitespace-nowrap ${STATUS_STYLE[project.status] ?? STATUS_STYLE.submitted}`}>
-          {statusLabel(project.status)}
-        </span>
+        <div className="flex items-center gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1">
+            <MapPin className="w-2.5 h-2.5" />
+            {project.location.city || project.location.country}
+          </span>
+          {project.totalAcres > 0 && <span>{project.totalAcres.toLocaleString()} ac</span>}
+          <span className="ml-auto flex items-center gap-1 text-teal-500 text-[10px] opacity-70 group-hover:opacity-100 transition">
+            Open →
+          </span>
+        </div>
+      </button>
+
+      {/* GPS row — always visible */}
+      <div className="border-t border-slate-800 px-5 py-2.5 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <MapPin className="w-3 h-3 text-teal-500 shrink-0" />
+          <span className={`text-[11px] font-mono ${hasGps ? 'text-slate-400' : 'text-amber-400'}`}>
+            {gpsLabel}
+          </span>
+          {!hasGps && (
+            <span className="text-[10px] text-amber-500">— map pin & satellite data need coordinates</span>
+          )}
+        </div>
+        <button
+          onClick={e => { e.stopPropagation(); setEditingGps(v => !v); }}
+          className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg bg-teal-700/20 hover:bg-teal-700/40 border border-teal-600/40 text-teal-300 transition shrink-0"
+        >
+          <MapPin className="w-3 h-3" />
+          {editingGps ? 'Cancel' : 'Edit GPS'}
+        </button>
       </div>
-      <div className="flex items-center gap-4 text-xs text-slate-500">
-        <span className="flex items-center gap-1"><MapPin className="w-2.5 h-2.5" />{project.location.city || project.location.country}</span>
-        {project.totalAcres > 0 && <span>{project.totalAcres.toLocaleString()} ac</span>}
-        <span className="ml-auto flex items-center gap-1"><ChevronRight className="w-3 h-3 text-teal-500 opacity-0 group-hover:opacity-100 transition" /></span>
-      </div>
-    </button>
+
+      {/* Inline GPS edit form */}
+      {editingGps && (
+        <div className="border-t border-slate-700 bg-slate-800/60 px-5 py-4 space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1 font-medium">Latitude <span className="text-slate-600">(−90 to 90)</span></label>
+              <input
+                type="number" step="any"
+                placeholder="e.g. 37.5623"
+                value={latVal}
+                onClick={e => e.stopPropagation()}
+                onChange={e => setLatVal(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1 font-medium">Longitude <span className="text-slate-600">(−180 to 180)</span></label>
+              <input
+                type="number" step="any"
+                placeholder="e.g. −118.9664"
+                value={lngVal}
+                onClick={e => e.stopPropagation()}
+                onChange={e => setLngVal(e.target.value)}
+                className="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500"
+              />
+            </div>
+          </div>
+          <div className="bg-slate-900/60 rounded-lg px-3 py-2 text-[10px] text-slate-500">
+            <span className="text-teal-400 font-semibold">Duck Lake Loop / Inyo NF CA:</span> lat 37.5623 · lng −118.9664
+            {' · '}USA always needs <span className="text-amber-400">negative</span> longitude (West hemisphere)
+          </div>
+          {gpsErr && <p className="text-xs text-rose-400">{gpsErr}</p>}
+          <button
+            onClick={saveGps}
+            disabled={saving}
+            className="flex items-center gap-2 px-5 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition disabled:opacity-50"
+          >
+            <MapPin className="w-3.5 h-3.5" />
+            {saving ? 'Saving…' : 'Save GPS Coordinates'}
+          </button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -2413,7 +2524,18 @@ function Dashboard({
 
         <div className="space-y-3">
           {projects.map((p) => (
-            <ProjectCard key={p.projectId} project={p} onClick={() => onViewProject(p.projectId)} />
+            <ProjectCard
+              key={p.projectId}
+              project={p}
+              onClick={() => onViewProject(p.projectId)}
+              onGpsSaved={(id, lat, lng) => {
+                setProjects(prev => prev.map(proj =>
+                  proj.projectId === id
+                    ? { ...proj, location: { ...proj.location, gpsCenter: { lat, lng } } }
+                    : proj
+                ));
+              }}
+            />
           ))}
         </div>
       </div>
