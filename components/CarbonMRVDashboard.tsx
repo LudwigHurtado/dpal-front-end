@@ -178,14 +178,13 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
           </div>
         </div>
       </div>
-      <div ref={wrapperRef} style={{ height: '320px', minHeight: '320px' }}>
+      <div ref={wrapperRef} style={{ height: '320px', position: 'relative' }}>
         {hasCoords ? (
           <MapContainer
             center={center}
             zoom={8}
             scrollWheelZoom
-            className="h-full w-full"
-            style={{ height: '320px', width: '100%' }}
+            style={{ height: '320px', width: '100%', position: 'absolute', inset: 0 }}
           >
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
