@@ -59,23 +59,47 @@ const EMPTY_RESULT = (observationType: ObservationUse): EarthObservationResult =
 });
 
 function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radiusKm: number; onSelect: (point: GPSPoint) => void }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const mapRef     = useRef<any>(null);
+
   function Picker() {
-    useMapEvents({
-      click(e) {
-        onSelect({ lat: e.latlng.lat, lng: e.latlng.lng });
-      },
+    const map = useMapEvents({
+      click(e) { onSelect({ lat: e.latlng.lat, lng: e.latlng.lng }); },
     });
+    useEffect(() => {
+      if (!map) return;
+      mapRef.current = map;
+      const timers = [100, 300, 600, 1200].map((ms) =>
+        window.setTimeout(() => map.invalidateSize(), ms),
+      );
+      return () => timers.forEach(window.clearTimeout);
+    }, [map]);
     return null;
   }
 
+  useEffect(() => {
+    if (!wrapperRef.current || !mapRef.current) return;
+    const observer = new ResizeObserver(() => mapRef.current?.invalidateSize());
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => { mapRef.current?.invalidateSize(); }, [center.lat, center.lng, radiusKm]);
+
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900">
-      <div className="border-b border-slate-800 px-4 py-3">
+    <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900 flex flex-col">
+      <div className="border-b border-slate-800 px-4 py-3 flex-shrink-0">
         <p className="text-sm font-bold text-white">LEO Observation Area</p>
         <p className="text-xs text-slate-500">Click the map to choose the target area for Earth analysis.</p>
       </div>
-      <div className="h-80">
-        <MapContainer center={[center.lat, center.lng]} zoom={7} scrollWheelZoom className="h-full w-full" style={{ height: '100%', width: '100%', background: '#0d2137' }}>
+      <div ref={wrapperRef} style={{ flex: 1, minHeight: '320px', width: '100%' }}>
+        <MapContainer
+          key={`eo-map-${center.lat.toFixed(3)}-${center.lng.toFixed(3)}`}
+          center={[center.lat, center.lng]}
+          zoom={7}
+          scrollWheelZoom
+          style={{ height: '100%', width: '100%', minHeight: '320px', background: '#0d2137' }}
+        >
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             attribution="Tiles &copy; Esri &mdash; Source: Esri, USGS, AeroGRID, IGN"
@@ -94,7 +118,7 @@ function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radi
           <Picker />
         </MapContainer>
       </div>
-      <div className="border-t border-slate-800 px-4 py-3 text-[11px] text-slate-500">
+      <div className="border-t border-slate-800 px-4 py-3 text-[11px] text-slate-500 flex-shrink-0">
         Center: {center.lat.toFixed(5)}, {center.lng.toFixed(5)} · Radius: {radiusKm} km
       </div>
     </div>
@@ -314,7 +338,7 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
       </div>
 
       <div className="mx-auto max-w-7xl space-y-5 px-4 py-6">
-        <div className="grid gap-4 lg:grid-cols-[380px_1fr]">
+        <div className="grid gap-4 lg:grid-cols-[380px_1fr] lg:items-stretch">
           <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
             <div className="mb-4 flex items-center gap-3">
               <Globe className="h-10 w-10 text-sky-300" />
