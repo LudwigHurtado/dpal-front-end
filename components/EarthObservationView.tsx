@@ -58,24 +58,34 @@ const EMPTY_RESULT = (observationType: ObservationUse): EarthObservationResult =
   metrics: {},
 });
 
+// Module-level components so React never sees a new type on re-render
+function EoMapPicker({ onSelect }: { onSelect: (p: GPSPoint) => void }) {
+  useMapEvents({ click(e) { onSelect({ lat: e.latlng.lat, lng: e.latlng.lng }); } });
+  return null;
+}
+
+function EoMapInit({ mapRef }: { mapRef: React.MutableRefObject<any> }) {
+  const map = useMapEvents({});
+  useEffect(() => {
+    if (!map) return;
+    mapRef.current = map;
+    const timers = [100, 300, 600, 1200].map((ms) =>
+      window.setTimeout(() => map.invalidateSize(), ms),
+    );
+    return () => timers.forEach(window.clearTimeout);
+  }, [map, mapRef]);
+  return null;
+}
+
+function EoMapRecenter({ lat, lng }: { lat: number; lng: number }) {
+  const map = useMapEvents({});
+  useEffect(() => { map.panTo([lat, lng], { animate: true }); }, [map, lat, lng]);
+  return null;
+}
+
 function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radiusKm: number; onSelect: (point: GPSPoint) => void }) {
   const wrapperRef = useRef<HTMLDivElement>(null);
   const mapRef     = useRef<any>(null);
-
-  function Picker() {
-    const map = useMapEvents({
-      click(e) { onSelect({ lat: e.latlng.lat, lng: e.latlng.lng }); },
-    });
-    useEffect(() => {
-      if (!map) return;
-      mapRef.current = map;
-      const timers = [100, 300, 600, 1200].map((ms) =>
-        window.setTimeout(() => map.invalidateSize(), ms),
-      );
-      return () => timers.forEach(window.clearTimeout);
-    }, [map]);
-    return null;
-  }
 
   useEffect(() => {
     if (!wrapperRef.current || !mapRef.current) return;
@@ -84,7 +94,7 @@ function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radi
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => { mapRef.current?.invalidateSize(); }, [center.lat, center.lng, radiusKm]);
+  useEffect(() => { mapRef.current?.invalidateSize(); }, [radiusKm]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-900 flex flex-col">
@@ -94,7 +104,6 @@ function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radi
       </div>
       <div ref={wrapperRef} style={{ flex: 1, minHeight: '320px', width: '100%' }}>
         <MapContainer
-          key={`eo-map-${center.lat.toFixed(3)}-${center.lng.toFixed(3)}`}
           center={[center.lat, center.lng]}
           zoom={7}
           scrollWheelZoom
@@ -115,7 +124,9 @@ function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radi
             radius={radiusKm * 1000}
             pathOptions={{ color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15, weight: 2.5, dashArray: '5 7' }}
           />
-          <Picker />
+          <EoMapInit mapRef={mapRef} />
+          <EoMapPicker onSelect={onSelect} />
+          <EoMapRecenter lat={center.lat} lng={center.lng} />
         </MapContainer>
       </div>
       <div className="border-t border-slate-800 px-4 py-3 text-[11px] text-slate-500 flex-shrink-0">
