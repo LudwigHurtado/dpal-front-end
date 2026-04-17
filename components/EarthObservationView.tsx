@@ -75,17 +75,21 @@ function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radi
         <p className="text-xs text-slate-500">Click the map to choose the target area for Earth analysis.</p>
       </div>
       <div className="h-80">
-        <MapContainer center={[center.lat, center.lng]} zoom={7} scrollWheelZoom className="h-full w-full" style={{ height: '100%', width: '100%' }}>
+        <MapContainer center={[center.lat, center.lng]} zoom={7} scrollWheelZoom className="h-full w-full" style={{ height: '100%', width: '100%', background: '#0d2137' }}>
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com">CARTO</a>'
-            subdomains="abcd"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            attribution="Tiles &copy; Esri &mdash; Source: Esri, USGS, AeroGRID, IGN"
             maxZoom={19}
+          />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={19}
+            opacity={0.65}
           />
           <Circle
             center={[center.lat, center.lng]}
             radius={radiusKm * 1000}
-            pathOptions={{ color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.12, weight: 2 }}
+            pathOptions={{ color: '#38bdf8', fillColor: '#38bdf8', fillOpacity: 0.15, weight: 2.5, dashArray: '5 7' }}
           />
           <Picker />
         </MapContainer>
