@@ -11,7 +11,7 @@ import React, { useState, useEffect, useCallback, useMemo, lazy, Suspense, useRe
 import {
   ArrowLeft, MapPin, CheckCircle, Search, Loader, Sparkles, Activity,
   ShieldCheck, Award, Zap, Globe, Plus, X, ChevronLeft, ChevronRight,
-  Camera, Users, AlertTriangle, RefreshCw, Eye,
+  Camera, Users, AlertTriangle, RefreshCw, Eye, Bot, Send,
 } from './icons';
 import {
   API_ROUTES, apiUrl,
@@ -19,7 +19,7 @@ import {
   CARBON_CREDITS_OWNED, CARBON_PROJECTS_BY_OWNER, CARBON_PROJECT_LEDGER,
   CARBON_PROJECT_GPS,
 } from '../constants';
-import { isAiEnabled } from '../services/geminiService';
+import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
 import type { Hero } from '../types';
 
@@ -232,6 +232,176 @@ interface CarbonProject {
   status: string;
   evidenceUrls: string[];
   createdAt: string;
+}
+
+type ImpactAidMode = 'air' | 'minerals' | 'project';
+type ImpactAidMessage = { role: 'assistant' | 'user'; text: string };
+
+interface ImpactAidChatProps {
+  mode: ImpactAidMode;
+  data: Record<string, unknown> | null;
+  location: GPSPoint;
+  radiusKm: number;
+  project?: CarbonProject | null;
+}
+
+function buildImpactAidPrompt({
+  mode,
+  data,
+  location,
+  radiusKm,
+  project,
+  question,
+}: ImpactAidChatProps & { question: string }): string {
+  const projectContext = project
+    ? `Project: ${project.projectName || project.projectId}. Type: ${project.projectType || 'carbon project'}.`
+    : 'Project: no registered project selected; use the scan area as context.';
+
+  return `You are DPAL's field impact assistant. Help a non-expert understand an environmental scan and turn it into practical support for a person, community, or project.
+
+Scan type: ${mode}
+Scan center: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}
+Scan radius: ${radiusKm} km
+${projectContext}
+
+Latest available data:
+${JSON.stringify(data || {}, null, 2)}
+
+User question:
+${question}
+
+Answer in plain English. Be honest about missing or unavailable measurements; never invent values. Organize the answer into:
+1. What might be happening
+2. What issues or risks to check first
+3. What can be done to fix or reduce harm
+4. How DPAL users could help the person, community, or project
+
+Keep it specific, compassionate, and action-oriented.`;
+}
+
+function ImpactAidChat({ mode, data, location, radiusKm, project }: ImpactAidChatProps) {
+  const [messages, setMessages] = useState<ImpactAidMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [loadingImpactAid, setLoadingImpactAid] = useState(false);
+  const [impactAidError, setImpactAidError] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const aiReady = isAiEnabled();
+  const defaultQuestion = 'What are the issues here, what can fix them, and how can we help the affected person, community, or project?';
+
+  const askImpactAid = async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed || loadingImpactAid) return;
+    setImpactAidError('');
+    setLoadingImpactAid(true);
+    setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
+    try {
+      const prompt = buildImpactAidPrompt({ mode, data, location, radiusKm, project, question: trimmed });
+      const text = await runGeminiPrompt(prompt);
+      setMessages((prev) => [...prev, { role: 'assistant', text: text.trim() }]);
+    } catch (err) {
+      setImpactAidError(err instanceof Error ? err.message : 'AI helper failed.');
+    } finally {
+      setLoadingImpactAid(false);
+    }
+  };
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loadingImpactAid]);
+
+  const modeLabel = mode === 'air' ? 'Air Quality Impact Helper' : mode === 'minerals' ? 'Mineral Dust Impact Helper' : 'Project Impact Helper';
+
+  return (
+    <div className="rounded-xl border border-emerald-700/30 bg-emerald-950/10 p-4 space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2 text-emerald-300">
+            <Bot className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">{modeLabel}</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+              Ask what the scan could mean, what risks to verify, what fixes are realistic, and how DPAL can support the people or project affected.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => askImpactAid(defaultQuestion)}
+          disabled={!aiReady || loadingImpactAid}
+          className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold transition-colors"
+        >
+          {loadingImpactAid ? 'Thinking...' : 'Explain impact'}
+        </button>
+      </div>
+
+      {!aiReady && (
+        <div className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs text-slate-500">
+          AI helper requires <span className="font-mono">VITE_GEMINI_API_KEY</span> or <span className="font-mono">VITE_USE_SERVER_AI=true</span>.
+        </div>
+      )}
+
+      {impactAidError && (
+        <div className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-3 py-2 text-xs text-rose-300">
+          {impactAidError}
+        </div>
+      )}
+
+      {messages.length > 0 && (
+        <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+          {messages.map((message, idx) => (
+            <div
+              key={`${message.role}-${idx}`}
+              className={`rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                message.role === 'assistant'
+                  ? 'bg-slate-900/80 border border-slate-700 text-slate-200'
+                  : 'bg-emerald-700/20 border border-emerald-600/30 text-emerald-100 ml-8'
+              }`}
+            >
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                {message.role === 'assistant' ? 'AI Guidance' : 'Question'}
+              </p>
+              {message.text.split('\n').map((line, lineIdx) => (
+                <span key={lineIdx}>
+                  {line}
+                  {lineIdx < message.text.split('\n').length - 1 && <br />}
+                </span>
+              ))}
+            </div>
+          ))}
+          {loadingImpactAid && (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              Building guidance...
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 md:flex-row">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && askImpactAid(input)}
+          disabled={!aiReady || loadingImpactAid}
+          placeholder="Ask: who is affected, what should we verify, or what help should we organize?"
+          className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-emerald-500 disabled:opacity-50"
+        />
+        <button
+          onClick={() => {
+            const q = input;
+            setInput('');
+            void askImpactAid(q);
+          }}
+          disabled={!aiReady || loadingImpactAid || !input.trim()}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"
+        >
+          <Send className="w-4 h-4" />
+          Ask
+        </button>
+      </div>
+    </div>
+  );
 }
 
 interface SatelliteSnapshot {
@@ -710,8 +880,8 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     setAirQualityError('');
     setLoadingAirQuality(true);
     try {
-      const lat = 34.05; // LA for demo
-      const lng = -118.25;
+      const lat = scanLocation.lat;
+      const lng = scanLocation.lng;
       const res = await fetch(apiUrl(API_ROUTES.CARBON_AIR_QUALITY) + `?lat=${lat}&lng=${lng}`);
       const body = await res.text();
       if (!res.ok) {
@@ -1854,6 +2024,13 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 </div>
               ))}
             </div>
+            <ImpactAidChat
+              mode="air"
+              data={airQualityData}
+              location={scanLocation}
+              radiusKm={scanRadius}
+              project={selectedProject}
+            />
           </div>
         )}
 
@@ -1953,6 +2130,13 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 </div>
               ))}
             </div>
+            <ImpactAidChat
+              mode="minerals"
+              data={mineralData}
+              location={scanLocation}
+              radiusKm={scanRadius}
+              project={selectedProject}
+            />
           </div>
         )}
       </div>
