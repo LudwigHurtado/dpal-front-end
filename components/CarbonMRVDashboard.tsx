@@ -24,6 +24,7 @@ import { SatelliteAiInsight } from './SatelliteAiInsight';
 import type { Hero } from '../types';
 
 import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { GibsTileViewer } from './GibsTileViewer';
 
@@ -129,6 +130,8 @@ interface ScanAreaSelectorProps {
 }
 
 function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSelectorProps) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
   const hasCoords = !Number.isNaN(lat) && !Number.isNaN(lng);
   const center: [number, number] = [lat, lng];
 
@@ -141,12 +144,27 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
 
     useEffect(() => {
       if (!map) return;
-      const timer = window.setTimeout(() => map.invalidateSize(), 100);
+      mapRef.current = map;
+      const timer = window.setTimeout(() => map.invalidateSize(), 300);
       return () => window.clearTimeout(timer);
     }, [map]);
 
     return null;
   }
+
+  useEffect(() => {
+    if (!wrapperRef.current || !mapRef.current) return;
+    const observer = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize();
+    });
+    observer.observe(wrapperRef.current);
+    return () => observer.disconnect();
+  }, [hasCoords]);
+
+  useEffect(() => {
+    if (!mapRef.current) return;
+    mapRef.current.invalidateSize();
+  }, [lat, lng, radiusKm]);
 
   return (
     <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
@@ -159,13 +177,17 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
           </div>
         </div>
       </div>
-      <div className="h-72">
+      <div ref={wrapperRef} className="h-72">
         {hasCoords ? (
           <MapContainer
             center={center}
             zoom={8}
             scrollWheelZoom
-            whenCreated={(map) => setTimeout(() => map.invalidateSize(), 150)}
+            whenCreated={(map) => {
+              mapRef.current = map;
+              setTimeout(() => map.invalidateSize(), 300);
+            }}
+            className="h-full w-full"
             style={{ height: '100%', width: '100%' }}
           >
             <TileLayer
@@ -1902,11 +1924,17 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {mineralError}
               </div>
             )}
+            {mineralData?.message && (
+              <div className="rounded-xl bg-slate-900/80 border border-slate-700 p-3 text-sm text-slate-300 mb-4">
+                <p>{mineralData.message}</p>
+                {mineralData.source && <p className="text-xs text-slate-500 mt-1">{mineralData.source}</p>}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'Mineral Types', value: mineralData ? `${mineralData.minerals.length} detected` : '— detected', icon: '⛰️', desc: 'Surface mineral identification' },
-                { label: 'Dust Source Areas', value: mineralData ? `${mineralData.dustArea.toFixed(0)} km²` : '— km²', icon: '🌪️', desc: 'Mineral dust emission zones' },
-                { label: 'Primary Mineral', value: mineralData ? mineralData.minerals[0] || '—' : '—', icon: '🧪', desc: 'Most abundant mineral' },
+                { label: 'Mineral Types', value: mineralData?.minerals?.length ? `${mineralData.minerals.length} detected` : 'Not available', icon: '⛰️', desc: 'Surface mineral identification' },
+                { label: 'Dust Source Areas', value: typeof mineralData?.dustArea === 'number' && mineralData.dustArea > 0 ? `${mineralData.dustArea.toFixed(0)} km²` : 'Not available', icon: '🌪️', desc: 'Mineral dust emission zones' },
+                { label: 'Primary Mineral', value: mineralData?.minerals?.[0] || 'Not available', icon: '🧪', desc: 'Most abundant mineral' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
@@ -1917,7 +1945,6 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                     </div>
                   </div>
                   <p className="text-xl font-black text-amber-400">{metric.value}</p>
-                  {mineralData && <p className="text-xs text-slate-400 mt-1">{mineralData.source}</p>}
                 </div>
               ))}
             </div>
