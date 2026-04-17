@@ -145,9 +145,12 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
     useEffect(() => {
       if (!map) return;
       mapRef.current = map;
-      const t1 = window.setTimeout(() => map.invalidateSize(), 100);
-      const t2 = window.setTimeout(() => map.invalidateSize(), 500);
-      return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
+      // Fire invalidateSize several times: Leaflet can mis-measure if the
+      // container isn't fully painted when the map first initialises.
+      const timers = [100, 300, 600, 1200].map(ms =>
+        window.setTimeout(() => map.invalidateSize(), ms)
+      );
+      return () => timers.forEach(window.clearTimeout);
     }, [map]);
 
     return null;
@@ -178,13 +181,14 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
           </div>
         </div>
       </div>
-      <div ref={wrapperRef} style={{ height: '320px', position: 'relative' }}>
+      <div ref={wrapperRef} style={{ height: '380px', width: '100%', display: 'block' }}>
         {hasCoords ? (
           <MapContainer
+            key={`${lat.toFixed(4)},${lng.toFixed(4)}`}
             center={center}
             zoom={8}
             scrollWheelZoom
-            style={{ height: '320px', width: '100%', position: 'absolute', inset: 0 }}
+            style={{ height: '380px', width: '100%' }}
           >
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
