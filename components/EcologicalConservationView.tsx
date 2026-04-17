@@ -226,9 +226,9 @@ const EcologicalConservationView: React.FC<{ onReturn: () => void }> = ({ onRetu
         setScan({
           ...EMPTY_SCAN,
           source: 'Landsat 9 OLI-2 / USGS Collection 2 Level-2',
-          message: 'The Landsat foliage processing endpoint is not deployed yet. No NDVI, canopy change, or habitat-risk reading is verified for this area.',
+          message: 'The current backend did not return a Landsat foliage reading. No NDVI, canopy change, or habitat-risk value is verified for this area yet.',
         });
-        setNotice(`Landsat endpoint unavailable (${res.status}). The UI is ready, but verified foliage values require the backend adapter.`);
+        setNotice(`Landsat endpoint unavailable (${res.status}). Deploy the ecology backend route, then scan again for verified foliage values.`);
         return;
       }
       const data = body ? JSON.parse(body) : null;
@@ -270,7 +270,7 @@ const EcologicalConservationView: React.FC<{ onReturn: () => void }> = ({ onRetu
             </div>
             <div className="rounded-xl border border-emerald-500/30 bg-slate-950/70 p-4">
               <p className="text-xs font-bold text-emerald-300">Data posture</p>
-              <p className="mt-2 text-sm text-slate-300">Landsat 9 / OLI-2 is planned for verified foliage reads. Until the backend adapter is connected, scan metrics remain unverified.</p>
+              <p className="mt-2 text-sm text-slate-300">Connected to public USGS Landsat Collection 2 Level-2 scenes through Planetary Computer STAC. Foliage values appear only after a real red/NIR statistics read.</p>
             </div>
           </div>
         </div>
@@ -354,7 +354,7 @@ const EcologicalConservationView: React.FC<{ onReturn: () => void }> = ({ onRetu
           {[
             ['What to verify', 'Field photos, GPS point, canopy close-ups, signs of clearing, invasive species, drought stress, or fire damage.'],
             ['What can help', 'Native planting, water support, erosion control, invasive removal, fencing, stewardship patrols, and partner outreach.'],
-            ['What comes next', 'Connect the Landsat adapter, baseline the site, compare seasonal scenes, then create missions for proof and restoration.'],
+            ['What comes next', 'Baseline the site, compare repeat scenes, then create missions for proof, stewardship, and restoration.'],
           ].map(([title, text]) => (
             <div key={title} className="rounded-xl border border-slate-700 bg-slate-900 p-4">
               <CheckCircle className="mb-3 h-5 w-5 text-emerald-300" />

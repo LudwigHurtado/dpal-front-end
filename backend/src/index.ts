@@ -9,7 +9,9 @@ import dpalAdminUsersRouter from './routes/dpalAdminUsers';
 import adminRouter from './routes/admin';
 import geminiProxyRouter from './routes/geminiProxy';
 import resolutionRouter from './routes/resolution';
+import rewardsRouter from './routes/rewards';
 import carbonRouter from './routes/carbon';
+import ecologyRouter from './routes/ecology';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
 
@@ -90,6 +92,7 @@ app.use('/api/admin', adminRouter);
 app.use('/api/resolution',   resolutionRouter);
 app.use('/api/rewards',      rewardsRouter);
 app.use('/api/carbon',       carbonRouter);
+app.use('/api/ecology',      ecologyRouter);
 
 // Legacy /api/reports feed (compatibility with existing enterprise dashboard probe)
 app.get('/api/reports', async (_req, res) => {
