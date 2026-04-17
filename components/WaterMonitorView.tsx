@@ -90,6 +90,11 @@ interface WaterSnapshot {
   anomalyFlags: string[];
   isBaseline: boolean;
   notes: string;
+  sarWaterFraction?: number;
+  sarVvDb?: number;
+  sarFloodRisk?: number;
+  sarCaptureDate?: string;
+  sarSource?: string;
 }
 
 interface ComponentScores {
@@ -1409,26 +1414,26 @@ function ProjectDetailView({
             <MetricTile
               label="Soil Moisture Index"
               value={fmtPct(latestSnap.metrics.soilMoistureIndex)}
-              sub={latestSnap.metrics.soilMoistureIndex >= 0.4 ? 'Healthy' : latestSnap.metrics.soilMoistureIndex >= 0.25 ? 'Moderate' : 'Low'}
+              sub={`NASA SMAP · ${latestSnap.metrics.soilMoistureIndex >= 0.4 ? 'Healthy' : latestSnap.metrics.soilMoistureIndex >= 0.25 ? 'Moderate' : 'Low'}`}
               good={latestSnap.metrics.soilMoistureIndex >= 0.4}
               warn={latestSnap.metrics.soilMoistureIndex < 0.2}
             />
             <MetricTile
               label="Surface Water Level"
               value={`${latestSnap.metrics.surfaceWaterLevel.toFixed(2)} m`}
-              sub="SWOT adapter"
+              sub="NASA / ESA SWOT"
             />
             <MetricTile
               label="Water Storage Trend"
               value={`${latestSnap.metrics.waterStorageTrend >= 0 ? '+' : ''}${latestSnap.metrics.waterStorageTrend.toFixed(1)} mm/mo`}
               good={latestSnap.metrics.waterStorageTrend > 0}
               warn={latestSnap.metrics.waterStorageTrend < -3}
-              sub="GRACE-FO adapter"
+              sub="NASA GRACE-FO"
             />
             <MetricTile
               label="Drought Risk"
               value={fmtPct(latestSnap.metrics.droughtRisk)}
-              sub={latestSnap.metrics.droughtRisk < 0.3 ? 'Low' : latestSnap.metrics.droughtRisk < 0.6 ? 'Moderate' : 'High'}
+              sub={`Copernicus · ${latestSnap.metrics.droughtRisk < 0.3 ? 'Low' : latestSnap.metrics.droughtRisk < 0.6 ? 'Moderate' : 'High'}`}
               good={latestSnap.metrics.droughtRisk < 0.3}
               warn={latestSnap.metrics.droughtRisk > 0.6}
               invertColor
@@ -1436,7 +1441,7 @@ function ProjectDetailView({
             <MetricTile
               label="Vegetation Stress"
               value={fmtPct(latestSnap.metrics.vegetationStress)}
-              sub="NASA GIBS"
+              sub="NASA GIBS / MODIS"
               warn={latestSnap.metrics.vegetationStress > 0.6}
               invertColor
             />
@@ -1444,12 +1449,21 @@ function ProjectDetailView({
               label="Confidence Score"
               value={fmtPct(latestSnap.metrics.confidenceScore)}
               good={latestSnap.metrics.confidenceScore >= 0.7}
-              sub="5-adapter avg"
+              sub="6-adapter average"
             />
+            {latestSnap.sarSource === 'sentinel-1-sar' && latestSnap.sarWaterFraction != null && (
+              <MetricTile
+                label="SAR Water Coverage"
+                value={`${Math.round(latestSnap.sarWaterFraction * 100)}%`}
+                sub={`ESA Sentinel-1 · ${latestSnap.sarCaptureDate ?? ''}`}
+                good={latestSnap.sarFloodRisk != null && latestSnap.sarFloodRisk < 0.25}
+                warn={latestSnap.sarFloodRisk != null && latestSnap.sarFloodRisk > 0.5}
+              />
+            )}
           </div>
 
           {latestSnap.anomalyFlags.length > 0 && (
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap gap-2 mb-4">
               {latestSnap.anomalyFlags.map((flag) => (
                 <span key={flag} className="text-[10px] bg-rose-500/10 text-rose-300 border border-rose-500/30 px-2 py-0.5 rounded-full uppercase tracking-wide">
                   <AlertTriangle className="w-2 h-2 inline mr-1" />{flag.replace(/_/g, ' ')}
@@ -1457,6 +1471,34 @@ function ProjectDetailView({
               ))}
             </div>
           )}
+
+          <SatelliteAiInsight
+            domain="water"
+            data={{
+              soilMoistureIndex: latestSnap.metrics.soilMoistureIndex,
+              surfaceWaterLevel: `${latestSnap.metrics.surfaceWaterLevel.toFixed(2)} m`,
+              waterStorageTrend: `${latestSnap.metrics.waterStorageTrend.toFixed(1)} mm/mo`,
+              droughtRisk: `${Math.round(latestSnap.metrics.droughtRisk * 100)}%`,
+              vegetationStress: `${Math.round(latestSnap.metrics.vegetationStress * 100)}%`,
+              confidenceScore: `${Math.round(latestSnap.metrics.confidenceScore * 100)}%`,
+              ...(latestSnap.sarSource === 'sentinel-1-sar' ? {
+                sarWaterCoverage: `${Math.round((latestSnap.sarWaterFraction ?? 0) * 100)}%`,
+                sarVvBackscatter: `${latestSnap.sarVvDb?.toFixed(1)} dB`,
+                sarFloodRisk: `${Math.round((latestSnap.sarFloodRisk ?? 0) * 100)}%`,
+                sarCaptureDate: latestSnap.sarCaptureDate,
+              } : {}),
+              anomalyFlags: latestSnap.anomalyFlags,
+              captureDate: latestSnap.captureDate,
+            }}
+            project={{
+              name: project.projectName,
+              type: project.projectType,
+              city: project.location.city,
+              country: project.location.country,
+              lat: project.location.gpsCenter?.lat,
+              lng: project.location.gpsCenter?.lng,
+            }}
+          />
         </div>
       )}
 
