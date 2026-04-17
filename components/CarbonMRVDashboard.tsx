@@ -23,10 +23,7 @@ import { isAiEnabled } from '../services/geminiService';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
 import type { Hero } from '../types';
 
-const CarbonWorldMap = lazy(() => import('./CarbonWorldMap'));
-
-// ── SnapshotMap — Google Maps satellite view for a project location ─────────────
-
+import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { GibsTileViewer } from './GibsTileViewer';
 
@@ -119,6 +116,64 @@ function SnapshotMap({ lat, lng, projectName, totalAcres, ndviScore }: SnapshotM
       <div ref={mapDivRef} className="w-full h-full" />
       <div className="absolute top-2 right-2 z-10">
         <span className="text-[8px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider">Google Satellite</span>
+      </div>
+    </div>
+  );
+}
+
+interface ScanAreaSelectorProps {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  onSelectLocation: (location: GPSPoint) => void;
+}
+
+function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSelectorProps) {
+  const hasCoords = !Number.isNaN(lat) && !Number.isNaN(lng);
+  const center: [number, number] = [lat, lng];
+
+  function LocationPicker() {
+    useMapEvents({
+      click(e) {
+        onSelectLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
+      },
+    });
+    return null;
+  }
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
+      <div className="p-4 border-b border-slate-800">
+        <div className="flex items-center gap-2">
+          <Globe className="w-4 h-4 text-emerald-400" />
+          <div>
+            <p className="text-sm font-bold text-white">Scan Area Preview</p>
+            <p className="text-xs text-slate-500">Click anywhere on the map to choose a scan center.</p>
+          </div>
+        </div>
+      </div>
+      <div className="h-72">
+        {hasCoords ? (
+          <MapContainer center={center} zoom={8} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+            <TileLayer
+              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              attribution='&copy; <a href="https://carto.com">CARTO</a>'
+              subdomains="abcd"
+              maxZoom={19}
+            />
+            <Circle
+              center={center}
+              radius={radiusKm * 1000}
+              pathOptions={{ color: '#14b8a6', fillColor: '#14b8a6', fillOpacity: 0.12, weight: 2 }}
+            />
+            <LocationPicker />
+          </MapContainer>
+        ) : (
+          <div className="h-full flex items-center justify-center text-slate-500 text-sm">Invalid scan coordinates</div>
+        )}
+      </div>
+      <div className="px-4 py-3 border-t border-slate-800 text-[11px] text-slate-500">
+        Selected center: {lat.toFixed(5)}, {lng.toFixed(5)} • Radius: {radiusKm} km
       </div>
     </div>
   );
@@ -564,6 +619,8 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const [mineralError, setMineralError] = useState('');
   const [loadingAirQuality, setLoadingAirQuality] = useState(false);
   const [loadingMinerals, setLoadingMinerals] = useState(false);
+  const [scanLocation, setScanLocation] = useState<GPSPoint>({ lat: 34.05, lng: -118.25 });
+  const [scanRadius, setScanRadius] = useState(15);
   const [globalTxs, setGlobalTxs] = useState<TxRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -640,14 +697,14 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     } finally {
       setLoadingAirQuality(false);
     }
-  }, []);
+  }, [scanLocation]);
 
   const fetchMinerals = useCallback(async () => {
     setMineralError('');
     setLoadingMinerals(true);
     try {
-      const lat = 34.05;
-      const lng = -118.25;
+      const lat = scanLocation.lat;
+      const lng = scanLocation.lng;
       const res = await fetch(apiUrl(API_ROUTES.CARBON_MINERALS) + `?lat=${lat}&lng=${lng}`);
       const body = await res.text();
       if (!res.ok) {
@@ -668,7 +725,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     } finally {
       setLoadingMinerals(false);
     }
-  }, []);
+  }, [scanLocation]);
 
   const fetchProjectDetail = useCallback(async (project: CarbonProject) => {
     const [snapRes, mrvRes, txRes] = await Promise.all([
@@ -689,6 +746,15 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   }, []);
 
   useEffect(() => { void fetchDashboard(); }, [userId]);
+
+  useEffect(() => {
+    if (selectedProject?.location?.gpsCenter?.lat && selectedProject?.location?.gpsCenter?.lng) {
+      setScanLocation({
+        lat: selectedProject.location.gpsCenter.lat,
+        lng: selectedProject.location.gpsCenter.lng,
+      });
+    }
+  }, [selectedProject]);
 
   const openProject = (project: CarbonProject) => {
     setSelectedProject(project);
@@ -1660,17 +1726,69 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
         {/* Air Quality Monitor tab */}
         {activeTab === 'airquality' && (
           <div className="p-4 md:p-6 space-y-4">
-            <div className="text-center py-8">
-              <Globe className="w-12 h-12 mx-auto mb-4 text-emerald-400 opacity-50" />
-              <h3 className="text-lg font-bold text-white mb-2">Carbon Gas & Air Quality Monitoring</h3>
-              <p className="text-sm text-slate-400 mb-4">Track CO2, CH4, and other greenhouse gases using NASA OCO-2/3 and TROPOMI data</p>
-              <button
-                onClick={fetchAirQuality}
-                disabled={loadingAirQuality}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-sm font-bold rounded-lg transition-colors"
-              >
-                {loadingAirQuality ? 'Loading...' : 'Load Latest Satellite Data'}
-              </button>
+            <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+              <div className="rounded-3xl border border-slate-700 p-5 bg-slate-900/80">
+                <div className="flex items-center gap-3 mb-4">
+                  <Globe className="w-10 h-10 text-emerald-400" />
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Carbon Gas & Air Quality Monitoring</h3>
+                    <p className="text-sm text-slate-400">Track CO2, CH4, and other greenhouse gases using NASA OCO-2/3 and TROPOMI data</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scan latitude</label>
+                    <input
+                      value={scanLocation.lat.toFixed(5)}
+                      onChange={(e) => {
+                        const lat = parseFloat(e.target.value);
+                        if (!Number.isNaN(lat)) setScanLocation((prev) => ({ ...prev, lat }));
+                      }}
+                      className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scan longitude</label>
+                    <input
+                      value={scanLocation.lng.toFixed(5)}
+                      onChange={(e) => {
+                        const lng = parseFloat(e.target.value);
+                        if (!Number.isNaN(lng)) setScanLocation((prev) => ({ ...prev, lng }));
+                      }}
+                      className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Area radius (km)</label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={50}
+                      value={scanRadius}
+                      onChange={(e) => setScanRadius(Number(e.target.value))}
+                      className="w-full mt-2"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">{scanRadius} km radius around the scan center.</p>
+                  </div>
+                  <button
+                    onClick={fetchAirQuality}
+                    disabled={loadingAirQuality}
+                    className="w-full mt-1 px-4 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-sm font-bold rounded-2xl transition-colors"
+                  >
+                    {loadingAirQuality ? 'Loading...' : 'Scan selected area'}
+                  </button>
+                  <div className="rounded-2xl border border-slate-700 p-3 bg-slate-950 text-sm text-slate-400">
+                    <p className="font-semibold text-slate-200">Tip</p>
+                    <p className="mt-1">Click the map to reposition the scan center, or enter coordinates directly.</p>
+                  </div>
+                </div>
+              </div>
+              <ScanAreaSelector
+                lat={scanLocation.lat}
+                lng={scanLocation.lng}
+                radiusKm={scanRadius}
+                onSelectLocation={(location) => setScanLocation(location)}
+              />
             </div>
             {airQualityError && (
               <div className="rounded-xl bg-rose-900/30 border border-rose-500/40 p-3 text-sm text-rose-300 mb-4">
@@ -1702,17 +1820,69 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
         {/* Mineral Mapping tab */}
         {activeTab === 'minerals' && (
           <div className="p-4 md:p-6 space-y-4">
-            <div className="text-center py-8">
-              <MapPin className="w-12 h-12 mx-auto mb-4 text-amber-400 opacity-50" />
-              <h3 className="text-lg font-bold text-white mb-2">Mineral Dust & Surface Mapping</h3>
-              <p className="text-sm text-slate-400 mb-4">Monitor mineral composition and dust sources using NASA EMIT and ASTER data</p>
-              <button
-                onClick={fetchMinerals}
-                disabled={loadingMinerals}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 text-white text-sm font-bold rounded-lg transition-colors"
-              >
-                {loadingMinerals ? 'Scanning...' : 'Scan Mineral Composition'}
-              </button>
+            <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
+              <div className="rounded-3xl border border-slate-700 p-5 bg-slate-900/80">
+                <div className="flex items-center gap-3 mb-4">
+                  <MapPin className="w-10 h-10 text-amber-400" />
+                  <div>
+                    <h3 className="text-lg font-bold text-white">Mineral Dust & Surface Mapping</h3>
+                    <p className="text-sm text-slate-400">Monitor mineral composition and dust sources using NASA EMIT and ASTER data</p>
+                  </div>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scan latitude</label>
+                    <input
+                      value={scanLocation.lat.toFixed(5)}
+                      onChange={(e) => {
+                        const lat = parseFloat(e.target.value);
+                        if (!Number.isNaN(lat)) setScanLocation((prev) => ({ ...prev, lat }));
+                      }}
+                      className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Scan longitude</label>
+                    <input
+                      value={scanLocation.lng.toFixed(5)}
+                      onChange={(e) => {
+                        const lng = parseFloat(e.target.value);
+                        if (!Number.isNaN(lng)) setScanLocation((prev) => ({ ...prev, lng }));
+                      }}
+                      className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold uppercase tracking-wide text-slate-400">Area radius (km)</label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={50}
+                      value={scanRadius}
+                      onChange={(e) => setScanRadius(Number(e.target.value))}
+                      className="w-full mt-2"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">{scanRadius} km radius around the scan center.</p>
+                  </div>
+                  <button
+                    onClick={fetchMinerals}
+                    disabled={loadingMinerals}
+                    className="w-full mt-1 px-4 py-3 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 text-white text-sm font-bold rounded-2xl transition-colors"
+                  >
+                    {loadingMinerals ? 'Scanning...' : 'Scan selected area'}
+                  </button>
+                  <div className="rounded-2xl border border-slate-700 p-3 bg-slate-950 text-sm text-slate-400">
+                    <p className="font-semibold text-slate-200">Tip</p>
+                    <p className="mt-1">Use the map to place your scan center on the area of interest for more targeted results.</p>
+                  </div>
+                </div>
+              </div>
+              <ScanAreaSelector
+                lat={scanLocation.lat}
+                lng={scanLocation.lng}
+                radiusKm={scanRadius}
+                onSelectLocation={(location) => setScanLocation(location)}
+              />
             </div>
             {mineralError && (
               <div className="rounded-xl bg-rose-900/30 border border-rose-500/40 p-3 text-sm text-rose-300 mb-4">
