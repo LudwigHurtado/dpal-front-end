@@ -865,6 +865,9 @@ function ProjectCard({
             Open →
           </span>
         </div>
+        {project.improvementGoal ? (
+          <p className="text-xs text-slate-400 mt-2 leading-snug truncate">Goal: {project.improvementGoal}</p>
+        ) : null}
       </button>
 
       {/* GPS row — always visible */}
@@ -878,13 +881,22 @@ function ProjectCard({
             <span className="text-[10px] text-amber-500">— map pin & satellite data need coordinates</span>
           )}
         </div>
-        <button
-          onClick={e => { e.stopPropagation(); setEditingGps(v => !v); }}
-          className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg bg-teal-700/20 hover:bg-teal-700/40 border border-teal-600/40 text-teal-300 transition shrink-0"
-        >
-          <MapPin className="w-3 h-3" />
-          {editingGps ? 'Cancel' : 'Edit GPS'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={e => { e.stopPropagation(); setEditingGps(v => !v); }}
+            className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg bg-teal-700/20 hover:bg-teal-700/40 border border-teal-600/40 text-teal-300 transition shrink-0"
+          >
+            <MapPin className="w-3 h-3" />
+            {editingGps ? 'Cancel' : 'Edit GPS'}
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onClick(); }}
+            className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700 text-slate-300 transition shrink-0"
+          >
+            <Eye className="w-3 h-3" />
+            Project details
+          </button>
+        </div>
       </div>
 
       {/* Inline GPS edit form */}
