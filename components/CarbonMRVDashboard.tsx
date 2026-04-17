@@ -2196,9 +2196,9 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'Mineral Types', value: hasVerifiedMineralComposition ? `${mineralNames.length} verified` : 'Not verified', icon: '⛰️', desc: hasVerifiedMineralComposition ? mineralNames.join(', ') : 'Needs spectral product confirmation' },
-                { label: 'Dust Source Areas', value: hasVerifiedDustSource ? `${mineralData.dustArea.toFixed(0)} km²` : 'Not verified', icon: '🌪️', desc: 'Dust-source area requires derived mineral/dust analysis' },
-                { label: 'Primary Mineral', value: hasVerifiedMineralComposition ? mineralNames[0] : 'Not verified', icon: '🧪', desc: 'Most abundant confirmed mineral' },
+                { label: 'Mineral Types', value: hasVerifiedMineralComposition ? `${mineralNames.length} identified` : 'Not verified', icon: '⛰️', desc: hasVerifiedMineralComposition ? mineralNames.join(', ') : 'Macrostrat bedrock geology' },
+                { label: 'Dust Source Areas', value: hasVerifiedDustSource ? `${mineralData.dustArea.toFixed(0)} km²` : 'Requires EMIT data', icon: '🌪️', desc: 'NASA EMIT spectral product (Earthdata auth required)' },
+                { label: 'Primary Mineral', value: hasVerifiedMineralComposition ? mineralNames[0] : 'Not verified', icon: '🧪', desc: hasVerifiedMineralComposition ? 'Most abundant in bedrock unit' : 'Macrostrat bedrock geology' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
