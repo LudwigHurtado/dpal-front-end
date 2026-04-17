@@ -1830,11 +1830,17 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {airQualityError}
               </div>
             )}
+            {airQualityData?.message && (
+              <div className="rounded-xl bg-slate-900/80 border border-slate-700 p-3 text-sm text-slate-300 mb-4">
+                <p>{airQualityData.message}</p>
+                {airQualityData.source && <p className="text-xs text-slate-500 mt-1">{airQualityData.source}</p>}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'CO2 Concentration', value: airQualityData ? `${airQualityData.co2ppm.toFixed(1)} ppm` : '— ppm', icon: '🌫️', desc: 'Atmospheric CO2 from OCO-2' },
-                { label: 'Methane (CH4)', value: airQualityData ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : '— ppb', icon: '💨', desc: 'Methane levels from TROPOMI' },
-                { label: 'NO2 Levels', value: airQualityData ? `${airQualityData.no2.toFixed(2)} DU` : '— DU', icon: '🌬️', desc: 'Nitrogen dioxide pollution' },
+                { label: 'CO2 Concentration', value: typeof airQualityData?.co2ppm === 'number' ? `${airQualityData.co2ppm.toFixed(1)} ppm` : 'Not available', icon: '🌫️', desc: 'Atmospheric CO2 from OCO-2' },
+                { label: 'Methane (CH4)', value: typeof airQualityData?.ch4ppb === 'number' ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : 'Not available', icon: '💨', desc: 'Methane requires a configured trace-gas product' },
+                { label: 'NO2 Levels', value: typeof airQualityData?.no2 === 'number' ? `${airQualityData.no2.toFixed(2)} DU` : 'Not available', icon: '🌬️', desc: 'NO2 requires a configured trace-gas product' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
@@ -1845,7 +1851,6 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                     </div>
                   </div>
                   <p className="text-xl font-black text-emerald-400">{metric.value}</p>
-                  {airQualityData && <p className="text-xs text-slate-400 mt-1">{airQualityData.source}</p>}
                 </div>
               ))}
             </div>
