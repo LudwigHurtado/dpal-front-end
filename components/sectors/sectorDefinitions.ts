@@ -54,7 +54,7 @@ export const SECTORS: SectorDefinition[] = [
     label: 'Property',
     subtitle: 'Housing, assets, and place-based concerns',
     emoji: '🏠',
-    categories: [Category.HousingIssues, Category.WaterViolations, Category.Environment, Category.EcologicalConservation],
+    categories: [Category.HousingIssues, Category.WaterViolations, Category.Environment, Category.EcologicalConservation, Category.EarthObservation],
   },
   {
     key: 'digital',

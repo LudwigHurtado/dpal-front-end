@@ -608,6 +608,7 @@ export const translations = {
       education: "Education",
       environment: "Environment",
       ecologicalConservation: "Ecological Conservation",
+      earthObservation: "Earth Observation",
       workplaceIssues: "Workplace Issues",
       veteransServices: "Veterans' Services",
       publicTransport: "Public Transport",

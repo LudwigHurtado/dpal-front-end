@@ -53,6 +53,7 @@ export const VIEW_PATHS: Record<string, string> = {
   offsetMarketplace: '/offsets',
   carbonMRV: '/carbon',
   ecologicalConservation: '/ecology',
+  earthObservation: '/earth-observation',
   escrowService: '/escrow',
   coinLaunch: '/coin',
   subscription: '/subscription',

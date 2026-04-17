@@ -13,6 +13,7 @@ export enum Category {
     Education = 'Education',
     Environment = 'Environment',
     EcologicalConservation = 'Ecological Conservation',
+    EarthObservation = 'Earth Observation',
     WorkplaceIssues = 'Workplace Issues',
     VeteransServices = 'Veterans\' Services',
     PublicTransport = 'Public Transport',
