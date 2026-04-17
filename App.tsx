@@ -307,6 +307,19 @@ function getInitialGatewayCategory(): Category | null {
   return categoryFromSession(readNavSession()?.gatewayCategory ?? null);
 }
 
+const DEFAULT_US_LOCATION = 'Gerlach, NV, USA';
+
+const getInitialHeroLocation = (reports: Report[]): string => {
+  if (typeof window === 'undefined') return DEFAULT_US_LOCATION;
+  const saved = localStorage.getItem('dpal-hero-location');
+  if (saved && saved.trim()) return saved.trim();
+
+  const authorReportWithLocation = reports.find((report) => report.isAuthor && report.location?.trim());
+  if (authorReportWithLocation?.location?.trim()) return authorReportWithLocation.location.trim();
+
+  return DEFAULT_US_LOCATION;
+};
+
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -331,7 +344,7 @@ const App: React.FC = () => {
   
   const [missions, setMissions] = useState<Mission[]>(getInitialMissions);
   const [hero, setHero] = useState<Hero>(getInitialHero);
-  const [heroLocation, setHeroLocation] = useState<string>(DEFAULT_MAP_LOCATION);
+  const [heroLocation, setHeroLocation] = useState<string>(() => getInitialHeroLocation(reports));
   const [completedReport, setCompletedReport] = useState<Report | null>(null);
   const [completedMissionSummary, setCompletedMissionSummary] = useState<MissionCompletionSummary | null>(null);
   const [itemForPayment, setItemForPayment] = useState<IapPack | StoreItem | null>(null);
@@ -864,6 +877,13 @@ const App: React.FC = () => {
     setViewHistory((prev) => [...prev, last].slice(-40));
     viewRef.current = currentView;
   }, [currentView]);
+
+  useEffect(() => {
+    const trimmed = heroLocation.trim();
+    if (trimmed) {
+      localStorage.setItem('dpal-hero-location', trimmed);
+    }
+  }, [heroLocation]);
 
   const heroWithRank = useMemo((): Hero => {
     let currentRank: Rank = RANKS[0];

@@ -183,10 +183,6 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
             center={center}
             zoom={8}
             scrollWheelZoom
-            whenCreated={(map) => {
-              mapRef.current = map;
-              setTimeout(() => map.invalidateSize(), 300);
-            }}
             className="h-full w-full"
             style={{ height: '100%', width: '100%' }}
           >
@@ -966,6 +962,26 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     setView('project');
     void fetchProjectDetail(project);
   };
+
+  const mineralSource = String(mineralData?.source || '');
+  const mineralNames = Array.isArray(mineralData?.minerals) ? mineralData.minerals.filter(Boolean) : [];
+  const hasVerifiedMineralComposition = mineralData?.dataAvailable === true && mineralNames.length > 0 && !/mock data/i.test(mineralSource);
+  const hasVerifiedDustSource = hasVerifiedMineralComposition && typeof mineralData?.dustArea === 'number' && mineralData.dustArea > 0;
+  const hiddenLegacyMinerals = mineralData && !hasVerifiedMineralComposition && mineralNames.length > 0 ? mineralNames : [];
+  const mineralAiContext = mineralData
+    ? {
+        readingStatus: hasVerifiedMineralComposition ? 'verified mineral composition returned' : 'not a verified mineral composition reading',
+        verifiedMinerals: hasVerifiedMineralComposition ? mineralNames : [],
+        verifiedPrimaryMineral: hasVerifiedMineralComposition ? mineralNames[0] : null,
+        verifiedDustSourceAreaKm2: hasVerifiedDustSource ? mineralData.dustArea : null,
+        hiddenUnverifiedMineralNames: hiddenLegacyMinerals,
+        source: mineralSource || null,
+        backendMessage: mineralData.message || null,
+        note: hasVerifiedMineralComposition
+          ? 'Use the listed minerals as verified scan outputs.'
+          : 'Do not treat any mineral type, primary mineral, or dust-source area as real until a spectral mineral product reader confirms it.',
+      }
+    : null;
 
   // ── Actions ────────────────────────────────────────────────────────────────
 
@@ -2112,11 +2128,29 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {mineralData.source && <p className="text-xs text-slate-500 mt-1">{mineralData.source}</p>}
               </div>
             )}
+            {mineralData && !hasVerifiedMineralComposition && (
+              <div className="rounded-xl bg-amber-950/30 border border-amber-500/40 p-4 text-sm text-amber-100">
+                <p className="font-bold text-amber-300">Reading status: mineral composition not verified</p>
+                <p className="mt-1 text-slate-300">
+                  This scan has not returned a confirmed EMIT/ASTER spectral mineral product. DPAL is hiding any legacy mineral names from the metric cards until the backend confirms a real mineral-composition read.
+                </p>
+                {hiddenLegacyMinerals.length > 0 && (
+                  <p className="mt-2 text-xs text-amber-200">
+                    Unverified legacy values received but not shown as real: {hiddenLegacyMinerals.join(', ')}.
+                  </p>
+                )}
+                {typeof mineralData.dustArea === 'number' && mineralData.dustArea > 0 && (
+                  <p className="mt-2 text-xs text-slate-400">
+                    The backend may know an EMIT scene footprint, but that is not the same thing as a verified dust-source area.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'Mineral Types', value: mineralData?.minerals?.length ? `${mineralData.minerals.length} detected` : 'Not available', icon: '⛰️', desc: 'Surface mineral identification' },
-                { label: 'Dust Source Areas', value: typeof mineralData?.dustArea === 'number' && mineralData.dustArea > 0 ? `${mineralData.dustArea.toFixed(0)} km²` : 'Not available', icon: '🌪️', desc: 'Mineral dust emission zones' },
-                { label: 'Primary Mineral', value: mineralData?.minerals?.[0] || 'Not available', icon: '🧪', desc: 'Most abundant mineral' },
+                { label: 'Mineral Types', value: hasVerifiedMineralComposition ? `${mineralNames.length} verified` : 'Not verified', icon: '⛰️', desc: hasVerifiedMineralComposition ? mineralNames.join(', ') : 'Needs spectral product confirmation' },
+                { label: 'Dust Source Areas', value: hasVerifiedDustSource ? `${mineralData.dustArea.toFixed(0)} km²` : 'Not verified', icon: '🌪️', desc: 'Dust-source area requires derived mineral/dust analysis' },
+                { label: 'Primary Mineral', value: hasVerifiedMineralComposition ? mineralNames[0] : 'Not verified', icon: '🧪', desc: 'Most abundant confirmed mineral' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
@@ -2132,7 +2166,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             </div>
             <ImpactAidChat
               mode="minerals"
-              data={mineralData}
+              data={mineralAiContext}
               location={scanLocation}
               radiusKm={scanRadius}
               project={selectedProject}

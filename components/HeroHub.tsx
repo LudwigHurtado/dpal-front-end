@@ -38,7 +38,7 @@ interface HeroHubProps {
   setActiveTab: (tab: HeroHubTab) => void;
 }
 
-const QUICK_LOCATIONS = ["San Jose, CA", "Los Angeles, CA", "Chicago, IL", "New York, NY", "London, UK"];
+const QUICK_LOCATIONS = ["San Jose, CA", "Los Angeles, CA", "Chicago, IL", "New York, NY", "Gerlach, NV"];
 
 const DeploymentConsole: React.FC<{
   onGenerate: (preferences: { skillLevel: SkillLevel; categories: Category[]; location?: string; }) => void;
