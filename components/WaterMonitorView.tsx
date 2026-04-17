@@ -17,7 +17,7 @@ import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
-import { WaterGlobe, type WaterProjectPin, type WaterAlertPin } from './WaterGlobe';
+import { WaterGlobe, type WaterProjectPin, type WaterAlertPin, type WaterAlertType } from './WaterGlobe';
 import { GibsTileViewer } from './GibsTileViewer';
 import { isAiEnabled } from '../services/geminiService';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
@@ -2401,6 +2401,19 @@ const DEMO_WATER_PROJECTS: WaterProject[] = [
   },
 ];
 
+// Map Global Signals API category strings → WaterAlertType icons
+function signalCategoryToType(category: string): WaterAlertType {
+  if (category === 'fire_smoke' || category === 'wildfire') return 'fire';
+  if (category === 'flood' || category === 'storm_surge')   return 'flood';
+  if (category === 'drought' || category === 'heat_wave')   return 'drought';
+  if (category === 'pollution' || category === 'air_quality') return 'pollution';
+  if (category === 'climate_risk' || category === 'extreme_weather') return 'climate_risk';
+  if (category === 'earthquake' || category === 'seismic')  return 'earthquake';
+  if (category === 'water_scarcity' || category === 'water_stress') return 'water_scarcity';
+  if (category === 'infrastructure')                         return 'infrastructure';
+  return 'hazard';
+}
+
 // soilMoisture values for demo globe pins (separate from full project data)
 const DEMO_GLOBE_SOIL_MOISTURE: Record<string, number> = {
   'demo-wp-001': 0.42,
@@ -2414,16 +2427,16 @@ const DEMO_GLOBE_SOIL_MOISTURE: Record<string, number> = {
 };
 
 const REFERENCE_STATIONS: WaterAlertPin[] = [
-  { id: 'ref-colorado',   title: 'Colorado River Basin — Chronic over-allocation drought stress',       description: 'Lake Mead & Lake Powell at historic lows. Critical water supply for 40M people.',    lat: 36.0,   lng: -114.7,  severity: 'critical', source: 'USGS Reference', isReference: true },
-  { id: 'ref-lakeChad',   title: 'Lake Chad Basin — 90% shrinkage since 1960',                          description: 'Severe desertification affecting Nigeria, Niger, Chad and Cameroon.',               lat: 13.3,   lng: 14.0,    severity: 'critical', source: 'FAO Reference',  isReference: true },
-  { id: 'ref-aral',       title: 'Aral Sea Region — Near-total desiccation',                            description: 'Once the 4th largest lake; now 10% of original volume. Central Asia crisis.',       lat: 44.5,   lng: 59.5,    severity: 'high',     source: 'NASA Reference', isReference: true },
-  { id: 'ref-ganges',     title: 'Ganges-Brahmaputra Delta — Seasonal flood & drought cycle',           description: 'Groundwater depletion + monsoon flooding affects 500M people in South Asia.',       lat: 24.0,   lng: 88.0,    severity: 'high',     source: 'FAO Reference',  isReference: true },
-  { id: 'ref-mekong',     title: 'Mekong River Delta — Upstream dam impacts + saltwater intrusion',     description: 'Vietnam delta facing salinization; 20M farmers dependent on water flow.',           lat: 10.5,   lng: 105.5,   severity: 'high',     source: 'EONET Reference',isReference: true },
-  { id: 'ref-murray',     title: 'Murray-Darling Basin — Australia drought & over-extraction',          description: 'Prolonged drought; river flow reduced >50%. Threatens agricultural output.',         lat: -34.0,  lng: 142.0,   severity: 'moderate', source: 'BOM Reference',  isReference: true },
-  { id: 'ref-nile',       title: 'Nile Delta — Freshwater scarcity & GERD dam dispute',                 description: 'Egypt, Ethiopia and Sudan in dispute over Grand Ethiopian Renaissance Dam.',         lat: 30.5,   lng: 31.2,    severity: 'moderate', source: 'FAO Reference',  isReference: true },
-  { id: 'ref-indus',      title: 'Indus Basin — Glacial melt acceleration + political tension',         description: 'Pakistan & India share the Indus; 270M depend on glacially-fed rivers.',            lat: 30.0,   lng: 71.0,    severity: 'moderate', source: 'FAO Reference',  isReference: true },
-  { id: 'ref-amazon',     title: 'Amazon River — Record 2023-2024 drought',                             description: 'Drought cut off river communities; 50M+ people and global carbon sink at risk.',    lat: -3.5,   lng: -62.0,   severity: 'high',     source: 'INPE Reference', isReference: true },
-  { id: 'ref-yellowRiver',title: 'Yellow River — Seasonal dry-out reaching sea stopped 200+ days/yr',  description: 'Heavy extraction and climate shifts; drying episodes increasing in northern China.',  lat: 35.5,   lng: 109.0,   severity: 'moderate', source: 'CWR Reference',  isReference: true },
+  { id: 'ref-colorado',   title: 'Colorado River Basin — Chronic over-allocation drought stress',       description: 'Lake Mead & Lake Powell at historic lows. Critical water supply for 40M people.',    lat: 36.0,   lng: -114.7,  severity: 'critical', source: 'USGS Reference', isReference: true, type: 'drought'        },
+  { id: 'ref-lakeChad',   title: 'Lake Chad Basin — 90% shrinkage since 1960',                          description: 'Severe desertification affecting Nigeria, Niger, Chad and Cameroon.',               lat: 13.3,   lng: 14.0,    severity: 'critical', source: 'FAO Reference',  isReference: true, type: 'water_scarcity' },
+  { id: 'ref-aral',       title: 'Aral Sea Region — Near-total desiccation',                            description: 'Once the 4th largest lake; now 10% of original volume. Central Asia crisis.',       lat: 44.5,   lng: 59.5,    severity: 'high',     source: 'NASA Reference', isReference: true, type: 'drought'        },
+  { id: 'ref-ganges',     title: 'Ganges-Brahmaputra Delta — Seasonal flood & drought cycle',           description: 'Groundwater depletion + monsoon flooding affects 500M people in South Asia.',       lat: 24.0,   lng: 88.0,    severity: 'high',     source: 'FAO Reference',  isReference: true, type: 'flood'          },
+  { id: 'ref-mekong',     title: 'Mekong River Delta — Upstream dam impacts + saltwater intrusion',     description: 'Vietnam delta facing salinization; 20M farmers dependent on water flow.',           lat: 10.5,   lng: 105.5,   severity: 'high',     source: 'EONET Reference',isReference: true, type: 'pollution'      },
+  { id: 'ref-murray',     title: 'Murray-Darling Basin — Australia drought & over-extraction',          description: 'Prolonged drought; river flow reduced >50%. Threatens agricultural output.',         lat: -34.0,  lng: 142.0,   severity: 'moderate', source: 'BOM Reference',  isReference: true, type: 'drought'        },
+  { id: 'ref-nile',       title: 'Nile Delta — Freshwater scarcity & GERD dam dispute',                 description: 'Egypt, Ethiopia and Sudan in dispute over Grand Ethiopian Renaissance Dam.',         lat: 30.5,   lng: 31.2,    severity: 'moderate', source: 'FAO Reference',  isReference: true, type: 'water_scarcity' },
+  { id: 'ref-indus',      title: 'Indus Basin — Glacial melt acceleration + political tension',         description: 'Pakistan & India share the Indus; 270M depend on glacially-fed rivers.',            lat: 30.0,   lng: 71.0,    severity: 'moderate', source: 'FAO Reference',  isReference: true, type: 'climate_risk'   },
+  { id: 'ref-amazon',     title: 'Amazon River — Record 2023-2024 drought + fire season',               description: 'Drought cut off river communities; 50M+ people and global carbon sink at risk.',    lat: -3.5,   lng: -62.0,   severity: 'high',     source: 'INPE Reference', isReference: true, type: 'fire'           },
+  { id: 'ref-yellowRiver',title: 'Yellow River — Seasonal dry-out reaching sea stopped 200+ days/yr',  description: 'Heavy extraction and climate shifts; drying episodes increasing in northern China.',  lat: 35.5,   lng: 109.0,   severity: 'moderate', source: 'CWR Reference',  isReference: true, type: 'drought'        },
 ];
 
 // ── Dashboard (main view) ──────────────────────────────────────────────────────
@@ -2525,6 +2538,7 @@ function Dashboard({
             severity: s.riskLevel as WaterAlertPin['severity'],
             source: s.sourceName,
             isReference: false,
+            type: signalCategoryToType(s.category),
           }));
         setHazardSignals(pins);
       } catch {

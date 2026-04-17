@@ -163,6 +163,7 @@ export const CARBON_MRV_HISTORY = (projectId: string) => apiUrl(`/api/carbon/mrv
 export const CARBON_CREDITS_OWNED = (userId: string) => apiUrl(`/api/carbon/credits/${encodeURIComponent(userId)}`);
 export const CARBON_PROJECT_LEDGER = (projectId: string) => apiUrl(`/api/carbon/ledger/${encodeURIComponent(projectId)}`);
 export const CARBON_PROJECTS_BY_OWNER = (ownerId: string) => apiUrl(`/api/carbon/projects?ownerId=${encodeURIComponent(ownerId)}`);
+export const CARBON_PROJECT_GPS       = (projectId: string) => apiUrl(`/api/carbon/projects/${encodeURIComponent(projectId)}/location`);
 
 // ── Water Monitor helpers ─────────────────────────────────────────────────────
 export const WATER_PROJECT_DETAIL    = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}`);

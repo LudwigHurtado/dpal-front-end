@@ -17,6 +17,7 @@ import {
   API_ROUTES, apiUrl,
   CARBON_PROJECT_DETAIL, CARBON_SATELLITE_HISTORY, CARBON_MRV_HISTORY,
   CARBON_CREDITS_OWNED, CARBON_PROJECTS_BY_OWNER, CARBON_PROJECT_LEDGER,
+  CARBON_PROJECT_GPS,
 } from '../constants';
 import { isAiEnabled } from '../services/geminiService';
 import type { Hero } from '../types';
@@ -574,6 +575,12 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
+  // GPS editing
+  const [editingGps, setEditingGps] = useState(false);
+  const [gpsDraft, setGpsDraft] = useState({ lat: '', lng: '' });
+  const [savingGps, setSavingGps] = useState(false);
+  const [gpsMsg, setGpsMsg] = useState('');
+
   const userId = hero?.operativeId || 'anonymous';
   const userName = hero?.name || 'Anonymous';
 
@@ -685,6 +692,38 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     finally { setReviewingId(null); }
   };
 
+  const openGpsEdit = () => {
+    if (!selectedProject) return;
+    setGpsDraft({
+      lat: String(selectedProject.location.gpsCenter.lat || ''),
+      lng: String(selectedProject.location.gpsCenter.lng || ''),
+    });
+    setGpsMsg('');
+    setEditingGps(true);
+  };
+
+  const saveGps = async () => {
+    if (!selectedProject) return;
+    const lat = parseFloat(gpsDraft.lat);
+    const lng = parseFloat(gpsDraft.lng);
+    if (isNaN(lat) || lat < -90 || lat > 90)   { setGpsMsg('Latitude must be −90 to 90'); return; }
+    if (isNaN(lng) || lng < -180 || lng > 180)  { setGpsMsg('Longitude must be −180 to 180'); return; }
+    setSavingGps(true);
+    setGpsMsg('');
+    try {
+      const res = await fetch(CARBON_PROJECT_GPS(selectedProject.projectId), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng }),
+      });
+      if (!res.ok) { const d = await res.json(); setGpsMsg(d.error || 'Save failed'); return; }
+      setSelectedProject({ ...selectedProject, location: { ...selectedProject.location, gpsCenter: { lat, lng } } });
+      setEditingGps(false);
+      setGpsMsg(`GPS updated → ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+    } catch { setGpsMsg('Network error — GPS not saved'); }
+    finally { setSavingGps(false); }
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (view === 'create') {
@@ -728,7 +767,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
           {/* Location card */}
           <div className="rounded-2xl bg-gradient-to-br from-emerald-950 to-teal-900 border border-white/10 p-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center mb-3">
               {[
                 { label: 'Country', value: selectedProject.location.country },
                 { label: 'Region', value: selectedProject.location.region || '—' },
@@ -741,6 +780,71 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 </div>
               ))}
             </div>
+            {/* GPS row */}
+            <div className="border-t border-white/10 pt-3 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0">
+                <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                {selectedProject.location.gpsCenter.lat && selectedProject.location.gpsCenter.lat !== 0 ? (
+                  <span className="text-xs font-mono text-emerald-300">
+                    {selectedProject.location.gpsCenter.lat.toFixed(5)}, {selectedProject.location.gpsCenter.lng.toFixed(5)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-amber-400 italic">No GPS set — satellite data uses reference area</span>
+                )}
+              </div>
+              <button
+                onClick={openGpsEdit}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-700/30 hover:bg-emerald-700/50 border border-emerald-600/40 text-emerald-300 text-xs font-bold transition shrink-0"
+              >
+                <MapPin className="w-3 h-3" />
+                Edit GPS
+              </button>
+            </div>
+            {gpsMsg && !editingGps && (
+              <p className="mt-2 text-xs text-emerald-400 font-semibold">{gpsMsg}</p>
+            )}
+            {/* Inline GPS edit form */}
+            {editingGps && (
+              <div className="mt-3 border-t border-white/10 pt-3 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Latitude (−90 to 90)</label>
+                    <input
+                      type="number" step="any"
+                      value={gpsDraft.lat}
+                      onChange={e => setGpsDraft(d => ({ ...d, lat: e.target.value }))}
+                      placeholder="e.g. 37.5623"
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Longitude (−180 to 180)</label>
+                    <input
+                      type="number" step="any"
+                      value={gpsDraft.lng}
+                      onChange={e => setGpsDraft(d => ({ ...d, lng: e.target.value }))}
+                      placeholder="e.g. −118.9664"
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+                {gpsMsg && <p className="text-xs text-rose-400">{gpsMsg}</p>}
+                <div className="flex gap-2">
+                  <button
+                    onClick={saveGps} disabled={savingGps}
+                    className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition disabled:opacity-50"
+                  >
+                    {savingGps ? 'Saving…' : 'Save GPS Coordinates'}
+                  </button>
+                  <button
+                    onClick={() => setEditingGps(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Satellite panel */}
