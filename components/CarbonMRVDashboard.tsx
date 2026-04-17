@@ -145,8 +145,9 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
     useEffect(() => {
       if (!map) return;
       mapRef.current = map;
-      const timer = window.setTimeout(() => map.invalidateSize(), 300);
-      return () => window.clearTimeout(timer);
+      const t1 = window.setTimeout(() => map.invalidateSize(), 100);
+      const t2 = window.setTimeout(() => map.invalidateSize(), 500);
+      return () => { window.clearTimeout(t1); window.clearTimeout(t2); };
     }, [map]);
 
     return null;
@@ -177,20 +178,25 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
           </div>
         </div>
       </div>
-      <div ref={wrapperRef} className="h-72">
+      <div ref={wrapperRef} style={{ height: '320px', minHeight: '320px' }}>
         {hasCoords ? (
           <MapContainer
             center={center}
             zoom={8}
             scrollWheelZoom
             className="h-full w-full"
-            style={{ height: '100%', width: '100%' }}
+            style={{ height: '320px', width: '100%' }}
           >
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com">CARTO</a>'
-              subdomains="abcd"
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              attribution='&copy; <a href="https://www.esri.com">Esri</a>'
               maxZoom={19}
+            />
+            <TileLayer
+              url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+              attribution=""
+              maxZoom={19}
+              opacity={0.7}
             />
             <Circle
               center={center}
