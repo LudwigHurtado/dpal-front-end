@@ -963,6 +963,33 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     void fetchProjectDetail(project);
   };
 
+  const airQualitySource = String(airQualityData?.source || '');
+  const hasVerifiedAirQuality = airQualityData?.dataAvailable === true && airQualityData?.measurementStatus === 'verified' && !/mock data/i.test(airQualitySource);
+  const hasVerifiedCo2 = hasVerifiedAirQuality && typeof airQualityData?.co2ppm === 'number';
+  const hasVerifiedCh4 = hasVerifiedAirQuality && typeof airQualityData?.ch4ppb === 'number';
+  const hasVerifiedNo2 = hasVerifiedAirQuality && typeof airQualityData?.no2 === 'number';
+  const hiddenLegacyAirValues = airQualityData && !hasVerifiedAirQuality
+    ? {
+        co2ppm: typeof airQualityData.co2ppm === 'number' ? airQualityData.co2ppm : null,
+        ch4ppb: typeof airQualityData.ch4ppb === 'number' ? airQualityData.ch4ppb : null,
+        no2: typeof airQualityData.no2 === 'number' ? airQualityData.no2 : null,
+      }
+    : null;
+  const airQualityAiContext = airQualityData
+    ? {
+        readingStatus: hasVerifiedAirQuality ? 'verified real integration reading' : 'not a verified real integration reading',
+        verifiedCo2ppm: hasVerifiedCo2 ? airQualityData.co2ppm : null,
+        verifiedCh4ppb: hasVerifiedCh4 ? airQualityData.ch4ppb : null,
+        verifiedNo2: hasVerifiedNo2 ? airQualityData.no2 : null,
+        hiddenUnverifiedValues: hiddenLegacyAirValues,
+        source: airQualitySource || null,
+        backendMessage: airQualityData.message || null,
+        note: hasVerifiedAirQuality
+          ? 'Only values listed as verified should be discussed as measurements.'
+          : 'Do not treat CO2, CH4, or NO2 numbers as real until DPAL confirms they came from its real satellite product integration.',
+      }
+    : null;
+
   const mineralSource = String(mineralData?.source || '');
   const mineralNames = Array.isArray(mineralData?.minerals) ? mineralData.minerals.filter(Boolean) : [];
   const hasVerifiedMineralComposition = mineralData?.dataAvailable === true && mineralNames.length > 0 && !/mock data/i.test(mineralSource);
@@ -2022,11 +2049,24 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {airQualityData.source && <p className="text-xs text-slate-500 mt-1">{airQualityData.source}</p>}
               </div>
             )}
+            {airQualityData && !hasVerifiedAirQuality && (
+              <div className="rounded-xl bg-amber-950/30 border border-amber-500/40 p-4 text-sm text-amber-100">
+                <p className="font-bold text-amber-300">Reading status: air quality values not verified</p>
+                <p className="mt-1 text-slate-300">
+                  DPAL is hiding any numeric CO2, methane, or NO2 values until the response is confirmed from our real satellite-product integration. Metadata alone, model output, or legacy mock payloads are not treated as measurements.
+                </p>
+                {hiddenLegacyAirValues && Object.values(hiddenLegacyAirValues).some((value) => value !== null) && (
+                  <p className="mt-2 text-xs text-amber-200">
+                    Unverified legacy values were received but are not shown as real measurements.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'CO2 Concentration', value: typeof airQualityData?.co2ppm === 'number' ? `${airQualityData.co2ppm.toFixed(1)} ppm` : 'Not available', icon: '🌫️', desc: 'Atmospheric CO2 from OCO-2' },
-                { label: 'Methane (CH4)', value: typeof airQualityData?.ch4ppb === 'number' ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : 'Not available', icon: '💨', desc: 'Methane requires a configured trace-gas product' },
-                { label: 'NO2 Levels', value: typeof airQualityData?.no2 === 'number' ? `${airQualityData.no2.toFixed(2)} DU` : 'Not available', icon: '🌬️', desc: 'NO2 requires a configured trace-gas product' },
+                { label: 'CO2 Concentration', value: hasVerifiedCo2 ? `${airQualityData.co2ppm.toFixed(1)} ppm` : 'Not verified', icon: '🌫️', desc: 'Requires verified OCO-2/OCO-3 product read' },
+                { label: 'Methane (CH4)', value: hasVerifiedCh4 ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : 'Not verified', icon: '💨', desc: 'Requires verified methane product integration' },
+                { label: 'NO2 Levels', value: hasVerifiedNo2 ? `${airQualityData.no2.toFixed(2)} DU` : 'Not verified', icon: '🌬️', desc: 'Requires verified NO2 product integration' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
@@ -2042,7 +2082,7 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             </div>
             <ImpactAidChat
               mode="air"
-              data={airQualityData}
+              data={airQualityAiContext}
               location={scanLocation}
               radiusKm={scanRadius}
               project={selectedProject}

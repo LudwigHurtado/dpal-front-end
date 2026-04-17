@@ -10,6 +10,7 @@ interface AirQualityData {
   captureDate: string;
   source: string;
   dataAvailable: boolean;
+  measurementStatus: 'verified' | 'unavailable';
   message: string;
 }
 
@@ -74,6 +75,7 @@ export const carbonGasAdapter = {
         captureDate,
         source,
         dataAvailable: co2ppm !== null,
+        measurementStatus: co2ppm !== null ? 'verified' : 'unavailable',
         message: co2ppm !== null
           ? 'Live OCO-2 CO2 data was read from the matching NASA granule. CH4 and NO2 require separate configured trace-gas product readers.'
           : hasRealData

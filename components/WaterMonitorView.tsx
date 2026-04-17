@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
-import { MapContainer, TileLayer, Marker, Circle, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Circle, Popup, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
@@ -2366,6 +2366,18 @@ function AdapterBadge({ name, ok, conf }: { name: string; ok: boolean; conf?: nu
   );
 }
 
+function WaterScanMapPicker({ onPick }: { onPick: (point: GPSPoint) => void }) {
+  useMapEvents({
+    click(e) {
+      onPick({
+        lat: Number(e.latlng.lat.toFixed(5)),
+        lng: Number(e.latlng.lng.toFixed(5)),
+      });
+    },
+  });
+  return null;
+}
+
 function SatelliteLiveFeed({ monitoringProject }: {
   monitoringProject?: { projectName: string; city?: string; country?: string; lat: number; lng: number } | null;
 }) {
@@ -2373,19 +2385,24 @@ function SatelliteLiveFeed({ monitoringProject }: {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [scanLocation, setScanLocation] = useState<GPSPoint>(() => ({
+    lat: monitoringProject?.lat ?? 0,
+    lng: monitoringProject?.lng ?? 0,
+  }));
+  const [scanLabel, setScanLabel] = useState(() =>
+    monitoringProject
+      ? [monitoringProject.projectName, monitoringProject.city, monitoringProject.country].filter(Boolean).join(' - ')
+      : 'Custom water scan'
+  );
+  const [latInput, setLatInput] = useState(() => String(monitoringProject?.lat ?? 0));
+  const [lngInput, setLngInput] = useState(() => String(monitoringProject?.lng ?? 0));
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (point: GPSPoint = scanLocation, label = scanLabel) => {
     setLoading(true);
     setErr('');
     try {
-      let url = apiUrl(API_ROUTES.WATER_SATELLITE_PREVIEW);
-      if (monitoringProject && monitoringProject.lat && monitoringProject.lng) {
-        const label = encodeURIComponent(
-          [monitoringProject.projectName, monitoringProject.city, monitoringProject.country]
-            .filter(Boolean).join(' — ')
-        );
-        url += `?lat=${monitoringProject.lat}&lng=${monitoringProject.lng}&areaLabel=${label}`;
-      }
+      const areaLabel = encodeURIComponent(label.trim() || 'Custom water scan');
+      const url = `${apiUrl(API_ROUTES.WATER_SATELLITE_PREVIEW)}?lat=${point.lat}&lng=${point.lng}&areaLabel=${areaLabel}`;
       const result = await apiFetch<{ ok: boolean } & SatellitePreview>(url);
       setData(result);
       setLastRefresh(new Date());
@@ -2394,15 +2411,57 @@ function SatelliteLiveFeed({ monitoringProject }: {
     } finally {
       setLoading(false);
     }
-  }, [monitoringProject]);
+  }, [scanLabel, scanLocation]);
 
   useEffect(() => { load(); }, [load]);
 
   const s = data?.summary;
 
-  const projectLabel = monitoringProject
+  const scanProject = {
+    name: scanLabel || 'Custom water scan',
+    city: undefined,
+    country: undefined,
+    lat: scanLocation.lat,
+    lng: scanLocation.lng,
+  };
+  const selectedProjectLabel = monitoringProject
     ? [monitoringProject.projectName, monitoringProject.city, monitoringProject.country].filter(Boolean).join(' — ')
-    : null;
+    : '';
+
+  const applyCoordinateInputs = () => {
+    const nextLat = Number.parseFloat(latInput);
+    const nextLng = Number.parseFloat(lngInput);
+    if (!Number.isFinite(nextLat) || !Number.isFinite(nextLng) || nextLat < -90 || nextLat > 90 || nextLng < -180 || nextLng > 180) {
+      setErr('Enter valid coordinates: latitude -90 to 90, longitude -180 to 180.');
+      return;
+    }
+    const nextPoint = {
+      lat: Number(nextLat.toFixed(5)),
+      lng: Number(nextLng.toFixed(5)),
+    };
+    setScanLocation(nextPoint);
+    load(nextPoint, scanLabel || 'Custom water scan');
+  };
+
+  const pickScanLocation = (point: GPSPoint) => {
+    setScanLocation(point);
+    setLatInput(String(point.lat));
+    setLngInput(String(point.lng));
+  };
+
+  const useSelectedProject = () => {
+    if (!monitoringProject) return;
+    const nextPoint = {
+      lat: Number(monitoringProject.lat.toFixed(5)),
+      lng: Number(monitoringProject.lng.toFixed(5)),
+    };
+    const nextLabel = selectedProjectLabel || monitoringProject.projectName;
+    setScanLocation(nextPoint);
+    setLatInput(String(nextPoint.lat));
+    setLngInput(String(nextPoint.lng));
+    setScanLabel(nextLabel);
+    load(nextPoint, nextLabel);
+  };
 
   // Plain-English interpretation of each metric
   const interpretation = s ? [
@@ -2504,15 +2563,13 @@ function SatelliteLiveFeed({ monitoringProject }: {
           <div>
             <p className="text-sm font-bold text-cyan-200">Live Satellite Readings</p>
             <p className="text-xs text-slate-400 mt-0.5 leading-relaxed max-w-lg">
-              {monitoringProject
-                ? <>6 NASA &amp; ESA satellites are scanning <span className="text-cyan-300 font-semibold">{monitoringProject.projectName}</span> right now. These numbers tell you the current water health of your land.</>
-                : 'Satellite water health data. Register a project with GPS coordinates to see readings for your specific land.'}
+              Enter coordinates or click the globe map to scan any water area. The readings and AI helper follow the selected point, not a fixed saved project.
             </p>
             {lastRefresh && <p className="text-[10px] text-slate-600 mt-1">Updated {lastRefresh.toLocaleTimeString()}</p>}
           </div>
         </div>
         <button
-          onClick={load}
+          onClick={() => load()}
           disabled={loading}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-800/20 hover:bg-cyan-700/30 border border-cyan-700/30 text-cyan-400 text-xs transition disabled:opacity-50 shrink-0"
         >
@@ -2521,107 +2578,121 @@ function SatelliteLiveFeed({ monitoringProject }: {
         </button>
       </div>
 
-      {/* ── Project identity banner ── */}
-      <div className={`rounded-xl px-4 py-3 flex items-center gap-3 ${monitoringProject ? 'bg-teal-900/20 border border-teal-700/30' : 'bg-slate-800/60 border border-slate-700/40'}`}>
-        <MapPin className={`w-4 h-4 shrink-0 ${monitoringProject ? 'text-teal-400' : 'text-slate-500'}`} />
-        <div className="flex-1 min-w-0">
-          {monitoringProject ? (
-            <>
-              <p className="text-xs font-bold text-teal-200">Reading for: {projectLabel}</p>
-              <p className="text-[10px] text-slate-400 mt-0.5">
-                Coordinates: {monitoringProject.lat.toFixed(4)}, {monitoringProject.lng.toFixed(4)} · All metrics below apply to this exact location
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="text-xs font-semibold text-slate-400">No project GPS set — showing reference area</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Add GPS to your project card to see readings for your land</p>
-            </>
+      <div className="rounded-xl px-4 py-3 bg-teal-900/20 border border-teal-700/30 space-y-3">
+        <div className="flex items-start gap-3">
+          <MapPin className="w-4 h-4 shrink-0 text-teal-400 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-teal-200">Reading for: {scanLabel || 'Custom water scan'}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">
+              Coordinates: {scanLocation.lat.toFixed(5)}, {scanLocation.lng.toFixed(5)}. Click the map or enter coordinates, then scan.
+            </p>
+          </div>
+          {data?.centerLat != null && (
+            <span className="text-[10px] text-slate-600 font-mono shrink-0">{data.centerLat.toFixed(3)}, {data.centerLng?.toFixed(3)}</span>
           )}
         </div>
-        {data?.centerLat != null && (
-          <span className="text-[10px] text-slate-600 font-mono shrink-0">{data.centerLat.toFixed(3)}, {data.centerLng?.toFixed(3)}</span>
+
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_120px_120px_auto] gap-2">
+          <input
+            value={scanLabel}
+            onChange={(e) => setScanLabel(e.target.value)}
+            placeholder="Area label"
+            className="h-10 rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none focus:border-cyan-500"
+          />
+          <input
+            value={latInput}
+            onChange={(e) => setLatInput(e.target.value)}
+            inputMode="decimal"
+            placeholder="Latitude"
+            className="h-10 rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none focus:border-cyan-500"
+          />
+          <input
+            value={lngInput}
+            onChange={(e) => setLngInput(e.target.value)}
+            inputMode="decimal"
+            placeholder="Longitude"
+            className="h-10 rounded-lg border border-slate-700 bg-slate-950/70 px-3 text-sm text-slate-100 outline-none focus:border-cyan-500"
+          />
+          <button
+            onClick={applyCoordinateInputs}
+            disabled={loading}
+            className="h-10 px-4 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold transition"
+          >
+            Scan coordinates
+          </button>
+        </div>
+
+        {monitoringProject && (
+          <button
+            onClick={useSelectedProject}
+            disabled={loading}
+            className="text-[11px] text-cyan-300 hover:text-cyan-200 disabled:opacity-50"
+          >
+            Use saved project: {selectedProjectLabel}
+          </button>
         )}
       </div>
-
-      {/* ── LOCATION MAP — shows exactly what area is being read ── */}
-      {monitoringProject && (
-        <div className="rounded-xl overflow-hidden border border-slate-700/60" style={{ height: 200 }}>
-          <style>{`
-            .sat-map-pin { background: none; border: none; }
-          `}</style>
-          <MapContainer
-            key={`sat-map-${monitoringProject.lat.toFixed(3)}-${monitoringProject.lng.toFixed(3)}`}
-            center={[monitoringProject.lat, monitoringProject.lng]}
-            zoom={10}
-            zoomControl={false}
-            scrollWheelZoom={false}
-            dragging={false}
-            doubleClickZoom={false}
-            style={{ height: '100%', width: '100%', background: '#0f172a' }}
-            attributionControl={false}
+      <div className="rounded-xl overflow-hidden border border-slate-700/60" style={{ height: 240 }}>
+        <style>{`
+          .sat-map-pin { background: none; border: none; }
+        `}</style>
+        <MapContainer
+          key={`water-scan-map-${scanLocation.lat.toFixed(3)}-${scanLocation.lng.toFixed(3)}`}
+          center={[scanLocation.lat, scanLocation.lng]}
+          zoom={scanLocation.lat === 0 && scanLocation.lng === 0 ? 2 : 8}
+          zoomControl
+          scrollWheelZoom
+          dragging
+          doubleClickZoom
+          style={{ height: '100%', width: '100%', background: '#0f172a' }}
+          attributionControl={false}
+        >
+          <WaterScanMapPicker onPick={pickScanLocation} />
+          <TileLayer
+            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            maxZoom={20}
+          />
+          <Circle
+            center={[scanLocation.lat, scanLocation.lng]}
+            radius={50000}
+            pathOptions={{ color: '#14b8a6', weight: 1.5, fillColor: '#14b8a6', fillOpacity: 0.06, dashArray: '4 6' }}
+          />
+          <Circle
+            center={[scanLocation.lat, scanLocation.lng]}
+            radius={8000}
+            pathOptions={{ color: '#22d3ee', weight: 2, fillColor: '#22d3ee', fillOpacity: 0.12 }}
+          />
+          <Marker
+            position={[scanLocation.lat, scanLocation.lng]}
+            icon={L.divIcon({
+              className: 'sat-map-pin',
+              html: `<div style="
+                width:14px;height:14px;border-radius:50%;
+                background:#14b8a6;border:3px solid #fff;
+                box-shadow:0 0 0 4px rgba(20,184,166,0.35),0 0 16px rgba(20,184,166,0.6);
+              "></div>`,
+              iconSize: [14, 14],
+              iconAnchor: [7, 7],
+            })}
           >
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              maxZoom={20}
-            />
-            {/* Satellite reading radius — ~50km bounding box shown as circle */}
-            <Circle
-              center={[monitoringProject.lat, monitoringProject.lng]}
-              radius={50000}
-              pathOptions={{ color: '#14b8a6', weight: 1.5, fillColor: '#14b8a6', fillOpacity: 0.06, dashArray: '4 6' }}
-            />
-            {/* Inner project area */}
-            <Circle
-              center={[monitoringProject.lat, monitoringProject.lng]}
-              radius={8000}
-              pathOptions={{ color: '#22d3ee', weight: 2, fillColor: '#22d3ee', fillOpacity: 0.12 }}
-            />
-            {/* Project pin */}
-            <Marker
-              position={[monitoringProject.lat, monitoringProject.lng]}
-              icon={L.divIcon({
-                className: 'sat-map-pin',
-                html: `<div style="
-                  width:14px;height:14px;border-radius:50%;
-                  background:#14b8a6;border:3px solid #fff;
-                  box-shadow:0 0 0 4px rgba(20,184,166,0.35),0 0 16px rgba(20,184,166,0.6);
-                "></div>`,
-                iconSize: [14, 14],
-                iconAnchor: [7, 7],
-              })}
-            >
-              <Popup>
-                <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#0f172a', padding: 4 }}>
-                  <strong>{monitoringProject.projectName}</strong><br />
-                  {[monitoringProject.city, monitoringProject.country].filter(Boolean).join(', ')}<br />
-                  <span style={{ color: '#0e7490' }}>{monitoringProject.lat.toFixed(4)}, {monitoringProject.lng.toFixed(4)}</span>
-                </div>
-              </Popup>
-            </Marker>
-          </MapContainer>
-          {/* Map label overlay */}
-          <div className="relative -mt-7 mx-2 mb-1 z-[500] flex items-center justify-between px-3 py-1.5 rounded-lg bg-slate-950/80 backdrop-blur-sm border border-slate-700/50 pointer-events-none">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse shrink-0" />
-              <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider">Satellite Reading Area</span>
-            </div>
-            <span className="text-[10px] text-slate-400 font-medium">
-              {monitoringProject.projectName}{[monitoringProject.city, monitoringProject.country].filter(Boolean).length > 0 ? ' · ' + [monitoringProject.city, monitoringProject.country].filter(Boolean).join(', ') : ''}
-            </span>
+            <Popup>
+              <div style={{ fontFamily: 'monospace', fontSize: 11, color: '#0f172a', padding: 4 }}>
+                <strong>{scanLabel || 'Custom water scan'}</strong><br />
+                <span style={{ color: '#0e7490' }}>{scanLocation.lat.toFixed(5)}, {scanLocation.lng.toFixed(5)}</span>
+              </div>
+            </Popup>
+          </Marker>
+        </MapContainer>
+        <div className="relative -mt-8 mx-2 mb-1 z-[500] flex items-center justify-between gap-3 px-3 py-1.5 rounded-lg bg-slate-950/80 backdrop-blur-sm border border-slate-700/50 pointer-events-none">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse shrink-0" />
+            <span className="text-[10px] font-bold text-teal-300 uppercase tracking-wider">Clickable water scan globe</span>
           </div>
+          <span className="text-[10px] text-slate-400 font-medium truncate">
+            {scanLocation.lat.toFixed(5)}, {scanLocation.lng.toFixed(5)}
+          </span>
         </div>
-      )}
-
-      {!monitoringProject && (
-        <div className="rounded-xl border border-dashed border-slate-700 bg-slate-800/30 flex items-center justify-center gap-3 px-4 py-6 text-center">
-          <MapPin className="w-5 h-5 text-slate-600 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-slate-400">No location set</p>
-            <p className="text-xs text-slate-600 mt-0.5">Add GPS coordinates to your project card to see a map of what the satellites are reading</p>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Adapter status badges */}
       <div className="flex flex-wrap gap-2">
@@ -2781,13 +2852,7 @@ function SatelliteLiveFeed({ monitoringProject }: {
               sarFloodRisk: `${(sar!.floodRisk ?? 0) * 100 < 1 ? '<1' : Math.round((sar!.floodRisk ?? 0) * 100)}%`,
             } : {}),
           }}
-          project={monitoringProject ? {
-            name: monitoringProject.projectName,
-            city: monitoringProject.city,
-            country: monitoringProject.country,
-            lat: monitoringProject.lat,
-            lng: monitoringProject.lng,
-          } : null}
+          project={scanProject}
         />
       )}
       {s && !loading && (
@@ -2805,19 +2870,13 @@ function SatelliteLiveFeed({ monitoringProject }: {
               sarFloodRisk: `${(sar!.floodRisk ?? 0) * 100 < 1 ? '<1' : Math.round((sar!.floodRisk ?? 0) * 100)}%`,
             } : {}),
           }}
-          project={monitoringProject ? {
-            name: monitoringProject.projectName,
-            city: monitoringProject.city,
-            country: monitoringProject.country,
-            lat: monitoringProject.lat,
-            lng: monitoringProject.lng,
-          } : null}
+          project={scanProject}
         />
       )}
 
       <p className="text-[10px] text-slate-600 border-t border-slate-800 pt-3">
         Data from 6 NASA/ESA satellites: SMAP · SWOT · GRACE-FO · NASA GIBS · Copernicus · Sentinel-1 SAR ·{' '}
-        {monitoringProject ? `readings for ${monitoringProject.projectName}` : 'register a project to monitor your specific land'}
+        readings for {scanLabel || 'Custom water scan'} at {scanLocation.lat.toFixed(5)}, {scanLocation.lng.toFixed(5)}
       </p>
     </div>
   );
@@ -3097,18 +3156,8 @@ function Dashboard({
         </div>
       )}
 
-      {/* Live Satellite Feed — uses first project with valid GPS (including demo projects) */}
-      <SatelliteLiveFeed monitoringProject={(() => {
-        const liveProject = projects.find(p => p.location?.gpsCenter?.lat && p.location?.gpsCenter?.lng && p.location.gpsCenter.lat !== 0 && p.location.gpsCenter.lng !== 0);
-        if (!liveProject) return null;
-        return {
-          projectName: liveProject.projectName,
-          city: liveProject.location.city,
-          country: liveProject.location.country,
-          lat: liveProject.location.gpsCenter.lat,
-          lng: liveProject.location.gpsCenter.lng,
-        };
-      })()} />
+      {/* Live Satellite Feed */}
+      <SatelliteLiveFeed monitoringProject={null} />
 
       {/* Platform stats */}
       {stats && (
