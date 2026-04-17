@@ -267,6 +267,22 @@ Get credentials: [dataspace.copernicus.eu](https://dataspace.copernicus.eu) → 
 
 ---
 
+### 2026-04-17 — Carbon MRV mock-data cleanup
+
+#### Carbon MRV Engine (`/carbon`) — air quality + mineral scans
+- **No fabricated scan readings:** `backend/src/services/adapters/carbonGas.adapter.ts` no longer returns random CO2 / CH4 / NO2 fallback values or labels them as mock data.
+- **OCO-2 metadata lookup:** carbon gas scans query NASA CMR for a matching OCO-2 granule and attempt to sample live `xco2` from an available OPeNDAP link. If no readable sample is available, the API returns `null` readings plus a clear status message instead of invented numbers.
+- **Trace-gas limitations are explicit:** CH4 and NO2 currently return `null` until dedicated trace-gas product readers are configured.
+- **No fabricated mineral results:** `backend/src/services/adapters/mineral.adapter.ts` no longer returns hard-coded minerals, random composition percentages, random dust-source areas, or `EMIT / ASTER (Mock Data)`.
+- **EMIT metadata lookup:** mineral scans query NASA CMR for matching EMIT granule metadata. Mineral composition remains unavailable until an Earthdata spectral-product reader is configured.
+- **Frontend unavailable states:** `components/CarbonMRVDashboard.tsx` renders `Not available` and shows the backend source/status message for missing air-quality or mineral scan values.
+
+#### Current blockers unrelated to the cleanup
+- `App.tsx` still contains unresolved merge conflict markers and must be resolved before frontend TypeScript can pass.
+- Local backend TypeScript still reports missing `rewardsRouter` and local `axios` resolution in this workspace.
+
+---
+
 ### 2026-04-13 — Water Monitor MVP + Carbon investor UX
 
 #### Carbon Credit Market (`/offsets`) — `OffsetMarketplaceView.tsx`

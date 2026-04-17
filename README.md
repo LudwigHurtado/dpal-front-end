@@ -124,6 +124,28 @@ fetch('https://web-production-a27b.up.railway.app/api/water/satellite-preview?la
 
 ---
 
+## Carbon MRV — satellite scan integration
+
+The Carbon MRV dashboard (`/carbon`) includes air-quality and mineral-mapping scan tools backed by the auxiliary Express service in `backend/`.
+
+### Air quality scans
+
+`backend/src/services/adapters/carbonGas.adapter.ts` queries NASA CMR for matching OCO-2 granule metadata and attempts to sample live `xco2` from an available OPeNDAP link.
+
+The adapter does not fabricate gas readings. If a real CO2 sample cannot be read, it returns `null` values with a status message. CH4 and NO2 also return `null` until dedicated trace-gas product readers are configured.
+
+### Mineral scans
+
+`backend/src/services/adapters/mineral.adapter.ts` queries NASA CMR for matching EMIT granule metadata.
+
+The adapter does not fabricate mineral types, composition percentages, or dust-source areas. Mineral composition remains unavailable until an Earthdata spectral-product reader is configured.
+
+### UI behavior
+
+`components/CarbonMRVDashboard.tsx` displays `Not available` for missing scan values and shows the backend source/status message above the scan cards. This keeps the dashboard transparent when live satellite metadata exists but derived measurements are not yet readable.
+
+---
+
 ## Backend notes
 
 - Primary production API base is Railway (`https://web-production-a27b.up.railway.app`).
