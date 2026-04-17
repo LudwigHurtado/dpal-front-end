@@ -20,6 +20,7 @@ import {
   CARBON_PROJECT_GPS,
 } from '../constants';
 import { isAiEnabled } from '../services/geminiService';
+import { SatelliteAiInsight } from './SatelliteAiInsight';
 import type { Hero } from '../types';
 
 const CarbonWorldMap = lazy(() => import('./CarbonWorldMap'));
@@ -915,6 +916,27 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                   </div>
                   {scoreBar(latestSnap.ndviScore, 1)}
                 </div>
+
+                {/* AI Satellite Analyst */}
+                <SatelliteAiInsight
+                  domain="carbon"
+                  data={{
+                    ndviScore: latestSnap.ndviScore.toFixed(3),
+                    ndviChange: (latestSnap.ndviChange >= 0 ? '+' : '') + latestSnap.ndviChange.toFixed(3),
+                    vegetationChange: `${latestSnap.vegetationChangePercent >= 0 ? '+' : ''}${latestSnap.vegetationChangePercent}%`,
+                    landCoverType: latestSnap.landCoverType.replace(/_/g, ' '),
+                    cloudCoverAtCapture: `${latestSnap.cloudCoverPercent}%`,
+                    deforestationAlert: latestSnap.deforestationAlert,
+                    dataProvider: latestSnap.provider,
+                    captureDate: latestSnap.captureDate,
+                  }}
+                  project={{
+                    name: selectedProject.projectName,
+                    type: selectedProject.projectType,
+                    lat: selectedProject.location.gpsCenter.lat,
+                    lng: selectedProject.location.gpsCenter.lng,
+                  }}
+                />
 
                 {/* NASA GIBS multi-layer imagery viewer */}
                 <div className="border-t border-slate-800 pt-4">

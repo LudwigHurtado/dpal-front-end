@@ -19,6 +19,7 @@ import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { WaterGlobe, type WaterProjectPin, type WaterAlertPin, type WaterAlertType } from './WaterGlobe';
 import { GibsTileViewer } from './GibsTileViewer';
+import { SatelliteAiInsight } from './SatelliteAiInsight';
 import { isAiEnabled } from '../services/geminiService';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
@@ -2412,8 +2413,35 @@ function SatelliteLiveFeed({ monitoringProject }: {
         </div>
       )}
 
+      {/* ── AI Satellite Analyst ── */}
+      {s && !loading && (
+        <SatelliteAiInsight
+          domain="water"
+          data={{
+            soilMoisture: `${(s.soilMoistureIndex * 100).toFixed(0)}%`,
+            surfaceWaterLevel: `${s.surfaceWaterLevel.toFixed(2)} m`,
+            waterStorageTrend: `${s.waterStorageTrend >= 0 ? '+' : ''}${s.waterStorageTrend.toFixed(1)} mm/month`,
+            vegetationStress: `${(s.vegetationStress * 100).toFixed(0)}%`,
+            droughtRisk: `${(s.droughtRisk * 100).toFixed(0)}%`,
+            overallConfidence: `${(s.confidenceScore * 100).toFixed(0)}%`,
+            ...(sarAvailable ? {
+              sarWaterCoverage: `${Math.round((sar!.waterFraction ?? 0) * 100)}%`,
+              sarBackscatter_dB: sar!.vvMeanDb?.toFixed(1),
+              sarFloodRisk: `${(sar!.floodRisk ?? 0) * 100 < 1 ? '<1' : Math.round((sar!.floodRisk ?? 0) * 100)}%`,
+            } : {}),
+          }}
+          project={monitoringProject ? {
+            name: monitoringProject.projectName,
+            city: monitoringProject.city,
+            country: monitoringProject.country,
+            lat: monitoringProject.lat,
+            lng: monitoringProject.lng,
+          } : null}
+        />
+      )}
+
       <p className="text-[10px] text-slate-600 border-t border-slate-800 pt-3">
-        Data from 5 NASA/ESA satellites: SMAP · SWOT · GRACE-FO · NASA GIBS · Copernicus ·{' '}
+        Data from 6 NASA/ESA satellites: SMAP · SWOT · GRACE-FO · NASA GIBS · Copernicus · Sentinel-1 SAR ·{' '}
         {monitoringProject ? `readings for ${monitoringProject.projectName}` : 'register a project to monitor your specific land'}
       </p>
     </div>
