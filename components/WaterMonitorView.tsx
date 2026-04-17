@@ -20,13 +20,13 @@ import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { WaterGlobe, type WaterProjectPin, type WaterAlertPin, type WaterAlertType } from './WaterGlobe';
 import { GibsTileViewer } from './GibsTileViewer';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
-import { isAiEnabled } from '../services/geminiService';
+import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
   ShieldCheck, Award, Zap, Plus, RefreshCw, Eye,
   Droplets, Waves, TrendingUp, TrendingDown, Globe, ChevronRight,
-  FileText, BarChart2, Star, Clock, Filter, Sparkles, X,
+  FileText, BarChart2, Star, Clock, Filter, Sparkles, X, Bot, Send,
 } from './icons';
 import {
   apiUrl,
@@ -69,6 +69,177 @@ interface WaterProject {
   evidenceUrls: string[];
   adminNotes: string;
   createdAt: string;
+}
+
+type WaterImpactAidMessage = { role: 'assistant' | 'user'; text: string };
+
+interface WaterImpactAidChatProps {
+  data: Record<string, unknown> | null;
+  project?: {
+    name?: string;
+    type?: string;
+    city?: string;
+    country?: string;
+    lat?: number;
+    lng?: number;
+    goal?: string;
+  } | null;
+}
+
+function buildWaterImpactAidPrompt({
+  data,
+  project,
+  question,
+}: WaterImpactAidChatProps & { question: string }): string {
+  const location = [project?.city, project?.country].filter(Boolean).join(', ') || 'the monitored area';
+  const projectContext = [
+    project?.name ? `Project: ${project.name}.` : 'Project: no registered water project selected.',
+    project?.type ? `Project type: ${project.type.replace(/_/g, ' ')}.` : '',
+    project?.goal ? `Improvement goal: ${project.goal}.` : '',
+    project?.lat != null && project?.lng != null ? `Coordinates: ${project.lat.toFixed(5)}, ${project.lng.toFixed(5)}.` : '',
+  ].filter(Boolean).join(' ');
+
+  return `You are DPAL's water impact assistant. Help a non-expert understand water satellite readings and turn them into practical support for a person, community, farm, school, watershed, or project.
+
+Location: ${location}
+${projectContext}
+
+Latest available water data:
+${JSON.stringify(data || {}, null, 2)}
+
+User question:
+${question}
+
+Answer in plain English. Be honest about missing or low-confidence data; never invent values. Organize the answer into:
+1. What might be happening
+2. What issues or risks to check first
+3. What can be done to fix or reduce harm
+4. How DPAL users could help the person, community, or project
+
+Focus on water access, drought risk, irrigation waste, flooding/pooling, leaks, vegetation stress, proof to collect, and near-term help. Keep it specific, compassionate, and action-oriented.`;
+}
+
+function WaterImpactAidChat({ data, project }: WaterImpactAidChatProps) {
+  const [messages, setMessages] = useState<WaterImpactAidMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [loadingImpactAid, setLoadingImpactAid] = useState(false);
+  const [impactAidError, setImpactAidError] = useState('');
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const aiReady = isAiEnabled();
+  const defaultQuestion = 'What are the issues here, what can fix them, and how can we help the affected person, community, or project?';
+
+  const askImpactAid = async (question: string) => {
+    const trimmed = question.trim();
+    if (!trimmed || loadingImpactAid) return;
+    setImpactAidError('');
+    setLoadingImpactAid(true);
+    setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
+    try {
+      const prompt = buildWaterImpactAidPrompt({ data, project, question: trimmed });
+      const text = await runGeminiPrompt(prompt);
+      setMessages((prev) => [...prev, { role: 'assistant', text: text.trim() }]);
+    } catch (err) {
+      setImpactAidError(err instanceof Error ? err.message : 'AI helper failed.');
+    } finally {
+      setLoadingImpactAid(false);
+    }
+  };
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, loadingImpactAid]);
+
+  return (
+    <div className="rounded-xl border border-cyan-700/30 bg-cyan-950/10 p-4 space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-2 text-cyan-300">
+            <Bot className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">Water Impact Helper</p>
+            <p className="text-xs text-slate-400 mt-1 max-w-2xl">
+              Ask what the water readings could mean, what needs verification, what fixes are realistic, and how DPAL can organize help.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => askImpactAid(defaultQuestion)}
+          disabled={!aiReady || loadingImpactAid}
+          className="px-3 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 text-white text-xs font-bold transition-colors"
+        >
+          {loadingImpactAid ? 'Thinking...' : 'Explain impact'}
+        </button>
+      </div>
+
+      {!aiReady && (
+        <div className="rounded-lg border border-slate-700 bg-slate-950/70 px-3 py-2 text-xs text-slate-500">
+          AI helper requires <span className="font-mono">VITE_GEMINI_API_KEY</span> or <span className="font-mono">VITE_USE_SERVER_AI=true</span>.
+        </div>
+      )}
+
+      {impactAidError && (
+        <div className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-3 py-2 text-xs text-rose-300">
+          {impactAidError}
+        </div>
+      )}
+
+      {messages.length > 0 && (
+        <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
+          {messages.map((message, idx) => (
+            <div
+              key={`${message.role}-${idx}`}
+              className={`rounded-lg px-3 py-2 text-xs leading-relaxed ${
+                message.role === 'assistant'
+                  ? 'bg-slate-900/80 border border-slate-700 text-slate-200'
+                  : 'bg-cyan-700/20 border border-cyan-600/30 text-cyan-100 ml-8'
+              }`}
+            >
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                {message.role === 'assistant' ? 'AI Guidance' : 'Question'}
+              </p>
+              {message.text.split('\n').map((line, lineIdx) => (
+                <span key={lineIdx}>
+                  {line}
+                  {lineIdx < message.text.split('\n').length - 1 && <br />}
+                </span>
+              ))}
+            </div>
+          ))}
+          {loadingImpactAid && (
+            <div className="flex items-center gap-2 text-xs text-slate-500">
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              Building guidance...
+            </div>
+          )}
+          <div ref={bottomRef} />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2 md:flex-row">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && askImpactAid(input)}
+          disabled={!aiReady || loadingImpactAid}
+          placeholder="Ask: who needs help, what should we verify, or what water fix should come first?"
+          className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-cyan-500 disabled:opacity-50"
+        />
+        <button
+          onClick={() => {
+            const q = input;
+            setInput('');
+            void askImpactAid(q);
+          }}
+          disabled={!aiReady || loadingImpactAid || !input.trim()}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"
+        >
+          <Send className="w-4 h-4" />
+          Ask
+        </button>
+      </div>
+    </div>
+  );
 }
 
 interface WaterSnapshotMetrics {
@@ -1511,6 +1682,33 @@ function ProjectDetailView({
               lng: project.location.gpsCenter?.lng,
             }}
           />
+          <WaterImpactAidChat
+            data={{
+              soilMoistureIndex: latestSnap.metrics.soilMoistureIndex,
+              surfaceWaterLevel: `${latestSnap.metrics.surfaceWaterLevel.toFixed(2)} m`,
+              waterStorageTrend: `${latestSnap.metrics.waterStorageTrend.toFixed(1)} mm/mo`,
+              droughtRisk: `${Math.round(latestSnap.metrics.droughtRisk * 100)}%`,
+              vegetationStress: `${Math.round(latestSnap.metrics.vegetationStress * 100)}%`,
+              confidenceScore: `${Math.round(latestSnap.metrics.confidenceScore * 100)}%`,
+              usageReductionEstimate: `${Math.round(latestSnap.metrics.usageReductionEstimate * 100)}%`,
+              anomalyFlags: latestSnap.anomalyFlags,
+              captureDate: latestSnap.captureDate,
+              ...(latestSnap.sarSource === 'sentinel-1-sar' ? {
+                sarWaterCoverage: `${Math.round((latestSnap.sarWaterFraction ?? 0) * 100)}%`,
+                sarFloodRisk: `${Math.round((latestSnap.sarFloodRisk ?? 0) * 100)}%`,
+                sarCaptureDate: latestSnap.sarCaptureDate,
+              } : {}),
+            }}
+            project={{
+              name: project.projectName,
+              type: project.projectType,
+              city: project.location.city,
+              country: project.location.country,
+              lat: project.location.gpsCenter?.lat,
+              lng: project.location.gpsCenter?.lng,
+              goal: project.improvementGoal,
+            }}
+          />
         </div>
       )}
 
@@ -2570,6 +2768,30 @@ function SatelliteLiveFeed({ monitoringProject }: {
       {s && !loading && (
         <SatelliteAiInsight
           domain="water"
+          data={{
+            soilMoisture: `${(s.soilMoistureIndex * 100).toFixed(0)}%`,
+            surfaceWaterLevel: `${s.surfaceWaterLevel.toFixed(2)} m`,
+            waterStorageTrend: `${s.waterStorageTrend >= 0 ? '+' : ''}${s.waterStorageTrend.toFixed(1)} mm/month`,
+            vegetationStress: `${(s.vegetationStress * 100).toFixed(0)}%`,
+            droughtRisk: `${(s.droughtRisk * 100).toFixed(0)}%`,
+            overallConfidence: `${(s.confidenceScore * 100).toFixed(0)}%`,
+            ...(sarAvailable ? {
+              sarWaterCoverage: `${Math.round((sar!.waterFraction ?? 0) * 100)}%`,
+              sarBackscatter_dB: sar!.vvMeanDb?.toFixed(1),
+              sarFloodRisk: `${(sar!.floodRisk ?? 0) * 100 < 1 ? '<1' : Math.round((sar!.floodRisk ?? 0) * 100)}%`,
+            } : {}),
+          }}
+          project={monitoringProject ? {
+            name: monitoringProject.projectName,
+            city: monitoringProject.city,
+            country: monitoringProject.country,
+            lat: monitoringProject.lat,
+            lng: monitoringProject.lng,
+          } : null}
+        />
+      )}
+      {s && !loading && (
+        <WaterImpactAidChat
           data={{
             soilMoisture: `${(s.soilMoistureIndex * 100).toFixed(0)}%`,
             surfaceWaterLevel: `${s.surfaceWaterLevel.toFixed(2)} m`,
