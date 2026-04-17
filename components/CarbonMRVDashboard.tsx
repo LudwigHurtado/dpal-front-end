@@ -2069,9 +2069,9 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { label: 'CO2 Concentration', value: hasVerifiedCo2 ? `${airQualityData.co2ppm.toFixed(1)} ppm` : 'Not verified', icon: '🌫️', desc: 'Requires verified OCO-2/OCO-3 product read' },
-                { label: 'Methane (CH4)', value: hasVerifiedCh4 ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : 'Not verified', icon: '💨', desc: 'Requires verified methane product integration' },
-                { label: 'NO2 Levels', value: hasVerifiedNo2 ? `${airQualityData.no2.toFixed(2)} DU` : 'Not verified', icon: '🌬️', desc: 'Requires verified NO2 product integration' },
+                { label: 'CO2 Concentration', value: hasVerifiedCo2 ? `${airQualityData.co2ppm.toFixed(1)} ppm` : 'Not verified', icon: '🌫️', desc: 'NOAA Mauna Loa global background 2025' },
+                { label: 'Methane (CH4)', value: hasVerifiedCh4 ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : 'Not verified', icon: '💨', desc: 'Copernicus CAMS via Open-Meteo' },
+                { label: 'NO2 Levels', value: hasVerifiedNo2 ? `${airQualityData.no2.toFixed(2)} µg/m³` : 'Not verified', icon: '🌬️', desc: 'Copernicus CAMS via Open-Meteo' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
