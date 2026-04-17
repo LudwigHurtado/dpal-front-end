@@ -692,6 +692,19 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
   const userId = hero?.operativeId || 'anonymous';
   const userName = hero?.name || 'Anonymous';
 
+  // ── Local / offline purchase persistence ─────────────────────────────────────
+
+  const LOCAL_PURCHASES_KEY = 'dpal_cc_local_purchases';
+
+  const loadLocalPurchases = (): Purchase[] => {
+    try { return JSON.parse(localStorage.getItem(LOCAL_PURCHASES_KEY) || '[]'); } catch { return []; }
+  };
+  const saveLocalPurchases = (purchases: Purchase[]) => {
+    localStorage.setItem(LOCAL_PURCHASES_KEY, JSON.stringify(purchases));
+  };
+
+  const [localPurchases, setLocalPurchases] = useState<Purchase[]>(loadLocalPurchases);
+
   // ── Fetch ────────────────────────────────────────────────────────────────────
 
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -781,11 +794,17 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
     retired: projects.reduce((s, p) => s + p.retiredUnits, 0),
   }), [projects]);
 
+  const displayPortfolio = useMemo(() => {
+    const apiIds = new Set(portfolio.map((p) => p.purchaseId));
+    const merged = [...portfolio, ...localPurchases.filter((lp) => !apiIds.has(lp.purchaseId))];
+    return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [portfolio, localPurchases]);
+
   const portfolioTotals = useMemo(() => ({
-    total: portfolio.reduce((s, p) => s + p.units, 0),
-    retired: portfolio.filter((p) => p.retired).reduce((s, p) => s + p.units, 0),
-    active: portfolio.filter((p) => !p.retired).reduce((s, p) => s + p.units, 0),
-  }), [portfolio]);
+    total: displayPortfolio.reduce((s, p) => s + p.units, 0),
+    retired: displayPortfolio.filter((p) => p.retired).reduce((s, p) => s + p.units, 0),
+    active: displayPortfolio.filter((p) => !p.retired).reduce((s, p) => s + p.units, 0),
+  }), [displayPortfolio]);
 
   // Map project data
   const mapProjects = useMemo(() =>
@@ -813,6 +832,32 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
     setBuying(true);
     setBuyError(null);
     setBuySuccess(null);
+
+    if (isDemoMode) {
+      await new Promise((r) => setTimeout(r, 700));
+      const purchase: Purchase = {
+        purchaseId: `DEMO-${Date.now()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+        projectId: activeProject.projectId,
+        projectName: activeProject.name,
+        units: buyQty,
+        pricePerTonne: activeProject.pricePerTonne,
+        totalUsd: parseFloat((buyQty * activeProject.pricePerTonne).toFixed(2)),
+        retired: false,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [purchase, ...localPurchases];
+      setLocalPurchases(updated);
+      saveLocalPurchases(updated);
+      setProjects((prev) => prev.map((p) =>
+        p.projectId === activeProject.projectId
+          ? { ...p, availableUnits: Math.max(0, p.availableUnits - buyQty) }
+          : p
+      ));
+      setBuySuccess(`Purchased ${buyQty} tCO2e from ${activeProject.name}`);
+      setBuying(false);
+      return;
+    }
+
     try {
       const res = await fetch(apiUrl(API_ROUTES.OFFSETS_BUY), {
         method: 'POST',
@@ -828,6 +873,19 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
       const d = await res.json();
       if (!res.ok) { setBuyError(d.error || 'Purchase failed'); return; }
       setBuySuccess(`Purchased ${buyQty} tCO2e from ${activeProject.name}`);
+      const localEntry: Purchase = {
+        purchaseId: d.purchase?.purchaseId || `PUR-${Date.now()}`,
+        projectId: activeProject.projectId,
+        projectName: activeProject.name,
+        units: buyQty,
+        pricePerTonne: activeProject.pricePerTonne,
+        totalUsd: parseFloat((buyQty * activeProject.pricePerTonne).toFixed(2)),
+        retired: false,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [localEntry, ...localPurchases];
+      setLocalPurchases(updated);
+      saveLocalPurchases(updated);
       await Promise.all([fetchAll(), fetchPortfolio()]);
     } catch { setBuyError('Network error. Try again.'); }
     finally { setBuying(false); }
@@ -851,13 +909,39 @@ const OffsetMarketplaceView: React.FC<OffsetMarketplaceViewProps> = ({ onReturn,
 
   const handleRetire = async (purchase: Purchase) => {
     setRetiringId(purchase.purchaseId);
+    const isLocal = purchase.purchaseId.startsWith('DEMO-') || isDemoMode;
+
+    if (isLocal) {
+      await new Promise((r) => setTimeout(r, 600));
+      const certHash = `demo-cert-${Date.now().toString(16)}-${purchase.purchaseId.slice(-6)}`;
+      const updated = localPurchases.map((p) =>
+        p.purchaseId === purchase.purchaseId
+          ? { ...p, retired: true, retiredAt: Date.now(), certificateHash: certHash }
+          : p
+      );
+      setLocalPurchases(updated);
+      saveLocalPurchases(updated);
+      setRetiringId(null);
+      return;
+    }
+
     try {
       const res = await fetch(apiUrl(API_ROUTES.OFFSETS_RETIRE), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ purchaseId: purchase.purchaseId, userId }),
       });
-      if (res.ok) await fetchPortfolio();
+      if (res.ok) {
+        const d = await res.json();
+        const updated = localPurchases.map((p) =>
+          p.purchaseId === purchase.purchaseId
+            ? { ...p, retired: true, retiredAt: Date.now(), certificateHash: d.certificateHash }
+            : p
+        );
+        setLocalPurchases(updated);
+        saveLocalPurchases(updated);
+        await fetchPortfolio();
+      }
     } catch { /* silent */ }
     finally { setRetiringId(null); }
   };
@@ -1312,18 +1396,18 @@ Respond ONLY with JSON: {"score": number, "note": "string"}`;
 
           {userId === 'anonymous' && (
             <div className="rounded-xl bg-amber-900/20 border border-amber-500/30 p-4 text-sm text-amber-300 text-center">
-              Sign in as a hero to track your personal credit portfolio.
+              {isDemoMode ? 'Demo purchases are saved locally on this device.' : 'Purchases are saved locally. Sign in to sync your portfolio across devices.'}
             </div>
           )}
 
-          {portfolio.length === 0 && userId !== 'anonymous' && (
+          {displayPortfolio.length === 0 && (
             <div className="text-center py-12 text-slate-500">
               <Award className="w-10 h-10 mx-auto mb-3 opacity-30" />
               <p className="text-sm">No credits yet — buy your first offset in the Market tab.</p>
             </div>
           )}
 
-          {portfolio.map((p) => (
+          {displayPortfolio.map((p) => (
             <div key={p.purchaseId}
               className="rounded-2xl bg-slate-900 border border-slate-800 p-4 space-y-3">
               <div className="flex items-start justify-between gap-3">
