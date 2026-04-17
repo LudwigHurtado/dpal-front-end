@@ -184,7 +184,6 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
       <div ref={wrapperRef} style={{ flex: 1, minHeight: '300px', width: '100%' }}>
         {hasCoords ? (
           <MapContainer
-            key={`${lat.toFixed(4)},${lng.toFixed(4)}`}
             center={center}
             zoom={8}
             scrollWheelZoom
