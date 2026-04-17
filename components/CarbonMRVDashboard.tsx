@@ -973,9 +973,19 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
   const airQualitySource = String(airQualityData?.source || '');
   const hasVerifiedAirQuality = airQualityData?.dataAvailable === true && airQualityData?.measurementStatus === 'verified' && !/mock data/i.test(airQualitySource);
-  const hasVerifiedCo2 = hasVerifiedAirQuality && typeof airQualityData?.co2ppm === 'number';
-  const hasVerifiedCh4 = hasVerifiedAirQuality && typeof airQualityData?.ch4ppb === 'number';
-  const hasVerifiedNo2 = hasVerifiedAirQuality && typeof airQualityData?.no2 === 'number';
+  const hasVerifiedCo2  = hasVerifiedAirQuality && typeof airQualityData?.co2ppm    === 'number';
+  const hasVerifiedCh4  = hasVerifiedAirQuality && typeof airQualityData?.ch4ppb    === 'number';
+  const hasVerifiedNo2  = hasVerifiedAirQuality && typeof airQualityData?.no2        === 'number';
+  const hasVerifiedSo2  = hasVerifiedAirQuality && typeof airQualityData?.so2        === 'number';
+  const hasVerifiedO3   = hasVerifiedAirQuality && typeof airQualityData?.o3         === 'number';
+  const hasVerifiedCo   = hasVerifiedAirQuality && typeof airQualityData?.coPpb      === 'number';
+  const hasVerifiedNh3  = hasVerifiedAirQuality && typeof airQualityData?.nh3        === 'number';
+  const hasVerifiedPm25 = hasVerifiedAirQuality && typeof airQualityData?.pm25       === 'number';
+  const hasVerifiedPm10 = hasVerifiedAirQuality && typeof airQualityData?.pm10       === 'number';
+  const hasVerifiedDust = hasVerifiedAirQuality && typeof airQualityData?.dust       === 'number';
+  const hasVerifiedEuAqi= hasVerifiedAirQuality && typeof airQualityData?.europeanAqi === 'number';
+  const hasVerifiedUsAqi= hasVerifiedAirQuality && typeof airQualityData?.usAqi      === 'number';
+  const hasVerifiedUv   = hasVerifiedAirQuality && typeof airQualityData?.uvIndex    === 'number';
   const hiddenLegacyAirValues = airQualityData && !hasVerifiedAirQuality
     ? {
         co2ppm: typeof airQualityData.co2ppm === 'number' ? airQualityData.co2ppm : null,
@@ -986,15 +996,25 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const airQualityAiContext = airQualityData
     ? {
         readingStatus: hasVerifiedAirQuality ? 'verified real integration reading' : 'not a verified real integration reading',
-        verifiedCo2ppm: hasVerifiedCo2 ? airQualityData.co2ppm : null,
-        verifiedCh4ppb: hasVerifiedCh4 ? airQualityData.ch4ppb : null,
-        verifiedNo2: hasVerifiedNo2 ? airQualityData.no2 : null,
+        co2ppm:      hasVerifiedCo2  ? airQualityData.co2ppm      : null,
+        ch4ppb:      hasVerifiedCh4  ? airQualityData.ch4ppb      : null,
+        no2UgM3:     hasVerifiedNo2  ? airQualityData.no2          : null,
+        so2UgM3:     hasVerifiedSo2  ? airQualityData.so2          : null,
+        o3UgM3:      hasVerifiedO3   ? airQualityData.o3           : null,
+        coPpb:       hasVerifiedCo   ? airQualityData.coPpb        : null,
+        nh3UgM3:     hasVerifiedNh3  ? airQualityData.nh3          : null,
+        pm25UgM3:    hasVerifiedPm25 ? airQualityData.pm25         : null,
+        pm10UgM3:    hasVerifiedPm10 ? airQualityData.pm10         : null,
+        dustUgM3:    hasVerifiedDust ? airQualityData.dust         : null,
+        europeanAqi: hasVerifiedEuAqi ? airQualityData.europeanAqi : null,
+        usAqi:       hasVerifiedUsAqi ? airQualityData.usAqi       : null,
+        uvIndex:     hasVerifiedUv   ? airQualityData.uvIndex      : null,
         hiddenUnverifiedValues: hiddenLegacyAirValues,
         source: airQualitySource || null,
         backendMessage: airQualityData.message || null,
         note: hasVerifiedAirQuality
           ? 'Only values listed as verified should be discussed as measurements.'
-          : 'Do not treat CO2, CH4, or NO2 numbers as real until DPAL confirms they came from its real satellite product integration.',
+          : 'Do not treat any values as real until DPAL confirms they came from its real satellite-product integration.',
       }
     : null;
 
@@ -2070,24 +2090,152 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 )}
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[
-                { label: 'CO2 Concentration', value: hasVerifiedCo2 ? `${airQualityData.co2ppm.toFixed(1)} ppm` : 'Not verified', icon: '🌫️', desc: 'NOAA Mauna Loa global background 2025' },
-                { label: 'Methane (CH4)', value: hasVerifiedCh4 ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : 'Not verified', icon: '💨', desc: 'Copernicus CAMS via Open-Meteo' },
-                { label: 'NO2 Levels', value: hasVerifiedNo2 ? `${airQualityData.no2.toFixed(2)} µg/m³` : 'Not verified', icon: '🌬️', desc: 'Copernicus CAMS via Open-Meteo' },
-              ].map((metric) => (
-                <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-2xl">{metric.icon}</span>
-                    <div>
-                      <p className="text-sm font-bold text-white">{metric.label}</p>
-                      <p className="text-xs text-slate-500">{metric.desc}</p>
-                    </div>
+            {/* ── Full air quality reading ── */}
+            {airQualityData && hasVerifiedAirQuality && (
+              <div className="space-y-3">
+                {/* AQI summary row */}
+                {(hasVerifiedEuAqi || hasVerifiedUsAqi) && (
+                  <div className="grid grid-cols-2 gap-3">
+                    {hasVerifiedEuAqi && (() => {
+                      const v = airQualityData.europeanAqi as number;
+                      const [label, color] = v <= 20 ? ['Good','text-emerald-400'] : v <= 40 ? ['Fair','text-lime-400'] : v <= 60 ? ['Moderate','text-yellow-400'] : v <= 80 ? ['Poor','text-orange-400'] : ['Very Poor','text-rose-400'];
+                      return (
+                        <div className="rounded-xl bg-black/40 border border-white/10 p-4 flex items-center gap-4">
+                          <div className={`text-4xl font-black ${color}`}>{v}</div>
+                          <div>
+                            <p className="text-xs text-slate-500 uppercase tracking-wide font-bold">European AQI</p>
+                            <p className={`text-sm font-bold ${color}`}>{label}</p>
+                            <p className="text-[10px] text-slate-600 mt-0.5">0–20 Good · 21–40 Fair · 41–60 Moderate · 61–80 Poor · 81+ Very Poor</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {hasVerifiedUsAqi && (() => {
+                      const v = airQualityData.usAqi as number;
+                      const [label, color] = v <= 50 ? ['Good','text-emerald-400'] : v <= 100 ? ['Moderate','text-yellow-400'] : v <= 150 ? ['Unhealthy (sensitive)','text-orange-400'] : v <= 200 ? ['Unhealthy','text-red-400'] : ['Very Unhealthy','text-rose-500'];
+                      return (
+                        <div className="rounded-xl bg-black/40 border border-white/10 p-4 flex items-center gap-4">
+                          <div className={`text-4xl font-black ${color}`}>{v}</div>
+                          <div>
+                            <p className="text-xs text-slate-500 uppercase tracking-wide font-bold">US AQI</p>
+                            <p className={`text-sm font-bold ${color}`}>{label}</p>
+                            <p className="text-[10px] text-slate-600 mt-0.5">0–50 Good · 51–100 Moderate · 101–150 Sensitive · 151+ Unhealthy</p>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
-                  <p className="text-xl font-black text-emerald-400">{metric.value}</p>
+                )}
+
+                {/* Greenhouse gases */}
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-1 pt-1">Greenhouse Gases</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {[
+                    { label: 'CO₂ Concentration', value: hasVerifiedCo2  ? `${(airQualityData.co2ppm as number).toFixed(1)} ppm`   : null, icon: '🌫️', desc: 'NOAA Mauna Loa global background 2025', safe: 420, warn: 1000 },
+                    { label: 'Methane (CH₄)',      value: hasVerifiedCh4  ? `${(airQualityData.ch4ppb as number).toFixed(0)} ppb`   : null, icon: '💨', desc: 'Copernicus CAMS via Open-Meteo',         safe: 1950, warn: 2500 },
+                    { label: 'Carbon Monoxide',    value: hasVerifiedCo   ? `${(airQualityData.coPpb  as number).toFixed(0)} ppb`   : null, icon: '☁️', desc: 'Copernicus CAMS via Open-Meteo',         safe: 100,  warn: 400 },
+                  ].map((m) => (
+                    <div key={m.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xl">{m.icon}</span>
+                        <div>
+                          <p className="text-xs font-bold text-white">{m.label}</p>
+                          <p className="text-[10px] text-slate-500">{m.desc}</p>
+                        </div>
+                      </div>
+                      <p className={`text-2xl font-black ${m.value ? 'text-emerald-400' : 'text-slate-600'}`}>{m.value ?? '—'}</p>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                {/* Reactive pollutants */}
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-1 pt-1">Reactive Pollutants</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'NO₂',      value: hasVerifiedNo2  ? `${(airQualityData.no2  as number).toFixed(2)} µg/m³` : null, icon: '🟡', desc: 'WHO limit: 25 µg/m³ (24 h)', thresh: [25,  200],  v: airQualityData.no2  as number },
+                    { label: 'SO₂',      value: hasVerifiedSo2  ? `${(airQualityData.so2  as number).toFixed(2)} µg/m³` : null, icon: '🟤', desc: 'WHO limit: 40 µg/m³ (24 h)', thresh: [40,  500],  v: airQualityData.so2  as number },
+                    { label: 'Ozone (O₃)',value: hasVerifiedO3  ? `${(airQualityData.o3   as number).toFixed(1)} µg/m³` : null, icon: '🔵', desc: 'WHO limit: 100 µg/m³ (8 h)', thresh: [100, 240],  v: airQualityData.o3   as number },
+                    { label: 'Ammonia (NH₃)', value: hasVerifiedNh3 ? `${(airQualityData.nh3 as number).toFixed(2)} µg/m³` : null, icon: '🟣', desc: 'CAMS model estimate',        thresh: [100, 300],  v: airQualityData.nh3  as number },
+                  ].map((m) => {
+                    const color = !m.value ? 'text-slate-600' : m.v <= m.thresh[0] ? 'text-emerald-400' : m.v <= m.thresh[1] ? 'text-yellow-400' : 'text-rose-400';
+                    return (
+                      <div key={m.label} className="rounded-xl bg-black/30 border border-white/10 p-3">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="text-base">{m.icon}</span>
+                          <p className="text-xs font-bold text-white leading-tight">{m.label}</p>
+                        </div>
+                        <p className={`text-xl font-black ${color}`}>{m.value ?? '—'}</p>
+                        <p className="text-[9px] text-slate-600 mt-1">{m.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Particulates & dust */}
+                <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold px-1 pt-1">Particulates & Dust</p>
+                <div className="grid grid-cols-3 gap-3">
+                  {[
+                    { label: 'PM2.5', value: hasVerifiedPm25 ? `${(airQualityData.pm25 as number).toFixed(1)} µg/m³` : null, icon: '🔴', desc: 'WHO limit: 15 µg/m³ (24 h)', thresh: [15, 75],  v: airQualityData.pm25 as number },
+                    { label: 'PM10',  value: hasVerifiedPm10 ? `${(airQualityData.pm10 as number).toFixed(1)} µg/m³` : null, icon: '🟠', desc: 'WHO limit: 45 µg/m³ (24 h)', thresh: [45, 150], v: airQualityData.pm10 as number },
+                    { label: 'Dust',  value: hasVerifiedDust ? `${(airQualityData.dust as number).toFixed(1)} µg/m³` : null, icon: '🏜️', desc: 'Mineral dust suspended particles', thresh: [100, 500], v: airQualityData.dust as number },
+                  ].map((m) => {
+                    const color = !m.value ? 'text-slate-600' : m.v <= m.thresh[0] ? 'text-emerald-400' : m.v <= m.thresh[1] ? 'text-yellow-400' : 'text-rose-400';
+                    return (
+                      <div key={m.label} className="rounded-xl bg-black/30 border border-white/10 p-3">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                          <span className="text-base">{m.icon}</span>
+                          <p className="text-xs font-bold text-white leading-tight">{m.label}</p>
+                        </div>
+                        <p className={`text-xl font-black ${color}`}>{m.value ?? '—'}</p>
+                        <p className="text-[9px] text-slate-600 mt-1">{m.desc}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* UV */}
+                {hasVerifiedUv && (() => {
+                  const uv = airQualityData.uvIndex as number;
+                  const [uvLabel, uvColor] = uv < 3 ? ['Low','text-emerald-400'] : uv < 6 ? ['Moderate','text-yellow-400'] : uv < 8 ? ['High','text-orange-400'] : uv < 11 ? ['Very High','text-red-400'] : ['Extreme','text-rose-500'];
+                  return (
+                    <div className="rounded-xl bg-black/30 border border-white/10 p-4 flex items-center gap-4">
+                      <span className="text-3xl">☀️</span>
+                      <div className="flex-1">
+                        <p className="text-xs text-slate-500 uppercase tracking-wide font-bold">UV Index</p>
+                        <p className={`text-2xl font-black ${uvColor}`}>{uv.toFixed(1)} <span className="text-sm font-bold">{uvLabel}</span></p>
+                        <p className="text-[10px] text-slate-600 mt-0.5">0–2 Low · 3–5 Moderate · 6–7 High · 8–10 Very High · 11+ Extreme</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <p className="text-[10px] text-slate-600 px-1">
+                  Colors: <span className="text-emerald-400 font-bold">green</span> = below WHO guideline · <span className="text-yellow-400 font-bold">yellow</span> = elevated · <span className="text-rose-400 font-bold">red</span> = above limit. Source: {airQualitySource}
+                </p>
+              </div>
+            )}
+
+            {/* Fallback when no verified data yet */}
+            {(!airQualityData || !hasVerifiedAirQuality) && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  { label: 'CO₂ Concentration', value: 'Not verified', icon: '🌫️', desc: 'NOAA Mauna Loa global background 2025' },
+                  { label: 'Methane (CH₄)',      value: 'Not verified', icon: '💨', desc: 'Copernicus CAMS via Open-Meteo' },
+                  { label: 'NO₂ Levels',         value: 'Not verified', icon: '🌬️', desc: 'Copernicus CAMS via Open-Meteo' },
+                ].map((metric) => (
+                  <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-2xl">{metric.icon}</span>
+                      <div>
+                        <p className="text-sm font-bold text-white">{metric.label}</p>
+                        <p className="text-xs text-slate-500">{metric.desc}</p>
+                      </div>
+                    </div>
+                    <p className="text-xl font-black text-slate-600">{metric.value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
             <ImpactAidChat
               mode="air"
               data={airQualityAiContext}
