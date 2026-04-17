@@ -1990,7 +1990,8 @@ interface SatellitePreview {
     swot:      { ok: boolean; surfaceWaterLevel?: number; waterExtentKm2?: number; confidenceScore?: number };
     grace:     { ok: boolean; waterStorageTrend?: number; confidenceScore?: number };
     gibs:      { ok: boolean; vegetationStress?: number; ndviIndex?: number; confidenceScore?: number };
-    copernicus:{ ok: boolean; droughtRisk?: number; precipAnomalyMm?: number; confidenceScore?: number };
+    copernicus:{ ok: boolean; droughtRisk?: number; precipAnomalyMm?: number; ndviMean?: number; sentinel2Date?: string; source?: string; confidenceScore?: number };
+    sentinel1?: { ok: boolean; waterFraction?: number; vvMeanDb?: number; floodRisk?: number; captureDate?: string; confidenceScore?: number };
   };
   summary: {
     soilMoistureIndex: number;
@@ -2128,6 +2129,9 @@ function SatelliteLiveFeed({ monitoringProject }: {
     },
   ] : [];
 
+  const sar = data?.adapters?.sentinel1;
+  const sarAvailable = sar?.ok && sar.waterFraction != null;
+
   const statusColor = (st: string) =>
     st === 'good' ? 'text-emerald-400' : st === 'warn' ? 'text-amber-400' : 'text-rose-400';
   const statusBg = (st: string) =>
@@ -2149,7 +2153,7 @@ function SatelliteLiveFeed({ monitoringProject }: {
             <p className="text-sm font-bold text-cyan-200">Live Satellite Readings</p>
             <p className="text-xs text-slate-400 mt-0.5 leading-relaxed max-w-lg">
               {monitoringProject
-                ? <>5 NASA &amp; ESA satellites are scanning <span className="text-cyan-300 font-semibold">{monitoringProject.projectName}</span> right now. These numbers tell you the current water health of your land.</>
+                ? <>6 NASA &amp; ESA satellites are scanning <span className="text-cyan-300 font-semibold">{monitoringProject.projectName}</span> right now. These numbers tell you the current water health of your land.</>
                 : 'Satellite water health data. Register a project with GPS coordinates to see readings for your specific land.'}
             </p>
             {lastRefresh && <p className="text-[10px] text-slate-600 mt-1">Updated {lastRefresh.toLocaleTimeString()}</p>}
@@ -2269,11 +2273,12 @@ function SatelliteLiveFeed({ monitoringProject }: {
 
       {/* Adapter status badges */}
       <div className="flex flex-wrap gap-2">
-        <AdapterBadge name="SMAP"       ok={data?.adapters.smap.ok ?? false}       conf={data?.adapters.smap.confidenceScore} />
-        <AdapterBadge name="SWOT"       ok={data?.adapters.swot.ok ?? false}       conf={data?.adapters.swot.confidenceScore} />
-        <AdapterBadge name="GRACE-FO"   ok={data?.adapters.grace.ok ?? false}      conf={data?.adapters.grace.confidenceScore} />
-        <AdapterBadge name="NASA GIBS"  ok={data?.adapters.gibs.ok ?? false}       conf={data?.adapters.gibs.confidenceScore} />
-        <AdapterBadge name="Copernicus" ok={data?.adapters.copernicus.ok ?? false} conf={data?.adapters.copernicus.confidenceScore} />
+        <AdapterBadge name="SMAP"        ok={data?.adapters.smap.ok ?? false}            conf={data?.adapters.smap.confidenceScore} />
+        <AdapterBadge name="SWOT"        ok={data?.adapters.swot.ok ?? false}            conf={data?.adapters.swot.confidenceScore} />
+        <AdapterBadge name="GRACE-FO"    ok={data?.adapters.grace.ok ?? false}           conf={data?.adapters.grace.confidenceScore} />
+        <AdapterBadge name="NASA GIBS"   ok={data?.adapters.gibs.ok ?? false}            conf={data?.adapters.gibs.confidenceScore} />
+        <AdapterBadge name="Copernicus"  ok={data?.adapters.copernicus.ok ?? false}      conf={data?.adapters.copernicus.confidenceScore} />
+        <AdapterBadge name="Sentinel-1 SAR" ok={data?.adapters.sentinel1?.ok ?? false}  conf={data?.adapters.sentinel1?.confidenceScore} />
       </div>
 
       {loading && (
@@ -2316,11 +2321,89 @@ function SatelliteLiveFeed({ monitoringProject }: {
             </div>
           ))}
 
+          {/* ── Sentinel-1 SAR Water Detection card ── */}
+          {sarAvailable ? (
+            <div className={`rounded-xl border p-4 ${
+              (sar!.floodRisk ?? 0) > 0.5 ? 'bg-rose-500/10 border-rose-500/20'
+              : (sar!.floodRisk ?? 0) > 0.25 ? 'bg-amber-500/10 border-amber-500/20'
+              : 'bg-cyan-500/10 border-cyan-500/20'
+            }`}>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0 mt-0.5">📡</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs font-bold text-slate-200 uppercase tracking-wide">SAR Water Detection</p>
+                    <span className={`text-xl font-black tabular-nums ${
+                      (sar!.floodRisk ?? 0) > 0.5 ? 'text-rose-400'
+                      : (sar!.floodRisk ?? 0) > 0.25 ? 'text-amber-400'
+                      : 'text-cyan-400'
+                    }`}>
+                      {Math.round((sar!.waterFraction ?? 0) * 100)}% water
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    <span className="text-slate-500">What this is: </span>
+                    Sentinel-1 C-band radar (SAR) sees through clouds 24/7 and measures how much of your project area is covered by open water right now. Water returns a very dark radar signal (VV &lt; −15 dB).
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    <p className="text-[11px] text-slate-400">
+                      <span className="text-slate-500">Water coverage:</span>{' '}
+                      <span className="font-semibold text-cyan-300">{Math.round((sar!.waterFraction ?? 0) * 100)}%</span> of AOI
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      <span className="text-slate-500">VV backscatter:</span>{' '}
+                      <span className="font-semibold text-slate-200">{sar!.vvMeanDb?.toFixed(1)} dB</span>
+                      <span className="text-slate-600"> (open water ≈ −15 to −25 dB)</span>
+                    </p>
+                    <p className="text-[11px] text-slate-400">
+                      <span className="text-slate-500">Flood / pooling risk:</span>{' '}
+                      <span className={`font-semibold ${(sar!.floodRisk ?? 0) > 0.5 ? 'text-rose-400' : (sar!.floodRisk ?? 0) > 0.25 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {fmtPct(sar!.floodRisk ?? 0)}
+                      </span>
+                    </p>
+                    {sar!.captureDate && (
+                      <p className="text-[11px] text-slate-400">
+                        <span className="text-slate-500">SAR capture:</span>{' '}
+                        <span className="font-mono text-slate-300">{sar!.captureDate}</span>
+                      </p>
+                    )}
+                  </div>
+                  <p className={`text-[11px] font-semibold mt-1.5 leading-relaxed ${
+                    (sar!.floodRisk ?? 0) > 0.5 ? 'text-rose-400'
+                    : (sar!.floodRisk ?? 0) > 0.25 ? 'text-amber-400'
+                    : 'text-cyan-400'
+                  }`}>
+                    → {
+                      (sar!.floodRisk ?? 0) > 0.5
+                        ? 'Elevated flood / pooling detected. Unexpected water present — investigate for leaks, overflow, or seepage.'
+                        : (sar!.floodRisk ?? 0) > 0.25
+                        ? 'Some water pooling visible. Monitor if levels are rising.'
+                        : 'Normal water signal. No unexpected flooding or pooling detected.'
+                    }
+                  </p>
+                  <p className="text-[10px] text-slate-600 mt-1">Source: ESA Copernicus Sentinel-1 GRD (C-band SAR, IW mode)</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-800/30 px-4 py-3 flex items-center gap-3">
+              <span className="text-lg shrink-0">📡</span>
+              <div>
+                <p className="text-xs font-semibold text-slate-400">SAR Water Detection (Sentinel-1)</p>
+                <p className="text-[10px] text-slate-600 mt-0.5">
+                  {data?.adapters?.sentinel1
+                    ? 'Sentinel-1 credentials not configured — set COPERNICUS_CLIENT_ID + COPERNICUS_CLIENT_SECRET on Railway.'
+                    : 'Loading SAR data…'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Overall confidence */}
           <div className="bg-slate-800/60 border border-slate-700/40 rounded-xl px-4 py-3 flex items-center justify-between gap-3">
             <div>
               <p className="text-xs font-bold text-slate-300">Overall Data Confidence</p>
-              <p className="text-[10px] text-slate-500 mt-0.5">Average reliability across all 5 satellite sources</p>
+              <p className="text-[10px] text-slate-500 mt-0.5">Average reliability across all 6 satellite sources</p>
             </div>
             <span className={`text-2xl font-black tabular-nums ${s.confidenceScore >= 0.7 ? 'text-emerald-400' : 'text-amber-400'}`}>
               {fmtPct(s.confidenceScore)}
