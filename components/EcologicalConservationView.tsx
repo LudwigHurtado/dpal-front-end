@@ -90,8 +90,8 @@ function ScanMap({ center, radiusKm, onSelect }: { center: GPSPoint; radiusKm: n
         <p className="text-sm font-bold text-white">Conservation Scan Area</p>
         <p className="text-xs text-slate-500">Click the map to move the Landsat foliage scan center.</p>
       </div>
-      <div className="h-80">
-        <MapContainer center={[center.lat, center.lng]} zoom={8} scrollWheelZoom className="h-full w-full" style={{ height: '100%', width: '100%' }}>
+      <div style={{ height: '480px' }}>
+        <MapContainer center={[center.lat, center.lng]} zoom={8} scrollWheelZoom style={{ height: '480px', width: '100%' }}>
           <TileLayer
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={20}
