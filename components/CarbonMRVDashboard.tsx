@@ -133,11 +133,18 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
   const center: [number, number] = [lat, lng];
 
   function LocationPicker() {
-    useMapEvents({
+    const map = useMapEvents({
       click(e) {
         onSelectLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
       },
     });
+
+    useEffect(() => {
+      if (!map) return;
+      const timer = window.setTimeout(() => map.invalidateSize(), 100);
+      return () => window.clearTimeout(timer);
+    }, [map]);
+
     return null;
   }
 
@@ -154,7 +161,13 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
       </div>
       <div className="h-72">
         {hasCoords ? (
-          <MapContainer center={center} zoom={8} scrollWheelZoom style={{ height: '100%', width: '100%' }}>
+          <MapContainer
+            center={center}
+            zoom={8}
+            scrollWheelZoom
+            whenCreated={(map) => setTimeout(() => map.invalidateSize(), 150)}
+            style={{ height: '100%', width: '100%' }}
+          >
             <TileLayer
               url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
               attribution='&copy; <a href="https://carto.com">CARTO</a>'
