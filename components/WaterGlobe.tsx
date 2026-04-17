@@ -88,22 +88,22 @@ function makeWaterPin(status: string, soilMoisture?: number) {
     ? `animation:dpal-ping 1.4s cubic-bezier(0,0,0.2,1) infinite;`
     : '';
   const html = `
-    <div style="position:relative;width:22px;height:22px;">
+    <div style="position:relative;width:26px;height:26px;">
       <span style="
-        display:block;width:14px;height:14px;
+        display:block;width:16px;height:16px;
         border-radius:50%;background:${color};
-        border:2.5px solid rgba(255,255,255,0.85);
-        position:absolute;top:4px;left:4px;
-        box-shadow:0 0 8px ${color}88;
+        border:3px solid #fff;
+        position:absolute;top:5px;left:5px;
+        box-shadow:0 0 0 2px ${color},0 0 14px ${color}cc,0 2px 6px rgba(0,0,0,0.7);
       "></span>
       <span style="
-        display:block;width:22px;height:22px;
-        border-radius:50%;border:2px solid ${color}66;
+        display:block;width:26px;height:26px;
+        border-radius:50%;border:2px solid ${color}88;
         position:absolute;top:0;left:0;
         ${pulse}
       "></span>
     </div>`;
-  return L.divIcon({ html, iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -14], className: '' });
+  return L.divIcon({ html, iconSize: [26, 26], iconAnchor: [13, 13], popupAnchor: [0, -16], className: '' });
 }
 
 // Returns the SVG body for each alert type
@@ -187,7 +187,7 @@ function makeAlertPin(severity: WaterAlertPin['severity'], isReference?: boolean
   const svgBody = alertSvgBody(type, color, !!isReference);
   const html = `
     <div style="position:relative;width:28px;height:28px;">
-      <svg viewBox="0 0 26 26" width="28" height="28" style="position:absolute;top:0;left:0;filter:drop-shadow(0 0 4px ${color}99)">
+      <svg viewBox="0 0 26 26" width="28" height="28" style="position:absolute;top:0;left:0;filter:drop-shadow(0 0 6px ${color}) drop-shadow(0 2px 4px rgba(0,0,0,0.8))">
         ${svgBody}
       </svg>
       <span style="
@@ -289,19 +289,24 @@ export const WaterGlobe: React.FC<WaterGlobeProps> = ({
         zoom={2}
         minZoom={1}
         maxZoom={18}
-        style={{ height: '100%', width: '100%', background: '#0a0f1a' }}
+        style={{ height: '100%', width: '100%', background: '#0d2137' }}
         zoomControl={true}
         scrollWheelZoom={true}
         doubleClickZoom={true}
       >
         <PulseStyle />
 
-        {/* CartoDB Dark Matter — no API key */}
+        {/* Esri World Imagery — no API key, colorful satellite */}
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          subdomains="abcd"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+          attribution='Tiles &copy; Esri &mdash; Source: Esri, USGS, AeroGRID, IGN'
           maxZoom={19}
+        />
+        {/* Reference overlay: country borders + place names */}
+        <TileLayer
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          maxZoom={19}
+          opacity={0.7}
         />
 
         {hasAny && <FitBounds projects={projects} alerts={alertPins} />}
@@ -415,7 +420,7 @@ export const WaterGlobe: React.FC<WaterGlobeProps> = ({
       </MapContainer>
 
       {/* Legend */}
-      <div className="absolute bottom-3 left-3 z-[1000] bg-slate-900/90 backdrop-blur-sm border border-slate-700/60 rounded-lg px-3 py-2 space-y-1.5">
+      <div className="absolute bottom-3 left-3 z-[1000] bg-slate-950/95 backdrop-blur-sm border border-slate-600/80 rounded-lg px-3 py-2 space-y-1.5" style={{boxShadow:'0 4px 24px rgba(0,0,0,0.7)'}}>
         <p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">Projects</p>
         {[
           { color: '#10b981', label: 'Approved' },

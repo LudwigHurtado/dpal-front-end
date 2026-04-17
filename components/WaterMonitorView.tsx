@@ -2649,30 +2649,35 @@ function SatelliteLiveFeed({ monitoringProject }: {
         >
           <WaterScanMapPicker onPick={pickScanLocation} />
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={20}
+          />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={20}
+            opacity={0.65}
           />
           <Circle
             center={[scanLocation.lat, scanLocation.lng]}
             radius={50000}
-            pathOptions={{ color: '#14b8a6', weight: 1.5, fillColor: '#14b8a6', fillOpacity: 0.06, dashArray: '4 6' }}
+            pathOptions={{ color: '#22d3ee', weight: 2, fillColor: '#14b8a6', fillOpacity: 0.08, dashArray: '5 7' }}
           />
           <Circle
             center={[scanLocation.lat, scanLocation.lng]}
             radius={8000}
-            pathOptions={{ color: '#22d3ee', weight: 2, fillColor: '#22d3ee', fillOpacity: 0.12 }}
+            pathOptions={{ color: '#fff', weight: 1.5, fillColor: '#22d3ee', fillOpacity: 0.18 }}
           />
           <Marker
             position={[scanLocation.lat, scanLocation.lng]}
             icon={L.divIcon({
               className: 'sat-map-pin',
               html: `<div style="
-                width:14px;height:14px;border-radius:50%;
+                width:16px;height:16px;border-radius:50%;
                 background:#14b8a6;border:3px solid #fff;
-                box-shadow:0 0 0 4px rgba(20,184,166,0.35),0 0 16px rgba(20,184,166,0.6);
+                box-shadow:0 0 0 4px rgba(20,184,166,0.5),0 0 22px rgba(20,184,166,0.9),0 2px 8px rgba(0,0,0,0.8);
               "></div>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 7],
+              iconSize: [16, 16],
+              iconAnchor: [8, 8],
             })}
           >
             <Popup>
