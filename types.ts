@@ -12,6 +12,7 @@ export enum Category {
     ConsumerScams = 'Consumer Scams',
     Education = 'Education',
     Environment = 'Environment',
+    EcologicalConservation = 'Ecological Conservation',
     WorkplaceIssues = 'Workplace Issues',
     VeteransServices = 'Veterans\' Services',
     PublicTransport = 'Public Transport',

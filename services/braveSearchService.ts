@@ -36,6 +36,7 @@ const CATEGORY_KEYWORDS: Record<Category, string[]> = {
   [Category.ConsumerScams]: ["consumer scam", "fraud alert", "deceptive practices"],
   [Category.Education]: ["school safety", "education policy", "campus misconduct"],
   [Category.Environment]: ["environmental hazard", "pollution", "cleanup", "contamination"],
+  [Category.EcologicalConservation]: ["ecological conservation", "habitat restoration", "forest canopy", "foliage monitoring"],
   [Category.WorkplaceIssues]: ["workplace safety", "labor violations", "employee rights"],
   [Category.VeteransServices]: ["veterans services", "benefits delays", "veteran care"],
   [Category.PublicTransport]: ["public transit incident", "transport safety", "service outage"],

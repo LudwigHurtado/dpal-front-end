@@ -363,6 +363,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Globe className="w-8 h-8" />}
+                    label="Ecological Conservation"
+                    subLabel="Landsat 9 OLI-2 foliage and habitat monitoring"
+                    status="New"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    onClick={() => onNavigate('ecologicalConservation')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
                     label="Carbon MRV Engine"
                     subLabel="Register land · Monitor · Verify · Issue credits"
                     status="New"

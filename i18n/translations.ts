@@ -607,6 +607,7 @@ export const translations = {
       consumerScams: "Consumer Scams",
       education: "Education",
       environment: "Environment",
+      ecologicalConservation: "Ecological Conservation",
       workplaceIssues: "Workplace Issues",
       veteransServices: "Veterans' Services",
       publicTransport: "Public Transport",

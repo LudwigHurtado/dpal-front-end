@@ -23,6 +23,7 @@ export const CATEGORY_IMAGE_BY_TYPE: Partial<Record<Category, string>> = {
   [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
   [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
   [Category.Environment]: '/category-cards/environment.png',
+  [Category.EcologicalConservation]: '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png',
   [Category.WaterViolations]: '/category-cards/water-related.png',
   [Category.HousingIssues]: '/category-cards/housing-issues.png',
   [Category.Infrastructure]: '/category-cards/infrastructure.png',

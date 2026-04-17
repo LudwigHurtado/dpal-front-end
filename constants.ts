@@ -136,6 +136,8 @@ export const API_ROUTES = {
   CARBON_STATS: '/api/carbon/stats',
   CARBON_AIR_QUALITY: '/api/carbon/air-quality',
   CARBON_MINERALS: '/api/carbon/minerals',
+  /** Ecological Conservation */
+  ECOLOGY_LANDSAT_SCAN: '/api/ecology/landsat-scan',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   WATER_PROJECTS: '/api/water/projects',
   WATER_CREDITS: '/api/water/credits',
@@ -212,6 +214,7 @@ export const CATEGORIES_WITH_ICONS = [
   { value: Category.ConsumerScams, translationKey: "categories.consumerScams", icon: "💳", imageSeed: "digital-terminal-encryption", headline: "Expose Consumer Scams" },
   { value: Category.Education, translationKey: "categories.education", icon: "🎓", imageSeed: "university-hallway-cinematic", headline: "Advocate for Better Education" },
   { value: Category.Environment, translationKey: "categories.environment", icon: "🌳", imageSeed: "industrial-pollution-wasteland", headline: "Protect Our Environment" },
+  { value: Category.EcologicalConservation, translationKey: "categories.ecologicalConservation", icon: "🌿", imageSeed: "landsat-forest-canopy-monitor", headline: "Monitor Ecological Conservation" },
   { value: Category.Infrastructure, translationKey: "categories.infrastructure", icon: "🏗️", imageSeed: "bridge-construction-night", headline: "Improve Public Infrastructure" },
   { value: Category.InsuranceFraud, translationKey: "categories.insuranceFraud", icon: "🚗", imageSeed: "vehicle-accident-forensics", headline: "Combat Insurance Fraud" },
   { value: Category.MedicalNegligence, translationKey: "categories.medicalNegligence", icon: "⚕️", imageSeed: "hospital-technology-medical", headline: "Demand Patient Safety" },
