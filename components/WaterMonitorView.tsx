@@ -1121,9 +1121,9 @@ function ProjectDetailView({
         </button>
         <button
           onClick={openGpsEdit}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-slate-700/40 hover:bg-slate-700/70 border border-slate-600 text-slate-300 hover:text-slate-100 text-sm transition"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-teal-700/30 hover:bg-teal-700/50 border border-teal-500/50 text-teal-300 hover:text-teal-100 text-sm font-semibold transition"
         >
-          <MapPin className="w-3.5 h-3.5 text-teal-400" />
+          <MapPin className="w-3.5 h-3.5" />
           Edit GPS
         </button>
         {canIssueCredits && (
