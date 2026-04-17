@@ -85,6 +85,45 @@ features/missions-v2/
 
 Routes: `/missions` → Hub, `/missions/v2` → Workspace, `/missions/m/:id` → Detail, `/missions/create` → Create.
 
+## Water Monitor — satellite integration
+
+The Water Monitor (`/water`) pulls live data from 6 satellite adapters on the `dpal-ai-server` backend.
+
+### What each tile in "Latest Satellite Snapshot" reads from
+
+| Tile | Satellite | Notes |
+|------|-----------|-------|
+| Soil Moisture Index | NASA SMAP | Real-time soil moisture L4 |
+| Surface Water Level | NASA / ESA SWOT | River & lake height |
+| Water Storage Trend | NASA GRACE-FO | Groundwater / total water mass change |
+| Drought Risk | Copernicus | Derived from Sentinel-2 NDVI + climate data |
+| Vegetation Stress | NASA GIBS / MODIS | NDVI-based stress index |
+| SAR Water Coverage | ESA Sentinel-1 GRD | C-band SAR, cloud-penetrating, 24/7 |
+
+### AI panel
+`SatelliteAiInsight` appears below the snapshot tiles. It sends all readings + project context to Gemini and renders a plain-English analysis. Users can ask follow-up questions.
+
+### Required Railway env vars for live satellite data
+
+```
+COPERNICUS_CLIENT_ID=<from dataspace.copernicus.eu OAuth Clients>
+COPERNICUS_CLIENT_SECRET=<from same>
+```
+
+Without these, Sentinel-1 and Sentinel-2 fall back to proxy/mock values. All other adapters (SMAP, SWOT, GRACE, GIBS) use free public APIs and need no credentials.
+
+### Verifying the integration
+
+```js
+// Browser console on /water:
+fetch('https://web-production-a27b.up.railway.app/api/water/satellite-preview?lat=34.05&lng=-118.25')
+  .then(r => r.json())
+  .then(d => console.log(d.adapters?.sentinel1, d.adapters?.copernicus))
+// sentinel1.ok === true and copernicus.source === "sentinel-2-live" = fully live
+```
+
+---
+
 ## Backend notes
 
 - Primary production API base is Railway (`https://web-production-a27b.up.railway.app`).
