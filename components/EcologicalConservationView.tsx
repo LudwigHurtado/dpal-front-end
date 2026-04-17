@@ -93,10 +93,12 @@ function ScanMap({ center, radiusKm, onSelect }: { center: GPSPoint; radiusKm: n
       <div className="h-80">
         <MapContainer center={[center.lat, center.lng]} zoom={8} scrollWheelZoom className="h-full w-full" style={{ height: '100%', width: '100%' }}>
           <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://carto.com">CARTO</a>'
-            subdomains="abcd"
-            maxZoom={19}
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={20}
+          />
+          <TileLayer
+            url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+            maxZoom={20}
           />
           <Circle
             center={[center.lat, center.lng]}
