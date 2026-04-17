@@ -946,9 +946,14 @@ function ProjectDetailView({
   const [issuingCredits, setIssuingCredits] = useState(false);
   const [err, setErr] = useState('');
   const [notice, setNotice] = useState('');
-  const [editingGps, setEditingGps] = useState(false);
-  const [gpsDraft, setGpsDraft] = useState({ lat: '', lng: '' });
-  const [savingGps, setSavingGps] = useState(false);
+  const [editingProject, setEditingProject] = useState(false);
+  const [editDraft, setEditDraft] = useState<{
+    projectName: string; projectType: string; description: string;
+    country: string; region: string; city: string;
+    lat: string; lng: string;
+    totalAcres: string; improvementGoal: string;
+  }>({ projectName: '', projectType: '', description: '', country: '', region: '', city: '', lat: '', lng: '', totalAcres: '', improvementGoal: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -1011,43 +1016,67 @@ function ProjectDetailView({
     }
   }
 
-  function openGpsEdit() {
+  function openEdit() {
     if (!project) return;
-    setGpsDraft({
-      lat: String(project.location.gpsCenter.lat || ''),
-      lng: String(project.location.gpsCenter.lng || ''),
+    setEditDraft({
+      projectName:    project.projectName,
+      projectType:    project.projectType,
+      description:    project.description || '',
+      country:        project.location.country || '',
+      region:         project.location.region || '',
+      city:           project.location.city || '',
+      lat:            project.location.gpsCenter?.lat ? String(project.location.gpsCenter.lat) : '',
+      lng:            project.location.gpsCenter?.lng ? String(project.location.gpsCenter.lng) : '',
+      totalAcres:     project.totalAcres > 0 ? String(project.totalAcres) : '',
+      improvementGoal: project.improvementGoal || '',
     });
-    setEditingGps(true);
+    setEditingProject(true);
   }
 
-  async function saveGps() {
+  async function saveEdit() {
     if (!project) return;
-    const lat = parseFloat(gpsDraft.lat);
-    const lng = parseFloat(gpsDraft.lng);
-    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      setErr('Invalid coordinates. Latitude must be −90 to 90, longitude −180 to 180.');
+    const lat = editDraft.lat ? parseFloat(editDraft.lat) : 0;
+    const lng = editDraft.lng ? parseFloat(editDraft.lng) : 0;
+    if (editDraft.lat && (isNaN(lat) || lat < -90 || lat > 90)) {
+      setErr('Latitude must be between −90 and 90.');
       return;
     }
-    setSavingGps(true);
+    if (editDraft.lng && (isNaN(lng) || lng < -180 || lng > 180)) {
+      setErr('Longitude must be between −180 and 180.');
+      return;
+    }
+    if (!editDraft.projectName.trim()) {
+      setErr('Project name cannot be empty.');
+      return;
+    }
+    setSavingEdit(true);
     setErr('');
     try {
       await apiFetch(WATER_PROJECT_DETAIL(projectId), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          projectName:     editDraft.projectName.trim(),
+          projectType:     editDraft.projectType,
+          description:     editDraft.description,
+          improvementGoal: editDraft.improvementGoal,
+          totalAcres:      editDraft.totalAcres ? parseFloat(editDraft.totalAcres) : 0,
           location: {
-            ...project.location,
-            gpsCenter: { lat, lng },
+            country: editDraft.country,
+            region:  editDraft.region,
+            city:    editDraft.city,
+            gpsCenter: { lat: lat || 0, lng: lng || 0 },
+            polygon: project.location.polygon ?? [],
           },
         }),
       });
       await load();
-      setEditingGps(false);
-      setNotice(`GPS updated → ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
+      setEditingProject(false);
+      setNotice('Project updated successfully.');
     } catch (ex: unknown) {
       setErr(ex instanceof Error ? ex.message : String(ex));
     } finally {
-      setSavingGps(false);
+      setSavingEdit(false);
     }
   }
 
@@ -1086,24 +1115,24 @@ function ProjectDetailView({
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-0.5">{label} · {project.location.city ? `${project.location.city}, ` : ''}{project.location.country} · {project.totalAcres.toLocaleString()} acres</p>
-          {/* GPS display + edit — always visible in header */}
+          {/* GPS pill + Edit Project button */}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             <div className="flex items-center gap-1.5 bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5">
               <MapPin className="w-3 h-3 text-teal-400 shrink-0" />
               {project.location.gpsCenter?.lat && project.location.gpsCenter.lat !== 0 ? (
                 <span className="text-xs font-mono text-slate-300">
-                  {project.location.gpsCenter.lat.toFixed(5)}, {project.location.gpsCenter.lng.toFixed(5)}
+                  {project.location.gpsCenter.lat.toFixed(4)}, {project.location.gpsCenter.lng.toFixed(4)}
                 </span>
               ) : (
-                <span className="text-xs text-amber-400 italic">No GPS set — satellite reads reference area</span>
+                <span className="text-xs text-amber-400 italic">No GPS set</span>
               )}
             </div>
             <button
-              onClick={openGpsEdit}
+              onClick={openEdit}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold transition"
             >
-              <MapPin className="w-3 h-3" />
-              {editingGps ? 'Cancel Edit' : 'Edit GPS'}
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              {editingProject ? 'Cancel' : 'Edit Project'}
             </button>
           </div>
         </div>
@@ -1152,55 +1181,169 @@ function ProjectDetailView({
         )}
       </div>
 
-      {/* GPS edit panel — shown when editingGps is true */}
-      {editingGps && (
-        <div className="bg-slate-900 border border-teal-600/40 rounded-xl p-5 space-y-4">
+      {/* ── Full project edit panel ── */}
+      {editingProject && (
+        <div className="bg-slate-900 border border-teal-600/40 rounded-xl p-5 space-y-5">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-slate-100">Edit GPS Coordinates</h3>
-              <p className="text-xs text-slate-500 mt-0.5">These coordinates determine where satellite data is pulled from and where the pin appears on the map</p>
+              <h3 className="text-sm font-bold text-slate-100">Edit Project</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Update any project details — changes save immediately to the database</p>
             </div>
-            <button onClick={() => setEditingGps(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition">
+            <button onClick={() => setEditingProject(false)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-500 hover:text-slate-300 transition">
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          {/* Project name + type */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Latitude <span className="text-slate-600 font-normal">(−90 to 90)</span></label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Project Name <span className="text-rose-400">*</span></label>
               <input
-                type="number" step="any"
-                placeholder="e.g. 37.5623"
-                value={gpsDraft.lat}
-                onChange={e => setGpsDraft(d => ({ ...d, lat: e.target.value }))}
+                type="text"
+                value={editDraft.projectName}
+                onChange={e => setEditDraft(d => ({ ...d, projectName: e.target.value }))}
                 className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+                placeholder="e.g. Amazon River Basin Wetland"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Longitude <span className="text-slate-600 font-normal">(−180 to 180)</span></label>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Project Type</label>
+              <select
+                value={editDraft.projectType}
+                onChange={e => setEditDraft(d => ({ ...d, projectType: e.target.value }))}
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm focus:outline-none focus:border-teal-500 transition"
+              >
+                {[
+                  ['farm_irrigation',          '🌾 Farm Irrigation'],
+                  ['reservoir_monitoring',      '🏞️ Reservoir Monitoring'],
+                  ['wetland_restoration',       '🌿 Wetland Restoration'],
+                  ['leak_reduction',            '🔧 Leak Reduction'],
+                  ['community_conservation',    '🏘️ Community Conservation'],
+                  ['drought_response',          '☀️ Drought Response'],
+                  ['school_or_facility_savings','🏫 School / Facility Savings'],
+                  ['other',                     '📋 Other'],
+                ].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Description</label>
+            <textarea
+              rows={3}
+              value={editDraft.description}
+              onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition resize-none"
+              placeholder="Brief description of the project goals and methods…"
+            />
+          </div>
+
+          {/* Improvement goal */}
+          <div>
+            <label className="block text-xs font-medium text-slate-400 mb-1.5">Improvement Goal</label>
+            <input
+              type="text"
+              value={editDraft.improvementGoal}
+              onChange={e => setEditDraft(d => ({ ...d, improvementGoal: e.target.value }))}
+              className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+              placeholder="e.g. Reduce irrigation water use by 25% within 12 months"
+            />
+          </div>
+
+          {/* Total acres */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-slate-400 mb-1.5">Total Acres</label>
               <input
-                type="number" step="any"
-                placeholder="e.g. −118.9664"
-                value={gpsDraft.lng}
-                onChange={e => setGpsDraft(d => ({ ...d, lng: e.target.value }))}
+                type="number" min="0" step="0.1"
+                value={editDraft.totalAcres}
+                onChange={e => setEditDraft(d => ({ ...d, totalAcres: e.target.value }))}
                 className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+                placeholder="e.g. 450"
               />
             </div>
           </div>
-          <div className="bg-slate-800/60 rounded-lg px-4 py-3 text-xs text-slate-400 space-y-1">
-            <p><span className="text-teal-400 font-semibold">Duck Lake Loop (Inyo NF, CA):</span> lat 37.5623 · lng −118.9664</p>
-            <p>USA locations always use <span className="text-amber-400">negative</span> longitude. Find your coordinates at maps.google.com — right-click the location.</p>
+
+          {/* Location fields */}
+          <div>
+            <p className="text-xs font-semibold text-slate-300 mb-3 pb-1 border-b border-slate-800">Location</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Country</label>
+                <input
+                  type="text"
+                  value={editDraft.country}
+                  onChange={e => setEditDraft(d => ({ ...d, country: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+                  placeholder="e.g. Brazil"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">Region / State</label>
+                <input
+                  type="text"
+                  value={editDraft.region}
+                  onChange={e => setEditDraft(d => ({ ...d, region: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+                  placeholder="e.g. Amazonas"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">City / Area</label>
+                <input
+                  type="text"
+                  value={editDraft.city}
+                  onChange={e => setEditDraft(d => ({ ...d, city: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition"
+                  placeholder="e.g. Manaus"
+                />
+              </div>
+            </div>
+            {/* GPS coordinates */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  GPS Latitude <span className="text-slate-600 font-normal">(−90 to 90)</span>
+                </label>
+                <input
+                  type="number" step="any"
+                  value={editDraft.lat}
+                  onChange={e => setEditDraft(d => ({ ...d, lat: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition font-mono"
+                  placeholder="e.g. 36.0160"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  GPS Longitude <span className="text-slate-600 font-normal">(−180 to 180)</span>
+                </label>
+                <input
+                  type="number" step="any"
+                  value={editDraft.lng}
+                  onChange={e => setEditDraft(d => ({ ...d, lng: e.target.value }))}
+                  className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500 transition font-mono"
+                  placeholder="e.g. −114.7380"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-slate-600 mt-2">
+              GPS determines where satellite data is pulled from. Find coordinates at <span className="text-teal-500">maps.google.com</span> — right-click your location. USA always uses <span className="text-amber-400">negative</span> longitude.
+            </p>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Save / Cancel */}
+          <div className="flex items-center gap-3 pt-1">
             <button
-              onClick={saveGps}
-              disabled={savingGps}
+              onClick={saveEdit}
+              disabled={savingEdit}
               className="flex items-center gap-2 px-5 py-2 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition disabled:opacity-50"
             >
-              <MapPin className="w-3.5 h-3.5" />
-              {savingGps ? 'Saving…' : 'Save GPS Coordinates'}
+              <CheckCircle className="w-3.5 h-3.5" />
+              {savingEdit ? 'Saving…' : 'Save Changes'}
             </button>
             <button
-              onClick={() => setEditingGps(false)}
+              onClick={() => setEditingProject(false)}
               className="px-4 py-2 rounded-lg border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition"
             >
               Cancel
@@ -1215,7 +1358,7 @@ function ProjectDetailView({
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
             <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Project Location — Satellite View</span>
             <button
-              onClick={openGpsEdit}
+              onClick={openEdit}
               className="text-[10px] text-teal-400 hover:text-teal-300 underline underline-offset-2 transition"
             >
               {project.location.gpsCenter.lat
@@ -1224,50 +1367,6 @@ function ProjectDetailView({
               {' '}· Edit
             </button>
           </div>
-
-          {/* Inline GPS edit form */}
-          {editingGps && (
-            <div className="px-4 py-3 bg-slate-800/60 border-b border-slate-700 flex flex-wrap items-end gap-3">
-              <div>
-                <label className="block text-[10px] text-slate-400 mb-1">Latitude (−90 to 90)</label>
-                <input
-                  type="number" step="any"
-                  placeholder="e.g. 36.1069"
-                  value={gpsDraft.lat}
-                  onChange={e => setGpsDraft(d => ({ ...d, lat: e.target.value }))}
-                  className="w-36 bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] text-slate-400 mb-1">Longitude (−180 to 180)</label>
-                <input
-                  type="number" step="any"
-                  placeholder="e.g. −114.0596"
-                  value={gpsDraft.lng}
-                  onChange={e => setGpsDraft(d => ({ ...d, lng: e.target.value }))}
-                  className="w-36 bg-slate-900 border border-slate-600 rounded-lg px-3 py-1.5 text-slate-100 text-sm placeholder-slate-600 focus:outline-none focus:border-teal-500"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={saveGps}
-                  disabled={savingGps}
-                  className="px-4 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition disabled:opacity-50"
-                >
-                  {savingGps ? 'Saving…' : 'Save GPS'}
-                </button>
-                <button
-                  onClick={() => setEditingGps(false)}
-                  className="px-3 py-1.5 rounded-lg border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition"
-                >
-                  Cancel
-                </button>
-              </div>
-              <p className="w-full text-[10px] text-slate-500">
-                Nevada example: lat 36.1069, lng −114.0596 · For USA always use negative longitude (West)
-              </p>
-            </div>
-          )}
 
           <div className="p-3">
             <WaterSnapshotMap
@@ -1522,11 +1621,11 @@ function ProjectDetailView({
                 : <span className="text-amber-400 italic">Not set — satellite data uses reference area</span>
               }
               <button
-                onClick={openGpsEdit}
+                onClick={openEdit}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-teal-700/30 hover:bg-teal-700/50 border border-teal-600/40 text-teal-300 text-xs transition"
               >
                 <MapPin className="w-3 h-3" />
-                Edit GPS
+                Edit Project
               </button>
             </dd>
           </div>

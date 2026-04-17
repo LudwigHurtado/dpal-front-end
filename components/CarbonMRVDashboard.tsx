@@ -576,11 +576,15 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const [reviewNotes, setReviewNotes] = useState('');
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
-  // GPS editing
-  const [editingGps, setEditingGps] = useState(false);
-  const [gpsDraft, setGpsDraft] = useState({ lat: '', lng: '' });
-  const [savingGps, setSavingGps] = useState(false);
-  const [gpsMsg, setGpsMsg] = useState('');
+  // Project editing
+  const [editingProject, setEditingProject] = useState(false);
+  const [editDraft, setEditDraft] = useState<{
+    projectName: string; projectType: string; description: string;
+    country: string; region: string; city: string;
+    lat: string; lng: string; totalAcres: string; baselineDate: string;
+  }>({ projectName: '', projectType: '', description: '', country: '', region: '', city: '', lat: '', lng: '', totalAcres: '', baselineDate: '' });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editMsg, setEditMsg] = useState('');
 
   const userId = hero?.operativeId || 'anonymous';
   const userName = hero?.name || 'Anonymous';
@@ -693,36 +697,59 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     finally { setReviewingId(null); }
   };
 
-  const openGpsEdit = () => {
+  const openProjectEdit = () => {
     if (!selectedProject) return;
-    setGpsDraft({
-      lat: String(selectedProject.location.gpsCenter.lat || ''),
-      lng: String(selectedProject.location.gpsCenter.lng || ''),
+    setEditDraft({
+      projectName:  selectedProject.projectName,
+      projectType:  selectedProject.projectType,
+      description:  selectedProject.description || '',
+      country:      selectedProject.location.country || '',
+      region:       selectedProject.location.region || '',
+      city:         selectedProject.location.city || '',
+      lat:          selectedProject.location.gpsCenter.lat ? String(selectedProject.location.gpsCenter.lat) : '',
+      lng:          selectedProject.location.gpsCenter.lng ? String(selectedProject.location.gpsCenter.lng) : '',
+      totalAcres:   selectedProject.totalAcres > 0 ? String(selectedProject.totalAcres) : '',
+      baselineDate: selectedProject.baselineDate || '',
     });
-    setGpsMsg('');
-    setEditingGps(true);
+    setEditMsg('');
+    setEditingProject(true);
   };
 
-  const saveGps = async () => {
+  const saveProjectEdit = async () => {
     if (!selectedProject) return;
-    const lat = parseFloat(gpsDraft.lat);
-    const lng = parseFloat(gpsDraft.lng);
-    if (isNaN(lat) || lat < -90 || lat > 90)   { setGpsMsg('Latitude must be −90 to 90'); return; }
-    if (isNaN(lng) || lng < -180 || lng > 180)  { setGpsMsg('Longitude must be −180 to 180'); return; }
-    setSavingGps(true);
-    setGpsMsg('');
+    const lat = editDraft.lat ? parseFloat(editDraft.lat) : 0;
+    const lng = editDraft.lng ? parseFloat(editDraft.lng) : 0;
+    if (editDraft.lat && (isNaN(lat) || lat < -90 || lat > 90))   { setEditMsg('Latitude must be −90 to 90'); return; }
+    if (editDraft.lng && (isNaN(lng) || lng < -180 || lng > 180))  { setEditMsg('Longitude must be −180 to 180'); return; }
+    if (!editDraft.projectName.trim()) { setEditMsg('Project name cannot be empty'); return; }
+    setSavingEdit(true);
+    setEditMsg('');
     try {
-      const res = await fetch(CARBON_PROJECT_GPS(selectedProject.projectId), {
+      const res = await fetch(CARBON_PROJECT_DETAIL(selectedProject.projectId), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lat, lng }),
+        body: JSON.stringify({
+          projectName:  editDraft.projectName.trim(),
+          projectType:  editDraft.projectType,
+          description:  editDraft.description,
+          totalAcres:   editDraft.totalAcres ? parseFloat(editDraft.totalAcres) : 0,
+          baselineDate: editDraft.baselineDate,
+          location: {
+            country: editDraft.country,
+            region:  editDraft.region,
+            city:    editDraft.city,
+            gpsCenter: { lat: lat || 0, lng: lng || 0 },
+            polygon: selectedProject.location.polygon ?? [],
+          },
+        }),
       });
-      if (!res.ok) { const d = await res.json(); setGpsMsg(d.error || 'Save failed'); return; }
-      setSelectedProject({ ...selectedProject, location: { ...selectedProject.location, gpsCenter: { lat, lng } } });
-      setEditingGps(false);
-      setGpsMsg(`GPS updated → ${lat.toFixed(4)}, ${lng.toFixed(4)}`);
-    } catch { setGpsMsg('Network error — GPS not saved'); }
-    finally { setSavingGps(false); }
+      const d = await res.json();
+      if (!res.ok) { setEditMsg(d.error || 'Save failed'); return; }
+      setSelectedProject({ ...selectedProject, ...d.project });
+      setEditingProject(false);
+      setEditMsg('Project updated successfully.');
+    } catch { setEditMsg('Network error — changes not saved'); }
+    finally { setSavingEdit(false); }
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -781,66 +808,135 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 </div>
               ))}
             </div>
-            {/* GPS row */}
+            {/* GPS row + Edit Project button */}
             <div className="border-t border-white/10 pt-3 flex items-center justify-between gap-3 flex-wrap">
               <div className="flex items-center gap-2 min-w-0">
                 <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                 {selectedProject.location.gpsCenter.lat && selectedProject.location.gpsCenter.lat !== 0 ? (
                   <span className="text-xs font-mono text-emerald-300">
-                    {selectedProject.location.gpsCenter.lat.toFixed(5)}, {selectedProject.location.gpsCenter.lng.toFixed(5)}
+                    {selectedProject.location.gpsCenter.lat.toFixed(4)}, {selectedProject.location.gpsCenter.lng.toFixed(4)}
                   </span>
                 ) : (
-                  <span className="text-xs text-amber-400 italic">No GPS set — satellite data uses reference area</span>
+                  <span className="text-xs text-amber-400 italic">No GPS set</span>
                 )}
               </div>
               <button
-                onClick={openGpsEdit}
+                onClick={openProjectEdit}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-700/30 hover:bg-emerald-700/50 border border-emerald-600/40 text-emerald-300 text-xs font-bold transition shrink-0"
               >
-                <MapPin className="w-3 h-3" />
-                Edit GPS
+                <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                Edit Project
               </button>
             </div>
-            {gpsMsg && !editingGps && (
-              <p className="mt-2 text-xs text-emerald-400 font-semibold">{gpsMsg}</p>
+            {editMsg && !editingProject && (
+              <p className={`mt-2 text-xs font-semibold ${editMsg.includes('successfully') ? 'text-emerald-400' : 'text-rose-400'}`}>{editMsg}</p>
             )}
-            {/* Inline GPS edit form */}
-            {editingGps && (
-              <div className="mt-3 border-t border-white/10 pt-3 space-y-3">
-                <div className="grid grid-cols-2 gap-3">
+            {/* Full project edit form */}
+            {editingProject && (
+              <div className="mt-4 border-t border-white/10 pt-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-white">Edit Project</p>
+                  <button onClick={() => setEditingProject(false)} className="p-1 rounded-lg hover:bg-white/10 text-white/40 hover:text-white/80 transition">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {/* Name + type */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Latitude (−90 to 90)</label>
-                    <input
-                      type="number" step="any"
-                      value={gpsDraft.lat}
-                      onChange={e => setGpsDraft(d => ({ ...d, lat: e.target.value }))}
-                      placeholder="e.g. 37.5623"
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Project Name *</label>
+                    <input type="text" value={editDraft.projectName}
+                      onChange={e => setEditDraft(d => ({ ...d, projectName: e.target.value }))}
                       className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                    />
+                      placeholder="Project name" />
                   </div>
                   <div>
-                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Longitude (−180 to 180)</label>
-                    <input
-                      type="number" step="any"
-                      value={gpsDraft.lng}
-                      onChange={e => setGpsDraft(d => ({ ...d, lng: e.target.value }))}
-                      placeholder="e.g. −118.9664"
-                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                    />
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Type</label>
+                    <select value={editDraft.projectType}
+                      onChange={e => setEditDraft(d => ({ ...d, projectType: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500">
+                      {[
+                        ['forest','🌳 Forest Protection'],['reforestation','🌱 Reforestation'],
+                        ['mangrove','🌴 Mangrove'],['wetland','💧 Wetland'],['grassland','🌾 Grassland'],
+                        ['peatland','🟫 Peatland'],['savanna','🌿 Savanna'],['agroforestry','🚜 Agroforestry'],
+                        ['soil_carbon','🪱 Soil Carbon'],['blue_carbon','🌊 Blue Carbon'],
+                        ['avoided_deforestation','🛡️ Avoided Deforestation'],
+                      ].map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
                   </div>
                 </div>
-                {gpsMsg && <p className="text-xs text-rose-400">{gpsMsg}</p>}
-                <div className="flex gap-2">
-                  <button
-                    onClick={saveGps} disabled={savingGps}
-                    className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition disabled:opacity-50"
-                  >
-                    {savingGps ? 'Saving…' : 'Save GPS Coordinates'}
+                {/* Description */}
+                <div>
+                  <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Description</label>
+                  <textarea rows={2} value={editDraft.description}
+                    onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
+                    className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 resize-none"
+                    placeholder="Brief project description" />
+                </div>
+                {/* Acres + baseline date */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Total Acres</label>
+                    <input type="number" min="0" step="0.1" value={editDraft.totalAcres}
+                      onChange={e => setEditDraft(d => ({ ...d, totalAcres: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. 500" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Baseline Date</label>
+                    <input type="date" value={editDraft.baselineDate}
+                      onChange={e => setEditDraft(d => ({ ...d, baselineDate: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 focus:outline-none focus:border-emerald-500" />
+                  </div>
+                </div>
+                {/* Location */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Country</label>
+                    <input type="text" value={editDraft.country}
+                      onChange={e => setEditDraft(d => ({ ...d, country: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. Brazil" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">Region</label>
+                    <input type="text" value={editDraft.region}
+                      onChange={e => setEditDraft(d => ({ ...d, region: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. Amazonas" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">City</label>
+                    <input type="text" value={editDraft.city}
+                      onChange={e => setEditDraft(d => ({ ...d, city: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. Manaus" />
+                  </div>
+                </div>
+                {/* GPS */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">GPS Latitude (−90 to 90)</label>
+                    <input type="number" step="any" value={editDraft.lat}
+                      onChange={e => setEditDraft(d => ({ ...d, lat: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 font-mono placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. −3.4653" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-white/50 uppercase tracking-wider mb-1">GPS Longitude (−180 to 180)</label>
+                    <input type="number" step="any" value={editDraft.lng}
+                      onChange={e => setEditDraft(d => ({ ...d, lng: e.target.value }))}
+                      className="w-full bg-slate-900/60 border border-slate-600 rounded-xl px-3 py-2 text-sm text-slate-100 font-mono placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+                      placeholder="e.g. −62.2159" />
+                  </div>
+                </div>
+                {editMsg && <p className="text-xs text-rose-400">{editMsg}</p>}
+                <div className="flex gap-2 pt-1">
+                  <button onClick={saveProjectEdit} disabled={savingEdit}
+                    className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition disabled:opacity-50">
+                    {savingEdit ? 'Saving…' : 'Save Changes'}
                   </button>
-                  <button
-                    onClick={() => setEditingGps(false)}
-                    className="px-4 py-2 rounded-xl border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition"
-                  >
+                  <button onClick={() => setEditingProject(false)}
+                    className="px-4 py-2 rounded-xl border border-slate-600 text-slate-400 hover:text-slate-200 text-sm transition">
                     Cancel
                   </button>
                 </div>
