@@ -559,7 +559,9 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   const [marketCredits, setMarketCredits] = useState<CarbonCredit[]>([]);
   const [stats, setStats] = useState({ totalProjects: 0, approvedProjects: 0, totalCreditsTons: 0, listedCredits: 0 });
   const [airQualityData, setAirQualityData] = useState<any>(null);
+  const [airQualityError, setAirQualityError] = useState('');
   const [mineralData, setMineralData] = useState<any>(null);
+  const [mineralError, setMineralError] = useState('');
   const [loadingAirQuality, setLoadingAirQuality] = useState(false);
   const [loadingMinerals, setLoadingMinerals] = useState(false);
   const [globalTxs, setGlobalTxs] = useState<TxRecord[]>([]);
@@ -613,35 +615,56 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
   }, [userId]);
 
   const fetchAirQuality = useCallback(async () => {
+    setAirQualityError('');
     setLoadingAirQuality(true);
     try {
-      // Use a default location or get from user input
       const lat = 34.05; // LA for demo
       const lng = -118.25;
       const res = await fetch(apiUrl(API_ROUTES.CARBON_AIR_QUALITY) + `?lat=${lat}&lng=${lng}`);
-      if (res.ok) {
-        const data = await res.json();
-        setAirQualityData(data);
+      const body = await res.text();
+      if (!res.ok) {
+        setAirQualityData(null);
+        setAirQualityError(`Air quality request failed (${res.status}): ${body || res.statusText}`);
+        return;
       }
-    } catch (error) {
+      let data: any = null;
+      try { data = body ? JSON.parse(body) : null; } catch {
+        setAirQualityError('Received unexpected response from air quality service.');
+        return;
+      }
+      setAirQualityData(data);
+    } catch (error: any) {
       console.error('Failed to fetch air quality:', error);
+      setAirQualityError('Unable to load air quality data. Please try again later.');
+      setAirQualityData(null);
     } finally {
       setLoadingAirQuality(false);
     }
   }, []);
 
   const fetchMinerals = useCallback(async () => {
+    setMineralError('');
     setLoadingMinerals(true);
     try {
       const lat = 34.05;
       const lng = -118.25;
       const res = await fetch(apiUrl(API_ROUTES.CARBON_MINERALS) + `?lat=${lat}&lng=${lng}`);
-      if (res.ok) {
-        const data = await res.json();
-        setMineralData(data);
+      const body = await res.text();
+      if (!res.ok) {
+        setMineralData(null);
+        setMineralError(`Mineral scan failed (${res.status}): ${body || res.statusText}`);
+        return;
       }
-    } catch (error) {
+      let data: any = null;
+      try { data = body ? JSON.parse(body) : null; } catch {
+        setMineralError('Received unexpected response from mineral service.');
+        return;
+      }
+      setMineralData(data);
+    } catch (error: any) {
       console.error('Failed to fetch minerals:', error);
+      setMineralError('Unable to load mineral scan. Please try again later.');
+      setMineralData(null);
     } finally {
       setLoadingMinerals(false);
     }
@@ -1649,7 +1672,11 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {loadingAirQuality ? 'Loading...' : 'Load Latest Satellite Data'}
               </button>
             </div>
-            {/* Placeholder for air quality tiles */}
+            {airQualityError && (
+              <div className="rounded-xl bg-rose-900/30 border border-rose-500/40 p-3 text-sm text-rose-300 mb-4">
+                {airQualityError}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 { label: 'CO2 Concentration', value: airQualityData ? `${airQualityData.co2ppm.toFixed(1)} ppm` : '— ppm', icon: '🌫️', desc: 'Atmospheric CO2 from OCO-2' },
@@ -1687,7 +1714,11 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {loadingMinerals ? 'Scanning...' : 'Scan Mineral Composition'}
               </button>
             </div>
-            {/* Placeholder for mineral tiles */}
+            {mineralError && (
+              <div className="rounded-xl bg-rose-900/30 border border-rose-500/40 p-3 text-sm text-rose-300 mb-4">
+                {mineralError}
+              </div>
+            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
                 { label: 'Mineral Types', value: mineralData ? `${mineralData.minerals.length} detected` : '— detected', icon: '⛰️', desc: 'Surface mineral identification' },
