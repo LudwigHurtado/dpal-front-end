@@ -552,12 +552,16 @@ type DashView = 'dashboard' | 'create' | 'project' | 'validator';
 
 const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero, onGoToMarket }) => {
   const [view, setView] = useState<DashView>('dashboard');
-  const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger'>('myprojects');
+  const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger' | 'airquality' | 'minerals'>('myprojects');
 
   // Data
   const [projects, setProjects] = useState<CarbonProject[]>([]);
   const [marketCredits, setMarketCredits] = useState<CarbonCredit[]>([]);
   const [stats, setStats] = useState({ totalProjects: 0, approvedProjects: 0, totalCreditsTons: 0, listedCredits: 0 });
+  const [airQualityData, setAirQualityData] = useState<any>(null);
+  const [mineralData, setMineralData] = useState<any>(null);
+  const [loadingAirQuality, setLoadingAirQuality] = useState(false);
+  const [loadingMinerals, setLoadingMinerals] = useState(false);
   const [globalTxs, setGlobalTxs] = useState<TxRecord[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -607,6 +611,41 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, [userId]);
+
+  const fetchAirQuality = useCallback(async () => {
+    setLoadingAirQuality(true);
+    try {
+      // Use a default location or get from user input
+      const lat = 34.05; // LA for demo
+      const lng = -118.25;
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_AIR_QUALITY) + `?lat=${lat}&lng=${lng}`);
+      if (res.ok) {
+        const data = await res.json();
+        setAirQualityData(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch air quality:', error);
+    } finally {
+      setLoadingAirQuality(false);
+    }
+  }, []);
+
+  const fetchMinerals = useCallback(async () => {
+    setLoadingMinerals(true);
+    try {
+      const lat = 34.05;
+      const lng = -118.25;
+      const res = await fetch(apiUrl(API_ROUTES.CARBON_MINERALS) + `?lat=${lat}&lng=${lng}`);
+      if (res.ok) {
+        const data = await res.json();
+        setMineralData(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch minerals:', error);
+    } finally {
+      setLoadingMinerals(false);
+    }
+  }, []);
 
   const fetchProjectDetail = useCallback(async (project: CarbonProject) => {
     const [snapRes, mrvRes, txRes] = await Promise.all([
@@ -1425,6 +1464,8 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
           { id: 'myprojects', label: `My Projects${projects.length ? ` (${projects.length})` : ''}` },
           { id: 'marketplace', label: `Marketplace${marketCredits.length ? ` (${marketCredits.length})` : ''}` },
           { id: 'ledger', label: 'Global Ledger' },
+          { id: 'airquality', label: 'Air Quality Monitor' },
+          { id: 'minerals', label: 'Mineral Mapping' },
         ] as const).map((t) => (
           <button key={t.id} onClick={() => setActiveTab(t.id)}
             className={`px-4 py-3 text-sm font-bold whitespace-nowrap transition-all border-b-2 shrink-0
@@ -1590,6 +1631,82 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Air Quality Monitor tab */}
+        {activeTab === 'airquality' && (
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="text-center py-8">
+              <Globe className="w-12 h-12 mx-auto mb-4 text-emerald-400 opacity-50" />
+              <h3 className="text-lg font-bold text-white mb-2">Carbon Gas & Air Quality Monitoring</h3>
+              <p className="text-sm text-slate-400 mb-4">Track CO2, CH4, and other greenhouse gases using NASA OCO-2/3 and TROPOMI data</p>
+              <button
+                onClick={fetchAirQuality}
+                disabled={loadingAirQuality}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:bg-emerald-800 text-white text-sm font-bold rounded-lg transition-colors"
+              >
+                {loadingAirQuality ? 'Loading...' : 'Load Latest Satellite Data'}
+              </button>
+            </div>
+            {/* Placeholder for air quality tiles */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { label: 'CO2 Concentration', value: airQualityData ? `${airQualityData.co2ppm.toFixed(1)} ppm` : '— ppm', icon: '🌫️', desc: 'Atmospheric CO2 from OCO-2' },
+                { label: 'Methane (CH4)', value: airQualityData ? `${airQualityData.ch4ppb.toFixed(0)} ppb` : '— ppb', icon: '💨', desc: 'Methane levels from TROPOMI' },
+                { label: 'NO2 Levels', value: airQualityData ? `${airQualityData.no2.toFixed(2)} DU` : '— DU', icon: '🌬️', desc: 'Nitrogen dioxide pollution' },
+              ].map((metric) => (
+                <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">{metric.icon}</span>
+                    <div>
+                      <p className="text-sm font-bold text-white">{metric.label}</p>
+                      <p className="text-xs text-slate-500">{metric.desc}</p>
+                    </div>
+                  </div>
+                  <p className="text-xl font-black text-emerald-400">{metric.value}</p>
+                  {airQualityData && <p className="text-xs text-slate-400 mt-1">{airQualityData.source}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Mineral Mapping tab */}
+        {activeTab === 'minerals' && (
+          <div className="p-4 md:p-6 space-y-4">
+            <div className="text-center py-8">
+              <MapPin className="w-12 h-12 mx-auto mb-4 text-amber-400 opacity-50" />
+              <h3 className="text-lg font-bold text-white mb-2">Mineral Dust & Surface Mapping</h3>
+              <p className="text-sm text-slate-400 mb-4">Monitor mineral composition and dust sources using NASA EMIT and ASTER data</p>
+              <button
+                onClick={fetchMinerals}
+                disabled={loadingMinerals}
+                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-800 text-white text-sm font-bold rounded-lg transition-colors"
+              >
+                {loadingMinerals ? 'Scanning...' : 'Scan Mineral Composition'}
+              </button>
+            </div>
+            {/* Placeholder for mineral tiles */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[
+                { label: 'Mineral Types', value: mineralData ? `${mineralData.minerals.length} detected` : '— detected', icon: '⛰️', desc: 'Surface mineral identification' },
+                { label: 'Dust Source Areas', value: mineralData ? `${mineralData.dustArea.toFixed(0)} km²` : '— km²', icon: '🌪️', desc: 'Mineral dust emission zones' },
+                { label: 'Primary Mineral', value: mineralData ? mineralData.minerals[0] || '—' : '—', icon: '🧪', desc: 'Most abundant mineral' },
+              ].map((metric) => (
+                <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-2xl">{metric.icon}</span>
+                    <div>
+                      <p className="text-sm font-bold text-white">{metric.label}</p>
+                      <p className="text-xs text-slate-500">{metric.desc}</p>
+                    </div>
+                  </div>
+                  <p className="text-xl font-black text-amber-400">{metric.value}</p>
+                  {mineralData && <p className="text-xs text-slate-400 mt-1">{mineralData.source}</p>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

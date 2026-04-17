@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-13 (water monitor MVP, carbon market investor UX, Learn tab, cross-navigation)
+Last updated: 2026-04-17 (Sentinel-1 SAR + Sentinel-2 NDVI live integration, snapshot AI panel, Mongoose index fixes)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -193,6 +193,79 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-17 — Sentinel-1 SAR + Sentinel-2 NDVI live integration
+
+#### Copernicus Data Space Statistical API — critical integration notes
+
+The Sentinel Hub Statistical API at `sh.dataspace.copernicus.eu/api/v1/statistics` has several non-obvious requirements engineers must know:
+
+| Issue | Wrong | Correct |
+|-------|-------|---------|
+| Resolution params | `resx: 10, resy: 10` (ignored silently) | `width: 128, height: 128` (pixel dimensions) |
+| CRS declaration | geometry only | must add `bounds.properties.crs: "http://www.opengis.net/def/crs/OGC/1.3/CRS84"` |
+| Status filter | `d.status === "OK"` | omit status check — field is often empty; use `sampleCount > 0` only |
+| Sentinel-1 polarization | `polarization: "DV"` | remove filter — let API return any available polarization |
+| Sentinel-1 orbit direction | `orbitDirection: "BOTH"` | remove — `"BOTH"` is not a valid enum value |
+| Time window | 30 days | 60 days — more likely to find valid acquisitions |
+
+Without `bounds.properties.crs`, `resx`/`resy` are silently ignored and the API treats the entire bbox as 1 pixel, producing "11122.63 meters per pixel exceeds 1500 m/px" errors.
+
+#### Backend changes (`dpal-ai-server`) — commits `c93c242` → `b767ef1`
+
+**`src/services/adapters/sentinel1.adapter.ts`**
+- Removed `orbitDirection: "BOTH"` (invalid enum)
+- Added `properties.crs` to bounds geometry
+- Switched `resx/resy: 10` → `width: 128, height: 128`
+- Removed `polarization: "DV"` filter
+- Extended time window 30 → 60 days
+- Dropped `status === "OK"` filter; use `sampleCount > 0` only
+- Improved error logging to show entry-level debug info
+
+**`src/services/adapters/copernicus.adapter.ts`**
+- Added `properties.crs` to bounds geometry
+- Switched `resx/resy: 10` → `width: 128, height: 128`
+- Dropped `status === "OK"` filter for NDVI; use `sampleCount > 0` only
+
+**`src/models/Directive.ts`, `EvidenceArtifact.ts`, `ValidatorReview.ts`**
+- Removed duplicate `index: true` on fields that also had `schema.index()` calls
+- Eliminates Mongoose startup warnings: "Duplicate schema index on directiveId/reportId"
+
+#### Frontend changes (`dpal-front-end`) — commit `e9b295f`
+
+**`components/WaterMonitorView.tsx`**
+- Added SAR fields to `WaterSnapshot` interface (`sarWaterFraction`, `sarVvDb`, `sarFloodRisk`, `sarCaptureDate`, `sarSource`)
+- Each MetricTile in the "Latest Satellite Snapshot" panel now shows its satellite source:
+  - Soil Moisture → `NASA SMAP`
+  - Surface Water Level → `NASA / ESA SWOT`
+  - Water Storage Trend → `NASA GRACE-FO`
+  - Drought Risk → `Copernicus`
+  - Vegetation Stress → `NASA GIBS / MODIS`
+  - Confidence Score → `6-adapter average`
+- Added SAR Water Coverage tile (conditional, shown when `sarSource === "sentinel-1-sar"`)
+- Added `SatelliteAiInsight` AI analyst panel below snapshot tiles — plain-English breakdown + follow-up Q&A via Gemini
+
+#### How to verify the satellite integration is working
+
+```bash
+# From browser console on /water page:
+fetch('https://web-production-a27b.up.railway.app/api/water/satellite-preview?lat=34.05&lng=-118.25')
+  .then(r => r.json())
+  .then(d => {
+    console.log('sentinel1:', d.adapters?.sentinel1);   // expect ok:true, captureDate set
+    console.log('copernicus:', d.adapters?.copernicus); // expect ndviMean set (sentinel-2-live)
+  })
+```
+
+Railway logs to check after a request:
+- `🔑 Copernicus token refreshed` — credentials working
+- `📡 Sentinel-1 SAR (lat,lng): VV=...dB waterFrac=...% floodRisk=...%` — SAR live
+- `🛰️  Sentinel-2 L2A (lat,lng): NDVI mean=...` — NDVI live
+
+Required Railway env vars: `COPERNICUS_CLIENT_ID`, `COPERNICUS_CLIENT_SECRET`
+Get credentials: [dataspace.copernicus.eu](https://dataspace.copernicus.eu) → Settings → OAuth Clients → Add client (Client credentials grant)
+
+---
 
 ### 2026-04-13 — Water Monitor MVP + Carbon investor UX
 

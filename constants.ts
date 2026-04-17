@@ -134,6 +134,8 @@ export const API_ROUTES = {
   CARBON_VALIDATOR_REVIEW: '/api/carbon/validators/review',
   CARBON_LEDGER: '/api/carbon/ledger',
   CARBON_STATS: '/api/carbon/stats',
+  CARBON_AIR_QUALITY: '/api/carbon/air-quality',
+  CARBON_MINERALS: '/api/carbon/minerals',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   WATER_PROJECTS: '/api/water/projects',
   WATER_CREDITS: '/api/water/credits',
