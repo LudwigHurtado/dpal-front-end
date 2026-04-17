@@ -171,8 +171,8 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
   }, [lat, lng, radiusKm]);
 
   return (
-    <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900">
-      <div className="p-4 border-b border-slate-800">
+    <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-900 flex flex-col h-full">
+      <div className="p-4 border-b border-slate-800 flex-shrink-0">
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-emerald-400" />
           <div>
@@ -181,14 +181,14 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
           </div>
         </div>
       </div>
-      <div ref={wrapperRef} style={{ height: '380px', width: '100%', display: 'block' }}>
+      <div ref={wrapperRef} style={{ flex: 1, minHeight: '300px', width: '100%' }}>
         {hasCoords ? (
           <MapContainer
             key={`${lat.toFixed(4)},${lng.toFixed(4)}`}
             center={center}
             zoom={8}
             scrollWheelZoom
-            style={{ height: '380px', width: '100%' }}
+            style={{ height: '100%', width: '100%', minHeight: '300px' }}
           >
             <TileLayer
               url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -212,7 +212,7 @@ function ScanAreaSelector({ lat, lng, radiusKm, onSelectLocation }: ScanAreaSele
           <div className="h-full flex items-center justify-center text-slate-500 text-sm">Invalid scan coordinates</div>
         )}
       </div>
-      <div className="px-4 py-3 border-t border-slate-800 text-[11px] text-slate-500">
+      <div className="px-4 py-3 border-t border-slate-800 text-[11px] text-slate-500 flex-shrink-0">
         Selected center: {lat.toFixed(5)}, {lng.toFixed(5)} • Radius: {radiusKm} km
       </div>
     </div>
