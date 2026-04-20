@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-20 (DPAL Mission Ops Phaser game, uploaded city map asset, marker coordinate config)
+Last updated: 2026-04-20 (mission game docs, monitoring images, mineral detector, Sentinel SAR fallback, deploy author identity)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -92,6 +92,7 @@ From deployment notes (verify in Railway dashboard):
 - `GEMINI_MODEL_CHEAP` — optional; defaults chain to **`gemini-2.0-flash`** (do **not** use retired `gemini-1.5-flash`)  
 - `FRONTEND_ORIGIN` or `CORS_ORIGINS` — comma-separated allowed web origins (frontend + dashboards)  
 - `NODE_ENV=production`
+- `COPERNICUS_CLIENT_ID` and `COPERNICUS_CLIENT_SECRET` — backend-only Sentinel Hub / Copernicus OAuth credentials for Sentinel-1 SAR. Set these on Railway, then redeploy or restart the service. Do not place them in Vercel/Vite variables.
 
 Backend should accept both **`FRONTEND_ORIGIN`** and **`CORS_ORIGINS`** naming.
 
@@ -190,7 +191,7 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | **AI Work Directives (Work Network)** | `components/AiWorkDirectivesView.tsx` — AI-guided community work marketplace; 15 categories; in-progress step tracking, proof notes, claim coins flow |
 | **Carbon Credit Market** | `components/OffsetMarketplaceView.tsx` — tabs: Market (buy/sell, world map, sparklines), My Credits (retire/certify), Impact Feed, Register Land (4-step wizard), **Learn** (Venn diagram, market data, registry comparison). Buy/retire/join work in demo mode via localStorage simulation (`dpal_cc_local_purchases`). Anonymous purchases also saved to localStorage so portfolio is visible without login. Cross-links to Carbon MRV. |
 | **Carbon MRV Engine** | `components/CarbonMRVDashboard.tsx` — tabs: My Projects, Marketplace, Global Ledger. Views: dashboard, create (4-step), project detail (satellite NDVI, MRV score circular gauge, blockchain ledger), validator portal. Cross-links to Carbon Market. |
-| **DPAL Water Monitor** | `components/WaterMonitorView.tsx` — tabs: Dashboard, My Projects, Validator Queue, Credits. Views: dashboard (platform stats, WaterGlobe), create project (8 types, GPS polygon), project detail (satellite pull with 5 adapters, Water Impact Score 0–100, reports), validator review, credit issuance & marketplace. |
+| **DPAL Water Monitor** | `components/WaterMonitorView.tsx` — tabs: Dashboard, My Projects, Validator Queue, Credits. Views: dashboard (platform stats, WaterGlobe), create project (8 types, GPS polygon), project detail (satellite pull with 5 adapters + Sentinel-1 SAR if backend verifies it, Water Impact Score 0–100, reports), validator review, credit issuance & marketplace. |
 | **Water Globe** | `components/WaterGlobe.tsx` — animated world globe for water project pins and alert indicators. |
 | **Ecological Conservation** | `components/EcologicalConservationView.tsx` — Landsat 9 OLI-2 foliage/habitat scan at `/ecology`. API: `GET /api/ecology/landsat-scan?lat=&lng=&radiusKm=` → Microsoft Planetary Computer STAC. Demo fallback: `buildDemoScan()` computes deterministic NDVI/risk from coordinates when API is unavailable. Map uses Esri satellite + labels tiles. AI chat via Gemini. |
 | **DPAL Mission Ops Phaser game** | `features/mission-game/*`, `features/mission-game/MissionGameView.tsx`, `components/DpalGameHubView.tsx`, `features/mission-game/game/config/worldMapLayout.ts`, `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png` — embedded mission game with world map, mission detail, action checklist, reward flow, persistent UI overlay, session player state. |
@@ -198,6 +199,44 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-20 — Monitoring images, mineral detector, Sentinel SAR fallback, deployment identity
+
+#### Main page and category imagery
+- Added three monitoring assets under `public/main-screen/`:
+  - `land-mineral-monitoring.png`
+  - `water-project-monitoring.png`
+  - `satellite-water-analysis.png`
+- `components/MainMenu.tsx` now uses:
+  - `satellite-water-analysis.png` for **Earth Observation**
+  - `land-mineral-monitoring.png` for **Ecological Conservation**
+  - `land-mineral-monitoring.png` for **Carbon MRV Engine**
+  - `water-project-monitoring.png` for **Water Satellite Monitor**
+- `categoryCardAssets.ts` now maps:
+  - `Category.EarthObservation` → `satellite-water-analysis.png`
+  - `Category.EcologicalConservation` → `land-mineral-monitoring.png`
+  - `Category.WaterViolations` → `water-project-monitoring.png`
+
+#### Mineral detector readings
+- `backend/src/services/adapters/mineral.adapter.ts` now queries Macrostrat mapped geology and infers mineral indicators from lithology when available.
+- The mineral response separates verified geology/mineral indicators from EMIT dust-source area.
+- `components/CarbonMRVDashboard.tsx` now derives `primaryMineral`, composition entries, and `primaryMineralShare` from the backend response.
+- UI now shows a verified mineral read panel, specific mineral card, composition share card, and a separate dust-source-area card.
+- Example Los Angeles smoke result after the change: Quartz, Feldspar, Clay Minerals, Calcite with Quartz as the primary mineral indicator; dust-source area remains separate when EMIT/AOD is unavailable.
+
+#### Water Monitor Sentinel-1 SAR behavior
+- Production `/api/water/satellite-preview` can return `sentinel1.ok: false` with fallback SAR fields such as `waterFraction`, `vvMeanDb`, and `floodRisk`.
+- `components/WaterMonitorView.tsx` now displays those values as **SAR Water Detection Estimate** instead of hiding the whole SAR section.
+- Verified SAR still requires backend `sentinel1.ok === true` and a real live Sentinel-1 scene/capture.
+- Railway backend needs `COPERNICUS_CLIENT_ID` and `COPERNICUS_CLIENT_SECRET` set and the service redeployed/restarted. If the secret contains `+` or other special characters, backend token requests must form-encode credentials with `URLSearchParams` or equivalent.
+
+#### GitHub / Vercel deployment identity
+- The local repo previously had placeholder Git author config: `Your Name <you@domain.com>`.
+- GitHub/Vercel mapped that placeholder identity to an unexpected GitHub user in deployment UI.
+- Local repo config was corrected to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>`.
+- Empty commit `dd0d48c` was pushed to trigger a fresh Vercel deployment with corrected author attribution.
+
+---
 
 ### 2026-04-20 — DPAL Mission Ops Phaser game
 

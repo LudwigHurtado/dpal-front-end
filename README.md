@@ -44,6 +44,15 @@ All Vite-exposed variables must start with `VITE_`. Copy `.env.example` → `.en
 
 \* At least one of `VITE_GEMINI_API_KEY` or `VITE_USE_SERVER_AI=true` is needed for AI features.
 
+Backend-only satellite credentials live on Railway, not in Vercel. Sentinel-1 SAR uses Copernicus / Sentinel Hub OAuth credentials on the API server:
+
+| Railway variable | Purpose |
+|------------------|---------|
+| `COPERNICUS_CLIENT_ID` | Sentinel Hub / Copernicus OAuth client id |
+| `COPERNICUS_CLIENT_SECRET` | Sentinel Hub / Copernicus OAuth client secret |
+
+After changing Railway variables, redeploy or restart the backend service so the running Node process reads the new values.
+
 ---
 
 ## Key product areas
@@ -90,6 +99,19 @@ Map integration:
 - The uploaded image already contains district labels, so Phaser does not draw duplicate district text over the map.
 
 State is in-session only for now through the mission game player state manager. There is no backend persistence yet.
+
+---
+
+## Recent monitoring updates
+
+- Main page monitoring imagery now uses dedicated assets in `public/main-screen/`:
+  - `land-mineral-monitoring.png` for Ecological Conservation and Carbon MRV Engine
+  - `water-project-monitoring.png` for Water Satellite Monitor
+  - `satellite-water-analysis.png` for Earth Observation
+- Category card imagery for Earth Observation, Ecological Conservation, and Water Violations points at those same assets through `categoryCardAssets.ts`.
+- Mineral detector readings now separate verified bedrock/mineral indicators from EMIT dust-source availability. When Macrostrat geology is available, the UI can show a specific primary mineral and composition share even if EMIT dust area is unavailable.
+- Water Monitor Sentinel-1 SAR now shows a clearly labeled fallback estimate card when the backend returns SAR estimate fields with `sentinel1.ok: false`. A verified SAR card only appears when the backend returns a live, verified Sentinel-1 scene.
+- Git author identity for this repo is set to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>` so future GitHub/Vercel deployments attribute commits to the correct account.
 
 ---
 
