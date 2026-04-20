@@ -60,7 +60,6 @@ export class WorldMapScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(C.BG);
 
     this.drawMapBackground();
-    this.drawZoneLabels();
     this.drawLegend();
     this.buildMarkers();
     this.drawFooter();
