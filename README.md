@@ -57,6 +57,7 @@ All Vite-exposed variables must start with `VITE_`. Copy `.env.example` → `.en
 | `/carbon` | Carbon MRV Engine — satellite NDVI, score, validator |
 | `/water` | Water Monitor — satellite snapshots, impact score, credits |
 | `/ecology` | Ecological Conservation — Landsat foliage scan, NDVI, habitat risk |
+| `/games` | Play & Learn hub with the embedded DPAL Mission Ops Phaser game |
 | `/missions` | Missions Hub V2 |
 | `/directives` | AI Work Directives marketplace |
 | `/situation` | Situation Room |
@@ -64,6 +65,31 @@ All Vite-exposed variables must start with `VITE_`. Copy `.env.example` → `.en
 | `/ledger` | Public Blockchain Ledger |
 | `/help` | Help Center |
 | `/login` `/signup` | Auth (MongoDB users on `dpal-ai-server`) |
+
+---
+
+## DPAL Mission Ops Phaser game
+
+The `/games` Play & Learn hub now includes **DPAL Mission Ops**, an embedded Phaser mission game mounted through `features/mission-game/MissionGameView.tsx`.
+
+Current flow:
+
+1. The user opens `/games`, chooses Mission Ops, and React mounts the Phaser game inline.
+2. `BootScene` launches the persistent `UIScene` overlay and starts `WorldMapScene`.
+3. `WorldMapScene` shows the uploaded city map image, renders mission markers from config, and opens `MissionDetailScene` when a marker is clicked.
+4. `MissionDetailScene` receives `{ mission, location, allMissions }`, shows mission details, and starts `MissionActionScene` from the Start Mission button.
+5. `MissionActionScene` runs a session-only checklist: confirm location, inspect issue, collect related item, upload proof.
+6. Completing all tasks unlocks Submit Proof, updates session player state, marks the mission complete, and opens `RewardScene`.
+7. `RewardScene` shows earned XP, DPAL points, badge progress, updated community score, and returns to the map.
+
+Map integration:
+
+- Main map asset: `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png`
+- Swappable map settings: `features/mission-game/game/config/worldMapLayout.ts`
+- Marker coordinates are kept outside the scene in `WORLD_MAP_MARKER_POSITIONS`, with normalized `x` / `y` values plus `district` and `categoryId`.
+- The uploaded image already contains district labels, so Phaser does not draw duplicate district text over the map.
+
+State is in-session only for now through the mission game player state manager. There is no backend persistence yet.
 
 ---
 

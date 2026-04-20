@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-18 (Carbon Market demo mode, Ecological Conservation live backend + demo fallback, Esri satellite map)
+Last updated: 2026-04-20 (DPAL Mission Ops Phaser game, uploaded city map asset, marker coordinate config)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -147,6 +147,7 @@ If a dashboard shows “disconnected” or wrong API:
 | `carbonMRV` | `/carbon` | Carbon MRV Engine (register projects, satellite, score, validator, credits) |
 | `waterMonitor` | `/water` | **Water Monitor** (water projects, satellite snapshots, impact score, validator, credits) |
 | `ecologicalConservation` | `/ecology` | **Ecological Conservation** (Landsat foliage scan, NDVI, habitat risk, AI chat) |
+| `gameHub` | `/games` | **Play & Learn / DPAL Mission Ops** embedded Phaser game |
 
 ### Accounts & authentication (MongoDB users on `dpal-ai-server`)
 
@@ -192,10 +193,47 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | **DPAL Water Monitor** | `components/WaterMonitorView.tsx` — tabs: Dashboard, My Projects, Validator Queue, Credits. Views: dashboard (platform stats, WaterGlobe), create project (8 types, GPS polygon), project detail (satellite pull with 5 adapters, Water Impact Score 0–100, reports), validator review, credit issuance & marketplace. |
 | **Water Globe** | `components/WaterGlobe.tsx` — animated world globe for water project pins and alert indicators. |
 | **Ecological Conservation** | `components/EcologicalConservationView.tsx` — Landsat 9 OLI-2 foliage/habitat scan at `/ecology`. API: `GET /api/ecology/landsat-scan?lat=&lng=&radiusKm=` → Microsoft Planetary Computer STAC. Demo fallback: `buildDemoScan()` computes deterministic NDVI/risk from coordinates when API is unavailable. Map uses Esri satellite + labels tiles. AI chat via Gemini. |
+| **DPAL Mission Ops Phaser game** | `features/mission-game/*`, `features/mission-game/MissionGameView.tsx`, `components/DpalGameHubView.tsx`, `features/mission-game/game/config/worldMapLayout.ts`, `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png` — embedded mission game with world map, mission detail, action checklist, reward flow, persistent UI overlay, session player state. |
 
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-20 — DPAL Mission Ops Phaser game
+
+#### Access path and React mount
+- The Play & Learn route is `/games` (`gameHub` view). The main menu has a Play & Learn entry that leads there.
+- `components/DpalGameHubView.tsx` exposes the Mission Ops access button and mounts `features/mission-game/MissionGameView.tsx` inline.
+- `MissionGameView` owns the Phaser game instance and keeps the React + Phaser boundary contained.
+
+#### Phaser scene flow
+- `BootScene` starts the game by launching persistent `UIScene`, then starting `WorldMapScene`.
+- `UIScene` is a session overlay with player level, XP, DPAL points, current zone, Leaderboard, and Inventory controls. It reads mock/session state and is designed so React can connect to it later.
+- `WorldMapScene` renders the city map and mission markers. Clicking a marker starts `MissionDetailScene` with `{ mission, location, allMissions }`.
+- `MissionDetailScene` shows mission title, category, description, urgency, reward points, reward XP, proof required, related items, and a 0% progress bar. Start Mission launches `MissionActionScene`; Back to Map returns to `WorldMapScene`.
+- `MissionActionScene` is session-only for now. It uses checklist tasks: confirm location, inspect issue, collect related item, upload proof. Clicking buttons completes tasks and updates visual progress. Submit Proof unlocks only after all tasks are complete.
+- Successful submission updates session player state, marks the mission complete, emits the completion event, and opens `RewardScene`.
+- `RewardScene` shows earned XP, earned points, badge progress, updated community score, and a Return to Map button. Returning to map keeps completed missions visually distinct.
+
+#### Uploaded map image and marker layout
+- Main asset: `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png`.
+- Swappable map constants live in `features/mission-game/game/config/worldMapLayout.ts`:
+  - `WORLD_MAP_TEXTURE_KEY`
+  - `WORLD_MAP_ASSET_PATH`
+  - `WORLD_MAP_SOURCE_SIZE`
+  - `WORLD_MAP_MARKER_POSITIONS`
+  - `WORLD_MAP_MARKER_BY_ID`
+- Marker positions are normalized against the image, so replacing the map or tuning markers should happen in `worldMapLayout.ts`, not inside `WorldMapScene`.
+- Each marker config includes `id`, `x`, `y`, `district`, and `categoryId`. Mission/location data still comes from the existing mission game data files.
+- The uploaded map image already has district labels baked in. `WorldMapScene` no longer draws Phaser district labels over the image, which fixes duplicate text such as Westside, Central, Industrial, Riverside, City Park, and School District.
+- Marker labels for specific locations still render under markers, and marker clicks continue to open the correct mission/location data.
+
+#### Verification notes
+- TypeScript/lint was checked with `npm run lint` after the mission game and map changes.
+- Phaser imports use `import * as Phaser from 'phaser'` so the game works with the current Phaser ESM build.
+- Current state is intentionally session-based only. There is no backend persistence for mission completion, rewards, inventory, or leaderboard yet.
+
+---
 
 ### 2026-04-18 — Carbon Market functional demo mode + Ecological Conservation live backend
 
