@@ -1,31 +1,76 @@
 import * as Phaser from 'phaser';
 import { SCENE_KEYS, C, TC, GAME_WIDTH, GAME_HEIGHT, MAP_TOP, CATEGORY_COLORS } from '../constants';
-import { Mission, cloneChecklist, ChecklistItem } from '../data/missions';
+import { Mission } from '../data/missions';
 import { Location } from '../data/locations';
 import { getCategoryById } from '../data/categories';
-import { getRelatedItemsByIds } from '../data/relatedItems';
+import { getRelatedItemsByIds, RelatedItem } from '../data/relatedItems';
 import { PlayerStateManager } from '../data/playerState';
 import {
-  createPanel, createButton, createProgressBar, sectionHeader, FONT,
+  createButton,
+  createPanel,
+  createProgressBar,
+  FONT,
+  itemTypeStyle,
+  sectionHeader,
 } from '../ui/UIHelpers';
 import type { ProgressBarHandle } from '../ui/UIHelpers';
 import { EventBridge } from '../EventBridge';
 
-interface SceneData { mission: Mission; location: Location; }
+interface SceneData {
+  mission: Mission;
+  location: Location;
+}
 
-const PANEL_W = 680;
+interface ActionTask {
+  id: string;
+  label: string;
+  detail: string;
+}
+
+const PANEL_W = 760;
+const PANEL_H = 560;
 const PANEL_X = (GAME_WIDTH - PANEL_W) / 2;
-const PANEL_Y = MAP_TOP + 20;
+const PANEL_Y = MAP_TOP + 38;
+const PAD = 28;
+const TASK_H = 68;
+const TASK_GAP = 10;
+
+const sessionTaskState = new Map<string, Set<string>>();
+
+const ACTION_TASKS: ActionTask[] = [
+  {
+    id: 'confirm_location',
+    label: 'Confirm location',
+    detail: 'Verify that you are at the right mission marker.',
+  },
+  {
+    id: 'inspect_issue',
+    label: 'Inspect issue',
+    detail: 'Review the situation and note visible risk or impact.',
+  },
+  {
+    id: 'collect_related_item',
+    label: 'Collect related item',
+    detail: 'Select one relevant item or evidence cue for the report.',
+  },
+  {
+    id: 'upload_proof',
+    label: 'Upload proof',
+    detail: 'Attach the required proof before submitting the mission.',
+  },
+];
 
 export class MissionActionScene extends Phaser.Scene {
   private mission!: Mission;
   private location!: Location;
-  private checklist: ChecklistItem[] = [];
+  private completedTaskIds!: Set<string>;
+  private selectedItemId?: string;
 
   private progressBar!: ProgressBarHandle;
   private progressText!: Phaser.GameObjects.Text;
-  private submitBtn?: Phaser.GameObjects.Container;
-  private checkRows: Phaser.GameObjects.Container[] = [];
+  private submitButton?: Phaser.GameObjects.Container;
+  private taskRows: Phaser.GameObjects.Container[] = [];
+  private relatedItemCards: Phaser.GameObjects.Container[] = [];
 
   constructor() {
     super({ key: SCENE_KEYS.MISSION_ACTION });
@@ -34,341 +79,327 @@ export class MissionActionScene extends Phaser.Scene {
   init(data: SceneData): void {
     this.mission = data.mission;
     this.location = data.location;
-    this.checklist = cloneChecklist(this.mission);
+    this.completedTaskIds = sessionTaskState.get(this.mission.id) ?? new Set<string>();
+    sessionTaskState.set(this.mission.id, this.completedTaskIds);
   }
 
   create(): void {
     this.cameras.main.setBackgroundColor(C.BG);
+    this.cameras.main.fadeIn(140, 0, 0, 0);
+
     this.drawBackground();
-    this.buildUI();
+    this.buildPanel();
+    this.bindKeyboard();
+    this.updateProgress();
   }
 
-  // ─── Background ──────────────────────────────────────────────────────────────
-
   private drawBackground(): void {
-    const gfx = this.add.graphics();
-    gfx.lineStyle(1, C.STREET, 0.3);
-    for (let y = MAP_TOP; y < GAME_HEIGHT; y += 70) { gfx.moveTo(0, y); gfx.lineTo(GAME_WIDTH, y); }
-    for (let x = 0; x < GAME_WIDTH; x += 90) { gfx.moveTo(x, MAP_TOP); gfx.lineTo(x, GAME_HEIGHT); }
-    gfx.strokePath();
+    const grid = this.add.graphics();
+    grid.lineStyle(1, C.STREET, 0.3);
 
-    // Left info column background
-    const colX = 20, colY = MAP_TOP + 10;
-    const colW = PANEL_X - 40, colH = GAME_HEIGHT - colY - 20;
-    createPanel(this, colX, colY, colW, colH, { bg: C.PANEL, radius: 10 });
-    this.buildInfoColumn(colX, colY, colW, colH);
+    for (let y = MAP_TOP; y <= GAME_HEIGHT; y += 70) {
+      grid.lineBetween(0, y, GAME_WIDTH, y);
+    }
 
-    // Right column background
-    const rColX = PANEL_X + PANEL_W + 20, rColY = MAP_TOP + 10;
-    const rColW = GAME_WIDTH - rColX - 20, rColH = colH;
-    if (rColW > 80) {
-      createPanel(this, rColX, rColY, rColW, rColH, { bg: C.PANEL, radius: 10 });
-      this.buildItemsColumn(rColX, rColY, rColW, rColH);
+    for (let x = 0; x <= GAME_WIDTH; x += 90) {
+      grid.lineBetween(x, MAP_TOP, x, GAME_HEIGHT);
     }
   }
 
-  private buildInfoColumn(x: number, y: number, w: number, _h: number): void {
-    const cat = getCategoryById(this.mission.categoryId);
-    const hex = cat?.hexColor ?? C.BTN_PRIMARY;
-    const css = cat?.cssColor ?? TC.SECONDARY;
-    let cy = y + 20;
+  private buildPanel(): void {
+    const accent = this.getAccent();
+    const category = getCategoryById(this.mission.categoryId);
 
-    this.add.text(x + w / 2, cy, cat?.emoji ?? '📍', {
-      fontSize: '28px', fontFamily: '"Segoe UI Emoji", Arial, sans-serif',
-    }).setOrigin(0.5);
-    cy += 38;
-
-    this.add.text(x + w / 2, cy, cat?.name ?? '', {
-      fontSize: '12px', color: css, fontFamily: FONT, fontStyle: 'bold', align: 'center',
-      wordWrap: { width: w - 16 },
-    }).setOrigin(0.5);
-    cy += 26;
-
-    const gfx = this.add.graphics();
-    gfx.lineStyle(1, hex, 0.4);
-    gfx.lineBetween(x + 16, cy, x + w - 16, cy);
-    cy += 14;
-
-    sectionHeader(this, x + 12, cy, 'LOCATION', hex, css);
-    cy += 22;
-    this.add.text(x + 12, cy, this.location.name, {
-      fontSize: '12px', color: TC.PRIMARY, fontFamily: FONT,
-      wordWrap: { width: w - 24 },
-    });
-    cy += 32;
-
-    sectionHeader(this, x + 12, cy, 'ZONE', hex, css);
-    cy += 22;
-    this.add.text(x + 12, cy, this.location.zoneName, {
-      fontSize: '12px', color: TC.SECONDARY, fontFamily: FONT,
-    });
-    cy += 34;
-
-    sectionHeader(this, x + 12, cy, 'REWARD', hex, css);
-    cy += 22;
-    this.add.text(x + 12, cy, `✦ ${this.mission.rewardXp} XP`, {
-      fontSize: '13px', color: TC.CAT_EDU, fontFamily: FONT, fontStyle: 'bold',
-    });
-    cy += 20;
-    this.add.text(x + 12, cy, `◆ ${this.mission.rewardPoints} pts`, {
-      fontSize: '13px', color: TC.GOLD, fontFamily: FONT, fontStyle: 'bold',
-    });
-  }
-
-  private buildItemsColumn(x: number, y: number, w: number, _h: number): void {
-    const items = getRelatedItemsByIds(this.mission.relatedItemIds);
-    const cat = getCategoryById(this.mission.categoryId);
-    const hex = cat?.hexColor ?? C.BTN_PRIMARY;
-    const css = cat?.cssColor ?? TC.SECONDARY;
-    let cy = y + 18;
-
-    sectionHeader(this, x + 12, cy, 'ITEMS', hex, css);
-    cy += 26;
-
-    items.forEach(item => {
-      const gfx = this.add.graphics();
-      gfx.fillStyle(C.PANEL_LT, 0.6);
-      gfx.fillRoundedRect(x + 8, cy - 4, w - 16, 38, 6);
-
-      this.add.text(x + 18, cy + 15, item.emoji, {
-        fontSize: '16px', fontFamily: '"Segoe UI Emoji", Arial, sans-serif',
-      }).setOrigin(0, 0.5);
-
-      this.add.text(x + 38, cy + 8, item.name, {
-        fontSize: '12px', color: TC.PRIMARY, fontFamily: FONT, fontStyle: 'bold',
-      });
-      this.add.text(x + 38, cy + 22, item.description, {
-        fontSize: '10px', color: TC.MUTED, fontFamily: FONT,
-        wordWrap: { width: w - 50 },
-      });
-
-      // Collect button — x is centered, so subtract half-width to right-align
-      createButton(this, {
-        x: x + w - 14 - 28,
-        y: cy + 15,
-        w: 56, h: 24,
-        label: 'COLLECT',
-        fontSize: 10,
-        bg: C.BTN_NEUTRAL,
-        bgHover: C.BTN_NEUTRAL_HV,
-        textColor: TC.SECONDARY,
-        onClick: () => PlayerStateManager.addToInventory(item.id),
-      });
-
-      cy += 46;
-    });
-  }
-
-  // ─── Main checklist UI ───────────────────────────────────────────────────────
-
-  private buildUI(): void {
-    const panelH = 100 + this.checklist.length * 56 + 80;
-    createPanel(this, PANEL_X, PANEL_Y, PANEL_W, panelH, {
-      bg: C.PANEL, border: C.PANEL_BORDER, borderWidth: 2, radius: 12,
+    createPanel(this, PANEL_X, PANEL_Y, PANEL_W, PANEL_H, {
+      bg: C.PANEL,
+      border: accent.hex,
+      borderWidth: 2,
+      radius: 12,
     });
 
-    const cat = getCategoryById(this.mission.categoryId);
-    const hex = cat?.hexColor ?? C.BTN_PRIMARY;
-    const css = cat?.cssColor ?? TC.SECONDARY;
+    this.add.rectangle(PANEL_X, PANEL_Y, PANEL_W, 7, accent.hex, 0.95).setOrigin(0);
 
-    // Accent top strip
-    const accentGfx = this.add.graphics();
-    accentGfx.fillStyle(hex, 0.8);
-    accentGfx.fillRoundedRect(PANEL_X, PANEL_Y, PANEL_W, 5, { tl: 12, tr: 12, bl: 0, br: 0 });
-
-    let y = PANEL_Y + 22;
-
-    // Mission title
-    this.add.text(PANEL_X + 20, y, this.mission.title, {
-      fontSize: '20px', color: TC.PRIMARY, fontFamily: FONT, fontStyle: 'bold',
-      wordWrap: { width: PANEL_W - 40 },
+    let y = PANEL_Y + PAD;
+    this.add.text(PANEL_X + PAD, y, this.mission.title, {
+      fontSize: '23px',
+      color: TC.PRIMARY,
+      fontFamily: FONT,
+      fontStyle: 'bold',
+      wordWrap: { width: PANEL_W - PAD * 2 },
     });
-    y += 36;
+    y += 42;
 
-    // In-progress indicator
-    const indGfx = this.add.graphics();
-    indGfx.fillStyle(hex, 0.15);
-    indGfx.fillRoundedRect(PANEL_X + 20, y, PANEL_W - 40, 26, 6);
-    const dot = this.add.graphics();
-    dot.fillStyle(hex, 1);
-    dot.fillCircle(PANEL_X + 34, y + 13, 5);
-    this.add.text(PANEL_X + 46, y + 13, 'MISSION IN PROGRESS', {
-      fontSize: '11px', color: css, fontFamily: FONT, fontStyle: 'bold', letterSpacing: 1,
-    }).setOrigin(0, 0.5);
-    y += 38;
+    this.add.text(PANEL_X + PAD, y, `${category?.name ?? this.mission.categoryId} mission at ${this.location.name}`, {
+      fontSize: '13px',
+      color: accent.css,
+      fontFamily: FONT,
+      fontStyle: 'bold',
+      wordWrap: { width: PANEL_W - PAD * 2 },
+    });
+    y += 34;
 
-    // Progress bar
-    sectionHeader(this, PANEL_X + 20, y, 'PROGRESS', hex, css);
-    y += 20;
-    this.progressBar = createProgressBar(
-      this, PANEL_X + 20, y, PANEL_W - 40 - 80, 10, 0, hex,
-    );
-    this.progressText = this.add.text(PANEL_X + PANEL_W - 22, y + 5, '0 / 0', {
-      fontSize: '12px', color: TC.SECONDARY, fontFamily: FONT,
-    }).setOrigin(1, 0.5);
+    sectionHeader(this, PANEL_X + PAD, y, 'MISSION PROGRESS', accent.hex, accent.css);
     y += 26;
 
-    // Checklist
-    sectionHeader(this, PANEL_X + 20, y, 'TASKS', hex, css);
-    y += 22;
-    this.checklist.forEach((item, idx) => {
-      const row = this.buildCheckRow(item, idx, PANEL_X + 20, y, PANEL_W - 40, hex, css);
-      this.checkRows.push(row);
-      y += 56;
+    this.progressBar = createProgressBar(this, PANEL_X + PAD, y, PANEL_W - PAD * 2 - 92, 12, 0, accent.hex);
+    this.progressText = this.add.text(PANEL_X + PANEL_W - PAD, y + 6, '0 / 4', {
+      fontSize: '13px',
+      color: TC.SECONDARY,
+      fontFamily: FONT,
+      fontStyle: 'bold',
+    }).setOrigin(1, 0.5);
+    y += 38;
+
+    sectionHeader(this, PANEL_X + PAD, y, 'CHECKLIST', accent.hex, accent.css);
+    y += 26;
+
+    ACTION_TASKS.forEach((task) => {
+      const row = this.buildTaskRow(task, PANEL_X + PAD, y, PANEL_W - PAD * 2, accent);
+      this.taskRows.push(row);
+      y += TASK_H + TASK_GAP;
     });
 
-    // Submit button (initially disabled)
-    this.submitBtn = createButton(this, {
-      x: PANEL_X + PANEL_W - 20 - 160,
-      y: y + 24,
-      w: 160, h: 42,
-      label: '📤 SUBMIT PROOF',
-      bg: C.BTN_NEUTRAL,
-      bgHover: C.BTN_NEUTRAL_HV,
-      disabled: true,
-      onClick: () => {},
-    });
-
-    createButton(this, {
-      x: PANEL_X + 20 + 90,
-      y: y + 24,
-      w: 150, h: 42,
-      label: '← BACK',
-      bg: C.BTN_NEUTRAL,
-      bgHover: C.BTN_NEUTRAL_HV,
-      textColor: TC.SECONDARY,
-      onClick: () => this.scene.start(SCENE_KEYS.MISSION_DETAIL, {
-        mission: this.mission,
-        location: this.location,
-        allMissions: [this.mission],
-      }),
-    });
-
-    this.updateProgress();
+    this.buildRelatedItems(PANEL_X + PAD, PANEL_Y + PANEL_H - 104, PANEL_W - PAD * 2, accent);
+    this.buildActions(accent);
   }
 
-  private buildCheckRow(
-    item: ChecklistItem,
-    idx: number,
-    x: number, y: number,
+  private buildTaskRow(
+    task: ActionTask,
+    x: number,
+    y: number,
     w: number,
-    hex: number,
-    css: string,
+    accent: { hex: number; css: string },
   ): Phaser.GameObjects.Container {
-    const h = 48;
+    const done = this.completedTaskIds.has(task.id);
     const container = this.add.container(x, y);
 
-    const bg = this.add.graphics();
-    const paintBg = (done: boolean) => {
-      bg.clear();
-      bg.fillStyle(done ? hex : C.PANEL_LT, done ? 0.12 : 0.5);
-      bg.fillRoundedRect(0, 0, w, h, 8);
-      bg.lineStyle(1, done ? hex : C.PANEL_BORDER, done ? 0.5 : 0.4);
-      bg.strokeRoundedRect(0, 0, w, h, 8);
-    };
-    paintBg(item.completed);
+    const bg = this.add.rectangle(0, 0, w, TASK_H, done ? accent.hex : C.PANEL_LT, done ? 0.16 : 0.72).setOrigin(0);
+    bg.setStrokeStyle(1, done ? accent.hex : C.PANEL_BORDER, done ? 0.65 : 0.45);
 
-    // Checkbox
-    const box = this.add.graphics();
-    const paintBox = (done: boolean) => {
-      box.clear();
-      if (done) {
-        box.fillStyle(hex, 1);
-        box.fillRoundedRect(12, 14, 20, 20, 4);
-        box.fillStyle(0xffffff, 1);
-        // Checkmark via lines
-        box.lineStyle(2.5, 0xffffff, 1);
-        box.moveTo(16, 24); box.lineTo(20, 28); box.lineTo(28, 18);
-        box.strokePath();
-      } else {
-        box.lineStyle(2, C.PANEL_BORDER, 0.8);
-        box.strokeRoundedRect(12, 14, 20, 20, 4);
-      }
-    };
-    paintBox(item.completed);
+    const marker = this.add.rectangle(18, TASK_H / 2, 28, 28, done ? accent.hex : C.BTN_NEUTRAL, 1).setOrigin(0.5);
+    marker.setStrokeStyle(1, done ? accent.hex : C.PANEL_BORDER, 0.85);
 
-    const label = this.add.text(42, h / 2, item.label, {
-      fontSize: '14px',
-      color: item.completed ? css : TC.PRIMARY,
+    const markerText = this.add.text(18, TASK_H / 2, done ? 'OK' : '', {
+      fontSize: '10px',
+      color: TC.BRIGHT,
       fontFamily: FONT,
-    }).setOrigin(0, 0.5);
+      fontStyle: 'bold',
+    }).setOrigin(0.5);
 
-    const btnText = item.completed ? '✓ Done' : 'Complete';
-    const stepBtn = createButton(this, {
-      x: w - 50,
-      y: h / 2,
-      w: 90, h: 30,
-      label: btnText,
-      bg: item.completed ? C.BTN_NEUTRAL : C.BTN_SUCCESS,
-      bgHover: item.completed ? C.BTN_NEUTRAL : C.BTN_SUCCESS_HV,
-      fontSize: 12,
-      disabled: item.completed,
-      onClick: () => this.completeStep(idx, paintBg, paintBox, label, stepBtn),
+    const label = this.add.text(44, 16, task.label, {
+      fontSize: '15px',
+      color: done ? accent.css : TC.PRIMARY,
+      fontFamily: FONT,
+      fontStyle: 'bold',
     });
 
-    container.add([bg, box, label, stepBtn]);
+    const detail = this.add.text(44, 38, task.detail, {
+      fontSize: '11px',
+      color: TC.MUTED,
+      fontFamily: FONT,
+      wordWrap: { width: w - 180 },
+    });
+
+    const button = createButton(this, {
+      x: w - 58,
+      y: TASK_H / 2,
+      w: 116,
+      h: 34,
+      label: done ? 'Done' : 'Complete',
+      bg: done ? C.BTN_NEUTRAL : C.BTN_SUCCESS,
+      bgHover: done ? C.BTN_NEUTRAL_HV : C.BTN_SUCCESS_HV,
+      disabled: done,
+      fontSize: 12,
+      onClick: () => this.completeTask(task.id),
+    });
+
+    container.add([bg, marker, markerText, label, detail, button]);
     return container;
   }
 
-  // ─── State updates ────────────────────────────────────────────────────────────
-
-  private completeStep(
-    idx: number,
-    paintBg: (done: boolean) => void,
-    paintBox: (done: boolean) => void,
-    label: Phaser.GameObjects.Text,
-    btn: Phaser.GameObjects.Container,
+  private buildRelatedItems(
+    x: number,
+    y: number,
+    w: number,
+    accent: { hex: number; css: string },
   ): void {
-    this.checklist[idx].completed = true;
-    paintBg(true);
-    paintBox(true);
+    const items = getRelatedItemsByIds(this.mission.relatedItemIds).slice(0, 4);
 
-    const cat = getCategoryById(this.mission.categoryId);
-    const css = cat?.cssColor ?? TC.SECONDARY;
-    label.setColor(css);
+    sectionHeader(this, x, y, 'RELATED ITEMS', accent.hex, accent.css);
+    y += 26;
 
-    // Replace button with done indicator
-    btn.destroy();
+    if (items.length === 0) {
+      this.add.text(x, y, 'No related items are attached to this mission.', {
+        fontSize: '12px',
+        color: TC.MUTED,
+        fontFamily: FONT,
+      });
+      return;
+    }
+
+    const cardW = Math.floor((w - 30) / 4);
+    items.forEach((item, index) => {
+      const card = this.buildRelatedItemCard(item, x + index * (cardW + 10), y, cardW, 52);
+      this.relatedItemCards.push(card);
+    });
+  }
+
+  private buildRelatedItemCard(
+    item: RelatedItem,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): Phaser.GameObjects.Container {
+    const style = itemTypeStyle(item.type);
+    const selected = this.selectedItemId === item.id;
+    const container = this.add.container(x, y);
+
+    const bg = this.add.rectangle(0, 0, w, h, selected ? style.hex : C.PANEL_LT, selected ? 0.22 : 0.78).setOrigin(0);
+    bg.setStrokeStyle(1, style.hex, selected ? 0.95 : 0.55);
+
+    const shortName = item.name.length > 16 ? `${item.name.slice(0, 15)}...` : item.name;
+    const name = this.add.text(12, 10, shortName, {
+      fontSize: '12px',
+      color: TC.PRIMARY,
+      fontFamily: FONT,
+      fontStyle: 'bold',
+    });
+
+    const type = this.add.text(12, 30, item.type.toUpperCase(), {
+      fontSize: '10px',
+      color: style.css,
+      fontFamily: FONT,
+      fontStyle: 'bold',
+    });
+
+    const hit = this.add.rectangle(0, 0, w, h, 0, 0).setOrigin(0).setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', () => {
+      this.selectedItemId = item.id;
+      PlayerStateManager.addToInventory(item.id);
+      this.completeTask('collect_related_item');
+      bg.setFillStyle(style.hex, 0.22);
+      bg.setStrokeStyle(1, style.hex, 0.95);
+    });
+
+    container.add([bg, name, type, hit]);
+    return container;
+  }
+
+  private buildActions(accent: { hex: number; css: string }): void {
+    const y = PANEL_Y + PANEL_H - 34;
+    this.add.rectangle(PANEL_X + PAD, y - 34, PANEL_W - PAD * 2, 1, accent.hex, 0.24).setOrigin(0, 0.5);
+
+    createButton(this, {
+      x: PANEL_X + PAD + 76,
+      y,
+      w: 152,
+      h: 38,
+      label: 'Back',
+      bg: C.BTN_NEUTRAL,
+      bgHover: C.BTN_NEUTRAL_HV,
+      textColor: TC.SECONDARY,
+      fontSize: 13,
+      onClick: () => this.backToDetail(),
+    });
+
+    this.submitButton = createButton(this, {
+      x: PANEL_X + PANEL_W - PAD - 84,
+      y,
+      w: 168,
+      h: 38,
+      label: this.allDone() ? 'Submit Proof' : 'Submit Locked',
+      bg: this.allDone() ? C.BTN_SUCCESS : C.BTN_NEUTRAL,
+      bgHover: this.allDone() ? C.BTN_SUCCESS_HV : C.BTN_NEUTRAL_HV,
+      disabled: !this.allDone(),
+      fontSize: 13,
+      onClick: () => this.submitMission(),
+    });
+  }
+
+  private completeTask(taskId: string): void {
+    if (this.completedTaskIds.has(taskId)) return;
+
+    this.completedTaskIds.add(taskId);
+    sessionTaskState.set(this.mission.id, this.completedTaskIds);
+    this.rebuildTaskRows();
     this.updateProgress();
 
-    if (this.allDone()) this.enableSubmit();
+    if (this.allDone()) {
+      this.enableSubmit();
+    }
+  }
+
+  private rebuildTaskRows(): void {
+    this.taskRows.forEach(row => row.destroy());
+    this.taskRows = [];
+
+    const accent = this.getAccent();
+    let y = PANEL_Y + PAD + 42 + 34 + 26 + 38 + 26;
+    ACTION_TASKS.forEach((task) => {
+      const row = this.buildTaskRow(task, PANEL_X + PAD, y, PANEL_W - PAD * 2, accent);
+      this.taskRows.push(row);
+      y += TASK_H + TASK_GAP;
+    });
   }
 
   private updateProgress(): void {
-    const done = this.checklist.filter(c => c.completed).length;
-    const total = this.checklist.length;
+    const done = this.completedTaskIds.size;
+    const total = ACTION_TASKS.length;
     this.progressBar.setProgress(done / total);
     this.progressText.setText(`${done} / ${total}`);
   }
 
-  private allDone(): boolean {
-    return this.checklist.every(c => c.completed);
-  }
-
   private enableSubmit(): void {
-    if (!this.submitBtn) return;
-    this.submitBtn.destroy();
+    if (!this.submitButton) return;
 
-    this.submitBtn = createButton(this, {
-      x: PANEL_X + PANEL_W - 20 - 160,
-      y: PANEL_Y + 100 + this.checklist.length * 56 + 80 - 18,
-      w: 160, h: 42,
-      label: '📤 SUBMIT PROOF',
+    this.submitButton.destroy();
+    const y = PANEL_Y + PANEL_H - 34;
+    this.submitButton = createButton(this, {
+      x: PANEL_X + PANEL_W - PAD - 84,
+      y,
+      w: 168,
+      h: 38,
+      label: 'Submit Proof',
       bg: C.BTN_SUCCESS,
       bgHover: C.BTN_SUCCESS_HV,
-      textColor: TC.BRIGHT,
+      fontSize: 13,
       onClick: () => this.submitMission(),
     });
 
-    // Success pulse on the button
     this.tweens.add({
-      targets: this.submitBtn,
-      scaleX: 1.04, scaleY: 1.04,
-      duration: 600, yoyo: true, repeat: 2,
+      targets: this.submitButton,
+      scaleX: 1.04,
+      scaleY: 1.04,
+      duration: 420,
+      yoyo: true,
+      repeat: 1,
+    });
+  }
+
+  private allDone(): boolean {
+    return ACTION_TASKS.every(task => this.completedTaskIds.has(task.id));
+  }
+
+  private bindKeyboard(): void {
+    this.input.keyboard?.once('keydown-ESC', () => this.backToDetail());
+  }
+
+  private backToDetail(): void {
+    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera, progress) => {
+      if (progress === 1) {
+        this.scene.start(SCENE_KEYS.MISSION_DETAIL, {
+          mission: this.mission,
+          location: this.location,
+          allMissions: [this.mission],
+        });
+      }
     });
   }
 
   private submitMission(): void {
+    if (!this.allDone()) return;
+
     const { leveled, newLevel } = PlayerStateManager.addXP(this.mission.rewardXp);
     PlayerStateManager.addPoints(this.mission.rewardPoints);
     const newBadges = PlayerStateManager.completeMission(this.mission.id, this.mission.categoryId);
@@ -379,14 +410,25 @@ export class MissionActionScene extends Phaser.Scene {
       points: this.mission.rewardPoints,
     });
 
-    this.scene.start(SCENE_KEYS.REWARD, {
-      mission: this.mission,
-      location: this.location,
-      xpEarned: this.mission.rewardXp,
-      pointsEarned: this.mission.rewardPoints,
-      leveled,
-      newLevel,
-      newBadges,
+    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera, progress) => {
+      if (progress === 1) {
+        this.scene.start(SCENE_KEYS.REWARD, {
+          mission: this.mission,
+          location: this.location,
+          xpEarned: this.mission.rewardXp,
+          pointsEarned: this.mission.rewardPoints,
+          leveled,
+          newLevel,
+          newBadges,
+        });
+      }
     });
+  }
+
+  private getAccent(): { hex: number; css: string } {
+    return CATEGORY_COLORS[this.mission.categoryId] ?? {
+      hex: C.BTN_PRIMARY,
+      css: TC.SECONDARY,
+    };
   }
 }
