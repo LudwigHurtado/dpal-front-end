@@ -202,6 +202,18 @@ export function createDimOverlay(
   return gfx;
 }
 
+// ─── Item-type badge ─────────────────────────────────────────────────────────
+/** Maps a RelatedItem type string to a small colored hex/css pair. */
+export function itemTypeStyle(type: string): { hex: number; css: string } {
+  switch (type) {
+    case 'tool':     return { hex: 0x1060a0, css: '#4090d0' };
+    case 'evidence': return { hex: 0x906010, css: '#d09020' };
+    case 'contact':  return { hex: 0x107060, css: '#20b090' };
+    case 'supply':   return { hex: 0x601090, css: '#9040d0' };
+    default:         return { hex: 0x304050, css: '#608090' };
+  }
+}
+
 // ─── Section header ───────────────────────────────────────────────────────────
 export function sectionHeader(
   scene: Phaser.Scene,
