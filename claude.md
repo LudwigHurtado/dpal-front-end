@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-17 (Sentinel-1 SAR + Sentinel-2 NDVI live integration, snapshot AI panel, Mongoose index fixes)
+Last updated: 2026-04-18 (Carbon Market demo mode, Ecological Conservation live backend + demo fallback, Esri satellite map)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -72,10 +72,11 @@ See **`vite-env.d.ts`** for the full typed list.
 
 3. **`dpal-ai-server`** (separate GitHub repo, **not** this tree)  
    - **`LudwigHurtado/dpal-ai-server`** — this is what usually backs **`https://web-production-a27b.up.railway.app`**.  
-   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, carbon MRV, offsets, **water monitor**, etc.
+   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, carbon MRV, offsets, **water monitor**, **ecology**, etc.
    - **Water Monitor routes** (`/api/water/*`) added in `src/routes/water.routes.ts` — registered in `src/index.ts`. Models in `src/models/Water*.ts`. Satellite adapters in `src/services/adapters/*.adapter.ts`.
    - **Carbon MRV routes** (`/api/carbon/*`) in `src/routes/carbon.routes.ts`.
    - **Offsets routes** (`/api/offsets/*`) in `src/routes/offsets.routes.ts`.
+   - **Ecology routes** (`/api/ecology/*`) in `src/routes/ecology.routes.ts` — Landsat 9 foliage scan via Microsoft Planetary Computer STAC. Adapter: `src/services/adapters/landsatEcology.adapter.ts`.
 
 When debugging “API issues,” confirm whether the app is pointed at Railway **`dpal-ai-server`** or local `3001` Prisma backend.
 
@@ -145,6 +146,7 @@ If a dashboard shows “disconnected” or wrong API:
 | `offsetMarketplace` | `/offsets` | Carbon Credit Market (buy, retire, register land, learn) |
 | `carbonMRV` | `/carbon` | Carbon MRV Engine (register projects, satellite, score, validator, credits) |
 | `waterMonitor` | `/water` | **Water Monitor** (water projects, satellite snapshots, impact score, validator, credits) |
+| `ecologicalConservation` | `/ecology` | **Ecological Conservation** (Landsat foliage scan, NDVI, habitat risk, AI chat) |
 
 ### Accounts & authentication (MongoDB users on `dpal-ai-server`)
 
@@ -185,14 +187,48 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | **Missions V2 — Types** | `features/missions-v2/types.ts`, `marketplaceTypes.ts`, `createMissionTypes.ts` |
 | **Missions V2 — Theme** | `features/missions-v2/missionWorkspaceTheme.ts` — `mw.*` class helpers (teal/dark palette) |
 | **AI Work Directives (Work Network)** | `components/AiWorkDirectivesView.tsx` — AI-guided community work marketplace; 15 categories; in-progress step tracking, proof notes, claim coins flow |
-| **Carbon Credit Market** | `components/OffsetMarketplaceView.tsx` — tabs: Market (buy/sell, world map, sparklines), My Credits (retire/certify), Impact Feed, Register Land (4-step wizard), **Learn** (Venn diagram, market data, registry comparison). Demo data fallback when API cold. Cross-links to Carbon MRV. |
+| **Carbon Credit Market** | `components/OffsetMarketplaceView.tsx` — tabs: Market (buy/sell, world map, sparklines), My Credits (retire/certify), Impact Feed, Register Land (4-step wizard), **Learn** (Venn diagram, market data, registry comparison). Buy/retire/join work in demo mode via localStorage simulation (`dpal_cc_local_purchases`). Anonymous purchases also saved to localStorage so portfolio is visible without login. Cross-links to Carbon MRV. |
 | **Carbon MRV Engine** | `components/CarbonMRVDashboard.tsx` — tabs: My Projects, Marketplace, Global Ledger. Views: dashboard, create (4-step), project detail (satellite NDVI, MRV score circular gauge, blockchain ledger), validator portal. Cross-links to Carbon Market. |
 | **DPAL Water Monitor** | `components/WaterMonitorView.tsx` — tabs: Dashboard, My Projects, Validator Queue, Credits. Views: dashboard (platform stats, WaterGlobe), create project (8 types, GPS polygon), project detail (satellite pull with 5 adapters, Water Impact Score 0–100, reports), validator review, credit issuance & marketplace. |
 | **Water Globe** | `components/WaterGlobe.tsx` — animated world globe for water project pins and alert indicators. |
+| **Ecological Conservation** | `components/EcologicalConservationView.tsx` — Landsat 9 OLI-2 foliage/habitat scan at `/ecology`. API: `GET /api/ecology/landsat-scan?lat=&lng=&radiusKm=` → Microsoft Planetary Computer STAC. Demo fallback: `buildDemoScan()` computes deterministic NDVI/risk from coordinates when API is unavailable. Map uses Esri satellite + labels tiles. AI chat via Gemini. |
 
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-18 — Carbon Market functional demo mode + Ecological Conservation live backend
+
+#### Carbon Credit Market (`/offsets`) — `components/OffsetMarketplaceView.tsx` — commit `e03b94e`
+
+**Problem:** Demo projects (`DEMO-1` … `DEMO-6`) were purely client-side. Clicking Buy/Retire sent those IDs to the API which returned 404 "Project not found". Portfolio tab returned nothing for anonymous users.
+
+**Fix — localStorage-backed simulation:**
+- Added `localPurchases` state initialised from `localStorage` key `dpal_cc_local_purchases`.
+- **Demo mode** (`isDemoMode === true`): Buy simulates 700 ms latency, creates a `DEMO-xxx` purchaseId, decrements `availableUnits` in local state, saves to localStorage. Retire generates a local `demo-cert-*` hash and saves to localStorage.
+- **Real mode (anonymous or signed-in)**: After a successful API buy, the purchase is also written to localStorage so the portfolio tab shows immediately without needing a hero account.
+- `displayPortfolio` merges API purchases + localStorage purchases (deduped by `purchaseId`), sorted newest-first.
+- `portfolioTotals` and the My Credits tab are both driven by `displayPortfolio`.
+- Anonymous notice updated: "Purchases are saved locally. Sign in to sync your portfolio across devices."
+
+#### Ecological Conservation (`/ecology`) — commits `bd9f3d1`, `abd521a`, `e7face9`
+
+**Problem:** `GET /api/ecology/landsat-scan` didn't exist anywhere in `dpal-ai-server`. The frontend fell back to a dead error notice with no data. The map used dark CARTO tiles and rendered with only half the tiles filled.
+
+**Fix — backend route (dpal-ai-server commit `cfffd42`):**
+- New `src/services/adapters/landsatEcology.adapter.ts` — queries Microsoft Planetary Computer STAC for Landsat-9 (fallback Landsat-8) Collection 2 Level-2 scenes, reads red + NIR band statistics via the PC Data Item Statistics API, computes NDVI, classifies foliage health / canopy change / habitat risk. Logs `🌿 Landsat ecology scan (lat,lng): NDVI=x risk=y` on every call.
+- New `src/routes/ecology.routes.ts` — `GET /api/ecology/landsat-scan?lat=&lng=&radiusKm=`. On adapter error returns a structured JSON body (not a crash) so the frontend can gracefully fall back.
+- Registered as `app.use('/api/ecology', ecologyRoutes)` in `src/index.ts`. No new env vars required — uses public Planetary Computer endpoints.
+
+**Fix — frontend demo fallback:**
+- `buildDemoScan(lat, lng)` computes a deterministic NDVI (0.15–0.80) and risk level from coordinates using `Math.sin(lat * 127.1 + lng * 311.7)` — same location always gives the same reading.
+- `runScan()` now calls demo on any API error/non-ok, shows a yellow notice banner: "Could not reach the Landsat backend — showing a demo estimate for this location."
+
+**Fix — map:**
+- Replaced dark CARTO tiles with Esri World Imagery + World Boundaries and Places reference overlay (same as Water Monitor).
+- Fixed half-tile render: replaced `className="h-80"` + `style={{ height: '100%' }}` with `style={{ height: '480px' }}` on both the wrapper div and the `MapContainer`. Leaflet ignores percentage heights set via Tailwind classes — explicit px on the MapContainer is required.
+
+---
 
 ### 2026-04-17 — Sentinel-1 SAR + Sentinel-2 NDVI live integration
 
