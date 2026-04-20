@@ -1,6 +1,6 @@
 import * as Phaser from 'phaser';
 import {
-  SCENE_KEYS, C, TC, GAME_WIDTH, GAME_HEIGHT, MAP_TOP, CATEGORY_COLORS,
+  SCENE_KEYS, C, TC, GAME_WIDTH, GAME_HEIGHT, MAP_TOP,
 } from '../constants';
 import { locations, Location } from '../data/locations';
 import { categories } from '../data/categories';
@@ -18,23 +18,13 @@ import {
 // Map content area
 const MAP_H = GAME_HEIGHT - MAP_TOP - 20;
 
-// Zone boundary fractions (normalized, relative to map area)
+// Legacy placeholder helpers below are no longer called, but keeping these
+// fractions avoids making the map image swap dependent on unrelated cleanup.
 const Z = {
-  // Vertical divider between West and Center/East
-  westEdge:   0.38,
-  // Vertical divider between Center and School District
+  westEdge: 0.38,
   schoolEdge: 0.65,
-  // Horizontal divider between Central (top) and Riverside (bottom)
-  riverEdge:  0.60,
+  riverEdge: 0.60,
 } as const;
-
-/** Named zone: visual color used for backgrounds and labels */
-const ZONE_COLORS: Record<string, { hex: number; css: string }> = {
-  'Westside':        { hex: C.CAT_ROAD, css: TC.CAT_ROAD },
-  'Central':         { hex: C.CAT_PETS, css: TC.CAT_PETS },
-  'Riverside':       { hex: C.CAT_ENV,  css: TC.CAT_ENV  },
-  'School District': { hex: C.CAT_EDU,  css: TC.CAT_EDU  },
-};
 
 interface MarkerObjects {
   container: Phaser.GameObjects.Container;
@@ -98,11 +88,9 @@ export class WorldMapScene extends Phaser.Scene {
     map.setDisplaySize(displayW, displayH);
     map.setOrigin(0.5);
 
-    const tint = this.add.graphics();
-    tint.fillStyle(0x000000, 0.14);
-    tint.fillRect(x, y, displayW, displayH);
-    tint.lineStyle(2, C.PANEL_BORDER, 0.75);
-    tint.strokeRect(x, y, displayW, displayH);
+    const frame = this.add.graphics();
+    frame.lineStyle(2, C.PANEL_BORDER, 0.75);
+    frame.strokeRect(x, y, displayW, displayH);
 
     const shade = this.add.graphics();
     shade.fillStyle(0x000000, 0.48);

@@ -22,12 +22,12 @@ export interface WorldMapMarkerPosition {
 export const WORLD_MAP_MARKER_POSITIONS: WorldMapMarkerPosition[] = [
   { id: 'loc_01', x: 0.22, y: 0.25, district: 'Westside', categoryId: 'road_hazards' },
   { id: 'loc_05', x: 0.34, y: 0.50, district: 'Industrial', categoryId: 'road_hazards' },
-  { id: 'loc_02', x: 0.48, y: 0.42, district: 'City Park', categoryId: 'lost_pets' },
-  { id: 'loc_06', x: 0.55, y: 0.40, district: 'City Park', categoryId: 'lost_pets' },
-  { id: 'loc_03', x: 0.19, y: 0.59, district: 'Industrial', categoryId: 'environmental' },
-  { id: 'loc_08', x: 0.50, y: 0.66, district: 'Riverside', categoryId: 'environmental' },
-  { id: 'loc_04', x: 0.78, y: 0.27, district: 'School District', categoryId: 'education' },
-  { id: 'loc_07', x: 0.84, y: 0.49, district: 'School District', categoryId: 'education' },
+  { id: 'loc_02', x: 0.49, y: 0.46, district: 'City Park', categoryId: 'lost_pets' },
+  { id: 'loc_06', x: 0.56, y: 0.42, district: 'City Park', categoryId: 'lost_pets' },
+  { id: 'loc_03', x: 0.19, y: 0.65, district: 'Industrial', categoryId: 'environmental' },
+  { id: 'loc_08', x: 0.50, y: 0.71, district: 'Riverside', categoryId: 'environmental' },
+  { id: 'loc_04', x: 0.79, y: 0.27, district: 'School District', categoryId: 'education' },
+  { id: 'loc_07', x: 0.86, y: 0.49, district: 'School District', categoryId: 'education' },
 ];
 
 export const WORLD_MAP_MARKER_BY_ID = Object.fromEntries(

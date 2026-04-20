@@ -1,93 +1,111 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1674 768" width="1674" height="768">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#071322"/>
-      <stop offset="0.48" stop-color="#10273a"/>
-      <stop offset="1" stop-color="#06101d"/>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#18364a"/>
+      <stop offset="0.5" stop-color="#1d4654"/>
+      <stop offset="1" stop-color="#122939"/>
     </linearGradient>
-    <radialGradient id="park" cx="50%" cy="48%" r="60%">
-      <stop offset="0" stop-color="#496b3b"/>
-      <stop offset="1" stop-color="#132d23"/>
-    </radialGradient>
-    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <linearGradient id="river" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#16708a"/>
+      <stop offset="0.5" stop-color="#1b8aa0"/>
+      <stop offset="1" stop-color="#12647f"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#020812" flood-opacity="0.34"/>
     </filter>
-    <pattern id="houses" width="60" height="48" patternUnits="userSpaceOnUse">
-      <rect x="10" y="10" width="30" height="18" rx="2" fill="#213245"/>
-      <rect x="43" y="24" width="12" height="10" rx="1" fill="#2b4056"/>
-      <circle cx="20" cy="31" r="1.8" fill="#c8944a" opacity="0.75"/>
-      <circle cx="33" cy="16" r="1.5" fill="#88c6d9" opacity="0.5"/>
-    </pattern>
-    <pattern id="blocks" width="76" height="64" patternUnits="userSpaceOnUse">
-      <rect x="8" y="8" width="28" height="42" rx="2" fill="#26394d"/>
-      <rect x="44" y="18" width="22" height="32" rx="2" fill="#1f3043"/>
-      <path d="M15 18h14M15 27h14M15 36h14M50 27h10M50 37h10" stroke="#7db2c6" stroke-width="1" opacity="0.35"/>
-    </pattern>
-    <pattern id="industrial" width="92" height="70" patternUnits="userSpaceOnUse">
-      <rect x="10" y="20" width="54" height="28" rx="2" fill="#35404a"/>
-      <rect x="67" y="10" width="8" height="40" fill="#5b5148"/>
-      <rect x="22" y="12" width="14" height="8" fill="#455263"/>
-      <circle cx="76" cy="8" r="7" fill="#4d5964" opacity="0.65"/>
-      <path d="M8 55h70" stroke="#b86e0c" stroke-width="2" opacity="0.35"/>
-    </pattern>
-    <pattern id="trees" width="44" height="42" patternUnits="userSpaceOnUse">
-      <circle cx="14" cy="18" r="9" fill="#335f32"/>
-      <circle cx="29" cy="23" r="11" fill="#244d2b"/>
-      <circle cx="23" cy="12" r="7" fill="#4a7b3d"/>
-    </pattern>
   </defs>
 
-  <rect width="1674" height="768" fill="url(#sky)"/>
-  <rect width="1674" height="768" fill="#020812" opacity="0.2"/>
+  <rect width="1674" height="768" fill="url(#base)"/>
 
-  <path d="M0 570 C210 600 360 560 520 520 C650 486 780 488 930 526 C1120 574 1350 575 1674 530 L1674 768 L0 768 Z" fill="#062b3d"/>
-  <path d="M0 586 C220 620 385 578 535 538 C665 506 795 510 930 548 C1125 602 1350 596 1674 554" fill="none" stroke="#1590a8" stroke-width="5" opacity="0.42"/>
-  <path d="M600 470 C720 455 820 464 1010 500 C1190 534 1380 534 1674 492" fill="none" stroke="#33536a" stroke-width="18" opacity="0.7"/>
+  <!-- broad readable districts -->
+  <path d="M42 84 L515 62 L582 238 L536 382 L46 424 Z" fill="#24485a" opacity="0.95"/>
+  <path d="M68 428 L548 390 L594 614 L38 650 Z" fill="#4d493f" opacity="0.95"/>
+  <path d="M590 54 L1102 44 L1104 244 L586 248 Z" fill="#294d5c" opacity="0.96"/>
+  <path d="M604 262 L1086 246 L1082 478 L604 466 Z" fill="#2f674d" opacity="0.98"/>
+  <path d="M1128 72 L1584 82 L1622 422 L1118 444 Z" fill="#24465e" opacity="0.98"/>
+  <path d="M534 610 L1062 548 L1110 738 L420 756 Z" fill="#253f4d" opacity="0.9"/>
+  <path d="M1084 556 L1628 520 L1674 744 L1050 760 Z" fill="#20384a" opacity="0.9"/>
 
-  <path d="M0 70 L560 42 L620 210 L575 390 L0 418 Z" fill="url(#houses)" opacity="0.82"/>
-  <path d="M0 400 L580 382 L610 576 L0 624 Z" fill="url(#industrial)" opacity="0.9"/>
-  <path d="M590 34 L1115 0 L1110 238 L610 238 Z" fill="url(#blocks)" opacity="0.88"/>
-  <path d="M615 248 L1100 228 L1090 476 L592 448 Z" fill="url(#park)" opacity="0.95"/>
-  <path d="M1130 55 L1570 48 L1625 420 L1112 452 Z" fill="#132b3c" opacity="0.96"/>
-  <path d="M1148 80 L1545 78 L1582 396 L1130 416 Z" fill="url(#blocks)" opacity="0.58"/>
-  <path d="M560 585 L1052 552 L1112 740 L448 768 Z" fill="url(#houses)" opacity="0.56"/>
-  <path d="M1090 560 L1620 536 L1674 768 L1052 768 Z" fill="url(#houses)" opacity="0.48"/>
+  <!-- river and banks -->
+  <path d="M0 558 C198 588 360 560 536 520 C676 488 792 492 944 528 C1132 572 1350 570 1674 526 L1674 646 C1390 682 1120 672 916 612 C768 568 652 568 522 606 C348 656 178 660 0 628 Z" fill="url(#river)"/>
+  <path d="M0 548 C198 578 360 550 536 510 C676 478 792 482 944 518 C1132 562 1350 560 1674 516" fill="none" stroke="#6fd0d1" stroke-width="6" opacity="0.35"/>
+  <path d="M0 644 C212 688 372 672 540 626 C682 586 792 590 916 632 C1118 696 1398 704 1674 662" fill="none" stroke="#0d2d3c" stroke-width="14" opacity="0.45"/>
 
-  <rect x="625" y="270" width="450" height="178" rx="24" fill="url(#trees)" opacity="0.7"/>
-  <ellipse cx="845" cy="360" rx="96" ry="40" fill="#123f45" opacity="0.8"/>
-  <path d="M650 405 C760 360 900 424 1060 350" fill="none" stroke="#829d73" stroke-width="6" opacity="0.35"/>
-  <path d="M690 295 C810 320 935 278 1052 312" fill="none" stroke="#829d73" stroke-width="5" opacity="0.28"/>
-
-  <path d="M588 0 L620 768" stroke="#26394d" stroke-width="24" opacity="0.8"/>
-  <path d="M1110 0 L1082 768" stroke="#26394d" stroke-width="24" opacity="0.86"/>
-  <path d="M0 348 L1674 286" stroke="#26394d" stroke-width="16" opacity="0.82"/>
-  <path d="M40 96 C250 64 410 76 560 38" stroke="#31475a" stroke-width="10" opacity="0.78"/>
-  <path d="M1120 440 C1330 455 1500 435 1674 390" stroke="#2c4256" stroke-width="13" opacity="0.75"/>
-  <path d="M1220 86 L1600 92 L1585 428 L1136 424 Z" fill="none" stroke="#0e76a0" stroke-width="4" opacity="0.68"/>
-
-  <rect x="1218" y="210" width="128" height="62" rx="6" fill="#25513f" opacity="0.85"/>
-  <ellipse cx="1436" cy="245" rx="62" ry="40" fill="#33513f" opacity="0.85"/>
-  <ellipse cx="1436" cy="245" rx="48" ry="30" fill="none" stroke="#7a4b74" stroke-width="4" opacity="0.6"/>
-  <rect x="1294" y="130" width="104" height="44" rx="4" fill="#27445b" opacity="0.9"/>
-  <rect x="1408" y="140" width="96" height="38" rx="4" fill="#29475d" opacity="0.85"/>
-
-  <g font-family="Segoe UI, Arial, sans-serif" font-weight="700" letter-spacing="14" text-anchor="middle" filter="url(#softGlow)">
-    <text x="350" y="210" font-size="28" fill="#e1b36b">WESTSIDE</text>
-    <text x="850" y="155" font-size="28" fill="#75d5b0">CENTRAL</text>
-    <text x="1325" y="195" font-size="28" fill="#1dc0e5">SCHOOL DISTRICT</text>
-    <text x="330" y="525" font-size="28" fill="#d18434">INDUSTRIAL</text>
-    <text x="845" y="408" font-size="26" fill="#65d69a">CITY PARK</text>
-    <text x="850" y="615" font-size="26" fill="#68d4cf">RIVERSIDE</text>
+  <!-- roads -->
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M584 0 L604 768" stroke="#d9e2df" stroke-width="28" opacity="0.18"/>
+    <path d="M1102 0 L1084 768" stroke="#d9e2df" stroke-width="30" opacity="0.18"/>
+    <path d="M0 346 L1674 292" stroke="#d9e2df" stroke-width="22" opacity="0.18"/>
+    <path d="M52 112 C248 76 388 88 556 50" stroke="#d9e2df" stroke-width="16" opacity="0.15"/>
+    <path d="M1162 436 C1320 448 1500 430 1674 388" stroke="#d9e2df" stroke-width="18" opacity="0.16"/>
+    <path d="M512 520 C648 456 796 482 946 522" stroke="#d9e2df" stroke-width="16" opacity="0.16"/>
+    <path d="M604 596 C724 552 878 548 1086 586" stroke="#d9e2df" stroke-width="15" opacity="0.13"/>
+    <path d="M1120 548 C1288 518 1440 526 1610 494" stroke="#d9e2df" stroke-width="14" opacity="0.13"/>
   </g>
 
-  <rect width="1674" height="768" fill="#020712" opacity="0.26"/>
-  <radialGradient id="vignette" cx="50%" cy="46%" r="72%">
-    <stop offset="0" stop-color="#000000" stop-opacity="0"/>
-    <stop offset="1" stop-color="#000000" stop-opacity="0.55"/>
-  </radialGradient>
-  <rect width="1674" height="768" fill="url(#vignette)"/>
+  <!-- bridge -->
+  <g filter="url(#softShadow)">
+    <path d="M1042 462 L1128 686" stroke="#a7b5aa" stroke-width="36" opacity="0.42" stroke-linecap="round"/>
+    <path d="M1054 468 L1138 680" stroke="#182b36" stroke-width="18" opacity="0.92" stroke-linecap="round"/>
+    <path d="M1064 500 L1124 654" stroke="#d8e0d8" stroke-width="3" opacity="0.42" stroke-dasharray="16 18"/>
+  </g>
+
+  <!-- landmark shapes, intentionally simple/open -->
+  <g filter="url(#softShadow)">
+    <rect x="654" y="286" width="368" height="154" rx="28" fill="#36794f"/>
+    <ellipse cx="838" cy="364" rx="94" ry="38" fill="#1e6770" opacity="0.72"/>
+    <path d="M678 405 C780 352 914 420 1004 334" fill="none" stroke="#8fbd7a" stroke-width="8" opacity="0.3"/>
+
+    <rect x="1218" y="156" width="120" height="72" rx="8" fill="#2f6980"/>
+    <rect x="1366" y="160" width="126" height="56" rx="8" fill="#315c76"/>
+    <rect x="1224" y="248" width="142" height="72" rx="10" fill="#386954"/>
+    <ellipse cx="1450" cy="284" rx="66" ry="42" fill="#4a6958"/>
+    <ellipse cx="1450" cy="284" rx="48" ry="29" fill="none" stroke="#8aa898" stroke-width="5" opacity="0.55"/>
+
+    <rect x="170" y="148" width="82" height="54" rx="8" fill="#315467"/>
+    <rect x="302" y="142" width="98" height="64" rx="8" fill="#2c4c5f"/>
+    <rect x="130" y="260" width="104" height="58" rx="8" fill="#2b4a5c"/>
+    <rect x="320" y="260" width="116" height="64" rx="8" fill="#2c4d60"/>
+
+    <rect x="126" y="480" width="128" height="64" rx="6" fill="#605749"/>
+    <rect x="292" y="454" width="160" height="82" rx="6" fill="#665b48"/>
+    <rect x="116" y="566" width="170" height="44" rx="6" fill="#584f45"/>
+    <circle cx="470" cy="520" r="34" fill="#82745e"/>
+
+    <rect x="694" y="106" width="86" height="92" rx="8" fill="#33596e"/>
+    <rect x="812" y="84" width="104" height="116" rx="8" fill="#386278"/>
+    <rect x="950" y="124" width="92" height="76" rx="8" fill="#31586c"/>
+  </g>
+
+  <!-- subtle block hints, not tiny buildings -->
+  <g fill="#d8e2dc" opacity="0.08">
+    <rect x="82" y="120" width="72" height="18" rx="3"/>
+    <rect x="80" y="226" width="96" height="16" rx="3"/>
+    <rect x="258" y="222" width="112" height="16" rx="3"/>
+    <rect x="406" y="136" width="86" height="16" rx="3"/>
+    <rect x="640" y="218" width="116" height="16" rx="3"/>
+    <rect x="782" y="220" width="92" height="16" rx="3"/>
+    <rect x="928" y="220" width="118" height="16" rx="3"/>
+    <rect x="1188" y="108" width="110" height="16" rx="3"/>
+    <rect x="1340" y="104" width="128" height="16" rx="3"/>
+    <rect x="1510" y="220" width="92" height="16" rx="3"/>
+    <rect x="666" y="658" width="120" height="16" rx="3"/>
+    <rect x="842" y="632" width="104" height="16" rx="3"/>
+    <rect x="1214" y="628" width="120" height="16" rx="3"/>
+    <rect x="1398" y="610" width="112" height="16" rx="3"/>
+  </g>
+
+  <!-- open marker pockets -->
+  <g fill="#b8d8cf" opacity="0.08">
+    <circle cx="368" cy="190" r="54"/>
+    <circle cx="568" cy="384" r="48"/>
+    <circle cx="820" cy="350" r="52"/>
+    <circle cx="930" cy="326" r="48"/>
+    <circle cx="310" cy="500" r="52"/>
+    <circle cx="842" cy="548" r="48"/>
+    <circle cx="1320" cy="210" r="52"/>
+    <circle cx="1438" cy="376" r="50"/>
+  </g>
+
+  <rect width="1674" height="768" fill="#04111c" opacity="0.08"/>
 </svg>
