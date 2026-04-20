@@ -1,8 +1,8 @@
 export const WORLD_MAP_TEXTURE_KEY = 'dpal-city-map';
-export const WORLD_MAP_ASSET_PATH = '/games/dpal-city-map.svg';
+export const WORLD_MAP_ASSET_PATH = '/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png';
 export const WORLD_MAP_SOURCE_SIZE = {
-  width: 1674,
-  height: 768,
+  width: 1672,
+  height: 941,
 } as const;
 
 export interface WorldMapMarkerPosition {
