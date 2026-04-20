@@ -8,6 +8,12 @@ import { getMissionsByLocation } from '../data/missions';
 import { getCategoryById } from '../data/categories';
 import { PlayerStateManager } from '../data/playerState';
 import { FONT } from '../ui/UIHelpers';
+import {
+  WORLD_MAP_ASSET_PATH,
+  WORLD_MAP_MARKER_LAYOUT,
+  WORLD_MAP_SOURCE_SIZE,
+  WORLD_MAP_TEXTURE_KEY,
+} from '../config/worldMapLayout';
 
 // Map content area
 const MAP_H = GAME_HEIGHT - MAP_TOP - 20;
@@ -37,28 +43,76 @@ interface MarkerObjects {
   pulseTween?: Phaser.Tweens.Tween;
 }
 
+interface MapFrame {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export class WorldMapScene extends Phaser.Scene {
   private markerObjects: MarkerObjects[] = [];
   private tooltip?: Phaser.GameObjects.Container;
+  private mapFrame: MapFrame = { x: 0, y: MAP_TOP, width: GAME_WIDTH, height: MAP_H };
 
   constructor() {
     super({ key: SCENE_KEYS.WORLD_MAP });
+  }
+
+  preload(): void {
+    if (!this.textures.exists(WORLD_MAP_TEXTURE_KEY)) {
+      this.load.image(WORLD_MAP_TEXTURE_KEY, WORLD_MAP_ASSET_PATH);
+    }
   }
 
   create(): void {
     PlayerStateManager.setZone('City Map');
     this.cameras.main.setBackgroundColor(C.BG);
 
-    this.drawZoneBackgrounds();
-    this.drawStreetGrid();
-    this.drawLandmarks();
-    this.drawZoneDividers();
+    this.drawMapBackground();
     this.drawZoneLabels();
     this.drawLegend();
     this.buildMarkers();
     this.drawFooter();
 
     this.events.on(Phaser.Scenes.Events.RESUME, () => this.rebuildMarkers());
+  }
+
+  private drawMapBackground(): void {
+    const fitScale = Math.min(
+      GAME_WIDTH / WORLD_MAP_SOURCE_SIZE.width,
+      MAP_H / WORLD_MAP_SOURCE_SIZE.height,
+    );
+    const displayW = WORLD_MAP_SOURCE_SIZE.width * fitScale;
+    const displayH = WORLD_MAP_SOURCE_SIZE.height * fitScale;
+    const x = (GAME_WIDTH - displayW) / 2;
+    const y = MAP_TOP + (MAP_H - displayH) / 2;
+
+    this.mapFrame = { x, y, width: displayW, height: displayH };
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0x050d18, 1);
+    bg.fillRect(0, MAP_TOP, GAME_WIDTH, MAP_H);
+
+    const map = this.add.image(GAME_WIDTH / 2, y + displayH / 2, WORLD_MAP_TEXTURE_KEY);
+    map.setDisplaySize(displayW, displayH);
+    map.setOrigin(0.5);
+
+    const tint = this.add.graphics();
+    tint.fillStyle(0x000000, 0.14);
+    tint.fillRect(x, y, displayW, displayH);
+    tint.lineStyle(2, C.PANEL_BORDER, 0.75);
+    tint.strokeRect(x, y, displayW, displayH);
+
+    const shade = this.add.graphics();
+    shade.fillStyle(0x000000, 0.48);
+    if (y > MAP_TOP) {
+      shade.fillRect(0, MAP_TOP, GAME_WIDTH, y - MAP_TOP);
+    }
+    const bottom = y + displayH;
+    if (bottom < MAP_TOP + MAP_H) {
+      shade.fillRect(0, bottom, GAME_WIDTH, MAP_TOP + MAP_H - bottom);
+    }
   }
 
   // ─── Zone backgrounds ─────────────────────────────────────────────────────
@@ -191,36 +245,34 @@ export class WorldMapScene extends Phaser.Scene {
   // ─── Zone labels ──────────────────────────────────────────────────────────
 
   private drawZoneLabels(): void {
-    const my = MAP_TOP;
-    const wx = GAME_WIDTH * Z.westEdge;
-    const sx = GAME_WIDTH * Z.schoolEdge;
-    const ry = my + MAP_H * Z.riverEdge;
-
-    // Each label: zone name as a styled "street sign" chip
+    const { x, y, width, height } = this.mapFrame;
     const labels = [
-      { x: wx / 2,                     y: my + 14,             text: 'WESTSIDE',        css: TC.CAT_ROAD, hex: C.CAT_ROAD },
-      { x: (wx + sx) / 2,              y: my + 14,             text: 'CENTRAL',         css: TC.CAT_PETS, hex: C.CAT_PETS },
-      { x: sx + (GAME_WIDTH - sx) / 2, y: my + 14,             text: 'SCHOOL DISTRICT', css: TC.CAT_EDU,  hex: C.CAT_EDU  },
-      { x: (wx + sx) / 2,              y: ry + 14,             text: 'RIVERSIDE',       css: TC.CAT_ENV,  hex: C.CAT_ENV  },
-      // Riverside also bleeds into Westside bottom
-      { x: wx / 2,                     y: ry + 14,             text: 'RIVERSIDE',       css: TC.CAT_ENV,  hex: C.CAT_ENV  },
+      { x: x + width * 0.21, y: y + height * 0.20, text: 'WESTSIDE',        css: TC.CAT_ROAD, hex: C.CAT_ROAD },
+      { x: x + width * 0.50, y: y + height * 0.14, text: 'CENTRAL',         css: TC.CAT_PETS, hex: C.CAT_PETS },
+      { x: x + width * 0.80, y: y + height * 0.19, text: 'SCHOOL DISTRICT', css: TC.CAT_EDU,  hex: C.CAT_EDU  },
+      { x: x + width * 0.20, y: y + height * 0.55, text: 'INDUSTRIAL',      css: TC.CAT_ROAD, hex: C.CAT_ROAD },
+      { x: x + width * 0.50, y: y + height * 0.41, text: 'CITY PARK',       css: TC.CAT_PETS, hex: C.CAT_PETS },
+      { x: x + width * 0.50, y: y + height * 0.64, text: 'RIVERSIDE',       css: TC.CAT_ENV,  hex: C.CAT_ENV  },
     ];
 
     const gfx = this.add.graphics();
 
-    labels.forEach(({ x, y, text, css, hex }) => {
-      const txt = this.add.text(x, y + 8, text, {
-        fontSize: '10px', color: css, fontFamily: FONT, fontStyle: 'bold', letterSpacing: 1,
-      }).setOrigin(0.5, 0).setAlpha(0.75);
+    labels.forEach(({ x: lx, y: ly, text, css, hex }) => {
+      const txt = this.add.text(lx, ly, text, {
+        fontSize: '10px',
+        color: css,
+        fontFamily: FONT,
+        fontStyle: 'bold',
+        letterSpacing: 2,
+      }).setOrigin(0.5).setAlpha(0.88);
 
-      // Underline rule in category color
-      const tw = txt.width;
-      gfx.lineStyle(1, hex, 0.3);
-      gfx.moveTo(x - tw / 2, y + 22);
-      gfx.lineTo(x + tw / 2, y + 22);
+      const padX = 9;
+      const padY = 5;
+      gfx.fillStyle(0x020812, 0.46);
+      gfx.fillRoundedRect(lx - txt.width / 2 - padX, ly - txt.height / 2 - padY, txt.width + padX * 2, txt.height + padY * 2, 5);
+      gfx.lineStyle(1, hex, 0.28);
+      gfx.strokeRoundedRect(lx - txt.width / 2 - padX, ly - txt.height / 2 - padY, txt.width + padX * 2, txt.height + padY * 2, 5);
     });
-
-    gfx.strokePath();
   }
 
   // ─── Legend ───────────────────────────────────────────────────────────────
@@ -270,8 +322,9 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private createMarker(loc: Location): void {
-    const x = GAME_WIDTH * loc.nx;
-    const y = MAP_TOP + MAP_H * loc.ny;
+    const markerPoint = WORLD_MAP_MARKER_LAYOUT[loc.id] ?? { nx: loc.nx, ny: loc.ny };
+    const x = this.mapFrame.x + this.mapFrame.width * markerPoint.nx;
+    const y = this.mapFrame.y + this.mapFrame.height * markerPoint.ny;
 
     const catId  = loc.categoryIds[0];
     const cat    = getCategoryById(catId);
@@ -287,7 +340,7 @@ export class WorldMapScene extends Phaser.Scene {
     const ring = this.add.graphics();
     if (!allDone) {
       ring.lineStyle(2, hex, 0.45);
-      ring.strokeCircle(0, 0, 26);
+      ring.strokeCircle(0, 0, 34);
     }
 
     // ── Marker body ─────────────────────────────────────────────────────────
@@ -296,7 +349,7 @@ export class WorldMapScene extends Phaser.Scene {
 
     // ── Category icon ────────────────────────────────────────────────────────
     const icon = this.add.text(0, allDone ? -1 : 0, allDone ? '✓' : emoji, {
-      fontSize: allDone ? '15px' : '16px',
+      fontSize: allDone ? '18px' : '20px',
       color: allDone ? TC.SUCCESS : TC.BRIGHT,
       fontFamily: '"Segoe UI Emoji", Arial, sans-serif',
       fontStyle: allDone ? 'bold' : 'normal',
@@ -332,7 +385,7 @@ export class WorldMapScene extends Phaser.Scene {
     }
 
     // ── Hit zone ────────────────────────────────────────────────────────────
-    const hit = this.add.circle(0, 0, 26, 0, 0).setInteractive({ useHandCursor: true });
+    const hit = this.add.circle(0, 0, 34, 0, 0).setInteractive({ useHandCursor: true });
 
     const container = this.add.container(x, y, [ring, body, icon, urgencyContainer, badgeContainer, hit]);
 
@@ -358,8 +411,10 @@ export class WorldMapScene extends Phaser.Scene {
 
     // ── Location name label ──────────────────────────────────────────────────
     const labelColor = allDone ? TC.MUTED : TC.SECONDARY;
-    const label = this.add.text(x, y + 30, loc.name, {
-      fontSize: '10px', color: labelColor, fontFamily: FONT,
+    const label = this.add.text(x, y + 36, loc.name, {
+      fontSize: '11px', color: labelColor, fontFamily: FONT,
+      backgroundColor: 'rgba(2,8,18,0.58)',
+      padding: { x: 5, y: 3 },
       align: 'center', wordWrap: { width: 110 },
     }).setOrigin(0.5, 0);
 
@@ -370,7 +425,7 @@ export class WorldMapScene extends Phaser.Scene {
     if (!allDone) {
       pulseTween = this.tweens.add({
         targets: ring,
-        scaleX: 1.6, scaleY: 1.6, alpha: 0,
+        scaleX: 1.45, scaleY: 1.45, alpha: 0,
         duration: 1900, ease: 'Quad.easeOut', repeat: -1,
       });
     }
@@ -389,20 +444,30 @@ export class WorldMapScene extends Phaser.Scene {
 
     if (completed) {
       // Grey/dark body with faint green tint — clearly "done"
+      gfx.fillStyle(0x000000, 0.42);
+      gfx.fillCircle(2, 3, 25);
       gfx.fillStyle(0x1a2e1a, 1);
-      gfx.fillCircle(0, 0, 18);
-      gfx.lineStyle(2, 0x1a7a40, hovered ? 0.9 : 0.5);
-      gfx.strokeCircle(0, 0, 18);
+      gfx.fillCircle(0, 0, 23);
+      gfx.lineStyle(3, 0x1a7a40, hovered ? 0.95 : 0.6);
+      gfx.strokeCircle(0, 0, 23);
     } else if (hovered) {
+      gfx.fillStyle(0x000000, 0.5);
+      gfx.fillCircle(3, 4, 27);
+      gfx.fillStyle(hex, 0.28);
+      gfx.fillCircle(0, 0, 31);
       gfx.fillStyle(hex, 0.85);
-      gfx.fillCircle(0, 0, 18);
-      gfx.lineStyle(2.5, 0xffffff, 0.9);
-      gfx.strokeCircle(0, 0, 18);
+      gfx.fillCircle(0, 0, 23);
+      gfx.lineStyle(3, 0xffffff, 0.9);
+      gfx.strokeCircle(0, 0, 23);
     } else {
+      gfx.fillStyle(0x000000, 0.44);
+      gfx.fillCircle(2, 3, 25);
+      gfx.fillStyle(hex, 0.18);
+      gfx.fillCircle(0, 0, 30);
       gfx.fillStyle(C.PANEL_LT, 1);
-      gfx.fillCircle(0, 0, 18);
-      gfx.lineStyle(2, hex, 1);
-      gfx.strokeCircle(0, 0, 18);
+      gfx.fillCircle(0, 0, 23);
+      gfx.lineStyle(3, hex, 1);
+      gfx.strokeCircle(0, 0, 23);
     }
   }
 
