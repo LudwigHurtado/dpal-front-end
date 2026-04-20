@@ -2,16 +2,90 @@ import axios from 'axios';
 
 const CMR_BASE = 'https://cmr.earthdata.nasa.gov/search';
 const EMIT_COLLECTION_ID = 'C2408750690-LPCLOUD';
+const MACROSTRAT_MAP_UNITS_URL = 'https://macrostrat.org/api/v2/geologic_units/map';
 
 interface MineralData {
   minerals: string[];
-  dustArea: number;
+  dustArea: number | null;
   composition: { [key: string]: number };
   captureDate: string;
   source: string;
   dataAvailable: boolean;
+  measurementStatus: 'verified' | 'unavailable';
   message: string;
 }
+
+interface MacrostratUnit {
+  name?: string;
+  strat_name?: string;
+  lith?: string;
+  descrip?: string;
+  b_int_name?: string;
+  t_int_name?: string;
+}
+
+const LITHOLOGY_MINERAL_HINTS: Array<{ pattern: RegExp; minerals: string[] }> = [
+  { pattern: /sandstone|sand\b|arenite/i, minerals: ['Quartz', 'Feldspar'] },
+  { pattern: /mudstone|siltstone|claystone|shale|argillite|mud\b|silt\b|clay\b/i, minerals: ['Clay Minerals', 'Quartz'] },
+  { pattern: /limestone|chalk|marl|calcareous/i, minerals: ['Calcite'] },
+  { pattern: /dolostone|dolomite/i, minerals: ['Dolomite'] },
+  { pattern: /conglomerate|gravel|alluvial|fluvial/i, minerals: ['Quartz', 'Feldspar'] },
+  { pattern: /granite|granodiorite|rhyolite|felsic/i, minerals: ['Quartz', 'Feldspar', 'Mica'] },
+  { pattern: /basalt|gabbro|mafic/i, minerals: ['Plagioclase', 'Pyroxene', 'Olivine'] },
+  { pattern: /andesite|diorite/i, minerals: ['Plagioclase', 'Amphibole', 'Pyroxene'] },
+  { pattern: /schist|gneiss|metamorphic/i, minerals: ['Mica', 'Quartz', 'Feldspar'] },
+  { pattern: /serpentinite|ultramafic/i, minerals: ['Serpentine', 'Olivine', 'Pyroxene'] },
+  { pattern: /iron|hematite|banded iron/i, minerals: ['Hematite'] },
+  { pattern: /gypsum|evaporite/i, minerals: ['Gypsum'] },
+  { pattern: /halite|salt/i, minerals: ['Halite'] },
+  { pattern: /sedimentary/i, minerals: ['Quartz', 'Clay Minerals', 'Calcite'] },
+];
+
+const pickMacrostratUnits = (payload: any): MacrostratUnit[] => {
+  const data = payload?.success?.data ?? payload?.data ?? [];
+  return Array.isArray(data) ? data : [];
+};
+
+const compact = (parts: Array<string | undefined | null>): string =>
+  parts.map((part) => String(part || '').trim()).filter(Boolean).join('; ');
+
+const inferMineralsFromUnits = (units: MacrostratUnit[]): { minerals: string[]; composition: Record<string, number> } => {
+  const scores = new Map<string, number>();
+
+  units.slice(0, 6).forEach((unit, index) => {
+    const text = compact([unit.lith, unit.descrip, unit.name]);
+    if (!text) return;
+    const weight = Math.max(1, 6 - index);
+
+    for (const hint of LITHOLOGY_MINERAL_HINTS) {
+      if (!hint.pattern.test(text)) continue;
+      for (const mineral of hint.minerals) {
+        scores.set(mineral, (scores.get(mineral) ?? 0) + weight / hint.minerals.length);
+      }
+    }
+  });
+
+  if (scores.size === 0) return { minerals: [], composition: {} };
+
+  const entries = Array.from(scores.entries()).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  const total = entries.reduce((sum, [, score]) => sum + score, 0);
+  const composition = Object.fromEntries(
+    entries.map(([name, score]) => [name, Number(((score / total) * 100).toFixed(0))]),
+  );
+
+  return {
+    minerals: entries.map(([name]) => name),
+    composition,
+  };
+};
+
+const fetchMacrostratUnits = async (lat: number, lng: number): Promise<MacrostratUnit[]> => {
+  const response = await axios.get(MACROSTRAT_MAP_UNITS_URL, {
+    params: { lat, lng },
+    timeout: 10000,
+  });
+  return pickMacrostratUnits(response.data);
+};
 
 const estimateFootprintAreaKm2 = (granule: any): number | null => {
   const boxes = Array.isArray(granule?.boxes) ? granule.boxes[0] : undefined;
@@ -48,32 +122,61 @@ const calculateAreaKm2 = (west: number, south: number, east: number, north: numb
 export const mineralAdapter = {
   async getMineralData(lat: number, lng: number): Promise<MineralData> {
     try {
-      const cmrResponse = await axios.get(`${CMR_BASE}/granules.json`, {
-        params: {
-          collection_concept_id: EMIT_COLLECTION_ID,
-          bounding_box: `${lng - 0.2},${lat - 0.2},${lng + 0.2},${lat + 0.2}`,
-          sort_key: '-start_date',
-          page_size: 1,
-        },
-        timeout: 10000,
-      });
+      const [macrostratResult, cmrResult] = await Promise.allSettled([
+        fetchMacrostratUnits(lat, lng),
+        axios.get(`${CMR_BASE}/granules.json`, {
+          params: {
+            collection_concept_id: EMIT_COLLECTION_ID,
+            bounding_box: `${lng - 0.2},${lat - 0.2},${lng + 0.2},${lat + 0.2}`,
+            sort_key: '-start_date',
+            page_size: 1,
+          },
+          timeout: 10000,
+        }),
+      ]);
 
-      const entries = cmrResponse.data?.feed?.entry || [];
+      const units = macrostratResult.status === 'fulfilled' ? macrostratResult.value : [];
+      const inferred = inferMineralsFromUnits(units);
+      const primaryUnit = units[0];
+      const entries = cmrResult.status === 'fulfilled' ? cmrResult.value.data?.feed?.entry || [] : [];
       const latestGranule = entries[0] as any;
-      const dataAvailable = Boolean(latestGranule);
+      const emitAvailable = Boolean(latestGranule);
+
+      if (inferred.minerals.length > 0) {
+        const unitName = primaryUnit?.strat_name || primaryUnit?.name || 'mapped bedrock unit';
+        const lithology = primaryUnit?.lith || primaryUnit?.descrip || 'lithology unavailable';
+        const age = compact([primaryUnit?.b_int_name, primaryUnit?.t_int_name]);
+
+        return {
+          minerals: inferred.minerals,
+          dustArea: null,
+          composition: inferred.composition,
+          captureDate: new Date().toISOString(),
+          source: 'Macrostrat Geologic Map (lithology-derived mineral indicators)',
+          dataAvailable: true,
+          measurementStatus: 'verified',
+          message: [
+            `Bedrock: ${unitName}${age ? ` (${age})` : ''}, lithology: ${lithology}.`,
+            emitAvailable
+              ? 'Matching NASA EMIT scene metadata was found, but dust-source area still requires a configured spectral/AOD reader.'
+              : 'No EMIT L2B scene found at this location in the current archive.',
+          ].join(' '),
+        };
+      }
 
       return {
         minerals: [],
-        dustArea: dataAvailable ? estimateFootprintAreaKm2(latestGranule) ?? 0 : 0,
+        dustArea: emitAvailable ? estimateFootprintAreaKm2(latestGranule) ?? null : null,
         composition: {},
-        captureDate: dataAvailable ? latestGranule.time_start || new Date().toISOString() : new Date().toISOString(),
-        source: dataAvailable
+        captureDate: emitAvailable ? latestGranule.time_start || new Date().toISOString() : new Date().toISOString(),
+        source: emitAvailable
           ? `NASA EMIT CMR metadata (${latestGranule.title || latestGranule.id || 'latest available granule'})`
-          : 'NASA EMIT CMR metadata',
-        dataAvailable,
-        message: dataAvailable
-          ? 'Matching NASA EMIT granule found. Mineral composition requires a configured Earthdata spectral-product reader before values can be displayed.'
-          : 'No NASA EMIT granule was found for this scan area.',
+          : 'Macrostrat Geologic Map + NASA EMIT CMR metadata',
+        dataAvailable: false,
+        measurementStatus: 'unavailable',
+        message: emitAvailable
+          ? 'Matching NASA EMIT scene metadata found, but no Macrostrat lithology or configured spectral-product reader returned mineral composition.'
+          : 'No Macrostrat lithology or NASA EMIT granule was found for this scan area.',
       };
     } catch (error) {
       console.error('Mineral adapter error:', error);

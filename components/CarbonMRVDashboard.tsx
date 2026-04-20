@@ -1020,21 +1020,40 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
   const mineralSource = String(mineralData?.source || '');
   const mineralNames = Array.isArray(mineralData?.minerals) ? mineralData.minerals.filter(Boolean) : [];
-  const hasVerifiedMineralComposition = mineralData?.dataAvailable === true && mineralNames.length > 0 && !/mock data/i.test(mineralSource);
-  const hasVerifiedDustSource = hasVerifiedMineralComposition && typeof mineralData?.dustArea === 'number' && mineralData.dustArea > 0;
+  const mineralCompositionEntries = mineralData?.composition && typeof mineralData.composition === 'object'
+    ? Object.entries(mineralData.composition as Record<string, unknown>)
+        .map(([name, value]) => ({ name, value: typeof value === 'number' && Number.isFinite(value) ? value : null }))
+        .filter((entry) => entry.name.trim().length > 0)
+        .sort((a, b) => (b.value ?? -1) - (a.value ?? -1))
+    : [];
+  const hasVerifiedMineralComposition =
+    mineralData?.dataAvailable === true &&
+    mineralNames.length > 0 &&
+    mineralData?.measurementStatus !== 'unavailable' &&
+    !/mock data/i.test(mineralSource);
+  const primaryMineral = hasVerifiedMineralComposition
+    ? mineralCompositionEntries.find((entry) => entry.value !== null)?.name || mineralNames[0]
+    : '';
+  const primaryMineralShare = hasVerifiedMineralComposition
+    ? mineralCompositionEntries.find((entry) => entry.name === primaryMineral)?.value ?? null
+    : null;
+  const hasVerifiedDustSource = typeof mineralData?.dustArea === 'number' && Number.isFinite(mineralData.dustArea) && mineralData.dustArea > 0;
   const hiddenLegacyMinerals = mineralData && !hasVerifiedMineralComposition && mineralNames.length > 0 ? mineralNames : [];
   const mineralAiContext = mineralData
     ? {
         readingStatus: hasVerifiedMineralComposition ? 'verified mineral composition returned' : 'not a verified mineral composition reading',
         verifiedMinerals: hasVerifiedMineralComposition ? mineralNames : [],
-        verifiedPrimaryMineral: hasVerifiedMineralComposition ? mineralNames[0] : null,
+        verifiedPrimaryMineral: primaryMineral || null,
+        verifiedComposition: hasVerifiedMineralComposition
+          ? Object.fromEntries(mineralCompositionEntries.map((entry) => [entry.name, entry.value]))
+          : {},
         verifiedDustSourceAreaKm2: hasVerifiedDustSource ? mineralData.dustArea : null,
         hiddenUnverifiedMineralNames: hiddenLegacyMinerals,
         source: mineralSource || null,
         backendMessage: mineralData.message || null,
         note: hasVerifiedMineralComposition
-          ? 'Use the listed minerals as verified scan outputs.'
-          : 'Do not treat any mineral type, primary mineral, or dust-source area as real until a spectral mineral product reader confirms it.',
+          ? 'Use the listed minerals and primary mineral as verified bedrock/geology scan outputs. Treat dust-source area separately.'
+          : 'Do not treat any mineral type, primary mineral, or dust-source area as real until the backend confirms a mineral read.',
       }
     : null;
 
@@ -2324,11 +2343,35 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 {mineralData.source && <p className="text-xs text-slate-500 mt-1">{mineralData.source}</p>}
               </div>
             )}
+            {mineralData && hasVerifiedMineralComposition && (
+              <div className="rounded-xl bg-emerald-950/30 border border-emerald-500/40 p-4 text-sm text-emerald-100">
+                <p className="font-bold text-emerald-300">Reading status: verified mineral read</p>
+                <p className="mt-1 text-slate-300">
+                  Primary mineral type: <span className="font-bold text-white">{primaryMineral}</span>
+                  {primaryMineralShare !== null ? ` (${primaryMineralShare.toFixed(0)}% of returned composition)` : ''}.
+                </p>
+                {mineralCompositionEntries.length > 0 && (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                    {mineralCompositionEntries.slice(0, 4).map((entry) => (
+                      <div key={entry.name} className="rounded-lg border border-white/10 bg-black/20 p-2">
+                        <p className="text-xs font-bold text-white">{entry.name}</p>
+                        <p className="text-xs text-emerald-200">{entry.value !== null ? `${entry.value.toFixed(0)}%` : 'present'}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!hasVerifiedDustSource && (
+                  <p className="mt-3 text-xs text-slate-400">
+                    Dust-source area is still unavailable for this scan, so DPAL keeps that metric separate from the mineral identification.
+                  </p>
+                )}
+              </div>
+            )}
             {mineralData && !hasVerifiedMineralComposition && (
               <div className="rounded-xl bg-amber-950/30 border border-amber-500/40 p-4 text-sm text-amber-100">
                 <p className="font-bold text-amber-300">Reading status: mineral composition not verified</p>
                 <p className="mt-1 text-slate-300">
-                  This scan has not returned a confirmed EMIT/ASTER spectral mineral product. DPAL is hiding any legacy mineral names from the metric cards until the backend confirms a real mineral-composition read.
+                  This scan has not returned a confirmed mineral product. DPAL is hiding any legacy mineral names from the metric cards until the backend confirms a real mineral read.
                 </p>
                 {hiddenLegacyMinerals.length > 0 && (
                   <p className="mt-2 text-xs text-amber-200">
@@ -2342,11 +2385,12 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
                 )}
               </div>
             )}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               {[
-                { label: 'Mineral Types', value: hasVerifiedMineralComposition ? `${mineralNames.length} identified` : 'Not verified', icon: '⛰️', desc: hasVerifiedMineralComposition ? mineralNames.join(', ') : 'Macrostrat bedrock geology' },
-                { label: 'Dust Source Areas', value: hasVerifiedDustSource ? `${mineralData.dustArea.toFixed(0)} km²` : 'Requires EMIT data', icon: '🌪️', desc: 'NASA EMIT spectral product (Earthdata auth required)' },
-                { label: 'Primary Mineral', value: hasVerifiedMineralComposition ? mineralNames[0] : 'Not verified', icon: '🧪', desc: hasVerifiedMineralComposition ? 'Most abundant in bedrock unit' : 'Macrostrat bedrock geology' },
+                { label: 'Mineral Types', value: hasVerifiedMineralComposition ? `${mineralNames.length} identified` : 'Not verified', icon: 'M', desc: hasVerifiedMineralComposition ? mineralNames.join(', ') : 'Awaiting verified geology read' },
+                { label: 'Specific Mineral', value: primaryMineral || 'Not verified', icon: 'S', desc: hasVerifiedMineralComposition ? 'Primary returned mineral type' : 'No verified primary type yet' },
+                { label: 'Composition Share', value: primaryMineralShare !== null ? `${primaryMineralShare.toFixed(0)}%` : 'Unavailable', icon: '%', desc: primaryMineral ? `${primaryMineral} share in returned composition` : 'Requires composition data' },
+                { label: 'Dust Source Area', value: hasVerifiedDustSource ? `${mineralData.dustArea.toFixed(0)} km²` : 'Unavailable', icon: 'D', desc: 'Separate EMIT/AOD dust-source metric' },
               ].map((metric) => (
                 <div key={metric.label} className="rounded-xl bg-black/30 border border-white/10 p-4">
                   <div className="flex items-center gap-3 mb-2">
