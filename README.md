@@ -1,153 +1,109 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
-
 # DPAL Front-End
 
-React + Vite front-end for DPAL reporting, public record search, Situation Room collaboration, Help Center support, and category-driven civic workflows.
+Vite 6 + React 19 + TypeScript SPA — the main DPAL citizen-reporting and environmental monitoring platform. Deployed on **Vercel**; API calls go to a **Railway** Node/MongoDB backend (`dpal-ai-server`).
 
-## Run locally
+---
 
-Prerequisites:
-- Node.js 20+
-- npm
+## Quick start
 
-1. Install dependencies:
-   `npm install`
-2. Copy env template:
-   `cp .env.example .env.local`
-3. Set required env values in `.env.local`:
-   - `VITE_API_BASE` (recommended; if unset app falls back to `http://localhost:3001` in dev)
-   - `VITE_VALIDATOR_PORTAL_URL` (optional; used by the "Validator Node" tile)
-   - `VITE_USE_SERVER_AI=true` for server Gemini mode (recommended for production)
-4. Start development server:
-   `npm run dev`
-
-App default dev URL: `http://localhost:3000`
-
-## Scripts
-
-- `npm run dev` - start Vite dev server
-- `npm run build` - production build into `dist/`
-- `npm run lint` - TypeScript type-check (`tsc --noEmit`)
-- `npm run preview` - preview production build
-
-## Key areas
-
-| Feature | Entry point | Notes |
-|---------|-------------|-------|
-| Main menu | `components/MainMenu.tsx` | 20 tile grid; images in `public/main-screen/` |
-| Missions Hub V2 | `features/missions-v2/hub/MissionsHubPage.tsx` | `/missions` — home, marketplace, emergency, rewards, local, org, validator, analytics sections via `?section=` |
-| Mission Marketplace | `features/missions-v2/pages/MissionMarketplacePage.tsx` | Browse + filter listings |
-| Mission detail | `features/missions-v2/pages/MissionMarketplaceDetailPage.tsx` | `/missions/m/:id` |
-| Mission workspace | `features/missions-v2/pages/MissionAssignmentV2Page.tsx` | `/missions/v2` — phased assignment engine |
-| AI Work Marketplace | `components/AiWorkDirectivesView.tsx` | `/directives` — 15 categories, AI-generated assignments, in-progress step tracking |
-| Help Center | `components/HelpCenterView.tsx` | Live tickets from `/api/help-reports/mine`, attachment uploads |
-| Public Ledger | `components/TransparencyDatabaseView.tsx` + `utils/blockchainLookup.ts` | Flexible block/ID search |
-| Situation Room | `components/IncidentRoomView.tsx` | Filing images upload/set-main; delete disabled for users |
-| Politician Transparency | `components/PoliticianTransparencyView.tsx` | Public Accountability Engine — OpenAI + DuckDuckGo |
-| Auth | `pages/auth/*`, `auth/AuthContext.tsx` | `/login`, `/signup`, `/account`, `/admin` |
-
-## Implemented behavior — what works today
-
-- **Missions V2 Hub & Marketplace:** full shell at `/missions` with sectioned navigation, marketplace browse, and detail pages. Workspace at `/missions/v2`.
-- **AI Work Directives in-progress tracking:** clicking "Start Mission" opens a step checklist, field notes textarea, proof reminder, and "Mark Complete & Claim Coins" — no more dead-end after starting.
-- **Mission Categories scroll:** left/right arrow buttons + visible thin scrollbar on the AI Work Marketplace category row. Works on mobile.
-- **Help Center live tickets:** "My Tickets" reads live data from `/api/help-reports/mine`, includes live refresh/filtering, and supports real attachment uploads.
-- **Ledger search flexible:** block lookup accepts `#6843021`, `rep-1775421654549`, comma-formatted numbers; falls through exact → local keyword → API feed → direct `rep-` fetch.
-- **Situation Room filing images:** upload/update and set the main image; delete controls are disabled in the room UI.
-
-## Validator Node routing
-
-The "Validator Node" card in `components/MainMenu.tsx` resolves its URL via `getValidatorPortalUrl()` in `constants.ts`:
-
-- uses `VITE_VALIDATOR_PORTAL_URL` when set,
-- otherwise defaults to `https://dpal-reviewer-node.vercel.app` only on `dpal-front-end.vercel.app`,
-- otherwise shows an in-app setup warning in non-production host contexts.
-
-## Missions V2 architecture
-
-```
-features/missions-v2/
-├── hub/              MissionsHubPage.tsx + missionsHubSections.ts
-├── pages/            MissionAssignmentV2Page, MissionMarketplacePage,
-│                     MissionMarketplaceDetailPage, CreateMissionView
-├── components/       Sector cards (Details, Header, Tasks, Proof, Progress…)
-├── services/         Layer services: escrow, evidence, governance, outcome,
-│                     report, reputation, resolution, validation
-├── data/             Mock listings + adapters
-├── hooks/            useMissionWorkspaceV2
-├── types.ts          Core V2 types
-├── marketplaceTypes.ts
-├── createMissionTypes.ts
-└── missionWorkspaceTheme.ts   mw.* class helpers (teal dark palette)
+```bash
+cp .env.example .env.local   # fill in secrets (see below)
+npm install
+npm run dev                  # http://localhost:3000
 ```
 
-Routes: `/missions` → Hub, `/missions/v2` → Workspace, `/missions/m/:id` → Detail, `/missions/create` → Create.
+Build for production:
 
-## Water Monitor — satellite integration
-
-The Water Monitor (`/water`) pulls live data from 6 satellite adapters on the `dpal-ai-server` backend.
-
-### What each tile in "Latest Satellite Snapshot" reads from
-
-| Tile | Satellite | Notes |
-|------|-----------|-------|
-| Soil Moisture Index | NASA SMAP | Real-time soil moisture L4 |
-| Surface Water Level | NASA / ESA SWOT | River & lake height |
-| Water Storage Trend | NASA GRACE-FO | Groundwater / total water mass change |
-| Drought Risk | Copernicus | Derived from Sentinel-2 NDVI + climate data |
-| Vegetation Stress | NASA GIBS / MODIS | NDVI-based stress index |
-| SAR Water Coverage | ESA Sentinel-1 GRD | C-band SAR, cloud-penetrating, 24/7 |
-
-### AI panel
-`SatelliteAiInsight` appears below the snapshot tiles. It sends all readings + project context to Gemini and renders a plain-English analysis. Users can ask follow-up questions.
-
-### Required Railway env vars for live satellite data
-
-```
-COPERNICUS_CLIENT_ID=<from dataspace.copernicus.eu OAuth Clients>
-COPERNICUS_CLIENT_SECRET=<from same>
+```bash
+npm run build    # → dist/
+npm run preview  # preview the production bundle locally
 ```
 
-Without these, Sentinel-1 and Sentinel-2 fall back to proxy/mock values. All other adapters (SMAP, SWOT, GRACE, GIBS) use free public APIs and need no credentials.
+Type-check:
 
-### Verifying the integration
-
-```js
-// Browser console on /water:
-fetch('https://web-production-a27b.up.railway.app/api/water/satellite-preview?lat=34.05&lng=-118.25')
-  .then(r => r.json())
-  .then(d => console.log(d.adapters?.sentinel1, d.adapters?.copernicus))
-// sentinel1.ok === true and copernicus.source === "sentinel-2-live" = fully live
+```bash
+npm run lint     # tsc --noEmit
 ```
 
 ---
 
-## Carbon MRV — satellite scan integration
+## Environment variables
 
-The Carbon MRV dashboard (`/carbon`) includes air-quality and mineral-mapping scan tools backed by the auxiliary Express service in `backend/`.
+All Vite-exposed variables must start with `VITE_`. Copy `.env.example` → `.env.local`.
 
-### Air quality scans
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `VITE_API_BASE` | Yes | Railway backend origin, e.g. `https://web-production-a27b.up.railway.app` |
+| `VITE_GEMINI_API_KEY` | Optional* | Client-side Gemini key — exposed in bundle; prefer `VITE_USE_SERVER_AI` for production |
+| `VITE_USE_SERVER_AI` | Optional* | `true` → AI goes via `POST /api/ai/gemini` on the backend (no browser key needed) |
+| `VITE_OPENAI_API_KEY` | Optional | Politician Transparency — query refine + evidence draft |
+| `VITE_OPENAI_MODEL` | Optional | Default `gpt-4o-mini` |
+| `VITE_BRAVE_SEARCH_API_KEY` | Optional | Live web search |
+| `VITE_GOOGLE_MAPS_API_KEY` | Optional | Locator / Places |
+| `VITE_LAYOUT_VERSION` | Optional | `v1` or `v2` (hub layout experiment) |
 
-`backend/src/services/adapters/carbonGas.adapter.ts` queries NASA CMR for matching OCO-2 granule metadata and attempts to sample live `xco2` from an available OPeNDAP link.
-
-The adapter does not fabricate gas readings. If a real CO2 sample cannot be read, it returns `null` values with a status message. CH4 and NO2 also return `null` until dedicated trace-gas product readers are configured.
-
-### Mineral scans
-
-`backend/src/services/adapters/mineral.adapter.ts` queries NASA CMR for matching EMIT granule metadata.
-
-The adapter does not fabricate mineral types, composition percentages, or dust-source areas. Mineral composition remains unavailable until an Earthdata spectral-product reader is configured.
-
-### UI behavior
-
-`components/CarbonMRVDashboard.tsx` displays `Not available` for missing scan values and shows the backend source/status message above the scan cards. This keeps the dashboard transparent when live satellite metadata exists but derived measurements are not yet readable.
+\* At least one of `VITE_GEMINI_API_KEY` or `VITE_USE_SERVER_AI=true` is needed for AI features.
 
 ---
 
-## Backend notes
+## Key product areas
 
-- Primary production API base is Railway (`https://web-production-a27b.up.railway.app`).
-- Local `backend/` (Express + Prisma, port 3001) is a separate auxiliary service — it does not expose every production route.
-- For API path reference see `constants.ts` → `API_ROUTES`.
+| Route | Feature |
+|-------|---------|
+| `/` | Main menu — 20 nav tiles |
+| `/hub` | My Reports + Feed + Map |
+| `/politician` | Public Accountability Engine |
+| `/offsets` | Carbon Credit Market — buy, retire, register land |
+| `/carbon` | Carbon MRV Engine — satellite NDVI, score, validator |
+| `/water` | Water Monitor — satellite snapshots, impact score, credits |
+| `/ecology` | Ecological Conservation — Landsat foliage scan, NDVI, habitat risk |
+| `/missions` | Missions Hub V2 |
+| `/directives` | AI Work Directives marketplace |
+| `/situation` | Situation Room |
+| `/escrow` | Trusted Escrow |
+| `/ledger` | Public Blockchain Ledger |
+| `/help` | Help Center |
+| `/login` `/signup` | Auth (MongoDB users on `dpal-ai-server`) |
+
+---
+
+## Architecture
+
+```
+dpal-front-end  (this repo — Vite SPA on Vercel)
+       │
+       └─ VITE_API_BASE ──► dpal-ai-server  (Express + MongoDB on Railway)
+                             ├── /api/auth/*
+                             ├── /api/offsets/*      carbon credit market
+                             ├── /api/carbon/*       carbon MRV
+                             ├── /api/water/*        water monitor
+                             ├── /api/ecology/*      Landsat foliage scan
+                             ├── /api/ai/*           Gemini proxy
+                             └── /api/reports/*
+```
+
+Demo / offline mode: the Carbon Credit Market and Ecological Conservation both fall back to localStorage-backed simulation or deterministic demo data when the API is unreachable, so the full UX is usable without a live backend.
+
+---
+
+## Related repos
+
+| Repo | Purpose |
+|------|---------|
+| `LudwigHurtado/dpal-ai-server` | Railway backend — MongoDB, Gemini, satellite adapters |
+| `dpal-enterprise-dashboard` | Next.js enterprise view (Vercel) |
+| `dpal-nexus-console-vercel` | Next.js Nexus console (Vercel) |
+| `dpal-reviewer-node` | Validator / reviewer node portal |
+
+---
+
+## Deploying
+
+Push to `main` → Vercel auto-deploys. After updating env vars in the Vercel dashboard, trigger a manual redeploy so the new values are baked in.
+
+For the Railway backend, push to `main` in `dpal-ai-server` → Railway auto-deploys. Smoke check:
+
+```
+GET https://web-production-a27b.up.railway.app/health
+GET https://web-production-a27b.up.railway.app/api/ai/status   → { ok: true, gemini: true }
+```
