@@ -53,6 +53,7 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'marketplaceMissionDetail',
   'missionAssignmentV2',
   'createMission',
+  'impactHub',
 ]);
 
 export type NavSessionPayload = {

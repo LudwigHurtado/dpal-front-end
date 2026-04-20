@@ -1,0 +1,48 @@
+import type { VerificationReview } from '../../types/verification';
+
+export const MOCK_VERIFICATION: VerificationReview[] = [
+  {
+    id: 'ver-001',
+    projectId: 'proj-001',
+    projectTitle: 'Cerro Verde Reforestation Corridor',
+    status: 'under_review',
+    reviewerId: 'reviewer-1',
+    reviewerName: 'Dr. A. Mendez',
+    notes: 'Strong NDVI progress. Awaiting Q4 canopy closure measurement.',
+    submittedAt: '2026-03-01T08:00:00Z',
+    updatedAt: '2026-04-10T11:00:00Z',
+    evidenceCount: 24,
+  },
+  {
+    id: 'ver-002',
+    projectId: 'proj-002',
+    projectTitle: 'Pacific Coastal Plastic Recovery Drive',
+    status: 'verified',
+    reviewerId: 'reviewer-2',
+    reviewerName: 'M. Tanaka',
+    notes: 'Weight logs, photos, and chain-of-custody docs are complete. Verified 14.7 tonnes for Q4.',
+    submittedAt: '2026-01-10T09:00:00Z',
+    updatedAt: '2026-02-05T16:30:00Z',
+    evidenceCount: 37,
+  },
+  {
+    id: 'ver-003',
+    projectId: 'proj-003',
+    projectTitle: 'Serengeti Wetland Restoration Block',
+    status: 'needs_evidence',
+    notes: 'Missing baseline hydrology report and post-intervention water table readings.',
+    requestedEvidenceTypes: ['document', 'field_note'],
+    submittedAt: '2026-02-15T10:00:00Z',
+    updatedAt: '2026-03-20T09:00:00Z',
+    evidenceCount: 11,
+  },
+  {
+    id: 'ver-004',
+    projectId: 'proj-005',
+    projectTitle: 'Sahel Soil Restoration Pilot',
+    status: 'submitted',
+    submittedAt: '2026-04-05T12:00:00Z',
+    updatedAt: '2026-04-05T12:00:00Z',
+    evidenceCount: 2,
+  },
+];

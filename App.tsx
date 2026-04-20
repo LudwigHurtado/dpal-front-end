@@ -42,6 +42,7 @@ import AcademyView from './components/AcademyView';
 import LedgerScanner from './components/LedgerScanner';
 import AiWorkDirectivesView from './components/AiWorkDirectivesView';
 import GoodWheelsStandaloneRoot from './components/GoodWheelsStandaloneRoot';
+import ImpactStandaloneRoot from './components/ImpactStandaloneRoot';
 import OutreachEscalationHub from './components/OutreachEscalationHub';
 import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
@@ -111,7 +112,7 @@ import {
   viewToPath,
 } from './utils/appRoutes';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2303,6 +2304,8 @@ const App: React.FC = () => {
         {currentView === 'dpalLifts' && <GoodWheelsStandaloneRoot />}
 
         {currentView === 'goodWheels' && <GoodWheelsStandaloneRoot />}
+
+        {currentView === 'impactHub' && <ImpactStandaloneRoot />}
 
         {currentView === 'ecosystem' && (
           <EcosystemOverview
