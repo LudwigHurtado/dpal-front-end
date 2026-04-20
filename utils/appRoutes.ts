@@ -54,6 +54,8 @@ export const VIEW_PATHS: Record<string, string> = {
   carbonMRV: '/carbon',
   ecologicalConservation: '/ecology',
   earthObservation: '/earth-observation',
+  /** DPAL AFOLU / Forest Integrity proof engine */
+  afoluEngine: '/afolu',
   escrowService: '/escrow',
   coinLaunch: '/coin',
   subscription: '/subscription',

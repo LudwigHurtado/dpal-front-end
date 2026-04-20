@@ -382,6 +382,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<ShieldCheck className="w-8 h-8" />}
+                    label="Forest Integrity"
+                    subLabel="AFOLU projects, missions, proof, monitoring, and buyer reports"
+                    status="AFOLU"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('afoluEngine')}
+                />
+
+                <PrimaryNavModule
                     icon={<Globe className="w-8 h-8" />}
                     label="Carbon MRV Engine"
                     subLabel="Register land · Monitor · Verify · Issue credits"
