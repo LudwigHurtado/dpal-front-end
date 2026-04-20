@@ -367,7 +367,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="LEO satellite analysis for environment and civic signals"
                     status="New"
                     colorClass="sky"
-                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    bgImageUrl="/main-screen/satellite-water-analysis.png"
                     onClick={() => onNavigate('earthObservation')}
                 />
 
@@ -377,7 +377,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Landsat 9 OLI-2 foliage and habitat monitoring"
                     status="New"
                     colorClass="emerald"
-                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
                     onClick={() => onNavigate('ecologicalConservation')}
                 />
 
@@ -387,7 +387,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Register land · Monitor · Verify · Issue credits"
                     status="New"
                     colorClass="teal"
-                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
                     onClick={() => onNavigate('carbonMRV')}
                 />
 
@@ -407,7 +407,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Live SMAP · SWOT · GRACE-FO · GIBS · Copernicus readings"
                     status="Live"
                     colorClass="sky"
-                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    bgImageUrl="/main-screen/water-project-monitoring.png"
                     onClick={() => onNavigate('waterMonitor')}
                 />
 
