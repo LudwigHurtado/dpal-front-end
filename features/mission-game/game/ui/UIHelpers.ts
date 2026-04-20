@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { C, TC } from '../constants';
 
 // ─── Shared font stack ────────────────────────────────────────────────────────

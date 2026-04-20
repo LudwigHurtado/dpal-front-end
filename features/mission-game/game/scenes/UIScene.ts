@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { SCENE_KEYS, C, TC, GAME_WIDTH, UI_BAR_HEIGHT } from '../constants';
 import { PlayerStateManager } from '../data/playerState';
 import { createProgressBar, FONT } from '../ui/UIHelpers';

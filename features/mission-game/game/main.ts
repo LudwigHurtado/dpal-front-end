@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, SCENE_KEYS } from './constants';
 import { BootScene } from './scenes/BootScene';
 import { WorldMapScene } from './scenes/WorldMapScene';

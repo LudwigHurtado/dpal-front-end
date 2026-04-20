@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowLeft, Award, ExternalLink, Maximize2, X, Zap } from './icons';
+import { ArrowLeft, Award, ExternalLink, Map, Maximize2, X, Zap } from './icons';
 import { SOCIETY_GAMES, getSocietyGamePlayUrl, type SocietyGameId } from '../societyGames';
 import { useTranslations } from '../i18n';
+import MissionGameView from '../features/mission-game/MissionGameView';
 
 interface DpalGameHubViewProps {
   onReturn: () => void;
@@ -32,6 +33,7 @@ const DpalGameHubView: React.FC<DpalGameHubViewProps> = ({ onReturn }) => {
   const { t } = useTranslations();
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [lightboxAlt, setLightboxAlt] = useState('');
+  const [showMissionGame, setShowMissionGame] = useState(false);
 
   const closeLightbox = useCallback(() => setLightboxSrc(null), []);
 
@@ -43,6 +45,31 @@ const DpalGameHubView: React.FC<DpalGameHubViewProps> = ({ onReturn }) => {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [lightboxSrc, closeLightbox]);
+
+  if (showMissionGame) {
+    return (
+      <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-24 px-4">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+          <button
+            type="button"
+            onClick={() => setShowMissionGame(false)}
+            className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-cyan-300 hover:text-cyan-200 bg-black/60 px-5 py-2 rounded-2xl border border-cyan-500/20"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Games
+          </button>
+          <div className="flex items-center gap-2 text-zinc-400 text-[10px] font-black uppercase tracking-widest">
+            <Map className="w-4 h-4 text-cyan-400" />
+            Mission Ops
+          </div>
+        </div>
+
+        <div className="rounded-[1.25rem] border border-cyan-500/25 bg-zinc-950/80 p-3 shadow-2xl">
+          <MissionGameView height={620} className="w-full" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-fade-in font-mono text-white max-w-7xl mx-auto pb-24 px-4">
@@ -62,14 +89,43 @@ const DpalGameHubView: React.FC<DpalGameHubViewProps> = ({ onReturn }) => {
       </div>
 
       <div className="rounded-[2rem] border border-zinc-800 bg-zinc-900/50 p-6 md:p-8 mb-10">
-        <div className="flex items-start gap-4">
-          <div className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 shrink-0">
-            <Zap className="w-6 h-6 text-cyan-400" />
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="p-3 rounded-2xl bg-zinc-950 border border-zinc-800 shrink-0">
+              <Zap className="w-6 h-6 text-cyan-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">{t('gameHub.title')}</h1>
+              <p className="mt-2 text-sm text-zinc-300 max-w-3xl leading-relaxed">{t('gameHub.intro')}</p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowMissionGame(true)}
+            className="inline-flex items-center justify-center gap-2 min-h-[52px] px-6 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black uppercase tracking-widest border border-emerald-300/30 shadow-lg transition-colors"
+          >
+            <Map className="w-4 h-4" />
+            Open Mission Ops
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-[1.5rem] border border-cyan-500/20 bg-cyan-950/20 p-5 mb-10">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl md:text-4xl font-black uppercase tracking-tight">{t('gameHub.title')}</h1>
-            <p className="mt-2 text-sm text-zinc-300 max-w-3xl leading-relaxed">{t('gameHub.intro')}</p>
+            <h2 className="text-lg font-black uppercase tracking-tight text-cyan-100">DPAL Mission Ops</h2>
+            <p className="mt-1 text-sm text-zinc-300 max-w-3xl leading-relaxed">
+              Open the city map, choose a marker, inspect the mission details, and start field tasks.
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={() => setShowMissionGame(true)}
+            className="inline-flex items-center justify-center gap-2 min-h-[48px] px-5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-black uppercase tracking-widest border border-cyan-300/30 transition-colors"
+          >
+            Launch Mission Game
+            <Zap className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
