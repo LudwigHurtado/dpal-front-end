@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useImpactStore } from '../store/useImpactStore';
 import { IM_PATHS } from '../routes/paths';
 import ProjectCard from '../features/projects/components/ProjectCard';
-import type { ProjectStatus } from '../types/project';
+import type { ProjectStatus, ProjectType } from '../types/project';
 
 const ALL_STATUSES: Array<ProjectStatus | 'all'> = ['all', 'draft', 'active', 'monitoring', 'verified', 'completed'];
 

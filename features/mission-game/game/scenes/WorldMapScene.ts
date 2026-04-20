@@ -10,7 +10,7 @@ import { PlayerStateManager } from '../data/playerState';
 import { FONT } from '../ui/UIHelpers';
 import {
   WORLD_MAP_ASSET_PATH,
-  WORLD_MAP_MARKER_LAYOUT,
+  WORLD_MAP_MARKER_BY_ID,
   WORLD_MAP_SOURCE_SIZE,
   WORLD_MAP_TEXTURE_KEY,
 } from '../config/worldMapLayout';
@@ -322,11 +322,13 @@ export class WorldMapScene extends Phaser.Scene {
   }
 
   private createMarker(loc: Location): void {
-    const markerPoint = WORLD_MAP_MARKER_LAYOUT[loc.id] ?? { nx: loc.nx, ny: loc.ny };
-    const x = this.mapFrame.x + this.mapFrame.width * markerPoint.nx;
-    const y = this.mapFrame.y + this.mapFrame.height * markerPoint.ny;
+    const markerConfig = WORLD_MAP_MARKER_BY_ID[loc.id];
+    const markerX = markerConfig?.x ?? loc.nx;
+    const markerY = markerConfig?.y ?? loc.ny;
+    const x = this.mapFrame.x + this.mapFrame.width * markerX;
+    const y = this.mapFrame.y + this.mapFrame.height * markerY;
 
-    const catId  = loc.categoryIds[0];
+    const catId  = markerConfig?.categoryId ?? loc.categoryIds[0];
     const cat    = getCategoryById(catId);
     const hex    = cat?.hexColor ?? C.BTN_PRIMARY;
     const emoji  = cat?.emoji    ?? '📍';

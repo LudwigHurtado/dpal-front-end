@@ -5,22 +5,31 @@ export const WORLD_MAP_SOURCE_SIZE = {
   height: 768,
 } as const;
 
-export interface MarkerLayoutPoint {
-  nx: number;
-  ny: number;
+export interface WorldMapMarkerPosition {
+  id: string;
+  /** Normalized x coordinate relative to the map image. */
+  x: number;
+  /** Normalized y coordinate relative to the map image. */
+  y: number;
+  district: 'Westside' | 'Central' | 'School District' | 'Industrial' | 'Riverside' | 'City Park';
+  categoryId: string;
 }
 
 /**
  * Normalized coordinates are relative to the custom map image, not the full
  * game viewport. Keep this table small and visual so map swaps are easy.
  */
-export const WORLD_MAP_MARKER_LAYOUT: Record<string, MarkerLayoutPoint> = {
-  loc_01: { nx: 0.22, ny: 0.25 }, // Oak & 3rd Ave - Westside neighborhood
-  loc_05: { nx: 0.34, ny: 0.50 }, // Hwy 7 Overpass - west industrial connector
-  loc_02: { nx: 0.48, ny: 0.42 }, // Central Park West
-  loc_06: { nx: 0.55, ny: 0.40 }, // Midtown Community Garden - City Park edge
-  loc_03: { nx: 0.19, ny: 0.59 }, // Riverside Industrial
-  loc_08: { nx: 0.50, ny: 0.66 }, // River Drainage Channel
-  loc_04: { nx: 0.78, ny: 0.27 }, // Lincoln Elementary - School District
-  loc_07: { nx: 0.84, ny: 0.49 }, // Jefferson Middle School
-};
+export const WORLD_MAP_MARKER_POSITIONS: WorldMapMarkerPosition[] = [
+  { id: 'loc_01', x: 0.22, y: 0.25, district: 'Westside', categoryId: 'road_hazards' },
+  { id: 'loc_05', x: 0.34, y: 0.50, district: 'Industrial', categoryId: 'road_hazards' },
+  { id: 'loc_02', x: 0.48, y: 0.42, district: 'City Park', categoryId: 'lost_pets' },
+  { id: 'loc_06', x: 0.55, y: 0.40, district: 'City Park', categoryId: 'lost_pets' },
+  { id: 'loc_03', x: 0.19, y: 0.59, district: 'Industrial', categoryId: 'environmental' },
+  { id: 'loc_08', x: 0.50, y: 0.66, district: 'Riverside', categoryId: 'environmental' },
+  { id: 'loc_04', x: 0.78, y: 0.27, district: 'School District', categoryId: 'education' },
+  { id: 'loc_07', x: 0.84, y: 0.49, district: 'School District', categoryId: 'education' },
+];
+
+export const WORLD_MAP_MARKER_BY_ID = Object.fromEntries(
+  WORLD_MAP_MARKER_POSITIONS.map(marker => [marker.id, marker]),
+) as Record<string, WorldMapMarkerPosition>;

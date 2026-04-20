@@ -381,7 +381,7 @@ export class MissionDetailScene extends Phaser.Scene {
   }
 
   private backToMap(): void {
-    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera, progress) => {
+    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera: Phaser.Cameras.Scene2D.Camera, progress: number) => {
       if (progress === 1) {
         this.scene.start(SCENE_KEYS.WORLD_MAP);
       }
@@ -391,7 +391,7 @@ export class MissionDetailScene extends Phaser.Scene {
   private startMission(): void {
     EventBridge.emit('mission_started', { missionId: this.mission.id });
 
-    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera, progress) => {
+    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera: Phaser.Cameras.Scene2D.Camera, progress: number) => {
       if (progress === 1) {
         this.scene.start(SCENE_KEYS.MISSION_ACTION, {
           mission: this.mission,

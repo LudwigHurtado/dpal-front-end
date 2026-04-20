@@ -281,7 +281,7 @@ export class RewardScene extends Phaser.Scene {
   private returnToMap(): void {
     PlayerStateManager.setZone('City Map');
 
-    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera, progress) => {
+    this.cameras.main.fadeOut(140, 0, 0, 0, (_camera: Phaser.Cameras.Scene2D.Camera, progress: number) => {
       if (progress === 1) {
         this.scene.start(SCENE_KEYS.WORLD_MAP);
       }
