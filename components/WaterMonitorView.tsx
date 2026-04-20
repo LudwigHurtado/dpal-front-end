@@ -2542,6 +2542,8 @@ function SatelliteLiveFeed({ monitoringProject }: {
 
   const sar = data?.adapters?.sentinel1;
   const sarAvailable = sar?.ok && sar.waterFraction != null;
+  const sarEstimateAvailable = !sarAvailable && !!sar && sar.waterFraction != null;
+  const sarConfiguredButUnavailable = !!sar && !sar.ok;
 
   const statusColor = (st: string) =>
     st === 'good' ? 'text-emerald-400' : st === 'warn' ? 'text-amber-400' : 'text-rose-400';
@@ -2813,14 +2815,53 @@ function SatelliteLiveFeed({ monitoringProject }: {
                 </div>
               </div>
             </div>
+          ) : sarEstimateAvailable ? (
+            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-4">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0 mt-0.5">📡</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <p className="text-xs font-bold text-slate-200 uppercase tracking-wide">SAR Water Detection Estimate</p>
+                    <span className="text-xl font-black tabular-nums text-amber-400">
+                      {Math.round((sar!.waterFraction ?? 0) * 100)}% water
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                    Sentinel-1 is returning a fallback estimate, but DPAL has not verified a live SAR scene for this scan yet.
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                    <p className="text-[11px] text-slate-400">
+                      <span className="text-slate-500">Estimated water coverage:</span>{' '}
+                      <span className="font-semibold text-amber-300">{Math.round((sar!.waterFraction ?? 0) * 100)}%</span> of AOI
+                    </p>
+                    {sar!.vvMeanDb != null && (
+                      <p className="text-[11px] text-slate-400">
+                        <span className="text-slate-500">Estimated VV backscatter:</span>{' '}
+                        <span className="font-semibold text-slate-200">{sar!.vvMeanDb.toFixed(1)} dB</span>
+                      </p>
+                    )}
+                    {sar!.floodRisk != null && (
+                      <p className="text-[11px] text-slate-400">
+                        <span className="text-slate-500">Estimated flood / pooling risk:</span>{' '}
+                        <span className="font-semibold text-amber-300">{fmtPct(sar!.floodRisk)}</span>
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[11px] font-semibold mt-1.5 leading-relaxed text-amber-300">
+                    → Add valid Copernicus Sentinel Hub client credentials on the backend to turn this into a verified live Sentinel-1 SAR read.
+                  </p>
+                  <p className="text-[10px] text-slate-600 mt-1">Source: fallback SAR estimate while Sentinel-1 credentials or scene access are unavailable</p>
+                </div>
+              </div>
+            </div>
           ) : (
             <div className="rounded-xl border border-dashed border-slate-700/50 bg-slate-800/30 px-4 py-3 flex items-center gap-3">
               <span className="text-lg shrink-0">📡</span>
               <div>
                 <p className="text-xs font-semibold text-slate-400">SAR Water Detection (Sentinel-1)</p>
                 <p className="text-[10px] text-slate-600 mt-0.5">
-                  {data?.adapters?.sentinel1
-                    ? 'Sentinel-1 credentials not configured — set COPERNICUS_CLIENT_ID + COPERNICUS_CLIENT_SECRET on Railway.'
+                  {sarConfiguredButUnavailable
+                    ? 'Sentinel-1 is unavailable from the backend. Set Copernicus Sentinel Hub client credentials on Railway, then redeploy/restart the API.'
                     : 'Loading SAR data…'}
                 </p>
               </div>
