@@ -12,6 +12,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Bot, Send, RefreshCw, ChevronDown, ChevronUp, Sparkles } from "./icons";
 import { runGeminiPrompt, isAiEnabled } from "../services/geminiService";
+import { buildDpalMrvPrompt, type DpalMrvMode } from "../services/mrvPrompt";
 
 export type SatelliteDomain = "water" | "carbon" | "offset";
 
@@ -47,6 +48,29 @@ function buildPrompt(
   const projectType = project?.type
     ? `Project type: ${project.type.replace(/_/g, " ")}.`
     : "";
+
+  const mrvModeByDomain: Record<SatelliteDomain, DpalMrvMode> = {
+    water: "water",
+    carbon: "carbon",
+    offset: "offset",
+  };
+
+  return buildDpalMrvPrompt({
+    mode: mrvModeByDomain[domain],
+    locationLabel: loc,
+    coordinates: { lat: project?.lat, lng: project?.lng },
+    dataSources: ["Supplied satellite readings", "Project registration context"],
+    context: `${projectType} ${
+      domain === "water"
+        ? "Water monitoring project: assess water availability, drought risk, soil moisture, surface water, and Sentinel-1 SAR flood or pooling signals when supplied."
+        : domain === "carbon"
+          ? "Carbon MRV project: assess vegetation health, NDVI trend, deforestation risk, land cover, and carbon-credit credibility."
+          : "Carbon offset project: assess vegetation health, soil moisture, drought stress, permanence, and offset credibility."
+    }`.trim(),
+    data,
+    userQuestion: followUp || "Explain the latest satellite readings and identify verification needs.",
+    responseLength: followUp ? "concise" : "standard",
+  });
 
   const readingsJson = JSON.stringify(data, null, 2);
 

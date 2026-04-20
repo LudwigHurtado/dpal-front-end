@@ -21,6 +21,7 @@ import { WaterGlobe, type WaterProjectPin, type WaterAlertPin, type WaterAlertTy
 import { GibsTileViewer } from './GibsTileViewer';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { buildDpalMrvPrompt } from '../services/mrvPrompt';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
@@ -98,6 +99,17 @@ function buildWaterImpactAidPrompt({
     project?.goal ? `Improvement goal: ${project.goal}.` : '',
     project?.lat != null && project?.lng != null ? `Coordinates: ${project.lat.toFixed(5)}, ${project.lng.toFixed(5)}.` : '',
   ].filter(Boolean).join(' ');
+
+  return buildDpalMrvPrompt({
+    mode: 'water',
+    locationLabel: location,
+    coordinates: { lat: project?.lat, lng: project?.lng },
+    dataSources: ['Water monitor backend', 'Satellite water readings', 'Project registration context'],
+    context: `${projectContext} Focus on water access, drought risk, irrigation waste, flooding or pooling, leaks, vegetation stress, field proof, and near-term help.`,
+    data: data || {},
+    userQuestion: question,
+    responseLength: 'standard',
+  });
 
   return `You are DPAL's water impact assistant. Help a non-expert understand water satellite readings and turn them into practical support for a person, community, farm, school, watershed, or project.
 

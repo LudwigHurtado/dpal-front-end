@@ -6,6 +6,7 @@ import {
 } from './icons';
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 
 interface GPSPoint { lat: number; lng: number }
 
@@ -138,6 +139,28 @@ function ObservationMap({ center, radiusKm, onSelect }: { center: GPSPoint; radi
 
 function buildObservationPrompt(result: EarthObservationResult, location: GPSPoint, radiusKm: number, question: string): string {
   const useCase = USE_CASES.find((item) => item.id === result.observationType);
+  const modeByObservation: Record<ObservationUse, DpalMrvMode> = {
+    deforestation: 'environmental',
+    agriculture: 'environmental',
+    pollution: 'environmental',
+    carbon_projects: 'carbon',
+    floods_fires: 'environmental',
+    roads_cities: 'infrastructure',
+    water: 'water',
+    heat: 'environmental',
+  };
+
+  return buildDpalMrvPrompt({
+    mode: modeByObservation[result.observationType] || 'earth-observation',
+    locationLabel: useCase?.label || result.observationType,
+    coordinates: { lat: location.lat, lng: location.lng, radiusKm },
+    dataSources: [useCase?.satellites || 'LEO remote-sensing satellites', 'Earth observation backend scan output'],
+    context: `Observation type: ${useCase?.label || result.observationType}. What satellites look for: ${useCase?.looksFor || 'Earth surface change'}.`,
+    data: result,
+    userQuestion: question,
+    responseLength: 'standard',
+  });
+
   return `You are DPAL's Earth Observation assistant. NASA describes remote sensing as collecting information from a distance by measuring reflected or emitted energy from Earth. Help a non-expert turn LEO satellite context into practical civic or environmental action.
 
 Observation type: ${useCase?.label || result.observationType}

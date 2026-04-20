@@ -6,6 +6,7 @@ import {
 } from './icons';
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { buildDpalMrvPrompt } from '../services/mrvPrompt';
 
 interface GPSPoint { lat: number; lng: number }
 
@@ -116,6 +117,17 @@ function ScanMap({ center, radiusKm, onSelect }: { center: GPSPoint; radiusKm: n
 }
 
 function buildConservationPrompt(scan: EcologyScanResult, location: GPSPoint, radiusKm: number, question: string): string {
+  return buildDpalMrvPrompt({
+    mode: 'environmental',
+    locationLabel: 'ecological scan area',
+    coordinates: { lat: location.lat, lng: location.lng, radiusKm },
+    dataSources: ['Landsat 9 OLI-2', 'USGS Collection 2 Level-2 Surface Reflectance', 'Ecology backend scan output'],
+    context: 'Foliage, habitat, and restoration-risk scan. Focus on NDVI, canopy decline, drought stress, habitat fragmentation, restoration actions, field photos, GPS proof, and community support.',
+    data: scan,
+    userQuestion: question,
+    responseLength: 'standard',
+  });
+
   return `You are DPAL's ecological conservation assistant. Help a non-expert understand foliage, habitat, and restoration risk.
 
 Scan center: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}

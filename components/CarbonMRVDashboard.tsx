@@ -21,6 +21,7 @@ import {
 } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
+import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import type { Hero } from '../types';
 
 import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
@@ -260,6 +261,29 @@ function buildImpactAidPrompt({
   const projectContext = project
     ? `Project: ${project.projectName || project.projectId}. Type: ${project.projectType || 'carbon project'}.`
     : 'Project: no registered project selected; use the scan area as context.';
+
+  const modeByScan: Record<ImpactAidMode, DpalMrvMode> = {
+    air: 'environmental',
+    minerals: 'mineral',
+    project: 'carbon',
+  };
+
+  return buildDpalMrvPrompt({
+    mode: modeByScan[mode],
+    locationLabel: project?.location?.city
+      ? [project.location.city, project.location.region, project.location.country].filter(Boolean).join(', ')
+      : 'selected scan area',
+    coordinates: { lat: location.lat, lng: location.lng, radiusKm },
+    dataSources: [
+      mode === 'minerals' ? 'NASA EMIT or ASTER mineral adapter output' : 'Carbon MRV backend scan output',
+      'Project registration context',
+      'Satellite or environmental readings supplied to the UI',
+    ],
+    context: `${projectContext} Scan type: ${mode}. For minerals, separate verified mineral composition from dust-source or unavailable data. For air quality, do not infer unmeasured gases.`,
+    data: data || {},
+    userQuestion: question,
+    responseLength: 'standard',
+  });
 
   return `You are DPAL's field impact assistant. Help a non-expert understand an environmental scan and turn it into practical support for a person, community, or project.
 
