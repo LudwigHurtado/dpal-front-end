@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Camera, CheckCircle, Clock, Database,
   FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud, Loader, X,
@@ -525,6 +525,10 @@ const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ chi
   </div>
 );
 
+const SkeletonBlock: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`animate-pulse rounded-lg bg-slate-800/80 ${className}`} />
+);
+
 const Metric: React.FC<{
   label: string;
   value: string;
@@ -765,8 +769,10 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [activeModal, setActiveModal] = useState<null | 'projectSetup' | 'missionBuilder' | 'uploadProof' | 'dealDetail'>(null);
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(buyers[0]?.id || null);
   const [selectedPipelineStep, setSelectedPipelineStep] = useState(pipelineSteps[0]);
+  const [pipelineDrawerOpen, setPipelineDrawerOpen] = useState(false);
   const [missionBuilderStep, setMissionBuilderStep] = useState(0);
   const [selectedMissionType, setSelectedMissionType] = useState<MissionLaunchType>('Plant Trees');
+  const [homeSectionsLoading, setHomeSectionsLoading] = useState(true);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || projects[0];
   const projectMissions = missions.filter((mission) => mission.projectId === selectedProject.id);
@@ -834,6 +840,51 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     ? `${selectedProject.municipality} planting block - 500 trees target`
     : `${selectedProject.municipality} operational zone - ${missionTypeConfig.unitLabel}`;
   const missionDeploySummary = `${selectedMissionType} mission for ${selectedProject.name}`;
+  const mrvIntelligenceItems = [
+    {
+      label: 'Satellite Review',
+      value: 'Passed',
+      tone: 'text-emerald-300',
+      onClick: () => runTransition('Opening MRV results', () => setSurfaceView('mrvResults')),
+    },
+    {
+      label: 'Geo Match',
+      value: '98%',
+      tone: 'text-white',
+      onClick: () => setActiveTab('projects'),
+    },
+    {
+      label: 'Photo Evidence Completeness',
+      value: '87%',
+      tone: 'text-white',
+      onClick: () => setActiveModal('uploadProof'),
+    },
+    {
+      label: 'Field Log Consistency',
+      value: 'Strong',
+      tone: 'text-white',
+      onClick: () => setActiveTab('evidence'),
+    },
+    {
+      label: 'Risk Flags',
+      value: '1',
+      tone: 'text-white',
+      onClick: () => setActiveTab('monitoring'),
+    },
+  ];
+
+  const openMissionBuilderFor = (missionType: MissionLaunchType) => {
+    setMissionBuilderStep(0);
+    setSelectedMissionType(missionType);
+    setActiveModal('missionBuilder');
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'home') return;
+    setHomeSectionsLoading(true);
+    const timeout = window.setTimeout(() => setHomeSectionsLoading(false), 420);
+    return () => window.clearTimeout(timeout);
+  }, [activeTab, selectedProjectId]);
 
   const runTransition = (label: string, cb: () => void) => {
     setLoadingLabel(label);
@@ -1151,6 +1202,66 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
 
         {activeTab === 'home' && (
           <div className="space-y-6">
+            {homeSectionsLoading ? (
+              <>
+                <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+                  <Card className="border-slate-800 bg-slate-900/80">
+                    <SkeletonBlock className="h-3 w-28" />
+                    <SkeletonBlock className="mt-4 h-10 w-full max-w-2xl" />
+                    <SkeletonBlock className="mt-3 h-4 w-full max-w-3xl" />
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                      {[0, 1, 2].map((item) => (
+                        <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                          <SkeletonBlock className="h-3 w-24" />
+                          <SkeletonBlock className="mt-3 h-12 w-full" />
+                        </div>
+                      ))}
+                    </div>
+                  </Card>
+                  <Card className="border-slate-800 bg-slate-900/80">
+                    <SkeletonBlock className="h-6 w-36" />
+                    <div className="mt-4 space-y-3">
+                      <SkeletonBlock className="h-20 w-full" />
+                      {[0, 1, 2, 3, 4].map((item) => (
+                        <SkeletonBlock key={item} className="h-12 w-full" />
+                      ))}
+                      <SkeletonBlock className="h-16 w-full" />
+                    </div>
+                  </Card>
+                </section>
+
+                <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  {Array.from({ length: 8 }).map((_, index) => (
+                    <Card key={index} className="border-slate-800 bg-slate-900/80">
+                      <SkeletonBlock className="h-3 w-24" />
+                      <SkeletonBlock className="mt-3 h-8 w-28" />
+                    </Card>
+                  ))}
+                </section>
+
+                <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+                  <Card className="border-slate-800 bg-slate-900/80">
+                    <SkeletonBlock className="h-6 w-40" />
+                    <SkeletonBlock className="mt-3 h-4 w-80" />
+                    <div className="mt-5 grid gap-3 md:grid-cols-3">
+                      {Array.from({ length: 6 }).map((_, index) => (
+                        <SkeletonBlock key={index} className="h-28 w-full" />
+                      ))}
+                    </div>
+                  </Card>
+                  <Card className="border-slate-800 bg-slate-900/80">
+                    <SkeletonBlock className="h-6 w-44" />
+                    <SkeletonBlock className="mt-3 h-4 w-full" />
+                    <div className="mt-4 space-y-3">
+                      {Array.from({ length: 3 }).map((_, index) => (
+                        <SkeletonBlock key={index} className="h-20 w-full" />
+                      ))}
+                    </div>
+                  </Card>
+                </section>
+              </>
+            ) : (
+              <>
             <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/70 via-slate-900/80 to-slate-950">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Investor Narrative</p>
@@ -1177,25 +1288,24 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               <Card>
                 <h2 className="text-lg font-black text-white">MRV Intelligence</h2>
                 <div className="mt-4 space-y-3">
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
+                  <button
+                    type="button"
+                    onClick={() => runTransition('Opening MRV results', () => setSurfaceView('mrvResults'))}
+                    className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-left transition hover:border-emerald-400 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                  >
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Confidence Score</p>
                     <p className="mt-1 text-3xl font-black text-white">{totals.avgVerificationConfidence}%</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Satellite Review: <span className="font-bold text-emerald-300">Passed</span>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Geo Match: <span className="font-bold text-white">98%</span>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Photo Evidence Completeness: <span className="font-bold text-white">87%</span>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Field Log Consistency: <span className="font-bold text-white">Strong</span>
-                  </div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Risk Flags: <span className="font-bold text-white">1</span>
-                  </div>
+                  </button>
+                  {mrvIntelligenceItems.map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={item.onClick}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left text-sm text-slate-300 transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                    >
+                      {item.label}: <span className={`font-bold ${item.tone}`}>{item.value}</span>
+                    </button>
+                  ))}
                   <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-50">
                     Latest engine note: Project area shows stable canopy recovery and consistent field evidence across submitted plots.
                   </div>
@@ -1228,7 +1338,10 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                     <button
                       key={step.title}
                       type="button"
-                      onClick={() => setSelectedPipelineStep(step)}
+                      onClick={() => {
+                        setSelectedPipelineStep(step);
+                        setPipelineDrawerOpen(true);
+                      }}
                       className={`rounded-lg border bg-slate-950 p-3 text-left transition hover:border-emerald-500 ${selectedPipelineStep.title === step.title ? 'border-emerald-500 shadow-[0_0_22px_rgba(16,185,129,0.15)]' : 'border-slate-800'}`}
                     >
                       <p className="text-xs font-black text-emerald-300">Stage {index + 1}</p>
@@ -1238,10 +1351,9 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                   ))}
                 </div>
                 <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Drill-down</p>
-                  <p className="mt-2 text-lg font-black text-white">{selectedPipelineStep.title}</p>
-                  <p className="mt-2 text-sm text-slate-300">{selectedPipelineStep.detail}</p>
-                  <p className="mt-3 text-xs text-emerald-200">Open pipeline stages to inspect how raw activity moves toward packaged credits and buyer submission.</p>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Stage Drill-down</p>
+                  <p className="mt-2 text-lg font-black text-white">Open any stage to inspect how activity becomes a buyer-ready carbon asset.</p>
+                  <p className="mt-3 text-xs text-emerald-200">Selecting a stage opens the carbon pipeline drawer with the active stage context.</p>
                 </div>
               </Card>
 
@@ -1254,13 +1366,18 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                     ['Patrol Protected Area', 'Supports avoided deforestation claims with geo-tagged field presence and incident reporting.'],
                     ['Verify Sample Plot', 'Improves confidence in biomass estimates through plot-level checks.'],
                   ].map(([template, detail]) => (
-                    <div key={template} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                    <button
+                      key={template}
+                      type="button"
+                      onClick={() => openMissionBuilderFor(template as MissionLaunchType)}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                    >
                       <div className="flex items-center gap-3">
-                      <Target className="h-4 w-4 text-emerald-300" />
-                      <span className="text-sm font-bold text-white">{template}</span>
+                        <Target className="h-4 w-4 text-emerald-300" />
+                        <span className="text-sm font-bold text-white">{template}</span>
                       </div>
                       <p className="mt-2 text-xs text-slate-400">{detail}</p>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </Card>
@@ -1401,6 +1518,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 </div>
               </Card>
             </section>
+              </>
+            )}
           </div>
         )}
 
@@ -1759,6 +1878,95 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             <Loader className="mx-auto h-6 w-6 animate-spin text-emerald-300" />
             <p className="mt-3 text-sm font-bold text-white">{loadingLabel}</p>
             <p className="mt-1 text-xs text-slate-400">Syncing data and preparing the next workspace...</p>
+          </div>
+        </div>
+      )}
+
+      {pipelineDrawerOpen && (
+        <div className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close pipeline drawer"
+            onClick={() => setPipelineDrawerOpen(false)}
+            className="absolute inset-0 h-full w-full cursor-default"
+          />
+          <div className="absolute right-0 top-0 h-full w-full max-w-xl border-l border-slate-700 bg-slate-950/98 shadow-[-24px_0_60px_rgba(2,6,23,0.55)]">
+            <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-emerald-300">Carbon Pipeline Drawer</p>
+                <h2 className="mt-2 text-2xl font-black text-white">{selectedPipelineStep.title}</h2>
+                <p className="mt-2 text-sm text-slate-400">Inspect how this stage contributes to trust, carbon eligibility, and commercial packaging.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPipelineDrawerOpen(false)}
+                className="rounded-lg border border-slate-700 p-2 text-slate-300 transition hover:border-slate-500 hover:text-white"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 overflow-y-auto px-5 py-5">
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Stage role</p>
+                <p className="mt-2 text-sm leading-6 text-emerald-50">{selectedPipelineStep.detail}</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Inputs</p>
+                  <p className="mt-2 text-sm font-bold text-white">Missions, field proof, boundary context, validator actions</p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Commercial effect</p>
+                  <p className="mt-2 text-sm font-bold text-white">Moves activity closer to supported credits and buyer packaging.</p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Current portfolio signal</p>
+                  <p className="mt-2 text-sm font-bold text-white">{projects.length} active projects feeding this stage</p>
+                </div>
+                <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Recommended next move</p>
+                  <p className="mt-2 text-sm font-bold text-white">Keep stage outputs inspection-ready for MRV review and buyer packaging.</p>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Related actions</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => runTransition('Running MRV review', () => {
+                      setPipelineDrawerOpen(false);
+                      setSurfaceView('mrvResults');
+                    })}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-100 transition hover:border-emerald-500"
+                  >
+                    Run MRV Review
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPipelineDrawerOpen(false);
+                      openMissionBuilderFor('Plant Trees');
+                    }}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-100 transition hover:border-emerald-500"
+                  >
+                    Launch Mission
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => runTransition('Preparing buyer package', () => {
+                      setPipelineDrawerOpen(false);
+                      setSurfaceView('buyerPackage');
+                    })}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-100 transition hover:border-emerald-500"
+                  >
+                    Prepare Buyer Package
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

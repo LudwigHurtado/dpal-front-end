@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-21 (AFOLU dashboard, project detail, MRV results, buyer workflow docs)
+Last updated: 2026-04-21 (AFOLU command center, mission deployment flow, MRV review record docs)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -200,7 +200,7 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 
 ## Recent Front-End Work (Session History)
 
-### 2026-04-21 — AFOLU dashboard, project detail, MRV results, buyer workflow
+### 2026-04-21 — AFOLU command center, mission deployment flow, MRV review record
 
 #### AFOLU route and entry point
 - New view id: `afoluEngine`
@@ -209,22 +209,32 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 - Main shell wiring: `App.tsx` imports and renders `components/AfoluEngineView.tsx`
 
 #### AFOLU home/dashboard
-- `components/AfoluEngineView.tsx` now acts as the investor-facing AFOLU Carbon & Proof dashboard
-- Home view emphasizes:
+- `components/AfoluEngineView.tsx` now acts as the investor-facing AFOLU Carbon & Proof command center
+- Hero now includes:
+  - product framing for verified, buyer-ready carbon assets
+  - action buttons for project creation, mission launch, proof upload, MRV review, and buyer package prep
+  - a compact carbon workflow strip under the hero
+- Home view emphasizes business-critical carbon metrics:
+  - active projects
+  - hectares monitored
   - estimated tCO2e
   - credits ready
+  - survival rate
   - verification confidence
   - buyer interest
   - projected revenue
 - Added product framing sections:
-  - Carbon Pipeline
+  - Investor Narrative
   - MRV Intelligence
+  - Carbon Pipeline
   - Credit-Creating Missions
+  - Project Spotlight
   - Buyer Readiness
   - Revenue Model
   - Buyer Marketplace Preview
   - Buyer Pipeline
-  - Project Spotlight
+  - secondary MRV summary
+- Added lightweight loading skeletons for the AFOLU home dashboard so the command-center sections load with intent instead of snapping in
 
 #### New modular AFOLU detail screens
 - `components/ProjectDetailView.tsx`
@@ -237,19 +247,18 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
   - credit package summary
   - buyer activity list
 - `components/MRVResultsView.tsx`
-  - MRV Review Results header
-  - trust metrics
-  - satellite validation section
-  - geo validation
-  - evidence quality
-  - risk analysis
-  - AI summary note
-  - final output card
-  - approve / request evidence / flag actions
+  - MRV review record header
+  - What Was Reviewed
+  - What The Engine Found
+  - Commercial Meaning
+  - What Happens Next
+  - explicit review result, recommendation, package state, supported credits, and modeled carbon status
+  - provenance note clarifying that the AFOLU review flow is still using curated inputs and is not yet attaching a live satellite adapter payload
 
 #### AFOLU interactions and UX behavior
 - Metric cards now open detail views or switch dashboard sections
-- Carbon pipeline stages open drill-down panels
+- MRV Intelligence rows are clickable and route to filtered tabs or workflow surfaces
+- Carbon pipeline stages open a slide-over drawer with related actions
 - Buttons trigger workflow actions:
   - `Create Project` -> project setup wizard modal
   - `Launch Mission` -> guided carbon mission launch flow
@@ -258,6 +267,7 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
   - `Prepare Buyer Package` -> buyer packaging screen
 - Buyer marketplace items open project detail flow
 - Buyer pipeline items open deal detail modal
+- Mission cards open Mission Builder with the correct mission type preselected
 - Added loading overlays and smoother transitions so navigation feels active rather than static
 
 #### AFOLU mission launch flow
@@ -275,9 +285,31 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
   - `Verify Sample Plot`
   - `Fire Recovery`
   - `Agroforestry`
+- Flow now opens with a deployment brief that states the expected `tCO2e` outcome before launch
+- Mission Definition now surfaces:
+  - mission name
+  - linked project
+  - operating area
+  - target
+  - expected impact
+- Participants & Roles now frames:
+  - community members as drivers
+  - validators as verifiers
+  - supervisors as coordinators
+  - rewards as tokens or payment per task
+- Verification Requirements now explicitly carries the proof logic that supports carbon trust
+  - participants
+  - proof rules
+  - risk watch panels
+
+#### AFOLU mission launch detail note
 - Each mission type now shows:
   - impact type (`Sequestration`, `Avoided Emissions`, `Verification Boost`)
   - expected `tCO2e`
+  - what this proves
+
+#### Verification notes
+- Production bundle verified with `npm run build`
   - “what this proves”
 - Deployment now redirects to an in-app `MissionLiveView` surface with:
   - active status
@@ -285,9 +317,6 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
   - incoming submissions
   - live activity map placeholder
 
-#### Verification notes
-- Frontend TypeScript verified with `npm run lint`
-- Production bundle verified with `npm run build`
 
 ### 2026-04-20 — Monitoring images, mineral detector, Sentinel SAR fallback, deployment identity
 

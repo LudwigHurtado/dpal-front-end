@@ -1,57 +1,57 @@
 # DPAL Front-End
 
-Vite 6 + React 19 + TypeScript SPA — the main DPAL citizen-reporting and environmental monitoring platform. Deployed on **Vercel**; API calls go to a **Railway** Node/MongoDB backend (`dpal-ai-server`).
+Vite 6 + React 19 + TypeScript SPA: the main DPAL citizen-reporting and environmental monitoring platform. Deployed on **Vercel**; API calls go to a **Railway** Node/MongoDB backend (`dpal-ai-server`).
 
 ---
 
 ## Quick start
 
 ```bash
-cp .env.example .env.local   # fill in secrets (see below)
+cp .env.example .env.local
 npm install
-npm run dev                  # http://localhost:3000
+npm run dev
 ```
 
 Build for production:
 
 ```bash
-npm run build    # → dist/
-npm run preview  # preview the production bundle locally
+npm run build
+npm run preview
 ```
 
 Type-check:
 
 ```bash
-npm run lint     # tsc --noEmit
+npm run lint
 ```
 
 ---
 
 ## Environment variables
 
-All Vite-exposed variables must start with `VITE_`. Copy `.env.example` → `.env.local`.
+All Vite-exposed variables must start with `VITE_`. Copy `.env.example` to `.env.local`.
 
 | Variable | Required | Purpose |
 |----------|----------|---------|
 | `VITE_API_BASE` | Yes | Railway backend origin, e.g. `https://web-production-a27b.up.railway.app` |
-| `VITE_GEMINI_API_KEY` | Optional* | Client-side Gemini key — exposed in bundle; prefer `VITE_USE_SERVER_AI` for production |
-| `VITE_USE_SERVER_AI` | Optional* | `true` → AI goes via `POST /api/ai/gemini` on the backend (no browser key needed) |
-| `VITE_OPENAI_API_KEY` | Optional | Politician Transparency — query refine + evidence draft |
-| `VITE_OPENAI_MODEL` | Optional | Default `gpt-4o-mini` |
+| `VITE_GEMINI_API_KEY` | Optional* | Client-side Gemini key; exposed in the bundle, so prefer server AI for production |
+| `VITE_USE_SERVER_AI` | Optional* | `true` sends AI through `POST /api/ai/gemini` on the backend |
+| `VITE_OPENAI_API_KEY` | Optional | Politician Transparency query refinement and evidence drafting |
+| `VITE_OPENAI_MODEL` | Optional | Defaults to `gpt-4o-mini` |
 | `VITE_BRAVE_SEARCH_API_KEY` | Optional | Live web search |
 | `VITE_GOOGLE_MAPS_API_KEY` | Optional | Locator / Places |
-| `VITE_LAYOUT_VERSION` | Optional | `v1` or `v2` (hub layout experiment) |
+| `VITE_LAYOUT_VERSION` | Optional | `v1` or `v2` hub layout experiment |
 
 \* At least one of `VITE_GEMINI_API_KEY` or `VITE_USE_SERVER_AI=true` is needed for AI features.
 
-Backend-only satellite credentials live on Railway, not in Vercel. Sentinel-1 SAR uses Copernicus / Sentinel Hub OAuth credentials on the API server:
+Backend-only satellite credentials live on Railway, not in Vercel:
 
 | Railway variable | Purpose |
 |------------------|---------|
 | `COPERNICUS_CLIENT_ID` | Sentinel Hub / Copernicus OAuth client id |
 | `COPERNICUS_CLIENT_SECRET` | Sentinel Hub / Copernicus OAuth client secret |
 
-After changing Railway variables, redeploy or restart the backend service so the running Node process reads the new values.
+After changing Railway variables, redeploy or restart the backend service.
 
 ---
 
@@ -59,13 +59,14 @@ After changing Railway variables, redeploy or restart the backend service so the
 
 | Route | Feature |
 |-------|---------|
-| `/` | Main menu — 20 nav tiles |
+| `/` | Main menu - 20 nav tiles |
 | `/hub` | My Reports + Feed + Map |
 | `/politician` | Public Accountability Engine |
-| `/offsets` | Carbon Credit Market — buy, retire, register land |
-| `/carbon` | Carbon MRV Engine — satellite NDVI, score, validator |
-| `/water` | Water Monitor — satellite snapshots, impact score, credits |
-| `/ecology` | Ecological Conservation — Landsat foliage scan, NDVI, habitat risk |
+| `/offsets` | Carbon Credit Market - buy, retire, register land |
+| `/carbon` | Carbon MRV Engine - satellite NDVI, score, validator |
+| `/water` | Water Monitor - satellite snapshots, impact score, credits |
+| `/ecology` | Ecological Conservation - Landsat foliage scan, NDVI, habitat risk |
+| `/afolu` | AFOLU Carbon & Proof Engine |
 | `/games` | Play & Learn hub with the embedded DPAL Mission Ops Phaser game |
 | `/missions` | Missions Hub V2 |
 | `/directives` | AI Work Directives marketplace |
@@ -79,7 +80,7 @@ After changing Railway variables, redeploy or restart the backend service so the
 
 ## DPAL Mission Ops Phaser game
 
-The `/games` Play & Learn hub now includes **DPAL Mission Ops**, an embedded Phaser mission game mounted through `features/mission-game/MissionGameView.tsx`.
+The `/games` Play & Learn hub includes **DPAL Mission Ops**, an embedded Phaser mission game mounted through `features/mission-game/MissionGameView.tsx`.
 
 Current flow:
 
@@ -95,42 +96,39 @@ Map integration:
 
 - Main map asset: `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png`
 - Swappable map settings: `features/mission-game/game/config/worldMapLayout.ts`
-- Marker coordinates are kept outside the scene in `WORLD_MAP_MARKER_POSITIONS`, with normalized `x` / `y` values plus `district` and `categoryId`.
-- The uploaded image already contains district labels, so Phaser does not draw duplicate district text over the map.
+- Marker coordinates are kept outside the scene in `WORLD_MAP_MARKER_POSITIONS`, with normalized `x` / `y` values plus `district` and `categoryId`
+- The uploaded image already contains district labels, so Phaser does not draw duplicate district text over the map
 
-State is in-session only for now through the mission game player state manager. There is no backend persistence yet.
+State is in-session only for now. There is no backend persistence yet.
 
 ---
 
 ## Recent monitoring updates
 
-- Main page monitoring imagery now uses dedicated assets in `public/main-screen/`:
-  - `land-mineral-monitoring.png` for Ecological Conservation and Carbon MRV Engine
-  - `water-project-monitoring.png` for Water Satellite Monitor
-  - `satellite-water-analysis.png` for Earth Observation
-- Category card imagery for Earth Observation, Ecological Conservation, and Water Violations points at those same assets through `categoryCardAssets.ts`.
-- Mineral detector readings now separate verified bedrock/mineral indicators from EMIT dust-source availability. When Macrostrat geology is available, the UI can show a specific primary mineral and composition share even if EMIT dust area is unavailable.
-- Water Monitor Sentinel-1 SAR now shows a clearly labeled fallback estimate card when the backend returns SAR estimate fields with `sentinel1.ok: false`. A verified SAR card only appears when the backend returns a live, verified Sentinel-1 scene.
-- Git author identity for this repo is set to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>` so future GitHub/Vercel deployments attribute commits to the correct account.
+- Main page monitoring imagery now uses dedicated assets in `public/main-screen/`
+- Category card imagery for Earth Observation, Ecological Conservation, and Water Violations points at those same assets through `categoryCardAssets.ts`
+- Mineral detector readings now separate verified bedrock/mineral indicators from EMIT dust-source availability
+- Water Monitor Sentinel-1 SAR now shows a clearly labeled fallback estimate card when the backend returns `sentinel1.ok: false`
+- Git author identity for this repo is set to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>`
 
 ---
 
 ## Architecture
 
-```
-dpal-front-end  (this repo — Vite SPA on Vercel)
-       │
-       └─ VITE_API_BASE ──► dpal-ai-server  (Express + MongoDB on Railway)
-                             ├── /api/auth/*
-                             ├── /api/offsets/*      carbon credit market
-                             ├── /api/carbon/*       carbon MRV
-                             ├── /api/water/*        water monitor
-                             ├── /api/ecology/*      Landsat foliage scan
-                             ├── /api/ai/*           Gemini proxy
-                             └── /api/reports/*
+```text
+dpal-front-end  (this repo - Vite SPA on Vercel)
+       |
+       +-- VITE_API_BASE --> dpal-ai-server  (Express + MongoDB on Railway)
+                              |-- /api/auth/*
+                              |-- /api/offsets/*      carbon credit market
+                              |-- /api/carbon/*       carbon MRV
+                              |-- /api/water/*        water monitor
+                              |-- /api/ecology/*      Landsat foliage scan
+                              |-- /api/ai/*           Gemini proxy
+                              +-- /api/reports/*
 ```
 
-Demo / offline mode: the Carbon Credit Market and Ecological Conservation both fall back to localStorage-backed simulation or deterministic demo data when the API is unreachable, so the full UX is usable without a live backend.
+Demo / offline mode: the Carbon Credit Market and Ecological Conservation both fall back to localStorage-backed simulation or deterministic demo data when the API is unreachable.
 
 ---
 
@@ -138,23 +136,24 @@ Demo / offline mode: the Carbon Credit Market and Ecological Conservation both f
 
 | Repo | Purpose |
 |------|---------|
-| `LudwigHurtado/dpal-ai-server` | Railway backend — MongoDB, Gemini, satellite adapters |
-| `dpal-enterprise-dashboard` | Next.js enterprise view (Vercel) |
-| `dpal-nexus-console-vercel` | Next.js Nexus console (Vercel) |
+| `LudwigHurtado/dpal-ai-server` | Railway backend - MongoDB, Gemini, satellite adapters |
+| `dpal-enterprise-dashboard` | Next.js enterprise view |
+| `dpal-nexus-console-vercel` | Next.js Nexus console |
 | `dpal-reviewer-node` | Validator / reviewer node portal |
 
 ---
 
 ## Deploying
 
-Push to `main` → Vercel auto-deploys. After updating env vars in the Vercel dashboard, trigger a manual redeploy so the new values are baked in.
+Push to `main` and Vercel auto-deploys. After updating env vars in the Vercel dashboard, trigger a manual redeploy.
 
-For the Railway backend, push to `main` in `dpal-ai-server` → Railway auto-deploys. Smoke check:
+For the Railway backend, push to `main` in `dpal-ai-server` and Railway auto-deploys. Smoke check:
 
-```
+```text
 GET https://web-production-a27b.up.railway.app/health
-GET https://web-production-a27b.up.railway.app/api/ai/status   → { ok: true, gemini: true }
+GET https://web-production-a27b.up.railway.app/api/ai/status
 ```
+
 ---
 
 ## AFOLU additions
@@ -168,22 +167,27 @@ GET https://web-production-a27b.up.railway.app/api/ai/status   → { ok: true, g
 
 ### What `/afolu` now covers
 
-- Investor-facing AFOLU Carbon & Proof dashboard
-- Carbon pipeline explanation from observed activity to buyer or registry submission
-- MRV intelligence summary with confidence, geo match, evidence quality, and risk cues
-- Buyer readiness and revenue model sections
-- Buyer marketplace and pipeline previews
-- Interactive drill-down behavior from dashboard cards and pipeline stages
+- Investor-facing AFOLU Carbon & Proof command center
+- Premium hero with action buttons and a carbon workflow strip
+- Investor Narrative, MRV Intelligence, Project Spotlight, Buyer Readiness, Revenue Model, Buyer Marketplace Preview, and Buyer Pipeline sections
+- Carbon Pipeline stage cards with a slide-over drill-down drawer
+- Credit-Creating Missions section tied directly to the mission deployment flow
+- Secondary MRV summary and business-critical carbon metrics
+- Lightweight home-dashboard skeleton states so high-value sections load smoothly
 
 ### AFOLU workflow interactions
 
 - `Create Project` -> project setup wizard modal
 - `Launch Mission` -> guided carbon mission launch flow
 - `Upload Proof` -> proof upload modal
-- `Run MRV Review` -> MRV results screen
+- `Run MRV Review` -> MRV review record screen
 - `Prepare Buyer Package` -> buyer packaging screen
 - Buyer marketplace items -> project detail screen
 - Buyer pipeline items -> deal detail modal
+- MRV Intelligence rows -> filtered tabs or workflow surfaces
+- Metric cards -> filtered tabs or detail screens
+- Carbon Pipeline stages -> pipeline drawer with related actions
+- Mission cards -> Mission Builder with mission type preselected
 
 ### AFOLU mission launch flow
 
@@ -201,5 +205,25 @@ GET https://web-production-a27b.up.railway.app/api/ai/status   → { ok: true, g
   4. `Verification Requirements`
   5. `Monitoring & Tracking`
   6. `Deploy Mission`
-- The flow shows expected `tCO2e`, impact type, and “what this proves” before deployment
-- After deploy, the UI opens a `Mission Live View` with active status, progress, submissions, and map activity placeholder
+- The flow now opens with a deployment brief and shows expected `tCO2e`, impact type, and `what this proves` before deployment
+- Mission Definition surfaces linked project, operating area, target, and estimated impact early
+- Participants & Roles frames drivers, verifiers, coordinators, and reward logic as part of the operating model
+- Deploy Mission ends in a real mission summary instead of a dead-end modal close
+- After deploy, the UI opens a `Mission Live View` with active status, progress, submissions, map activity, participants, proof rules, and risk watch panels
+
+### AFOLU MRV review record
+
+- `components/MRVResultsView.tsx` now reads like a review memo rather than a generic dashboard
+- Sections are structured as:
+  1. `What Was Reviewed`
+  2. `What The Engine Found`
+  3. `Commercial Meaning`
+  4. `What Happens Next`
+- Review output explicitly shows:
+  - review result
+  - confidence score
+  - approval recommendation
+  - credit package state
+  - supported credits
+  - modeled carbon status
+- The review screen includes an explicit provenance note that the AFOLU Proof Engine flow still uses curated review inputs and does not yet attach a live satellite adapter payload inside this review path
