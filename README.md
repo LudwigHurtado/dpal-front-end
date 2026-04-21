@@ -178,9 +178,28 @@ GET https://web-production-a27b.up.railway.app/api/ai/status   → { ok: true, g
 ### AFOLU workflow interactions
 
 - `Create Project` -> project setup wizard modal
-- `Launch Mission` -> mission builder modal
+- `Launch Mission` -> guided carbon mission launch flow
 - `Upload Proof` -> proof upload modal
 - `Run MRV Review` -> MRV results screen
 - `Prepare Buyer Package` -> buyer packaging screen
 - Buyer marketplace items -> project detail screen
 - Buyer pipeline items -> deal detail modal
+
+### AFOLU mission launch flow
+
+- Mission flow now starts with `Select Mission Type` instead of a generic form step
+- Supported mission types:
+  - `Plant Trees`
+  - `Patrol Protected Area`
+  - `Verify Sample Plot`
+  - `Fire Recovery`
+  - `Agroforestry`
+- Guided steps:
+  1. `Select Mission Type`
+  2. `Mission Definition`
+  3. `Participants & Roles`
+  4. `Verification Requirements`
+  5. `Monitoring & Tracking`
+  6. `Deploy Mission`
+- The flow shows expected `tCO2e`, impact type, and “what this proves” before deployment
+- After deploy, the UI opens a `Mission Live View` with active status, progress, submissions, and map activity placeholder

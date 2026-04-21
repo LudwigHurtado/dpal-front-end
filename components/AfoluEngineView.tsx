@@ -19,6 +19,7 @@ type AfoluTab =
 type ProjectStatus = 'draft' | 'active' | 'monitoring' | 'buyer_ready' | 'flagged';
 type MissionStatus = 'Draft' | 'Open' | 'Assigned' | 'In Progress' | 'Submitted' | 'Under Review' | 'Verified' | 'Failed' | 'Flagged' | 'Closed';
 type RiskLevel = 'Low' | 'Medium' | 'High' | 'Critical';
+type MissionLaunchType = 'Plant Trees' | 'Patrol Protected Area' | 'Verify Sample Plot' | 'Fire Recovery' | 'Agroforestry';
 
 interface AfoluProject {
   id: string;
@@ -72,6 +73,15 @@ interface BuyerRecord {
   offerPriceUsd: number;
   status: 'pipeline' | 'negotiating' | 'won';
   lastTouch: string;
+}
+
+interface MissionTypeOption {
+  title: MissionLaunchType;
+  impactType: string;
+  description: string;
+  expectedTco2e: number;
+  unitLabel: string;
+  whatThisProves: string;
 }
 
 interface AfoluMission {
@@ -280,6 +290,49 @@ const buyers: BuyerRecord[] = [
     offerPriceUsd: 30,
     status: 'won',
     lastTouch: '2026-04-17',
+  },
+];
+
+const missionTypeOptions: MissionTypeOption[] = [
+  {
+    title: 'Plant Trees',
+    impactType: 'Sequestration',
+    description: 'Launch planting and survival operations that create new carbon stock.',
+    expectedTco2e: 120,
+    unitLabel: '500 trees',
+    whatThisProves: 'Proves sequestration through planting and survival tracking.',
+  },
+  {
+    title: 'Patrol Protected Area',
+    impactType: 'Avoided Emissions',
+    description: 'Deploy field patrols to document protection activity and deter clearing.',
+    expectedTco2e: 90,
+    unitLabel: '50 hectares',
+    whatThisProves: 'Proves avoided deforestation with geo-tagged field presence and incident reporting.',
+  },
+  {
+    title: 'Verify Sample Plot',
+    impactType: 'Verification Boost',
+    description: 'Improve biomass confidence through plot checks and recounts.',
+    expectedTco2e: 45,
+    unitLabel: '12 plots',
+    whatThisProves: 'Improves carbon confidence through plot-level verification.',
+  },
+  {
+    title: 'Fire Recovery',
+    impactType: 'Sequestration',
+    description: 'Track post-fire regeneration, nursery batches, and recovery evidence.',
+    expectedTco2e: 110,
+    unitLabel: '40 hectares',
+    whatThisProves: 'Proves recovery-driven sequestration and restoration progress.',
+  },
+  {
+    title: 'Agroforestry',
+    impactType: 'Sequestration',
+    description: 'Coordinate parcel-based agroforestry expansion with mixed-species logging.',
+    expectedTco2e: 135,
+    unitLabel: '80 hectares',
+    whatThisProves: 'Proves integrated sequestration through farm-level tree establishment.',
   },
 ];
 
@@ -580,6 +633,74 @@ const BuyerPackageView: React.FC<{
   </div>
 );
 
+const MissionLiveView: React.FC<{
+  missionName: string;
+  missionType: MissionLaunchType;
+  expectedTco2e: number;
+  targetLabel: string;
+  onBack: () => void;
+}> = ({ missionName, missionType, expectedTco2e, targetLabel, onBack }) => (
+  <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <Card className="border-emerald-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/25">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <button onClick={onBack} className="rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-slate-300 transition hover:border-emerald-500 hover:text-white">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">Mission Live View</p>
+              <h1 className="mt-1 text-3xl font-black text-white">{missionName}</h1>
+              <p className="mt-2 text-sm text-slate-400">{missionType} mission is now active and collecting carbon-relevant proof.</p>
+            </div>
+          </div>
+          <span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-100">Status: ACTIVE</span>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['Expected Carbon Impact', `${expectedTco2e} tCO2e`],
+          ['Target', targetLabel],
+          ['Submissions', '3 incoming'],
+          ['Verification', 'Live monitoring'],
+        ].map(([label, value]) => (
+          <Card key={label}>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="mt-1 text-2xl font-black text-white">{value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card>
+          <h2 className="text-lg font-black text-white">Mission Progress</h2>
+          <div className="mt-4 rounded-full bg-slate-800">
+            <div className="h-3 rounded-full bg-emerald-500" style={{ width: '38%' }} />
+          </div>
+          <p className="mt-3 text-sm text-slate-300">38% complete - field teams have started logging proof and map activity.</p>
+          <div className="mt-4 space-y-3">
+            {['Checkpoint 1 submitted', 'Satellite watch enabled', 'Validator assigned'].map((item) => (
+              <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{item}</div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <h2 className="text-lg font-black text-white">Map Activity</h2>
+          <div className="mt-4 flex min-h-[260px] items-center justify-center rounded-xl border border-dashed border-emerald-500/30 bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_rgba(2,6,23,0.92))] text-center">
+            <div>
+              <MapPin className="mx-auto h-8 w-8 text-emerald-300" />
+              <p className="mt-3 text-lg font-black text-white">Live activity map placeholder</p>
+              <p className="mt-2 max-w-md text-sm text-slate-300">Submissions, route traces, and proof events appear here as the mission runs.</p>
+            </div>
+          </div>
+        </Card>
+      </div>
+    </div>
+  </div>
+);
+
 const pipelineSteps: Array<{ title: string; detail: string }> = [
   { title: 'Observed Activity', detail: 'Real-world action logged on the ground: trees planted, hectares patrolled, plots measured.' },
   { title: 'Eligible Impact', detail: 'DPAL determines whether the activity is actually credit-relevant.' },
@@ -596,11 +717,13 @@ interface AfoluEngineViewProps {
 const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [activeTab, setActiveTab] = useState<AfoluTab>('home');
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
-  const [surfaceView, setSurfaceView] = useState<'dashboard' | 'projectDetail' | 'mrvResults' | 'buyerPackage'>('dashboard');
+  const [surfaceView, setSurfaceView] = useState<'dashboard' | 'projectDetail' | 'mrvResults' | 'buyerPackage' | 'missionLive'>('dashboard');
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<null | 'projectSetup' | 'missionBuilder' | 'uploadProof' | 'dealDetail'>(null);
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(buyers[0]?.id || null);
   const [selectedPipelineStep, setSelectedPipelineStep] = useState(pipelineSteps[0]);
+  const [missionBuilderStep, setMissionBuilderStep] = useState(0);
+  const [selectedMissionType, setSelectedMissionType] = useState<MissionLaunchType>('Plant Trees');
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || projects[0];
   const projectMissions = missions.filter((mission) => mission.projectId === selectedProject.id);
@@ -648,6 +771,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const spotlightProject = projects[1];
   const buyerInterest = buyers.length;
   const selectedBuyer = buyers.find((buyer) => buyer.id === selectedBuyerId) || null;
+  const missionTypeConfig = missionTypeOptions.find((option) => option.title === selectedMissionType) || missionTypeOptions[0];
 
   const runTransition = (label: string, cb: () => void) => {
     setLoadingLabel(label);
@@ -767,6 +891,18 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     );
   }
 
+  if (surfaceView === 'missionLive') {
+    return (
+      <MissionLiveView
+        missionName={`${selectedMissionType} - ${selectedProject.name}`}
+        missionType={selectedMissionType}
+        expectedTco2e={missionTypeConfig.expectedTco2e}
+        targetLabel={missionTypeConfig.unitLabel}
+        onBack={() => setSurfaceView('dashboard')}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-950/95 px-4 py-4 backdrop-blur">
@@ -795,7 +931,11 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               Create Project
             </button>
             <button
-              onClick={() => setActiveModal('missionBuilder')}
+              onClick={() => {
+                setMissionBuilderStep(0);
+                setSelectedMissionType('Plant Trees');
+                setActiveModal('missionBuilder');
+              }}
               className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
             >
               Launch Mission
@@ -1469,17 +1609,163 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
 
       {activeModal === 'missionBuilder' && (
         <OverlayModal
-          title="Mission Builder"
-          subtitle="Create carbon-relevant missions with proof rules and assignment logic."
+          title="Carbon Mission Launch"
+          subtitle="Deploy a real-world carbon activity that can generate credits when completed and verified."
           onClose={() => setActiveModal(null)}
         >
-          <div className="space-y-3">
-            {['Mission basics', 'Assignment', 'Proof rules', 'Monitoring link', 'Publish or schedule'].map((step, index) => (
-              <div key={step} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-black text-emerald-300">{index + 1}</div>
-                <span className="text-sm font-bold text-white">{step}</span>
+          <div className="space-y-4">
+            <div className="grid gap-2 sm:grid-cols-5 text-[11px]">
+              {['Select Mission Type', 'Mission Definition', 'Participants & Roles', 'Verification Requirements', 'Monitoring & Tracking', 'Deploy Mission'].map((step, index) => (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => setMissionBuilderStep(index)}
+                  className={`rounded-lg border px-2 py-2 font-bold transition ${missionBuilderStep === index ? 'border-emerald-500 bg-emerald-500/15 text-emerald-100' : 'border-slate-800 bg-slate-950 text-slate-400'}`}
+                >
+                  {step}
+                </button>
+              ))}
+            </div>
+
+            {missionBuilderStep === 0 && (
+              <div className="space-y-3">
+                <p className="text-sm text-slate-300">Choose the impact action first. This sets the carbon logic for the mission.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {missionTypeOptions.map((option) => (
+                    <button
+                      key={option.title}
+                      type="button"
+                      onClick={() => setSelectedMissionType(option.title)}
+                      className={`rounded-xl border p-4 text-left transition ${selectedMissionType === option.title ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]' : 'border-slate-800 bg-slate-950 hover:border-slate-600'}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-white">{option.title}</p>
+                          <p className="mt-1 text-xs font-bold uppercase tracking-wide text-emerald-300">{option.impactType}</p>
+                        </div>
+                        <span className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-bold text-slate-200">{option.expectedTco2e} tCO2e</span>
+                      </div>
+                      <p className="mt-3 text-sm text-slate-300">{option.description}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
-            ))}
+            )}
+
+            {missionBuilderStep === 1 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Mission Name', `${selectedMissionType} - ${selectedProject.name}`],
+                  ['Linked Project', selectedProject.name],
+                  ['Area', `${selectedProject.municipality} / map select placeholder`],
+                  ['Target', missionTypeConfig.unitLabel],
+                  ['Expected Impact', `Estimated: ${missionTypeConfig.expectedTco2e} tCO2e`],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+                    <p className="mt-1 text-sm font-bold text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {missionBuilderStep === 2 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Community members', 'Drivers - complete the field work'],
+                  ['Validators', 'Verifiers - confirm proof quality'],
+                  ['Supervisors', 'Coordinators - manage deployment and risk'],
+                  ['Rewards', 'DPAL tokens or payment per task'],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+                    <p className="mt-1 text-sm font-bold text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {missionBuilderStep === 3 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {[
+                  ['Required Photos', '3'],
+                  ['GPS Validation', 'Required'],
+                  ['Time Window', '24h'],
+                  ['Geo Radius', '150 meters'],
+                  ['What this proves', missionTypeConfig.whatThisProves],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+                    <p className="mt-1 text-sm font-bold text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {missionBuilderStep === 4 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Map Preview</p>
+                  <p className="mt-1 text-sm font-bold text-white">Boundary, route, and checkpoint overlay placeholder</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Satellite Tracking</p>
+                  <p className="mt-1 text-sm font-bold text-white">Enabled</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Risk Alerts</p>
+                  <p className="mt-1 text-sm font-bold text-white">Fire and deforestation watch active</p>
+                </div>
+              </div>
+            )}
+
+            {missionBuilderStep === 5 && (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Mission Summary</p>
+                  <p className="mt-2 text-lg font-black text-white">{selectedMissionType} - {selectedProject.name}</p>
+                  <p className="mt-2 text-sm text-emerald-50">This mission is expected to generate ~{missionTypeConfig.expectedTco2e} tCO2e if completed successfully.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Participants</p>
+                    <p className="mt-1 text-sm font-bold text-white">Drivers, verifiers, coordinator</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Proof Rules</p>
+                    <p className="mt-1 text-sm font-bold text-white">3 photos, GPS, 24h time window, geo radius check</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => runTransition('Deploying mission', () => {
+                    setActiveModal(null);
+                    setSurfaceView('missionLive');
+                  })}
+                  className="w-full rounded-lg bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-500"
+                >
+                  🚀 Deploy Mission
+                </button>
+              </div>
+            )}
+
+            {missionBuilderStep < 5 && (
+              <div className="flex justify-between gap-3">
+                <button
+                  type="button"
+                  onClick={() => setMissionBuilderStep((prev) => Math.max(0, prev - 1))}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMissionBuilderStep((prev) => Math.min(5, prev + 1))}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500"
+                >
+                  Continue
+                </button>
+              </div>
+            )}
           </div>
         </OverlayModal>
       )}

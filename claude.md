@@ -252,13 +252,38 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 - Carbon pipeline stages open drill-down panels
 - Buttons trigger workflow actions:
   - `Create Project` -> project setup wizard modal
-  - `Launch Mission` -> mission builder modal
+  - `Launch Mission` -> guided carbon mission launch flow
   - `Upload Proof` -> proof upload modal
   - `Run MRV Review` -> `MRVResultsView`
   - `Prepare Buyer Package` -> buyer packaging screen
 - Buyer marketplace items open project detail flow
 - Buyer pipeline items open deal detail modal
 - Added loading overlays and smoother transitions so navigation feels active rather than static
+
+#### AFOLU mission launch flow
+- `components/AfoluEngineView.tsx` now includes a guided carbon mission creation sequence instead of a generic mission-builder form
+- New launch sequence:
+  1. `Select Mission Type`
+  2. `Mission Definition`
+  3. `Participants & Roles`
+  4. `Verification Requirements`
+  5. `Monitoring & Tracking`
+  6. `Deploy Mission`
+- Supported mission types:
+  - `Plant Trees`
+  - `Patrol Protected Area`
+  - `Verify Sample Plot`
+  - `Fire Recovery`
+  - `Agroforestry`
+- Each mission type now shows:
+  - impact type (`Sequestration`, `Avoided Emissions`, `Verification Boost`)
+  - expected `tCO2e`
+  - “what this proves”
+- Deployment now redirects to an in-app `MissionLiveView` surface with:
+  - active status
+  - progress bar
+  - incoming submissions
+  - live activity map placeholder
 
 #### Verification notes
 - Frontend TypeScript verified with `npm run lint`
