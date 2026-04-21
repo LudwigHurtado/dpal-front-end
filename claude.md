@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-20 (mission game docs, monitoring images, mineral detector, Sentinel SAR fallback, deploy author identity)
+Last updated: 2026-04-21 (AFOLU dashboard, project detail, MRV results, buyer workflow docs)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -199,6 +199,70 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-21 — AFOLU dashboard, project detail, MRV results, buyer workflow
+
+#### AFOLU route and entry point
+- New view id: `afoluEngine`
+- New stable route: `/afolu` in `utils/appRoutes.ts`
+- Main menu tile: `Forest Integrity` in `components/MainMenu.tsx`
+- Main shell wiring: `App.tsx` imports and renders `components/AfoluEngineView.tsx`
+
+#### AFOLU home/dashboard
+- `components/AfoluEngineView.tsx` now acts as the investor-facing AFOLU Carbon & Proof dashboard
+- Home view emphasizes:
+  - estimated tCO2e
+  - credits ready
+  - verification confidence
+  - buyer interest
+  - projected revenue
+- Added product framing sections:
+  - Carbon Pipeline
+  - MRV Intelligence
+  - Credit-Creating Missions
+  - Buyer Readiness
+  - Revenue Model
+  - Buyer Marketplace Preview
+  - Buyer Pipeline
+  - Project Spotlight
+
+#### New modular AFOLU detail screens
+- `components/ProjectDetailView.tsx`
+  - header with status badge and action buttons
+  - metrics grid
+  - map placeholder + project metadata
+  - carbon timeline table
+  - evidence gallery with clickable preview
+  - MRV summary
+  - credit package summary
+  - buyer activity list
+- `components/MRVResultsView.tsx`
+  - MRV Review Results header
+  - trust metrics
+  - satellite validation section
+  - geo validation
+  - evidence quality
+  - risk analysis
+  - AI summary note
+  - final output card
+  - approve / request evidence / flag actions
+
+#### AFOLU interactions and UX behavior
+- Metric cards now open detail views or switch dashboard sections
+- Carbon pipeline stages open drill-down panels
+- Buttons trigger workflow actions:
+  - `Create Project` -> project setup wizard modal
+  - `Launch Mission` -> mission builder modal
+  - `Upload Proof` -> proof upload modal
+  - `Run MRV Review` -> `MRVResultsView`
+  - `Prepare Buyer Package` -> buyer packaging screen
+- Buyer marketplace items open project detail flow
+- Buyer pipeline items open deal detail modal
+- Added loading overlays and smoother transitions so navigation feels active rather than static
+
+#### Verification notes
+- Frontend TypeScript verified with `npm run lint`
+- Production bundle verified with `npm run build`
 
 ### 2026-04-20 — Monitoring images, mineral detector, Sentinel SAR fallback, deployment identity
 

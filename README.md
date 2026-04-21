@@ -155,3 +155,32 @@ For the Railway backend, push to `main` in `dpal-ai-server` → Railway auto-dep
 GET https://web-production-a27b.up.railway.app/health
 GET https://web-production-a27b.up.railway.app/api/ai/status   → { ok: true, gemini: true }
 ```
+---
+
+## AFOLU additions
+
+- New route: `/afolu`
+- Main entry tile: `Forest Integrity`
+- Main screen: `components/AfoluEngineView.tsx`
+- New modular detail screens:
+  - `components/ProjectDetailView.tsx`
+  - `components/MRVResultsView.tsx`
+
+### What `/afolu` now covers
+
+- Investor-facing AFOLU Carbon & Proof dashboard
+- Carbon pipeline explanation from observed activity to buyer or registry submission
+- MRV intelligence summary with confidence, geo match, evidence quality, and risk cues
+- Buyer readiness and revenue model sections
+- Buyer marketplace and pipeline previews
+- Interactive drill-down behavior from dashboard cards and pipeline stages
+
+### AFOLU workflow interactions
+
+- `Create Project` -> project setup wizard modal
+- `Launch Mission` -> mission builder modal
+- `Upload Proof` -> proof upload modal
+- `Run MRV Review` -> MRV results screen
+- `Prepare Buyer Package` -> buyer packaging screen
+- Buyer marketplace items -> project detail screen
+- Buyer pipeline items -> deal detail modal

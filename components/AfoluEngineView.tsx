@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Camera, CheckCircle, Clock, Database,
-  FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud,
+  FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud, Loader, X,
 } from './icons';
+import ProjectDetailView from './ProjectDetailView';
+import MRVResultsView from './MRVResultsView';
 
 type AfoluTab =
   | 'home'
@@ -470,16 +472,112 @@ const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ chi
   </div>
 );
 
-const Metric: React.FC<{ label: string; value: string; icon: React.ReactNode; tone?: string }> = ({ label, value, icon, tone = 'text-emerald-300' }) => (
-  <Card>
-    <div className="flex items-center justify-between gap-3">
+const Metric: React.FC<{
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  tone?: string;
+  onClick?: () => void;
+}> = ({ label, value, icon, tone = 'text-emerald-300', onClick }) => (
+  <Card className={onClick ? 'transition hover:border-emerald-500/40 hover:shadow-[0_0_24px_rgba(16,185,129,0.14)]' : ''}>
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className="flex w-full items-center justify-between gap-3 text-left disabled:cursor-default"
+    >
       <div>
         <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
         <p className="mt-1 text-2xl font-black text-white">{value}</p>
       </div>
       <div className={`rounded-lg border border-current/30 bg-white/5 p-2 ${tone}`}>{icon}</div>
-    </div>
+    </button>
   </Card>
+);
+
+const OverlayModal: React.FC<{
+  title: string;
+  subtitle?: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}> = ({ title, subtitle, onClose, children }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+    <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-[0_0_40px_rgba(16,185,129,0.14)]">
+      <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+        <div>
+          <h2 className="text-lg font-black text-white">{title}</h2>
+          {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
+        </div>
+        <button onClick={onClose} className="rounded-lg border border-slate-700 p-2 text-slate-300 transition hover:border-slate-500 hover:text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="p-5">{children}</div>
+    </div>
+  </div>
+);
+
+const BuyerPackageView: React.FC<{
+  projectName: string;
+  inventoryAvailable: number;
+  packageCompleteness: number;
+  priceRangeUsd: string;
+  onBack: () => void;
+}> = ({ projectName, inventoryAvailable, packageCompleteness, priceRangeUsd, onBack }) => (
+  <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
+    <div className="mx-auto max-w-6xl space-y-6">
+      <Card className="border-emerald-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/25">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-3">
+            <button onClick={onBack} className="rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-slate-300 transition hover:border-emerald-500 hover:text-white">
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+            <div>
+              <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">Credit Packaging</p>
+              <h1 className="mt-1 text-3xl font-black text-white">{projectName}</h1>
+              <p className="mt-2 text-sm text-slate-400">Packaging credits, evidence, maps, and MRV outputs into a buyer-ready submission.</p>
+            </div>
+          </div>
+          <button className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500">
+            Export Package
+          </button>
+        </div>
+      </Card>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[
+          ['Credits Available', String(inventoryAvailable)],
+          ['Package Completeness', `${packageCompleteness}%`],
+          ['Expected Price Range', priceRangeUsd],
+          ['Submission Status', 'Ready for buyer review'],
+        ].map(([label, value]) => (
+          <Card key={label}>
+            <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+            <p className="mt-1 text-2xl font-black text-white">{value}</p>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+        <Card>
+          <h2 className="text-lg font-black text-white">Package Contents</h2>
+          <div className="mt-4 space-y-3">
+            {['Verified project maps', 'Carbon timeline', 'Evidence archive', 'MRV result sheet', 'Buyer-facing summary memo'].map((item) => (
+              <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{item}</div>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <h2 className="text-lg font-black text-white">Readiness Track</h2>
+          <div className="mt-4 grid gap-2 sm:grid-cols-5 text-[11px]">
+            {['Documentation', 'Model', 'Validation', 'Packaging', 'Submission'].map((step) => (
+              <div key={step} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-3 text-center font-bold text-emerald-100">{step}</div>
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  </div>
 );
 
 const pipelineSteps: Array<{ title: string; detail: string }> = [
@@ -498,6 +596,11 @@ interface AfoluEngineViewProps {
 const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [activeTab, setActiveTab] = useState<AfoluTab>('home');
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
+  const [surfaceView, setSurfaceView] = useState<'dashboard' | 'projectDetail' | 'mrvResults' | 'buyerPackage'>('dashboard');
+  const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
+  const [activeModal, setActiveModal] = useState<null | 'projectSetup' | 'missionBuilder' | 'uploadProof' | 'dealDetail'>(null);
+  const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(buyers[0]?.id || null);
+  const [selectedPipelineStep, setSelectedPipelineStep] = useState(pipelineSteps[0]);
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || projects[0];
   const projectMissions = missions.filter((mission) => mission.projectId === selectedProject.id);
@@ -544,6 +647,125 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const selectedProjectBuyers = buyers.filter((buyer) => buyer.projectId === selectedProject.id);
   const spotlightProject = projects[1];
   const buyerInterest = buyers.length;
+  const selectedBuyer = buyers.find((buyer) => buyer.id === selectedBuyerId) || null;
+
+  const runTransition = (label: string, cb: () => void) => {
+    setLoadingLabel(label);
+    window.setTimeout(() => {
+      cb();
+      setLoadingLabel(null);
+    }, 450);
+  };
+
+  const projectDetailData = useMemo(() => ({
+    projectName: selectedProject.name,
+    status: selectedProject.status.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()),
+    hectares: selectedProject.hectares.toLocaleString(),
+    treesRegistered: selectedProject.treesPlanted.toLocaleString(),
+    estimatedTco2e: `${selectedProject.co2CapturedTons.toLocaleString()} t`,
+    creditsReady: selectedProject.inventoryAvailable.toLocaleString(),
+    survivalRate: `${selectedProject.treesPlanted > 0 ? Math.round((selectedProject.treesAlive / selectedProject.treesPlanted) * 100) : 100}%`,
+    verificationConfidence: `${selectedProject.aiVerificationConfidence}%`,
+    mapLabel: `${selectedProject.municipality}, ${selectedProject.region}, ${selectedProject.country}`,
+    metadata: [
+      { label: 'Project Type', value: selectedProject.type },
+      { label: 'Community', value: selectedProject.communityName },
+      { label: 'Steward', value: selectedProject.stewardName },
+      { label: 'Registry Target', value: selectedProject.registryTarget },
+      { label: 'Land Rights', value: selectedProject.landRightsStatus },
+      { label: 'Last MRV Validation', value: selectedProject.mrvLastValidatedAt },
+    ],
+    carbonTimeline: [
+      { id: 'tl-1', date: '2026-01-12', activity: 'Baseline parcel mapping completed', carbonImpact: '0 t baseline locked' },
+      { id: 'tl-2', date: '2026-02-09', activity: 'Field missions submitted with geo-tagged proof', carbonImpact: `+${Math.round(selectedProject.monthlyCo2Tons * 0.8)} tCO2e eligible` },
+      { id: 'tl-3', date: '2026-03-15', activity: 'Satellite recovery trend confirmed', carbonImpact: `+${Math.round(selectedProject.monthlyCo2Tons)} tCO2e modeled` },
+      { id: 'tl-4', date: '2026-04-20', activity: 'Buyer package updated after validator review', carbonImpact: `${selectedProject.inventoryAvailable} credits ready` },
+    ],
+    evidence: [
+      { id: 'ev-1', url: '/main-screen/land-mineral-monitoring.png', title: 'Boundary checkpoint photo', capturedAt: '2026-04-18 10:42' },
+      { id: 'ev-2', url: '/main-screen/water-project-monitoring.png', title: 'Plot survival capture', capturedAt: '2026-04-18 13:05' },
+      { id: 'ev-3', url: '/main-screen/field-missions.png', title: 'Patrol route verification', capturedAt: '2026-04-19 08:30' },
+      { id: 'ev-4', url: '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png', title: 'Restoration cluster overview', capturedAt: '2026-04-19 16:40' },
+    ],
+    mrvSummary: {
+      confidenceScore: `${selectedProject.aiVerificationConfidence}%`,
+      satelliteValidation: selectedProject.satelliteConfirmed ? 'Passed' : 'Needs review',
+      riskFlags: selectedProject.anomalyStatus,
+      aiNote: 'DPAL cross-checked field evidence, geospatial consistency, and recent satellite trend data. Recovery appears stable with no unresolved contradiction between field logs and remote sensing.',
+    },
+    creditPackage: {
+      creditsAvailable: selectedProject.inventoryAvailable.toLocaleString(),
+      priceRange: selectedProject.priceRangeUsd,
+      totalValue: usd(selectedProject.inventoryAvailable * selectedProject.pricePerCreditUsd),
+      status: selectedProject.packageCompleteness >= 85 ? 'Buyer Ready' : 'Packaging In Progress',
+    },
+    buyerActivity: selectedProjectBuyers.map((buyer) => ({
+      id: buyer.id,
+      buyer: buyer.name,
+      offer: `${buyer.requestedCredits} credits at ${usd(buyer.offerPriceUsd)}`,
+      status: buyer.status,
+    })),
+  }), [selectedProject, selectedProjectBuyers]);
+
+  const mrvResultsData = useMemo(() => ({
+    projectName: selectedProject.name,
+    runDate: selectedProject.mrvLastValidatedAt,
+    estimatedTco2e: `${selectedProject.co2CapturedTons.toLocaleString()} t`,
+    creditsGenerated: selectedProject.creditsGenerated.toLocaleString(),
+    confidenceScore: `${selectedProject.aiVerificationConfidence}%`,
+    riskScore: selectedProject.riskLevel,
+    vegetationChange: selectedProject.satelliteConfirmed ? 'Yes' : 'No',
+    deforestationDetection: selectedProject.riskLevel === 'High' ? 'Localized pressure detected' : 'No active deforestation detected',
+    gpsMatchPercentage: '98%',
+    boundaryAccuracy: 'High',
+    outlierDetection: selectedProject.anomalyStatus,
+    photoCount: String(projectEvidence.length * 4),
+    coveragePercent: `${Math.min(96, selectedProject.packageCompleteness)}%`,
+    consistencyRating: selectedProject.anomalyStatus === 'Clean' ? 'Strong' : 'Moderate',
+    fireRisk: selectedProject.type === 'Fire Recovery' ? 'Medium' : 'Low',
+    fraudFlags: selectedProject.anomalyStatus === 'Clean' ? '0 active flags' : '1 caution flag',
+    missingData: selectedProject.packageCompleteness > 80 ? 'Minor gaps only' : 'Additional evidence needed',
+    aiSummary: `MRV review indicates that ${selectedProject.name} has a strong chain of proof across field logs, boundary checks, and satellite trend review. The current package supports ${selectedProject.inventoryAvailable} market-ready credits with ${selectedProject.aiVerificationConfidence}% confidence, subject to final buyer or registry formatting requirements.`,
+    verifiedCarbonOutput: `${selectedProject.co2CapturedTons.toLocaleString()} tCO2e`,
+    finalCreditsGenerated: selectedProject.inventoryAvailable.toLocaleString(),
+    finalConfidence: `${selectedProject.aiVerificationConfidence}%`,
+  }), [selectedProject, projectEvidence.length]);
+
+  if (surfaceView === 'projectDetail') {
+    return (
+      <ProjectDetailView
+        {...projectDetailData}
+        onBack={() => setSurfaceView('dashboard')}
+        onUploadProof={() => setActiveModal('uploadProof')}
+        onRunMrv={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
+        onPrepareCredits={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
+      />
+    );
+  }
+
+  if (surfaceView === 'mrvResults') {
+    return (
+      <MRVResultsView
+        {...mrvResultsData}
+        onBack={() => setSurfaceView('dashboard')}
+        onApproveCredits={() => runTransition('Approving credits', () => setActiveModal('dealDetail'))}
+        onRequestMoreEvidence={() => setActiveModal('uploadProof')}
+        onFlagForReview={() => setActiveModal('dealDetail')}
+      />
+    );
+  }
+
+  if (surfaceView === 'buyerPackage') {
+    return (
+      <BuyerPackageView
+        projectName={selectedProject.name}
+        inventoryAvailable={selectedProject.inventoryAvailable}
+        packageCompleteness={selectedProject.packageCompleteness}
+        priceRangeUsd={selectedProject.priceRangeUsd}
+        onBack={() => setSurfaceView('dashboard')}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -566,19 +788,34 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500">
+            <button
+              onClick={() => setActiveModal('projectSetup')}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500"
+            >
               Create Project
             </button>
-            <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
+            <button
+              onClick={() => setActiveModal('missionBuilder')}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
+            >
               Launch Mission
             </button>
-            <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
+            <button
+              onClick={() => setActiveModal('uploadProof')}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
+            >
               Upload Proof
             </button>
-            <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
+            <button
+              onClick={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
+            >
               Run MRV Review
             </button>
-            <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
+            <button
+              onClick={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500"
+            >
               Prepare Buyer Package
             </button>
           </div>
@@ -657,14 +894,14 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             </section>
 
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Metric label="Active Projects" value={String(projects.length)} icon={<Globe className="h-5 w-5" />} />
-              <Metric label="Hectares Monitored" value={totals.hectares.toLocaleString()} icon={<Map className="h-5 w-5" />} tone="text-cyan-300" />
-              <Metric label="Estimated tCO2e" value={totals.co2Captured.toLocaleString()} icon={<Cloud className="h-5 w-5" />} tone="text-sky-300" />
-              <Metric label="Credits Ready" value={totals.inventoryAvailable.toLocaleString()} icon={<Award className="h-5 w-5" />} tone="text-lime-300" />
-              <Metric label="Survival Rate" value={`${totals.survival}%`} icon={<Activity className="h-5 w-5" />} tone="text-amber-300" />
-              <Metric label="Verification Confidence" value={`${totals.avgVerificationConfidence}%`} icon={<ShieldCheck className="h-5 w-5" />} tone="text-emerald-300" />
-              <Metric label="Buyer Interest" value={`${buyerInterest} buyers`} icon={<Users className="h-5 w-5" />} tone="text-fuchsia-300" />
-              <Metric label="Projected Revenue" value={usd(totals.projectedRevenueUsd)} icon={<Database className="h-5 w-5" />} tone="text-amber-300" />
+              <Metric label="Active Projects" value={String(projects.length)} icon={<Globe className="h-5 w-5" />} onClick={() => setActiveTab('projects')} />
+              <Metric label="Hectares Monitored" value={totals.hectares.toLocaleString()} icon={<Map className="h-5 w-5" />} tone="text-cyan-300" onClick={() => setActiveTab('projects')} />
+              <Metric label="Estimated tCO2e" value={totals.co2Captured.toLocaleString()} icon={<Cloud className="h-5 w-5" />} tone="text-sky-300" onClick={() => runTransition('Opening project carbon detail', () => setSurfaceView('projectDetail'))} />
+              <Metric label="Credits Ready" value={totals.inventoryAvailable.toLocaleString()} icon={<Award className="h-5 w-5" />} tone="text-lime-300" onClick={() => runTransition('Opening buyer package', () => setSurfaceView('buyerPackage'))} />
+              <Metric label="Survival Rate" value={`${totals.survival}%`} icon={<Activity className="h-5 w-5" />} tone="text-amber-300" onClick={() => setActiveTab('monitoring')} />
+              <Metric label="Verification Confidence" value={`${totals.avgVerificationConfidence}%`} icon={<ShieldCheck className="h-5 w-5" />} tone="text-emerald-300" onClick={() => runTransition('Opening MRV results', () => setSurfaceView('mrvResults'))} />
+              <Metric label="Buyer Interest" value={`${buyerInterest} buyers`} icon={<Users className="h-5 w-5" />} tone="text-fuchsia-300" onClick={() => setActiveTab('buyers')} />
+              <Metric label="Projected Revenue" value={usd(totals.projectedRevenueUsd)} icon={<Database className="h-5 w-5" />} tone="text-amber-300" onClick={() => setActiveTab('buyers')} />
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -678,12 +915,23 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   {pipelineSteps.map((step, index) => (
-                    <div key={step.title} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                    <button
+                      key={step.title}
+                      type="button"
+                      onClick={() => setSelectedPipelineStep(step)}
+                      className={`rounded-lg border bg-slate-950 p-3 text-left transition hover:border-emerald-500 ${selectedPipelineStep.title === step.title ? 'border-emerald-500 shadow-[0_0_22px_rgba(16,185,129,0.15)]' : 'border-slate-800'}`}
+                    >
                       <p className="text-xs font-black text-emerald-300">Stage {index + 1}</p>
                       <p className="mt-2 text-sm font-bold text-white">{step.title}</p>
                       <p className="mt-2 text-xs text-slate-400">{step.detail}</p>
-                    </div>
+                    </button>
                   ))}
+                </div>
+                <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Drill-down</p>
+                  <p className="mt-2 text-lg font-black text-white">{selectedPipelineStep.title}</p>
+                  <p className="mt-2 text-sm text-slate-300">{selectedPipelineStep.detail}</p>
+                  <p className="mt-3 text-xs text-emerald-200">Open pipeline stages to inspect how raw activity moves toward packaged credits and buyer submission.</p>
                 </div>
               </Card>
 
@@ -763,7 +1011,15 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 <h2 className="text-lg font-black text-white">Buyer Marketplace Preview</h2>
                 <div className="mt-4 space-y-3">
                   {projects.map((project) => (
-                    <div key={project.id} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                    <button
+                      key={project.id}
+                      type="button"
+                      onClick={() => runTransition('Opening project detail', () => {
+                        setSelectedProjectId(project.id);
+                        setSurfaceView('projectDetail');
+                      })}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-black text-white">{project.name}</p>
@@ -776,7 +1032,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Price</span><br /><b>{usd(project.pricePerCreditUsd)}</b></div>
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Revenue</span><br /><b>{usd(project.revenueUsd)}</b></div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </Card>
@@ -809,7 +1065,15 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 <h2 className="text-lg font-black text-white">Buyer Pipeline</h2>
                 <div className="mt-4 space-y-3">
                   {buyers.map((buyer) => (
-                    <div key={buyer.id} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                    <button
+                      key={buyer.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBuyerId(buyer.id);
+                        setActiveModal('dealDetail');
+                      }}
+                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-black text-white">{buyer.name}</p>
@@ -822,7 +1086,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Offer</span><br /><b>{usd(buyer.offerPriceUsd)}</b></div>
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Last Touch</span><br /><b>{buyer.lastTouch}</b></div>
                       </div>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </Card>
@@ -1095,13 +1359,21 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 <p className="text-[11px] uppercase tracking-wide text-slate-500">Buyer Pipeline</p>
                 <div className="mt-3 space-y-2">
                   {selectedProjectBuyers.map((buyer) => (
-                    <div key={buyer.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3">
+                    <button
+                      key={buyer.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedBuyerId(buyer.id);
+                        setActiveModal('dealDetail');
+                      }}
+                      className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3 text-left transition hover:border-emerald-500"
+                    >
                       <div>
                         <p className="text-sm font-bold text-white">{buyer.name}</p>
                         <p className="text-xs text-slate-400">{buyer.requestedCredits} credits at {usd(buyer.offerPriceUsd)}</p>
                       </div>
                       <span className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${statusClass(buyer.status)}`}>{buyer.status}</span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1170,6 +1442,88 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
           </div>
         )}
       </main>
+
+      {loadingLabel && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+          <div className="rounded-2xl border border-slate-700 bg-slate-900 px-6 py-5 text-center shadow-[0_0_32px_rgba(16,185,129,0.14)]">
+            <Loader className="mx-auto h-6 w-6 animate-spin text-emerald-300" />
+            <p className="mt-3 text-sm font-bold text-white">{loadingLabel}</p>
+            <p className="mt-1 text-xs text-slate-400">Syncing data and preparing the next workspace...</p>
+          </div>
+        </div>
+      )}
+
+      {activeModal === 'projectSetup' && (
+        <OverlayModal
+          title="Project Setup Wizard"
+          subtitle="Define land, governance, boundaries, and registry target."
+          onClose={() => setActiveModal(null)}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {['Project name', 'Project type', 'Region / municipality', 'Steward / organization', 'Polygon map', 'Consent and rights docs'].map((field) => (
+              <div key={field} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{field}</div>
+            ))}
+          </div>
+        </OverlayModal>
+      )}
+
+      {activeModal === 'missionBuilder' && (
+        <OverlayModal
+          title="Mission Builder"
+          subtitle="Create carbon-relevant missions with proof rules and assignment logic."
+          onClose={() => setActiveModal(null)}
+        >
+          <div className="space-y-3">
+            {['Mission basics', 'Assignment', 'Proof rules', 'Monitoring link', 'Publish or schedule'].map((step, index) => (
+              <div key={step} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-black text-emerald-300">{index + 1}</div>
+                <span className="text-sm font-bold text-white">{step}</span>
+              </div>
+            ))}
+          </div>
+        </OverlayModal>
+      )}
+
+      {activeModal === 'uploadProof' && (
+        <OverlayModal
+          title="Upload Proof"
+          subtitle="Photos, videos, GPS, and witness materials feed the MRV engine."
+          onClose={() => setActiveModal(null)}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            {['Select files', 'Use current GPS', 'Attach witness log', 'Review upload batch'].map((item) => (
+              <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-4 text-sm font-bold text-white">{item}</div>
+            ))}
+          </div>
+        </OverlayModal>
+      )}
+
+      {activeModal === 'dealDetail' && selectedBuyer && (
+        <OverlayModal
+          title="Deal Detail"
+          subtitle={`${selectedBuyer.name} - ${selectedBuyer.interest}`}
+          onClose={() => setActiveModal(null)}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Requested Credits</p>
+              <p className="mt-1 text-lg font-black text-white">{selectedBuyer.requestedCredits}</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Offer Price</p>
+              <p className="mt-1 text-lg font-black text-white">{usd(selectedBuyer.offerPriceUsd)}</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Status</p>
+              <p className="mt-1 text-lg font-black text-white">{selectedBuyer.status}</p>
+            </div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+              <p className="text-[11px] uppercase tracking-wide text-slate-500">Last Touch</p>
+              <p className="mt-1 text-lg font-black text-white">{selectedBuyer.lastTouch}</p>
+            </div>
+          </div>
+        </OverlayModal>
+      )}
     </div>
   );
 };
