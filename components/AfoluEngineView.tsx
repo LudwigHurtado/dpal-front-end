@@ -47,6 +47,29 @@ interface AfoluProject {
   aiVerificationConfidence: number;
   buyerDemand: string;
   story: string;
+  monthlyCo2Tons: number;
+  projectedRevenueUsd: number;
+  mrvLastValidatedAt: string;
+  anomalyStatus: string;
+  buyerPipelineCount: number;
+  inventoryAvailable: number;
+  packageCompleteness: number;
+  evidenceFiles: number;
+  verifiedProjectMaps: number;
+  availableLots: number;
+  priceRangeUsd: string;
+}
+
+interface BuyerRecord {
+  id: string;
+  name: string;
+  buyerType: string;
+  projectId: string;
+  interest: string;
+  requestedCredits: number;
+  offerPriceUsd: number;
+  status: 'pipeline' | 'negotiating' | 'won';
+  lastTouch: string;
 }
 
 interface AfoluMission {
@@ -126,6 +149,17 @@ const projects: AfoluProject[] = [
     aiVerificationConfidence: 92,
     buyerDemand: '2 corporate buyers reviewing Q2 package',
     story: 'Community patrol missions and canopy checks protect the Amazon edge from clearing pressure and convert verified protection activity into saleable carbon inventory.',
+    monthlyCo2Tons: 96,
+    projectedRevenueUsd: 22420,
+    mrvLastValidatedAt: '2026-04-20',
+    anomalyStatus: 'Caution - boundary pressure on north corridor',
+    buyerPipelineCount: 2,
+    inventoryAvailable: 760,
+    packageCompleteness: 84,
+    evidenceFiles: 27,
+    verifiedProjectMaps: 3,
+    availableLots: 2,
+    priceRangeUsd: '$8-$18 / credit',
   },
   {
     id: 'AF-PROJ-221',
@@ -156,6 +190,17 @@ const projects: AfoluProject[] = [
     aiVerificationConfidence: 88,
     buyerDemand: 'Food brand sponsor requested 100-credit tranche',
     story: 'Farmers plant agroforestry belts, survival is verified on repeat visits, and the resulting carbon gains can be packaged for buyer-backed restoration finance.',
+    monthlyCo2Tons: 31,
+    projectedRevenueUsd: 9125,
+    mrvLastValidatedAt: '2026-04-18',
+    anomalyStatus: 'Clean',
+    buyerPipelineCount: 1,
+    inventoryAvailable: 225,
+    packageCompleteness: 79,
+    evidenceFiles: 18,
+    verifiedProjectMaps: 2,
+    availableLots: 1,
+    priceRangeUsd: '$12-$20 / credit',
   },
   {
     id: 'AF-PROJ-318',
@@ -186,6 +231,53 @@ const projects: AfoluProject[] = [
     aiVerificationConfidence: 95,
     buyerDemand: 'Insurer and municipal resilience fund shortlisted',
     story: 'Post-fire replanting is tracked from nursery batch to survival plot so recovery work can support both ecological restoration and sponsor-backed finance.',
+    monthlyCo2Tons: 44,
+    projectedRevenueUsd: 16200,
+    mrvLastValidatedAt: '2026-04-19',
+    anomalyStatus: 'Clean',
+    buyerPipelineCount: 2,
+    inventoryAvailable: 330,
+    packageCompleteness: 91,
+    evidenceFiles: 34,
+    verifiedProjectMaps: 4,
+    availableLots: 3,
+    priceRangeUsd: '$14-$24 / credit',
+  },
+];
+
+const buyers: BuyerRecord[] = [
+  {
+    id: 'BUY-001',
+    name: 'Andean Foods Group',
+    buyerType: 'Corporate inset buyer',
+    projectId: 'AF-PROJ-221',
+    interest: 'Scope 3 agroforestry credits',
+    requestedCredits: 100,
+    offerPriceUsd: 25,
+    status: 'negotiating',
+    lastTouch: '2026-04-20',
+  },
+  {
+    id: 'BUY-002',
+    name: 'Amazon Logistics Alliance',
+    buyerType: 'Voluntary carbon buyer',
+    projectId: 'AF-PROJ-102',
+    interest: 'Avoided deforestation tranche',
+    requestedCredits: 250,
+    offerPriceUsd: 19,
+    status: 'pipeline',
+    lastTouch: '2026-04-19',
+  },
+  {
+    id: 'BUY-003',
+    name: 'Sierra Mutual',
+    buyerType: 'Resilience sponsor',
+    projectId: 'AF-PROJ-318',
+    interest: 'Fire recovery credit package',
+    requestedCredits: 120,
+    offerPriceUsd: 30,
+    status: 'won',
+    lastTouch: '2026-04-17',
   },
 ];
 
@@ -390,6 +482,15 @@ const Metric: React.FC<{ label: string; value: string; icon: React.ReactNode; to
   </Card>
 );
 
+const pipelineSteps: Array<{ title: string; detail: string }> = [
+  { title: 'Observed Activity', detail: 'Real-world action logged on the ground: trees planted, hectares patrolled, plots measured.' },
+  { title: 'Eligible Impact', detail: 'DPAL determines whether the activity is actually credit-relevant.' },
+  { title: 'Modeled tCO2e', detail: 'The MRV engine estimates carbon benefit from verified field activity.' },
+  { title: 'Verification Review', detail: 'Evidence is checked by rules, validators, and satellite monitoring.' },
+  { title: 'Credits Packaged', detail: 'Impact is structured into a buyer-ready package.' },
+  { title: 'Buyer/Registry Submission', detail: 'The package moves to buyers or registries for sale or certification.' },
+];
+
 interface AfoluEngineViewProps {
   onReturn: () => void;
 }
@@ -413,6 +514,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     const creditsSold = projects.reduce((sum, project) => sum + project.creditsSold, 0);
     const revenueUsd = projects.reduce((sum, project) => sum + project.revenueUsd, 0);
     const avgVerificationConfidence = Math.round(projects.reduce((sum, project) => sum + project.aiVerificationConfidence, 0) / projects.length);
+    const projectedRevenueUsd = projects.reduce((sum, project) => sum + project.projectedRevenueUsd, 0);
+    const inventoryAvailable = projects.reduce((sum, project) => sum + project.inventoryAvailable, 0);
     return {
       hectares,
       planted,
@@ -421,6 +524,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       creditsGenerated,
       creditsSold,
       revenueUsd,
+      projectedRevenueUsd,
+      inventoryAvailable,
       avgVerificationConfidence,
       pendingEvidence: evidence.filter((item) => item.validatorStatus !== 'clean').length,
       verifiedMissions: missions.filter((mission) => mission.status === 'Verified' || mission.status === 'Under Review').length,
@@ -436,6 +541,10 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     status: projectAssets[0]?.status || 'active',
   };
 
+  const selectedProjectBuyers = buyers.filter((buyer) => buyer.projectId === selectedProject.id);
+  const spotlightProject = projects[1];
+  const buyerInterest = buyers.length;
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <header className="border-b border-slate-800 bg-slate-950/95 px-4 py-4 backdrop-blur">
@@ -450,9 +559,9 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             </button>
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">DPAL Forest Integrity</p>
-              <h1 className="mt-1 text-2xl font-black text-white md:text-4xl">AFOLU Proof Engine</h1>
+              <h1 className="mt-1 text-2xl font-black text-white md:text-4xl">AFOLU Carbon & Proof Engine</h1>
               <p className="mt-2 max-w-3xl text-sm text-slate-400">
-                Report to mission to evidence to monitoring to verification to buyer-ready impact record.
+                Turn forestry, reforestation, and protected-land activity into verified, buyer-ready carbon assets.
               </p>
             </div>
           </div>
@@ -464,7 +573,13 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               Launch Mission
             </button>
             <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
-              Upload Evidence
+              Upload Proof
+            </button>
+            <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
+              Run MRV Review
+            </button>
+            <button className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-slate-500">
+              Prepare Buyer Package
             </button>
           </div>
         </div>
@@ -492,9 +607,9 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
               <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/70 via-slate-900/80 to-slate-950">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Investor Narrative</p>
-                <h2 className="mt-2 text-3xl font-black text-white">We turn environmental activity into verified carbon credits using real-time data and sell them to global buyers.</h2>
+                <h2 className="mt-2 text-3xl font-black text-white">This dashboard is the command center for the forestry carbon pipeline.</h2>
                 <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                  Field missions create proof. Monitoring confirms survival and protection. The MRV engine converts validated activity into carbon-ready outputs, buyer packages, and revenue visibility.
+                  DPAL captures real environmental activity, converts that activity into measurable carbon impact through the MRV engine, and prepares it for buyers, registries, and revenue.
                 </p>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
@@ -513,20 +628,29 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               </Card>
 
               <Card>
-                <h2 className="text-lg font-black text-white">MRV Engine Snapshot</h2>
+                <h2 className="text-lg font-black text-white">MRV Intelligence</h2>
                 <div className="mt-4 space-y-3">
                   <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Verification Confidence</p>
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Confidence Score</p>
                     <p className="mt-1 text-3xl font-black text-white">{totals.avgVerificationConfidence}%</p>
                   </div>
                   <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Satellite confirmed growth: <span className="font-bold text-emerald-300">YES</span>
+                    Satellite Review: <span className="font-bold text-emerald-300">Passed</span>
                   </div>
                   <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    AI fraud and consistency scoring: <span className="font-bold text-white">Active across all evidence submissions</span>
+                    Geo Match: <span className="font-bold text-white">98%</span>
                   </div>
                   <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
-                    Buyer-ready projects: <span className="font-bold text-white">{projects.filter((project) => project.status === 'buyer_ready').length}</span>
+                    Photo Evidence Completeness: <span className="font-bold text-white">87%</span>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
+                    Field Log Consistency: <span className="font-bold text-white">Strong</span>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm text-slate-300">
+                    Risk Flags: <span className="font-bold text-white">1</span>
+                  </div>
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-50">
+                    Latest engine note: Project area shows stable canopy recovery and consistent field evidence across submitted plots.
                   </div>
                 </div>
               </Card>
@@ -534,71 +658,97 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
 
             <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <Metric label="Active Projects" value={String(projects.length)} icon={<Globe className="h-5 w-5" />} />
-              <Metric label="CO2 Captured" value={`${totals.co2Captured.toLocaleString()} t`} icon={<Cloud className="h-5 w-5" />} tone="text-sky-300" />
-              <Metric label="Credits Generated" value={totals.creditsGenerated.toLocaleString()} icon={<Award className="h-5 w-5" />} tone="text-lime-300" />
-              <Metric label="Revenue Generated" value={usd(totals.revenueUsd)} icon={<Database className="h-5 w-5" />} tone="text-amber-300" />
-              <Metric label="Credits Sold" value={totals.creditsSold.toLocaleString()} icon={<CheckCircle className="h-5 w-5" />} tone="text-emerald-300" />
               <Metric label="Hectares Monitored" value={totals.hectares.toLocaleString()} icon={<Map className="h-5 w-5" />} tone="text-cyan-300" />
-              <Metric label="Trees Registered" value={totals.planted.toLocaleString()} icon={<Target className="h-5 w-5" />} tone="text-lime-300" />
+              <Metric label="Estimated tCO2e" value={totals.co2Captured.toLocaleString()} icon={<Cloud className="h-5 w-5" />} tone="text-sky-300" />
+              <Metric label="Credits Ready" value={totals.inventoryAvailable.toLocaleString()} icon={<Award className="h-5 w-5" />} tone="text-lime-300" />
               <Metric label="Survival Rate" value={`${totals.survival}%`} icon={<Activity className="h-5 w-5" />} tone="text-amber-300" />
-              <Metric label="Open Missions" value={String(missions.filter((mission) => !['Verified', 'Closed'].includes(mission.status)).length)} icon={<Clock className="h-5 w-5" />} tone="text-cyan-300" />
-              <Metric label="Pending Evidence" value={String(totals.pendingEvidence)} icon={<Upload className="h-5 w-5" />} tone="text-amber-300" />
-              <Metric label="High-Risk Alerts" value={String(totals.alerts)} icon={<AlertTriangle className="h-5 w-5" />} tone="text-rose-300" />
+              <Metric label="Verification Confidence" value={`${totals.avgVerificationConfidence}%`} icon={<ShieldCheck className="h-5 w-5" />} tone="text-emerald-300" />
+              <Metric label="Buyer Interest" value={`${buyerInterest} buyers`} icon={<Users className="h-5 w-5" />} tone="text-fuchsia-300" />
+              <Metric label="Projected Revenue" value={usd(totals.projectedRevenueUsd)} icon={<Database className="h-5 w-5" />} tone="text-amber-300" />
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
               <Card>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-lg font-black text-white">Registry-Ready Flow</h2>
-                    <p className="mt-1 text-sm text-slate-400">This is the product: raw field activity becomes a verified financial asset pipeline.</p>
+                    <h2 className="text-lg font-black text-white">Carbon Pipeline</h2>
+                    <p className="mt-1 text-sm text-slate-400">This is where environmental work becomes a verified carbon asset.</p>
                   </div>
                   <ShieldCheck className="h-6 w-6 text-emerald-300" />
                 </div>
-                <div className="mt-5 grid gap-3 md:grid-cols-5">
-                  {[
-                    ['Project Setup', 'Define land, rights, project type, and boundaries'],
-                    ['Activity Logging', 'Plant trees, patrol forest, protect hectares, register proof'],
-                    ['Monitoring', 'Satellite, photos, sensors, survival checks, anomaly watch'],
-                    ['Verification Package', 'MRV engine calculates impact, confidence, and risk'],
-                    ['Buyer Submission', 'Credits and reports move into the buyer workflow'],
-                  ].map(([stage, detail], index) => (
-                    <div key={stage} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  {pipelineSteps.map((step, index) => (
+                    <div key={step.title} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
                       <p className="text-xs font-black text-emerald-300">Stage {index + 1}</p>
-                      <p className="mt-2 text-sm font-bold text-white">{stage}</p>
+                      <p className="mt-2 text-sm font-bold text-white">{step.title}</p>
+                      <p className="mt-2 text-xs text-slate-400">{step.detail}</p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card>
+                <h2 className="text-lg font-black text-white">Credit-Creating Missions</h2>
+                <p className="mt-1 text-sm text-slate-400">These are not generic tasks. They are the activity layer that feeds carbon creation and confidence.</p>
+                <div className="mt-4 space-y-3">
+                  {[
+                    ['Plant Trees', 'Generates new sequestration records through planting and survival tracking.'],
+                    ['Patrol Protected Area', 'Supports avoided deforestation claims with geo-tagged field presence and incident reporting.'],
+                    ['Verify Sample Plot', 'Improves confidence in biomass estimates through plot-level checks.'],
+                  ].map(([template, detail]) => (
+                    <div key={template} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                      <div className="flex items-center gap-3">
+                      <Target className="h-4 w-4 text-emerald-300" />
+                      <span className="text-sm font-bold text-white">{template}</span>
+                      </div>
                       <p className="mt-2 text-xs text-slate-400">{detail}</p>
                     </div>
                   ))}
                 </div>
               </Card>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+              <Card>
+                <h2 className="text-lg font-black text-white">Project Spotlight: Bolivia Forest Recovery Pilot</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Region</span><p className="mt-1 text-sm font-bold text-white">Santa Cruz / Amazon fringe</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Area</span><p className="mt-1 text-sm font-bold text-white">120 hectares</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Trees Registered</span><p className="mt-1 text-sm font-bold text-white">2,400</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Estimated tCO2e</span><p className="mt-1 text-sm font-bold text-white">810</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Verification Confidence</span><p className="mt-1 text-sm font-bold text-white">93%</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Buyer Status</span><p className="mt-1 text-sm font-bold text-white">Pre-marketing</p></div>
+                </div>
+              </Card>
 
               <Card>
-                <h2 className="text-lg font-black text-white">Launch Set</h2>
-                <p className="mt-1 text-sm text-slate-400">Start with three mission types that prove the full DPAL model.</p>
-                <div className="mt-4 space-y-3">
-                  {['Plant Trees', 'Patrol Protected Area', 'Verify Sample Plot'].map((template) => (
-                    <div key={template} className="flex items-center gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
-                      <Target className="h-4 w-4 text-emerald-300" />
-                      <span className="text-sm font-bold text-white">{template}</span>
-                    </div>
+                <h2 className="text-lg font-black text-white">Buyer Readiness</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Package Completeness</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.packageCompleteness}%</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Registry Format Readiness</span><p className="mt-1 text-sm font-bold text-white">In progress</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Supporting Evidence Files</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.evidenceFiles}</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Verified Project Maps</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.verifiedProjectMaps}</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Available Lots</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.availableLots}</p></div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Expected Price Range</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.priceRangeUsd}</p></div>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-5 text-[11px]">
+                  {['Documentation', 'Impact model', 'Validation', 'Packaging', 'Submission'].map((step) => (
+                    <div key={step} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-center font-bold text-emerald-100">{step}</div>
                   ))}
                 </div>
-                <p className="mt-4 text-xs text-slate-400">
-                  Each mission feeds proof into the MRV engine, which is how field activity becomes carbon inventory and buyer-ready credit supply.
-                </p>
               </Card>
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
               <Card>
-                <h2 className="text-lg font-black text-white">How Money Moves</h2>
+                <h2 className="text-lg font-black text-white">Revenue Model</h2>
                 <div className="mt-4 space-y-3">
                   {[
-                    'Communities and field teams log verified activity',
-                    'DPAL monitoring confirms location, survival, and protection outcomes',
-                    'The MRV engine calculates CO2 and credit-ready outputs',
-                    'Buyers purchase credits or sponsor project tranches',
-                    'Revenue flows back to projects, patrols, and restoration work',
+                    'MRV platform fees',
+                    'Credit issuance and packaging fees',
+                    'Marketplace transaction fees',
+                    'Enterprise monitoring subscriptions',
+                    'Validator tools and reporting services',
                   ].map((step, index) => (
                     <div key={step} className="flex gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
                       <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-black text-emerald-300">{index + 1}</div>
@@ -606,6 +756,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                     </div>
                   ))}
                 </div>
+                <p className="mt-4 text-sm text-slate-300">DPAL monetizes environmental verification, carbon packaging, and marketplace participation.</p>
               </Card>
 
               <Card>
@@ -624,6 +775,52 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Credits</span><br /><b>{project.creditsGenerated}</b></div>
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Price</span><br /><b>{usd(project.pricePerCreditUsd)}</b></div>
                         <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Revenue</span><br /><b>{usd(project.revenueUsd)}</b></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
+              <Card>
+                <h2 className="text-lg font-black text-white">MRV Intelligence</h2>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Verification Confidence</p>
+                    <p className="mt-1 text-3xl font-black text-white">{totals.avgVerificationConfidence}%</p>
+                  </div>
+                  <div className="rounded-lg border border-sky-500/20 bg-sky-500/10 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Satellite Validation</p>
+                    <p className="mt-1 text-3xl font-black text-white">YES</p>
+                  </div>
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Risk Scoring</p>
+                    <p className="mt-1 text-sm font-bold text-white">Active across canopy, survival, and boundary disturbance</p>
+                  </div>
+                  <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Fraud / Anomaly Flags</p>
+                    <p className="mt-1 text-sm font-bold text-white">{projects.filter((project) => project.anomalyStatus !== 'Clean').length} projects require attention</p>
+                  </div>
+                </div>
+              </Card>
+
+              <Card>
+                <h2 className="text-lg font-black text-white">Buyer Pipeline</h2>
+                <div className="mt-4 space-y-3">
+                  {buyers.map((buyer) => (
+                    <div key={buyer.id} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-black text-white">{buyer.name}</p>
+                          <p className="mt-1 text-xs text-slate-400">{buyer.buyerType} - {buyer.interest}</p>
+                        </div>
+                        <span className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${statusClass(buyer.status)}`}>{buyer.status}</span>
+                      </div>
+                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Requested</span><br /><b>{buyer.requestedCredits}</b></div>
+                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Offer</span><br /><b>{usd(buyer.offerPriceUsd)}</b></div>
+                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Last Touch</span><br /><b>{buyer.lastTouch}</b></div>
                       </div>
                     </div>
                   ))}
@@ -674,11 +871,15 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                   ['CO2 Captured', `${selectedProject.co2CapturedTons.toLocaleString()} tons`],
                   ['Credits Generated', selectedProject.creditsGenerated.toLocaleString()],
                   ['Revenue', usd(selectedProject.revenueUsd)],
+                  ['Projected Revenue', usd(selectedProject.projectedRevenueUsd)],
+                  ['Inventory Available', selectedProject.inventoryAvailable.toLocaleString()],
                   ['Monitoring Stage', selectedProject.monitoringStage],
                   ['Consent', selectedProject.consentStatus],
                   ['Land Rights', selectedProject.landRightsStatus],
                   ['Registry Target', selectedProject.registryTarget],
                   ['Risk Level', selectedProject.riskLevel],
+                  ['Last MRV Validation', selectedProject.mrvLastValidatedAt],
+                  ['Anomaly Status', selectedProject.anomalyStatus],
                   ['Buyer Demand', selectedProject.buyerDemand],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
@@ -699,6 +900,9 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
           <div className="grid gap-4 lg:grid-cols-3">
             {missions.map((mission) => {
               const project = projects.find((item) => item.id === mission.projectId);
+              const missionProjectCount = missions.filter((item) => item.projectId === mission.projectId).length || 1;
+              const missionCredits = Math.round((project?.creditsGenerated || 0) / missionProjectCount);
+              const missionCo2 = Math.round((project?.co2CapturedTons || 0) / missionProjectCount);
               return (
                 <Card key={mission.id}>
                   <div className="flex items-start justify-between gap-3">
@@ -712,6 +916,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                   <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg bg-slate-950 p-3"><span className="text-slate-500">Target</span><br /><b>{mission.targetQuantity} {mission.unitType}</b></div>
                     <div className="rounded-lg bg-slate-950 p-3"><span className="text-slate-500">Due</span><br /><b>{mission.dueDate}</b></div>
+                    <div className="rounded-lg bg-slate-950 p-3"><span className="text-slate-500">CO2</span><br /><b>{missionCo2} t</b></div>
+                    <div className="rounded-lg bg-slate-950 p-3"><span className="text-slate-500">Credits</span><br /><b>{missionCredits}</b></div>
                   </div>
                   <div className="mt-4 space-y-2">
                     {mission.proofRules.map((rule) => (
@@ -883,6 +1089,20 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                     <p className="text-xs text-slate-500">Demand Signal</p>
                     <p className="text-sm font-bold text-white">{selectedProject.buyerDemand}</p>
                   </div>
+                </div>
+              </div>
+              <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Buyer Pipeline</p>
+                <div className="mt-3 space-y-2">
+                  {selectedProjectBuyers.map((buyer) => (
+                    <div key={buyer.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-900 p-3">
+                      <div>
+                        <p className="text-sm font-bold text-white">{buyer.name}</p>
+                        <p className="text-xs text-slate-400">{buyer.requestedCredits} credits at {usd(buyer.offerPriceUsd)}</p>
+                      </div>
+                      <span className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${statusClass(buyer.status)}`}>{buyer.status}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             </Card>
