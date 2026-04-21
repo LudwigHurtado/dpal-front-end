@@ -635,11 +635,15 @@ const BuyerPackageView: React.FC<{
 
 const MissionLiveView: React.FC<{
   missionName: string;
+  projectName: string;
   missionType: MissionLaunchType;
   expectedTco2e: number;
   targetLabel: string;
+  participants: string[];
+  proofRules: string[];
+  riskAlerts: string[];
   onBack: () => void;
-}> = ({ missionName, missionType, expectedTco2e, targetLabel, onBack }) => (
+}> = ({ missionName, projectName, missionType, expectedTco2e, targetLabel, participants, proofRules, riskAlerts, onBack }) => (
   <div className="min-h-screen bg-slate-950 px-4 py-6 text-slate-100">
     <div className="mx-auto max-w-6xl space-y-6">
       <Card className="border-emerald-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/25">
@@ -651,7 +655,8 @@ const MissionLiveView: React.FC<{
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.24em] text-emerald-300">Mission Live View</p>
               <h1 className="mt-1 text-3xl font-black text-white">{missionName}</h1>
-              <p className="mt-2 text-sm text-slate-400">{missionType} mission is now active and collecting carbon-relevant proof.</p>
+              <p className="mt-2 text-sm text-slate-400">{missionType} mission is now active inside {projectName} and collecting carbon-relevant proof.</p>
+              <p className="mt-2 text-sm text-emerald-100">This mission is expected to generate ~{expectedTco2e} tCO2e if completed successfully.</p>
             </div>
           </div>
           <span className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-bold text-emerald-100">Status: ACTIVE</span>
@@ -680,7 +685,7 @@ const MissionLiveView: React.FC<{
           </div>
           <p className="mt-3 text-sm text-slate-300">38% complete - field teams have started logging proof and map activity.</p>
           <div className="mt-4 space-y-3">
-            {['Checkpoint 1 submitted', 'Satellite watch enabled', 'Validator assigned'].map((item) => (
+            {['Checkpoint 1 submitted', 'Satellite watch enabled', 'Validator assigned', 'First proof packet queued for review'].map((item) => (
               <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{item}</div>
             ))}
           </div>
@@ -694,6 +699,44 @@ const MissionLiveView: React.FC<{
               <p className="mt-3 text-lg font-black text-white">Live activity map placeholder</p>
               <p className="mt-2 max-w-md text-sm text-slate-300">Submissions, route traces, and proof events appear here as the mission runs.</p>
             </div>
+          </div>
+        </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-emerald-300" />
+            <h2 className="text-lg font-black text-white">Participants</h2>
+          </div>
+          <div className="mt-4 space-y-2">
+            {participants.map((participant) => (
+              <div key={participant} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{participant}</div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4 w-4 text-sky-300" />
+            <h2 className="text-lg font-black text-white">Proof Rules Live</h2>
+          </div>
+          <div className="mt-4 space-y-2">
+            {proofRules.map((rule) => (
+              <div key={rule} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{rule}</div>
+            ))}
+          </div>
+        </Card>
+
+        <Card>
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-300" />
+            <h2 className="text-lg font-black text-white">Risk Watch</h2>
+          </div>
+          <div className="mt-4 space-y-2">
+            {riskAlerts.map((alert) => (
+              <div key={alert} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{alert}</div>
+            ))}
           </div>
         </Card>
       </div>
@@ -772,6 +815,25 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const buyerInterest = buyers.length;
   const selectedBuyer = buyers.find((buyer) => buyer.id === selectedBuyerId) || null;
   const missionTypeConfig = missionTypeOptions.find((option) => option.title === selectedMissionType) || missionTypeOptions[0];
+  const missionParticipants = [
+    'Community members - Drivers completing the field work',
+    'Validators - Verifiers confirming proof quality',
+    'Supervisors - Coordinators managing deployment and exceptions',
+  ];
+  const missionRewards = 'DPAL tokens or payment per task';
+  const missionProofRules = [
+    'Minimum 3 photos',
+    'GPS required',
+    '24h time window',
+    '150 meter geo radius check',
+  ];
+  const missionRiskAlerts = selectedMissionType === 'Fire Recovery' || selectedProject.riskLevel === 'High'
+    ? ['Fire watch active', 'Boundary disturbance watch active', 'Validator escalation if anomalies appear']
+    : ['Deforestation watch active', 'Boundary drift watch active', 'Validator escalation if anomalies appear'];
+  const missionAreaLabel = selectedMissionType === 'Plant Trees'
+    ? `${selectedProject.municipality} planting block - 500 trees target`
+    : `${selectedProject.municipality} operational zone - ${missionTypeConfig.unitLabel}`;
+  const missionDeploySummary = `${selectedMissionType} mission for ${selectedProject.name}`;
 
   const runTransition = (label: string, cb: () => void) => {
     setLoadingLabel(label);
@@ -831,29 +893,133 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     })),
   }), [selectedProject, selectedProjectBuyers]);
 
+  const survivalRate = selectedProject.treesPlanted > 0
+    ? Math.round((selectedProject.treesAlive / selectedProject.treesPlanted) * 100)
+    : 100;
+  const riskScore = selectedProject.riskLevel === 'Low'
+    ? 'Low residual risk'
+    : selectedProject.riskLevel === 'Medium'
+      ? 'Medium residual risk'
+      : 'Elevated risk';
+  const reviewResult = selectedProject.packageCompleteness >= 85
+    ? 'Supported for packaging'
+    : 'Needs more review before packaging';
+  const approvalRecommendation = selectedProject.packageCompleteness >= 90
+    ? 'Approve subject to final formatting'
+    : selectedProject.packageCompleteness >= 80
+      ? 'Conditional approval'
+      : 'Hold for additional evidence';
+  const creditPackageState = selectedProject.packageCompleteness >= 90
+    ? 'Packaging review pending'
+    : selectedProject.packageCompleteness >= 80
+      ? 'Formatting and evidence cleanup required'
+      : 'Not ready for issuance packaging';
+
   const mrvResultsData = useMemo(() => ({
     projectName: selectedProject.name,
     runDate: selectedProject.mrvLastValidatedAt,
-    estimatedTco2e: `${selectedProject.co2CapturedTons.toLocaleString()} t`,
-    creditsGenerated: selectedProject.creditsGenerated.toLocaleString(),
+    reviewScope: 'Latest evidence batch, satellite review window, geospatial boundary validation, anomaly checks, and modeled carbon package.',
+    evidenceBatch: `${projectEvidence.length} evidence records covering ${selectedProject.evidenceFiles} uploaded files and current mission logs`,
+    satelliteWindow: selectedProject.type === 'Fire Recovery'
+      ? 'Recent recovery monitoring window with disturbance and fire-context review'
+      : 'Recent vegetation monitoring window with disturbance review',
+    boundaryReview: `${selectedProject.polygonLabel} checked against project coordinates and submitted field points`,
+    reviewResult,
+    approvalRecommendation,
+    creditPackageState,
+    estimatedTco2e: `${selectedProject.co2CapturedTons.toLocaleString()} tCO2e`,
+    supportedCredits: `${selectedProject.inventoryAvailable.toLocaleString()} market-ready credits`,
     confidenceScore: `${selectedProject.aiVerificationConfidence}%`,
-    riskScore: selectedProject.riskLevel,
-    vegetationChange: selectedProject.satelliteConfirmed ? 'Yes' : 'No',
-    deforestationDetection: selectedProject.riskLevel === 'High' ? 'Localized pressure detected' : 'No active deforestation detected',
-    gpsMatchPercentage: '98%',
-    boundaryAccuracy: 'High',
-    outlierDetection: selectedProject.anomalyStatus,
-    photoCount: String(projectEvidence.length * 4),
-    coveragePercent: `${Math.min(96, selectedProject.packageCompleteness)}%`,
-    consistencyRating: selectedProject.anomalyStatus === 'Clean' ? 'Strong' : 'Moderate',
-    fireRisk: selectedProject.type === 'Fire Recovery' ? 'Medium' : 'Low',
-    fraudFlags: selectedProject.anomalyStatus === 'Clean' ? '0 active flags' : '1 caution flag',
-    missingData: selectedProject.packageCompleteness > 80 ? 'Minor gaps only' : 'Additional evidence needed',
-    aiSummary: `MRV review indicates that ${selectedProject.name} has a strong chain of proof across field logs, boundary checks, and satellite trend review. The current package supports ${selectedProject.inventoryAvailable} market-ready credits with ${selectedProject.aiVerificationConfidence}% confidence, subject to final buyer or registry formatting requirements.`,
-    verifiedCarbonOutput: `${selectedProject.co2CapturedTons.toLocaleString()} tCO2e`,
-    finalCreditsGenerated: selectedProject.inventoryAvailable.toLocaleString(),
-    finalConfidence: `${selectedProject.aiVerificationConfidence}%`,
-  }), [selectedProject, projectEvidence.length]);
+    carbonModelStatus: selectedProject.packageCompleteness >= 85
+      ? 'Modeled output is commercially supportable with final packaging review still required.'
+      : 'Modeled output is provisional until the missing proof gaps are closed.',
+    fieldEvidenceFacts: [
+      { label: 'Evidence coverage', value: `${Math.min(96, selectedProject.packageCompleteness)}% of expected review package present` },
+      { label: 'Photos and logs', value: `${projectEvidence.length * 4} reviewed photos or log attachments across current records` },
+      { label: 'Plot or survival checks', value: selectedProject.type === 'Fire Recovery' ? `${survivalRate}% survival across recovery counts` : `${projectEvidence.length} active plot or mission-linked checks` },
+      { label: 'Submission consistency', value: selectedProject.anomalyStatus === 'Clean' ? 'Strong submission consistency across timestamps and mission records' : 'Moderate consistency with anomalies noted for reviewer attention' },
+    ],
+    geoValidationFacts: [
+      { label: 'GPS alignment', value: '98% coordinate alignment across reviewed submissions' },
+      { label: 'Boundary match', value: `${selectedProject.polygonLabel} with high project-boundary fit` },
+      { label: 'Outlier detection', value: selectedProject.anomalyStatus === 'Clean' ? 'No material location outliers detected' : selectedProject.anomalyStatus },
+      { label: 'Coordinate confidence', value: 'Field evidence remained inside the reviewed operating area for the current batch' },
+    ],
+    satelliteFacts: [
+      { label: 'Vegetation trend', value: selectedProject.type === 'Fire Recovery' ? 'Vegetation trend improved across the recovery area' : 'Vegetation condition remains stable to improving' },
+      { label: 'Disturbance review', value: selectedProject.riskLevel === 'High' ? 'Localized disturbance pressure detected near the project edge' : 'No active deforestation signal identified in the reviewed window' },
+      { label: 'Canopy or recovery trend', value: selectedProject.type === 'Fire Recovery' ? 'Canopy recovery remains on-track relative to the latest review window' : 'Canopy trend does not contradict field submissions' },
+      { label: 'Fire context', value: selectedProject.type === 'Fire Recovery' ? 'Medium fire risk remains in the surrounding area' : 'No immediate fire-related permanence concern flagged' },
+    ],
+    riskFacts: [
+      { label: 'Fraud flags', value: selectedProject.anomalyStatus === 'Clean' ? '0 active fraud or manipulation flags' : '1 caution flag requires reviewer awareness' },
+      { label: 'Missing data', value: selectedProject.packageCompleteness > 80 ? 'Minor gaps only; package is mostly complete' : 'Additional evidence is still required before approval' },
+      { label: 'Residual risk', value: riskScore },
+      { label: 'Reviewer note', value: selectedProject.type === 'Fire Recovery' ? 'Surrounding fire exposure remains the main monitoring risk after approval' : 'Boundary pressure and long-term permanence remain the main watch items' },
+    ],
+    findings: [
+      {
+        title: selectedProject.type === 'Fire Recovery' ? 'Vegetation trend improved' : 'Field and landscape signals are directionally aligned',
+        status: 'positive' as const,
+        detail: selectedProject.type === 'Fire Recovery'
+          ? 'Recovery plots, survival checks, and the reviewed vegetation window all point to continued restoration progress rather than setback.'
+          : 'The current field package does not materially conflict with the reviewed vegetation and monitoring context.',
+      },
+      {
+        title: selectedProject.riskLevel === 'High' ? 'Boundary pressure remains visible' : 'No active deforestation detected in the current review window',
+        status: selectedProject.riskLevel === 'High' ? 'watch' as const : 'positive' as const,
+        detail: selectedProject.riskLevel === 'High'
+          ? 'The project can still be reviewed, but surrounding pressure means boundary watch and follow-up monitoring should remain active.'
+          : 'No reviewed signal currently suggests active clearing inside the project area.',
+      },
+      {
+        title: 'GPS alignment is strong',
+        status: 'positive' as const,
+        detail: 'Submitted coordinates are tightly clustered within the intended project area and do not show material outlier drift.',
+      },
+      {
+        title: selectedProject.packageCompleteness >= 85 ? 'Evidence coverage is sufficient for packaging' : 'Evidence coverage is not yet sufficient for packaging',
+        status: selectedProject.packageCompleteness >= 85 ? 'positive' as const : 'warning' as const,
+        detail: selectedProject.packageCompleteness >= 85
+          ? 'Current field records, maps, and validation notes are strong enough to support a packaging recommendation.'
+          : 'The project needs one more round of evidence completion before DPAL should trust it for credit packaging.',
+      },
+      {
+        title: selectedProject.type === 'Fire Recovery' ? 'Medium fire risk remains in surrounding area' : 'Residual monitoring risk remains manageable',
+        status: selectedProject.type === 'Fire Recovery' ? 'watch' as const : 'watch' as const,
+        detail: selectedProject.type === 'Fire Recovery'
+          ? 'The core project evidence is credible, but surrounding fire exposure should stay visible in buyer and registry notes.'
+          : 'The package is credible now, but routine monitoring should continue for permanence and edge disturbance risk.',
+      },
+    ],
+    commercialReadout: [
+      {
+        label: 'Supported output',
+        value: `${selectedProject.inventoryAvailable.toLocaleString()} market-ready credits`,
+        detail: 'This is the amount the engine currently supports for packaging from the reviewed proof stack.',
+      },
+      {
+        label: 'Commercial confidence',
+        value: `${selectedProject.aiVerificationConfidence}% confidence`,
+        detail: 'Confidence reflects field proof quality, geospatial consistency, satellite context, and unresolved risk items.',
+      },
+      {
+        label: 'Registry packaging note',
+        value: selectedProject.packageCompleteness >= 90
+          ? 'Final formatting review still required before external submission.'
+          : 'Formatting cleanup and a last document pass are still required.',
+        detail: 'The commercial next step is packaging, not automatic registry acceptance.',
+      },
+    ],
+    dataProvenanceLabel: 'Curated review record with no live satellite adapter attached',
+    dataProvenanceNote: 'This screen currently summarizes project monitoring status, evidence records, and reviewer-configured MRV inputs. The AFOLU Proof Engine page is not yet ingesting a live satellite adapter payload inside this review flow, so remote-sensing statements here should be treated as review narrative until a real scene read or backend result is attached.',
+    nextActionLabel: selectedProject.packageCompleteness >= 90
+      ? 'Move the project into final credit-package formatting review'
+      : 'Request one more evidence and formatting pass before packaging',
+    nextActionNote: selectedProject.packageCompleteness >= 90
+      ? `DPAL can move ${selectedProject.inventoryAvailable.toLocaleString()} supported credits into buyer or registry packaging, while keeping the residual ${selectedProject.type === 'Fire Recovery' ? 'fire' : 'monitoring'} risk visible in the commercial file.`
+      : 'The package should stay in review until the remaining proof gaps are closed, then the engine can rerun the commercial support decision.',
+  }), [approvalRecommendation, creditPackageState, projectEvidence.length, reviewResult, riskScore, selectedProject]);
 
   if (surfaceView === 'projectDetail') {
     return (
@@ -894,10 +1060,14 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   if (surfaceView === 'missionLive') {
     return (
       <MissionLiveView
-        missionName={`${selectedMissionType} - ${selectedProject.name}`}
+        missionName={missionDeploySummary}
+        projectName={selectedProject.name}
         missionType={selectedMissionType}
         expectedTco2e={missionTypeConfig.expectedTco2e}
         targetLabel={missionTypeConfig.unitLabel}
+        participants={missionParticipants}
+        proofRules={[...missionProofRules, missionTypeConfig.whatThisProves]}
+        riskAlerts={missionRiskAlerts}
         onBack={() => setSurfaceView('dashboard')}
       />
     );
@@ -1614,7 +1784,13 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
           onClose={() => setActiveModal(null)}
         >
           <div className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-5 text-[11px]">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300">Deployment Brief</p>
+              <p className="mt-2 text-lg font-black text-white">{missionDeploySummary}</p>
+              <p className="mt-2 text-sm text-emerald-50">This mission is expected to generate ~{missionTypeConfig.expectedTco2e} tCO2e if completed successfully.</p>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6 text-[11px]">
               {['Select Mission Type', 'Mission Definition', 'Participants & Roles', 'Verification Requirements', 'Monitoring & Tracking', 'Deploy Mission'].map((step, index) => (
                 <button
                   key={step}
@@ -1637,7 +1813,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                       type="button"
                       onClick={() => setSelectedMissionType(option.title)}
                       className={`rounded-xl border p-4 text-left transition ${selectedMissionType === option.title ? 'border-emerald-500 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]' : 'border-slate-800 bg-slate-950 hover:border-slate-600'}`}
-                    >
+                      >
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-black text-white">{option.title}</p>
@@ -1646,6 +1822,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                         <span className="rounded-lg border border-slate-700 px-2 py-1 text-[10px] font-bold text-slate-200">{option.expectedTco2e} tCO2e</span>
                       </div>
                       <p className="mt-3 text-sm text-slate-300">{option.description}</p>
+                      <p className="mt-3 text-xs text-slate-400">What this proves: {option.whatThisProves}</p>
                     </button>
                   ))}
                 </div>
@@ -1654,34 +1831,52 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
 
             {missionBuilderStep === 1 && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ['Mission Name', `${selectedMissionType} - ${selectedProject.name}`],
-                  ['Linked Project', selectedProject.name],
-                  ['Area', `${selectedProject.municipality} / map select placeholder`],
-                  ['Target', missionTypeConfig.unitLabel],
-                  ['Expected Impact', `Estimated: ${missionTypeConfig.expectedTco2e} tCO2e`],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
-                    <p className="mt-1 text-sm font-bold text-white">{value}</p>
-                  </div>
-                ))}
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Mission Name</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionDeploySummary}</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Linked Project</p>
+                  <p className="mt-1 text-sm font-bold text-white">{selectedProject.name}</p>
+                  <p className="mt-2 text-xs text-slate-400">Dropdown-ready project selection anchored to the active carbon project.</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Area</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionAreaLabel}</p>
+                  <p className="mt-2 text-xs text-slate-400">Map-based area selection will bind the mission to the operating zone and boundary layer.</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Target</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionTypeConfig.unitLabel}</p>
+                </div>
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4 sm:col-span-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Expected Impact</p>
+                  <p className="mt-1 text-xl font-black text-white">Estimated: {missionTypeConfig.expectedTco2e} tCO2e</p>
+                  <p className="mt-2 text-sm text-emerald-50">Carbon appears early here so the operator understands what this mission is expected to create before it is deployed.</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 sm:col-span-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Mission Definition</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionTypeConfig.description}</p>
+                </div>
               </div>
             )}
 
             {missionBuilderStep === 2 && (
               <div className="grid gap-3 sm:grid-cols-2">
-                {[
-                  ['Community members', 'Drivers - complete the field work'],
-                  ['Validators', 'Verifiers - confirm proof quality'],
-                  ['Supervisors', 'Coordinators - manage deployment and risk'],
-                  ['Rewards', 'DPAL tokens or payment per task'],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+                {missionParticipants.map((value, index) => (
+                  <div key={value} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{index === 0 ? 'Community members' : index === 1 ? 'Validators' : 'Supervisors'}</p>
                     <p className="mt-1 text-sm font-bold text-white">{value}</p>
                   </div>
                 ))}
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Roles</p>
+                  <p className="mt-1 text-sm font-bold text-white">Driver · Verifier · Coordinator</p>
+                </div>
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Rewards</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionRewards}</p>
+                </div>
               </div>
             )}
 
@@ -1689,32 +1884,37 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               <div className="grid gap-3 sm:grid-cols-2">
                 {[
                   ['Required Photos', '3'],
-                  ['GPS Validation', 'Required'],
+                  ['GPS Validation', 'YES'],
                   ['Time Window', '24h'],
                   ['Geo Radius', '150 meters'],
-                  ['What this proves', missionTypeConfig.whatThisProves],
                 ].map(([label, value]) => (
                   <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-4">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
                     <p className="mt-1 text-sm font-bold text-white">{value}</p>
                   </div>
                 ))}
+                <div className="rounded-lg border border-sky-500/20 bg-sky-500/10 p-4 sm:col-span-2">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">What This Proves</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionTypeConfig.whatThisProves}</p>
+                </div>
               </div>
             )}
 
             {missionBuilderStep === 4 && (
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 sm:col-span-2">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Map Preview</p>
-                  <p className="mt-1 text-sm font-bold text-white">Boundary, route, and checkpoint overlay placeholder</p>
+                  <p className="mt-1 text-sm font-bold text-white">Boundary, route, and checkpoint overlay for {selectedProject.name}</p>
+                  <p className="mt-2 text-xs text-slate-400">Mission geometry, proof points, and route traces will render here once the deployment is mapped.</p>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Satellite Tracking</p>
                   <p className="mt-1 text-sm font-bold text-white">Enabled</p>
+                  <p className="mt-2 text-xs text-slate-400">Attach ongoing remote-sensing review to disturbance, vegetation, or recovery checks.</p>
                 </div>
                 <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Risk Alerts</p>
-                  <p className="mt-1 text-sm font-bold text-white">Fire and deforestation watch active</p>
+                  <p className="mt-1 text-sm font-bold text-white">{missionRiskAlerts.join(' · ')}</p>
                 </div>
               </div>
             )}
@@ -1723,17 +1923,30 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               <div className="space-y-3">
                 <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Mission Summary</p>
-                  <p className="mt-2 text-lg font-black text-white">{selectedMissionType} - {selectedProject.name}</p>
+                  <p className="mt-2 text-lg font-black text-white">{missionDeploySummary}</p>
                   <p className="mt-2 text-sm text-emerald-50">This mission is expected to generate ~{missionTypeConfig.expectedTco2e} tCO2e if completed successfully.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Expected Carbon Impact</p>
+                    <p className="mt-1 text-sm font-bold text-white">{missionTypeConfig.expectedTco2e} tCO2e</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Target</p>
+                    <p className="mt-1 text-sm font-bold text-white">{missionTypeConfig.unitLabel}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Participants</p>
                     <p className="mt-1 text-sm font-bold text-white">Drivers, verifiers, coordinator</p>
+                    <p className="mt-2 text-xs text-slate-400">{missionParticipants.join(' · ')}</p>
                   </div>
                   <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
                     <p className="text-[11px] uppercase tracking-wide text-slate-500">Proof Rules</p>
-                    <p className="mt-1 text-sm font-bold text-white">3 photos, GPS, 24h time window, geo radius check</p>
+                    <p className="mt-1 text-sm font-bold text-white">{missionProofRules.join(', ')}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 sm:col-span-2">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Deployment Outcome</p>
+                    <p className="mt-1 text-sm font-bold text-white">Deploying this mission will publish a live carbon operation with incoming submissions, map activity, and verification tracking.</p>
                   </div>
                 </div>
                 <button
