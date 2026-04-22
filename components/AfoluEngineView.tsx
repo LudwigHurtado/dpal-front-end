@@ -1,13 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Camera, CheckCircle, Clock, Database,
-  FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud, Loader, X,
+  Droplets, FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud, Cpu, Loader, Waves, X, Zap,
 } from './icons';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import ProjectDetailView from './ProjectDetailView';
 import MRVResultsView from './MRVResultsView';
+import CarbonCreditWorkbench from './CarbonCreditWorkbench';
+import type { CategoryId } from './CarbonCreditWorkbench';
 
 type AfoluTab =
   | 'home'
+  | 'calculator'
   | 'projects'
   | 'missions'
   | 'assets'
@@ -477,6 +482,7 @@ const evidence: EvidenceItem[] = [
 
 const tabs: Array<{ id: AfoluTab; label: string }> = [
   { id: 'home', label: 'Home' },
+  { id: 'calculator', label: 'Credit Engine' },
   { id: 'projects', label: 'Projects' },
   { id: 'missions', label: 'Missions' },
   { id: 'assets', label: 'Assets' },
@@ -757,14 +763,89 @@ const pipelineSteps: Array<{ title: string; detail: string }> = [
   { title: 'Buyer/Registry Submission', detail: 'The package moves to buyers or registries for sale or certification.' },
 ];
 
+interface CarbonHomeCat {
+  id: CategoryId;
+  name: string;
+  icon: React.FC<{ className?: string }>;
+  description: string;
+  creditType: string;
+  accent: string;
+  border: string;
+  bg: string;
+}
+
+const carbonHomeCategories: CarbonHomeCat[] = [
+  { id: 'afolu', name: 'AFOLU', icon: Globe, description: 'Forests, reforestation, land protection, and indigenous stewardship.', creditType: 'Removal + Avoidance', accent: 'text-emerald-300', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10' },
+  { id: 'waste', name: 'Waste & Methane', icon: Upload, description: 'Landfill gas capture, biogas, composting, and waste-to-energy systems.', creditType: 'Avoidance', accent: 'text-green-300', border: 'border-green-500/30', bg: 'bg-green-500/10' },
+  { id: 'water', name: 'Water & Blue Carbon', icon: Droplets, description: 'Wetlands, mangroves, blue ecosystems, and waterway restoration.', creditType: 'Removal + Co-benefit', accent: 'text-cyan-300', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10' },
+  { id: 'energy', name: 'Renewable Energy', icon: Zap, description: 'Solar, wind, micro-hydro, and off-grid electrification for clean power.', creditType: 'Avoidance', accent: 'text-amber-300', border: 'border-amber-500/30', bg: 'bg-amber-500/10' },
+  { id: 'agri', name: 'Regenerative Agriculture', icon: Activity, description: 'No-till, biochar, organic soil restoration, and healthy food systems.', creditType: 'Removal', accent: 'text-lime-300', border: 'border-lime-500/30', bg: 'bg-lime-500/10' },
+  { id: 'industry', name: 'Industrial Reduction', icon: Database, description: 'Carbon capture, energy efficiency, and cleaner industrial production.', creditType: 'Avoidance', accent: 'text-slate-200', border: 'border-slate-500/30', bg: 'bg-slate-500/10' },
+  { id: 'mobility', name: 'Transport & Mobility', icon: MapPin, description: 'EV fleets, ride-sharing, bike systems, and delivery route optimization.', creditType: 'Avoidance', accent: 'text-blue-300', border: 'border-blue-500/30', bg: 'bg-blue-500/10' },
+  { id: 'fire', name: 'Fire Prevention', icon: AlertTriangle, description: 'Early detection, controlled burns, and post-fire ecosystem restoration.', creditType: 'Avoidance', accent: 'text-orange-300', border: 'border-orange-500/30', bg: 'bg-orange-500/10' },
+  { id: 'urban', name: 'Urban Carbon', icon: Map, description: 'Urban tree corridors, cool roofs, and city-scale energy efficiency.', creditType: 'Removal + Avoidance', accent: 'text-violet-300', border: 'border-violet-500/30', bg: 'bg-violet-500/10' },
+  { id: 'cooking', name: 'Clean Cooking', icon: Target, description: 'Efficient cookstoves, biogas digesters, and solar cooking solutions.', creditType: 'Avoidance', accent: 'text-rose-300', border: 'border-rose-500/30', bg: 'bg-rose-500/10' },
+  { id: 'livestock', name: 'Livestock Methane', icon: Users, description: 'Feed additives, manure management, and rotational grazing systems.', creditType: 'Avoidance', accent: 'text-amber-200', border: 'border-amber-400/30', bg: 'bg-amber-400/10' },
+  { id: 'marine', name: 'Marine Carbon', icon: Waves, description: 'Seaweed farming, coastal ecosystem protection, and coral restoration.', creditType: 'Removal + Co-benefit', accent: 'text-sky-300', border: 'border-sky-500/30', bg: 'bg-sky-500/10' },
+  { id: 'cooling', name: 'Cooling & Refrigerants', icon: Cloud, description: 'AC replacement, refrigerant recovery, and cold storage efficiency.', creditType: 'Avoidance', accent: 'text-indigo-300', border: 'border-indigo-500/30', bg: 'bg-indigo-500/10' },
+  { id: 'digital', name: 'Digital Efficiency', icon: Cpu, description: 'Cloud optimization, data center efficiency, and AI compute reduction.', creditType: 'Avoidance', accent: 'text-fuchsia-300', border: 'border-fuchsia-500/30', bg: 'bg-fuchsia-500/10' },
+  { id: 'biobased', name: 'Bio-Based Materials', icon: Award, description: 'Bioplastics, hemp materials, and sustainable packaging alternatives.', creditType: 'Removal + Avoidance', accent: 'text-teal-300', border: 'border-teal-500/30', bg: 'bg-teal-500/10' },
+  { id: 'disaster', name: 'Disaster Prevention', icon: ShieldCheck, description: 'Flood prevention, drought mitigation, and landslide stabilization.', creditType: 'Avoidance', accent: 'text-red-300', border: 'border-red-500/30', bg: 'bg-red-500/10' },
+  { id: 'community', name: 'Community Behavior', icon: Users, description: 'Household energy reduction, water conservation, and recycling campaigns.', creditType: 'Avoidance', accent: 'text-pink-300', border: 'border-pink-500/30', bg: 'bg-pink-500/10' },
+];
+
+interface MapProject {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  status: string;
+  tco2e: number;
+  credits: number;
+  country: string;
+}
+
+const mapProjects: MapProject[] = [
+  { id: 'AF-PROJ-102', name: 'Amazon Edge Forest Protection', lat: -16.5, lng: -62.5, status: 'monitoring', tco2e: 1180, credits: 760, country: 'Bolivia' },
+  { id: 'AF-PROJ-221', name: 'Watershed Agroforestry Belt', lat: 5.6, lng: -75.8, status: 'active', tco2e: 365, credits: 225, country: 'Colombia' },
+  { id: 'AF-PROJ-318', name: 'Fire Recovery Nursery Network', lat: 39.7, lng: -121.8, status: 'buyer_ready', tco2e: 540, credits: 330, country: 'USA' },
+];
+
+const HOW_IT_WORKS_STEPS = [
+  { label: 'Report', detail: 'Community members document environmental conditions on the ground.' },
+  { label: 'Project', detail: 'A carbon project is structured around a defined area and methodology.' },
+  { label: 'Evidence', detail: 'Field missions collect GPS-tagged photos, logs, and measurements.' },
+  { label: 'Monitoring', detail: 'Satellite and AI continuously monitor canopy, water, and risk signals.' },
+  { label: 'Verification', detail: 'Validators review proof and the MRV engine scores each package.' },
+  { label: 'Credits', detail: 'Verified impact is issued as DPAL carbon credits with a blockchain anchor.' },
+  { label: 'Marketplace', detail: 'Credits are listed for buyers, registries, and corporate offset programs.' },
+];
+
+function mapStatusColor(status: string): string {
+  if (status === 'buyer_ready') return '#10b981';
+  if (status === 'active') return '#38bdf8';
+  if (status === 'monitoring') return '#f59e0b';
+  return '#94a3b8';
+}
+
+function mapStatusLabel(status: string): string {
+  if (status === 'buyer_ready') return 'Buyer Ready';
+  if (status === 'active') return 'Active';
+  if (status === 'monitoring') return 'Monitoring';
+  return status;
+}
+
 interface AfoluEngineViewProps {
   onReturn: () => void;
 }
 
 const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [activeTab, setActiveTab] = useState<AfoluTab>('home');
+  const [calculatorCategoryId, setCalculatorCategoryId] = useState<CategoryId>('afolu');
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
   const [surfaceView, setSurfaceView] = useState<'dashboard' | 'projectDetail' | 'mrvResults' | 'buyerPackage' | 'missionLive'>('dashboard');
+  const mapSectionRef = useRef<HTMLDivElement>(null);
+  const categorySectionRef = useRef<HTMLDivElement>(null);
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<null | 'projectSetup' | 'missionBuilder' | 'uploadProof' | 'dealDetail'>(null);
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(buyers[0]?.id || null);
@@ -1179,6 +1260,12 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             >
               Prepare Buyer Package
             </button>
+            <button
+              onClick={() => setActiveTab('calculator')}
+              className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-emerald-500"
+            >
+              Open Credit Engine
+            </button>
           </div>
         </div>
       </header>
@@ -1201,326 +1288,241 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
         </nav>
 
         {activeTab === 'home' && (
-          <div className="space-y-6">
-            {homeSectionsLoading ? (
-              <>
-                <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-                  <Card className="border-slate-800 bg-slate-900/80">
-                    <SkeletonBlock className="h-3 w-28" />
-                    <SkeletonBlock className="mt-4 h-10 w-full max-w-2xl" />
-                    <SkeletonBlock className="mt-3 h-4 w-full max-w-3xl" />
-                    <div className="mt-5 grid gap-3 md:grid-cols-3">
-                      {[0, 1, 2].map((item) => (
-                        <div key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                          <SkeletonBlock className="h-3 w-24" />
-                          <SkeletonBlock className="mt-3 h-12 w-full" />
-                        </div>
-                      ))}
-                    </div>
-                  </Card>
-                  <Card className="border-slate-800 bg-slate-900/80">
-                    <SkeletonBlock className="h-6 w-36" />
-                    <div className="mt-4 space-y-3">
-                      <SkeletonBlock className="h-20 w-full" />
-                      {[0, 1, 2, 3, 4].map((item) => (
-                        <SkeletonBlock key={item} className="h-12 w-full" />
-                      ))}
-                      <SkeletonBlock className="h-16 w-full" />
-                    </div>
-                  </Card>
-                </section>
+          <div className="space-y-12 pb-12">
 
-                <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  {Array.from({ length: 8 }).map((_, index) => (
-                    <Card key={index} className="border-slate-800 bg-slate-900/80">
-                      <SkeletonBlock className="h-3 w-24" />
-                      <SkeletonBlock className="mt-3 h-8 w-28" />
-                    </Card>
-                  ))}
-                </section>
-
-                <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-                  <Card className="border-slate-800 bg-slate-900/80">
-                    <SkeletonBlock className="h-6 w-40" />
-                    <SkeletonBlock className="mt-3 h-4 w-80" />
-                    <div className="mt-5 grid gap-3 md:grid-cols-3">
-                      {Array.from({ length: 6 }).map((_, index) => (
-                        <SkeletonBlock key={index} className="h-28 w-full" />
-                      ))}
-                    </div>
-                  </Card>
-                  <Card className="border-slate-800 bg-slate-900/80">
-                    <SkeletonBlock className="h-6 w-44" />
-                    <SkeletonBlock className="mt-3 h-4 w-full" />
-                    <div className="mt-4 space-y-3">
-                      {Array.from({ length: 3 }).map((_, index) => (
-                        <SkeletonBlock key={index} className="h-20 w-full" />
-                      ))}
-                    </div>
-                  </Card>
-                </section>
-              </>
-            ) : (
-              <>
-            <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-              <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-950/70 via-slate-900/80 to-slate-950">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-emerald-300">Investor Narrative</p>
-                <h2 className="mt-2 text-3xl font-black text-white">This dashboard is the command center for the forestry carbon pipeline.</h2>
-                <p className="mt-3 max-w-3xl text-sm text-slate-300">
-                  DPAL captures real environmental activity, converts that activity into measurable carbon impact through the MRV engine, and prepares it for buyers, registries, and revenue.
+            {/* ── 1. Hero ─────────────────────────────────────────────── */}
+            <section className="relative overflow-hidden rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/70 via-slate-900 to-slate-950 px-8 py-14">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_80%_50%_at_50%_-20%,rgba(16,185,129,0.12),transparent)]" />
+              <div className="relative z-10 mx-auto max-w-3xl text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-emerald-400">DPAL Carbon</p>
+                <h2 className="mt-3 text-4xl font-black leading-tight text-white md:text-5xl">
+                  Turn verified real-world action into measurable climate credits.
+                </h2>
+                <p className="mt-4 text-base text-slate-300">
+                  Every project, mission, and satellite reading feeds the MRV engine — and every verified outcome becomes a tradeable carbon credit.
                 </p>
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Raw Activity</p>
-                    <p className="mt-1 text-sm font-bold text-white">Planting, patrol, plot verification, survival checks</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">MRV Conversion</p>
-                    <p className="mt-1 text-sm font-bold text-white">Satellite, AI, validator, and proof scoring confirm asset quality</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-700/70 bg-black/20 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Financial Output</p>
-                    <p className="mt-1 text-sm font-bold text-white">Credits generated, sold, and translated into project revenue</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card>
-                <h2 className="text-lg font-black text-white">MRV Intelligence</h2>
-                <div className="mt-4 space-y-3">
+                <div className="mt-8 flex flex-wrap justify-center gap-3">
                   <button
-                    type="button"
-                    onClick={() => runTransition('Opening MRV results', () => setSurfaceView('mrvResults'))}
-                    className="w-full rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-left transition hover:border-emerald-400 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                    onClick={() => categorySectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="rounded-xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white shadow-lg hover:bg-emerald-500 transition"
                   >
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Confidence Score</p>
-                    <p className="mt-1 text-3xl font-black text-white">{totals.avgVerificationConfidence}%</p>
+                    Explore Categories
                   </button>
-                  {mrvIntelligenceItems.map((item) => (
-                    <button
-                      key={item.label}
-                      type="button"
-                      onClick={item.onClick}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left text-sm text-slate-300 transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
-                    >
-                      {item.label}: <span className={`font-bold ${item.tone}`}>{item.value}</span>
-                    </button>
-                  ))}
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-50">
-                    Latest engine note: Project area shows stable canopy recovery and consistent field evidence across submitted plots.
-                  </div>
+                  <button
+                    onClick={() => setActiveModal('projectSetup')}
+                    className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-6 py-3 text-sm font-bold text-emerald-100 hover:border-emerald-400 hover:bg-emerald-500/20 transition"
+                  >
+                    Launch Project
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('calculator')}
+                    className="rounded-xl border border-slate-700 bg-slate-900 px-6 py-3 text-sm font-bold text-slate-200 hover:border-slate-500 hover:text-white transition"
+                  >
+                    View Marketplace
+                  </button>
+                  <button
+                    onClick={() => mapSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                    className="rounded-xl border border-slate-700 bg-slate-900 px-6 py-3 text-sm font-bold text-slate-200 hover:border-slate-500 hover:text-white transition"
+                  >
+                    See Impact Map
+                  </button>
                 </div>
-              </Card>
+              </div>
             </section>
 
-            <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <Metric label="Active Projects" value={String(projects.length)} icon={<Globe className="h-5 w-5" />} onClick={() => setActiveTab('projects')} />
-              <Metric label="Hectares Monitored" value={totals.hectares.toLocaleString()} icon={<Map className="h-5 w-5" />} tone="text-cyan-300" onClick={() => setActiveTab('projects')} />
-              <Metric label="Estimated tCO2e" value={totals.co2Captured.toLocaleString()} icon={<Cloud className="h-5 w-5" />} tone="text-sky-300" onClick={() => runTransition('Opening project carbon detail', () => setSurfaceView('projectDetail'))} />
-              <Metric label="Credits Ready" value={totals.inventoryAvailable.toLocaleString()} icon={<Award className="h-5 w-5" />} tone="text-lime-300" onClick={() => runTransition('Opening buyer package', () => setSurfaceView('buyerPackage'))} />
-              <Metric label="Survival Rate" value={`${totals.survival}%`} icon={<Activity className="h-5 w-5" />} tone="text-amber-300" onClick={() => setActiveTab('monitoring')} />
-              <Metric label="Verification Confidence" value={`${totals.avgVerificationConfidence}%`} icon={<ShieldCheck className="h-5 w-5" />} tone="text-emerald-300" onClick={() => runTransition('Opening MRV results', () => setSurfaceView('mrvResults'))} />
-              <Metric label="Buyer Interest" value={`${buyerInterest} buyers`} icon={<Users className="h-5 w-5" />} tone="text-fuchsia-300" onClick={() => setActiveTab('buyers')} />
-              <Metric label="Projected Revenue" value={usd(totals.projectedRevenueUsd)} icon={<Database className="h-5 w-5" />} tone="text-amber-300" onClick={() => setActiveTab('buyers')} />
-            </section>
-
-            <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-              <Card>
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-black text-white">Carbon Pipeline</h2>
-                    <p className="mt-1 text-sm text-slate-400">This is where environmental work becomes a verified carbon asset.</p>
-                  </div>
-                  <ShieldCheck className="h-6 w-6 text-emerald-300" />
+            {/* ── 2. Category Grid ─────────────────────────────────────── */}
+            <section ref={categorySectionRef}>
+              <div className="mb-6 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">Carbon Credit Categories</p>
+                  <h3 className="mt-1 text-2xl font-black text-white">{carbonHomeCategories.length} active methodologies</h3>
                 </div>
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  {pipelineSteps.map((step, index) => (
-                    <button
-                      key={step.title}
-                      type="button"
-                      onClick={() => {
-                        setSelectedPipelineStep(step);
-                        setPipelineDrawerOpen(true);
-                      }}
-                      className={`rounded-lg border bg-slate-950 p-3 text-left transition hover:border-emerald-500 ${selectedPipelineStep.title === step.title ? 'border-emerald-500 shadow-[0_0_22px_rgba(16,185,129,0.15)]' : 'border-slate-800'}`}
-                    >
-                      <p className="text-xs font-black text-emerald-300">Stage {index + 1}</p>
-                      <p className="mt-2 text-sm font-bold text-white">{step.title}</p>
-                      <p className="mt-2 text-xs text-slate-400">{step.detail}</p>
-                    </button>
-                  ))}
-                </div>
-                <div className="mt-4 rounded-lg border border-slate-800 bg-slate-950 p-4">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Stage Drill-down</p>
-                  <p className="mt-2 text-lg font-black text-white">Open any stage to inspect how activity becomes a buyer-ready carbon asset.</p>
-                  <p className="mt-3 text-xs text-emerald-200">Selecting a stage opens the carbon pipeline drawer with the active stage context.</p>
-                </div>
-              </Card>
-
-              <Card>
-                <h2 className="text-lg font-black text-white">Credit-Creating Missions</h2>
-                <p className="mt-1 text-sm text-slate-400">These are not generic tasks. They are the activity layer that feeds carbon creation and confidence.</p>
-                <div className="mt-4 space-y-3">
-                  {[
-                    ['Plant Trees', 'Generates new sequestration records through planting and survival tracking.'],
-                    ['Patrol Protected Area', 'Supports avoided deforestation claims with geo-tagged field presence and incident reporting.'],
-                    ['Verify Sample Plot', 'Improves confidence in biomass estimates through plot-level checks.'],
-                  ].map(([template, detail]) => (
-                    <button
-                      key={template}
-                      type="button"
-                      onClick={() => openMissionBuilderFor(template as MissionLaunchType)}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
+                <p className="hidden text-xs text-slate-500 sm:block">Each category generates verified credits through DPAL's proof-and-MRV engine.</p>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {carbonHomeCategories.map((cat) => {
+                  const Icon = cat.icon;
+                  return (
+                    <div
+                      key={cat.id}
+                      className={`flex flex-col rounded-2xl border ${cat.border} ${cat.bg} p-5 transition hover:shadow-[0_0_20px_rgba(16,185,129,0.1)]`}
                     >
                       <div className="flex items-center gap-3">
-                        <Target className="h-4 w-4 text-emerald-300" />
-                        <span className="text-sm font-bold text-white">{template}</span>
+                        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${cat.border} bg-slate-950`}>
+                          <Icon className={`h-4 w-4 ${cat.accent}`} />
+                        </div>
+                        <h4 className="text-sm font-black text-white leading-tight">{cat.name}</h4>
                       </div>
-                      <p className="mt-2 text-xs text-slate-400">{detail}</p>
-                    </button>
-                  ))}
-                </div>
-              </Card>
+                      <p className="mt-3 flex-1 text-xs leading-5 text-slate-400">{cat.description}</p>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <span className={`rounded-lg border ${cat.border} px-2 py-1 text-[10px] font-bold ${cat.accent}`}>{cat.creditType}</span>
+                        <button
+                          onClick={() => {
+                            if (cat.id === 'afolu') {
+                              setActiveTab('projects');
+                            } else {
+                              setCalculatorCategoryId(cat.id);
+                              setActiveTab('calculator');
+                            }
+                          }}
+                          className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-1 text-[11px] font-bold text-slate-300 transition hover:border-slate-500 hover:text-white"
+                        >
+                          Open Category
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <Card>
-                <h2 className="text-lg font-black text-white">Project Spotlight: Bolivia Forest Recovery Pilot</h2>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Region</span><p className="mt-1 text-sm font-bold text-white">Santa Cruz / Amazon fringe</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Area</span><p className="mt-1 text-sm font-bold text-white">120 hectares</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Trees Registered</span><p className="mt-1 text-sm font-bold text-white">2,400</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Estimated tCO2e</span><p className="mt-1 text-sm font-bold text-white">810</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Verification Confidence</span><p className="mt-1 text-sm font-bold text-white">93%</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Buyer Status</span><p className="mt-1 text-sm font-bold text-white">Pre-marketing</p></div>
-                </div>
-              </Card>
-
-              <Card>
-                <h2 className="text-lg font-black text-white">Buyer Readiness</h2>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Package Completeness</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.packageCompleteness}%</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Registry Format Readiness</span><p className="mt-1 text-sm font-bold text-white">In progress</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Supporting Evidence Files</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.evidenceFiles}</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Verified Project Maps</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.verifiedProjectMaps}</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Available Lots</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.availableLots}</p></div>
-                  <div className="rounded-lg border border-slate-800 bg-slate-950 p-3"><span className="text-[11px] uppercase tracking-wide text-slate-500">Expected Price Range</span><p className="mt-1 text-sm font-bold text-white">{selectedProject.priceRangeUsd}</p></div>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-5 text-[11px]">
-                  {['Documentation', 'Impact model', 'Validation', 'Packaging', 'Submission'].map((step) => (
-                    <div key={step} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2 py-2 text-center font-bold text-emerald-100">{step}</div>
-                  ))}
-                </div>
-              </Card>
+            {/* ── 3. Summary Strip ─────────────────────────────────────── */}
+            <section>
+              <p className="mb-4 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Platform Snapshot</p>
+              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+                {[
+                  { label: 'Active Projects', value: String(projects.length), tone: 'text-emerald-300', onClick: () => setActiveTab('projects') },
+                  { label: 'Estimated Credits', value: totals.creditsGenerated.toLocaleString(), tone: 'text-sky-300', onClick: () => runTransition('Opening credit detail', () => setSurfaceView('projectDetail')) },
+                  { label: 'Verified Credits', value: totals.creditsSold.toLocaleString(), tone: 'text-lime-300', onClick: () => runTransition('Opening buyer package', () => setSurfaceView('buyerPackage')) },
+                  { label: 'Pending Validation', value: String(totals.pendingEvidence), tone: 'text-amber-300', onClick: () => setActiveTab('evidence') },
+                  { label: 'Revenue Potential', value: usd(totals.projectedRevenueUsd), tone: 'text-fuchsia-300', onClick: () => setActiveTab('buyers') },
+                  { label: 'Communities', value: `${projects.length * 2}`, tone: 'text-rose-300', onClick: () => setActiveTab('projects') },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={item.onClick}
+                    className="rounded-2xl border border-slate-800 bg-slate-900 p-4 text-left transition hover:border-slate-600"
+                  >
+                    <p className="text-[10px] uppercase tracking-wide text-slate-500">{item.label}</p>
+                    <p className={`mt-1 text-xl font-black ${item.tone}`}>{item.value}</p>
+                  </button>
+                ))}
+              </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <Card>
-                <h2 className="text-lg font-black text-white">Revenue Model</h2>
-                <div className="mt-4 space-y-3">
+            {/* ── 4. Interactive Impact Map ─────────────────────────────── */}
+            <section ref={mapSectionRef}>
+              <div className="mb-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">Impact Map</p>
+                  <h3 className="mt-1 text-2xl font-black text-white">Where projects are active</h3>
+                </div>
+                <div className="hidden items-center gap-4 sm:flex text-xs text-slate-400">
                   {[
-                    'MRV platform fees',
-                    'Credit issuance and packaging fees',
-                    'Marketplace transaction fees',
-                    'Enterprise monitoring subscriptions',
-                    'Validator tools and reporting services',
-                  ].map((step, index) => (
-                    <div key={step} className="flex gap-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
-                      <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-xs font-black text-emerald-300">{index + 1}</div>
-                      <p className="text-sm text-slate-300">{step}</p>
+                    { color: '#10b981', label: 'Buyer Ready' },
+                    { color: '#38bdf8', label: 'Active' },
+                    { color: '#f59e0b', label: 'Monitoring' },
+                  ].map((item) => (
+                    <span key={item.label} className="flex items-center gap-1.5">
+                      <span className="inline-block h-3 w-3 rounded-full" style={{ background: item.color }} />
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="overflow-hidden rounded-2xl border border-slate-800" style={{ height: '420px' }}>
+                <MapContainer
+                  center={[10, -30]}
+                  zoom={2}
+                  style={{ height: '420px', width: '100%', background: '#0f172a' }}
+                  scrollWheelZoom={false}
+                >
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    attribution="Esri"
+                  />
+                  <TileLayer
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                    attribution="Esri"
+                  />
+                  {mapProjects.map((proj) => (
+                    <CircleMarker
+                      key={proj.id}
+                      center={[proj.lat, proj.lng]}
+                      radius={14}
+                      pathOptions={{
+                        color: mapStatusColor(proj.status),
+                        fillColor: mapStatusColor(proj.status),
+                        fillOpacity: 0.85,
+                        weight: 2,
+                      }}
+                    >
+                      <Popup>
+                        <div className="min-w-[180px] space-y-1 text-xs">
+                          <p className="font-bold text-slate-900">{proj.name}</p>
+                          <p className="text-slate-600">{proj.country}</p>
+                          <p>Status: <b>{mapStatusLabel(proj.status)}</b></p>
+                          <p>Est. tCO2e: <b>{proj.tco2e.toLocaleString()}</b></p>
+                          <p>Credits: <b>{proj.credits.toLocaleString()}</b></p>
+                        </div>
+                      </Popup>
+                    </CircleMarker>
+                  ))}
+                </MapContainer>
+              </div>
+            </section>
+
+            {/* ── 5. How DPAL Works ────────────────────────────────────── */}
+            <section>
+              <div className="mb-6 text-center">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400">The Process</p>
+                <h3 className="mt-1 text-2xl font-black text-white">How DPAL Works</h3>
+                <p className="mt-2 text-sm text-slate-400">Seven steps from real-world action to tradeable climate credit.</p>
+              </div>
+              <div className="relative">
+                <div className="pointer-events-none absolute inset-y-0 left-0 right-0 mx-auto hidden h-0.5 w-[calc(100%-48px)] translate-y-8 bg-gradient-to-r from-emerald-500/0 via-emerald-500/30 to-emerald-500/0 lg:block" />
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+                  {HOW_IT_WORKS_STEPS.map((step, index) => (
+                    <div key={step.label} className="relative flex flex-col items-center text-center">
+                      <div className="relative z-10 flex h-16 w-16 items-center justify-center rounded-full border border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_20px_rgba(16,185,129,0.15)]">
+                        <span className="text-lg font-black text-emerald-300">{index + 1}</span>
+                      </div>
+                      <p className="mt-3 text-sm font-black text-white">{step.label}</p>
+                      <p className="mt-1 text-[11px] leading-4 text-slate-400">{step.detail}</p>
                     </div>
                   ))}
                 </div>
-                <p className="mt-4 text-sm text-slate-300">DPAL monetizes environmental verification, carbon packaging, and marketplace participation.</p>
-              </Card>
-
-              <Card>
-                <h2 className="text-lg font-black text-white">Buyer Marketplace Preview</h2>
-                <div className="mt-4 space-y-3">
-                  {projects.map((project) => (
-                    <button
-                      key={project.id}
-                      type="button"
-                      onClick={() => runTransition('Opening project detail', () => {
-                        setSelectedProjectId(project.id);
-                        setSurfaceView('projectDetail');
-                      })}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-white">{project.name}</p>
-                          <p className="mt-1 text-xs text-slate-400">{project.buyerDemand}</p>
-                        </div>
-                        <span className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${statusClass(project.status)}`}>{project.status.replace(/_/g, ' ')}</span>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Credits</span><br /><b>{project.creditsGenerated}</b></div>
-                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Price</span><br /><b>{usd(project.pricePerCreditUsd)}</b></div>
-                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Revenue</span><br /><b>{usd(project.revenueUsd)}</b></div>
-                      </div>
-                    </button>
-                  ))}
+              </div>
+              <div className="mt-8 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6 text-center">
+                <p className="text-sm font-bold text-emerald-100">
+                  Report → Project → Evidence → Monitoring → Verification → Credits → Marketplace
+                </p>
+                <p className="mt-2 text-xs text-slate-400">
+                  Every step is recorded on the DPAL ledger, creating an auditable chain from field action to issued credit.
+                </p>
+                <div className="mt-4 flex flex-wrap justify-center gap-3">
+                  <button
+                    onClick={() => setActiveModal('projectSetup')}
+                    className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-emerald-500 transition"
+                  >
+                    Start Your First Project
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('calculator')}
+                    className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-2.5 text-sm font-bold text-slate-200 hover:border-slate-500 hover:text-white transition"
+                  >
+                    Estimate Credits
+                  </button>
                 </div>
-              </Card>
+              </div>
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[1fr_1fr]">
-              <Card>
-                <h2 className="text-lg font-black text-white">MRV Intelligence</h2>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Verification Confidence</p>
-                    <p className="mt-1 text-3xl font-black text-white">{totals.avgVerificationConfidence}%</p>
-                  </div>
-                  <div className="rounded-lg border border-sky-500/20 bg-sky-500/10 p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Satellite Validation</p>
-                    <p className="mt-1 text-3xl font-black text-white">YES</p>
-                  </div>
-                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Risk Scoring</p>
-                    <p className="mt-1 text-sm font-bold text-white">Active across canopy, survival, and boundary disturbance</p>
-                  </div>
-                  <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-4">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Fraud / Anomaly Flags</p>
-                    <p className="mt-1 text-sm font-bold text-white">{projects.filter((project) => project.anomalyStatus !== 'Clean').length} projects require attention</p>
-                  </div>
-                </div>
-              </Card>
-
-              <Card>
-                <h2 className="text-lg font-black text-white">Buyer Pipeline</h2>
-                <div className="mt-4 space-y-3">
-                  {buyers.map((buyer) => (
-                    <button
-                      key={buyer.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedBuyerId(buyer.id);
-                        setActiveModal('dealDetail');
-                      }}
-                      className="w-full rounded-lg border border-slate-800 bg-slate-950 p-3 text-left transition hover:border-emerald-500 hover:shadow-[0_0_18px_rgba(16,185,129,0.12)]"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-black text-white">{buyer.name}</p>
-                          <p className="mt-1 text-xs text-slate-400">{buyer.buyerType} - {buyer.interest}</p>
-                        </div>
-                        <span className={`rounded-lg border px-2 py-1 text-[10px] font-bold ${statusClass(buyer.status)}`}>{buyer.status}</span>
-                      </div>
-                      <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Requested</span><br /><b>{buyer.requestedCredits}</b></div>
-                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Offer</span><br /><b>{usd(buyer.offerPriceUsd)}</b></div>
-                        <div className="rounded-lg bg-slate-900 p-2"><span className="text-slate-500">Last Touch</span><br /><b>{buyer.lastTouch}</b></div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </Card>
-            </section>
-              </>
-            )}
           </div>
+        )}
+
+        {activeTab === 'calculator' && (
+          <CarbonCreditWorkbench
+            key={calculatorCategoryId}
+            initialCategoryId={calculatorCategoryId}
+            onLaunchMission={() => {
+              setMissionBuilderStep(0);
+              setSelectedMissionType('Plant Trees');
+              setActiveModal('missionBuilder');
+            }}
+            onRunMrv={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
+            onPreparePackage={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
+          />
         )}
 
         {activeTab === 'projects' && (
