@@ -79,6 +79,8 @@ export const VIEW_PATHS: Record<string, string> = {
   globalSignals: '/global-signals',
   /** DPAL Impact Registry — environmental project tracking, evidence, monitoring, verification, claims */
   impactHub: '/impact',
+  /** Air Quality Monitor — OpenAQ live readings, CO₂/CH₄/NO₂ scans, AQI dashboard */
+  airQualityMonitor: '/air',
 };
 
 export function viewToPath(view: string): string {

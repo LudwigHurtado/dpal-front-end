@@ -422,6 +422,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<Activity className="w-8 h-8" />}
+                    label="Air Quality Control"
+                    subLabel="OpenAQ · CO₂ · CH₄ · NO₂ · AQI live readings"
+                    status="Live"
+                    colorClass="sky"
+                    bgImageUrl="/main-screen/satellite-water-analysis.png"
+                    onClick={() => onNavigate('airQualityMonitor')}
+                />
+
+                <PrimaryNavModule
                     icon={<Phone className="w-8 h-8" />}
                     label="Urgent Help Line"
                     subLabel="Reach caring support when minutes matter"

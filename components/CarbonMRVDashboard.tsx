@@ -488,6 +488,7 @@ interface CarbonMRVDashboardProps {
   onReturn: () => void;
   hero?: Hero;
   onGoToMarket?: () => void;
+  initialTab?: 'myprojects' | 'marketplace' | 'ledger' | 'airquality' | 'minerals';
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -838,9 +839,9 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
 
 type DashView = 'dashboard' | 'create' | 'project' | 'validator';
 
-const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero, onGoToMarket }) => {
+const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero, onGoToMarket, initialTab }) => {
   const [view, setView] = useState<DashView>('dashboard');
-  const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger' | 'airquality' | 'minerals'>('myprojects');
+  const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger' | 'airquality' | 'minerals'>(initialTab ?? 'myprojects');
 
   // Data
   const [projects, setProjects] = useState<CarbonProject[]>([]);
