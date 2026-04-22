@@ -382,6 +382,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
+                    label="DPAL Carbon"
+                    subLabel="17 carbon methodologies, impact map, credit calculator, and MRV pipeline"
+                    status="CARBON"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('dpalCarbon')}
+                />
+
+                <PrimaryNavModule
                     icon={<ShieldCheck className="w-8 h-8" />}
                     label="Forest Integrity"
                     subLabel="AFOLU projects, missions, proof, monitoring, and buyer reports"

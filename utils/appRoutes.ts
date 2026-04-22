@@ -54,6 +54,8 @@ export const VIEW_PATHS: Record<string, string> = {
   carbonMRV: '/carbon',
   ecologicalConservation: '/ecology',
   earthObservation: '/earth-observation',
+  /** DPAL Carbon Credit Platform — headquarters for all carbon categories */
+  dpalCarbon: '/carbon-hub',
   /** DPAL AFOLU / Forest Integrity proof engine */
   afoluEngine: '/afolu',
   escrowService: '/escrow',
