@@ -114,7 +114,7 @@ const DecisionSummary: React.FC<{
       ['Recommendation', approvalRecommendation, <Award className="h-5 w-5" />],
       ['Credit Package State', creditPackageState, <FileText className="h-5 w-5" />],
     ].map(([label, value, icon]) => (
-      <SectionCard key={label}>
+      <SectionCard key={String(label)}>
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
