@@ -1,4 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Camera, CheckCircle, Clock, Database,
   FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck, Target, Upload, Users, Cloud, Loader, X,
@@ -30,6 +32,8 @@ interface AfoluProject {
   country: string;
   region: string;
   municipality: string;
+  latitude: number;
+  longitude: number;
   stewardName: string;
   communityName: string;
   hectares: number;
@@ -143,6 +147,8 @@ const seededProjects: AfoluProject[] = [
     country: 'Bolivia',
     region: 'Santa Cruz',
     municipality: 'San Ignacio',
+    latitude: -16.3728,
+    longitude: -60.9552,
     stewardName: 'Guardians Cooperative',
     communityName: 'Chiquitano forest stewards',
     hectares: 500,
@@ -184,6 +190,8 @@ const seededProjects: AfoluProject[] = [
     country: 'Colombia',
     region: 'Antioquia',
     municipality: 'Jardin',
+    latitude: 5.6012,
+    longitude: -75.8194,
     stewardName: 'Rio Claro Restoration Team',
     communityName: 'Smallholder farm network',
     hectares: 84,
@@ -225,6 +233,8 @@ const seededProjects: AfoluProject[] = [
     country: 'United States',
     region: 'California',
     municipality: 'Butte County',
+    latitude: 39.7561,
+    longitude: -121.6214,
     stewardName: 'Ridge Replanting Guild',
     communityName: 'Volunteer nursery coalition',
     hectares: 42,
@@ -772,6 +782,8 @@ type ProjectSetupDraft = {
   country: string;
   region: string;
   municipality: string;
+  latitude: string;
+  longitude: string;
   stewardName: string;
   communityName: string;
   hectares: string;
@@ -816,6 +828,8 @@ const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
   country: 'United States',
   region: '',
   municipality: '',
+  latitude: '40.9871',
+  longitude: '-119.892812',
   stewardName: '',
   communityName: '',
   hectares: '',
@@ -831,6 +845,8 @@ const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
 
 const buildProjectFromDraft = (draft: ProjectSetupDraft, projectIndex: number): AfoluProject => {
   const hectares = Math.max(1, Number.parseFloat(draft.hectares) || 0);
+  const latitude = Number.parseFloat(draft.latitude) || 40.9871;
+  const longitude = Number.parseFloat(draft.longitude) || -119.892812;
   const plantedEstimate = Math.round(hectares * 28);
   const survivalRate = 0.9;
   const treesAlive = Math.round(plantedEstimate * survivalRate);
@@ -848,6 +864,8 @@ const buildProjectFromDraft = (draft: ProjectSetupDraft, projectIndex: number): 
     country: draft.country.trim(),
     region: draft.region.trim(),
     municipality: draft.municipality.trim(),
+    latitude,
+    longitude,
     stewardName: draft.stewardName.trim(),
     communityName: draft.communityName.trim(),
     hectares,
@@ -1028,6 +1046,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const updateProjectSetupDraft = <K extends keyof ProjectSetupDraft>(key: K, value: ProjectSetupDraft[K]) => {
     setProjectSetupDraft((prev) => {
       const next = { ...prev, [key]: value };
+      setProjectSetupError('');
       if (key === 'type' || key === 'riskLevel' || key === 'pricePerCreditUsd') {
         next.priceRangeUsd = estimateProjectPriceRange(next.type, next.riskLevel, next.pricePerCreditUsd);
       }
@@ -1046,16 +1065,38 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   };
 
   const createProject = () => {
-    const requiredFields: Array<keyof ProjectSetupDraft> = ['name', 'region', 'municipality', 'stewardName', 'communityName', 'hectares', 'polygonLabel', 'story'];
-    const missing = requiredFields.find((field) => !String(projectSetupDraft[field]).trim());
-    if (missing) {
-      setProjectSetupError('Fill in the core project identity, AOI area, polygon label, and project story before creating the project.');
+    const requiredFields: Array<[keyof ProjectSetupDraft, string]> = [
+      ['name', 'project name'],
+      ['region', 'region/state'],
+      ['municipality', 'municipality/district'],
+      ['latitude', 'latitude'],
+      ['longitude', 'longitude'],
+      ['stewardName', 'steward/organization'],
+      ['communityName', 'community/partner'],
+      ['hectares', 'boundary hectares'],
+      ['polygonLabel', 'polygon/AOI label'],
+      ['story', 'project narrative'],
+    ];
+    const missing = requiredFields.filter(([field]) => !String(projectSetupDraft[field]).trim()).map(([, label]) => label);
+    if (missing.length) {
+      setProjectSetupError(`Finish these fields before creating the project: ${missing.join(', ')}.`);
       return;
     }
 
     const hectaresValue = Number.parseFloat(projectSetupDraft.hectares);
     if (!Number.isFinite(hectaresValue) || hectaresValue <= 0) {
       setProjectSetupError('Hectares must be a real number greater than zero.');
+      return;
+    }
+
+    const latitudeValue = Number.parseFloat(projectSetupDraft.latitude);
+    const longitudeValue = Number.parseFloat(projectSetupDraft.longitude);
+    if (!Number.isFinite(latitudeValue) || latitudeValue < -90 || latitudeValue > 90) {
+      setProjectSetupError('Latitude must be a valid coordinate between -90 and 90.');
+      return;
+    }
+    if (!Number.isFinite(longitudeValue) || longitudeValue < -180 || longitudeValue > 180) {
+      setProjectSetupError('Longitude must be a valid coordinate between -180 and 180.');
       return;
     }
 
@@ -1380,6 +1421,26 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-6 pb-24">
+        <section className="mb-6 grid gap-3 lg:grid-cols-5">
+          {[
+            ['1. Project Setup', 'Create the record and lock geography basics', () => openProjectSetup()],
+            ['2. AOI & Map', 'Define parcel label, coordinates, and map context', () => setActiveTab('projects')],
+            ['3. Missions & Evidence', 'Launch work and capture proof in order', () => setActiveTab('missions')],
+            ['4. MRV Review', 'Check monitoring and verification before packaging', () => setSurfaceView('mrvResults')],
+            ['5. Buyer Package', 'Move the supported project into commercial prep', () => setSurfaceView('buyerPackage')],
+          ].map(([title, detail, onClick]) => (
+            <button
+              key={title}
+              type="button"
+              onClick={onClick as () => void}
+              className="rounded-lg border border-slate-800 bg-slate-900/80 p-4 text-left transition hover:border-emerald-500"
+            >
+              <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">{title}</p>
+              <p className="mt-2 text-sm text-slate-300">{detail}</p>
+            </button>
+          ))}
+        </section>
+
         <nav className="mb-6 flex gap-2 overflow-x-auto pb-2">
           {tabs.map((tab) => (
             <button
@@ -1632,45 +1693,93 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                 </button>
               ))}
             </div>
-            <Card>
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">{selectedProject.id}</p>
-                  <h2 className="mt-1 text-2xl font-black text-white">{selectedProject.name}</h2>
-                  <p className="mt-2 text-sm text-slate-400">{selectedProject.stewardName} with {selectedProject.communityName}</p>
-                </div>
-                <span className={`rounded-lg border px-3 py-2 text-xs font-bold ${statusClass(selectedProject.status)}`}>{selectedProject.status.replace(/_/g, ' ')}</span>
-              </div>
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                {[
-                  ['Hectares', selectedProject.hectares.toLocaleString()],
-                  ['Polygon', selectedProject.polygonLabel],
-                  ['Verification Score', `${selectedProject.verificationScore}/100`],
-                  ['CO2 Captured', `${selectedProject.co2CapturedTons.toLocaleString()} tons`],
-                  ['Credits Generated', selectedProject.creditsGenerated.toLocaleString()],
-                  ['Revenue', usd(selectedProject.revenueUsd)],
-                  ['Projected Revenue', usd(selectedProject.projectedRevenueUsd)],
-                  ['Inventory Available', selectedProject.inventoryAvailable.toLocaleString()],
-                  ['Monitoring Stage', selectedProject.monitoringStage],
-                  ['Consent', selectedProject.consentStatus],
-                  ['Land Rights', selectedProject.landRightsStatus],
-                  ['Registry Target', selectedProject.registryTarget],
-                  ['Risk Level', selectedProject.riskLevel],
-                  ['Last MRV Validation', selectedProject.mrvLastValidatedAt],
-                  ['Anomaly Status', selectedProject.anomalyStatus],
-                  ['Buyer Demand', selectedProject.buyerDemand],
-                ].map(([label, value]) => (
-                  <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
-                    <p className="mt-1 text-sm font-bold text-white">{value}</p>
+            <div className="space-y-4">
+              <Card>
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">{selectedProject.id}</p>
+                    <h2 className="mt-1 text-2xl font-black text-white">{selectedProject.name}</h2>
+                    <p className="mt-2 text-sm text-slate-400">{selectedProject.stewardName} with {selectedProject.communityName}</p>
                   </div>
-                ))}
-              </div>
-              <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Project Story</p>
-                <p className="mt-2 text-sm text-emerald-50">{selectedProject.story}</p>
-              </div>
-            </Card>
+                  <span className={`rounded-lg border px-3 py-2 text-xs font-bold ${statusClass(selectedProject.status)}`}>{selectedProject.status.replace(/_/g, ' ')}</span>
+                </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                  {[
+                    ['Hectares', selectedProject.hectares.toLocaleString()],
+                    ['Polygon', selectedProject.polygonLabel],
+                    ['Latitude', selectedProject.latitude.toFixed(5)],
+                    ['Longitude', selectedProject.longitude.toFixed(5)],
+                    ['Verification Score', `${selectedProject.verificationScore}/100`],
+                    ['CO2 Captured', `${selectedProject.co2CapturedTons.toLocaleString()} tons`],
+                    ['Credits Generated', selectedProject.creditsGenerated.toLocaleString()],
+                    ['Revenue', usd(selectedProject.revenueUsd)],
+                    ['Projected Revenue', usd(selectedProject.projectedRevenueUsd)],
+                    ['Inventory Available', selectedProject.inventoryAvailable.toLocaleString()],
+                    ['Monitoring Stage', selectedProject.monitoringStage],
+                    ['Consent', selectedProject.consentStatus],
+                    ['Land Rights', selectedProject.landRightsStatus],
+                    ['Registry Target', selectedProject.registryTarget],
+                    ['Risk Level', selectedProject.riskLevel],
+                    ['Last MRV Validation', selectedProject.mrvLastValidatedAt],
+                    ['Anomaly Status', selectedProject.anomalyStatus],
+                    ['Buyer Demand', selectedProject.buyerDemand],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+                      <p className="mt-1 text-sm font-bold text-white">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-4">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Project Story</p>
+                  <p className="mt-2 text-sm text-emerald-50">{selectedProject.story}</p>
+                </div>
+              </Card>
+
+              <Card>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-black text-white">AOI / Map Context</h3>
+                    <p className="mt-1 text-sm text-slate-400">
+                      This project now carries its own coordinates and map anchor instead of sending you somewhere unrelated.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('calculator')}
+                    className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition hover:border-emerald-500"
+                  >
+                    Open Credit Engine
+                  </button>
+                </div>
+                <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
+                  <MapContainer center={[selectedProject.latitude, selectedProject.longitude]} zoom={11} scrollWheelZoom style={{ height: '260px', width: '100%' }}>
+                    <TileLayer
+                      attribution="Tiles &copy; Esri"
+                      url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    />
+                    <TileLayer
+                      attribution="Labels &copy; Esri"
+                      url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                      opacity={0.82}
+                    />
+                    <CircleMarker
+                      center={[selectedProject.latitude, selectedProject.longitude]}
+                      radius={10}
+                      pathOptions={{ color: '#ffffff', fillColor: '#10b981', fillOpacity: 0.9, weight: 2 }}
+                    >
+                      <Popup>
+                        <strong>{selectedProject.name}</strong>
+                        <br />
+                        {selectedProject.polygonLabel}
+                        <br />
+                        {selectedProject.latitude.toFixed(5)}, {selectedProject.longitude.toFixed(5)}
+                      </Popup>
+                    </CircleMarker>
+                  </MapContainer>
+                </div>
+              </Card>
+            </div>
           </div>
         )}
 
