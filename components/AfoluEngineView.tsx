@@ -5,7 +5,7 @@ import {
 } from './icons';
 import ProjectDetailView from './ProjectDetailView';
 import MRVResultsView from './MRVResultsView';
-import CarbonCreditWorkbench from './CarbonCreditWorkbench';
+import DpalCarbonViuCalculator from './DpalCarbonViuCalculator';
 
 type AfoluTab =
   | 'home'
@@ -1410,7 +1410,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
         )}
 
         {activeTab === 'calculator' && (
-          <CarbonCreditWorkbench
+          <DpalCarbonViuCalculator
             onLaunchMission={() => {
               setMissionBuilderStep(0);
               setSelectedMissionType('Plant Trees');
