@@ -133,7 +133,9 @@ interface EvidenceItem {
   validatorStatus: 'clean' | 'caution' | 'suspicious' | 'escalated' | 'blocked';
 }
 
-const projects: AfoluProject[] = [
+const PROJECTS_STORAGE_KEY = 'dpal_afolu_projects_v1';
+
+const seededProjects: AfoluProject[] = [
   {
     id: 'AF-PROJ-102',
     name: 'Amazon Edge Forest Protection',
@@ -764,9 +766,113 @@ interface AfoluEngineViewProps {
   onReturn: () => void;
 }
 
+type ProjectSetupDraft = {
+  name: string;
+  type: string;
+  country: string;
+  region: string;
+  municipality: string;
+  stewardName: string;
+  communityName: string;
+  hectares: string;
+  polygonLabel: string;
+  registryTarget: string;
+  consentStatus: string;
+  landRightsStatus: string;
+  story: string;
+  riskLevel: RiskLevel;
+  pricePerCreditUsd: string;
+  priceRangeUsd: string;
+};
+
+const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
+  name: '',
+  type: 'Reforestation',
+  country: 'United States',
+  region: '',
+  municipality: '',
+  stewardName: '',
+  communityName: '',
+  hectares: '',
+  polygonLabel: '',
+  registryTarget: 'Buyer-ready proof package',
+  consentStatus: 'Pending upload',
+  landRightsStatus: 'Pending review',
+  story: '',
+  riskLevel: 'Medium',
+  pricePerCreditUsd: '18',
+  priceRangeUsd: '$12-$20 / credit',
+});
+
+const buildProjectFromDraft = (draft: ProjectSetupDraft, projectIndex: number): AfoluProject => {
+  const hectares = Math.max(1, Number.parseFloat(draft.hectares) || 0);
+  const plantedEstimate = Math.round(hectares * 28);
+  const survivalRate = 0.9;
+  const treesAlive = Math.round(plantedEstimate * survivalRate);
+  const co2CapturedTons = Math.round(hectares * 6.4);
+  const creditsGenerated = co2CapturedTons;
+  const inventoryAvailable = Math.round(creditsGenerated * 0.72);
+  const pricePerCreditUsd = Math.max(1, Number.parseFloat(draft.pricePerCreditUsd) || 18);
+  const revenueUsd = inventoryAvailable * pricePerCreditUsd;
+  const packageCompleteness = draft.consentStatus.toLowerCase().includes('attached') ? 78 : 62;
+
+  return {
+    id: `AF-PROJ-${String(projectIndex).padStart(3, '0')}`,
+    name: draft.name.trim(),
+    type: draft.type.trim(),
+    country: draft.country.trim(),
+    region: draft.region.trim(),
+    municipality: draft.municipality.trim(),
+    stewardName: draft.stewardName.trim(),
+    communityName: draft.communityName.trim(),
+    hectares,
+    status: 'draft',
+    riskLevel: draft.riskLevel,
+    verificationScore: 68,
+    monitoringStage: 'Project setup complete - waiting for first mission and evidence batch',
+    treesPlanted: plantedEstimate,
+    treesAlive,
+    co2CapturedTons,
+    creditsGenerated,
+    creditsSold: 0,
+    revenueUsd,
+    pricePerCreditUsd,
+    polygonLabel: draft.polygonLabel.trim(),
+    registryTarget: draft.registryTarget.trim(),
+    consentStatus: draft.consentStatus.trim(),
+    landRightsStatus: draft.landRightsStatus.trim(),
+    satelliteConfirmed: false,
+    aiVerificationConfidence: 64,
+    buyerDemand: 'No buyers attached yet - package after first verified monitoring cycle',
+    story: draft.story.trim(),
+    monthlyCo2Tons: Math.max(6, Math.round(co2CapturedTons / 12)),
+    projectedRevenueUsd: Math.round(revenueUsd * 1.35),
+    mrvLastValidatedAt: 'Not yet validated',
+    anomalyStatus: 'No review run yet',
+    buyerPipelineCount: 0,
+    inventoryAvailable,
+    packageCompleteness,
+    evidenceFiles: 0,
+    verifiedProjectMaps: 1,
+    availableLots: 1,
+    priceRangeUsd: draft.priceRangeUsd.trim(),
+  };
+};
+
 const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [activeTab, setActiveTab] = useState<AfoluTab>('home');
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
+  const [projects, setProjects] = useState<AfoluProject[]>(() => {
+    if (typeof window === 'undefined') return seededProjects;
+    try {
+      const stored = window.localStorage.getItem(PROJECTS_STORAGE_KEY);
+      if (!stored) return seededProjects;
+      const parsed = JSON.parse(stored);
+      return Array.isArray(parsed) && parsed.length ? parsed as AfoluProject[] : seededProjects;
+    } catch {
+      return seededProjects;
+    }
+  });
+  const [selectedProjectId, setSelectedProjectId] = useState(() => seededProjects[0].id);
   const [surfaceView, setSurfaceView] = useState<'dashboard' | 'projectDetail' | 'mrvResults' | 'buyerPackage' | 'missionLive'>('dashboard');
   const [loadingLabel, setLoadingLabel] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<null | 'projectSetup' | 'missionBuilder' | 'uploadProof' | 'dealDetail'>(null);
@@ -776,6 +882,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [missionBuilderStep, setMissionBuilderStep] = useState(0);
   const [selectedMissionType, setSelectedMissionType] = useState<MissionLaunchType>('Plant Trees');
   const [homeSectionsLoading, setHomeSectionsLoading] = useState(true);
+  const [projectSetupDraft, setProjectSetupDraft] = useState<ProjectSetupDraft>(() => defaultProjectSetupDraft());
+  const [projectSetupError, setProjectSetupError] = useState('');
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || projects[0];
   const projectMissions = missions.filter((mission) => mission.projectId === selectedProject.id);
@@ -809,7 +917,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       verifiedMissions: missions.filter((mission) => mission.status === 'Verified' || mission.status === 'Under Review').length,
       alerts: projects.filter((project) => project.riskLevel === 'High' || project.riskLevel === 'Critical').length,
     };
-  }, []);
+  }, [projects]);
 
   const qrPayload = {
     asset_id: projectAssets[0]?.assetCode || 'AFT-PLT-00045',
@@ -820,7 +928,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   };
 
   const selectedProjectBuyers = buyers.filter((buyer) => buyer.projectId === selectedProject.id);
-  const spotlightProject = projects[1];
+  const spotlightProject = projects[1] || projects[0];
   const buyerInterest = buyers.length;
   const selectedBuyer = buyers.find((buyer) => buyer.id === selectedBuyerId) || null;
   const missionTypeConfig = missionTypeOptions.find((option) => option.title === selectedMissionType) || missionTypeOptions[0];
@@ -880,6 +988,54 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     setMissionBuilderStep(0);
     setSelectedMissionType(missionType);
     setActiveModal('missionBuilder');
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
+  }, [projects]);
+
+  useEffect(() => {
+    if (projects.some((project) => project.id === selectedProjectId)) return;
+    setSelectedProjectId(projects[0]?.id || '');
+  }, [projects, selectedProjectId]);
+
+  const updateProjectSetupDraft = <K extends keyof ProjectSetupDraft>(key: K, value: ProjectSetupDraft[K]) => {
+    setProjectSetupDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const resetProjectSetupModal = () => {
+    setProjectSetupDraft(defaultProjectSetupDraft());
+    setProjectSetupError('');
+  };
+
+  const openProjectSetup = () => {
+    resetProjectSetupModal();
+    setActiveModal('projectSetup');
+  };
+
+  const createProject = () => {
+    const requiredFields: Array<keyof ProjectSetupDraft> = ['name', 'region', 'municipality', 'stewardName', 'communityName', 'hectares', 'polygonLabel', 'story'];
+    const missing = requiredFields.find((field) => !String(projectSetupDraft[field]).trim());
+    if (missing) {
+      setProjectSetupError('Fill in the core project identity, AOI area, polygon label, and project story before creating the project.');
+      return;
+    }
+
+    const hectaresValue = Number.parseFloat(projectSetupDraft.hectares);
+    if (!Number.isFinite(hectaresValue) || hectaresValue <= 0) {
+      setProjectSetupError('Hectares must be a real number greater than zero.');
+      return;
+    }
+
+    const nextProject = buildProjectFromDraft(projectSetupDraft, projects.length + 401);
+    setProjects((prev) => [nextProject, ...prev]);
+    setSelectedProjectId(nextProject.id);
+    setActiveModal(null);
+    setActiveTab('projects');
+    setSurfaceView('dashboard');
+    setProjectSetupError('');
+    setProjectSetupDraft(defaultProjectSetupDraft());
   };
 
   useEffect(() => {
@@ -1149,7 +1305,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setActiveModal('projectSetup')}
+              onClick={openProjectSetup}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500"
             >
               Create Project
@@ -1872,13 +2028,219 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       {activeModal === 'projectSetup' && (
         <OverlayModal
           title="Project Setup Wizard"
-          subtitle="Define land, governance, boundaries, and registry target."
-          onClose={() => setActiveModal(null)}
+          subtitle="Create a project record that immediately feeds Projects, MRV, packaging, and mission planning."
+          onClose={() => {
+            setActiveModal(null);
+            resetProjectSetupModal();
+          }}
         >
-          <div className="grid gap-3 sm:grid-cols-2">
-            {['Project name', 'Project type', 'Region / municipality', 'Steward / organization', 'Polygon map', 'Consent and rights docs'].map((field) => (
-              <div key={field} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-sm font-bold text-white">{field}</div>
-            ))}
+          <div className="space-y-4">
+            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-4">
+              <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-300">What this creates</p>
+              <p className="mt-2 text-sm text-emerald-50">
+                A real AFOLU project record with hectares, governance status, commercial defaults, and monitoring placeholders.
+                As soon as we create it, it becomes selectable in the Projects tab and starts feeding dashboard totals.
+              </p>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Project name</span>
+                <input
+                  value={projectSetupDraft.name}
+                  onChange={(event) => updateProjectSetupDraft('name', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Washoe County Rangeland Block A"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Project type</span>
+                <select
+                  value={projectSetupDraft.type}
+                  onChange={(event) => updateProjectSetupDraft('type', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                >
+                  {['Reforestation', 'Avoided Deforestation', 'Agroforestry', 'Fire Recovery', 'Protected Area Patrol', 'Wetland Restoration'].map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Country</span>
+                <input
+                  value={projectSetupDraft.country}
+                  onChange={(event) => updateProjectSetupDraft('country', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="United States"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Region / state</span>
+                <input
+                  value={projectSetupDraft.region}
+                  onChange={(event) => updateProjectSetupDraft('region', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Washoe County, Nevada"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Municipality / district</span>
+                <input
+                  value={projectSetupDraft.municipality}
+                  onChange={(event) => updateProjectSetupDraft('municipality', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Gerlach"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Steward / organization</span>
+                <input
+                  value={projectSetupDraft.stewardName}
+                  onChange={(event) => updateProjectSetupDraft('stewardName', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Washoe stewardship cooperative"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Community / partner</span>
+                <input
+                  value={projectSetupDraft.communityName}
+                  onChange={(event) => updateProjectSetupDraft('communityName', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Regional community partner network"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Boundary hectares</span>
+                <input
+                  value={projectSetupDraft.hectares}
+                  onChange={(event) => updateProjectSetupDraft('hectares', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="64.75"
+                  inputMode="decimal"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Polygon / AOI label</span>
+                <input
+                  value={projectSetupDraft.polygonLabel}
+                  onChange={(event) => updateProjectSetupDraft('polygonLabel', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Parcel 040-060-030 A - North block"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Registry target</span>
+                <input
+                  value={projectSetupDraft.registryTarget}
+                  onChange={(event) => updateProjectSetupDraft('registryTarget', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Buyer-ready proof package"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Consent status</span>
+                <input
+                  value={projectSetupDraft.consentStatus}
+                  onChange={(event) => updateProjectSetupDraft('consentStatus', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Attached"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Land rights status</span>
+                <input
+                  value={projectSetupDraft.landRightsStatus}
+                  onChange={(event) => updateProjectSetupDraft('landRightsStatus', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Parcel control docs attached"
+                />
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Risk level</span>
+                <select
+                  value={projectSetupDraft.riskLevel}
+                  onChange={(event) => updateProjectSetupDraft('riskLevel', event.target.value as RiskLevel)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                >
+                  {(['Low', 'Medium', 'High', 'Critical'] as RiskLevel[]).map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Price per credit (USD)</span>
+                <input
+                  value={projectSetupDraft.pricePerCreditUsd}
+                  onChange={(event) => updateProjectSetupDraft('pricePerCreditUsd', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="18"
+                  inputMode="decimal"
+                />
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Expected price range</span>
+                <input
+                  value={projectSetupDraft.priceRangeUsd}
+                  onChange={(event) => updateProjectSetupDraft('priceRangeUsd', event.target.value)}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="$12-$20 / credit"
+                />
+              </label>
+
+              <label className="block sm:col-span-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-400">Project narrative</span>
+                <textarea
+                  value={projectSetupDraft.story}
+                  onChange={(event) => updateProjectSetupDraft('story', event.target.value)}
+                  rows={4}
+                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+                  placeholder="Describe what the project protects, restores, or verifies, and why it should become a carbon asset."
+                />
+              </label>
+            </div>
+
+            {projectSetupError ? (
+              <div className="rounded-lg border border-rose-500/20 bg-rose-500/10 p-3 text-sm text-rose-100">
+                {projectSetupError}
+              </div>
+            ) : null}
+
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-800 pt-4">
+              <p className="text-xs text-slate-500">
+                We create the project immediately, save it locally in this AFOLU workspace, and route you to the project list.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={resetProjectSetupModal}
+                  className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 transition hover:border-slate-500"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={createProject}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500"
+                >
+                  Create Project
+                </button>
+              </div>
+            </div>
           </div>
         </OverlayModal>
       )}

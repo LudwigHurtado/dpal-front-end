@@ -599,8 +599,9 @@ const InstructorHelper: React.FC<{
   const [answer, setAnswer] = useState('');
   const [understood, setUnderstood] = useState<'yes' | 'no' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [helperMode, setHelperMode] = useState<'google-ai' | 'guided-fallback'>(() => (isAiEnabled() ? 'guided-fallback' : 'guided-fallback'));
+  const [helperMode, setHelperMode] = useState<'google-ai' | 'guided-fallback'>('guided-fallback');
   const [errorNote, setErrorNote] = useState('');
+  const [answerSourceDetail, setAnswerSourceDetail] = useState('Local explanation');
 
   const buildFallbackResponse = (prompt: string) => {
     const normalized = prompt.toLowerCase();
@@ -630,10 +631,12 @@ const InstructorHelper: React.FC<{
     setQuestion(trimmedPrompt);
     setUnderstood(null);
     setErrorNote('');
+    setAnswerSourceDetail('Local explanation');
     setAnswer(buildFallbackResponse(trimmedPrompt));
 
     if (!isAiEnabled()) {
       setHelperMode('guided-fallback');
+      setAnswerSourceDetail('Fallback: Gemini not configured');
       return;
     }
 
@@ -660,11 +663,13 @@ Instructions:
       `);
       const finalResponse = response.trim() || buildFallbackResponse(trimmedPrompt);
       setHelperMode('google-ai');
+      setAnswerSourceDetail('Gemini 2.5 Flash');
       setAnswer(finalResponse);
     } catch (error) {
       const message = error instanceof AiError ? error.message : 'Google AI helper unavailable right now.';
       setHelperMode('guided-fallback');
       setErrorNote(message);
+      setAnswerSourceDetail('Fallback: Gemini request failed');
       setAnswer(buildFallbackResponse(trimmedPrompt));
     } finally {
       setIsLoading(false);
@@ -722,11 +727,18 @@ Instructions:
       {errorNote ? (
         <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
           Gemini was unavailable for this reply, so the helper used a guided local explanation instead.
+          <div className="mt-2 font-medium text-amber-50">{errorNote}</div>
         </div>
       ) : null}
 
       {answer ? (
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90 p-4">
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 font-bold text-slate-300">
+              Source: {helperMode === 'google-ai' ? 'Gemini' : 'Fallback'}
+            </span>
+            <span className="text-slate-500">{answerSourceDetail}</span>
+          </div>
           <p className="text-sm leading-6 text-slate-300">{answer}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-400">Do you understand this section?</span>

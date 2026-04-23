@@ -44,6 +44,12 @@ All Vite-exposed variables must start with `VITE_`. Copy `.env.example` to `.env
 
 \* At least one of `VITE_GEMINI_API_KEY` or `VITE_USE_SERVER_AI=true` is needed for AI features.
 
+Current AI helper note:
+
+- The AFOLU calculator helper now uses `gemini-2.5-flash` through `services/geminiService.ts`
+- The helper UI explicitly shows whether each reply came from `Gemini` or a local `Fallback`
+- In production, prefer `VITE_USE_SERVER_AI=true` with Railway `GEMINI_API_KEY` instead of shipping a browser Gemini key
+
 Backend-only satellite credentials live on Railway, not in Vercel:
 
 | Railway variable | Purpose |
@@ -177,7 +183,7 @@ GET https://web-production-a27b.up.railway.app/api/ai/status
 
 ### AFOLU workflow interactions
 
-- `Create Project` -> project setup wizard modal
+- `Create Project` -> working project setup flow with validation, record creation, and local persistence
 - `Launch Mission` -> guided carbon mission launch flow
 - `Upload Proof` -> proof upload modal
 - `Run MRV Review` -> MRV review record screen
@@ -188,6 +194,27 @@ GET https://web-production-a27b.up.railway.app/api/ai/status
 - Metric cards -> filtered tabs or detail screens
 - Carbon Pipeline stages -> pipeline drawer with related actions
 - Mission cards -> Mission Builder with mission type preselected
+
+### AFOLU project creation flow
+
+- `components/AfoluEngineView.tsx` now maintains AFOLU projects in live component state instead of only reading from seeded display data
+- `Create Project` opens a real setup form covering:
+  - project identity
+  - geography
+  - steward / community
+  - hectares
+  - polygon / AOI label
+  - governance and consent status
+  - commercial defaults
+  - project narrative
+- New projects are validated before creation
+- Successful creation:
+  - adds the project to the AFOLU project list
+  - updates dashboard totals immediately
+  - selects the new project automatically
+  - routes the operator into the `Projects` tab
+- Project records are currently persisted in browser localStorage under `dpal_afolu_projects_v1`
+- This is a working front-end system now, but it is not yet synced to Railway or shared across users
 
 ### AFOLU mission launch flow
 

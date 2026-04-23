@@ -119,7 +119,7 @@ async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: 
  */
 export async function runGeminiPrompt(prompt: string): Promise<string> {
   const { text } = await runGeminiGenerate({
-    model: "gemini-2.0-flash",
+    model: "gemini-2.5-flash",
     contents: [{ role: "user", parts: [{ text: prompt }] }],
   });
   return text;

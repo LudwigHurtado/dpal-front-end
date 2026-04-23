@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-21 (AFOLU command center, mission deployment flow, MRV review record docs)
+Last updated: 2026-04-23 (AFOLU project creation flow, calculator AI helper source visibility, Gemini model update)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -89,7 +89,7 @@ From deployment notes (verify in Railway dashboard):
 - `MONGODB_URI` — DB connection  
 - `GEMINI_API_KEY` — **server-side Gemini** (required for **`VITE_USE_SERVER_AI`** / `/api/ai/gemini`)  
 - `GEMINI_MODEL` — e.g. `gemini-3-flash-preview` (see `dpal-ai-server` `runGemini`)  
-- `GEMINI_MODEL_CHEAP` — optional; defaults chain to **`gemini-2.0-flash`** (do **not** use retired `gemini-1.5-flash`)  
+- `GEMINI_MODEL_CHEAP` — optional; prefer a current low-cost model such as **`gemini-2.5-flash`** and avoid retired Gemini variants  
 - `FRONTEND_ORIGIN` or `CORS_ORIGINS` — comma-separated allowed web origins (frontend + dashboards)  
 - `NODE_ENV=production`
 - `COPERNICUS_CLIENT_ID` and `COPERNICUS_CLIENT_SECRET` — backend-only Sentinel Hub / Copernicus OAuth credentials for Sentinel-1 SAR. Set these on Railway, then redeploy or restart the service. Do not place them in Vercel/Vite variables.
@@ -260,7 +260,7 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 - MRV Intelligence rows are clickable and route to filtered tabs or workflow surfaces
 - Carbon pipeline stages open a slide-over drawer with related actions
 - Buttons trigger workflow actions:
-  - `Create Project` -> project setup wizard modal
+  - `Create Project` -> project setup workflow with validation and record creation
   - `Launch Mission` -> guided carbon mission launch flow
   - `Upload Proof` -> proof upload modal
   - `Run MRV Review` -> `MRVResultsView`
@@ -317,6 +317,34 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
   - incoming submissions
   - live activity map placeholder
 
+
+### 2026-04-23 — AFOLU project creation and calculator AI helper hardening
+
+#### AFOLU project creation flow
+- `components/AfoluEngineView.tsx`
+  - replaced the placeholder `Create Project` modal body with a working setup form
+  - added fields for project identity, geography, steward/community, hectares, polygon label, registry target, governance status, price assumptions, and narrative
+  - validates required fields before creating a project
+  - creates a usable `AfoluProject` record immediately and prepends it to the live project list
+  - auto-selects the new project and routes the operator into the `projects` tab
+- AFOLU project state now lives in component state backed by localStorage key `dpal_afolu_projects_v1`
+- Dashboard totals in `AfoluEngineView.tsx` are now derived from live project state rather than a fixed seeded array
+- This is a real front-end workflow now, but it is still local-only and not yet synced to Railway / `dpal-ai-server`
+
+#### AFOLU calculator AI helper
+- `components/DpalCarbonViuCalculator.tsx`
+  - helper answer cards now explicitly show `Source: Gemini` or `Source: Fallback`
+  - helper status badges no longer blur the distinction between provider output and local fallback text
+  - fallback error state now surfaces the actual Gemini failure message for debugging instead of only showing a generic warning
+  - specific AOI-definition fallback matching was moved ahead of the generic location/AOI branch so prompts like `what does AOI stand for` are handled more directly
+- `services/geminiService.ts`
+  - `runGeminiPrompt()` now targets `gemini-2.5-flash`
+
+#### Deployment implication
+- If the live AFOLU helper still appears to answer with stale Bolivia-centered text or generic fallback language after these changes, verify:
+  - Vercel is serving the latest commit
+  - Gemini env is configured for the live deployment
+  - the response card source label says `Gemini` rather than `Fallback`
 
 ### 2026-04-20 — Monitoring images, mineral detector, Sentinel SAR fallback, deployment identity
 
