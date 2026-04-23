@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, MapContainer, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import { CircleMarker, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
   AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, Map, MapPin,
@@ -13,6 +14,7 @@ type ProjectType = 'reforestation' | 'avoided_deforestation' | 'agroforestry' | 
 type EcosystemType = 'amazon_forest' | 'dry_forest' | 'agroforestry_zone' | 'grassland' | 'wetland';
 type DataLayer = 'ndvi' | 'canopy' | 'disturbance' | 'terrain';
 type LatLngTuple = [number, number];
+type BoundaryPoint = { lat: number; lng: number };
 
 interface DpalCarbonViuCalculatorProps {
   onLaunchMission?: () => void;
@@ -61,14 +63,21 @@ const ecosystemLabels: Record<EcosystemType, string> = {
   wetland: 'Wetland',
 };
 
-const defaultBoundary = [
-  { x: 48, y: 52 },
-  { x: 138, y: 34 },
-  { x: 252, y: 70 },
-  { x: 232, y: 176 },
-  { x: 116, y: 208 },
-  { x: 42, y: 146 },
+const defaultBoundaryOffsets = [
+  { latOffset: 0.052, lngOffset: -0.034 },
+  { latOffset: 0.066, lngOffset: -0.009 },
+  { latOffset: 0.041, lngOffset: 0.043 },
+  { latOffset: -0.029, lngOffset: 0.038 },
+  { latOffset: -0.054, lngOffset: -0.014 },
+  { latOffset: -0.012, lngOffset: -0.04 },
 ];
+
+function createDefaultBoundary(center: BoundaryPoint): BoundaryPoint[] {
+  return defaultBoundaryOffsets.map((point) => ({
+    lat: round(center.lat + point.latOffset, 6),
+    lng: round(center.lng + point.lngOffset, 6),
+  }));
+}
 
 const placePresets: PlacePreset[] = [
   { label: 'Bolivia Amazon AOI', lat: -11.2331, lng: -67.8894, country: 'Bolivia', region: 'Pando / Northern Amazon', ecosystem: 'amazon_forest' as EcosystemType },
@@ -108,6 +117,57 @@ function polygonArea(coords: Array<{ x: number; y: number }>) {
     area -= next.x * coords[i].y;
   }
   return Math.abs(area / 2);
+}
+
+function getPolygonCenter(points: BoundaryPoint[]): BoundaryPoint {
+  if (points.length === 0) return { lat: 0, lng: 0 };
+  const totals = points.reduce((acc, point) => ({
+    lat: acc.lat + point.lat,
+    lng: acc.lng + point.lng,
+  }), { lat: 0, lng: 0 });
+  return {
+    lat: totals.lat / points.length,
+    lng: totals.lng / points.length,
+  };
+}
+
+function shiftPolygon(points: BoundaryPoint[], targetCenter: BoundaryPoint): BoundaryPoint[] {
+  if (points.length === 0) return createDefaultBoundary(targetCenter);
+  const currentCenter = getPolygonCenter(points);
+  const latDelta = targetCenter.lat - currentCenter.lat;
+  const lngDelta = targetCenter.lng - currentCenter.lng;
+  return points.map((point) => ({
+    lat: round(point.lat + latDelta, 6),
+    lng: round(point.lng + lngDelta, 6),
+  }));
+}
+
+function approximatePolygonAreaHectares(points: BoundaryPoint[]) {
+  if (points.length < 3) return 0;
+  const meanLatRadians = (points.reduce((sum, point) => sum + point.lat, 0) / points.length) * (Math.PI / 180);
+  const metersPerLat = 111_320;
+  const metersPerLng = 111_320 * Math.cos(meanLatRadians);
+  const planar = points.map((point) => ({
+    x: point.lng * metersPerLng,
+    y: point.lat * metersPerLat,
+  }));
+  const squareMeters = polygonArea(planar);
+  return squareMeters / 10_000;
+}
+
+function approximatePolygonPerimeterKm(points: BoundaryPoint[]) {
+  if (points.length < 2) return 0;
+  const meanLatRadians = (points.reduce((sum, point) => sum + point.lat, 0) / points.length) * (Math.PI / 180);
+  const metersPerLat = 111_320;
+  const metersPerLng = 111_320 * Math.cos(meanLatRadians);
+  let totalMeters = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const next = points[(i + 1) % points.length];
+    const dx = (next.lng - points[i].lng) * metersPerLng;
+    const dy = (next.lat - points[i].lat) * metersPerLat;
+    totalMeters += Math.sqrt(dx * dx + dy * dy);
+  }
+  return totalMeters / 1000;
 }
 
 function formatNumber(value: number, digits = 0) {
@@ -286,8 +346,9 @@ const AoiLeafletMap: React.FC<{
   activeLayer: DataLayer;
   aoiColor: string;
   onPick: (point: { lat: number; lng: number }) => void;
+  onVertexDrag: (index: number, point: { lat: number; lng: number }) => void;
   label: string;
-}> = ({ center, polygon, activeLayer, aoiColor, onPick, label }) => (
+}> = ({ center, polygon, activeLayer, aoiColor, onPick, onVertexDrag, label }) => (
   <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
     <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '430px', width: '100%' }}>
       <AoiMapRecenter center={center} />
@@ -325,6 +386,35 @@ const AoiLeafletMap: React.FC<{
           AOI polygon linked to this calculation.
         </Popup>
       </Polygon>
+      {polygon.map((point, index) => (
+        <Marker
+          key={`${point[0]}-${point[1]}-${index}`}
+          position={point}
+          draggable
+          icon={L.divIcon({
+            className: '',
+            html: `<div style="width:16px;height:16px;border-radius:9999px;background:${aoiColor};border:2px solid #ffffff;box-shadow:0 0 0 2px rgba(15,23,42,0.65);"></div>`,
+            iconSize: [16, 16],
+            iconAnchor: [8, 8],
+          })}
+          eventHandlers={{
+            dragend(event) {
+              const marker = event.target;
+              const nextPoint = marker.getLatLng();
+              onVertexDrag(index, {
+                lat: Number(nextPoint.lat.toFixed(6)),
+                lng: Number(nextPoint.lng.toFixed(6)),
+              });
+            },
+          }}
+        >
+          <Popup>
+            Vertex {index + 1}
+            <br />
+            Drag to reshape AOI
+          </Popup>
+        </Marker>
+      ))}
       <CircleMarker
         center={center}
         radius={8}
@@ -455,7 +545,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const [boundaryName, setBoundaryName] = useState('Pilot Polygon A');
   const [mapSource, setMapSource] = useState('Satellite + community draw');
   const [boundaryEvidence, setBoundaryEvidence] = useState('GPS walkthrough, field photos, land sketch, local approval note');
-  const [boundaryPoints, setBoundaryPoints] = useState(defaultBoundary);
+  const [boundaryPoints, setBoundaryPoints] = useState<BoundaryPoint[]>(() => createDefaultBoundary({ lat: -11.2331, lng: -67.8894 }));
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
   const [siteName, setSiteName] = useState('Parcel A');
   const [aoiId, setAoiId] = useState('AOI-DPAL-AMZ-001-A');
@@ -529,29 +619,28 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const coordinateWarning = safeNumber(latitude, latitudeNum) !== latitudeNum || safeNumber(longitude, longitudeNum) !== longitudeNum
     ? 'Entered coordinates were outside valid GPS ranges and are being clamped for map display.'
     : '';
-  const boundaryAreaUnits = useMemo(() => polygonArea(boundaryPoints), [boundaryPoints]);
-  const hectaresFromBoundary = round(boundaryAreaUnits * 0.012, 2);
-  const boundaryPerimeter = useMemo(() => {
-    if (boundaryPoints.length < 2) return 0;
-    let total = 0;
-    for (let i = 0; i < boundaryPoints.length; i += 1) {
-      const next = boundaryPoints[(i + 1) % boundaryPoints.length];
-      const dx = next.x - boundaryPoints[i].x;
-      const dy = next.y - boundaryPoints[i].y;
-      total += Math.sqrt(dx * dx + dy * dy);
-    }
-    return round(total * 0.045, 2);
-  }, [boundaryPoints]);
-  const boundaryPolygon = boundaryPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const polygonCenter = useMemo(() => getPolygonCenter(boundaryPoints), [boundaryPoints]);
+  const boundaryAreaUnits = useMemo(() => approximatePolygonAreaHectares(boundaryPoints), [boundaryPoints]);
+  const hectaresFromBoundary = round(boundaryAreaUnits, 2);
+  const boundaryPerimeter = useMemo(() => round(approximatePolygonPerimeterKm(boundaryPoints), 2), [boundaryPoints]);
   const mapCenter = useMemo<LatLngTuple>(() => [latitudeNum, longitudeNum], [latitudeNum, longitudeNum]);
-  const aoiPolygonLatLngs = useMemo<LatLngTuple[]>(() => {
-    const latScale = 0.00072;
-    const lngScale = 0.00092;
-    return boundaryPoints.map((point) => [
-      round(latitudeNum - (point.y - 120) * latScale, 6),
-      round(longitudeNum + (point.x - 150) * lngScale, 6),
-    ]);
-  }, [boundaryPoints, latitudeNum, longitudeNum]);
+  const aoiPolygonLatLngs = useMemo<LatLngTuple[]>(() => (
+    boundaryPoints.map((point) => [point.lat, point.lng])
+  ), [boundaryPoints]);
+  const boundaryPreviewPoints = useMemo(() => {
+    if (boundaryPoints.length === 0) return [];
+    const minLat = Math.min(...boundaryPoints.map((point) => point.lat));
+    const maxLat = Math.max(...boundaryPoints.map((point) => point.lat));
+    const minLng = Math.min(...boundaryPoints.map((point) => point.lng));
+    const maxLng = Math.max(...boundaryPoints.map((point) => point.lng));
+    const latSpan = Math.max(maxLat - minLat, 0.0001);
+    const lngSpan = Math.max(maxLng - minLng, 0.0001);
+    return boundaryPoints.map((point) => ({
+      x: round(30 + ((point.lng - minLng) / lngSpan) * 240, 1),
+      y: round(25 + ((maxLat - point.lat) / latSpan) * 190, 1),
+    }));
+  }, [boundaryPoints]);
+  const boundaryPolygon = boundaryPreviewPoints.map((point) => `${point.x},${point.y}`).join(' ');
   const hasMappedAoi = Number.isFinite(latitudeNum) && Number.isFinite(longitudeNum) && boundaryPoints.length >= 3 && hectaresNum > 0;
   const mapLayerClass = activeMapLayer === 'ndvi'
     ? 'from-emerald-950 via-lime-950 to-slate-950'
@@ -769,28 +858,36 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const wholeReportContext = `Current report: ${projectName} / ${aoiId} at ${latitudeNum.toFixed(5)}, ${longitudeNum.toFixed(5)}, ${round(hectaresNum)} ha, ${imageryStartDate} to ${imageryEndDate}, ${dataSourceStack}, net ${round(netCreditableCo2e)} tCO2e and ${viuEligible} indicative VIUs.`;
 
   const addBoundaryPoint = () => {
-    const last = boundaryPoints[boundaryPoints.length - 1] ?? { x: 60, y: 60 };
+    const last = boundaryPoints[boundaryPoints.length - 1] ?? { lat: latitudeNum, lng: longitudeNum };
     setBoundaryPoints([
       ...boundaryPoints,
       {
-        x: clamp(last.x + 18, 20, 280),
-        y: clamp(last.y + 12, 20, 210),
+        lat: round(last.lat + 0.012, 6),
+        lng: round(last.lng + 0.016, 6),
       },
     ]);
   };
 
-  const updateBoundaryPoint = (index: number, key: 'x' | 'y', value: string) => {
+  const updateBoundaryPoint = (index: number, key: 'lat' | 'lng', value: string) => {
     const next = [...boundaryPoints];
+    const fallback = next[index]?.[key] ?? (key === 'lat' ? latitudeNum : longitudeNum);
     next[index] = {
       ...next[index],
-      [key]: clamp(safeNumber(value, next[index][key]), 0, key === 'x' ? 300 : 240),
+      [key]: clamp(safeNumber(value, fallback), key === 'lat' ? -90 : -180, key === 'lat' ? 90 : 180),
     };
     setBoundaryPoints(next);
+    const nextCenter = getPolygonCenter(next);
+    setLatitude(nextCenter.lat.toFixed(6));
+    setLongitude(nextCenter.lng.toFixed(6));
   };
 
   const removeBoundaryPoint = (index: number) => {
     if (boundaryPoints.length <= 3) return;
-    setBoundaryPoints(boundaryPoints.filter((_, pointIndex) => pointIndex !== index));
+    const next = boundaryPoints.filter((_, pointIndex) => pointIndex !== index);
+    setBoundaryPoints(next);
+    const nextCenter = getPolygonCenter(next);
+    setLatitude(nextCenter.lat.toFixed(6));
+    setLongitude(nextCenter.lng.toFixed(6));
     setSelectedPoint(null);
   };
 
@@ -811,6 +908,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     if (!preset && coordinateMatch) {
       const nextLat = clamp(safeNumber(coordinateMatch[1], latitudeNum), -90, 90);
       const nextLng = clamp(safeNumber(coordinateMatch[2], longitudeNum), -180, 180);
+      setBoundaryPoints((current) => shiftPolygon(current, { lat: nextLat, lng: nextLng }));
       setLatitude(nextLat.toFixed(6));
       setLongitude(nextLng.toFixed(6));
       setMapSource('Manual coordinate search');
@@ -820,6 +918,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
       setMapSource('Place not found - enter coordinates or choose a preset');
       return;
     }
+    setBoundaryPoints((current) => shiftPolygon(current, { lat: preset.lat, lng: preset.lng }));
     setLatitude(String(preset.lat));
     setLongitude(String(preset.lng));
     setCountry(preset.country);
@@ -831,9 +930,21 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   };
 
   const handleMapPick = (point: { lat: number; lng: number }) => {
+    setBoundaryPoints((current) => shiftPolygon(current, point));
     setLatitude(point.lat.toFixed(6));
     setLongitude(point.lng.toFixed(6));
     setMapSource('Manual map click + polygon');
+  };
+
+  const handleVertexDrag = (index: number, point: { lat: number; lng: number }) => {
+    const next = [...boundaryPoints];
+    next[index] = point;
+    setBoundaryPoints(next);
+    const nextCenter = getPolygonCenter(next);
+    setLatitude(nextCenter.lat.toFixed(6));
+    setLongitude(nextCenter.lng.toFixed(6));
+    setSelectedPoint(index);
+    setMapSource('Manual polygon reshape');
   };
 
   return (
@@ -935,11 +1046,12 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               activeLayer={activeMapLayer}
               aoiColor={aoiColor}
               onPick={handleMapPick}
+              onVertexDrag={handleVertexDrag}
               label={`${aoiId} / ${siteName}`}
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
-              <span>Map centered at {latitudeNum.toFixed(6)}, {longitudeNum.toFixed(6)} / {layerLabel}</span>
-              <span>Click the map to move the AOI center. Use point editor below to reshape the colored polygon.</span>
+              <span>Map centered at {latitudeNum.toFixed(6)}, {longitudeNum.toFixed(6)} / polygon center {polygonCenter.lat.toFixed(6)}, {polygonCenter.lng.toFixed(6)} / {layerLabel}</span>
+              <span>Click the map to move the AOI. Drag any boundary handle or edit its GPS values below to reshape it.</span>
             </div>
             {coordinateWarning ? (
               <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-bold text-amber-200">
@@ -1112,7 +1224,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                     <circle cx="50" cy="58" r="18" fill="rgba(56, 189, 248, 0.12)" />
                     <circle cx="205" cy="185" r="34" fill="rgba(34, 197, 94, 0.10)" />
                     <polygon points={boundaryPolygon} fill="rgba(16, 185, 129, 0.28)" stroke="rgba(255,255,255,0.88)" strokeWidth="2.3" />
-                    {boundaryPoints.map((point, index) => (
+                    {boundaryPreviewPoints.map((point, index) => (
                       <g key={`${point.x}-${point.y}-${index}`}>
                         <circle
                           cx={point.x}
@@ -1166,17 +1278,20 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <input
-                          aria-label={`Point ${index + 1} x`}
-                          value={point.x}
-                          onChange={(event) => updateBoundaryPoint(index, 'x', event.target.value)}
+                          aria-label={`Point ${index + 1} latitude`}
+                          value={point.lat}
+                          onChange={(event) => updateBoundaryPoint(index, 'lat', event.target.value)}
                           className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-400"
                         />
                         <input
-                          aria-label={`Point ${index + 1} y`}
-                          value={point.y}
-                          onChange={(event) => updateBoundaryPoint(index, 'y', event.target.value)}
+                          aria-label={`Point ${index + 1} longitude`}
+                          value={point.lng}
+                          onChange={(event) => updateBoundaryPoint(index, 'lng', event.target.value)}
                           className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-400"
                         />
+                      </div>
+                      <div className="mt-2 text-[11px] text-slate-500">
+                        {formatCoordinate(point.lat, 'lat')} / {formatCoordinate(point.lng, 'lng')}
                       </div>
                     </div>
                   ))}
