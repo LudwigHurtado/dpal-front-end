@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { CircleMarker, MapContainer, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import {
   AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, Map, MapPin,
   Plus, QrCode, RefreshCw, Search, ShieldCheck, Sparkles, Target, Upload,
@@ -10,11 +12,23 @@ type DeductionMode = 'percent' | 'absolute';
 type ProjectType = 'reforestation' | 'avoided_deforestation' | 'agroforestry' | 'restoration';
 type EcosystemType = 'amazon_forest' | 'dry_forest' | 'agroforestry_zone' | 'grassland' | 'wetland';
 type DataLayer = 'ndvi' | 'canopy' | 'disturbance' | 'terrain';
+type LatLngTuple = [number, number];
 
 interface DpalCarbonViuCalculatorProps {
   onLaunchMission?: () => void;
   onRunMrv?: () => void;
   onPreparePackage?: () => void;
+}
+
+interface PlacePreset {
+  label: string;
+  lat: number;
+  lng: number;
+  country: string;
+  region: string;
+  ecosystem: EcosystemType;
+  siteName?: string;
+  hectares?: number;
 }
 
 const defaultCoefficients: Record<EcosystemType, { a: number; b: number; c: number; d: number; e: number }> = {
@@ -56,11 +70,19 @@ const defaultBoundary = [
   { x: 42, y: 146 },
 ];
 
-const placePresets = [
+const placePresets: PlacePreset[] = [
   { label: 'Bolivia Amazon AOI', lat: -11.2331, lng: -67.8894, country: 'Bolivia', region: 'Pando / Northern Amazon', ecosystem: 'amazon_forest' as EcosystemType },
   { label: 'Santa Cruz Dry Forest', lat: -16.3618, lng: -60.9601, country: 'Bolivia', region: 'Santa Cruz / Chiquitano', ecosystem: 'dry_forest' as EcosystemType },
   { label: 'Antioquia Agroforestry', lat: 5.6012, lng: -75.8194, country: 'Colombia', region: 'Antioquia / Jardin', ecosystem: 'agroforestry_zone' as EcosystemType },
   { label: 'Patagonia Wetland', lat: -43.512, lng: -65.812, country: 'Argentina', region: 'Patagonia wetland corridor', ecosystem: 'wetland' as EcosystemType },
+  { label: 'Washoe County 160 Acres', lat: 40.9871, lng: -119.892812, country: 'United States', region: 'Washoe County, Nevada', ecosystem: 'grassland' as EcosystemType, siteName: 'Parcel 040-060-030 A', hectares: 64.75 },
+];
+
+const aoiColorOptions = [
+  { label: 'Emerald', value: '#10b981' },
+  { label: 'Cyan', value: '#06b6d4' },
+  { label: 'Amber', value: '#f59e0b' },
+  { label: 'Rose', value: '#f43f5e' },
 ];
 
 function clamp(value: number, min: number, max: number) {
@@ -238,6 +260,86 @@ const ResultTile: React.FC<{ label: string; value: string; note: string; icon: R
   </div>
 );
 
+const AoiMapEvents: React.FC<{ onPick: (point: { lat: number; lng: number }) => void }> = ({ onPick }) => {
+  useMapEvents({
+    click(event) {
+      onPick({
+        lat: Number(event.latlng.lat.toFixed(6)),
+        lng: Number(event.latlng.lng.toFixed(6)),
+      });
+    },
+  });
+  return null;
+};
+
+const AoiMapRecenter: React.FC<{ center: LatLngTuple }> = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom(), { animate: true });
+  }, [center, map]);
+  return null;
+};
+
+const AoiLeafletMap: React.FC<{
+  center: LatLngTuple;
+  polygon: LatLngTuple[];
+  activeLayer: DataLayer;
+  aoiColor: string;
+  onPick: (point: { lat: number; lng: number }) => void;
+  label: string;
+}> = ({ center, polygon, activeLayer, aoiColor, onPick, label }) => (
+  <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
+    <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '430px', width: '100%' }}>
+      <AoiMapRecenter center={center} />
+      <AoiMapEvents onPick={onPick} />
+      {activeLayer === 'terrain' ? (
+        <TileLayer
+          attribution="Tiles &copy; Esri"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}"
+        />
+      ) : (
+        <TileLayer
+          attribution="Tiles &copy; Esri"
+          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+        />
+      )}
+      {activeLayer !== 'terrain' ? (
+        <TileLayer
+          attribution="Labels &copy; Esri"
+          url="https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+          opacity={0.82}
+        />
+      ) : null}
+      <Polygon
+        positions={polygon}
+        pathOptions={{
+          color: aoiColor,
+          fillColor: activeLayer === 'disturbance' ? '#f59e0b' : activeLayer === 'canopy' ? '#06b6d4' : aoiColor,
+          fillOpacity: activeLayer === 'terrain' ? 0.2 : 0.34,
+          weight: 3,
+        }}
+      >
+        <Popup>
+          <strong>{label}</strong>
+          <br />
+          AOI polygon linked to this calculation.
+        </Popup>
+      </Polygon>
+      <CircleMarker
+        center={center}
+        radius={8}
+        pathOptions={{ color: '#ffffff', fillColor: '#38bdf8', fillOpacity: 0.95, weight: 2 }}
+      >
+        <Popup>
+          AOI center
+          <br />
+          {center[0].toFixed(6)}, {center[1].toFixed(6)}
+        </Popup>
+      </CircleMarker>
+    </MapContainer>
+  </div>
+);
+
 const InstructorHelper: React.FC<{
   title: string;
   context: string;
@@ -367,6 +469,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const [lastAiScanAt, setLastAiScanAt] = useState('2026-04-23 09:15');
   const [lastHumanVerifiedAt, setLastHumanVerifiedAt] = useState('2026-04-20 14:30');
   const [activeMapLayer, setActiveMapLayer] = useState<DataLayer>('ndvi');
+  const [aoiColor, setAoiColor] = useState('#10b981');
   const [ndviStart, setNdviStart] = useState('0.42');
   const [ndviEnd, setNdviEnd] = useState('0.56');
   const [canopyHeightStart, setCanopyHeightStart] = useState('8');
@@ -423,6 +526,9 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const ndviEndNum = clamp(safeNumber(ndviEnd, 0), -1, 1);
   const latitudeNum = clamp(safeNumber(latitude, -11.2331), -90, 90);
   const longitudeNum = clamp(safeNumber(longitude, -67.8894), -180, 180);
+  const coordinateWarning = safeNumber(latitude, latitudeNum) !== latitudeNum || safeNumber(longitude, longitudeNum) !== longitudeNum
+    ? 'Entered coordinates were outside valid GPS ranges and are being clamped for map display.'
+    : '';
   const boundaryAreaUnits = useMemo(() => polygonArea(boundaryPoints), [boundaryPoints]);
   const hectaresFromBoundary = round(boundaryAreaUnits * 0.012, 2);
   const boundaryPerimeter = useMemo(() => {
@@ -437,6 +543,15 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     return round(total * 0.045, 2);
   }, [boundaryPoints]);
   const boundaryPolygon = boundaryPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const mapCenter = useMemo<LatLngTuple>(() => [latitudeNum, longitudeNum], [latitudeNum, longitudeNum]);
+  const aoiPolygonLatLngs = useMemo<LatLngTuple[]>(() => {
+    const latScale = 0.00072;
+    const lngScale = 0.00092;
+    return boundaryPoints.map((point) => [
+      round(latitudeNum - (point.y - 120) * latScale, 6),
+      round(longitudeNum + (point.x - 150) * lngScale, 6),
+    ]);
+  }, [boundaryPoints, latitudeNum, longitudeNum]);
   const hasMappedAoi = Number.isFinite(latitudeNum) && Number.isFinite(longitudeNum) && boundaryPoints.length >= 3 && hectaresNum > 0;
   const mapLayerClass = activeMapLayer === 'ndvi'
     ? 'from-emerald-950 via-lime-950 to-slate-950'
@@ -596,6 +711,8 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
       hectares: hectaresNum,
       polygonEstimateHa: hectaresFromBoundary,
       points: boundaryPoints,
+      gpsPolygon: aoiPolygonLatLngs.map(([lat, lng]) => ({ lat, lng })),
+      color: aoiColor,
     },
     monitoringPeriod: {
       start: imageryStartDate,
@@ -620,6 +737,8 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   }), [
     aiModelVersion,
     aoiId,
+    aoiColor,
+    aoiPolygonLatLngs,
     boundaryName,
     boundaryPoints,
     country,
@@ -683,26 +802,38 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
 
   const applyPlaceSearch = () => {
     const normalized = placeSearch.trim().toLowerCase();
-    const preset = placePresets.find((place) => normalized === place.label.toLowerCase() || place.label.toLowerCase().includes(normalized));
-    if (!preset) return;
+    const coordinateMatch = placeSearch.match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/);
+    const preset = placePresets.find((place) => {
+      const label = place.label.toLowerCase();
+      const site = (place.siteName || '').toLowerCase();
+      return normalized === label || label.includes(normalized) || normalized.includes(label) || site.includes(normalized);
+    });
+    if (!preset && coordinateMatch) {
+      const nextLat = clamp(safeNumber(coordinateMatch[1], latitudeNum), -90, 90);
+      const nextLng = clamp(safeNumber(coordinateMatch[2], longitudeNum), -180, 180);
+      setLatitude(nextLat.toFixed(6));
+      setLongitude(nextLng.toFixed(6));
+      setMapSource('Manual coordinate search');
+      return;
+    }
+    if (!preset) {
+      setMapSource('Place not found - enter coordinates or choose a preset');
+      return;
+    }
     setLatitude(String(preset.lat));
     setLongitude(String(preset.lng));
     setCountry(preset.country);
     setRegion(preset.region);
     setEcosystem(preset.ecosystem);
-    setSiteName(preset.label.replace(' AOI', '').replace('Wetland', 'Wetland Parcel'));
+    setSiteName(preset.siteName || preset.label.replace(' AOI', '').replace('Wetland', 'Wetland Parcel'));
+    if (preset.hectares) setHectares(String(preset.hectares));
     setMapSource('Satellite + searched AOI');
   };
 
-  const handleMapClick = (event: React.MouseEvent<SVGSVGElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const x = ((event.clientX - rect.left) / rect.width) * 300;
-    const y = ((event.clientY - rect.top) / rect.height) * 240;
-    const nextLng = clamp(longitudeNum + (x - 150) * 0.0025, -180, 180);
-    const nextLat = clamp(latitudeNum - (y - 120) * 0.0025, -90, 90);
-    setLongitude(nextLng.toFixed(5));
-    setLatitude(nextLat.toFixed(5));
-    setMapSource('Manual map pin + polygon');
+  const handleMapPick = (point: { lat: number; lng: number }) => {
+    setLatitude(point.lat.toFixed(6));
+    setLongitude(point.lng.toFixed(6));
+    setMapSource('Manual map click + polygon');
   };
 
   return (
@@ -782,66 +913,39 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             <button onClick={useBoundaryArea} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
               Save AOI Boundary
             </button>
+            <span className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-black text-slate-300">
+              AOI color
+              {aoiColorOptions.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setAoiColor(option.value)}
+                  title={option.label}
+                  aria-label={`Set AOI color ${option.label}`}
+                  className={`h-5 w-5 rounded-full border ${aoiColor === option.value ? 'border-white ring-2 ring-white/30' : 'border-slate-500'}`}
+                  style={{ backgroundColor: option.value }}
+                />
+              ))}
+            </span>
           </div>
 
           <div className={`rounded-lg border border-slate-800 bg-gradient-to-br ${mapLayerClass} p-4 shadow-inner`}>
-            <svg viewBox="0 0 300 240" onClick={handleMapClick} className="h-96 w-full cursor-crosshair rounded-lg">
-              <defs>
-                <pattern id="aoi-live-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                </pattern>
-                <radialGradient id="aoi-veg-signal" cx="50%" cy="50%" r="65%">
-                  <stop offset="0%" stopColor="rgba(16,185,129,0.42)" />
-                  <stop offset="100%" stopColor="rgba(15,23,42,0)" />
-                </radialGradient>
-              </defs>
-              <rect width="300" height="240" fill="url(#aoi-live-grid)" />
-              <rect x="20" y="24" width="260" height="188" rx="18" fill="url(#aoi-veg-signal)" opacity={activeMapLayer === 'ndvi' ? 1 : 0.45} />
-              <path d="M18 172 C70 126 98 150 146 104 C190 62 222 78 282 42" fill="none" stroke="rgba(125,211,252,0.24)" strokeWidth="11" />
-              <path d="M24 198 C80 168 110 183 170 142 C220 108 238 130 280 104" fill="none" stroke="rgba(250,204,21,0.16)" strokeWidth="8" />
-              {activeMapLayer === 'canopy' ? (
-                <>
-                  <circle cx="52" cy="168" r="28" fill="rgba(56,189,248,0.20)" />
-                  <circle cx="204" cy="66" r="24" fill="rgba(56,189,248,0.16)" />
-                </>
-              ) : null}
-              {activeMapLayer === 'disturbance' ? (
-                <>
-                  <circle cx="212" cy="176" r="36" fill="rgba(245,158,11,0.22)" />
-                  <path d="M196 150 L230 196" stroke="rgba(251,191,36,0.75)" strokeWidth="3" />
-                </>
-              ) : null}
-              {activeMapLayer === 'terrain' ? (
-                <>
-                  <path d="M32 74 C72 42 102 64 134 42 C184 10 208 38 266 24" fill="none" stroke="rgba(226,232,240,0.18)" strokeWidth="6" />
-                  <path d="M36 112 C84 88 112 104 154 76 C204 48 224 70 272 58" fill="none" stroke="rgba(226,232,240,0.14)" strokeWidth="5" />
-                </>
-              ) : null}
-              <polygon points={boundaryPolygon} fill="rgba(16, 185, 129, 0.28)" stroke="rgba(255,255,255,0.9)" strokeWidth="2.3" />
-              {boundaryPoints.map((point, index) => (
-                <g key={`aoi-${point.x}-${point.y}-${index}`}>
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r={selectedPoint === index ? 6.5 : 5}
-                    fill={selectedPoint === index ? '#fbbf24' : '#ffffff'}
-                    stroke="#0f172a"
-                    strokeWidth="1.5"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setSelectedPoint(index);
-                    }}
-                  />
-                  <text x={point.x + 8} y={point.y - 8} fill="rgba(255,255,255,0.9)" fontSize="10">P{index + 1}</text>
-                </g>
-              ))}
-              <g transform="translate(150 120)">
-                <circle r="12" fill="rgba(14,165,233,0.22)" stroke="rgba(125,211,252,0.9)" strokeWidth="2" />
-                <path d="M0 -18 L4 -4 L18 0 L4 4 L0 18 L-4 4 L-18 0 L-4 -4 Z" fill="#38bdf8" />
-              </g>
-              <text x="16" y="22" fill="rgba(255,255,255,0.86)" fontSize="11">Click map to move AOI center</text>
-              <text x="16" y="224" fill="rgba(255,255,255,0.74)" fontSize="10">{latitudeNum.toFixed(5)}, {longitudeNum.toFixed(5)} / {layerLabel}</text>
-            </svg>
+            <AoiLeafletMap
+              center={mapCenter}
+              polygon={aoiPolygonLatLngs}
+              activeLayer={activeMapLayer}
+              aoiColor={aoiColor}
+              onPick={handleMapPick}
+              label={`${aoiId} / ${siteName}`}
+            />
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+              <span>Map centered at {latitudeNum.toFixed(6)}, {longitudeNum.toFixed(6)} / {layerLabel}</span>
+              <span>Click the map to move the AOI center. Use point editor below to reshape the colored polygon.</span>
+            </div>
+            {coordinateWarning ? (
+              <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs font-bold text-amber-200">
+                {coordinateWarning}
+              </div>
+            ) : null}
           </div>
         </div>
 
