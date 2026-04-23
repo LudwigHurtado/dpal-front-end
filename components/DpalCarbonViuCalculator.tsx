@@ -3,6 +3,7 @@ import L from 'leaflet';
 import QRCode from 'qrcode';
 import { CircleMarker, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { AiError, isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import {
   AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, Map, MapPin,
   Plus, QrCode, RefreshCw, Search, ShieldCheck, Sparkles, Target, Upload,
@@ -32,6 +33,16 @@ interface PlacePreset {
   ecosystem: EcosystemType;
   siteName?: string;
   hectares?: number;
+  projectName?: string;
+  projectCode?: string;
+  projectType?: ProjectType;
+  communityPartner?: string;
+  landControlBasis?: string;
+  interventionType?: string;
+  projectSummary?: string;
+  boundaryName?: string;
+  boundaryEvidence?: string;
+  aoiId?: string;
 }
 
 const defaultCoefficients: Record<EcosystemType, { a: number; b: number; c: number; d: number; e: number }> = {
@@ -81,11 +92,106 @@ function createDefaultBoundary(center: BoundaryPoint): BoundaryPoint[] {
 }
 
 const placePresets: PlacePreset[] = [
-  { label: 'Bolivia Amazon AOI', lat: -11.2331, lng: -67.8894, country: 'Bolivia', region: 'Pando / Northern Amazon', ecosystem: 'amazon_forest' as EcosystemType },
-  { label: 'Santa Cruz Dry Forest', lat: -16.3618, lng: -60.9601, country: 'Bolivia', region: 'Santa Cruz / Chiquitano', ecosystem: 'dry_forest' as EcosystemType },
-  { label: 'Antioquia Agroforestry', lat: 5.6012, lng: -75.8194, country: 'Colombia', region: 'Antioquia / Jardin', ecosystem: 'agroforestry_zone' as EcosystemType },
-  { label: 'Patagonia Wetland', lat: -43.512, lng: -65.812, country: 'Argentina', region: 'Patagonia wetland corridor', ecosystem: 'wetland' as EcosystemType },
-  { label: 'Washoe County 160 Acres', lat: 40.9871, lng: -119.892812, country: 'United States', region: 'Washoe County, Nevada', ecosystem: 'grassland' as EcosystemType, siteName: 'Parcel 040-060-030 A', hectares: 64.75 },
+  {
+    label: 'Bolivia Amazon AOI',
+    lat: -11.2331,
+    lng: -67.8894,
+    country: 'Bolivia',
+    region: 'Pando / Northern Amazon',
+    ecosystem: 'amazon_forest' as EcosystemType,
+    siteName: 'Parcel A',
+    hectares: 100,
+    projectName: 'Bolivia Amazon Pilot 001',
+    projectCode: 'DPAL-AMZ-001',
+    projectType: 'reforestation',
+    communityPartner: 'Regional community cooperative',
+    landControlBasis: 'Community consent + partner agreement',
+    interventionType: 'Native species reforestation and restoration',
+    projectSummary: 'Restore degraded land through community planting, maintenance, monitoring, and long-term protection with DPAL evidence capture and verification-ready records.',
+    boundaryName: 'Pilot Polygon A',
+    boundaryEvidence: 'GPS walkthrough, field photos, land sketch, local approval note',
+    aoiId: 'AOI-DPAL-AMZ-001-A',
+  },
+  {
+    label: 'Santa Cruz Dry Forest',
+    lat: -16.3618,
+    lng: -60.9601,
+    country: 'Bolivia',
+    region: 'Santa Cruz / Chiquitano',
+    ecosystem: 'dry_forest' as EcosystemType,
+    siteName: 'Chiquitano Parcel B',
+    hectares: 82.4,
+    projectName: 'Santa Cruz Dry Forest Recovery',
+    projectCode: 'DPAL-SCF-002',
+    projectType: 'restoration',
+    communityPartner: 'Chiquitano stewardship council',
+    landControlBasis: 'Community stewardship agreement',
+    interventionType: 'Dry forest restoration and fire recovery planting',
+    projectSummary: 'Restore dry forest structure, reduce disturbance pressure, and monitor recovery through AOI-linked evidence and verification-ready MRV.',
+    boundaryName: 'Dry Forest Block B',
+    boundaryEvidence: 'Community walkover, parcel sketch, and restoration boundary notes',
+    aoiId: 'AOI-DPAL-SCF-002-B',
+  },
+  {
+    label: 'Antioquia Agroforestry',
+    lat: 5.6012,
+    lng: -75.8194,
+    country: 'Colombia',
+    region: 'Antioquia / Jardin',
+    ecosystem: 'agroforestry_zone' as EcosystemType,
+    siteName: 'Agroforestry Parcel C',
+    hectares: 46.2,
+    projectName: 'Antioquia Agroforestry Transition',
+    projectCode: 'DPAL-ANT-003',
+    projectType: 'agroforestry',
+    communityPartner: 'Regional coffee cooperative',
+    landControlBasis: 'Farmer enrollment and parcel agreements',
+    interventionType: 'Agroforestry transition with shade cover improvement',
+    projectSummary: 'Convert production land into an agroforestry system with higher canopy cover, stronger biodiversity value, and auditable field evidence.',
+    boundaryName: 'Agroforestry Parcel C',
+    boundaryEvidence: 'Farm parcel map, photo transects, and enrollment records',
+    aoiId: 'AOI-DPAL-ANT-003-C',
+  },
+  {
+    label: 'Patagonia Wetland',
+    lat: -43.512,
+    lng: -65.812,
+    country: 'Argentina',
+    region: 'Patagonia wetland corridor',
+    ecosystem: 'wetland' as EcosystemType,
+    siteName: 'Wetland Parcel D',
+    hectares: 128.5,
+    projectName: 'Patagonia Wetland Corridor Pilot',
+    projectCode: 'DPAL-PWC-004',
+    projectType: 'restoration',
+    communityPartner: 'Wetland conservation network',
+    landControlBasis: 'Conservation easement and partner stewardship agreement',
+    interventionType: 'Wetland restoration and hydrology protection',
+    projectSummary: 'Protect and restore wetland function through mapped hydrology zones, field verification, and AOI-linked monitoring records.',
+    boundaryName: 'Wetland Corridor D',
+    boundaryEvidence: 'Hydrology survey, field imagery, and stewardship notes',
+    aoiId: 'AOI-DPAL-PWC-004-D',
+  },
+  {
+    label: 'Washoe County 160 Acres',
+    lat: 40.9871,
+    lng: -119.892812,
+    country: 'United States',
+    region: 'Washoe County, Nevada',
+    ecosystem: 'grassland' as EcosystemType,
+    siteName: 'Parcel 040-060-030 A',
+    hectares: 64.75,
+    projectName: 'Washoe County Rangeland Pilot',
+    projectCode: 'DPAL-WCN-005',
+    projectType: 'restoration',
+    communityPartner: 'Washoe land stewardship group',
+    landControlBasis: 'Parcel control and local stewardship agreement',
+    interventionType: 'Rangeland restoration and disturbance reduction',
+    projectSummary: 'Restore degraded rangeland through boundary-linked monitoring, vegetation recovery tracking, and evidence-backed AOI reporting.',
+    boundaryName: 'Washoe Parcel A',
+    boundaryEvidence: 'Parcel record, field check, and map reference notes',
+    aoiId: 'AOI-DPAL-WCN-005-A',
+  },
 ];
 
 const aoiColorOptions = [
@@ -467,12 +573,16 @@ const InstructorHelper: React.FC<{
   context: string;
   suggestedQuestions: string[];
   backTests: string[];
-}> = ({ title, context, suggestedQuestions, backTests }) => {
+  reportContext: string;
+}> = ({ title, context, suggestedQuestions, backTests, reportContext }) => {
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
   const [understood, setUnderstood] = useState<'yes' | 'no' | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [helperMode, setHelperMode] = useState<'google-ai' | 'guided-fallback'>(() => (isAiEnabled() ? 'google-ai' : 'guided-fallback'));
+  const [errorNote, setErrorNote] = useState('');
 
-  const explainQuestion = (prompt: string) => {
+  const buildFallbackResponse = (prompt: string) => {
     const normalized = prompt.toLowerCase();
     let response = `${context} This section is part of the same AOI-linked report, so changes here affect the calculation, the disclosure, and the registry package.`;
 
@@ -486,22 +596,77 @@ const InstructorHelper: React.FC<{
       response = `${context} The AOI coordinates and polygon bind the report to a real place. If the AOI changes, the hectares, imagery window, AI scan context, and registry payload should be reviewed before trusting the output.`;
     } else if (normalized.includes('risk') || normalized.includes('buffer')) {
       response = `${context} Risk and buffer logic protects against over-issuance. Higher fire, land-use, governance, duplicate-claim, or weak-evidence risk should reduce or pause issuance.`;
+    } else if (normalized.includes('what is aoi') || normalized.includes('what is aoI') || normalized.includes('what is the aoi') || normalized.includes('what is aoi?') || normalized.includes('aoi meaning')) {
+      response = `${context} AOI means Area of Interest. In this calculator it is the exact mapped parcel or monitoring zone the report belongs to, including the center coordinates, polygon boundary, imagery dates, and linked evidence.`;
+    } else if (normalized.includes('what is')) {
+      response = `${context} In this section, the best way to read "${prompt}" is to explain the term in relation to the AOI-linked report, then connect it to what changes in the calculation and how to verify it with the back-tests shown below.`;
     }
 
-    setAnswer(response);
-    setQuestion(prompt);
+    return response;
+  };
+
+  const explainQuestion = async (prompt: string) => {
+    const trimmedPrompt = prompt.trim() || suggestedQuestions[0];
+    setQuestion(trimmedPrompt);
     setUnderstood(null);
+    setErrorNote('');
+
+    if (!isAiEnabled()) {
+      setHelperMode('guided-fallback');
+      setAnswer(buildFallbackResponse(trimmedPrompt));
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const response = await runGeminiPrompt(`
+You are an AI instructor embedded inside the DPAL AFOLU carbon calculator.
+Answer the user's question about the specific section they are viewing.
+
+Section title: ${title}
+Section context: ${context}
+Whole report context: ${reportContext}
+Suggested back-tests: ${backTests.join(' ')}
+User question: ${trimmedPrompt}
+
+Instructions:
+- Be directly responsive to the user's exact question.
+- If they ask what a term means, define it plainly first.
+- Keep the answer grounded in this section and this report.
+- Explain why it matters to the calculation or registry result.
+- End with 2 short suggested follow-up questions labeled "Suggested questions:".
+- Keep the answer under 170 words.
+- Do not invent external facts not implied by the report context.
+      `);
+      setHelperMode('google-ai');
+      setAnswer(response.trim() || buildFallbackResponse(trimmedPrompt));
+    } catch (error) {
+      const message = error instanceof AiError ? error.message : 'Google AI helper unavailable right now.';
+      setHelperMode('guided-fallback');
+      setErrorNote(message);
+      setAnswer(buildFallbackResponse(trimmedPrompt));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-4">
+    <div className="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-950 p-4 shadow-lg">
       <div className="flex items-start gap-3">
-        <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-2 text-cyan-200">
+        <div className="rounded-xl border border-cyan-400/30 bg-cyan-400/10 p-2 text-cyan-200 shadow-sm">
           <Sparkles className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-white">AI Instructor: {title}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-black text-white">AI Instructor: {title}</p>
+            <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${helperMode === 'google-ai' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-200'}`}>
+              {helperMode === 'google-ai' ? 'Google AI Live' : 'Guided Fallback'}
+            </span>
+          </div>
           <p className="mt-1 text-sm leading-6 text-slate-300">{context}</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">
+            Ask about definitions, why a number changed, how the section affects VIUs, or how to verify the reading.
+          </p>
         </div>
       </div>
 
@@ -509,7 +674,7 @@ const InstructorHelper: React.FC<{
         {suggestedQuestions.map((item) => (
           <button
             key={item}
-            onClick={() => explainQuestion(item)}
+            onClick={() => { void explainQuestion(item); }}
             className="rounded-lg border border-cyan-400/20 bg-slate-950 px-3 py-2 text-left text-xs font-bold text-cyan-100 hover:border-cyan-300"
           >
             {item}
@@ -521,19 +686,26 @@ const InstructorHelper: React.FC<{
         <input
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
-          placeholder="Ask why this is calculated, how it affects VIUs, or how to verify it..."
+          placeholder="Ask what AOI means, why this number changed, or how to verify this section..."
           className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
         />
         <button
-          onClick={() => explainQuestion(question || suggestedQuestions[0])}
-          className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500"
+          onClick={() => { void explainQuestion(question || suggestedQuestions[0]); }}
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+          disabled={isLoading}
         >
-          Explain
+          {isLoading ? 'Thinking...' : 'Explain'}
         </button>
       </div>
 
+      {errorNote ? (
+        <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
+          Google AI was unavailable for this reply, so the helper used a guided local explanation instead.
+        </div>
+      ) : null}
+
       {answer ? (
-        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+        <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90 p-4">
           <p className="text-sm leading-6 text-slate-300">{answer}</p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-slate-400">Do you understand this section?</span>
@@ -545,7 +717,7 @@ const InstructorHelper: React.FC<{
         </div>
       ) : null}
 
-      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+      <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90 p-3">
         <p className="text-xs font-black uppercase tracking-wide text-slate-400">Suggested back-tests</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-slate-400">
           {backTests.map((test) => <li key={test}>{test}</li>)}
@@ -969,6 +1141,16 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     setRegion(preset.region);
     setEcosystem(preset.ecosystem);
     setSiteName(preset.siteName || preset.label.replace(' AOI', '').replace('Wetland', 'Wetland Parcel'));
+    setProjectName(preset.projectName || preset.label);
+    setProjectCode(preset.projectCode || `DPAL-${preset.country.slice(0, 3).toUpperCase()}-${String(Math.abs(Math.round(preset.lat * 10))).padStart(3, '0')}`);
+    setProjectType(preset.projectType || 'restoration');
+    setCommunityPartner(preset.communityPartner || 'Regional community cooperative');
+    setLandControlBasis(preset.landControlBasis || 'Community consent + partner agreement');
+    setInterventionType(preset.interventionType || 'Landscape restoration and monitoring');
+    setProjectSummary(preset.projectSummary || `AOI-linked project for ${preset.label} with mapped boundary, monitoring window, and registry-ready reporting.`);
+    setBoundaryName(preset.boundaryName || `${preset.siteName || preset.label} Boundary`);
+    setBoundaryEvidence(preset.boundaryEvidence || 'Preset AOI search result linked to mapped coordinates and evidence references.');
+    setAoiId(preset.aoiId || `AOI-${(preset.projectCode || preset.label).replace(/[^a-z0-9]+/gi, '-').toUpperCase()}`);
     if (preset.hectares) setHectares(String(preset.hectares));
     setMapSource('Satellite + searched AOI');
   };
@@ -1181,6 +1363,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               'Compare the center coordinates against the polygon and project documents.',
               'Check that the imagery date window matches the monitoring period used in the calculation.',
             ]}
+            reportContext={wholeReportContext}
           />
         </aside>
       </section>
@@ -1275,6 +1458,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                   'Check that the selected ecosystem matches the AOI land cover and not just the project story.',
                   'Confirm one project can later contain multiple AOIs without mixing their calculations.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1390,6 +1574,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                   'Use boundary area in the calculator and confirm hectares update before trusting VIUs.',
                   'Check whether photos, missions, and verifier notes fall inside the AOI.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1429,6 +1614,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                   'Check canopy height and cover against drone or field plot records.',
                   'Increase/decrease field correction and confirm the output changes in the expected direction.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1472,6 +1658,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                   'Run a conservative baseline and confirm the project still produces a credible net result.',
                   'Review fire, land-use, and governance risk notes before allowing issuance.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1515,6 +1702,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                   'Set duplicate claim on and confirm readiness moves to Hold.',
                   'Stress-test leakage and uncertainty at higher values and confirm VIUs decline.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1563,6 +1751,7 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                   'Compare custom coefficients to the selected ecosystem defaults.',
                   'Have a reviewer confirm carbon fraction and 44/12 conversion assumptions.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1599,6 +1788,7 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                   'Compare measured outputs against the calculation log in the registry package.',
                   'Flag verifier review if integrity score, scan readiness, or evidence score is weak.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
@@ -1663,6 +1853,7 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                   'Confirm external-certified mode is off unless third-party issuance exists.',
                   'Have a verifier compare the registry payload against evidence files and boundary records.',
                 ]}
+                reportContext={wholeReportContext}
               />
             </div>
           </Panel>
