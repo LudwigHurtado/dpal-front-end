@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import L from 'leaflet';
+import QRCode from 'qrcode';
 import { CircleMarker, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -320,6 +321,34 @@ const ResultTile: React.FC<{ label: string; value: string; note: string; icon: R
   </div>
 );
 
+const QrCodeImage: React.FC<{ payload: object; size?: number }> = ({ payload, size = 144 }) => {
+  const [dataUrl, setDataUrl] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    QRCode.toDataURL(JSON.stringify(payload), {
+      width: size,
+      margin: 1,
+      color: { dark: '#22d3ee', light: '#020617' },
+    })
+      .then((nextUrl) => {
+        if (!cancelled) setDataUrl(nextUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setDataUrl('');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [payload, size]);
+
+  if (!dataUrl) {
+    return <div style={{ width: size, height: size }} className="animate-pulse rounded-lg border border-slate-800 bg-slate-900" />;
+  }
+
+  return <img src={dataUrl} alt="AOI location QR code" style={{ width: size, height: size }} className="rounded-lg border border-slate-800 bg-slate-950 p-2" />;
+};
+
 const AoiMapEvents: React.FC<{ onPick: (point: { lat: number; lng: number }) => void }> = ({ onPick }) => {
   useMapEvents({
     click(event) {
@@ -373,11 +402,14 @@ const AoiLeafletMap: React.FC<{
       ) : null}
       <Polygon
         positions={polygon}
+        smoothFactor={1.4}
         pathOptions={{
           color: aoiColor,
           fillColor: activeLayer === 'disturbance' ? '#f59e0b' : activeLayer === 'canopy' ? '#06b6d4' : aoiColor,
           fillOpacity: activeLayer === 'terrain' ? 0.2 : 0.34,
           weight: 3,
+          lineCap: 'round',
+          lineJoin: 'round',
         }}
       >
         <Popup>
@@ -551,6 +583,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const [aoiId, setAoiId] = useState('AOI-DPAL-AMZ-001-A');
   const [latitude, setLatitude] = useState('-11.2331');
   const [longitude, setLongitude] = useState('-67.8894');
+  const [mapViewportCenter, setMapViewportCenter] = useState<LatLngTuple>([-11.2331, -67.8894]);
   const [placeSearch, setPlaceSearch] = useState('Bolivia Amazon AOI');
   const [imageryStartDate, setImageryStartDate] = useState('2025-01-01');
   const [imageryEndDate, setImageryEndDate] = useState('2026-01-01');
@@ -594,6 +627,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const [droneCoveragePct, setDroneCoveragePct] = useState('20');
   const [duplicateRiskFlag, setDuplicateRiskFlag] = useState(false);
   const [externalCertification, setExternalCertification] = useState(false);
+  const [savedAoiAt, setSavedAoiAt] = useState('Not saved yet');
   const [customA, setCustomA] = useState('');
   const [customB, setCustomB] = useState('');
   const [customC, setCustomC] = useState('');
@@ -623,7 +657,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const boundaryAreaUnits = useMemo(() => approximatePolygonAreaHectares(boundaryPoints), [boundaryPoints]);
   const hectaresFromBoundary = round(boundaryAreaUnits, 2);
   const boundaryPerimeter = useMemo(() => round(approximatePolygonPerimeterKm(boundaryPoints), 2), [boundaryPoints]);
-  const mapCenter = useMemo<LatLngTuple>(() => [latitudeNum, longitudeNum], [latitudeNum, longitudeNum]);
+  const mapCenter = mapViewportCenter;
   const aoiPolygonLatLngs = useMemo<LatLngTuple[]>(() => (
     boundaryPoints.map((point) => [point.lat, point.lng])
   ), [boundaryPoints]);
@@ -895,6 +929,14 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     if (hectaresFromBoundary > 0) {
       setHectares(String(hectaresFromBoundary));
     }
+    setSavedAoiAt(new Date().toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }));
   };
 
   const applyPlaceSearch = () => {
@@ -911,6 +953,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
       setBoundaryPoints((current) => shiftPolygon(current, { lat: nextLat, lng: nextLng }));
       setLatitude(nextLat.toFixed(6));
       setLongitude(nextLng.toFixed(6));
+      setMapViewportCenter([nextLat, nextLng]);
       setMapSource('Manual coordinate search');
       return;
     }
@@ -921,6 +964,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     setBoundaryPoints((current) => shiftPolygon(current, { lat: preset.lat, lng: preset.lng }));
     setLatitude(String(preset.lat));
     setLongitude(String(preset.lng));
+    setMapViewportCenter([preset.lat, preset.lng]);
     setCountry(preset.country);
     setRegion(preset.region);
     setEcosystem(preset.ecosystem);
@@ -933,6 +977,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     setBoundaryPoints((current) => shiftPolygon(current, point));
     setLatitude(point.lat.toFixed(6));
     setLongitude(point.lng.toFixed(6));
+    setMapViewportCenter([point.lat, point.lng]);
     setMapSource('Manual map click + polygon');
   };
 
@@ -960,6 +1005,19 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
               Register the project, sketch the operating boundary, connect evidence assumptions, and calculate indicative DPAL Verified Impact Units with disclosure-safe outputs.
             </p>
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[
+                ['1. Select AOI', 'Search place, set GPS, shape boundary, save location anchor.'],
+                ['2. Define Project', 'Link the mapped AOI to project identity, partner, and methodology.'],
+                ['3. Review Readings', 'Check imagery dates, AI scan context, evidence, and measured outputs.'],
+                ['4. Issue Result', 'Apply baseline, deductions, disclosure, registry payload, and VIU preview.'],
+              ].map(([step, note]) => (
+                <div key={step} className="rounded-lg border border-slate-800 bg-slate-950/80 p-3">
+                  <p className="text-xs font-black uppercase tracking-wide text-emerald-300">{step}</p>
+                  <p className="mt-2 text-xs leading-5 text-slate-400">{note}</p>
+                </div>
+              ))}
+            </div>
             <div className="mt-5 flex flex-wrap gap-2">
               <button onClick={onLaunchMission} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500">Launch Evidence Mission</button>
               <button onClick={onRunMrv} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">Run MRV Review</button>
@@ -1022,7 +1080,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               </button>
             ))}
             <button onClick={useBoundaryArea} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
-              Save AOI Boundary
+              Save AOI Boundary + QR
             </button>
             <span className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-black text-slate-300">
               AOI color
@@ -1078,6 +1136,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
           <SummaryRow label="Active data layer" value={layerLabel} />
           <SummaryRow label="AI scan" value={lastAiScanAt} help={aiModelVersion} />
           <SummaryRow label="Human verification" value={lastHumanVerifiedAt} help={communityPartner} />
+          <SummaryRow label="Saved AOI boundary" value={savedAoiAt} help="Updated when you save the mapped AOI boundary." />
           <div className={`rounded-lg border p-3 ${hasMappedAoi ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-rose-500/30 bg-rose-500/10'}`}>
             <div className="flex items-center gap-2 text-sm font-black text-white">
               {hasMappedAoi ? <CheckCircle className="h-4 w-4 text-emerald-300" /> : <AlertTriangle className="h-4 w-4 text-rose-300" />}
@@ -1095,6 +1154,18 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             <p className="mt-2 text-xs leading-5 text-slate-400">
               This is the payload the QR or registry anchor should point to. It includes AOI ID, GPS center, polygon points, imagery dates, AI model version, and calculation result.
             </p>
+            <div className="mt-3 flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+              <QrCodeImage payload={reportAnchorPayload} size={136} />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-white">{aoiId}</p>
+                <p className="mt-1 text-xs leading-5 text-slate-400">
+                  Scan to recover the AOI location anchor, polygon coordinates, monitoring window, AI reading context, and current VIU preview.
+                </p>
+                <p className="mt-2 text-xs text-cyan-200">
+                  {latitudeNum.toFixed(6)}, {longitudeNum.toFixed(6)} / {round(hectaresNum)} ha
+                </p>
+              </div>
+            </div>
             <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-slate-800 bg-black/30 p-3 text-[11px] leading-5 text-cyan-100">{reportAnchorJson}</pre>
           </div>
           <InstructorHelper
@@ -1148,14 +1219,12 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
 
       <div className="grid gap-5 xl:grid-cols-[1.15fr_0.85fr]">
         <div className="space-y-5">
-          <Panel title="Project Intake" description="Core project configuration and methodology settings">
+          <Panel title="Project Setup And Method" description="Project identity, ownership, intervention, and method settings linked to the AOI above">
             <div className="grid gap-4 md:grid-cols-2">
               <Field type="text" label="Project name" value={projectName} onChange={setProjectName} />
               <Field type="text" label="Project code" value={projectCode} onChange={setProjectCode} />
               <SelectField label="Project type" value={projectType} onChange={setProjectType} options={Object.entries(projectTypeLabels).map(([value, label]) => ({ value: value as ProjectType, label }))} />
               <SelectField label="Ecosystem type" value={ecosystem} onChange={setEcosystem} options={Object.entries(ecosystemLabels).map(([value, label]) => ({ value: value as EcosystemType, label }))} />
-              <Field type="text" label="Country" value={country} onChange={setCountry} />
-              <Field type="text" label="Region / district" value={region} onChange={setRegion} />
               <Field type="text" label="Community / partner" value={communityPartner} onChange={setCommunityPartner} />
               <Field type="text" label="Land control basis" value={landControlBasis} onChange={setLandControlBasis} />
               <div className="md:col-span-2">
@@ -1164,17 +1233,26 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               <div className="md:col-span-2">
                 <TextAreaField label="Project summary" value={projectSummary} onChange={setProjectSummary} rows={4} />
               </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Linked AOI</p>
+                <p className="mt-2 text-sm font-black text-white">{aoiId} / {siteName}</p>
+                <p className="mt-1 text-xs text-slate-500">{region}, {country}</p>
+              </div>
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Mapped Area</p>
+                <p className="mt-2 text-sm font-black text-white">{round(hectaresNum)} ha</p>
+                <p className="mt-1 text-xs text-slate-500">AOI boundary and coordinate context are managed in Search / Select Place above.</p>
+              </div>
               <SelectField label="Biomass model" value={biomassMode} onChange={setBiomassMode} options={[
                 { value: 'hybrid', label: 'Hybrid: NDVI + height + cover + field' },
                 { value: 'linear_ndvi', label: 'Linear NDVI' },
                 { value: 'exponential_ndvi', label: 'Exponential NDVI' },
                 { value: 'manual_agb', label: 'Manual AGB override' },
               ]} />
-              <Field label="Area (hectares)" value={hectares} onChange={setHectares} />
               <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Monitoring window</p>
                 <p className="mt-2 text-sm font-black text-white">{monthsNum} months</p>
-                <p className="mt-1 text-xs text-slate-500">Derived from imagery start and end dates.</p>
+                <p className="mt-1 text-xs text-slate-500">Derived from imagery start and end dates in the AOI selection section.</p>
               </div>
               <SelectField label="Baseline mode" value={baselineMode} onChange={setBaselineMode} options={[
                 { value: 'percent_growth', label: 'Percent growth' },
@@ -1185,11 +1263,11 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             </div>
             <div className="mt-4">
               <InstructorHelper
-                title="Project Intake"
-                context={`${wholeReportContext} Project Intake explains who owns or operates the project, what intervention is being claimed, and which ecosystem assumptions should be used.`}
+                title="Project Setup And Method"
+                context={`${wholeReportContext} This section should not ask for the place again. It defines who is responsible for the project, what intervention is being claimed, and which methodology assumptions apply to the AOI already selected above.`}
                 suggestedQuestions={[
                   'Why do project type and ecosystem matter?',
-                  'How does the project record affect the VIU number?',
+                  'How does this section connect to the AOI above?',
                   'What should I verify before accepting this project?',
                 ]}
                 backTests={[
@@ -1590,16 +1668,26 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
           </Panel>
 
           <Panel title="Next Build Hooks">
-            <div className="grid gap-2">
-              <SummaryRow label="GPS coordinates" value="Added" />
-              <SummaryRow label="AOI identity" value="Added" />
-              <SummaryRow label="Boundary-linked area" value="Added" />
-              <SummaryRow label="Imagery date range" value="Added" />
-              <SummaryRow label="AI scan metadata" value="Added" />
-              <SummaryRow label="AOI-specific disclosure" value="Added" />
-              <SummaryRow label="Evidence Vault" value="Next: upload, hash, geo-tag, link to AOI" />
-              <SummaryRow label="Timeline slider" value="Next: compare imagery snapshots by date" />
-              <SummaryRow label="Live API integration" value="Next: replace prototype readings with MRV responses" />
+            <div className="grid gap-4">
+              <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-300">Now In Place</p>
+                <div className="mt-3 grid gap-2">
+                  <SummaryRow label="GPS coordinates" value="Added" />
+                  <SummaryRow label="AOI identity" value="Added" />
+                  <SummaryRow label="Boundary-linked area" value="Added" />
+                  <SummaryRow label="Imagery date range" value="Added" />
+                  <SummaryRow label="AI scan metadata" value="Added" />
+                  <SummaryRow label="AOI-specific disclosure" value="Added" />
+                </div>
+              </div>
+              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
+                <p className="text-xs font-black uppercase tracking-wide text-cyan-300">Next Recommended Build</p>
+                <div className="mt-3 grid gap-2">
+                  <SummaryRow label="Evidence Vault" value="Upload, hash, geo-tag, and link evidence directly to the AOI" />
+                  <SummaryRow label="Timeline slider" value="Compare imagery snapshots by date and show AOI change over time" />
+                  <SummaryRow label="Live API integration" value="Replace prototype readings with MRV responses and live analysis metadata" />
+                </div>
+              </div>
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button onClick={onLaunchMission} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500"><Target className="mr-2 inline h-4 w-4" />Mission</button>
