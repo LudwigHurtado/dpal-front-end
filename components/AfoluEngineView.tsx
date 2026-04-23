@@ -785,6 +785,31 @@ type ProjectSetupDraft = {
   priceRangeUsd: string;
 };
 
+function estimateProjectPriceRange(
+  projectType: string,
+  riskLevel: RiskLevel,
+  pricePerCreditInput: string | number,
+): string {
+  const basePrice = Math.max(1, typeof pricePerCreditInput === 'number' ? pricePerCreditInput : Number.parseFloat(pricePerCreditInput) || 18);
+  const typeAdjustment =
+    projectType === 'Avoided Deforestation' ? 3
+      : projectType === 'Agroforestry' ? 2
+        : projectType === 'Fire Recovery' ? 4
+          : projectType === 'Wetland Restoration' ? 5
+            : projectType === 'Protected Area Patrol' ? 1
+              : 0;
+  const riskAdjustment =
+    riskLevel === 'Low' ? 2
+      : riskLevel === 'Medium' ? 0
+        : riskLevel === 'High' ? -2
+          : -4;
+
+  const midpoint = Math.max(4, basePrice + typeAdjustment + riskAdjustment);
+  const lowerBound = Math.max(3, Math.round(midpoint * 0.78));
+  const upperBound = Math.max(lowerBound + 2, Math.round(midpoint * 1.18));
+  return `$${lowerBound}-$${upperBound} / credit`;
+}
+
 const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
   name: '',
   type: 'Reforestation',
@@ -801,7 +826,7 @@ const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
   story: '',
   riskLevel: 'Medium',
   pricePerCreditUsd: '18',
-  priceRangeUsd: '$12-$20 / credit',
+  priceRangeUsd: estimateProjectPriceRange('Reforestation', 'Medium', '18'),
 });
 
 const buildProjectFromDraft = (draft: ProjectSetupDraft, projectIndex: number): AfoluProject => {
@@ -1001,7 +1026,13 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   }, [projects, selectedProjectId]);
 
   const updateProjectSetupDraft = <K extends keyof ProjectSetupDraft>(key: K, value: ProjectSetupDraft[K]) => {
-    setProjectSetupDraft((prev) => ({ ...prev, [key]: value }));
+    setProjectSetupDraft((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'type' || key === 'riskLevel' || key === 'pricePerCreditUsd') {
+        next.priceRangeUsd = estimateProjectPriceRange(next.type, next.riskLevel, next.pricePerCreditUsd);
+      }
+      return next;
+    });
   };
 
   const resetProjectSetupModal = () => {
