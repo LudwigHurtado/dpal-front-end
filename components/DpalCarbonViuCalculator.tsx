@@ -194,6 +194,8 @@ const placePresets: PlacePreset[] = [
   },
 ];
 
+const defaultPlacePreset = placePresets.find((place) => place.label === 'Washoe County 160 Acres') ?? placePresets[0];
+
 const aoiColorOptions = [
   { label: 'Emerald', value: '#10b981' },
   { label: 'Cyan', value: '#06b6d4' },
@@ -467,11 +469,21 @@ const AoiMapEvents: React.FC<{ onPick: (point: { lat: number; lng: number }) => 
   return null;
 };
 
-const AoiMapRecenter: React.FC<{ center: LatLngTuple }> = ({ center }) => {
+const AoiMapRecenter: React.FC<{ center: LatLngTuple; trigger: number }> = ({ center, trigger }) => {
   const map = useMap();
   useEffect(() => {
+    if (!trigger) return;
     map.setView(center, map.getZoom(), { animate: true });
-  }, [center, map]);
+  }, [center, trigger, map]);
+  return null;
+};
+
+const AoiMapFitBounds: React.FC<{ polygon: LatLngTuple[]; trigger: number }> = ({ polygon, trigger }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!trigger || polygon.length < 3) return;
+    map.fitBounds(L.latLngBounds(polygon), { padding: [28, 28], animate: true, maxZoom: 15 });
+  }, [trigger, polygon, map]);
   return null;
 };
 
@@ -482,11 +494,15 @@ const AoiLeafletMap: React.FC<{
   aoiColor: string;
   onPick: (point: { lat: number; lng: number }) => void;
   onVertexDrag: (index: number, point: { lat: number; lng: number }) => void;
+  onVertexSelect: (index: number) => void;
+  fitTrigger: number;
+  recenterTrigger: number;
   label: string;
-}> = ({ center, polygon, activeLayer, aoiColor, onPick, onVertexDrag, label }) => (
+}> = ({ center, polygon, activeLayer, aoiColor, onPick, onVertexDrag, onVertexSelect, fitTrigger, recenterTrigger, label }) => (
   <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950">
     <MapContainer center={center} zoom={13} scrollWheelZoom style={{ height: '430px', width: '100%' }}>
-      <AoiMapRecenter center={center} />
+      <AoiMapRecenter center={center} trigger={recenterTrigger} />
+      <AoiMapFitBounds polygon={polygon} trigger={fitTrigger} />
       <AoiMapEvents onPick={onPick} />
       {activeLayer === 'terrain' ? (
         <TileLayer
@@ -536,9 +552,13 @@ const AoiLeafletMap: React.FC<{
             iconAnchor: [8, 8],
           })}
           eventHandlers={{
+            click() {
+              onVertexSelect(index);
+            },
             dragend(event) {
               const marker = event.target;
               const nextPoint = marker.getLatLng();
+              onVertexSelect(index);
               onVertexDrag(index, {
                 lat: Number(nextPoint.lat.toFixed(6)),
                 lng: Number(nextPoint.lng.toFixed(6)),
@@ -579,14 +599,16 @@ const InstructorHelper: React.FC<{
   const [answer, setAnswer] = useState('');
   const [understood, setUnderstood] = useState<'yes' | 'no' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [helperMode, setHelperMode] = useState<'google-ai' | 'guided-fallback'>(() => (isAiEnabled() ? 'google-ai' : 'guided-fallback'));
+  const [helperMode, setHelperMode] = useState<'google-ai' | 'guided-fallback'>(() => (isAiEnabled() ? 'guided-fallback' : 'guided-fallback'));
   const [errorNote, setErrorNote] = useState('');
 
   const buildFallbackResponse = (prompt: string) => {
     const normalized = prompt.toLowerCase();
     let response = `${context} This section is part of the same AOI-linked report, so changes here affect the calculation, the disclosure, and the registry package.`;
 
-    if (normalized.includes('why')) {
+    if (normalized.includes('what is aoi') || normalized.includes('what is the aoi') || normalized.includes('aoi meaning') || normalized === 'aoi' || normalized === 'what is aoi?') {
+      response = `${context} AOI means Area of Interest. In this calculator it is the exact mapped parcel or monitoring zone the report belongs to, including the center coordinates, polygon boundary, imagery dates, and linked evidence.`;
+    } else if (normalized.includes('why')) {
       response = `${context} We calculate this because DPAL needs every output to be traceable: project purpose, mapped AOI, monitoring dates, evidence quality, and calculation method all have to support the final VIU number.`;
     } else if (normalized.includes('number') || normalized.includes('result') || normalized.includes('viu')) {
       response = `${context} The number is produced by estimating project CO2e gain, subtracting baseline CO2e, then applying leakage, uncertainty, buffer, and other adjustments. The final floor value becomes indicative VIUs.`;
@@ -596,8 +618,6 @@ const InstructorHelper: React.FC<{
       response = `${context} The AOI coordinates and polygon bind the report to a real place. If the AOI changes, the hectares, imagery window, AI scan context, and registry payload should be reviewed before trusting the output.`;
     } else if (normalized.includes('risk') || normalized.includes('buffer')) {
       response = `${context} Risk and buffer logic protects against over-issuance. Higher fire, land-use, governance, duplicate-claim, or weak-evidence risk should reduce or pause issuance.`;
-    } else if (normalized.includes('what is aoi') || normalized.includes('what is aoI') || normalized.includes('what is the aoi') || normalized.includes('what is aoi?') || normalized.includes('aoi meaning')) {
-      response = `${context} AOI means Area of Interest. In this calculator it is the exact mapped parcel or monitoring zone the report belongs to, including the center coordinates, polygon boundary, imagery dates, and linked evidence.`;
     } else if (normalized.includes('what is')) {
       response = `${context} In this section, the best way to read "${prompt}" is to explain the term in relation to the AOI-linked report, then connect it to what changes in the calculation and how to verify it with the back-tests shown below.`;
     }
@@ -610,10 +630,10 @@ const InstructorHelper: React.FC<{
     setQuestion(trimmedPrompt);
     setUnderstood(null);
     setErrorNote('');
+    setAnswer(buildFallbackResponse(trimmedPrompt));
 
     if (!isAiEnabled()) {
       setHelperMode('guided-fallback');
-      setAnswer(buildFallbackResponse(trimmedPrompt));
       return;
     }
 
@@ -638,8 +658,9 @@ Instructions:
 - Keep the answer under 170 words.
 - Do not invent external facts not implied by the report context.
       `);
+      const finalResponse = response.trim() || buildFallbackResponse(trimmedPrompt);
       setHelperMode('google-ai');
-      setAnswer(response.trim() || buildFallbackResponse(trimmedPrompt));
+      setAnswer(finalResponse);
     } catch (error) {
       const message = error instanceof AiError ? error.message : 'Google AI helper unavailable right now.';
       setHelperMode('guided-fallback');
@@ -660,7 +681,7 @@ Instructions:
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-black text-white">AI Instructor: {title}</p>
             <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${helperMode === 'google-ai' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-200'}`}>
-              {helperMode === 'google-ai' ? 'Google AI Live' : 'Guided Fallback'}
+              {helperMode === 'google-ai' ? 'Answered By Gemini' : 'Fallback Answer'}
             </span>
           </div>
           <p className="mt-1 text-sm leading-6 text-slate-300">{context}</p>
@@ -700,7 +721,7 @@ Instructions:
 
       {errorNote ? (
         <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
-          Google AI was unavailable for this reply, so the helper used a guided local explanation instead.
+          Gemini was unavailable for this reply, so the helper used a guided local explanation instead.
         </div>
       ) : null}
 
@@ -732,31 +753,34 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   onRunMrv,
   onPreparePackage,
 }) => {
-  const [projectName, setProjectName] = useState('Bolivia Amazon Pilot 001');
-  const [projectCode, setProjectCode] = useState('DPAL-AMZ-001');
-  const [projectType, setProjectType] = useState<ProjectType>('reforestation');
-  const [ecosystem, setEcosystem] = useState<EcosystemType>('amazon_forest');
-  const [country, setCountry] = useState('Bolivia');
-  const [region, setRegion] = useState('Pando / Northern Amazon');
-  const [communityPartner, setCommunityPartner] = useState('Regional community cooperative');
-  const [landControlBasis, setLandControlBasis] = useState('Community consent + partner agreement');
-  const [interventionType, setInterventionType] = useState('Native species reforestation and restoration');
-  const [projectSummary, setProjectSummary] = useState('Restore degraded land through community planting, maintenance, monitoring, and long-term protection with DPAL evidence capture and verification-ready records.');
-  const [hectares, setHectares] = useState('100');
+  const [projectName, setProjectName] = useState(defaultPlacePreset.projectName || 'Washoe County Rangeland Pilot');
+  const [projectCode, setProjectCode] = useState(defaultPlacePreset.projectCode || 'DPAL-WCN-005');
+  const [projectType, setProjectType] = useState<ProjectType>(defaultPlacePreset.projectType || 'restoration');
+  const [ecosystem, setEcosystem] = useState<EcosystemType>(defaultPlacePreset.ecosystem);
+  const [country, setCountry] = useState(defaultPlacePreset.country);
+  const [region, setRegion] = useState(defaultPlacePreset.region);
+  const [communityPartner, setCommunityPartner] = useState(defaultPlacePreset.communityPartner || 'Washoe land stewardship group');
+  const [landControlBasis, setLandControlBasis] = useState(defaultPlacePreset.landControlBasis || 'Parcel control and local stewardship agreement');
+  const [interventionType, setInterventionType] = useState(defaultPlacePreset.interventionType || 'Rangeland restoration and disturbance reduction');
+  const [projectSummary, setProjectSummary] = useState(defaultPlacePreset.projectSummary || 'Restore degraded rangeland through boundary-linked monitoring, vegetation recovery tracking, and evidence-backed AOI reporting.');
+  const [hectares, setHectares] = useState(String(defaultPlacePreset.hectares || 64.75));
   const [biomassMode, setBiomassMode] = useState<BiomassMode>('hybrid');
   const [baselineMode, setBaselineMode] = useState<BaselineMode>('percent_growth');
   const [deductionMode, setDeductionMode] = useState<DeductionMode>('percent');
-  const [boundaryName, setBoundaryName] = useState('Pilot Polygon A');
+  const [boundaryName, setBoundaryName] = useState(defaultPlacePreset.boundaryName || 'Washoe Parcel A');
   const [mapSource, setMapSource] = useState('Satellite + community draw');
-  const [boundaryEvidence, setBoundaryEvidence] = useState('GPS walkthrough, field photos, land sketch, local approval note');
-  const [boundaryPoints, setBoundaryPoints] = useState<BoundaryPoint[]>(() => createDefaultBoundary({ lat: -11.2331, lng: -67.8894 }));
+  const [boundaryEvidence, setBoundaryEvidence] = useState(defaultPlacePreset.boundaryEvidence || 'Parcel record, field check, and map reference notes');
+  const [boundaryPoints, setBoundaryPoints] = useState<BoundaryPoint[]>(() => createDefaultBoundary({ lat: defaultPlacePreset.lat, lng: defaultPlacePreset.lng }));
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
-  const [siteName, setSiteName] = useState('Parcel A');
-  const [aoiId, setAoiId] = useState('AOI-DPAL-AMZ-001-A');
-  const [latitude, setLatitude] = useState('-11.2331');
-  const [longitude, setLongitude] = useState('-67.8894');
-  const [mapViewportCenter, setMapViewportCenter] = useState<LatLngTuple>([-11.2331, -67.8894]);
-  const [placeSearch, setPlaceSearch] = useState('Bolivia Amazon AOI');
+  const [fitBoundaryTrigger, setFitBoundaryTrigger] = useState(0);
+  const [mapRecenterTrigger, setMapRecenterTrigger] = useState(0);
+  const [boundaryInputDrafts, setBoundaryInputDrafts] = useState<Record<string, string>>({});
+  const [siteName, setSiteName] = useState(defaultPlacePreset.siteName || 'Parcel 040-060-030 A');
+  const [aoiId, setAoiId] = useState(defaultPlacePreset.aoiId || 'AOI-DPAL-WCN-005-A');
+  const [latitude, setLatitude] = useState(String(defaultPlacePreset.lat));
+  const [longitude, setLongitude] = useState(String(defaultPlacePreset.lng));
+  const [mapViewportCenter, setMapViewportCenter] = useState<LatLngTuple>([defaultPlacePreset.lat, defaultPlacePreset.lng]);
+  const [placeSearch, setPlaceSearch] = useState('Washoe County Project Gerlach Nevada');
   const [imageryStartDate, setImageryStartDate] = useState('2025-01-01');
   const [imageryEndDate, setImageryEndDate] = useState('2026-01-01');
   const [dataSourceStack, setDataSourceStack] = useState('Sentinel-2 NDVI + canopy height + field correction + verifier package');
@@ -1072,9 +1096,27 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
         lng: round(last.lng + 0.016, 6),
       },
     ]);
+    setSelectedPoint(boundaryPoints.length);
   };
 
-  const updateBoundaryPoint = (index: number, key: 'lat' | 'lng', value: string) => {
+  const insertBoundaryPointAfterSelected = () => {
+    if (boundaryPoints.length < 2) return;
+    const insertAfter = selectedPoint ?? boundaryPoints.length - 1;
+    const nextIndex = (insertAfter + 1) % boundaryPoints.length;
+    const current = boundaryPoints[insertAfter];
+    const next = boundaryPoints[nextIndex];
+    const insertedPoint = {
+      lat: round((current.lat + next.lat) / 2, 6),
+      lng: round((current.lng + next.lng) / 2, 6),
+    };
+    const updated = [...boundaryPoints];
+    updated.splice(insertAfter + 1, 0, insertedPoint);
+    setBoundaryPoints(updated);
+    setBoundaryInputDrafts({});
+    setSelectedPoint(insertAfter + 1);
+  };
+
+  const commitBoundaryPoint = (index: number, key: 'lat' | 'lng', value: string) => {
     const next = [...boundaryPoints];
     const fallback = next[index]?.[key] ?? (key === 'lat' ? latitudeNum : longitudeNum);
     next[index] = {
@@ -1085,12 +1127,31 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     const nextCenter = getPolygonCenter(next);
     setLatitude(nextCenter.lat.toFixed(6));
     setLongitude(nextCenter.lng.toFixed(6));
+    setBoundaryInputDrafts((current) => {
+      const updated = { ...current };
+      delete updated[`${index}-${key}`];
+      return updated;
+    });
+  };
+
+  const updateBoundaryPointDraft = (index: number, key: 'lat' | 'lng', value: string) => {
+    setBoundaryInputDrafts((current) => ({
+      ...current,
+      [`${index}-${key}`]: value,
+    }));
+  };
+
+  const getBoundaryPointInputValue = (index: number, key: 'lat' | 'lng') => {
+    const draftKey = `${index}-${key}`;
+    if (draftKey in boundaryInputDrafts) return boundaryInputDrafts[draftKey];
+    return String(boundaryPoints[index]?.[key] ?? '');
   };
 
   const removeBoundaryPoint = (index: number) => {
     if (boundaryPoints.length <= 3) return;
     const next = boundaryPoints.filter((_, pointIndex) => pointIndex !== index);
     setBoundaryPoints(next);
+    setBoundaryInputDrafts({});
     const nextCenter = getPolygonCenter(next);
     setLatitude(nextCenter.lat.toFixed(6));
     setLongitude(nextCenter.lng.toFixed(6));
@@ -1111,21 +1172,72 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     }));
   };
 
+  const resetBoundaryToDefault = () => {
+    const resetPoints = createDefaultBoundary({ lat: defaultPlacePreset.lat, lng: defaultPlacePreset.lng });
+    setBoundaryPoints(resetPoints);
+    setBoundaryInputDrafts({});
+    setLatitude(String(defaultPlacePreset.lat));
+    setLongitude(String(defaultPlacePreset.lng));
+    setMapViewportCenter([defaultPlacePreset.lat, defaultPlacePreset.lng]);
+    setMapRecenterTrigger((value) => value + 1);
+    setPlaceSearch('Washoe County Project Gerlach Nevada');
+    setSiteName(defaultPlacePreset.siteName || 'Parcel 040-060-030 A');
+    setAoiId(defaultPlacePreset.aoiId || 'AOI-DPAL-WCN-005-A');
+    setHectares(String(defaultPlacePreset.hectares || 64.75));
+    setBoundaryName(defaultPlacePreset.boundaryName || 'Washoe Parcel A');
+    setBoundaryEvidence(defaultPlacePreset.boundaryEvidence || 'Parcel record, field check, and map reference notes');
+    setMapSource('Reset to Washoe County default');
+    setSelectedPoint(null);
+    setFitBoundaryTrigger((value) => value + 1);
+  };
+
+  const fitBoundaryOnMap = () => {
+    setFitBoundaryTrigger((value) => value + 1);
+  };
+
+  const clearAoiSelection = () => {
+    const fallbackLat = defaultPlacePreset.lat;
+    const fallbackLng = defaultPlacePreset.lng;
+    setPlaceSearch('');
+    setSiteName('');
+    setAoiId('');
+    setLatitude(String(fallbackLat));
+    setLongitude(String(fallbackLng));
+    setBoundaryPoints(createDefaultBoundary({ lat: fallbackLat, lng: fallbackLng }));
+    setBoundaryInputDrafts({});
+    setMapViewportCenter([fallbackLat, fallbackLng]);
+    setMapRecenterTrigger((value) => value + 1);
+    setSelectedPoint(null);
+    setHectares('');
+    setMapSource('Cleared AOI selection');
+    setSavedAoiAt('Not saved yet');
+  };
+
   const applyPlaceSearch = () => {
     const normalized = placeSearch.trim().toLowerCase();
     const coordinateMatch = placeSearch.match(/(-?\d+(?:\.\d+)?)\s*[, ]\s*(-?\d+(?:\.\d+)?)/);
     const preset = placePresets.find((place) => {
       const label = place.label.toLowerCase();
       const site = (place.siteName || '').toLowerCase();
-      return normalized === label || label.includes(normalized) || normalized.includes(label) || site.includes(normalized);
+      const project = (place.projectName || '').toLowerCase();
+      const regionName = place.region.toLowerCase();
+      return normalized === label
+        || label.includes(normalized)
+        || normalized.includes(label)
+        || site.includes(normalized)
+        || project.includes(normalized)
+        || normalized.includes(project)
+        || regionName.includes(normalized);
     });
     if (!preset && coordinateMatch) {
       const nextLat = clamp(safeNumber(coordinateMatch[1], latitudeNum), -90, 90);
       const nextLng = clamp(safeNumber(coordinateMatch[2], longitudeNum), -180, 180);
-      setBoundaryPoints((current) => shiftPolygon(current, { lat: nextLat, lng: nextLng }));
+    setBoundaryPoints((current) => shiftPolygon(current, { lat: nextLat, lng: nextLng }));
+      setBoundaryInputDrafts({});
       setLatitude(nextLat.toFixed(6));
       setLongitude(nextLng.toFixed(6));
       setMapViewportCenter([nextLat, nextLng]);
+      setMapRecenterTrigger((value) => value + 1);
       setMapSource('Manual coordinate search');
       return;
     }
@@ -1134,9 +1246,11 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
       return;
     }
     setBoundaryPoints((current) => shiftPolygon(current, { lat: preset.lat, lng: preset.lng }));
+    setBoundaryInputDrafts({});
     setLatitude(String(preset.lat));
     setLongitude(String(preset.lng));
     setMapViewportCenter([preset.lat, preset.lng]);
+    setMapRecenterTrigger((value) => value + 1);
     setCountry(preset.country);
     setRegion(preset.region);
     setEcosystem(preset.ecosystem);
@@ -1157,9 +1271,11 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
 
   const handleMapPick = (point: { lat: number; lng: number }) => {
     setBoundaryPoints((current) => shiftPolygon(current, point));
+    setBoundaryInputDrafts({});
     setLatitude(point.lat.toFixed(6));
     setLongitude(point.lng.toFixed(6));
     setMapViewportCenter([point.lat, point.lng]);
+    setMapRecenterTrigger((value) => value + 1);
     setMapSource('Manual map click + polygon');
   };
 
@@ -1167,6 +1283,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     const next = [...boundaryPoints];
     next[index] = point;
     setBoundaryPoints(next);
+    setBoundaryInputDrafts({});
     const nextCenter = getPolygonCenter(next);
     setLatitude(nextCenter.lat.toFixed(6));
     setLongitude(nextCenter.lng.toFixed(6));
@@ -1229,6 +1346,12 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             <button onClick={applyPlaceSearch} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500">
               <Search className="mr-2 inline h-4 w-4" />Use Place
             </button>
+            <button onClick={clearAoiSelection} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-rose-400">
+              Clear
+            </button>
+            <button onClick={resetBoundaryToDefault} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-cyan-400">
+              Reset Default
+            </button>
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
@@ -1264,6 +1387,9 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             <button onClick={useBoundaryArea} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
               Save AOI Boundary + QR
             </button>
+            <button onClick={fitBoundaryOnMap} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-cyan-400">
+              Fit Boundary
+            </button>
             <span className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs font-black text-slate-300">
               AOI color
               {aoiColorOptions.map((option) => (
@@ -1287,6 +1413,8 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               aoiColor={aoiColor}
               onPick={handleMapPick}
               onVertexDrag={handleVertexDrag}
+              onVertexSelect={setSelectedPoint}
+              fitTrigger={fitBoundaryTrigger}
               label={`${aoiId} / ${siteName}`}
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
@@ -1526,29 +1654,57 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 <SummaryRow label="Point count" value={String(boundaryPoints.length)} />
                 <SummaryRow label="Current calculator area" value={`${round(hectaresNum)} ha`} />
                 <SummaryRow label="Map source" value={mapSource} />
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-xs leading-5 text-slate-400">
+                  Boundary tools: drag handles on the live map, click a handle to focus that point below, use `Insert Point` to refine an edge, and use `Fit Boundary` if the parcel drifts off screen.
+                </div>
 
                 <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950 p-3">
-                  <p className="text-sm font-black text-white">Boundary editor</p>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-black text-white">Boundary editor</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={addBoundaryPoint} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] font-bold text-slate-200 hover:border-emerald-400">Add Point</button>
+                      <button onClick={insertBoundaryPointAfterSelected} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] font-bold text-slate-200 hover:border-cyan-400">Insert Point</button>
+                    </div>
+                  </div>
                   {boundaryPoints.map((point, index) => (
                     <div key={`editor-${index}`} className={`rounded-lg border p-3 ${selectedPoint === index ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-900'}`}>
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <p className="text-xs font-black uppercase tracking-wide text-slate-300">Point {index + 1}</p>
                         <div className="flex gap-2">
                           <button onClick={() => setSelectedPoint(index)} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] font-bold text-slate-200 hover:border-emerald-500">Select</button>
+                          <button onClick={fitBoundaryOnMap} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] font-bold text-slate-200 hover:border-cyan-400">Focus</button>
                           <button onClick={() => removeBoundaryPoint(index)} className="rounded-md border border-rose-500/30 px-2 py-1 text-[11px] font-bold text-rose-200 hover:border-rose-400">Remove</button>
                         </div>
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           aria-label={`Point ${index + 1} latitude`}
-                          value={point.lat}
-                          onChange={(event) => updateBoundaryPoint(index, 'lat', event.target.value)}
+                          type="text"
+                          inputMode="decimal"
+                          value={getBoundaryPointInputValue(index, 'lat')}
+                          onFocus={() => setSelectedPoint(index)}
+                          onChange={(event) => updateBoundaryPointDraft(index, 'lat', event.target.value)}
+                          onBlur={(event) => commitBoundaryPoint(index, 'lat', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              commitBoundaryPoint(index, 'lat', (event.target as HTMLInputElement).value);
+                            }
+                          }}
                           className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-400"
                         />
                         <input
                           aria-label={`Point ${index + 1} longitude`}
-                          value={point.lng}
-                          onChange={(event) => updateBoundaryPoint(index, 'lng', event.target.value)}
+                          type="text"
+                          inputMode="decimal"
+                          value={getBoundaryPointInputValue(index, 'lng')}
+                          onFocus={() => setSelectedPoint(index)}
+                          onChange={(event) => updateBoundaryPointDraft(index, 'lng', event.target.value)}
+                          onBlur={(event) => commitBoundaryPoint(index, 'lng', event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter') {
+                              commitBoundaryPoint(index, 'lng', (event.target as HTMLInputElement).value);
+                            }
+                          }}
                           className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-400"
                         />
                       </div>
