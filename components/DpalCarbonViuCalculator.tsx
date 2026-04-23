@@ -1,12 +1,14 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import QRCode from 'qrcode';
 import { CircleMarker, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { CARBON_PROJECT_QR_REGISTRY_DETAIL } from '../constants';
+import { saveCarbonQrRegistryEntry, updateCarbonQrRegistryFavorite } from '../services/carbonQrRegistryService';
 import { AiError, isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import {
-  AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, Map, MapPin,
-  Plus, QrCode, RefreshCw, Search, ShieldCheck, Sparkles, Target, Upload,
+  AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Cpu, Database, FileText, Globe, Map, MapPin,
+  Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Sparkles, Star, Target, Upload,
 } from './icons';
 
 type BiomassMode = 'linear_ndvi' | 'exponential_ndvi' | 'hybrid' | 'manual_agb';
@@ -22,6 +24,61 @@ interface DpalCarbonViuCalculatorProps {
   onLaunchMission?: () => void;
   onRunMrv?: () => void;
   onPreparePackage?: () => void;
+  savedProjectAoi?: {
+    id: string;
+    name: string;
+    code: string;
+    type: ProjectType;
+    country: string;
+    region: string;
+    communityPartner: string;
+    landControlBasis: string;
+    interventionType: string;
+    summary: string;
+    hectares: number;
+    polygonLabel: string;
+    latitude: number;
+    longitude: number;
+  } | null;
+}
+
+interface HelperChatEntry {
+  id: string;
+  question: string;
+  answer: string;
+  sourceMode: 'google-ai' | 'guided-fallback';
+  sourceDetail: string;
+  errorNote: string;
+}
+
+interface SavedAoiSnapshot {
+  id: string;
+  aoiId: string;
+  siteName: string;
+  projectName: string;
+  projectCode: string;
+  projectType: ProjectType;
+  country: string;
+  region: string;
+  communityPartner: string;
+  landControlBasis: string;
+  interventionType: string;
+  projectSummary: string;
+  boundaryName: string;
+  boundaryEvidence: string;
+  hectares: number;
+  latitude: number;
+  longitude: number;
+  ecosystem: EcosystemType;
+  boundaryPoints: BoundaryPoint[];
+  imageryStartDate: string;
+  imageryEndDate: string;
+  dataSourceStack: string;
+  aiModelVersion: string;
+  savedAt: string;
+  favorite: boolean;
+  registryRecordId?: string;
+  registryUrl?: string;
 }
 
 interface PlacePreset {
@@ -195,6 +252,8 @@ const placePresets: PlacePreset[] = [
 ];
 
 const defaultPlacePreset = placePresets.find((place) => place.label === 'Washoe County 160 Acres') ?? placePresets[0];
+const CALCULATOR_AOI_STORAGE_KEY = 'dpal_afolu_calculator_aoi_v1';
+const SAVED_AOI_SNAPSHOTS_STORAGE_KEY = 'dpal_saved_aoi_snapshots_v1';
 
 const aoiColorOptions = [
   { label: 'Emerald', value: '#10b981' },
@@ -249,6 +308,23 @@ function shiftPolygon(points: BoundaryPoint[], targetCenter: BoundaryPoint): Bou
     lat: round(point.lat + latDelta, 6),
     lng: round(point.lng + lngDelta, 6),
   }));
+}
+
+function loadSavedAoiSnapshots(): SavedAoiSnapshot[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const stored = window.localStorage.getItem(SAVED_AOI_SNAPSHOTS_STORAGE_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed)
+      ? (parsed as SavedAoiSnapshot[]).map((item) => ({
+        ...item,
+        favorite: Boolean(item.favorite),
+      }))
+      : [];
+  } catch {
+    return [];
+  }
 }
 
 function approximatePolygonAreaHectares(points: BoundaryPoint[]) {
@@ -429,12 +505,12 @@ const ResultTile: React.FC<{ label: string; value: string; note: string; icon: R
   </div>
 );
 
-const QrCodeImage: React.FC<{ payload: object; size?: number }> = ({ payload, size = 144 }) => {
+const QrCodeImage: React.FC<{ value: string; size?: number }> = ({ value, size = 144 }) => {
   const [dataUrl, setDataUrl] = useState('');
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(JSON.stringify(payload), {
+    QRCode.toDataURL(value, {
       width: size,
       margin: 1,
       color: { dark: '#22d3ee', light: '#020617' },
@@ -448,7 +524,7 @@ const QrCodeImage: React.FC<{ payload: object; size?: number }> = ({ payload, si
     return () => {
       cancelled = true;
     };
-  }, [payload, size]);
+  }, [value, size]);
 
   if (!dataUrl) {
     return <div style={{ width: size, height: size }} className="animate-pulse rounded-lg border border-slate-800 bg-slate-900" />;
@@ -596,12 +672,15 @@ const InstructorHelper: React.FC<{
   reportContext: string;
 }> = ({ title, context, suggestedQuestions, backTests, reportContext }) => {
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [chatHistory, setChatHistory] = useState<HelperChatEntry[]>([]);
   const [understood, setUnderstood] = useState<'yes' | 'no' | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [helperMode, setHelperMode] = useState<'google-ai' | 'guided-fallback'>('guided-fallback');
   const [errorNote, setErrorNote] = useState('');
   const [answerSourceDetail, setAnswerSourceDetail] = useState('Local explanation');
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [followLatest, setFollowLatest] = useState(true);
+  const transcriptRef = useRef<HTMLDivElement | null>(null);
 
   const buildFallbackResponse = (prompt: string) => {
     const normalized = prompt.toLowerCase();
@@ -628,15 +707,33 @@ const InstructorHelper: React.FC<{
 
   const explainQuestion = async (prompt: string) => {
     const trimmedPrompt = prompt.trim() || suggestedQuestions[0];
+    const entryId = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const fallbackAnswer = buildFallbackResponse(trimmedPrompt);
     setQuestion(trimmedPrompt);
     setUnderstood(null);
     setErrorNote('');
     setAnswerSourceDetail('Local explanation');
-    setAnswer(buildFallbackResponse(trimmedPrompt));
+    setChatHistory((current) => [
+      ...current,
+      {
+        id: entryId,
+        question: trimmedPrompt,
+        answer: fallbackAnswer,
+        sourceMode: 'guided-fallback',
+        sourceDetail: 'Local explanation',
+        errorNote: '',
+      },
+    ]);
+    setIsExpanded(true);
 
     if (!isAiEnabled()) {
       setHelperMode('guided-fallback');
       setAnswerSourceDetail('Fallback: Gemini not configured');
+      setChatHistory((current) => current.map((entry) => (
+        entry.id === entryId
+          ? { ...entry, sourceMode: 'guided-fallback', sourceDetail: 'Fallback: Gemini not configured' }
+          : entry
+      )));
       return;
     }
 
@@ -664,17 +761,44 @@ Instructions:
       const finalResponse = response.trim() || buildFallbackResponse(trimmedPrompt);
       setHelperMode('google-ai');
       setAnswerSourceDetail('Gemini 2.5 Flash');
-      setAnswer(finalResponse);
+      setChatHistory((current) => current.map((entry) => (
+        entry.id === entryId
+          ? {
+            ...entry,
+            answer: finalResponse,
+            sourceMode: 'google-ai',
+            sourceDetail: 'Gemini 2.5 Flash',
+            errorNote: '',
+          }
+          : entry
+      )));
     } catch (error) {
       const message = error instanceof AiError ? error.message : 'Google AI helper unavailable right now.';
       setHelperMode('guided-fallback');
       setErrorNote(message);
       setAnswerSourceDetail('Fallback: Gemini request failed');
-      setAnswer(buildFallbackResponse(trimmedPrompt));
+      setChatHistory((current) => current.map((entry) => (
+        entry.id === entryId
+          ? {
+            ...entry,
+            answer: fallbackAnswer,
+            sourceMode: 'guided-fallback',
+            sourceDetail: 'Fallback: Gemini request failed',
+            errorNote: message,
+          }
+          : entry
+      )));
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!followLatest || !isExpanded || !transcriptRef.current) return;
+    transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+  }, [chatHistory, followLatest, isExpanded]);
+
+  const latestEntry = chatHistory[chatHistory.length - 1] || null;
 
   return (
     <div className="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-950 p-4 shadow-lg">
@@ -688,6 +812,14 @@ Instructions:
             <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-wide ${helperMode === 'google-ai' ? 'bg-emerald-500/15 text-emerald-200' : 'bg-amber-500/15 text-amber-200'}`}>
               {helperMode === 'google-ai' ? 'Answered By Gemini' : 'Fallback Answer'}
             </span>
+            <button
+              type="button"
+              onClick={() => setIsExpanded((current) => !current)}
+              className="ml-auto rounded-full border border-slate-700 bg-slate-950/80 p-2 text-slate-300 transition hover:border-cyan-400 hover:text-cyan-100"
+              aria-label={isExpanded ? 'Collapse helper chat' : 'Expand helper chat'}
+            >
+              {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
           </div>
           <p className="mt-1 text-sm leading-6 text-slate-300">{context}</p>
           <p className="mt-2 text-xs leading-5 text-slate-400">
@@ -696,6 +828,14 @@ Instructions:
         </div>
       </div>
 
+      {!isExpanded ? (
+        <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90 p-3 text-xs text-slate-400">
+          {chatHistory.length ? `${chatHistory.length} saved helper message${chatHistory.length === 1 ? '' : 's'}` : 'No helper messages yet.'}
+        </div>
+      ) : null}
+
+      {isExpanded ? (
+        <>
       <div className="mt-3 flex flex-wrap gap-2">
         {suggestedQuestions.map((item) => (
           <button
@@ -720,33 +860,77 @@ Instructions:
           className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
           disabled={isLoading}
         >
-          {isLoading ? 'Thinking...' : 'Explain'}
+          {isLoading ? 'Thinking...' : <span className="inline-flex items-center gap-2"><Send className="h-4 w-4" />Explain</span>}
         </button>
       </div>
 
-      {errorNote ? (
-        <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
-          Gemini was unavailable for this reply, so the helper used a guided local explanation instead.
-          <div className="mt-2 font-medium text-amber-50">{errorNote}</div>
+      {chatHistory.length ? (
+        <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90">
+          <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-wide text-slate-400">Helper chat</p>
+              <p className="mt-1 text-xs text-slate-500">This thread stays here so you can keep asking follow-up questions.</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setFollowLatest((current) => !current)}
+                className={`rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide ${
+                  followLatest ? 'border-cyan-400/40 bg-cyan-500/10 text-cyan-100' : 'border-slate-700 bg-slate-900 text-slate-300'
+                }`}
+              >
+                {followLatest ? 'Following latest' : 'Follow chat'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFollowLatest(true);
+                  if (transcriptRef.current) {
+                    transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+                  }
+                }}
+                className="rounded-full border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-cyan-400 hover:text-cyan-100"
+                aria-label="Jump to latest helper message"
+              >
+                <ChevronDown className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+          <div ref={transcriptRef} className="max-h-96 space-y-3 overflow-y-auto px-4 py-4">
+            {chatHistory.map((entry) => (
+              <div key={entry.id} className="rounded-xl border border-slate-800 bg-slate-950/90 p-4">
+                <div className="mb-3">
+                  <p className="text-[11px] font-black uppercase tracking-wide text-cyan-300">Question</p>
+                  <p className="mt-1 text-sm font-medium text-white">{entry.question}</p>
+                </div>
+                <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 font-bold text-slate-300">
+                    Source: {entry.sourceMode === 'google-ai' ? 'Gemini' : 'Fallback'}
+                  </span>
+                  <span className="text-slate-500">{entry.sourceDetail}</span>
+                </div>
+                {entry.errorNote ? (
+                  <div className="mb-3 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-100">
+                    Gemini was unavailable for this reply, so the helper used a guided local explanation instead.
+                    <div className="mt-2 font-medium text-amber-50">{entry.errorNote}</div>
+                  </div>
+                ) : null}
+                <p className="text-sm leading-6 text-slate-300">{entry.answer}</p>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
 
-      {answer ? (
+      {latestEntry ? (
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90 p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full border border-slate-700 bg-slate-900 px-2 py-1 font-bold text-slate-300">
-              Source: {helperMode === 'google-ai' ? 'Gemini' : 'Fallback'}
-            </span>
-            <span className="text-slate-500">{answerSourceDetail}</span>
-          </div>
-          <p className="text-sm leading-6 text-slate-300">{answer}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-bold text-slate-400">Do you understand this section?</span>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-400">Do you understand the latest answer?</span>
             <button onClick={() => setUnderstood('yes')} className="rounded-md border border-emerald-500/30 px-2 py-1 text-xs font-bold text-emerald-200">Yes</button>
             <button onClick={() => setUnderstood('no')} className="rounded-md border border-amber-500/30 px-2 py-1 text-xs font-bold text-amber-200">Not yet</button>
           </div>
           {understood === 'yes' ? <p className="mt-2 text-xs text-emerald-300">Good. Next, check whether the back-tests support the same conclusion.</p> : null}
-          {understood === 'no' ? <p className="mt-2 text-xs text-amber-300">Try one of the suggested questions or ask what part of the number feels unclear.</p> : null}
+          {understood === 'no' ? <p className="mt-2 text-xs text-amber-300">Keep the thread going and ask the next question that feels stuck. The helper will keep the earlier answers visible.</p> : null}
         </div>
       ) : null}
 
@@ -756,6 +940,8 @@ Instructions:
           {backTests.map((test) => <li key={test}>{test}</li>)}
         </ul>
       </div>
+        </>
+      ) : null}
     </div>
   );
 };
@@ -764,6 +950,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   onLaunchMission,
   onRunMrv,
   onPreparePackage,
+  savedProjectAoi,
 }) => {
   const [projectName, setProjectName] = useState(defaultPlacePreset.projectName || 'Washoe County Rangeland Pilot');
   const [projectCode, setProjectCode] = useState(defaultPlacePreset.projectCode || 'DPAL-WCN-005');
@@ -836,11 +1023,109 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   const [duplicateRiskFlag, setDuplicateRiskFlag] = useState(false);
   const [externalCertification, setExternalCertification] = useState(false);
   const [savedAoiAt, setSavedAoiAt] = useState('Not saved yet');
+  const [savedAoiSnapshots, setSavedAoiSnapshots] = useState<SavedAoiSnapshot[]>(() => loadSavedAoiSnapshots());
+  const [registryRecordId, setRegistryRecordId] = useState('');
+  const [registryRecordUrl, setRegistryRecordUrl] = useState('');
+  const [registrySyncStatus, setRegistrySyncStatus] = useState('Registry pending');
+  const [isSavingRegistry, setIsSavingRegistry] = useState(false);
   const [customA, setCustomA] = useState('');
   const [customB, setCustomB] = useState('');
   const [customC, setCustomC] = useState('');
   const [customD, setCustomD] = useState('');
   const [customE, setCustomE] = useState('');
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SAVED_AOI_SNAPSHOTS_STORAGE_KEY, JSON.stringify(savedAoiSnapshots));
+  }, [savedAoiSnapshots]);
+
+  const orderedSavedAoiSnapshots = useMemo(() => (
+    [...savedAoiSnapshots].sort((a, b) => {
+      if (a.favorite !== b.favorite) return a.favorite ? -1 : 1;
+      return new Date(b.savedAt).getTime() - new Date(a.savedAt).getTime();
+    })
+  ), [savedAoiSnapshots]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!savedProjectAoi) {
+      const stored = window.localStorage.getItem(CALCULATOR_AOI_STORAGE_KEY);
+      if (!stored) return;
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed?.latitude && parsed?.longitude) {
+          setProjectName(parsed.name || projectName);
+          setProjectCode(parsed.code || projectCode);
+          setProjectType(parsed.type || projectType);
+          setCountry(parsed.country || country);
+          setRegion(parsed.region || region);
+          setCommunityPartner(parsed.communityPartner || communityPartner);
+          setLandControlBasis(parsed.landControlBasis || landControlBasis);
+          setInterventionType(parsed.interventionType || interventionType);
+          setProjectSummary(parsed.summary || projectSummary);
+          setBoundaryName(parsed.polygonLabel || boundaryName);
+          setSiteName(parsed.polygonLabel || siteName);
+          setAoiId(parsed.id || aoiId);
+          setHectares(String(parsed.hectares || hectares));
+          setLatitude(String(parsed.latitude));
+          setLongitude(String(parsed.longitude));
+          setBoundaryPoints(createDefaultBoundary({ lat: parsed.latitude, lng: parsed.longitude }));
+          setMapViewportCenter([parsed.latitude, parsed.longitude]);
+          setMapRecenterTrigger((value) => value + 1);
+          setSavedAoiAt('Loaded from saved AFOLU project');
+          setRegistryRecordId('');
+          setRegistryRecordUrl('');
+          setRegistrySyncStatus('Registry pending');
+        }
+      } catch {
+        // Ignore malformed saved AOI payloads.
+      }
+      return;
+    }
+
+    const nextPayload = {
+      id: savedProjectAoi.id,
+      name: savedProjectAoi.name,
+      code: savedProjectAoi.code,
+      type: savedProjectAoi.type,
+      country: savedProjectAoi.country,
+      region: savedProjectAoi.region,
+      communityPartner: savedProjectAoi.communityPartner,
+      landControlBasis: savedProjectAoi.landControlBasis,
+      interventionType: savedProjectAoi.interventionType,
+      summary: savedProjectAoi.summary,
+      hectares: savedProjectAoi.hectares,
+      polygonLabel: savedProjectAoi.polygonLabel,
+      latitude: savedProjectAoi.latitude,
+      longitude: savedProjectAoi.longitude,
+    };
+
+    window.localStorage.setItem(CALCULATOR_AOI_STORAGE_KEY, JSON.stringify(nextPayload));
+    setProjectName(savedProjectAoi.name);
+    setProjectCode(savedProjectAoi.code);
+    setProjectType(savedProjectAoi.type);
+    setCountry(savedProjectAoi.country);
+    setRegion(savedProjectAoi.region);
+    setCommunityPartner(savedProjectAoi.communityPartner);
+    setLandControlBasis(savedProjectAoi.landControlBasis);
+    setInterventionType(savedProjectAoi.interventionType);
+    setProjectSummary(savedProjectAoi.summary);
+    setBoundaryName(savedProjectAoi.polygonLabel || `${savedProjectAoi.name} AOI`);
+    setSiteName(savedProjectAoi.polygonLabel || savedProjectAoi.name);
+    setAoiId(savedProjectAoi.id);
+    setPlaceSearch(savedProjectAoi.name);
+    setHectares(String(savedProjectAoi.hectares));
+    setLatitude(String(savedProjectAoi.latitude));
+    setLongitude(String(savedProjectAoi.longitude));
+    setBoundaryPoints(createDefaultBoundary({ lat: savedProjectAoi.latitude, lng: savedProjectAoi.longitude }));
+    setBoundaryInputDrafts({});
+    setMapViewportCenter([savedProjectAoi.latitude, savedProjectAoi.longitude]);
+    setMapRecenterTrigger((value) => value + 1);
+    setSavedAoiAt('Loaded from AFOLU project');
+    setRegistryRecordId('');
+    setRegistryRecordUrl('');
+    setRegistrySyncStatus('Registry pending');
+  }, [savedProjectAoi]);
 
   const coeffBase = defaultCoefficients[ecosystem];
   const coeff = {
@@ -1096,6 +1381,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     viuEligible,
   ]);
   const reportAnchorJson = JSON.stringify(reportAnchorPayload, null, 2);
+  const reportAnchorUrl = registryRecordUrl || CARBON_PROJECT_QR_REGISTRY_DETAIL(registryRecordId || `${aoiId || 'unsaved-aoi'}`);
 
   const wholeReportContext = `Current report: ${projectName} / ${aoiId} at ${latitudeNum.toFixed(5)}, ${longitudeNum.toFixed(5)}, ${round(hectaresNum)} ha, ${imageryStartDate} to ${imageryEndDate}, ${dataSourceStack}, net ${round(netCreditableCo2e)} tCO2e and ${viuEligible} indicative VIUs.`;
 
@@ -1170,18 +1456,68 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     setSelectedPoint(null);
   };
 
-  const useBoundaryArea = () => {
-    if (hectaresFromBoundary > 0) {
-      setHectares(String(hectaresFromBoundary));
-    }
-    setSavedAoiAt(new Date().toLocaleString('en-US', {
+  const useBoundaryArea = async () => {
+    const savedAt = new Date().toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
       hour12: false,
-    }));
+    });
+    if (hectaresFromBoundary > 0) {
+      setHectares(String(hectaresFromBoundary));
+    }
+    setSavedAoiAt(savedAt);
+    const hectaresToSave = hectaresFromBoundary > 0 ? hectaresFromBoundary : hectaresNum;
+    setIsSavingRegistry(true);
+    setRegistrySyncStatus('Saving QR registry...');
+    const snapshot: SavedAoiSnapshot = {
+      id: `${aoiId || siteName || projectCode}-${latitudeNum.toFixed(5)}-${longitudeNum.toFixed(5)}`,
+      aoiId: aoiId || `${projectCode || 'DPAL'}-AOI`,
+      siteName: siteName || boundaryName || projectName,
+      projectName,
+      projectCode,
+      projectType,
+      country,
+      region,
+      communityPartner,
+      landControlBasis,
+      interventionType,
+      projectSummary,
+      boundaryName,
+      boundaryEvidence,
+      hectares: round(hectaresToSave, 2),
+      latitude: latitudeNum,
+      longitude: longitudeNum,
+      ecosystem,
+      boundaryPoints,
+      imageryStartDate,
+      imageryEndDate,
+      dataSourceStack,
+      aiModelVersion,
+      savedAt,
+      favorite: savedAoiSnapshots.find((item) => item.id === `${aoiId || siteName || projectCode}-${latitudeNum.toFixed(5)}-${longitudeNum.toFixed(5)}`)?.favorite ?? false,
+    };
+    try {
+      const entry = await saveCarbonQrRegistryEntry(reportAnchorPayload);
+      snapshot.registryRecordId = entry.id;
+      snapshot.registryUrl = entry.registryUrl;
+      snapshot.favorite = entry.favorite;
+      setRegistryRecordId(entry.id);
+      setRegistryRecordUrl(entry.registryUrl);
+      setRegistrySyncStatus('Registry synced');
+    } catch {
+      setRegistrySyncStatus('Registry save failed - using local AOI record');
+      setRegistryRecordId('');
+      setRegistryRecordUrl('');
+    } finally {
+      setIsSavingRegistry(false);
+      setSavedAoiSnapshots((current) => [
+        snapshot,
+        ...current.filter((item) => item.id !== snapshot.id),
+      ].slice(0, 8));
+    }
   };
 
   const resetBoundaryToDefault = () => {
@@ -1223,6 +1559,75 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     setHectares('');
     setMapSource('Cleared AOI selection');
     setSavedAoiAt('Not saved yet');
+  };
+
+  const loadSavedAoiSnapshot = (snapshot: SavedAoiSnapshot) => {
+    setProjectName(snapshot.projectName);
+    setProjectCode(snapshot.projectCode);
+    setProjectType(snapshot.projectType);
+    setCountry(snapshot.country);
+    setRegion(snapshot.region);
+    setCommunityPartner(snapshot.communityPartner);
+    setLandControlBasis(snapshot.landControlBasis);
+    setInterventionType(snapshot.interventionType);
+    setProjectSummary(snapshot.projectSummary);
+    setBoundaryName(snapshot.boundaryName);
+    setBoundaryEvidence(snapshot.boundaryEvidence);
+    setEcosystem(snapshot.ecosystem);
+    setSiteName(snapshot.siteName);
+    setAoiId(snapshot.aoiId);
+    setLatitude(String(snapshot.latitude));
+    setLongitude(String(snapshot.longitude));
+    setHectares(String(snapshot.hectares));
+    setBoundaryPoints(snapshot.boundaryPoints.length >= 3 ? snapshot.boundaryPoints : createDefaultBoundary({ lat: snapshot.latitude, lng: snapshot.longitude }));
+    setBoundaryInputDrafts({});
+    setMapViewportCenter([snapshot.latitude, snapshot.longitude]);
+    setMapRecenterTrigger((value) => value + 1);
+    setPlaceSearch(snapshot.projectName || snapshot.siteName);
+    setImageryStartDate(snapshot.imageryStartDate);
+    setImageryEndDate(snapshot.imageryEndDate);
+    setDataSourceStack(snapshot.dataSourceStack);
+    setAiModelVersion(snapshot.aiModelVersion);
+    setSavedAoiAt(snapshot.savedAt);
+    setMapSource('Loaded from saved AOI');
+    setSelectedPoint(null);
+    setRegistryRecordId(snapshot.registryRecordId || '');
+    setRegistryRecordUrl(snapshot.registryUrl || '');
+    setRegistrySyncStatus(snapshot.registryUrl ? 'Registry synced' : 'Loaded from local AOI memory');
+  };
+
+  const removeSavedAoiSnapshot = (snapshotId: string) => {
+    setSavedAoiSnapshots((current) => current.filter((item) => item.id !== snapshotId));
+  };
+
+  const toggleSavedAoiFavorite = async (snapshotId: string) => {
+    const currentSnapshot = savedAoiSnapshots.find((item) => item.id === snapshotId);
+    if (!currentSnapshot) return;
+    const nextFavorite = !currentSnapshot.favorite;
+
+    setSavedAoiSnapshots((current) => current.map((item) => (
+      item.id === snapshotId ? { ...item, favorite: nextFavorite } : item
+    )));
+
+    if (!currentSnapshot.registryRecordId) return;
+
+    try {
+      const entry = await updateCarbonQrRegistryFavorite(currentSnapshot.registryRecordId, nextFavorite);
+      setSavedAoiSnapshots((current) => current.map((item) => (
+        item.id === snapshotId
+          ? {
+            ...item,
+            favorite: entry.favorite,
+            registryUrl: entry.registryUrl,
+            registryRecordId: entry.id,
+          }
+          : item
+      )));
+    } catch {
+      setSavedAoiSnapshots((current) => current.map((item) => (
+        item.id === snapshotId ? { ...item, favorite: currentSnapshot.favorite } : item
+      )));
+    }
   };
 
   const applyPlaceSearch = () => {
@@ -1366,6 +1771,65 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             </button>
           </div>
 
+          <div className="rounded-lg border border-slate-800 bg-slate-950/80 p-3">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-wide text-emerald-300">Saved AOIs / Recent Areas</p>
+                <p className="mt-1 text-xs text-slate-400">Open a previously saved area without searching for it again.</p>
+              </div>
+              <span className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-300">
+                {orderedSavedAoiSnapshots.length} saved
+              </span>
+            </div>
+            {orderedSavedAoiSnapshots.length ? (
+              <div className="mt-3 grid gap-2">
+                {orderedSavedAoiSnapshots.map((snapshot) => (
+                  <div key={snapshot.id} className="flex flex-col gap-2 rounded-lg border border-slate-800 bg-slate-900/90 p-3 md:flex-row md:items-center md:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { void toggleSavedAoiFavorite(snapshot.id); }}
+                          className={`rounded-full border p-1 transition ${
+                            snapshot.favorite
+                              ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
+                              : 'border-slate-700 bg-slate-950 text-slate-400 hover:border-amber-400'
+                          }`}
+                          aria-label={snapshot.favorite ? 'Unfavorite saved AOI' : 'Favorite saved AOI'}
+                          title={snapshot.favorite ? 'Pinned favorite AOI' : 'Pin this AOI to the top'}
+                        >
+                          <Star className="h-4 w-4" />
+                        </button>
+                        <p className="truncate text-sm font-black text-white">{snapshot.siteName}</p>
+                      </div>
+                      <p className="mt-1 truncate text-xs text-slate-400">
+                        {snapshot.projectName} / {snapshot.aoiId} / {snapshot.hectares} ha / {snapshot.savedAt}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => loadSavedAoiSnapshot(snapshot)}
+                        className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-100 hover:border-emerald-400"
+                      >
+                        Open AOI
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeSavedAoiSnapshot(snapshot.id)}
+                        className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-rose-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-500">No saved AOIs yet. Save one from the mapped boundary and it will appear here.</p>
+            )}
+          </div>
+
           <div className="grid gap-3 md:grid-cols-3">
             <Field label="Latitude" value={latitude} onChange={setLatitude} help={formatCoordinate(latitudeNum, 'lat')} />
             <Field label="Longitude" value={longitude} onChange={setLongitude} help={formatCoordinate(longitudeNum, 'lng')} />
@@ -1396,8 +1860,8 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 {layer}
               </button>
             ))}
-            <button onClick={useBoundaryArea} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
-              Save AOI Boundary + QR
+            <button onClick={() => { void useBoundaryArea(); }} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500 disabled:cursor-not-allowed disabled:opacity-60" disabled={isSavingRegistry}>
+              {isSavingRegistry ? 'Saving AOI...' : 'Save AOI Boundary + QR'}
             </button>
             <button onClick={fitBoundaryOnMap} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-cyan-400">
               Fit Boundary
@@ -1459,6 +1923,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
           <SummaryRow label="AI scan" value={lastAiScanAt} help={aiModelVersion} />
           <SummaryRow label="Human verification" value={lastHumanVerifiedAt} help={communityPartner} />
           <SummaryRow label="Saved AOI boundary" value={savedAoiAt} help="Updated when you save the mapped AOI boundary." />
+          <SummaryRow label="QR registry" value={registrySyncStatus} help={registryRecordId ? `Record ${registryRecordId}` : 'Save the AOI to mint a registry-backed QR link.'} />
           <div className={`rounded-lg border p-3 ${hasMappedAoi ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-rose-500/30 bg-rose-500/10'}`}>
             <div className="flex items-center gap-2 text-sm font-black text-white">
               {hasMappedAoi ? <CheckCircle className="h-4 w-4 text-emerald-300" /> : <AlertTriangle className="h-4 w-4 text-rose-300" />}
@@ -1474,18 +1939,19 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               QR / coordinate report anchor
             </div>
             <p className="mt-2 text-xs leading-5 text-slate-400">
-              This is the payload the QR or registry anchor should point to. It includes AOI ID, GPS center, polygon points, imagery dates, AI model version, and calculation result.
+              This QR points to a registry record URL for this AOI. The backend entry carries the location anchor, polygon points, imagery dates, AI model version, and calculation result.
             </p>
             <div className="mt-3 flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
-              <QrCodeImage payload={reportAnchorPayload} size={136} />
+              <QrCodeImage value={reportAnchorUrl} size={136} />
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-black text-white">{aoiId}</p>
                 <p className="mt-1 text-xs leading-5 text-slate-400">
-                  Scan to recover the AOI location anchor, polygon coordinates, monitoring window, AI reading context, and current VIU preview.
+                  Scan to open the saved AOI registry record with the exact location anchor, polygon coordinates, monitoring window, AI reading context, and current VIU preview.
                 </p>
                 <p className="mt-2 text-xs text-cyan-200">
                   {latitudeNum.toFixed(6)}, {longitudeNum.toFixed(6)} / {round(hectaresNum)} ha
                 </p>
+                <p className="mt-2 break-all text-[11px] text-slate-500">{reportAnchorUrl}</p>
               </div>
             </div>
             <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-slate-800 bg-black/30 p-3 text-[11px] leading-5 text-cyan-100">{reportAnchorJson}</pre>

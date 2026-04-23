@@ -136,6 +136,7 @@ export const API_ROUTES = {
   CARBON_STATS: '/api/carbon/stats',
   CARBON_AIR_QUALITY: '/api/carbon/air-quality',
   CARBON_MINERALS: '/api/carbon/minerals',
+  CARBON_PROJECT_QR_REGISTRY: '/api/carbon/projects/registry',
   /** Ecological Conservation */
   ECOLOGY_LANDSAT_SCAN: '/api/ecology/landsat-scan',
   /** LEO satellite Earth Observation */
@@ -170,6 +171,7 @@ export const CARBON_CREDITS_OWNED = (userId: string) => apiUrl(`/api/carbon/cred
 export const CARBON_PROJECT_LEDGER = (projectId: string) => apiUrl(`/api/carbon/ledger/${encodeURIComponent(projectId)}`);
 export const CARBON_PROJECTS_BY_OWNER = (ownerId: string) => apiUrl(`/api/carbon/projects?ownerId=${encodeURIComponent(ownerId)}`);
 export const CARBON_PROJECT_GPS       = (projectId: string) => apiUrl(`/api/carbon/projects/${encodeURIComponent(projectId)}/location`);
+export const CARBON_PROJECT_QR_REGISTRY_DETAIL = (entryId: string) => apiUrl(`/api/carbon/projects/registry/${encodeURIComponent(entryId)}`);
 
 // ── Water Monitor helpers ─────────────────────────────────────────────────────
 export const WATER_PROJECT_DETAIL    = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}`);

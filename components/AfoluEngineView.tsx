@@ -138,6 +138,7 @@ interface EvidenceItem {
 }
 
 const PROJECTS_STORAGE_KEY = 'dpal_afolu_projects_v1';
+const CALCULATOR_AOI_STORAGE_KEY = 'dpal_afolu_calculator_aoi_v1';
 
 const seededProjects: AfoluProject[] = [
   {
@@ -573,9 +574,10 @@ const OverlayModal: React.FC<{
   onClose: () => void;
   children: React.ReactNode;
 }> = ({ title, subtitle, onClose, children }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
-    <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 shadow-[0_0_40px_rgba(16,185,129,0.14)]">
-      <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-5 py-4">
+  <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/80 p-3 backdrop-blur-sm sm:p-4">
+    <div className="flex min-h-full items-start justify-center py-3 sm:items-center sm:py-6">
+      <div className="flex w-full max-w-2xl max-h-[calc(100vh-1.5rem)] flex-col rounded-2xl border border-slate-700 bg-slate-900 shadow-[0_0_40px_rgba(16,185,129,0.14)] sm:max-h-[calc(100vh-3rem)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-800 px-4 py-4 sm:px-5">
         <div>
           <h2 className="text-lg font-black text-white">{title}</h2>
           {subtitle && <p className="mt-1 text-sm text-slate-400">{subtitle}</p>}
@@ -583,8 +585,9 @@ const OverlayModal: React.FC<{
         <button onClick={onClose} className="rounded-lg border border-slate-700 p-2 text-slate-300 transition hover:border-slate-500 hover:text-white">
           <X className="h-4 w-4" />
         </button>
+        </div>
+        <div className="overflow-y-auto px-4 py-4 sm:px-5 sm:py-5">{children}</div>
       </div>
-      <div className="p-5">{children}</div>
     </div>
   </div>
 );
@@ -822,6 +825,14 @@ function estimateProjectPriceRange(
   return `$${lowerBound}-$${upperBound} / credit`;
 }
 
+function normalizeProjectType(projectType: string): 'reforestation' | 'avoided_deforestation' | 'agroforestry' | 'restoration' {
+  const normalized = projectType.trim().toLowerCase();
+  if (normalized.includes('avoid')) return 'avoided_deforestation';
+  if (normalized.includes('agro')) return 'agroforestry';
+  if (normalized.includes('restoration') || normalized.includes('fire') || normalized.includes('wetland')) return 'restoration';
+  return 'reforestation';
+}
+
 const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
   name: '',
   type: 'Reforestation',
@@ -842,6 +853,35 @@ const defaultProjectSetupDraft = (): ProjectSetupDraft => ({
   pricePerCreditUsd: '18',
   priceRangeUsd: estimateProjectPriceRange('Reforestation', 'Medium', '18'),
 });
+
+const normalizeProjectSetupDraft = (draft: ProjectSetupDraft): ProjectSetupDraft => {
+  const normalized: ProjectSetupDraft = {
+    ...draft,
+    name: draft.name.trim(),
+    type: draft.type.trim(),
+    country: draft.country.trim(),
+    region: draft.region.trim(),
+    municipality: draft.municipality.trim(),
+    latitude: draft.latitude.trim(),
+    longitude: draft.longitude.trim(),
+    stewardName: draft.stewardName.trim(),
+    communityName: draft.communityName.trim(),
+    hectares: draft.hectares.trim(),
+    polygonLabel: draft.polygonLabel.trim(),
+    registryTarget: draft.registryTarget.trim(),
+    consentStatus: draft.consentStatus.trim(),
+    landRightsStatus: draft.landRightsStatus.trim(),
+    story: draft.story.trim(),
+    pricePerCreditUsd: draft.pricePerCreditUsd.trim(),
+    priceRangeUsd: draft.priceRangeUsd.trim(),
+  };
+
+  if (!normalized.polygonLabel) {
+    normalized.polygonLabel = `${normalized.municipality || normalized.region || normalized.country || 'Project'} AOI`;
+  }
+
+  return normalized;
+};
 
 const buildProjectFromDraft = (draft: ProjectSetupDraft, projectIndex: number): AfoluProject => {
   const hectares = Math.max(1, Number.parseFloat(draft.hectares) || 0);
@@ -1064,7 +1104,31 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
     setActiveModal('projectSetup');
   };
 
+  const openProjectInCalculator = (project: AfoluProject) => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(CALCULATOR_AOI_STORAGE_KEY, JSON.stringify({
+        id: project.id,
+        name: project.name,
+        code: project.id,
+        type: normalizeProjectType(project.type),
+        country: project.country,
+        region: project.region,
+        communityPartner: project.communityName,
+        landControlBasis: project.landRightsStatus,
+        interventionType: project.type,
+        summary: project.story,
+        hectares: project.hectares,
+        polygonLabel: project.polygonLabel,
+        latitude: project.latitude,
+        longitude: project.longitude,
+      }));
+    }
+    setSelectedProjectId(project.id);
+    setActiveTab('calculator');
+  };
+
   const createProject = () => {
+    const normalizedDraft = normalizeProjectSetupDraft(projectSetupDraft);
     const requiredFields: Array<[keyof ProjectSetupDraft, string]> = [
       ['name', 'project name'],
       ['region', 'region/state'],
@@ -1074,23 +1138,22 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       ['stewardName', 'steward/organization'],
       ['communityName', 'community/partner'],
       ['hectares', 'boundary hectares'],
-      ['polygonLabel', 'polygon/AOI label'],
       ['story', 'project narrative'],
     ];
-    const missing = requiredFields.filter(([field]) => !String(projectSetupDraft[field]).trim()).map(([, label]) => label);
+    const missing = requiredFields.filter(([field]) => !String(normalizedDraft[field]).trim()).map(([, label]) => label);
     if (missing.length) {
       setProjectSetupError(`Finish these fields before creating the project: ${missing.join(', ')}.`);
       return;
     }
 
-    const hectaresValue = Number.parseFloat(projectSetupDraft.hectares);
+    const hectaresValue = Number.parseFloat(normalizedDraft.hectares);
     if (!Number.isFinite(hectaresValue) || hectaresValue <= 0) {
       setProjectSetupError('Hectares must be a real number greater than zero.');
       return;
     }
 
-    const latitudeValue = Number.parseFloat(projectSetupDraft.latitude);
-    const longitudeValue = Number.parseFloat(projectSetupDraft.longitude);
+    const latitudeValue = Number.parseFloat(normalizedDraft.latitude);
+    const longitudeValue = Number.parseFloat(normalizedDraft.longitude);
     if (!Number.isFinite(latitudeValue) || latitudeValue < -90 || latitudeValue > 90) {
       setProjectSetupError('Latitude must be a valid coordinate between -90 and 90.');
       return;
@@ -1100,7 +1163,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       return;
     }
 
-    const nextProject = buildProjectFromDraft(projectSetupDraft, projects.length + 401);
+    setProjectSetupDraft(normalizedDraft);
+    const nextProject = buildProjectFromDraft(normalizedDraft, projects.length + 401);
     setProjects((prev) => [nextProject, ...prev]);
     setSelectedProjectId(nextProject.id);
     setActiveModal(null);
@@ -1411,7 +1475,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               Prepare Buyer Package
             </button>
             <button
-              onClick={() => setActiveTab('calculator')}
+              onClick={() => openProjectInCalculator(selectedProject)}
               className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-bold text-slate-200 hover:border-emerald-500"
             >
               Open Credit Engine
@@ -1666,6 +1730,22 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             }}
             onRunMrv={() => runTransition('Running MRV review', () => setSurfaceView('mrvResults'))}
             onPreparePackage={() => runTransition('Preparing buyer package', () => setSurfaceView('buyerPackage'))}
+            savedProjectAoi={selectedProject ? {
+              id: selectedProject.id,
+              name: selectedProject.name,
+              code: selectedProject.id,
+              type: normalizeProjectType(selectedProject.type),
+              country: selectedProject.country,
+              region: selectedProject.region,
+              communityPartner: selectedProject.communityName,
+              landControlBasis: selectedProject.landRightsStatus,
+              interventionType: selectedProject.type,
+              summary: selectedProject.story,
+              hectares: selectedProject.hectares,
+              polygonLabel: selectedProject.polygonLabel,
+              latitude: selectedProject.latitude,
+              longitude: selectedProject.longitude,
+            } : null}
           />
         )}
 
@@ -1746,7 +1826,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                   </div>
                   <button
                     type="button"
-                    onClick={() => setActiveTab('calculator')}
+                    onClick={() => openProjectInCalculator(selectedProject)}
                     className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 transition hover:border-emerald-500"
                   >
                     Open Credit Engine
