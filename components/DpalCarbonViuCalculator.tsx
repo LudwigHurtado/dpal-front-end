@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
-  AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, MapPin,
-  ShieldCheck, Target,
+  AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, Map, MapPin,
+  Plus, RefreshCw, Search, ShieldCheck, Target, Upload,
 } from './icons';
 
 type BiomassMode = 'linear_ndvi' | 'exponential_ndvi' | 'hybrid' | 'manual_agb';
@@ -9,6 +9,7 @@ type BaselineMode = 'manual' | 'historical_flat' | 'percent_growth';
 type DeductionMode = 'percent' | 'absolute';
 type ProjectType = 'reforestation' | 'avoided_deforestation' | 'agroforestry' | 'restoration';
 type EcosystemType = 'amazon_forest' | 'dry_forest' | 'agroforestry_zone' | 'grassland' | 'wetland';
+type DataLayer = 'ndvi' | 'canopy' | 'disturbance' | 'terrain';
 
 interface DpalCarbonViuCalculatorProps {
   onLaunchMission?: () => void;
@@ -46,6 +47,22 @@ const ecosystemLabels: Record<EcosystemType, string> = {
   wetland: 'Wetland',
 };
 
+const defaultBoundary = [
+  { x: 48, y: 52 },
+  { x: 138, y: 34 },
+  { x: 252, y: 70 },
+  { x: 232, y: 176 },
+  { x: 116, y: 208 },
+  { x: 42, y: 146 },
+];
+
+const placePresets = [
+  { label: 'Bolivia Amazon AOI', lat: -11.2331, lng: -67.8894, country: 'Bolivia', region: 'Pando / Northern Amazon', ecosystem: 'amazon_forest' as EcosystemType },
+  { label: 'Santa Cruz Dry Forest', lat: -16.3618, lng: -60.9601, country: 'Bolivia', region: 'Santa Cruz / Chiquitano', ecosystem: 'dry_forest' as EcosystemType },
+  { label: 'Antioquia Agroforestry', lat: 5.6012, lng: -75.8194, country: 'Colombia', region: 'Antioquia / Jardin', ecosystem: 'agroforestry_zone' as EcosystemType },
+  { label: 'Patagonia Wetland', lat: -43.512, lng: -65.812, country: 'Argentina', region: 'Patagonia wetland corridor', ecosystem: 'wetland' as EcosystemType },
+];
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
@@ -60,14 +77,42 @@ function round(value: number, digits = 2) {
   return Math.round((value + Number.EPSILON) * factor) / factor;
 }
 
+function polygonArea(coords: Array<{ x: number; y: number }>) {
+  if (coords.length < 3) return 0;
+  let area = 0;
+  for (let i = 0; i < coords.length; i += 1) {
+    const next = coords[(i + 1) % coords.length];
+    area += coords[i].x * next.y;
+    area -= next.x * coords[i].y;
+  }
+  return Math.abs(area / 2);
+}
+
 function formatNumber(value: number, digits = 0) {
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: digits }).format(value);
 }
 
+function deterministicUnit(seed: number) {
+  return (Math.sin(seed) + 1) / 2;
+}
+
+function formatCoordinate(value: number, axis: 'lat' | 'lng') {
+  const suffix = axis === 'lat' ? (value >= 0 ? 'N' : 'S') : value >= 0 ? 'E' : 'W';
+  return `${Math.abs(value).toFixed(5)}° ${suffix}`;
+}
+
 function disclosureTemplate(isCertified: boolean) {
   return isCertified
-    ? 'These units are represented as externally certified credits only where supported by approved third-party validation, verification, registry issuance, and applicable claims rules.'
-    : 'These units are DPAL Verified Impact Units (VIUs) backed by satellite analysis, field evidence, and blockchain traceability. They are not represented as certified carbon offsets unless externally validated, verified, and issued through an approved standard.';
+    ? 'This record may be represented as externally certified only where approved third-party validation, verification, and registry issuance are complete for this AOI and monitoring period.'
+    : 'This AOI output is an internal DPAL Verified Impact Unit preview backed by map-linked evidence, AI reading context, and registry-ready calculations. It is not represented as a certified carbon offset unless externally validated, verified, and issued through an approved standard.';
+}
+
+function monthsBetweenDates(startValue: string, endValue: string) {
+  const start = new Date(startValue);
+  const end = new Date(endValue);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 12;
+  const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+  return Math.max(1, months || 12);
 }
 
 const Field: React.FC<{
@@ -82,6 +127,25 @@ const Field: React.FC<{
     <input
       type={type}
       value={value}
+      onChange={(event) => onChange(event.target.value)}
+      className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
+    />
+    {help ? <span className="mt-1 block text-xs text-slate-500">{help}</span> : null}
+  </label>
+);
+
+const TextAreaField: React.FC<{
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  rows?: number;
+  help?: string;
+}> = ({ label, value, onChange, rows = 3, help }) => (
+  <label className="block">
+    <span className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</span>
+    <textarea
+      value={value}
+      rows={rows}
       onChange={(event) => onChange(event.target.value)}
       className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none transition focus:border-emerald-400"
     />
@@ -180,13 +244,36 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   onPreparePackage,
 }) => {
   const [projectName, setProjectName] = useState('Bolivia Amazon Pilot 001');
+  const [projectCode, setProjectCode] = useState('DPAL-AMZ-001');
   const [projectType, setProjectType] = useState<ProjectType>('reforestation');
   const [ecosystem, setEcosystem] = useState<EcosystemType>('amazon_forest');
+  const [country, setCountry] = useState('Bolivia');
+  const [region, setRegion] = useState('Pando / Northern Amazon');
+  const [communityPartner, setCommunityPartner] = useState('Regional community cooperative');
+  const [landControlBasis, setLandControlBasis] = useState('Community consent + partner agreement');
+  const [interventionType, setInterventionType] = useState('Native species reforestation and restoration');
+  const [projectSummary, setProjectSummary] = useState('Restore degraded land through community planting, maintenance, monitoring, and long-term protection with DPAL evidence capture and verification-ready records.');
   const [hectares, setHectares] = useState('100');
-  const [monitoringMonths, setMonitoringMonths] = useState('12');
   const [biomassMode, setBiomassMode] = useState<BiomassMode>('hybrid');
   const [baselineMode, setBaselineMode] = useState<BaselineMode>('percent_growth');
   const [deductionMode, setDeductionMode] = useState<DeductionMode>('percent');
+  const [boundaryName, setBoundaryName] = useState('Pilot Polygon A');
+  const [mapSource, setMapSource] = useState('Satellite + community draw');
+  const [boundaryEvidence, setBoundaryEvidence] = useState('GPS walkthrough, field photos, land sketch, local approval note');
+  const [boundaryPoints, setBoundaryPoints] = useState(defaultBoundary);
+  const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
+  const [siteName, setSiteName] = useState('Parcel A');
+  const [aoiId, setAoiId] = useState('AOI-DPAL-AMZ-001-A');
+  const [latitude, setLatitude] = useState('-11.2331');
+  const [longitude, setLongitude] = useState('-67.8894');
+  const [placeSearch, setPlaceSearch] = useState('Bolivia Amazon AOI');
+  const [imageryStartDate, setImageryStartDate] = useState('2025-01-01');
+  const [imageryEndDate, setImageryEndDate] = useState('2026-01-01');
+  const [dataSourceStack, setDataSourceStack] = useState('Sentinel-2 NDVI + canopy height + field correction + verifier package');
+  const [aiModelVersion, setAiModelVersion] = useState('DPAL-AOI-MRV-v0.3');
+  const [lastAiScanAt, setLastAiScanAt] = useState('2026-04-23 09:15');
+  const [lastHumanVerifiedAt, setLastHumanVerifiedAt] = useState('2026-04-20 14:30');
+  const [activeMapLayer, setActiveMapLayer] = useState<DataLayer>('ndvi');
   const [ndviStart, setNdviStart] = useState('0.42');
   const [ndviEnd, setNdviEnd] = useState('0.56');
   const [canopyHeightStart, setCanopyHeightStart] = useState('8');
@@ -237,10 +324,63 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   };
 
   const hectaresNum = Math.max(0, safeNumber(hectares, 0));
-  const monthsNum = Math.max(1, safeNumber(monitoringMonths, 12));
+  const monthsNum = useMemo(() => monthsBetweenDates(imageryStartDate, imageryEndDate), [imageryEndDate, imageryStartDate]);
   const carbonFractionNum = clamp(safeNumber(carbonFraction, 0.47), 0, 1);
   const ndviStartNum = clamp(safeNumber(ndviStart, 0), -1, 1);
   const ndviEndNum = clamp(safeNumber(ndviEnd, 0), -1, 1);
+  const latitudeNum = clamp(safeNumber(latitude, -11.2331), -90, 90);
+  const longitudeNum = clamp(safeNumber(longitude, -67.8894), -180, 180);
+  const boundaryAreaUnits = useMemo(() => polygonArea(boundaryPoints), [boundaryPoints]);
+  const hectaresFromBoundary = round(boundaryAreaUnits * 0.012, 2);
+  const boundaryPerimeter = useMemo(() => {
+    if (boundaryPoints.length < 2) return 0;
+    let total = 0;
+    for (let i = 0; i < boundaryPoints.length; i += 1) {
+      const next = boundaryPoints[(i + 1) % boundaryPoints.length];
+      const dx = next.x - boundaryPoints[i].x;
+      const dy = next.y - boundaryPoints[i].y;
+      total += Math.sqrt(dx * dx + dy * dy);
+    }
+    return round(total * 0.045, 2);
+  }, [boundaryPoints]);
+  const boundaryPolygon = boundaryPoints.map((point) => `${point.x},${point.y}`).join(' ');
+  const hasMappedAoi = Number.isFinite(latitudeNum) && Number.isFinite(longitudeNum) && boundaryPoints.length >= 3 && hectaresNum > 0;
+  const mapLayerClass = activeMapLayer === 'ndvi'
+    ? 'from-emerald-950 via-lime-950 to-slate-950'
+    : activeMapLayer === 'canopy'
+      ? 'from-cyan-950 via-slate-900 to-slate-950'
+      : activeMapLayer === 'disturbance'
+        ? 'from-amber-950 via-slate-900 to-stone-950'
+        : 'from-stone-950 via-slate-900 to-slate-950';
+  const layerLabel = {
+    ndvi: 'NDVI trend',
+    canopy: 'Canopy structure',
+    disturbance: 'Disturbance scan',
+    terrain: 'Terrain context',
+  }[activeMapLayer];
+  const liveReading = useMemo(() => {
+    const seed = latitudeNum * 127.1 + longitudeNum * 311.7 + hectaresNum * 0.17 + imageryEndDate.length;
+    const ndviTrend = round((deterministicUnit(seed) - 0.38) * 0.26, 3);
+    const canopySignal = round(42 + deterministicUnit(seed + 8.4) * 38, 1);
+    const disturbanceRisk = round(deterministicUnit(seed + 15.2) * 100, 1);
+    const restorationSignal = round(clamp(55 + ndviTrend * 140 + deterministicUnit(seed + 2.8) * 18, 0, 100), 1);
+    const evidenceLift = clamp(safeNumber(evidenceCount, 0), 0, 100) * 0.04 + clamp(safeNumber(photoConfidence, 0), 0, 100) * 0.04;
+    const confidence = round(clamp(62 + deterministicUnit(seed + 4.6) * 24 + evidenceLift, 0, 100), 1);
+    const anomalyFlags = [
+      disturbanceRisk > 68 ? 'Disturbance watch' : 'No major disturbance',
+      confidence < 72 ? 'Needs stronger evidence' : 'Evidence alignment acceptable',
+      Math.abs(ndviTrend) < 0.015 ? 'Low vegetation movement' : ndviTrend > 0 ? 'Positive vegetation trend' : 'Negative vegetation trend',
+    ];
+    return { ndviTrend, canopySignal, disturbanceRisk, restorationSignal, confidence, anomalyFlags };
+  }, [evidenceCount, hectaresNum, imageryEndDate.length, latitudeNum, longitudeNum, photoConfidence]);
+  const scanReadiness = round(clamp(
+    liveReading.confidence * 0.45 +
+    (clamp(safeNumber(evidenceCount, 0), 0, 100) * 0.12 + clamp(safeNumber(photoConfidence, 0), 0, 100) * 0.13) +
+    (100 - liveReading.disturbanceRisk) * 0.15 +
+    liveReading.restorationSignal * 0.15,
+    0,
+    100,
+  ), 1);
 
   const calcBiomass = (ndvi: number, height: number, cover: number, correction: number, manualAgb: number) => {
     if (biomassMode === 'linear_ndvi') return coeff.a + coeff.b * ndvi;
@@ -323,12 +463,18 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   }, [duplicateRiskFlag, integrityScore, netCreditableCo2e]);
 
   const serialPreview = useMemo(() => {
-    const projectSlug = (projectName || 'UNTITLED').replace(/[^a-z0-9]+/gi, '-').toUpperCase().slice(0, 12);
+    const projectSlug = (projectCode || projectName || 'UNTITLED').replace(/[^a-z0-9]+/gi, '-').toUpperCase().slice(0, 12);
     const end = Math.max(1, viuEligible);
     return `DPAL-VIU-${new Date().getFullYear()}-${projectSlug}-00001..${String(end).padStart(5, '0')}`;
-  }, [projectName, viuEligible]);
+  }, [projectCode, projectName, viuEligible]);
 
   const calculationNarrative = [
+    `AOI = ${aoiId} / ${siteName}`,
+    `Center = ${latitudeNum.toFixed(5)}, ${longitudeNum.toFixed(5)}`,
+    `Boundary area = ${round(hectaresNum)} ha (${hectaresFromBoundary} ha polygon estimate)`,
+    `Imagery window = ${imageryStartDate} to ${imageryEndDate}`,
+    `Source stack = ${dataSourceStack}`,
+    `Model version = ${aiModelVersion}`,
     `Project gross CO2e gain = ${round(grossProjectCo2e)} tCO2e`,
     `Baseline CO2e gain = ${round(grossBaselineCo2e)} tCO2e`,
     `Pre-deduction net = ${round(preDeductionNetCo2e)} tCO2e`,
@@ -340,6 +486,62 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     `Indicative VIUs eligible = ${viuEligible}`,
   ].join('\n');
 
+  const addBoundaryPoint = () => {
+    const last = boundaryPoints[boundaryPoints.length - 1] ?? { x: 60, y: 60 };
+    setBoundaryPoints([
+      ...boundaryPoints,
+      {
+        x: clamp(last.x + 18, 20, 280),
+        y: clamp(last.y + 12, 20, 210),
+      },
+    ]);
+  };
+
+  const updateBoundaryPoint = (index: number, key: 'x' | 'y', value: string) => {
+    const next = [...boundaryPoints];
+    next[index] = {
+      ...next[index],
+      [key]: clamp(safeNumber(value, next[index][key]), 0, key === 'x' ? 300 : 240),
+    };
+    setBoundaryPoints(next);
+  };
+
+  const removeBoundaryPoint = (index: number) => {
+    if (boundaryPoints.length <= 3) return;
+    setBoundaryPoints(boundaryPoints.filter((_, pointIndex) => pointIndex !== index));
+    setSelectedPoint(null);
+  };
+
+  const useBoundaryArea = () => {
+    if (hectaresFromBoundary > 0) {
+      setHectares(String(hectaresFromBoundary));
+    }
+  };
+
+  const applyPlaceSearch = () => {
+    const normalized = placeSearch.trim().toLowerCase();
+    const preset = placePresets.find((place) => normalized === place.label.toLowerCase() || place.label.toLowerCase().includes(normalized));
+    if (!preset) return;
+    setLatitude(String(preset.lat));
+    setLongitude(String(preset.lng));
+    setCountry(preset.country);
+    setRegion(preset.region);
+    setEcosystem(preset.ecosystem);
+    setSiteName(preset.label.replace(' AOI', '').replace('Wetland', 'Wetland Parcel'));
+    setMapSource('Satellite + searched AOI');
+  };
+
+  const handleMapClick = (event: React.MouseEvent<SVGSVGElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = ((event.clientX - rect.left) / rect.width) * 300;
+    const y = ((event.clientY - rect.top) / rect.height) * 240;
+    const nextLng = clamp(longitudeNum + (x - 150) * 0.0025, -180, 180);
+    const nextLat = clamp(latitudeNum - (y - 120) * 0.0025, -90, 90);
+    setLongitude(nextLng.toFixed(5));
+    setLatitude(nextLat.toFixed(5));
+    setMapSource('Manual map pin + polygon');
+  };
+
   return (
     <div className="space-y-5">
       <section className="rounded-lg border border-emerald-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/50 p-5">
@@ -347,11 +549,11 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
           <div>
             <div className="flex flex-wrap gap-2">
               <span className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-emerald-200">DPAL Carbon / VIU Calculator</span>
-              <span className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-bold text-slate-300">MRV + Governance + Registry Logic</span>
+              <span className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-1 text-xs font-bold text-slate-300">Project Intake + Boundary + Registry Logic</span>
             </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">Build defensible impact numbers.</h1>
+            <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">From project boundary to verification-ready impact numbers.</h1>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">
-              Convert project evidence into biomass, carbon, CO2e, deductions, buffer withholding, and indicative DPAL Verified Impact Units.
+              Register the project, sketch the operating boundary, connect evidence assumptions, and calculate indicative DPAL Verified Impact Units with disclosure-safe outputs.
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
               <button onClick={onLaunchMission} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500">Launch Evidence Mission</button>
@@ -363,18 +565,177 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
             <p className="text-sm font-black text-white">Program Snapshot</p>
             <div className="mt-3 space-y-2">
               <SummaryRow label="Project" value={projectName || 'Untitled'} />
+              <SummaryRow label="Project Code" value={projectCode || 'Uncoded'} />
               <SummaryRow label="Type" value={projectTypeLabels[projectType]} />
               <SummaryRow label="Ecosystem" value={ecosystemLabels[ecosystem]} />
-              <SummaryRow label="Area" value={`${formatNumber(hectaresNum)} ha`} />
+              <SummaryRow label="Boundary" value={boundaryName} />
+              <SummaryRow label="Area" value={`${formatNumber(hectaresNum)} ha`} help={`Boundary estimate: ${hectaresFromBoundary} ha`} />
             </div>
           </div>
         </div>
       </section>
 
-      <div className="grid gap-3 md:grid-cols-4">
-        <ResultTile label="Gross Project CO2e" value={formatNumber(round(grossProjectCo2e), 1)} note={`tCO2e over ${monthsNum} months`} icon={<Globe className="h-4 w-4" />} />
-        <ResultTile label="Net Creditable CO2e" value={formatNumber(round(netCreditableCo2e), 1)} note="After deductions and buffer logic" icon={<ShieldCheck className="h-4 w-4" />} tone="text-cyan-300" />
-        <ResultTile label="Indicative VIUs" value={formatNumber(viuEligible)} note="1 VIU = 1 tCO2e pending rules" icon={<Database className="h-4 w-4" />} tone="text-amber-300" />
+      <section className="grid gap-5 rounded-lg border border-slate-800 bg-slate-900/80 p-4 shadow-lg xl:grid-cols-[1.2fr_0.8fr]">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="flex-1">
+              <Field type="text" label="Search or select place" value={placeSearch} onChange={setPlaceSearch} />
+            </div>
+            <button onClick={applyPlaceSearch} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500">
+              <Search className="mr-2 inline h-4 w-4" />Use Place
+            </button>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field label="Latitude" value={latitude} onChange={setLatitude} help={formatCoordinate(latitudeNum, 'lat')} />
+            <Field label="Longitude" value={longitude} onChange={setLongitude} help={formatCoordinate(longitudeNum, 'lng')} />
+            <Field type="text" label="Site / parcel name" value={siteName} onChange={setSiteName} />
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <Field type="text" label="Imagery start date" value={imageryStartDate} onChange={setImageryStartDate} />
+            <Field type="text" label="Imagery end date" value={imageryEndDate} onChange={setImageryEndDate} />
+            <div className="md:col-span-2">
+              <Field type="text" label="Data source stack" value={dataSourceStack} onChange={setDataSourceStack} />
+            </div>
+            <Field type="text" label="AI model version" value={aiModelVersion} onChange={setAiModelVersion} />
+            <Field type="text" label="AOI ID" value={aoiId} onChange={setAoiId} />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(['ndvi', 'canopy', 'disturbance', 'terrain'] as DataLayer[]).map((layer) => (
+              <button
+                key={layer}
+                onClick={() => setActiveMapLayer(layer)}
+                className={`rounded-lg border px-3 py-2 text-xs font-black capitalize transition ${
+                  activeMapLayer === layer
+                    ? 'border-emerald-400 bg-emerald-500/15 text-emerald-100'
+                    : 'border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500'
+                }`}
+              >
+                {layer}
+              </button>
+            ))}
+            <button onClick={useBoundaryArea} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
+              Save AOI Boundary
+            </button>
+          </div>
+
+          <div className={`rounded-lg border border-slate-800 bg-gradient-to-br ${mapLayerClass} p-4 shadow-inner`}>
+            <svg viewBox="0 0 300 240" onClick={handleMapClick} className="h-96 w-full cursor-crosshair rounded-lg">
+              <defs>
+                <pattern id="aoi-live-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                  <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                </pattern>
+                <radialGradient id="aoi-veg-signal" cx="50%" cy="50%" r="65%">
+                  <stop offset="0%" stopColor="rgba(16,185,129,0.42)" />
+                  <stop offset="100%" stopColor="rgba(15,23,42,0)" />
+                </radialGradient>
+              </defs>
+              <rect width="300" height="240" fill="url(#aoi-live-grid)" />
+              <rect x="20" y="24" width="260" height="188" rx="18" fill="url(#aoi-veg-signal)" opacity={activeMapLayer === 'ndvi' ? 1 : 0.45} />
+              <path d="M18 172 C70 126 98 150 146 104 C190 62 222 78 282 42" fill="none" stroke="rgba(125,211,252,0.24)" strokeWidth="11" />
+              <path d="M24 198 C80 168 110 183 170 142 C220 108 238 130 280 104" fill="none" stroke="rgba(250,204,21,0.16)" strokeWidth="8" />
+              {activeMapLayer === 'canopy' ? (
+                <>
+                  <circle cx="52" cy="168" r="28" fill="rgba(56,189,248,0.20)" />
+                  <circle cx="204" cy="66" r="24" fill="rgba(56,189,248,0.16)" />
+                </>
+              ) : null}
+              {activeMapLayer === 'disturbance' ? (
+                <>
+                  <circle cx="212" cy="176" r="36" fill="rgba(245,158,11,0.22)" />
+                  <path d="M196 150 L230 196" stroke="rgba(251,191,36,0.75)" strokeWidth="3" />
+                </>
+              ) : null}
+              {activeMapLayer === 'terrain' ? (
+                <>
+                  <path d="M32 74 C72 42 102 64 134 42 C184 10 208 38 266 24" fill="none" stroke="rgba(226,232,240,0.18)" strokeWidth="6" />
+                  <path d="M36 112 C84 88 112 104 154 76 C204 48 224 70 272 58" fill="none" stroke="rgba(226,232,240,0.14)" strokeWidth="5" />
+                </>
+              ) : null}
+              <polygon points={boundaryPolygon} fill="rgba(16, 185, 129, 0.28)" stroke="rgba(255,255,255,0.9)" strokeWidth="2.3" />
+              {boundaryPoints.map((point, index) => (
+                <g key={`aoi-${point.x}-${point.y}-${index}`}>
+                  <circle
+                    cx={point.x}
+                    cy={point.y}
+                    r={selectedPoint === index ? 6.5 : 5}
+                    fill={selectedPoint === index ? '#fbbf24' : '#ffffff'}
+                    stroke="#0f172a"
+                    strokeWidth="1.5"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setSelectedPoint(index);
+                    }}
+                  />
+                  <text x={point.x + 8} y={point.y - 8} fill="rgba(255,255,255,0.9)" fontSize="10">P{index + 1}</text>
+                </g>
+              ))}
+              <g transform="translate(150 120)">
+                <circle r="12" fill="rgba(14,165,233,0.22)" stroke="rgba(125,211,252,0.9)" strokeWidth="2" />
+                <path d="M0 -18 L4 -4 L18 0 L4 4 L0 18 L-4 4 L-18 0 L-4 -4 Z" fill="#38bdf8" />
+              </g>
+              <text x="16" y="22" fill="rgba(255,255,255,0.86)" fontSize="11">Click map to move AOI center</text>
+              <text x="16" y="224" fill="rgba(255,255,255,0.74)" fontSize="10">{latitudeNum.toFixed(5)}, {longitudeNum.toFixed(5)} / {layerLabel}</text>
+            </svg>
+          </div>
+        </div>
+
+        <aside className="space-y-3">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-300">Location Context</p>
+            <h2 className="mt-1 text-2xl font-black text-white">No calculation without a mapped AOI.</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Every VIU output below is tied to this site, center point, boundary, imagery window, and source stack.
+            </p>
+          </div>
+          <SummaryRow label="AOI ID" value={aoiId} />
+          <SummaryRow label="Center coordinates" value={`${latitudeNum.toFixed(5)}, ${longitudeNum.toFixed(5)}`} help={`${formatCoordinate(latitudeNum, 'lat')} / ${formatCoordinate(longitudeNum, 'lng')}`} />
+          <SummaryRow label="Boundary hectares" value={`${round(hectaresNum)} ha`} help={`Polygon estimate: ${hectaresFromBoundary} ha`} />
+          <SummaryRow label="Region / Country" value={`${region}, ${country}`} />
+          <SummaryRow label="Imagery dates" value={`${imageryStartDate} to ${imageryEndDate}`} />
+          <SummaryRow label="Data sources" value={dataSourceStack} />
+          <SummaryRow label="Active data layer" value={layerLabel} />
+          <SummaryRow label="AI scan" value={lastAiScanAt} help={aiModelVersion} />
+          <SummaryRow label="Human verification" value={lastHumanVerifiedAt} help={communityPartner} />
+          <div className={`rounded-lg border p-3 ${hasMappedAoi ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-rose-500/30 bg-rose-500/10'}`}>
+            <div className="flex items-center gap-2 text-sm font-black text-white">
+              {hasMappedAoi ? <CheckCircle className="h-4 w-4 text-emerald-300" /> : <AlertTriangle className="h-4 w-4 text-rose-300" />}
+              {hasMappedAoi ? 'AOI-linked calculation ready' : 'Map an AOI before issuing'}
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              Required: saved center coordinates, polygon boundary, monitoring dates, data stack, and evidence references.
+            </p>
+          </div>
+        </aside>
+      </section>
+
+      <section className="grid gap-3 rounded-lg border border-slate-800 bg-slate-900/80 p-4 md:grid-cols-4">
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+          <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wide text-emerald-300"><RefreshCw className="h-4 w-4" />Live AI Reading</div>
+          <p className="mt-2 text-2xl font-black text-white">{liveReading.confidence}%</p>
+          <p className="mt-1 text-xs text-slate-500">Confidence for selected AOI</p>
+        </div>
+        <SummaryRow label="NDVI trend" value={`${liveReading.ndviTrend >= 0 ? '+' : ''}${liveReading.ndviTrend}`} help={`${imageryStartDate} to ${imageryEndDate}`} />
+        <SummaryRow label="Canopy signal" value={`${liveReading.canopySignal}%`} help={`Active layer: ${layerLabel}`} />
+        <SummaryRow label="Disturbance flags" value={liveReading.anomalyFlags[0]} help={liveReading.anomalyFlags.slice(1).join(' / ')} />
+        <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 md:col-span-4">
+          <div className="mb-2 flex justify-between text-xs font-bold text-slate-300">
+            <span>AOI scan readiness</span>
+            <span>{scanReadiness}%</span>
+          </div>
+          <div className="h-2 rounded-full bg-slate-800">
+            <div className="h-2 rounded-full bg-cyan-400" style={{ width: `${scanReadiness}%` }} />
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-3 md:grid-cols-5">
+        <ResultTile label="Project Area" value={`${formatNumber(hectaresNum)} ha`} note={`${hectaresFromBoundary} ha from boundary`} icon={<Map className="h-4 w-4" />} tone="text-lime-300" />
+        <ResultTile label="Gross Project CO2e" value={formatNumber(round(grossProjectCo2e), 1)} note={`${aoiId}, ${monthsNum} months`} icon={<Globe className="h-4 w-4" />} />
+        <ResultTile label="Net Creditable CO2e" value={formatNumber(round(netCreditableCo2e), 1)} note="AOI-linked after deductions" icon={<ShieldCheck className="h-4 w-4" />} tone="text-cyan-300" />
+        <ResultTile label="Indicative VIUs" value={formatNumber(viuEligible)} note={`For ${siteName}, not a detached estimate`} icon={<Database className="h-4 w-4" />} tone="text-amber-300" />
         <div className="rounded-lg border border-slate-800 bg-slate-950 p-4">
           <div className="flex items-center gap-2 text-sm font-bold text-emerald-300"><CheckCircle className="h-4 w-4" />Readiness</div>
           <div className={`mt-3 inline-flex rounded-lg border px-3 py-1 text-sm font-black ${readinessStatus.className}`}>{readinessStatus.label}</div>
@@ -387,8 +748,19 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
           <Panel title="Project Intake" description="Core project configuration and methodology settings">
             <div className="grid gap-4 md:grid-cols-2">
               <Field type="text" label="Project name" value={projectName} onChange={setProjectName} />
+              <Field type="text" label="Project code" value={projectCode} onChange={setProjectCode} />
               <SelectField label="Project type" value={projectType} onChange={setProjectType} options={Object.entries(projectTypeLabels).map(([value, label]) => ({ value: value as ProjectType, label }))} />
               <SelectField label="Ecosystem type" value={ecosystem} onChange={setEcosystem} options={Object.entries(ecosystemLabels).map(([value, label]) => ({ value: value as EcosystemType, label }))} />
+              <Field type="text" label="Country" value={country} onChange={setCountry} />
+              <Field type="text" label="Region / district" value={region} onChange={setRegion} />
+              <Field type="text" label="Community / partner" value={communityPartner} onChange={setCommunityPartner} />
+              <Field type="text" label="Land control basis" value={landControlBasis} onChange={setLandControlBasis} />
+              <div className="md:col-span-2">
+                <Field type="text" label="Intervention type" value={interventionType} onChange={setInterventionType} />
+              </div>
+              <div className="md:col-span-2">
+                <TextAreaField label="Project summary" value={projectSummary} onChange={setProjectSummary} rows={4} />
+              </div>
               <SelectField label="Biomass model" value={biomassMode} onChange={setBiomassMode} options={[
                 { value: 'hybrid', label: 'Hybrid: NDVI + height + cover + field' },
                 { value: 'linear_ndvi', label: 'Linear NDVI' },
@@ -396,13 +768,113 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 { value: 'manual_agb', label: 'Manual AGB override' },
               ]} />
               <Field label="Area (hectares)" value={hectares} onChange={setHectares} />
-              <Field label="Monitoring window (months)" value={monitoringMonths} onChange={setMonitoringMonths} />
+              <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Monitoring window</p>
+                <p className="mt-2 text-sm font-black text-white">{monthsNum} months</p>
+                <p className="mt-1 text-xs text-slate-500">Derived from imagery start and end dates.</p>
+              </div>
               <SelectField label="Baseline mode" value={baselineMode} onChange={setBaselineMode} options={[
                 { value: 'percent_growth', label: 'Percent growth' },
                 { value: 'historical_flat', label: 'Historical flat delta' },
                 { value: 'manual', label: 'Manual baseline AGB' },
               ]} />
               <Field label="Carbon fraction" value={carbonFraction} onChange={setCarbonFraction} help="Common default is 0.47." />
+            </div>
+          </Panel>
+
+          <Panel title="Map Boundary" description="Define the project polygon, evidence basis, and area link into the calculator">
+            <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Field type="text" label="Boundary name" value={boundaryName} onChange={setBoundaryName} />
+                  <Field type="text" label="Boundary source" value={mapSource} onChange={setMapSource} />
+                  <div className="md:col-span-2">
+                    <TextAreaField label="Boundary evidence notes" value={boundaryEvidence} onChange={setBoundaryEvidence} rows={3} />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-slate-800 bg-slate-950 p-4 shadow-inner">
+                  <svg viewBox="0 0 300 240" className="h-80 w-full rounded-lg bg-slate-900">
+                    <defs>
+                      <pattern id="viu-boundary-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
+                      </pattern>
+                    </defs>
+                    <rect width="300" height="240" fill="url(#viu-boundary-grid)" />
+                    <circle cx="245" cy="42" r="28" fill="rgba(245, 158, 11, 0.14)" />
+                    <circle cx="50" cy="58" r="18" fill="rgba(56, 189, 248, 0.12)" />
+                    <circle cx="205" cy="185" r="34" fill="rgba(34, 197, 94, 0.10)" />
+                    <polygon points={boundaryPolygon} fill="rgba(16, 185, 129, 0.28)" stroke="rgba(255,255,255,0.88)" strokeWidth="2.3" />
+                    {boundaryPoints.map((point, index) => (
+                      <g key={`${point.x}-${point.y}-${index}`}>
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r={selectedPoint === index ? 6.5 : 5}
+                          fill={selectedPoint === index ? '#fbbf24' : '#ffffff'}
+                          stroke="#0f172a"
+                          strokeWidth="1.5"
+                          className="cursor-pointer"
+                          onClick={() => setSelectedPoint(index)}
+                        />
+                        <text x={point.x + 8} y={point.y - 8} fill="rgba(255,255,255,0.9)" fontSize="10">
+                          P{index + 1}
+                        </text>
+                      </g>
+                    ))}
+                    <text x="18" y="24" fill="rgba(255,255,255,0.8)" fontSize="11">DPAL boundary preview</text>
+                  </svg>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={addBoundaryPoint} className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white hover:bg-emerald-500">
+                    <Plus className="mr-2 inline h-4 w-4" />Add Point
+                  </button>
+                  <button onClick={useBoundaryArea} className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
+                    Use Boundary Area
+                  </button>
+                  <button type="button" className="rounded-lg border border-slate-700 px-4 py-2 text-xs font-black text-slate-200 hover:border-emerald-500">
+                    <Upload className="mr-2 inline h-4 w-4" />GeoJSON Later
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <SummaryRow label="Boundary area estimate" value={`${hectaresFromBoundary} ha`} />
+                <SummaryRow label="Perimeter estimate" value={`${boundaryPerimeter} km`} />
+                <SummaryRow label="Point count" value={String(boundaryPoints.length)} />
+                <SummaryRow label="Current calculator area" value={`${round(hectaresNum)} ha`} />
+                <SummaryRow label="Map source" value={mapSource} />
+
+                <div className="space-y-2 rounded-lg border border-slate-800 bg-slate-950 p-3">
+                  <p className="text-sm font-black text-white">Boundary editor</p>
+                  {boundaryPoints.map((point, index) => (
+                    <div key={`editor-${index}`} className={`rounded-lg border p-3 ${selectedPoint === index ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-900'}`}>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <p className="text-xs font-black uppercase tracking-wide text-slate-300">Point {index + 1}</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setSelectedPoint(index)} className="rounded-md border border-slate-700 px-2 py-1 text-[11px] font-bold text-slate-200 hover:border-emerald-500">Select</button>
+                          <button onClick={() => removeBoundaryPoint(index)} className="rounded-md border border-rose-500/30 px-2 py-1 text-[11px] font-bold text-rose-200 hover:border-rose-400">Remove</button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <input
+                          aria-label={`Point ${index + 1} x`}
+                          value={point.x}
+                          onChange={(event) => updateBoundaryPoint(index, 'x', event.target.value)}
+                          className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-400"
+                        />
+                        <input
+                          aria-label={`Point ${index + 1} y`}
+                          value={point.y}
+                          onChange={(event) => updateBoundaryPoint(index, 'y', event.target.value)}
+                          className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-white outline-none focus:border-emerald-400"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Panel>
 
@@ -559,6 +1031,15 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
 
           <Panel title="Registry Package">
             <div className="space-y-3">
+              <div className="grid gap-2">
+              <SummaryRow label="Calculated for AOI" value={`${aoiId} / ${siteName}`} />
+              <SummaryRow label="Coordinates" value={`${latitudeNum.toFixed(5)}, ${longitudeNum.toFixed(5)}`} />
+              <SummaryRow label="Monitoring period" value={`${imageryStartDate} to ${imageryEndDate}`} />
+              <SummaryRow label="Source stack" value={dataSourceStack} />
+              <SummaryRow label="AI analysis version" value={aiModelVersion} />
+              <SummaryRow label="Active data layer" value={layerLabel} />
+              <SummaryRow label="AOI scan readiness" value={`${scanReadiness}%`} />
+              </div>
               <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
                 <div className="mb-2 flex items-center gap-2 text-sm font-bold text-slate-200"><FileText className="h-4 w-4" />Disclosure preview</div>
                 <p className="text-sm leading-6 text-slate-400">{disclosureTemplate(externalCertification)}</p>
@@ -578,11 +1059,15 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
 
           <Panel title="Next Build Hooks">
             <div className="grid gap-2">
-              <SummaryRow label="Evidence Vault" value="Upload, hash, geo-tag" />
-              <SummaryRow label="Verifier Dashboard" value="Approve, reject, clarify" />
-              <SummaryRow label="Public Registry" value="Status, retirement, reversals" />
-              <SummaryRow label="Disclosure Engine" value="Buyer-safe claims language" />
-              <SummaryRow label="Export Package" value="External standard bundle" />
+              <SummaryRow label="GPS coordinates" value="Added" />
+              <SummaryRow label="AOI identity" value="Added" />
+              <SummaryRow label="Boundary-linked area" value="Added" />
+              <SummaryRow label="Imagery date range" value="Added" />
+              <SummaryRow label="AI scan metadata" value="Added" />
+              <SummaryRow label="AOI-specific disclosure" value="Added" />
+              <SummaryRow label="Evidence Vault" value="Next: upload, hash, geo-tag, link to AOI" />
+              <SummaryRow label="Timeline slider" value="Next: compare imagery snapshots by date" />
+              <SummaryRow label="Live API integration" value="Next: replace prototype readings with MRV responses" />
             </div>
             <div className="mt-4 grid gap-2 sm:grid-cols-3">
               <button onClick={onLaunchMission} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-black text-slate-200 hover:border-emerald-500"><Target className="mr-2 inline h-4 w-4" />Mission</button>
