@@ -4,6 +4,7 @@ import type { Report } from '../types';
 import { MapPin, Tag, Clock, Hash, Link, Pencil, Camera, Loader, ChevronLeft, ChevronRight, QrCode, ShieldCheck, Zap, Broadcast, Target, Scale, AlertTriangle, FileText, Fingerprint, Activity } from './icons';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { useTranslations } from '../i18n';
+import { getReportImage } from '../utils/reportImages';
 import QrCodeDisplay from './QrCodeDisplay';
 
 interface ReportCardProps {
@@ -35,7 +36,8 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat,
             setImageUrlsToDisplay([]);
         }
     } else {
-        setImageUrlsToDisplay(rawImageUrls.filter((u: any) => typeof u === 'string'));
+        const normalizedImageUrls = rawImageUrls.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
+        setImageUrlsToDisplay(normalizedImageUrls.length > 0 ? normalizedImageUrls : [getReportImage(report)]);
     }
 
     return () => objectUrls.forEach(url => URL.revokeObjectURL(url));

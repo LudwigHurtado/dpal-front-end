@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import type { Report } from '../../types';
+import { getReportImage } from '../../utils/reportImages';
 import {
   Home,
   Megaphone,
@@ -320,7 +321,7 @@ const MobileCommunityFeedView: React.FC<MobileCommunityFeedViewProps> = ({
           ) : (
             filtered.map((report) => {
               const avatarChar = (report.location || 'D').toString().trim().slice(0, 1).toUpperCase();
-              const imgUrl = report.imageUrls?.[0] || `https://picsum.photos/seed/${report.id}/600/400`;
+              const imgUrl = getReportImage(report);
               const urgent = isUrgent(report);
               const urgencyLabel = urgent ? 'Urgent' : 'Normal';
               const locationText = (report.location || 'Unknown').toString();

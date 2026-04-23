@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Report as ReportType, Category } from '../../types';
 import { CATEGORIES_WITH_ICONS } from '../../constants';
 import { Search, MapPin, Heart, CheckCircle, List, Filter } from '../icons';
+import { getReportImage } from '../../utils/reportImages';
 
 const HEADER_BLUE = '#2563eb';
 
@@ -157,8 +158,7 @@ const MobileCaseFeedView: React.FC<MobileCaseFeedViewProps> = ({
         ) : (
           filteredReports.map((report) => {
             const verified = isVerified(report);
-            const safeId = (report?.id || `rep-${Date.now()}`).toString();
-            const imgUrl = report.imageUrls?.[0] || `https://picsum.photos/seed/${safeId}/400/200`;
+            const imgUrl = getReportImage(report);
 
             return (
               <article

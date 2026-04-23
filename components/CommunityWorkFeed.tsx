@@ -34,7 +34,7 @@ const CommunityWorkFeed: React.FC = () => {
             reward: 150, 
             status: 'FINALIZED',
             description: 'Identified significant blockage in Sector 7 storm drains. Coordinated with local maintenance node to clear 2 tons of debris. Verified flow capacity via acoustic sensors',
-            proofImage: 'https://picsum.photos/seed/drain/800/450',
+            proofImage: '/category-cards/water-related.png',
             contributors: ['Nova_Prime', 'Echo_Seven', 'Civic_Sentinel'],
             trustScore: 98
         },
@@ -48,7 +48,7 @@ const CommunityWorkFeed: React.FC = () => {
             reward: 80, 
             status: 'ACTIVE',
             description: 'Documenting high-frequency tagging patterns on historic preservation blocks. Mapping spray-paint chemical signatures to localized supply points',
-            proofImage: 'https://picsum.photos/seed/graffiti/800/450',
+            proofImage: '/category-cards/environment.png',
             contributors: ['Ghost_Protocol'],
             trustScore: 72
         },
@@ -62,7 +62,7 @@ const CommunityWorkFeed: React.FC = () => {
             reward: 200, 
             status: 'FINALIZED',
             description: 'Full perimeter sweep of 4th Street bus hub. Marked 12 tripping hazards on the ledger and alerted transit authority. High pedestrian risk mitigated',
-            proofImage: 'https://picsum.photos/seed/sidewalk/800/450',
+            proofImage: '/category-cards/public transport.png',
             contributors: ['Civic_Sentinel', 'Nova_Prime'],
             trustScore: 94
         },
@@ -76,7 +76,7 @@ const CommunityWorkFeed: React.FC = () => {
             reward: 120, 
             status: 'FINALIZED',
             description: 'Synthesized 50 citizen reports into a high-priority repair directive. Correlated asphalt failure with underground utility leaks',
-            proofImage: 'https://picsum.photos/seed/pothole/800/450',
+            proofImage: '/category-cards/infrastructure.png',
             contributors: ['Vanguard_Actual', 'Analyst_Sigma', 'Ghost_Protocol', 'Civic_Sentinel'],
             trustScore: 99
         },
@@ -90,7 +90,7 @@ const CommunityWorkFeed: React.FC = () => {
             reward: 50, 
             status: 'ACTIVE',
             description: 'Analyzing decay on 15 public benches in Central Sector. Creating structural shards for replacement crowdfunding',
-            proofImage: 'https://picsum.photos/seed/bench/800/450',
+            proofImage: '/category-cards/civic-duty.png',
             contributors: ['Echo_Seven'],
             trustScore: 65
         },

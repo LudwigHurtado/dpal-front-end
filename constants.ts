@@ -1,6 +1,7 @@
 
 /** FIX: Added NftTheme to imports */
 import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, TrainingModule, EducationRole, Mission, HeroPath, NftTheme, SubscriptionTier } from "./types";
+import { getCategoryReportImage } from "./utils/reportImages";
 
 /**
  * Standardized API base URL for backend services (Railway).
@@ -849,7 +850,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Critical',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/police-patrol-night/800/600']
+        imageUrls: [getCategoryReportImage(Category.PoliceMisconduct)]
     },
     {
         id: 'rep-002',
@@ -866,7 +867,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Critical',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/urban-housing-blueprint/800/600']
+        imageUrls: [getCategoryReportImage(Category.HousingIssues)]
     },
     {
         id: 'rep-003',
@@ -882,7 +883,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Critical',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/factory-pollution-river/800/600']
+        imageUrls: [getCategoryReportImage(Category.Environment)]
     },
     {
         id: 'rep-006',
@@ -898,7 +899,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/construction-site-night/800/600']
+        imageUrls: [getCategoryReportImage(Category.WorkplaceIssues)]
     },
     {
         id: 'rep-007',
@@ -914,7 +915,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/military-memorial/800/600']
+        imageUrls: [getCategoryReportImage(Category.VeteransServices)]
     },
     {
         id: 'rep-008',
@@ -930,7 +931,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Informational',
         isActionable: false,
-        imageUrls: ['https://picsum.photos/seed/bus-station-rain/800/600']
+        imageUrls: [getCategoryReportImage(Category.PublicTransport)]
     },
     {
         id: 'rep-009',
@@ -947,7 +948,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Critical',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/bridge-understructure/800/600']
+        imageUrls: [getCategoryReportImage(Category.Infrastructure)]
     },
     {
         id: 'rep-010',
@@ -963,7 +964,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/restaurant-kitchen/800/600']
+        imageUrls: [getCategoryReportImage(Category.Allergies)]
     },
     {
         id: 'rep-011',
@@ -979,7 +980,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/car-accident/800/600']
+        imageUrls: [getCategoryReportImage(Category.InsuranceFraud)]
     },
     {
         id: 'rep-012',
@@ -995,7 +996,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/cathedral-interior/800/600']
+        imageUrls: [getCategoryReportImage(Category.Clergy)]
     },
     {
         id: 'rep-013',
@@ -1012,7 +1013,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Catastrophic',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/water-fountain-rust/800/600']
+        imageUrls: [getCategoryReportImage(Category.WaterViolations)]
     },
     {
         id: 'rep-014',
@@ -1028,7 +1029,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Informational',
         isActionable: false,
-        imageUrls: ['https://picsum.photos/seed/government-hall/800/600']
+        imageUrls: [getCategoryReportImage(Category.CivicDuty)]
     },
     {
         id: 'rep-015',
@@ -1044,7 +1045,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Informational',
         isActionable: false,
-        imageUrls: ['https://picsum.photos/seed/radio-tower-night/800/600']
+        imageUrls: [getCategoryReportImage(Category.Other)]
     },
     {
         id: 'rep-004',
@@ -1060,7 +1061,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Critical',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/medical-hospital-emergency/800/600']
+        imageUrls: [getCategoryReportImage(Category.MedicalNegligence)]
     },
     {
         id: 'rep-005',
@@ -1076,7 +1077,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: true,
-        imageUrls: ['https://picsum.photos/seed/school-education-audit/800/600']
+        imageUrls: [getCategoryReportImage(Category.Education)]
     },
     {
         id: 'rep-016',
@@ -1093,7 +1094,7 @@ export const MOCK_REPORTS: Report[] = [
         // FIX: Added missing required Report properties
         severity: 'Standard',
         isActionable: false,
-        imageUrls: ['https://picsum.photos/seed/digital-glitch-code/800/600']
+        imageUrls: [getCategoryReportImage(Category.ConsumerScams)]
     }
 ];
 

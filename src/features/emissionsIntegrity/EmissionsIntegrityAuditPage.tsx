@@ -62,6 +62,7 @@ import {
   type EmissionsAuditDraftPayload,
   type EmissionsAuditSummary,
 } from '../../../services/emissionsAuditService';
+import { API_ROUTES, apiUrl } from '../../../constants';
 
 interface EmissionsIntegrityAuditPageProps {
   onReturn: () => void;
@@ -191,6 +192,86 @@ function riskTone(risk: string): string {
   return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
 }
 
+type MetadataBannerTone = 'emerald' | 'amber' | 'sky';
+
+type CarbonAirQualityResponse = {
+  co2ppm: number | null;
+  ch4ppb: number | null;
+  no2: number | null;
+  captureDate: string;
+  source: string;
+  dataAvailable: boolean;
+  measurementStatus: 'verified' | 'unavailable';
+  message: string;
+};
+
+type CarbonMineralResponse = {
+  minerals: string[];
+  dustArea: number | null;
+  composition: Record<string, number>;
+  captureDate: string;
+  source: string;
+  dataAvailable: boolean;
+  measurementStatus: 'verified' | 'unavailable';
+  message: string;
+};
+
+function getMetadataBanner(metadata: DataSourceMetadata): { tone: MetadataBannerTone; text: string } {
+  if (metadata.qaFlag === 'verified') {
+    return { tone: 'emerald', text: 'Verified source attached from the existing DPAL satellite adapter.' };
+  }
+  if (metadata.qaFlag === 'review_needed') {
+    return { tone: 'amber', text: 'Source metadata attached. Review measurement availability before relying on it as final proof.' };
+  }
+  if (metadata.qaFlag === 'estimated') {
+    return { tone: 'sky', text: 'Estimated source context is attached. Replace it with a live adapter read when possible.' };
+  }
+  return { tone: 'amber', text: 'Demo data — replace with verified satellite source.' };
+}
+
+function getBannerClass(tone: MetadataBannerTone): string {
+  if (tone === 'emerald') return 'text-emerald-300';
+  if (tone === 'sky') return 'text-sky-300';
+  return 'text-amber-300';
+}
+
+function normalizeSourceDate(value?: string): string {
+  const parsed = value ? new Date(value) : new Date();
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString().slice(0, 10) : parsed.toISOString().slice(0, 10);
+}
+
+function clampScore(value: number, min = 0, max = 100): number {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+}
+
+function buildLiveSatelliteMetadata(
+  airQuality: CarbonAirQualityResponse | null,
+  mineralData: CarbonMineralResponse | null,
+): DataSourceMetadata {
+  const hasVerifiedAir = airQuality?.measurementStatus === 'verified' && airQuality?.dataAvailable === true;
+  const hasVerifiedMineral = mineralData?.measurementStatus === 'verified' && mineralData?.dataAvailable === true;
+  const hasAnyLiveSource = Boolean(airQuality?.source || mineralData?.source);
+  const sourceNames = [airQuality?.source, mineralData?.source].filter(Boolean) as string[];
+  const notes = [airQuality?.message, mineralData?.message].filter(Boolean).join(' | ');
+
+  return {
+    sourceName: sourceNames.length > 0 ? sourceNames.join(' + ') : 'DPAL carbon adapter source unavailable',
+    sourceUrl: hasAnyLiveSource ? 'https://cmr.earthdata.nasa.gov/search' : '',
+    retrievalDate: normalizeSourceDate(airQuality?.captureDate || mineralData?.captureDate),
+    datasetVersion: hasVerifiedAir || hasVerifiedMineral
+      ? 'Live adapter read'
+      : hasAnyLiveSource
+        ? 'Metadata-only adapter read'
+        : 'Demo data — replace with verified source',
+    qaFlag: hasVerifiedAir || hasVerifiedMineral
+      ? 'verified'
+      : hasAnyLiveSource
+        ? 'review_needed'
+        : 'demo',
+    notes: notes || 'No live satellite adapter response is attached for the selected point yet.',
+  };
+}
+
 function DatasetMetadataEditor({
   title,
   metadata,
@@ -203,13 +284,14 @@ function DatasetMetadataEditor({
   const update = <K extends keyof DataSourceMetadata>(key: K, value: DataSourceMetadata[K]) => {
     onChange({ ...metadata, [key]: value });
   };
+  const banner = getMetadataBanner(metadata);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{title}</p>
-          <p className="mt-1 text-xs text-amber-300">Demo data — replace with verified satellite source.</p>
+          <p className={`mt-1 text-xs ${getBannerClass(banner.tone)}`}>{banner.text}</p>
         </div>
         <Database className="h-4 w-4 text-slate-500" />
       </div>
@@ -405,6 +487,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoadingSatelliteSource, setIsLoadingSatelliteSource] = useState(false);
   const [savedAudits, setSavedAudits] = useState<EmissionsAuditSummary[]>([]);
   const [viewMode, setViewMode] = useState<'workspace' | 'myAudits'>('workspace');
   const [versionHistory, setVersionHistory] = useState<Array<{ version: number; modifiedBy: string; changeSummary?: string | null; createdAt: string }>>([]);
@@ -437,6 +520,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   );
 
   const legalContext = useMemo(() => JURISDICTION_CONTEXT[facilityInfo.jurisdiction as Jurisdiction], [facilityInfo.jurisdiction]);
+  const satelliteMetadataBanner = useMemo(() => getMetadataBanner(satelliteData.metadata), [satelliteData.metadata]);
 
   const buildPayload = (): EmissionsAuditDraftPayload => ({
     companyName: facilityInfo.companyName,
@@ -731,6 +815,50 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
     }));
   };
 
+  const loadLiveSatelliteSource = async (point: CoordinatePoint) => {
+    setIsLoadingSatelliteSource(true);
+    try {
+      const [airRes, mineralRes] = await Promise.all([
+        fetch(apiUrl(API_ROUTES.CARBON_AIR_QUALITY) + `?lat=${point.lat}&lng=${point.lng}`),
+        fetch(apiUrl(API_ROUTES.CARBON_MINERALS) + `?lat=${point.lat}&lng=${point.lng}`),
+      ]);
+
+      const [airBody, mineralBody] = await Promise.all([airRes.text(), mineralRes.text()]);
+
+      const airQuality = airRes.ok && airBody ? JSON.parse(airBody) as CarbonAirQualityResponse : null;
+      const mineralData = mineralRes.ok && mineralBody ? JSON.parse(mineralBody) as CarbonMineralResponse : null;
+      const metadata = buildLiveSatelliteMetadata(airQuality, mineralData);
+
+      setSatelliteData((current) => {
+        const next = { ...current, metadata };
+        if (typeof airQuality?.co2ppm === 'number' && Number.isFinite(airQuality.co2ppm)) {
+          next.co2ContextScore = clampScore(100 - ((airQuality.co2ppm - 380) / 2));
+        }
+        return next;
+      });
+      setConfidenceInputs((current) => ({
+        ...current,
+        satelliteDataConfidence: metadata.qaFlag === 'verified'
+          ? Math.max(current.satelliteDataConfidence, 82)
+          : metadata.qaFlag === 'review_needed'
+            ? Math.max(current.satelliteDataConfidence, 60)
+            : current.satelliteDataConfidence,
+      }));
+      setStatusMessage(
+        metadata.qaFlag === 'verified'
+          ? 'Live satellite source attached from the existing DPAL carbon adapters.'
+          : metadata.qaFlag === 'review_needed'
+            ? 'Satellite adapter metadata was found, but the reading still needs review before it is treated as final proof.'
+            : 'No live satellite adapter reading was available for the selected point.',
+      );
+    } catch (error) {
+      console.error('Failed to load live satellite source:', error);
+      setStatusMessage('Unable to load the existing DPAL satellite source for this point.');
+    } finally {
+      setIsLoadingSatelliteSource(false);
+    }
+  };
+
   const refreshSavedAudits = async () => {
     setIsLoadingList(true);
     try {
@@ -749,6 +877,11 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   useEffect(() => {
     void refreshSavedAudits();
   }, []);
+
+  useEffect(() => {
+    if (!centerPoint) return;
+    void loadLiveSatelliteSource(centerPoint);
+  }, [centerPoint?.lat, centerPoint?.lng]);
 
   const handleSaveAudit = async () => {
     if (!audit) {
@@ -1081,8 +1214,24 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                     ))}
                   </select>
                 </div>
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                  Demo data — replace with verified satellite source.
+                <div className={`rounded-2xl border px-4 py-3 text-sm ${
+                  satelliteMetadataBanner.tone === 'emerald'
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-100'
+                    : satelliteMetadataBanner.tone === 'sky'
+                      ? 'border-sky-500/30 bg-sky-500/10 text-sky-100'
+                      : 'border-amber-500/30 bg-amber-500/10 text-amber-100'
+                }`}>
+                  <div className="flex items-center justify-between gap-3">
+                    <span>{satelliteMetadataBanner.text}</span>
+                    <button
+                      type="button"
+                      onClick={() => centerPoint && void loadLiveSatelliteSource(centerPoint)}
+                      disabled={!centerPoint || isLoadingSatelliteSource}
+                      className="rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-white/20"
+                    >
+                      {isLoadingSatelliteSource ? 'Refreshing…' : 'Refresh source'}
+                    </button>
+                  </div>
                 </div>
               </div>
 

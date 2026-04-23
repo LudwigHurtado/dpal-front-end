@@ -9,6 +9,7 @@ import { getCategoryDefinition } from './sectors/categoryGatewayRegistry';
 import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
 import { pickCivicQuote } from '../utils/civicQuotes';
+import { getCategoryReportImage } from '../utils/reportImages';
 
 interface ReportSubmissionViewProps {
     category: Category;
@@ -31,40 +32,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === category)!;
     const roleInfo = role ? EDUCATION_ROLES.find(r => r.value === role) : null;
     const civicInspiration = useMemo(() => pickCivicQuote(`${category}-${role ?? 'community'}`), [category, role]);
-    const categoryHeroByType: Partial<Record<Category, string>> = {
-        [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
-        [Category.Allergies]: '/category-cards/allergies.png',
-        [Category.CivicDuty]: '/category-cards/civic-duty.png',
-        [Category.Clergy]: '/category-cards/clergy.png',
-        [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
-        [Category.MedicalNegligence]: '/category-cards/medical-negligence.png',
-        [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
-        [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
-        [Category.HousingIssues]: '/category-cards/housing-issues.png',
-        [Category.P2PEscrowVerification]: '/category-cards/marketplace-transactions-escrow.png',
-        [Category.Education]: '/category-cards/education.png',
-        [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
-        [Category.Events]: '/category-cards/event-transparency.png',
-        [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
-        [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
-        [Category.Environment]: '/category-cards/environment.png',
-        [Category.WaterViolations]: '/category-cards/water-related.png',
-        [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',
-        [Category.Infrastructure]: '/category-cards/infrastructure.png',
-        [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
-        [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
-        [Category.NonProfit]: '/category-cards/Non-Profit.png',
-        [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
-        [Category.PublicTransport]: '/category-cards/public transport.png',
-        [Category.Travel]: '/category-cards/travel.png',
-        [Category.VeteransServices]: '/category-cards/veterans-services.png',
-        [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
-        [Category.Other]: '/category-cards/Independent Discoveries.png',
-        [Category.DpalHelp]: '/category-cards/dpal-help.png',
-        [Category.DpalLifts]: '/category-cards/dpal-lifts.png',
-        [Category.DpalWorkNetwork]: '/main-screen/dpal-work-network.png',
-    };
-    const imageUrl = encodeURI(categoryHeroByType[category] || `https://picsum.photos/seed/${categoryInfo.imageSeed}/1200/400`);
+    const imageUrl = getCategoryReportImage(category);
 
     const useCaseboard = shouldUseCaseboard(category);
     const caseboardCfg = useMemo(() => (useCaseboard ? getCaseboardConfig(category) : null), [category, useCaseboard]);

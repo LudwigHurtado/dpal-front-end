@@ -4,6 +4,7 @@ import { useTranslations } from '../i18n';
 import { Category, type IntelItem, MissionApproach, MissionGoal } from '../types';
 import { ArrowLeft, CheckCircle, Circle, Loader, MapPin, Link as LinkIcon, Zap, ShieldCheck, Activity, Target, User, Scale, Box, ArrowRight, Broadcast, Sparkles } from './icons';
 import { CATEGORIES_WITH_ICONS } from '../constants';
+import { getCategoryReportImage } from '../utils/reportImages';
 
 interface GenerateMissionViewProps {
   intelItem: IntelItem;
@@ -17,38 +18,7 @@ const GenerateMissionView: React.FC<GenerateMissionViewProps> = ({ intelItem, on
   const [goal, setGoal] = useState<MissionGoal | null>(null);
   const [isAccepting, setIsAccepting] = useState(false);
   const categoryInfo = CATEGORIES_WITH_ICONS.find((c) => c.value === intelItem.category);
-  const categoryHeroByType: Partial<Record<Category, string>> = {
-    [Category.AccidentsRoadHazards]: '/category-cards/accidents-and-road-hazards.png',
-    [Category.Allergies]: '/category-cards/allergies.png',
-    [Category.CivicDuty]: '/category-cards/civic-duty.png',
-    [Category.Clergy]: '/category-cards/clergy.png',
-    [Category.ConsumerScams]: '/category-cards/consumer-scams.png',
-    [Category.MedicalNegligence]: '/category-cards/medical-negligence.png',
-    [Category.StolenPropertyRegistry]: '/category-cards/stolen-property-registry.png',
-    [Category.PoliceMisconduct]: '/category-cards/police-misconduct.png',
-    [Category.HousingIssues]: '/category-cards/housing-issues.png',
-    [Category.P2PEscrowVerification]: '/category-cards/marketplace-transactions-escrow.png',
-    [Category.Education]: '/category-cards/education.png',
-    [Category.ElderlyCare]: '/category-cards/elder-abuse.png',
-    [Category.Events]: '/category-cards/event-transparency.png',
-    [Category.FireEnvironmentalHazards]: '/category-cards/fire-environmental-hazards.png',
-    [Category.PublicSafetyAlerts]: '/category-cards/public-safety-alerts.png',
-    [Category.Environment]: '/category-cards/environment.png',
-    [Category.WaterViolations]: '/category-cards/water-related.png',
-    [Category.WorkplaceIssues]: '/category-cards/workplace-issues.png',
-    [Category.Infrastructure]: '/category-cards/infrastructure.png',
-    [Category.InsuranceFraud]: '/category-cards/insurance fraud.png',
-    [Category.ProfessionalServices]: '/category-cards/profesional-services.png',
-    [Category.NonProfit]: '/category-cards/Non-Profit.png',
-    [Category.ProofOfLifeBiometric]: '/category-cards/proof of life  biometric verification.png',
-    [Category.PublicTransport]: '/category-cards/public transport.png',
-    [Category.Travel]: '/category-cards/travel.png',
-    [Category.VeteransServices]: '/category-cards/veterans-services.png',
-    [Category.IndependentDiscoveries]: '/category-cards/Independent Discoveries.png',
-    [Category.Other]: '/category-cards/Independent Discoveries.png',
-    [Category.DpalHelp]: '/category-cards/dpal-help.png',
-  };
-  const missionHero = encodeURI(categoryHeroByType[intelItem.category] || `https://picsum.photos/seed/${(categoryInfo?.imageSeed || 'intel') + '-mission'}/1200/500`);
+  const missionHero = getCategoryReportImage(intelItem.category);
 
   const handleAccept = async () => {
       if (!approach || !goal) return;

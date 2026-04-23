@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Report as ReportType, ReportStatus } from '../../types';
 import { CATEGORIES_WITH_ICONS } from '../../constants';
+import { getReportImage } from '../../utils/reportImages';
 import {
   ArrowLeft,
   CheckCircle,
@@ -46,7 +47,7 @@ const MobileCaseDetailView: React.FC<MobileCaseDetailViewProps> = ({
   const [confirmPressed, setConfirmPressed] = useState(false);
 
   const categoryInfo = CATEGORIES_WITH_ICONS.find((c) => c.value === report.category);
-  const evidenceUrls = report.imageUrls?.length ? report.imageUrls : ['https://picsum.photos/seed/' + report.id + '/800/400'];
+  const evidenceUrls = report.imageUrls?.length ? report.imageUrls : [getReportImage(report)];
   const currentEvidence = evidenceUrls[evidenceIndex % evidenceUrls.length];
 
   const handleStatusChange = (status: ReportStatus) => {
