@@ -83,6 +83,7 @@ export const VIEW_PATHS: Record<string, string> = {
   impactHub: '/impact',
   /** Air Quality Monitor — OpenAQ live readings, CO₂/CH₄/NO₂ scans, AQI dashboard */
   airQualityMonitor: '/air',
+  emissionsIntegrityAudit: '/emissions-integrity-audit',
 };
 
 export function viewToPath(view: string): string {

@@ -391,6 +391,21 @@ enum DpalUserRole {
   support_agent
 }
 
+enum EmissionsAuditRiskLevel {
+  low
+  medium
+  high
+  needs_more_data
+}
+
+enum EmissionsAuditLedgerStatus {
+  not_connected
+  pending
+  linked
+  exported
+  failed
+}
+
 model DpalUser {
   id           String @id @default(cuid())
   username     String @unique
@@ -430,6 +445,7 @@ model DpalUser {
   profileMetadata Json?
 
   refreshTokens RefreshToken[]
+  emissionsAudits EmissionsAudit[]
 
   @@map("dpal_users")
   @@index([email])
@@ -450,4 +466,79 @@ model RefreshToken {
   @@index([userId])
   @@index([tokenHash])
   @@map("dpal_refresh_tokens")
+}
+
+model EmissionsAudit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      DpalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdBy      String
+  lastModifiedBy String
+
+  companyName    String
+  facilityName   String
+  industry       String
+  jurisdiction   String
+  legalFramework String
+
+  locationLat      Float?
+  locationLng      Float?
+  polygonGeoJSON   Json?
+  areaEstimate     Float?
+
+  baselinePeriod Json
+  currentPeriod  Json
+  reportedData   Json?
+  satelliteData  Json?
+  productionData Json?
+  calculations   Json
+  confidence     Json
+
+  adiScore   Float                    @default(0)
+  riskLevel  EmissionsAuditRiskLevel  @default(low)
+
+  legalContext          Json
+  limitations           Json
+  recommendedNextSteps  Json
+  evidencePacket        Json?
+  fullAudit             Json
+
+  linkedReportId        String?
+  linkedMissionId       String?
+  linkedProjectId       String?
+  linkedMRVProjectId    String?
+  linkedEvidenceVaultId String?
+  ledgerStatus          EmissionsAuditLedgerStatus @default(not_connected)
+
+  version   Int        @default(1)
+  deletedAt DateTime?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  versions EmissionsAuditVersion[]
+
+  @@map("emissions_audits")
+  @@index([userId, createdAt])
+  @@index([companyName])
+  @@index([facilityName])
+  @@index([jurisdiction])
+  @@index([adiScore])
+  @@index([riskLevel])
+  @@index([deletedAt])
+}
+
+model EmissionsAuditVersion {
+  id         String         @id @default(cuid())
+  auditId     String
+  audit       EmissionsAudit @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  version     Int
+  modifiedBy  String
+  changeSummary String?
+  payload     Json
+  createdAt   DateTime      @default(now())
+
+  @@map("emissions_audit_versions")
+  @@unique([auditId, version])
+  @@index([auditId, createdAt])
 }

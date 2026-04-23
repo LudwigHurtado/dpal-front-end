@@ -442,6 +442,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<ShieldCheck className="w-8 h-8" />}
+                    label="Emissions Integrity Audit"
+                    subLabel="Verify emissions-reduction claims against regulatory, satellite, and activity evidence"
+                    status="Audit"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('emissionsIntegrityAudit')}
+                />
+
+                <PrimaryNavModule
                     icon={<Phone className="w-8 h-8" />}
                     label="Urgent Help Line"
                     subLabel="Reach caring support when minutes matter"

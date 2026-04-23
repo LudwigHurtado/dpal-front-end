@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import {
   Activity, AlertTriangle, ArrowLeft, Award, Camera, CheckCircle, Clock, Cloud,
-  Cpu, Database, Droplets, FileText, Globe, Map, MapPin, Plus, QrCode, ShieldCheck,
+  Cpu, Database, Droplets, FileText, Globe, Map, MapPin, Plus, QrCode, Scale, ShieldCheck,
   Target, Upload, Users, Waves, X, Zap,
 } from './icons';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
@@ -23,6 +23,7 @@ interface DpalCarbonViewProps {
   onGoToMissions?: () => void;
   onGoToAir?: () => void;
   onGoToImpact?: () => void;
+  onGoToEmissionsAudit?: () => void;
 }
 
 /* ─────────────────────────────────────────────
@@ -575,7 +576,7 @@ const QrReportModal: React.FC<{ project: DpalCarbonProject; onClose: () => void 
 ───────────────────────────────────────────── */
 const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
   onReturn, onGoToAfolu, onGoToWater, onGoToCarbon, onGoToOffsets,
-  onGoToEcology, onGoToMissions, onGoToAir, onGoToImpact,
+  onGoToEcology, onGoToMissions, onGoToAir, onGoToImpact, onGoToEmissionsAudit,
 }) => {
   const [view, setView] = useState<'home' | 'calculator'>('home');
   const [calcCategoryId, setCalcCategoryId] = useState<CategoryId>('afolu');
@@ -601,6 +602,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
     { id: 'ecology', name: 'Ecological Conservation', desc: 'Landsat foliage scans, NDVI mapping, and habitat risk analysis.',  icon: Activity,     accent: 'text-lime-300',    border: 'border-lime-500/30',    bg: 'bg-lime-500/10',    onClick: onGoToEcology ?? (() => {}),             status: onGoToEcology ? 'Live' : 'Explore' },
     { id: 'missions',name: 'Missions Hub',          desc: 'Launch, track, and validate field missions across all categories.',  icon: Target,       accent: 'text-violet-300',  border: 'border-violet-500/30',  bg: 'bg-violet-500/10',  onClick: onGoToMissions ?? (() => {}),            status: onGoToMissions ? 'Live' : 'Explore' },
     { id: 'air',     name: 'Air Quality Monitor',  desc: 'Live OpenAQ readings, CO₂/CH₄ scans, and AQI dashboards.',          icon: Cloud,        accent: 'text-rose-300',    border: 'border-rose-500/30',    bg: 'bg-rose-500/10',    onClick: onGoToAir ?? (() => {}),                 status: onGoToAir ? 'Live' : 'Explore' },
+    { id: 'audit',   name: 'Emissions Integrity Audit', desc: 'Facility-level claim verification, discrepancy scoring, and export-ready evidence packets.', icon: Scale, accent: 'text-emerald-200', border: 'border-emerald-400/30', bg: 'bg-emerald-400/10', onClick: onGoToEmissionsAudit ?? (() => {}), status: onGoToEmissionsAudit ? 'Live' : 'Explore' },
     { id: 'impact',  name: 'Impact Hub',            desc: 'Environmental project registry, evidence tracking, and claims.',    icon: ShieldCheck,  accent: 'text-indigo-300',  border: 'border-indigo-500/30',  bg: 'bg-indigo-500/10',  onClick: onGoToImpact ?? (() => {}),              status: onGoToImpact ? 'Live' : 'Explore' },
   ];
 

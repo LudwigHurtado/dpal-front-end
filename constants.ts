@@ -154,6 +154,10 @@ export const API_ROUTES = {
   SIGNALS_LIST:          '/api/signals',
   SIGNALS_STATS:         '/api/signals/stats',
   SIGNALS_IMPORT:        '/api/signals/import',
+  /** Emissions Integrity Audit System */
+  EMISSIONS_AUDIT_CREATE: '/api/emissions-audit/create',
+  EMISSIONS_AUDIT_LIST: '/api/emissions-audit/list',
+  EMISSIONS_AUDIT_EXPORT: '/api/emissions-audit/export',
 } as const;
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
@@ -178,6 +182,10 @@ export const WATER_PROJECT_DETAIL    = (id: string) => apiUrl(`/api/water/projec
 export const WATER_PROJECT_SNAPSHOTS = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/snapshots`);
 export const WATER_MOCK_REFRESH      = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/snapshots/mock-refresh`);
 export const WATER_PROJECT_REPORTS   = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/reports`);
+export const EMISSIONS_AUDIT_DETAIL  = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}`);
+export const EMISSIONS_AUDIT_EXPORT_DETAIL = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}/export`);
+export const EMISSIONS_AUDIT_LINK    = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}/link`);
+export const EMISSIONS_AUDIT_RECALCULATE = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}/recalculate`);
 export const WATER_GENERATE_REPORT   = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/reports/generate`);
 export const WATER_ISSUE_CREDITS     = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/credits/issue`);
 export const WATER_CREDIT_LIST       = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/list`);
