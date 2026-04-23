@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle, CheckCircle, Cpu, Database, FileText, Globe, Map, MapPin,
-  Plus, RefreshCw, Search, ShieldCheck, Target, Upload,
+  Plus, QrCode, RefreshCw, Search, ShieldCheck, Sparkles, Target, Upload,
 } from './icons';
 
 type BiomassMode = 'linear_ndvi' | 'exponential_ndvi' | 'hybrid' | 'manual_agb';
@@ -237,6 +237,99 @@ const ResultTile: React.FC<{ label: string; value: string; note: string; icon: R
     <div className="mt-1 text-xs text-slate-500">{note}</div>
   </div>
 );
+
+const InstructorHelper: React.FC<{
+  title: string;
+  context: string;
+  suggestedQuestions: string[];
+  backTests: string[];
+}> = ({ title, context, suggestedQuestions, backTests }) => {
+  const [question, setQuestion] = useState('');
+  const [answer, setAnswer] = useState('');
+  const [understood, setUnderstood] = useState<'yes' | 'no' | null>(null);
+
+  const explainQuestion = (prompt: string) => {
+    const normalized = prompt.toLowerCase();
+    let response = `${context} This section is part of the same AOI-linked report, so changes here affect the calculation, the disclosure, and the registry package.`;
+
+    if (normalized.includes('why')) {
+      response = `${context} We calculate this because DPAL needs every output to be traceable: project purpose, mapped AOI, monitoring dates, evidence quality, and calculation method all have to support the final VIU number.`;
+    } else if (normalized.includes('number') || normalized.includes('result') || normalized.includes('viu')) {
+      response = `${context} The number is produced by estimating project CO2e gain, subtracting baseline CO2e, then applying leakage, uncertainty, buffer, and other adjustments. The final floor value becomes indicative VIUs.`;
+    } else if (normalized.includes('verify') || normalized.includes('test') || normalized.includes('back')) {
+      response = `${context} Suggested back-tests: ${backTests.join(' ')} These checks help prove the reading is not just a nice-looking estimate.`;
+    } else if (normalized.includes('coordinate') || normalized.includes('map') || normalized.includes('aoi') || normalized.includes('location')) {
+      response = `${context} The AOI coordinates and polygon bind the report to a real place. If the AOI changes, the hectares, imagery window, AI scan context, and registry payload should be reviewed before trusting the output.`;
+    } else if (normalized.includes('risk') || normalized.includes('buffer')) {
+      response = `${context} Risk and buffer logic protects against over-issuance. Higher fire, land-use, governance, duplicate-claim, or weak-evidence risk should reduce or pause issuance.`;
+    }
+
+    setAnswer(response);
+    setQuestion(prompt);
+    setUnderstood(null);
+  };
+
+  return (
+    <div className="rounded-lg border border-cyan-500/25 bg-cyan-500/10 p-4">
+      <div className="flex items-start gap-3">
+        <div className="rounded-lg border border-cyan-400/30 bg-cyan-400/10 p-2 text-cyan-200">
+          <Sparkles className="h-4 w-4" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black text-white">AI Instructor: {title}</p>
+          <p className="mt-1 text-sm leading-6 text-slate-300">{context}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {suggestedQuestions.map((item) => (
+          <button
+            key={item}
+            onClick={() => explainQuestion(item)}
+            className="rounded-lg border border-cyan-400/20 bg-slate-950 px-3 py-2 text-left text-xs font-bold text-cyan-100 hover:border-cyan-300"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+        <input
+          value={question}
+          onChange={(event) => setQuestion(event.target.value)}
+          placeholder="Ask why this is calculated, how it affects VIUs, or how to verify it..."
+          className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+        />
+        <button
+          onClick={() => explainQuestion(question || suggestedQuestions[0])}
+          className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500"
+        >
+          Explain
+        </button>
+      </div>
+
+      {answer ? (
+        <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+          <p className="text-sm leading-6 text-slate-300">{answer}</p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-slate-400">Do you understand this section?</span>
+            <button onClick={() => setUnderstood('yes')} className="rounded-md border border-emerald-500/30 px-2 py-1 text-xs font-bold text-emerald-200">Yes</button>
+            <button onClick={() => setUnderstood('no')} className="rounded-md border border-amber-500/30 px-2 py-1 text-xs font-bold text-amber-200">Not yet</button>
+          </div>
+          {understood === 'yes' ? <p className="mt-2 text-xs text-emerald-300">Good. Next, check whether the back-tests support the same conclusion.</p> : null}
+          {understood === 'no' ? <p className="mt-2 text-xs text-amber-300">Try one of the suggested questions or ask what part of the number feels unclear.</p> : null}
+        </div>
+      ) : null}
+
+      <div className="mt-3 rounded-lg border border-slate-800 bg-slate-950 p-3">
+        <p className="text-xs font-black uppercase tracking-wide text-slate-400">Suggested back-tests</p>
+        <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-5 text-slate-400">
+          {backTests.map((test) => <li key={test}>{test}</li>)}
+        </ul>
+      </div>
+    </div>
+  );
+};
 
 const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   onLaunchMission,
@@ -485,6 +578,76 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
     `Net creditable CO2e = ${round(netCreditableCo2e)} tCO2e`,
     `Indicative VIUs eligible = ${viuEligible}`,
   ].join('\n');
+  const reportAnchorPayload = useMemo(() => ({
+    reportType: 'DPAL_AOI_VIU_PREVIEW',
+    projectCode,
+    projectName,
+    aoiId,
+    siteName,
+    coordinates: {
+      latitude: latitudeNum,
+      longitude: longitudeNum,
+      formatted: `${formatCoordinate(latitudeNum, 'lat')} / ${formatCoordinate(longitudeNum, 'lng')}`,
+    },
+    region,
+    country,
+    boundary: {
+      name: boundaryName,
+      hectares: hectaresNum,
+      polygonEstimateHa: hectaresFromBoundary,
+      points: boundaryPoints,
+    },
+    monitoringPeriod: {
+      start: imageryStartDate,
+      end: imageryEndDate,
+      months: monthsNum,
+    },
+    aiReading: {
+      modelVersion: aiModelVersion,
+      sourceStack: dataSourceStack,
+      activeLayer: layerLabel,
+      scanReadiness,
+      confidence: liveReading.confidence,
+      lastScanAt: lastAiScanAt,
+    },
+    result: {
+      grossProjectCo2e: round(grossProjectCo2e),
+      grossBaselineCo2e: round(grossBaselineCo2e),
+      netCreditableCo2e: round(netCreditableCo2e),
+      viuEligible,
+      readiness: readinessStatus.label,
+    },
+  }), [
+    aiModelVersion,
+    aoiId,
+    boundaryName,
+    boundaryPoints,
+    country,
+    dataSourceStack,
+    grossBaselineCo2e,
+    grossProjectCo2e,
+    hectaresFromBoundary,
+    hectaresNum,
+    imageryEndDate,
+    imageryStartDate,
+    lastAiScanAt,
+    latitudeNum,
+    layerLabel,
+    liveReading.confidence,
+    longitudeNum,
+    monthsNum,
+    netCreditableCo2e,
+    projectCode,
+    projectName,
+    readinessStatus.label,
+    region,
+    scanReadiness,
+    siteName,
+    viuEligible,
+  ]);
+  const reportAnchorJson = JSON.stringify(reportAnchorPayload, null, 2);
+
+  const wholeReportContext = `Current report: ${projectName} / ${aoiId} at ${latitudeNum.toFixed(5)}, ${longitudeNum.toFixed(5)}, ${round(hectaresNum)} ha, ${imageryStartDate} to ${imageryEndDate}, ${dataSourceStack}, net ${round(netCreditableCo2e)} tCO2e and ${viuEligible} indicative VIUs.`;
 
   const addBoundaryPoint = () => {
     const last = boundaryPoints[boundaryPoints.length - 1] ?? { x: 60, y: 60 };
@@ -708,6 +871,30 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               Required: saved center coordinates, polygon boundary, monitoring dates, data stack, and evidence references.
             </p>
           </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950 p-3">
+            <div className="flex items-center gap-2 text-sm font-black text-white">
+              <QrCode className="h-4 w-4 text-cyan-300" />
+              QR / coordinate report anchor
+            </div>
+            <p className="mt-2 text-xs leading-5 text-slate-400">
+              This is the payload the QR or registry anchor should point to. It includes AOI ID, GPS center, polygon points, imagery dates, AI model version, and calculation result.
+            </p>
+            <pre className="mt-3 max-h-48 overflow-auto rounded-lg border border-slate-800 bg-black/30 p-3 text-[11px] leading-5 text-cyan-100">{reportAnchorJson}</pre>
+          </div>
+          <InstructorHelper
+            title="Location and AOI"
+            context={`${wholeReportContext} The location section proves which parcel or mission area the calculation belongs to.`}
+            suggestedQuestions={[
+              'Why do coordinates matter?',
+              'How do I verify this AOI?',
+              'What should the QR payload prove?',
+            ]}
+            backTests={[
+              'Scan or open the QR payload and confirm the same AOI ID, lat/lng, dates, and VIU result are present.',
+              'Compare the center coordinates against the polygon and project documents.',
+              'Check that the imagery date window matches the monitoring period used in the calculation.',
+            ]}
+          />
         </aside>
       </section>
 
@@ -779,6 +966,22 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 { value: 'manual', label: 'Manual baseline AGB' },
               ]} />
               <Field label="Carbon fraction" value={carbonFraction} onChange={setCarbonFraction} help="Common default is 0.47." />
+            </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Project Intake"
+                context={`${wholeReportContext} Project Intake explains who owns or operates the project, what intervention is being claimed, and which ecosystem assumptions should be used.`}
+                suggestedQuestions={[
+                  'Why do project type and ecosystem matter?',
+                  'How does the project record affect the VIU number?',
+                  'What should I verify before accepting this project?',
+                ]}
+                backTests={[
+                  'Confirm project name, partner, land-control basis, and intervention type match signed project documents.',
+                  'Check that the selected ecosystem matches the AOI land cover and not just the project story.',
+                  'Confirm one project can later contain multiple AOIs without mixing their calculations.',
+                ]}
+              />
             </div>
           </Panel>
 
@@ -876,6 +1079,22 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 </div>
               </div>
             </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Map Boundary"
+                context={`${wholeReportContext} The boundary converts the project from a label into a mapped AOI. Its area feeds the hectares used by the calculation.`}
+                suggestedQuestions={[
+                  'How is boundary area connected to credits?',
+                  'What if the polygon is wrong?',
+                  'How do I back-test the map boundary?',
+                ]}
+                backTests={[
+                  'Compare polygon points to a field GPS walk, GeoJSON/KML file, or parcel document.',
+                  'Use boundary area in the calculator and confirm hectares update before trusting VIUs.',
+                  'Check whether photos, missions, and verifier notes fall inside the AOI.',
+                ]}
+              />
+            </div>
           </Panel>
 
           <Panel title="Monitoring Inputs" description="Satellite, canopy, field correction, and evidence variables">
@@ -898,6 +1117,22 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               <Field label="Ground verifiers" value={groundVerifierCount} onChange={setGroundVerifierCount} />
               <Field label="Photo confidence (%)" value={photoConfidence} onChange={setPhotoConfidence} />
               <Field label="Drone coverage (%)" value={droneCoveragePct} onChange={setDroneCoveragePct} />
+            </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Monitoring Inputs"
+                context={`${wholeReportContext} Monitoring inputs describe what changed in the AOI: NDVI, canopy height, canopy cover, field correction, and evidence quality drive the project-side CO2e estimate.`}
+                suggestedQuestions={[
+                  'How do NDVI and canopy affect the result?',
+                  'Why do evidence files matter?',
+                  'What reading should I verify first?',
+                ]}
+                backTests={[
+                  'Compare NDVI start/end values with the imagery date window.',
+                  'Check canopy height and cover against drone or field plot records.',
+                  'Increase/decrease field correction and confirm the output changes in the expected direction.',
+                ]}
+              />
             </div>
           </Panel>
 
@@ -926,6 +1161,22 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 />
               </label>
             </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Baseline and Risk"
+                context={`${wholeReportContext} Baseline and risk answer the counterfactual: what would happen without the project, and how likely the benefit is to be reversed or overstated.`}
+                suggestedQuestions={[
+                  'Why subtract a baseline?',
+                  'How does risk change the VIU result?',
+                  'What should I back-test for baseline?',
+                ]}
+                backTests={[
+                  'Compare baseline growth against historical imagery or previous monitoring snapshots.',
+                  'Run a conservative baseline and confirm the project still produces a credible net result.',
+                  'Review fire, land-use, and governance risk notes before allowing issuance.',
+                ]}
+              />
+            </div>
           </Panel>
 
           <Panel title="Deductions And Buffers" description="Leakage, uncertainty, reversal buffer, other adjustments, and claim holds">
@@ -952,6 +1203,22 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               )}
               <SwitchRow label="Duplicate / conflicting claim flag" note="Blocks issuance until no-double-counting checks are clear." checked={duplicateRiskFlag} onChange={setDuplicateRiskFlag} />
               <SwitchRow label="External-certified claim mode" note="Use only after external validation, verification, and registry issuance." checked={externalCertification} onChange={setExternalCertification} />
+            </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Deductions and Buffers"
+                context={`${wholeReportContext} Deductions reduce the pre-deduction net so the output is conservative: leakage, uncertainty, reversal buffer, and claim conflicts all protect against over-crediting.`}
+                suggestedQuestions={[
+                  'Why are deductions necessary?',
+                  'What happens if duplicate claim is on?',
+                  'How do I test the buffer?',
+                ]}
+                backTests={[
+                  'Toggle auto buffer off and compare manual buffer scenarios.',
+                  'Set duplicate claim on and confirm readiness moves to Hold.',
+                  'Stress-test leakage and uncertainty at higher values and confirm VIUs decline.',
+                ]}
+              />
             </div>
           </Panel>
         </div>
@@ -985,6 +1252,22 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                 />
               ))}
             </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Formula Profile"
+                context={`${wholeReportContext} The formula profile shows exactly how the AOI reading becomes biomass, carbon, CO2e, and finally net creditable units.`}
+                suggestedQuestions={[
+                  'How does this formula produce CO2e?',
+                  'When should I use manual AGB?',
+                  'What should I verify in coefficients?',
+                ]}
+                backTests={[
+                  'Switch biomass modes and confirm the calculation responds predictably.',
+                  'Compare custom coefficients to the selected ecosystem defaults.',
+                  'Have a reviewer confirm carbon fraction and 44/12 conversion assumptions.',
+                ]}
+              />
+            </div>
           </Panel>
 
           <Panel title="Measured Outputs">
@@ -1004,6 +1287,22 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                   <div className="h-2 rounded-full bg-emerald-400" style={{ width: `${riskScore}%` }} />
                 </div>
               </div>
+            </div>
+            <div className="mt-4">
+              <InstructorHelper
+                title="Measured Outputs"
+                context={`${wholeReportContext} Measured outputs show the project-side reading before and after baseline subtraction. This is where users can see whether the AOI actually gained measurable carbon value.`}
+                suggestedQuestions={[
+                  'Why did gross project CO2e change?',
+                  'How do I know the output belongs to this AOI?',
+                  'What result should trigger verifier review?',
+                ]}
+                backTests={[
+                  'Confirm gross project CO2e uses the same hectares shown in the AOI report anchor.',
+                  'Compare measured outputs against the calculation log in the registry package.',
+                  'Flag verifier review if integrity score, scan readiness, or evidence score is weak.',
+                ]}
+              />
             </div>
           </Panel>
 
@@ -1054,6 +1353,20 @@ Net = Project Gain - Baseline Gain - Leakage - Uncertainty - Buffer - Other`}
                   Internal DPAL VIUs are verification-preparation assets, not certified carbon offsets unless the external validation and issuance path is complete.
                 </p>
               </div>
+              <InstructorHelper
+                title="Issuance and Registry"
+                context={`${wholeReportContext} The registry package is the final explanation layer: it ties the QR payload, AOI coordinates, reading dates, model version, disclosure, and final VIU result into one auditable record.`}
+                suggestedQuestions={[
+                  'What does the QR report prove?',
+                  'Can this be sold as an offset?',
+                  'What must be verified before issuance?',
+                ]}
+                backTests={[
+                  'Open the report anchor and confirm it matches the visible AOI and calculation.',
+                  'Confirm external-certified mode is off unless third-party issuance exists.',
+                  'Have a verifier compare the registry payload against evidence files and boundary records.',
+                ]}
+              />
             </div>
           </Panel>
 
