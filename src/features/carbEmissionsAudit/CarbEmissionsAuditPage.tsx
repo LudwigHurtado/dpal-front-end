@@ -1,4 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CircleMarker, MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import {
   createCarbAudit,
   exportCarbAudit,
@@ -11,6 +14,7 @@ import { useAuth } from '../../../auth/AuthContext';
 
 type Props = { onReturn: () => void };
 type SourceStatus = 'LIVE VERIFIED' | 'CARB PUBLIC DATA' | 'IMPORTED DATASET' | 'DEMO DATA' | 'MISSING' | 'NEEDS REVIEW';
+type ChecklistStatus = 'Complete' | 'Missing' | 'Optional' | 'Needs Review';
 
 type CarbFacility = {
   facilityId: string;
@@ -18,8 +22,8 @@ type CarbFacility = {
   operatorName: string;
   city: string;
   county: string;
-  latitude: number;
-  longitude: number;
+  latitude: number | null;
+  longitude: number | null;
   sector: string;
   reportingYear: number;
   totalCO2e: number;
@@ -71,6 +75,51 @@ const parseClaim = (claim: string) => {
   };
 };
 
+const formatNumber = (value: number | '' | null | undefined) => {
+  if (value == null || value === '') return 'n/a';
+  return Number(value).toLocaleString();
+};
+
+const statusClass: Record<ChecklistStatus, string> = {
+  Complete: 'border-emerald-600/70 text-emerald-200 bg-emerald-950/30',
+  Missing: 'border-rose-600/70 text-rose-200 bg-rose-950/30',
+  Optional: 'border-slate-600 text-slate-200 bg-slate-950/40',
+  'Needs Review': 'border-amber-600/70 text-amber-200 bg-amber-950/30',
+};
+
+const carbFacilityMarker = L.divIcon({
+  className: 'dpal-carb-marker',
+  html: '<div style="width:14px;height:14px;border-radius:9999px;background:#22c55e;border:2px solid #ffffff;box-shadow:0 0 0 4px rgba(34,197,94,0.25)"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+const manualMarker = L.divIcon({
+  className: 'dpal-carb-manual-marker',
+  html: '<div style="width:14px;height:14px;border-radius:9999px;background:#f59e0b;border:2px solid #ffffff;box-shadow:0 0 0 4px rgba(245,158,11,0.25)"></div>',
+  iconSize: [14, 14],
+  iconAnchor: [7, 7],
+});
+
+const CA_CENTER: [number, number] = [36.7783, -119.4179];
+
+function CarbMapRecenter({ center }: { center: [number, number] }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom(), { animate: true });
+  }, [center, map]);
+  return null;
+}
+
+function CarbMapClickCapture({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(event) {
+      onMapClick(event.latlng.lat, event.latlng.lng);
+    },
+  });
+  return null;
+}
+
 const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const auth = useAuth();
   const hasRoleSystem = Boolean(auth?.user && typeof auth.user.role === 'string' && auth.user.role.length > 0);
@@ -108,11 +157,32 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [importResult, setImportResult] = useState<{ imported: number; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' } | null>(null);
   const pageSize = 8;
   const [aiNarrative, setAiNarrative] = useState('');
+  const [hasProductionData, setHasProductionData] = useState(false);
+  const [hasSatelliteEvidence, setHasSatelliteEvidence] = useState(false);
+  const [showCompanyPicker, setShowCompanyPicker] = useState(false);
+  const [companyPickerLoading, setCompanyPickerLoading] = useState(false);
+  const [companyPickerError, setCompanyPickerError] = useState('');
+  const [companyPickerQuery, setCompanyPickerQuery] = useState('');
+  const [companyPickerMode, setCompanyPickerMode] = useState<'operator' | 'facility'>('operator');
+  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
+  const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
+  const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
 
   const facilityYearRecords = useMemo(
     () => (!selected ? [] : facilities.filter((row) => row.facilityId === selected.facilityId)),
     [facilities, selected],
   );
+
+  const selectedCoordinates = useMemo<[number, number] | null>(() => {
+    if (!selected || selected.latitude == null || selected.longitude == null) return null;
+    return [selected.latitude, selected.longitude];
+  }, [selected]);
+
+  const mapCenter = selectedCoordinates ?? manualCoordinates ?? CA_CENTER;
+
+  useEffect(() => {
+    if (selectedCoordinates) setManualCoordinates(null);
+  }, [selectedCoordinates]);
 
   useEffect(() => {
     if (!selected) return;
@@ -171,6 +241,180 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     if (discrepancyScore <= 60) return 'Claim requires more data';
     return 'Claim may be inconsistent with reported CARB data';
   }, [companyClaim, discrepancyScore]);
+
+  const calculatedReductionNumber = useMemo(() => {
+    if (!baselineEmissions || Number(baselineEmissions) <= 0 || currentEmissions === '') return null;
+    return Number((((Number(baselineEmissions) - Number(currentEmissions)) / Number(baselineEmissions)) * 100).toFixed(2));
+  }, [baselineEmissions, currentEmissions]);
+
+  const claimGap = useMemo(() => {
+    if (claimParsed.claimReductionPct == null || calculatedReductionNumber == null) return null;
+    return Number((claimParsed.claimReductionPct - calculatedReductionNumber).toFixed(2));
+  }, [claimParsed.claimReductionPct, calculatedReductionNumber]);
+
+  const claimVerificationClassification = useMemo(() => {
+    if (!companyClaim.trim()) {
+      return {
+        label: 'Requires More Data',
+        text: 'Enter a company climate claim to compare it against CARB-reported emissions.',
+      };
+    }
+    if (claimParsed.claimReductionPct == null || calculatedReductionNumber == null || !baselineYear || !currentYear) {
+      return {
+        label: 'Requires More Data',
+        text: 'DPAL requires both a quantifiable claim and complete year-over-year CARB emissions data before claim verification can be finalized.',
+      };
+    }
+    const gap = claimGap ?? 0;
+    const absGap = Math.abs(gap);
+    if (absGap <= 3) {
+      return {
+        label: 'Consistent',
+        text: `The claim appears generally consistent with available CARB data, with an estimated gap of ${absGap.toFixed(2)} percentage points.`,
+      };
+    }
+    if (absGap <= 10) {
+      return {
+        label: 'Partially Supported',
+        text: `The claim appears partially supported by available CARB data, with an estimated gap of ${absGap.toFixed(2)} percentage points.`,
+      };
+    }
+    if (gap > 0) {
+      return {
+        label: 'Potentially Inconsistent',
+        text: `The claim appears potentially inconsistent with available CARB data because the claimed reduction exceeds the reported reduction by ${absGap.toFixed(2)} percentage points.`,
+      };
+    }
+    return {
+      label: 'Potentially Inconsistent',
+      text: `The claim appears potentially inconsistent with available CARB data because reported reduction trends differ from the claimed value by ${absGap.toFixed(2)} percentage points.`,
+    };
+  }, [companyClaim, claimParsed.claimReductionPct, calculatedReductionNumber, baselineYear, currentYear, claimGap]);
+
+  const discrepancyInterpretation = useMemo(() => {
+    if (riskLevel === 'Low') {
+      return 'Available data does not show a major discrepancy, but the review should still be cross-checked with production data and permits.';
+    }
+    if (riskLevel === 'Medium') {
+      return 'Available data suggests a meaningful discrepancy that should be reviewed with supporting records.';
+    }
+    if (riskLevel === 'High') {
+      return 'Available data suggests a significant discrepancy requiring further review.';
+    }
+    return 'DPAL cannot classify this audit until required emissions or source data is available.';
+  }, [riskLevel]);
+
+  const verificationChecklist = useMemo(() => {
+    const carbDataAvailable = baselineEmissions !== '' && currentEmissions !== '';
+    const coordinatesAvailable = Boolean(selected && selected.latitude != null && selected.longitude != null);
+    const evidencePacketReady = Boolean(selected && baselineYear && currentYear && carbDataAvailable);
+    return [
+      { item: 'Facility selected', status: selected ? 'Complete' : 'Missing' },
+      { item: 'Baseline year selected', status: baselineYear ? 'Complete' : 'Missing' },
+      { item: 'Current year selected', status: currentYear ? 'Complete' : 'Missing' },
+      { item: 'CARB emissions data available', status: carbDataAvailable ? 'Complete' : 'Missing' },
+      { item: 'Coordinates available', status: coordinatesAvailable ? 'Complete' : 'Needs Review' },
+      { item: 'Climate claim entered', status: companyClaim.trim() ? 'Complete' : 'Optional' },
+      { item: 'Production/output data available', status: hasProductionData ? 'Complete' : 'Needs Review' },
+      { item: 'Satellite/activity evidence attached', status: hasSatelliteEvidence ? 'Complete' : 'Needs Review' },
+      { item: 'Evidence packet ready', status: evidencePacketReady ? 'Complete' : 'Missing' },
+    ] as Array<{ item: string; status: ChecklistStatus }>;
+  }, [selected, baselineYear, currentYear, baselineEmissions, currentEmissions, companyClaim, hasProductionData, hasSatelliteEvidence]);
+
+  const yearOverYearFinding = useMemo(() => {
+    if (!selected || !baselineYear || !currentYear || calculatedReductionNumber == null || baselineEmissions === '' || currentEmissions === '') {
+      return 'DPAL needs more data to complete the year-over-year comparison.';
+    }
+    const trendPhrase =
+      calculatedReductionNumber >= 0
+        ? `resulting in a ${Math.abs(calculatedReductionNumber).toFixed(2)}% reduction.`
+        : `reported emissions increased by ${Math.abs(calculatedReductionNumber).toFixed(2)}%.`;
+    return `DPAL compared ${baselineYear} and ${currentYear} reported emissions for ${selected.facilityName}. Reported CO2e changed from ${formatNumber(
+      baselineEmissions,
+    )} to ${formatNumber(currentEmissions)}, ${trendPhrase}`;
+  }, [selected, baselineYear, currentYear, calculatedReductionNumber, baselineEmissions, currentEmissions]);
+
+  const sourceModeText = useMemo(() => {
+    if (sourceMode === 'LIVE') return 'This review uses a live CARB-connected dataset.';
+    if (sourceMode === 'IMPORTED') return 'This review uses an imported CARB dataset derived from official reporting data.';
+    return 'This review uses demo data and is not suitable for real conclusions.';
+  }, [sourceMode]);
+
+  const recommendedNextSteps = useMemo(() => {
+    const steps: string[] = [];
+    if (sourceMode === 'IMPORTED') {
+      steps.push('Confirm imported dataset matches official CARB download.');
+      steps.push('Record dataset filename and retrieval date.');
+    }
+    if (!hasProductionData) {
+      steps.push('Add production/output data to calculate emissions intensity.');
+    }
+    if (!hasSatelliteEvidence) {
+      steps.push('Attach satellite or activity evidence for independent comparison.');
+    }
+    if (claimGap != null && Math.abs(claimGap) > 10) {
+      steps.push('Review company public claim against CARB-reported emissions.');
+    }
+    if (!selected || selected.latitude == null || selected.longitude == null) {
+      steps.push('Add facility coordinates before satellite comparison.');
+    }
+    if (riskLevel === 'Low') {
+      steps.push('Save audit and export evidence packet for recordkeeping.');
+    }
+    if (!steps.length) {
+      steps.push('Continue standard compliance review and archive supporting records.');
+    }
+    return steps;
+  }, [sourceMode, hasProductionData, hasSatelliteEvidence, claimGap, selected, riskLevel]);
+
+  const verificationSummary = useMemo(() => {
+    return {
+      facilityIdentity: {
+        facilityName: selected?.facilityName ?? 'n/a',
+        operatorName: selected?.operatorName ?? 'n/a',
+        facilityId: selected?.facilityId ?? 'n/a',
+        city: selected?.city ?? 'n/a',
+        county: selected?.county ?? 'n/a',
+        sector: selected?.sector ?? 'n/a',
+        coordinates: selected && selected.latitude != null && selected.longitude != null ? `${selected.latitude}, ${selected.longitude}` : 'Coordinates unavailable',
+      },
+      dataBasis: {
+        sourceMode,
+        datasetVersion: selected?.datasetVersion ?? datasetVersion,
+        retrievalDate: selected?.retrievalDate ?? (retrievalDate || 'n/a'),
+        sourceStatus: selected?.sourceStatus ?? 'NEEDS REVIEW',
+        plainEnglish: sourceModeText,
+      },
+      yearOverYearFinding,
+      claimVerificationResult: {
+        label: claimVerificationClassification.label,
+        text: claimVerificationClassification.text,
+        claimGapPct: claimGap,
+      },
+      discrepancyInterpretation: {
+        discrepancyScore: discrepancyScore ?? 'Needs More Data',
+        riskLevel,
+        text: discrepancyInterpretation,
+      },
+      checklist: verificationChecklist,
+      recommendedNextSteps,
+      generatedAt: new Date().toISOString(),
+    };
+  }, [
+    selected,
+    sourceMode,
+    datasetVersion,
+    retrievalDate,
+    sourceModeText,
+    yearOverYearFinding,
+    claimVerificationClassification,
+    claimGap,
+    discrepancyScore,
+    riskLevel,
+    discrepancyInterpretation,
+    verificationChecklist,
+    recommendedNextSteps,
+  ]);
 
   const aiHelperCategories = useMemo(() => {
     const categories: Array<{ id: string; title: string; severity: 'Info' | 'Watch' | 'Priority'; rationale: string; suggestedActions: string[] }> = [];
@@ -286,7 +530,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     dataSources,
     legalContext,
     limitations: ['CARB data may have reporting lag.', 'Scope boundaries may differ from corporate claim language.'],
-    recommendedNextSteps: ['Validate facility-scope mapping and claim boundaries.', 'Cross-check CARB records with EPA GHGRP where applicable.', 'Escalate for review if discrepancy remains material.'],
+    recommendedNextSteps: verificationSummary.recommendedNextSteps,
+    verificationSummary,
     aiNarrative,
     generatedAt: new Date().toISOString(),
     dpalLedgerPlaceholder: { status: 'not_connected' },
@@ -335,11 +580,28 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     return () => window.clearTimeout(timer);
   }, [facilitySearch.q, facilitySearch.facilityId, facilitySearch.city, facilitySearch.county, facilitySearch.sector, facilitySearch.year]);
 
+  const visibleSearchWarnings = useMemo(() => {
+    if (sourceMode === 'IMPORTED') {
+      return searchWarnings.filter((warning) => !warning.toLowerCase().includes('live carb source fetch failed'));
+    }
+    return searchWarnings;
+  }, [searchWarnings, sourceMode]);
+
   const totalPages = Math.max(1, Math.ceil(facilities.length / pageSize));
   const paginatedFacilities = useMemo(
     () => facilities.slice((currentPage - 1) * pageSize, currentPage * pageSize),
     [facilities, currentPage],
   );
+  const filteredCompanyOptions = useMemo(() => {
+    const q = companyPickerQuery.trim().toLowerCase();
+    if (!q) return companyOptions;
+    return companyOptions.filter((name) => name.toLowerCase().includes(q));
+  }, [companyOptions, companyPickerQuery]);
+  const filteredFacilityOptions = useMemo(() => {
+    const q = companyPickerQuery.trim().toLowerCase();
+    if (!q) return facilityOptions;
+    return facilityOptions.filter((name) => name.toLowerCase().includes(q));
+  }, [facilityOptions, companyPickerQuery]);
 
   const handleImportDataset = async () => {
     const payload = {
@@ -352,6 +614,44 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     setImportResult(result);
     setMessage(`Imported ${result.imported} CARB record(s). Source mode: ${result.sourceMode}.`);
     await executeSearch();
+  };
+
+  const handleOpenCompanyPicker = async () => {
+    setShowCompanyPicker(true);
+    setCompanyPickerError('');
+    if (companyOptions.length) return;
+    try {
+      setCompanyPickerLoading(true);
+      const res = await searchCarbFacilities({ limit: '500' });
+      const allRows = res.results as CarbFacility[];
+      const uniqueCompanies = Array.from(
+        new Set(
+          allRows
+            .map((row) => (row.operatorName || '').trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      const uniqueFacilities = Array.from(
+        new Set(
+          allRows
+            .map((row) => (row.facilityName || '').trim())
+            .filter(Boolean),
+        ),
+      ).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+      setCompanyOptions(uniqueCompanies);
+      setFacilityOptions(uniqueFacilities);
+    } catch (error: unknown) {
+      setCompanyPickerError(error instanceof Error ? error.message : 'Failed to load company list.');
+    } finally {
+      setCompanyPickerLoading(false);
+    }
+  };
+
+  const handlePickCompany = (value: string) => {
+    setFacilitySearch((prev) => ({ ...prev, q: value }));
+    setShowCompanyPicker(false);
+    setCompanyPickerQuery('');
+    setMessage(`${companyPickerMode === 'operator' ? 'Company' : 'Facility'} selected: ${value}. Search filters updated.`);
   };
 
   const handleGenerateAiNarrative = () => {
@@ -545,21 +845,51 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
             ))}
           </div>
           <button onClick={() => void handleSearch()} className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
+          <button
+            onClick={() => void handleOpenCompanyPicker()}
+            className="ml-2 mt-3 rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100"
+          >
+            Pick Company
+          </button>
           <p className="mt-2 text-xs text-slate-300">
             Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span> {isSearching ? '| Searching...' : ''}
           </p>
-          {searchWarnings.length ? (
+          {visibleSearchWarnings.length ? (
             <div className="mt-2 rounded-lg border border-amber-600 bg-amber-950/30 p-2 text-xs text-amber-200">
-              {searchWarnings.map((warning) => <p key={warning}>{warning}</p>)}
+              {visibleSearchWarnings.map((warning) => <p key={warning}>{warning}</p>)}
             </div>
           ) : null}
-          <div className="mt-3 rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
-            <p>Map placeholder: marker/polygon support uses selected facility coordinates.</p>
+          <div className="mt-3 overflow-hidden rounded-xl border border-slate-700">
+            <MapContainer center={mapCenter} zoom={6} className="h-64 w-full">
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+              <CarbMapRecenter center={mapCenter} />
+              <CarbMapClickCapture onMapClick={(lat, lng) => setManualCoordinates([lat, lng])} />
+              {selectedCoordinates ? (
+                <Marker position={selectedCoordinates} icon={carbFacilityMarker} />
+              ) : null}
+              {!selectedCoordinates && manualCoordinates ? (
+                <Marker position={manualCoordinates} icon={manualMarker} />
+              ) : null}
+              {selectedCoordinates ? (
+                <CircleMarker
+                  center={selectedCoordinates}
+                  radius={28}
+                  pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.12 }}
+                />
+              ) : null}
+            </MapContainer>
+          </div>
+          <div className="mt-2 rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
             <p>Selected: {selected ? `${selected.facilityName} (${selected.city}, ${selected.county})` : 'None'}</p>
-            <p>Marker: {selected && selected.latitude != null && selected.longitude != null ? `${selected.latitude}, ${selected.longitude}` : 'No coordinates in selected record'}</p>
+            <p>
+              Marker: {selectedCoordinates ? `${selectedCoordinates[0]}, ${selectedCoordinates[1]}` : manualCoordinates ? `${manualCoordinates[0].toFixed(5)}, ${manualCoordinates[1].toFixed(5)} (manual)` : 'No coordinates set'}
+            </p>
           </div>
           {selected && (selected.latitude == null || selected.longitude == null) ? (
-            <p className="mt-2 text-xs text-amber-300">Facility location missing from CARB dataset. Add GPS manually before satellite comparison.</p>
+            <p className="mt-2 text-xs text-amber-300">Facility location missing from CARB dataset. Click on the map to place a temporary marker before satellite comparison.</p>
           ) : null}
           <div className="mt-3 max-h-56 overflow-auto space-y-2">
             {paginatedFacilities.map((facility) => (
@@ -633,10 +963,147 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
         <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 xl:col-span-2">
           <p className="text-xs uppercase tracking-widest text-slate-400">CARB Data Sources</p>
           <p className="text-sm text-slate-300">Source mode: {sourceMode} | Dataset version: {datasetVersion} | Retrieval date: {retrievalDate || 'n/a'}</p>
-          {sourceMode !== 'LIVE' ? <p className="mt-1 text-xs text-amber-300">Live CARB source is not connected or unavailable. Using imported/demo fallback records.</p> : null}
+          {sourceMode === 'IMPORTED' ? (
+            <p className="mt-1 text-xs text-emerald-300">
+              Imported CARB dataset is active and being used for this review.
+            </p>
+          ) : null}
+          {sourceMode === 'DEMO_FALLBACK' ? (
+            <p className="mt-1 text-xs text-amber-300">
+              Demo fallback data is active. This mode is for testing and not suitable for real conclusions.
+            </p>
+          ) : null}
           <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-slate-200">
             {dataSources.map((s) => <p key={s.sourceName}>{s.sourceName} | {s.sourceStatus} | {s.datasetVersion}</p>)}
           </div>
+        </div>
+      </section>
+
+      {showCompanyPicker ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold text-white">Select Company or Facility</h3>
+              <button onClick={() => setShowCompanyPicker(false)} className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200">Close</button>
+            </div>
+            <p className="mt-1 text-xs text-slate-300">Pick an operator or facility name to auto-fill search and quickly review matching records.</p>
+            <div className="mt-3 inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-1 text-xs">
+              <button
+                onClick={() => setCompanyPickerMode('operator')}
+                className={`rounded-md px-3 py-1 ${companyPickerMode === 'operator' ? 'bg-indigo-700 text-white' : 'text-slate-300'}`}
+              >
+                Company
+              </button>
+              <button
+                onClick={() => setCompanyPickerMode('facility')}
+                className={`rounded-md px-3 py-1 ${companyPickerMode === 'facility' ? 'bg-indigo-700 text-white' : 'text-slate-300'}`}
+              >
+                Facility
+              </button>
+            </div>
+            <input
+              value={companyPickerQuery}
+              onChange={(e) => setCompanyPickerQuery(e.target.value)}
+              placeholder={companyPickerMode === 'operator' ? 'Filter company names...' : 'Filter facility names...'}
+              className="mt-3 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+            />
+            {companyPickerLoading ? <p className="mt-3 text-sm text-slate-300">Loading company list...</p> : null}
+            {companyPickerError ? <p className="mt-3 text-sm text-rose-300">{companyPickerError}</p> : null}
+            <div className="mt-3 max-h-80 overflow-auto space-y-2">
+              {(companyPickerMode === 'operator' ? filteredCompanyOptions : filteredFacilityOptions).map((name) => (
+                <button
+                  key={name}
+                  onClick={() => handlePickCompany(name)}
+                  className="w-full rounded-lg border border-slate-700 px-3 py-2 text-left text-sm text-slate-200 hover:border-emerald-500"
+                >
+                  {name}
+                </button>
+              ))}
+              {!companyPickerLoading && !filteredCompanyOptions.length ? (
+                <p className="text-sm text-slate-400">
+                  {companyPickerMode === 'operator' ? 'No company names found for this filter.' : 'No facility names found for this filter.'}
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        <h2 className="text-lg font-bold text-white">Verification Summary</h2>
+        <p className="mt-1 text-xs text-slate-300">Plain-English DPAL verification summary based on selected CARB facility data and current comparison inputs.</p>
+
+        <div className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Facility identity</p>
+            <p className="mt-1"><span className="text-slate-400">Name:</span> {verificationSummary.facilityIdentity.facilityName}</p>
+            <p><span className="text-slate-400">Operator:</span> {verificationSummary.facilityIdentity.operatorName}</p>
+            <p><span className="text-slate-400">Facility ID:</span> {verificationSummary.facilityIdentity.facilityId}</p>
+            <p><span className="text-slate-400">City/County:</span> {verificationSummary.facilityIdentity.city}, {verificationSummary.facilityIdentity.county}</p>
+            <p><span className="text-slate-400">Sector:</span> {verificationSummary.facilityIdentity.sector}</p>
+            <p><span className="text-slate-400">Coordinates:</span> {verificationSummary.facilityIdentity.coordinates}</p>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Data basis</p>
+            <p className="mt-1"><span className="text-slate-400">Source mode:</span> {verificationSummary.dataBasis.sourceMode}</p>
+            <p><span className="text-slate-400">Dataset version:</span> {verificationSummary.dataBasis.datasetVersion}</p>
+            <p><span className="text-slate-400">Retrieval date:</span> {verificationSummary.dataBasis.retrievalDate}</p>
+            <p><span className="text-slate-400">Source status:</span> {verificationSummary.dataBasis.sourceStatus}</p>
+            <p className="mt-2 text-xs text-slate-300">{verificationSummary.dataBasis.plainEnglish}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+          <p className="text-xs uppercase tracking-widest text-slate-400">Year-over-year finding</p>
+          <p className="mt-1">{verificationSummary.yearOverYearFinding}</p>
+        </div>
+
+        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Claim verification result</p>
+            <p className="mt-1"><span className="text-slate-400">Classification:</span> {verificationSummary.claimVerificationResult.label}</p>
+            <p className="mt-1">{verificationSummary.claimVerificationResult.text}</p>
+            <p className="mt-1 text-xs text-slate-400">
+              Claim gap: {verificationSummary.claimVerificationResult.claimGapPct == null ? 'n/a' : `${verificationSummary.claimVerificationResult.claimGapPct.toFixed(2)} percentage points`}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Discrepancy interpretation</p>
+            <p className="mt-1"><span className="text-slate-400">Score:</span> {String(verificationSummary.discrepancyInterpretation.discrepancyScore)}</p>
+            <p><span className="text-slate-400">Risk level:</span> {verificationSummary.discrepancyInterpretation.riskLevel}</p>
+            <p className="mt-1">{verificationSummary.discrepancyInterpretation.text}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+          <div className="flex flex-wrap items-center gap-3">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Verification checklist</p>
+            <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+              <input type="checkbox" checked={hasProductionData} onChange={(e) => setHasProductionData(e.target.checked)} />
+              Production/output data available
+            </label>
+            <label className="inline-flex items-center gap-2 text-xs text-slate-300">
+              <input type="checkbox" checked={hasSatelliteEvidence} onChange={(e) => setHasSatelliteEvidence(e.target.checked)} />
+              Satellite/activity evidence attached
+            </label>
+          </div>
+          <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+            {verificationSummary.checklist.map((entry) => (
+              <div key={entry.item} className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2">
+                <span>{entry.item}</span>
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] ${statusClass[entry.status]}`}>{entry.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+          <p className="text-xs uppercase tracking-widest text-slate-400">Recommended next steps</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5">
+            {verificationSummary.recommendedNextSteps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
+          </ul>
         </div>
       </section>
 
