@@ -79,6 +79,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const showDeveloperImportTools = !hasRoleSystem;
   const [facilitySearch, setFacilitySearch] = useState({ q: '', facilityId: '', city: '', county: '', sector: '', year: '' });
   const [facilities, setFacilities] = useState<CarbFacility[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<CarbFacility | null>(null);
   const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK'>('DEMO_FALLBACK');
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
@@ -104,6 +106,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [importDatasetVersion, setImportDatasetVersion] = useState('');
   const [importSourceUrl, setImportSourceUrl] = useState('');
   const [importResult, setImportResult] = useState<{ imported: number; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' } | null>(null);
+  const pageSize = 8;
+  const [aiNarrative, setAiNarrative] = useState('');
 
   const facilityYearRecords = useMemo(
     () => (!selected ? [] : facilities.filter((row) => row.facilityId === selected.facilityId)),
@@ -168,6 +172,86 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     return 'Claim may be inconsistent with reported CARB data';
   }, [companyClaim, discrepancyScore]);
 
+  const aiHelperCategories = useMemo(() => {
+    const categories: Array<{ id: string; title: string; severity: 'Info' | 'Watch' | 'Priority'; rationale: string; suggestedActions: string[] }> = [];
+
+    if (!selected) {
+      categories.push({
+        id: 'no-facility',
+        title: 'Facility Selection Needed',
+        severity: 'Info',
+        rationale: 'A facility record is required before CARB discrepancy analysis can be categorized.',
+        suggestedActions: ['Select a facility from search results.', 'Confirm reporting years and emissions fields.'],
+      });
+      return categories;
+    }
+
+    if (claimComparison.includes('inconsistent') || (discrepancyScore ?? 0) > 60) {
+      categories.push({
+        id: 'claim-inconsistency',
+        title: 'Potential Claim Discrepancy - Requires Review',
+        severity: 'Priority',
+        rationale: 'Claim language appears not fully aligned with reported year-over-year emissions outcomes.',
+        suggestedActions: [
+          'Compare claim boundary language against CARB reporting boundary.',
+          'Request supporting methodology notes from operator disclosures.',
+          'Escalate to investigation workflow if discrepancy remains material.',
+        ],
+      });
+    }
+
+    if ((selected.verificationStatus || '').toLowerCase().includes('need') || selected.sourceStatus === 'NEEDS REVIEW') {
+      categories.push({
+        id: 'verification-gap',
+        title: 'Verification Gap',
+        severity: 'Watch',
+        rationale: 'Verification status indicates missing or incomplete assurance signal.',
+        suggestedActions: [
+          'Confirm verification statement details in CARB file.',
+          'Cross-check with EPA GHGRP and operator sustainability filings.',
+        ],
+      });
+    }
+
+    if (methaneReduction !== 'Needs More Data' && Number(methaneReduction.replace('%', '')) < 0) {
+      categories.push({
+        id: 'methane-uptrend',
+        title: 'Methane Trend Concern',
+        severity: 'Priority',
+        rationale: 'Methane intensity appears to trend upward for selected comparison years.',
+        suggestedActions: [
+          'Review methane controls and flare/venting disclosures.',
+          'Prioritize satellite methane layer comparison once location is confirmed.',
+        ],
+      });
+    }
+
+    if (!baselineEmissions || !currentEmissions || methaneReduction === 'Needs More Data' || co2Reduction === 'Needs More Data' || n2oReduction === 'Needs More Data') {
+      categories.push({
+        id: 'data-gaps',
+        title: 'Data Completeness Gap',
+        severity: 'Watch',
+        rationale: 'One or more required emissions dimensions are missing for robust discrepancy scoring.',
+        suggestedActions: [
+          'Load additional year records for the selected facility.',
+          'Populate missing CO2/CH4/N2O fields before final audit export.',
+        ],
+      });
+    }
+
+    if (!categories.length) {
+      categories.push({
+        id: 'stable-review',
+        title: 'Baseline Consistency Check',
+        severity: 'Info',
+        rationale: 'Current indicators appear directionally consistent; maintain periodic review.',
+        suggestedActions: ['Monitor next filing cycle for trend changes.', 'Retain evidence packet and source provenance metadata.'],
+      });
+    }
+
+    return categories;
+  }, [selected, claimComparison, discrepancyScore, methaneReduction, baselineEmissions, currentEmissions, co2Reduction, n2oReduction]);
+
   const canSaveOrExport = Boolean(selected && baselineYear && currentYear && baselineEmissions && currentEmissions);
 
   const dataSources = sourceRows.map((sourceName) => ({
@@ -203,12 +287,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     legalContext,
     limitations: ['CARB data may have reporting lag.', 'Scope boundaries may differ from corporate claim language.'],
     recommendedNextSteps: ['Validate facility-scope mapping and claim boundaries.', 'Cross-check CARB records with EPA GHGRP where applicable.', 'Escalate for review if discrepancy remains material.'],
+    aiNarrative,
     generatedAt: new Date().toISOString(),
     dpalLedgerPlaceholder: { status: 'not_connected' },
     checksumPlaceholder: 'pending-checksum',
   };
 
   const executeSearch = async () => {
+    setIsSearching(true);
     const res = await searchCarbFacilities({
       q: facilitySearch.q,
       facilityId: facilitySearch.facilityId,
@@ -216,13 +302,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
       county: facilitySearch.county,
       sector: facilitySearch.sector,
       year: facilitySearch.year,
+      limit: '500',
     });
     setFacilities(res.results as CarbFacility[]);
     setSourceMode(res.sourceMode);
     setSearchWarnings(res.warnings ?? []);
     setDatasetVersion(res.datasetVersion ?? 'unavailable');
     setRetrievalDate(res.retrievalDate ?? '');
+    setCurrentPage(1);
     setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
+    setIsSearching(false);
     return res;
   };
 
@@ -237,6 +326,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     }
   };
 
+  useEffect(() => {
+    const hasAnyFilter = Object.values(facilitySearch).some((value) => value.trim().length > 0);
+    if (!hasAnyFilter) return;
+    const timer = window.setTimeout(() => {
+      void handleSearch();
+    }, 450);
+    return () => window.clearTimeout(timer);
+  }, [facilitySearch.q, facilitySearch.facilityId, facilitySearch.city, facilitySearch.county, facilitySearch.sector, facilitySearch.year]);
+
+  const totalPages = Math.max(1, Math.ceil(facilities.length / pageSize));
+  const paginatedFacilities = useMemo(
+    () => facilities.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [facilities, currentPage],
+  );
+
   const handleImportDataset = async () => {
     const payload = {
       csvText: importCsvText.trim() || undefined,
@@ -248,6 +352,25 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     setImportResult(result);
     setMessage(`Imported ${result.imported} CARB record(s). Source mode: ${result.sourceMode}.`);
     await executeSearch();
+  };
+
+  const handleGenerateAiNarrative = () => {
+    if (!selected) {
+      setAiNarrative('AI helper narrative is pending. Select a CARB facility and comparison years to generate a review summary.');
+      return;
+    }
+
+    const categorySummary = aiHelperCategories.map((category) => `${category.title} (${category.severity})`).join('; ');
+    const text = [
+      `DPAL CARB review summary for ${selected.facilityName} (${selected.facilityId}) in ${selected.city}, ${selected.county}.`,
+      `Comparison years: baseline ${baselineYear || 'n/a'} and current ${currentYear || 'n/a'}. Reported reduction: ${calculatedReduction}.`,
+      `Claim assessment outcome: ${claimComparison}. Discrepancy score: ${discrepancyScore ?? 'Needs More Data'} with risk level ${riskLevel}.`,
+      `Current review categories: ${categorySummary || 'No categories generated yet'}.`,
+      'This narrative is advisory and identifies potential discrepancy indicators for further review. It is not a final legal finding.',
+    ].join(' ');
+
+    setAiNarrative(text);
+    setMessage('AI helper narrative generated for evidence packet drafting.');
   };
 
   const buildPayload = () => ({
@@ -422,7 +545,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
             ))}
           </div>
           <button onClick={() => void handleSearch()} className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
-          <p className="mt-2 text-xs text-slate-300">Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span></p>
+          <p className="mt-2 text-xs text-slate-300">
+            Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span> {isSearching ? '| Searching...' : ''}
+          </p>
           {searchWarnings.length ? (
             <div className="mt-2 rounded-lg border border-amber-600 bg-amber-950/30 p-2 text-xs text-amber-200">
               {searchWarnings.map((warning) => <p key={warning}>{warning}</p>)}
@@ -437,7 +562,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
             <p className="mt-2 text-xs text-amber-300">Facility location missing from CARB dataset. Add GPS manually before satellite comparison.</p>
           ) : null}
           <div className="mt-3 max-h-56 overflow-auto space-y-2">
-            {facilities.map((facility) => (
+            {paginatedFacilities.map((facility) => (
               <button key={`${facility.facilityId}-${facility.reportingYear}`} onClick={() => setSelected(facility)} className="w-full rounded-lg border border-slate-700 p-2 text-left text-sm text-slate-200 hover:border-emerald-500">
                 <div className="font-semibold">{facility.facilityName}</div>
                 <div className="text-xs text-slate-400">{facility.facilityId} | {facility.city} | {facility.reportingYear}</div>
@@ -445,6 +570,25 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
               </button>
             ))}
           </div>
+          {facilities.length > pageSize ? (
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
+              <button
+                onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                disabled={currentPage <= 1}
+                className="rounded border border-slate-600 px-2 py-1 disabled:opacity-50"
+              >
+                Prev
+              </button>
+              <p>Page {currentPage} / {totalPages}</p>
+              <button
+                onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                disabled={currentPage >= totalPages}
+                className="rounded border border-slate-600 px-2 py-1 disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          ) : null}
         </section>
 
         <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
@@ -501,6 +645,44 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
           {legalContext.map((line) => <li key={line}>{line}</li>)}
         </ul>
+      </section>
+
+      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        <h2 className="text-lg font-bold text-white">AI Helper Review Categories</h2>
+        <p className="mt-1 text-xs text-slate-300">
+          Advisory analysis only. Uses discrepancy and data-quality signals to prioritize follow-up review categories.
+        </p>
+        <div className="mt-3 space-y-3">
+          {aiHelperCategories.map((category) => (
+            <div key={category.id} className="rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-white">{category.title}</p>
+                <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] text-slate-200">{category.severity}</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-300">{category.rationale}</p>
+              <div className="mt-2 text-xs text-slate-300">
+                Suggested actions: {category.suggestedActions.join(' | ')}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-4 rounded-lg border border-slate-700 bg-slate-950/60 p-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold text-white">AI Narrative Draft</p>
+            <button
+              onClick={() => handleGenerateAiNarrative()}
+              className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-semibold text-white"
+            >
+              Generate AI Narrative
+            </button>
+          </div>
+          <textarea
+            value={aiNarrative}
+            onChange={(e) => setAiNarrative(e.target.value)}
+            placeholder="Generated narrative will appear here. You can edit before saving/export."
+            className="mt-2 h-28 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200"
+          />
+        </div>
       </section>
 
       <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
