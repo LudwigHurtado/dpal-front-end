@@ -452,6 +452,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<ShieldCheck className="w-8 h-8" />}
+                    label="CARB Emissions Audit"
+                    subLabel="California facility emissions reporting, reduction review, and discrepancy analysis."
+                    status="CARB"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('carbEmissionsAudit')}
+                />
+
+                <PrimaryNavModule
                     icon={<Phone className="w-8 h-8" />}
                     label="Urgent Help Line"
                     subLabel="Reach caring support when minutes matter"

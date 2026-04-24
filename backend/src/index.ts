@@ -13,6 +13,8 @@ import rewardsRouter from './routes/rewards';
 import carbonRouter from './routes/carbon';
 import ecologyRouter from './routes/ecology';
 import emissionsAuditRouter from './routes/emissionsAudit';
+import carbAuditRouter from './routes/carbAudit';
+import carbDataRouter from './routes/carbData';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
 
@@ -95,6 +97,8 @@ app.use('/api/rewards',      rewardsRouter);
 app.use('/api/carbon',       carbonRouter);
 app.use('/api/ecology',      ecologyRouter);
 app.use('/api/emissions-audit', emissionsAuditRouter);
+app.use('/api/carb-audit', carbAuditRouter);
+app.use('/api/carb-data', carbDataRouter);
 
 // Legacy /api/reports feed (compatibility with existing enterprise dashboard probe)
 app.get('/api/reports', async (_req, res) => {

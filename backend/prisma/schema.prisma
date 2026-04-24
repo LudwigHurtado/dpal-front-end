@@ -406,6 +406,13 @@ enum EmissionsAuditLedgerStatus {
   failed
 }
 
+enum CarbAuditRiskLevel {
+  low
+  medium
+  high
+  needs_more_data
+}
+
 model DpalUser {
   id           String @id @default(cuid())
   username     String @unique
@@ -446,6 +453,7 @@ model DpalUser {
 
   refreshTokens RefreshToken[]
   emissionsAudits EmissionsAudit[]
+  carbAudits      CarbAudit[]
 
   @@map("dpal_users")
   @@index([email])
@@ -541,4 +549,61 @@ model EmissionsAuditVersion {
   @@map("emissions_audit_versions")
   @@unique([auditId, version])
   @@index([auditId, createdAt])
+}
+
+model CarbAudit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      DpalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  facilityId   String
+  facilityName String
+  operatorName String
+  city         String
+  county       String
+  state        String @default("California")
+  latitude     Float?
+  longitude    Float?
+  sector       String
+
+  baselineYear      Int
+  currentYear       Int
+  baselineEmissions Float
+  currentEmissions  Float
+  methaneBaseline   Float @default(0)
+  methaneCurrent    Float @default(0)
+  n2oBaseline       Float @default(0)
+  n2oCurrent        Float @default(0)
+  co2Baseline       Float @default(0)
+  co2Current        Float @default(0)
+  calculatedReductionPct Float?
+  companyClaimText  String?
+  claimReductionPct Float?
+  claimGap          Float?
+  discrepancyScore  Float?
+  riskLevel         CarbAuditRiskLevel @default(needs_more_data)
+  verificationStatus String
+
+  dataSources      Json
+  evidencePacket   Json?
+  legalContext     Json
+  limitations      Json
+  recommendedNextSteps Json
+
+  linkedMRVProjectId    String?
+  linkedEvidenceVaultId String?
+  linkedReportId        String?
+
+  version   Int      @default(1)
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("carb_audits")
+  @@index([userId, createdAt])
+  @@index([facilityId])
+  @@index([facilityName])
+  @@index([county])
+  @@index([riskLevel])
+  @@index([deletedAt])
 }

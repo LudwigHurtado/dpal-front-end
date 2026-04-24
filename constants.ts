@@ -159,6 +159,11 @@ export const API_ROUTES = {
   EMISSIONS_AUDIT_CREATE: '/api/emissions-audit/create',
   EMISSIONS_AUDIT_LIST: '/api/emissions-audit/list',
   EMISSIONS_AUDIT_EXPORT: '/api/emissions-audit/export',
+  /** California CARB Emissions Audit */
+  CARB_AUDIT_CREATE: '/api/carb-audit/create',
+  CARB_AUDIT_LIST: '/api/carb-audit/list',
+  CARB_DATA_SEARCH: '/api/carb-data/search',
+  CARB_DATA_IMPORT: '/api/carb-data/import',
 } as const;
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
@@ -187,6 +192,10 @@ export const EMISSIONS_AUDIT_DETAIL  = (id: string) => apiUrl(`/api/emissions-au
 export const EMISSIONS_AUDIT_EXPORT_DETAIL = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}/export`);
 export const EMISSIONS_AUDIT_LINK    = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}/link`);
 export const EMISSIONS_AUDIT_RECALCULATE = (id: string) => apiUrl(`/api/emissions-audit/${encodeURIComponent(id)}/recalculate`);
+export const CARB_AUDIT_DETAIL = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}`);
+export const CARB_AUDIT_EXPORT_DETAIL = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}/export`);
+export const CARB_AUDIT_RECALCULATE = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}/recalculate`);
+export const CARB_AUDIT_LINK = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}/link`);
 export const WATER_GENERATE_REPORT   = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/reports/generate`);
 export const WATER_ISSUE_CREDITS     = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/credits/issue`);
 export const WATER_CREDIT_LIST       = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/list`);

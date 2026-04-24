@@ -84,6 +84,7 @@ export const VIEW_PATHS: Record<string, string> = {
   /** Air Quality Monitor — OpenAQ live readings, CO₂/CH₄/NO₂ scans, AQI dashboard */
   airQualityMonitor: '/air',
   emissionsIntegrityAudit: '/emissions-integrity-audit',
+  carbEmissionsAudit: '/carb-emissions-audit',
 };
 
 export function viewToPath(view: string): string {
