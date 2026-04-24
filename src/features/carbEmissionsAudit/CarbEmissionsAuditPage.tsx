@@ -223,10 +223,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     setDatasetVersion(res.datasetVersion ?? 'unavailable');
     setRetrievalDate(res.retrievalDate ?? '');
     setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
+    return res;
   };
 
   const handleSearch = async () => {
-    await executeSearch();
+    const res = await executeSearch();
+    if (!res.count && facilitySearch.q.trim()) {
+      setMessage(
+        res.sourceMode === 'DEMO_FALLBACK'
+          ? `No CARB records matched "${facilitySearch.q}". Current source mode is DEMO_FALLBACK. Import CARB CSV/JSON in Developer Import Tools, then search again.`
+          : `No CARB records matched "${facilitySearch.q}". Try a broader query or adjust city/county/year filters.`,
+      );
+    }
   };
 
   const handleImportDataset = async () => {

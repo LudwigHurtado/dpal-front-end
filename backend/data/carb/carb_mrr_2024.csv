@@ -1,0 +1,21 @@
+facility_id,facility_name,operator_name,city,county,sector,reporting_year,total_co2e,ch4,n2o,co2,verification_status,latitude,longitude
+1001,Chevron Richmond Refinery,Chevron,Richmond,Contra Costa,Oil & Gas,2023,100000,82,5,70,Verified,37.936,-122.357
+1001,Chevron Richmond Refinery,Chevron,Richmond,Contra Costa,Oil & Gas,2024,78000,79,4,60,Verified,37.936,-122.357
+1002,Shell Martinez Refinery,Shell,Martinez,Contra Costa,Oil & Gas,2023,95000,75,6,68,Verified,38.019,-122.134
+1002,Shell Martinez Refinery,Shell,Martinez,Contra Costa,Oil & Gas,2024,76000,73,5,61,Verified,38.019,-122.134
+1003,Valero Benicia Refinery,Valero,Benicia,Solano,Oil & Gas,2023,88000,70,5,65,Verified,38.049,-122.132
+1003,Valero Benicia Refinery,Valero,Benicia,Solano,Oil & Gas,2024,70000,69,4,58,Verified,38.049,-122.132
+1004,Phillips 66 Los Angeles Refinery,Phillips 66,Carson,Los Angeles,Oil & Gas,2023,92000,77,6,66,Verified,33.831,-118.279
+1004,Phillips 66 Los Angeles Refinery,Phillips 66,Carson,Los Angeles,Oil & Gas,2024,81000,76,5,63,Verified,33.831,-118.279
+1005,AES Alamitos Power Plant,AES,Long Beach,Los Angeles,Power Plant,2023,110000,20,3,100,Verified,33.759,-118.117
+1005,AES Alamitos Power Plant,AES,Long Beach,Los Angeles,Power Plant,2024,95000,18,2,90,Verified,33.759,-118.117
+1006,Ormond Beach Generating Station,NRG,Oxnard,Ventura,Power Plant,2023,105000,22,3,95,Verified,34.148,-119.186
+1006,Ormond Beach Generating Station,NRG,Oxnard,Ventura,Power Plant,2024,97000,21,2,91,Verified,34.148,-119.186
+1007,Moss Landing Power Plant,Vistra,Moss Landing,Monterey,Power Plant,2023,120000,25,4,110,Verified,36.806,-121.788
+1007,Moss Landing Power Plant,Vistra,Moss Landing,Monterey,Power Plant,2024,102000,23,3,95,Verified,36.806,-121.788
+1008,CalPortland Mojave Cement Plant,CalPortland,Mojave,Kern,Cement,2023,85000,10,8,70,Verified,35.052,-118.173
+1008,CalPortland Mojave Cement Plant,CalPortland,Mojave,Kern,Cement,2024,83000,10,7,68,Verified,35.052,-118.173
+1009,Lehigh Southwest Cement Company,Lehigh,Tehachapi,Kern,Cement,2023,78000,9,7,64,Verified,35.133,-118.448
+1009,Lehigh Southwest Cement Company,Lehigh,Tehachapi,Kern,Cement,2024,77000,9,7,63,Verified,35.133,-118.448
+1010,DPAL Demo Refinery Alpha,DPAL Demo,Fresno,Fresno,Oil & Gas,2023,90000,80,5,68,Needs Review,36.737,-119.787
+1010,DPAL Demo Refinery Alpha,DPAL Demo,Fresno,Fresno,Oil & Gas,2024,91000,81,6,69,Needs Review,36.737,-119.787
