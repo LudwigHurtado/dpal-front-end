@@ -81,6 +81,17 @@ After changing Railway variables, redeploy or restart the backend service.
 | `/ledger` | Public Blockchain Ledger |
 | `/help` | Help Center |
 | `/login` `/signup` | Auth (MongoDB users on `dpal-ai-server`) |
+| `/emissions-integrity-audit` | **EIAS** — emissions integrity audit (facility intake, scope, ADI, production unit for intensity); carbon adapter reads use Railway; server save needs `/api/emissions-audit/*` (see `CLAUDE.md`); workspace also **auto-saves in the browser** (`dpal_eias_workspace_v1`) |
+
+---
+
+## EIAS notes
+
+- Workspace draft persistence: EIAS restores and autosaves local state using `dpal_eias_workspace_v1`.
+- Production normalization: EIAS now tracks an explicit production `outputUnit` for intensity framing in audit payloads.
+- API split remains important:
+  - `/api/carbon/*` can be read from Railway `dpal-ai-server`
+  - `/api/emissions-audit/*` persistence is implemented in this repo's Prisma backend and expects its `DpalUser` JWT auth unless ported.
 
 ---
 

@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-23 (AFOLU project creation flow, calculator AI helper source visibility, Gemini model update)
+Last updated: 2026-04-24 (EIAS local workspace persistence + production output unit, API disclaimer/host split; AFOLU / calculator notes unchanged)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -66,6 +66,7 @@ See **`vite-env.d.ts`** for the full typed list.
 
 2. **Repo folder `backend/`** (Express + **Prisma**)  
    - Separate **local / auxiliary** service: help-center style **`/api/help-reports`**, **`/api/admin/*`**, plus optional **`GET /api/ai/status`** + **`POST /api/ai/gemini`** (`routes/geminiProxy.ts`) for local server-AI testing.  
+   - **EIAS (Emissions Integrity Audit System):** **`/api/emissions-audit/*`** — Prisma models `EmissionsAudit` / `EmissionsAuditVersion`, JWT auth via **`requireDpalAuth`** (`backend/src/routes/emissionsAudit.ts`). Audits are tied to **`DpalUser`** in this DB, **not** MongoDB Railway users.  
    - Plus **legacy-compatible** `GET /api/reports` and `GET /api/reports/feed` from Prisma `helpReport` for enterprise dashboard probes.  
    - Default port **3001** (`backend/src/index.ts`).  
    - **Not** the same deployment as production **`dpal-ai-server`** on Railway unless you point **`VITE_API_BASE`** here — do not assume all `API_ROUTES` exist in this folder.
@@ -149,6 +150,7 @@ If a dashboard shows “disconnected” or wrong API:
 | `waterMonitor` | `/water` | **Water Monitor** (water projects, satellite snapshots, impact score, validator, credits) |
 | `ecologicalConservation` | `/ecology` | **Ecological Conservation** (Landsat foliage scan, NDVI, habitat risk, AI chat) |
 | `gameHub` | `/games` | **Play & Learn / DPAL Mission Ops** embedded Phaser game |
+| `emissionsIntegrityAudit` | `/emissions-integrity-audit` | **EIAS** — facility intake, audit scope, ADI / evidence packet; live hints via **`/api/carbon/*`** when pointed at Railway; **save/list** needs **`/api/emissions-audit/*`** on the same host (implemented on Prisma **`backend/`** + `DpalUser` JWT, not default Mongo Railway) |
 
 ### Accounts & authentication (MongoDB users on `dpal-ai-server`)
 
@@ -195,6 +197,7 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | **Water Globe** | `components/WaterGlobe.tsx` — animated world globe for water project pins and alert indicators. |
 | **Ecological Conservation** | `components/EcologicalConservationView.tsx` — Landsat 9 OLI-2 foliage/habitat scan at `/ecology`. API: `GET /api/ecology/landsat-scan?lat=&lng=&radiusKm=` → Microsoft Planetary Computer STAC. Demo fallback: `buildDemoScan()` computes deterministic NDVI/risk from coordinates when API is unavailable. Map uses Esri satellite + labels tiles. AI chat via Gemini. |
 | **DPAL Mission Ops Phaser game** | `features/mission-game/*`, `features/mission-game/MissionGameView.tsx`, `components/DpalGameHubView.tsx`, `features/mission-game/game/config/worldMapLayout.ts`, `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png` — embedded mission game with world map, mission detail, action checklist, reward flow, persistent UI overlay, session player state. |
+| **EIAS (Emissions Integrity Audit)** | `src/features/emissionsIntegrity/EmissionsIntegrityAuditPage.tsx`, `services/emissionsAuditService.ts`, `utils/eiasWorkspacePersistence.ts` (`dpal_eias_workspace_v1`), `backend/src/controllers/emissionsAuditController.ts` — facility / jurisdiction intake, periods, reported vs satellite vs production signals (including **production `outputUnit`** for intensity), ADI, evidence packet, optional links to reports/missions/MRV. **Live adapter pull:** `GET` **`/api/carbon/air-quality`** + **`/api/carbon/minerals`** (debounced on map center). **Browser draft:** full workspace auto-saves locally when the API is missing or save fails. **Server persistence:** Prisma **`/api/emissions-audit/*`** + **`DpalUser`** JWT (not default Mongo Railway) unless ported. |
 
 ---
 
@@ -345,6 +348,18 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
   - Vercel is serving the latest commit
   - Gemini env is configured for the live deployment
   - the response card source label says `Gemini` rather than `Fallback`
+
+### 2026-04-24 — EIAS workspace persistence + production intensity unit
+
+#### Emissions Integrity Audit (`/emissions-integrity-audit`)
+- Added browser-persisted EIAS workspace snapshots under localStorage key `dpal_eias_workspace_v1` via `src/features/emissionsIntegrity/utils/eiasWorkspacePersistence.ts`.
+- Workspace now restores facility intake, scope periods, location/polygon, reported/satellite/production inputs, links, and draft audit state after refresh.
+- Autosave is debounced in the page to reduce storage churn while map and satellite metadata are changing.
+- Reset flow now clears the local snapshot and reinitializes defaults.
+- Production data now carries `outputUnit` (see `src/features/emissionsIntegrity/types/emissionsIntegrity.types.ts`) and the EIAS UI includes an editable unit input for intensity normalization context.
+- EIAS docs and in-app notice now explicitly call out the persistence split:
+  - carbon adapter reads can come from Railway `/api/carbon/*`
+  - save/list/export routes require `/api/emissions-audit/*` on a host using Prisma `DpalUser` JWT unless ported to `dpal-ai-server`.
 
 ### 2026-04-20 — Monitoring images, mineral detector, Sentinel SAR fallback, deployment identity
 
