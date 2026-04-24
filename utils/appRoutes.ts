@@ -96,6 +96,8 @@ export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
   /** Legacy map/beacon screen removed — land on Mission Marketplace. */
   if (normalized === '/field-missions') return 'missionMarketplace';
+  /** Legacy AFOLU paths kept for backwards-compatible deep links/bookmarks. */
+  if (normalized === '/aflu' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
   if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';
