@@ -164,6 +164,10 @@ export const API_ROUTES = {
   CARB_AUDIT_LIST: '/api/carb-audit/list',
   CARB_DATA_SEARCH: '/api/carb-data/search',
   CARB_DATA_IMPORT: '/api/carb-data/import',
+  HAZ_WASTE_AUDIT_CREATE: '/api/hazardous-waste-audit/create',
+  HAZ_WASTE_AUDIT_LIST: '/api/hazardous-waste-audit/list',
+  RCRA_DATA_SEARCH: '/api/rcra-data/search',
+  RCRA_DATA_IMPORT: '/api/rcra-data/import',
 } as const;
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
@@ -196,6 +200,10 @@ export const CARB_AUDIT_DETAIL = (id: string) => apiUrl(`/api/carb-audit/${encod
 export const CARB_AUDIT_EXPORT_DETAIL = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}/export`);
 export const CARB_AUDIT_RECALCULATE = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}/recalculate`);
 export const CARB_AUDIT_LINK = (id: string) => apiUrl(`/api/carb-audit/${encodeURIComponent(id)}/link`);
+export const HAZ_WASTE_AUDIT_DETAIL = (id: string) => apiUrl(`/api/hazardous-waste-audit/${encodeURIComponent(id)}`);
+export const HAZ_WASTE_AUDIT_EXPORT_DETAIL = (id: string) => apiUrl(`/api/hazardous-waste-audit/${encodeURIComponent(id)}/export`);
+export const HAZ_WASTE_AUDIT_RECALCULATE = (id: string) => apiUrl(`/api/hazardous-waste-audit/${encodeURIComponent(id)}/recalculate`);
+export const HAZ_WASTE_AUDIT_LINK = (id: string) => apiUrl(`/api/hazardous-waste-audit/${encodeURIComponent(id)}/link`);
 export const WATER_GENERATE_REPORT   = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/reports/generate`);
 export const WATER_ISSUE_CREDITS     = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/credits/issue`);
 export const WATER_CREDIT_LIST       = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/list`);

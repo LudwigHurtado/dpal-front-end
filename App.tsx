@@ -115,8 +115,9 @@ import {
 } from './utils/appRoutes';
 import EmissionsIntegrityAuditPage from './src/features/emissionsIntegrity/EmissionsIntegrityAuditPage';
 import CarbEmissionsAuditPage from './src/features/carbEmissionsAudit/CarbEmissionsAuditPage';
+import HazardousWasteAuditPage from './src/features/hazardousWasteAudit/HazardousWasteAuditPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2382,6 +2383,12 @@ const App: React.FC = () => {
 
         {currentView === 'carbEmissionsAudit' && (
           <CarbEmissionsAuditPage
+            onReturn={() => goBack('mainMenu')}
+          />
+        )}
+
+        {currentView === 'hazardousWasteAudit' && (
+          <HazardousWasteAuditPage
             onReturn={() => goBack('mainMenu')}
           />
         )}

@@ -462,6 +462,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<ShieldCheck className="w-8 h-8" />}
+                    label="Hazardous Waste Integrity Audit"
+                    subLabel="RCRA facility reporting, permit, compliance, and waste activity review."
+                    status="RCRA"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('hazardousWasteAudit')}
+                />
+
+                <PrimaryNavModule
                     icon={<Phone className="w-8 h-8" />}
                     label="Urgent Help Line"
                     subLabel="Reach caring support when minutes matter"

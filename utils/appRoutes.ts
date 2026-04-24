@@ -85,6 +85,7 @@ export const VIEW_PATHS: Record<string, string> = {
   airQualityMonitor: '/air',
   emissionsIntegrityAudit: '/emissions-integrity-audit',
   carbEmissionsAudit: '/carb-emissions-audit',
+  hazardousWasteAudit: '/hazardous-waste-audit',
 };
 
 export function viewToPath(view: string): string {

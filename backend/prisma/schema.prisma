@@ -413,6 +413,13 @@ enum CarbAuditRiskLevel {
   needs_more_data
 }
 
+enum HazardousWasteAuditRiskLevel {
+  low
+  medium
+  high
+  needs_more_data
+}
+
 model DpalUser {
   id           String @id @default(cuid())
   username     String @unique
@@ -454,6 +461,7 @@ model DpalUser {
   refreshTokens RefreshToken[]
   emissionsAudits EmissionsAudit[]
   carbAudits      CarbAudit[]
+  hazardousWasteAudits HazardousWasteAudit[]
 
   @@map("dpal_users")
   @@index([email])
@@ -604,6 +612,63 @@ model CarbAudit {
   @@index([facilityId])
   @@index([facilityName])
   @@index([county])
+  @@index([riskLevel])
+  @@index([deletedAt])
+}
+
+model HazardousWasteAudit {
+  id        String   @id @default(cuid())
+  userId    String
+  user      DpalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  epaId         String
+  facilityName  String
+  operatorName  String
+  city          String
+  county        String
+  state         String
+  latitude      Float?
+  longitude     Float?
+  generatorStatus String
+  permitStatus  String
+  complianceStatus String
+  correctiveActionStatus String
+
+  baselineYear                Int
+  currentYear                 Int
+  baselineHazardousWasteTons  Float
+  currentHazardousWasteTons   Float
+  baselineManifestCount       Float
+  currentManifestCount        Float
+  violationsCount             Float @default(0)
+  enforcementActionsCount     Float @default(0)
+  wasteChangePct              Float?
+  manifestChangePct           Float?
+  complianceRiskScore         Float?
+  integrityScore              Float?
+  riskLevel                   HazardousWasteAuditRiskLevel @default(needs_more_data)
+
+  claimText               String?
+  claimAnalysisJson       Json
+  verificationSummaryJson Json
+  netCarbonRealityJson    Json?
+  evidencePacketJson      Json?
+  sourceMode              String
+  dataSourcesJson         Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  version   Int      @default(1)
+  deletedAt DateTime?
+
+  linkedMRVProjectId    String?
+  linkedEvidenceVaultId String?
+  linkedReportId        String?
+
+  @@map("hazardous_waste_audits")
+  @@index([userId, createdAt])
+  @@index([epaId])
+  @@index([facilityName])
   @@index([riskLevel])
   @@index([deletedAt])
 }
