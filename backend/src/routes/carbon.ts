@@ -73,16 +73,21 @@ const buildRegistryEntry = (
 // Air quality monitoring endpoint
 router.get('/air-quality', async (req, res) => {
   try {
-    const { lat, lng } = req.query;
+    const { lat, lng, from, to } = req.query;
     if (!lat || !lng) {
       return res.status(400).json({ error: 'lat and lng required' });
     }
 
-    const data = await carbonGasAdapter.getAirQualityData(parseFloat(lat as string), parseFloat(lng as string));
+    const data = await carbonGasAdapter.getAirQualityData(
+      parseFloat(lat as string),
+      parseFloat(lng as string),
+      typeof from === 'string' ? from : undefined,
+      typeof to === 'string' ? to : undefined,
+    );
     res.json(data);
   } catch (error) {
     console.error('Air quality error:', error);
-    res.status(500).json({ error: 'Failed to fetch air quality data' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to fetch air quality data' });
   }
 });
 

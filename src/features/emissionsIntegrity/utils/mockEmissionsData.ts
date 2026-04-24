@@ -127,15 +127,15 @@ export const defaultReportedData: ReportedEmissionsData = {
 };
 
 export const defaultSatelliteData: SatelliteObservationData = {
-  baselineMethaneScore: 82,
-  currentMethaneScore: 71,
-  baselineNO2Score: 66,
-  currentNO2Score: 63,
-  baselineActivityProxyScore: 79,
-  currentActivityProxyScore: 74,
-  co2ContextScore: 58,
+  baselineMethaneScore: 0,
+  currentMethaneScore: 0,
+  baselineNO2Score: 0,
+  currentNO2Score: 0,
+  baselineActivityProxyScore: 0,
+  currentActivityProxyScore: 0,
+  co2ContextScore: 0,
   enabledLayers: [...SATELLITE_LAYER_OPTIONS],
-  metadata: createDefaultMetadata('NASA EMIT / Sentinel-5P placeholder'),
+  metadata: createDefaultMetadata('Sentinel-5P / NASA EMIT placeholder'),
 };
 
 export const defaultProductionData: ProductionData = {

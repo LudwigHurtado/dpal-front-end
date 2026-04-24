@@ -216,6 +216,26 @@ type CarbonAirQualityResponse = {
   dataAvailable: boolean;
   measurementStatus: 'verified' | 'unavailable';
   message: string;
+  periodStart?: string;
+  periodEnd?: string;
+  metrics?: {
+    methane?: {
+      unit?: string;
+      sampleCount?: number;
+      noDataCount?: number;
+      intervalCount?: number;
+      qaThreshold?: number;
+      value?: number | null;
+    };
+    no2?: {
+      unit?: string;
+      sampleCount?: number;
+      noDataCount?: number;
+      intervalCount?: number;
+      qaThreshold?: number;
+      value?: number | null;
+    };
+  };
 };
 
 type CarbonMineralResponse = {
@@ -339,24 +359,35 @@ function getSourceBadgeClass(status: SourceStatus): string {
 }
 
 function buildLiveSatelliteMetadata(
-  airQuality: CarbonAirQualityResponse | null,
+  baselineAirQuality: CarbonAirQualityResponse | null,
+  currentAirQuality: CarbonAirQualityResponse | null,
   mineralData: CarbonMineralResponse | null,
 ): DataSourceMetadata {
-  const hasVerifiedAir = airQuality?.measurementStatus === 'verified' && airQuality?.dataAvailable === true;
+  const hasVerifiedAir =
+    (baselineAirQuality?.measurementStatus === 'verified' && baselineAirQuality?.dataAvailable === true) ||
+    (currentAirQuality?.measurementStatus === 'verified' && currentAirQuality?.dataAvailable === true);
   const hasVerifiedMineral = mineralData?.measurementStatus === 'verified' && mineralData?.dataAvailable === true;
-  const hasAnyLiveSource = Boolean(airQuality?.source || mineralData?.source);
-  const sourceNames = [airQuality?.source, mineralData?.source].filter(Boolean) as string[];
-  const notes = [airQuality?.message, mineralData?.message].filter(Boolean).join(' | ');
+  const hasAnyLiveSource = Boolean(baselineAirQuality?.source || currentAirQuality?.source || mineralData?.source);
+  const sourceNames = [currentAirQuality?.source, mineralData?.source].filter(Boolean) as string[];
+  const notes = [
+    baselineAirQuality
+      ? `Baseline period ${baselineAirQuality.periodStart ?? ''} to ${baselineAirQuality.periodEnd ?? ''}: ${baselineAirQuality.message}`
+      : '',
+    currentAirQuality
+      ? `Current period ${currentAirQuality.periodStart ?? ''} to ${currentAirQuality.periodEnd ?? ''}: ${currentAirQuality.message}`
+      : '',
+    mineralData?.message,
+  ].filter(Boolean).join(' | ');
 
   return {
     sourceName: sourceNames.length > 0 ? sourceNames.join(' + ') : 'DPAL carbon adapter source unavailable',
-    sourceUrl: hasAnyLiveSource ? 'https://cmr.earthdata.nasa.gov/search' : '',
-    retrievalDate: normalizeSourceDate(airQuality?.captureDate || mineralData?.captureDate),
+    sourceUrl: hasAnyLiveSource ? 'https://sh.dataspace.copernicus.eu/statistics/v1' : '',
+    retrievalDate: normalizeSourceDate(currentAirQuality?.captureDate || baselineAirQuality?.captureDate || mineralData?.captureDate),
     datasetVersion: hasVerifiedAir || hasVerifiedMineral
-      ? 'Live adapter read'
+      ? 'Live Sentinel-5P statistical read'
       : hasAnyLiveSource
         ? 'Metadata-only adapter read'
-        : 'Demo data — replace with verified source',
+        : 'Demo data - replace with verified source',
     qaFlag: hasVerifiedAir || hasVerifiedMineral
       ? 'verified'
       : hasAnyLiveSource
@@ -1193,21 +1224,49 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   const loadLiveSatelliteSource = async (point: CoordinatePoint) => {
     setIsLoadingSatelliteSource(true);
     try {
-      const [airRes, mineralRes] = await Promise.all([
-        fetch(apiUrl(API_ROUTES.CARBON_AIR_QUALITY) + `?lat=${point.lat}&lng=${point.lng}`),
+      const buildAirQualityUrl = (from: string, to: string) => {
+        const params = new URLSearchParams({
+          lat: String(point.lat),
+          lng: String(point.lng),
+          from,
+          to,
+        });
+        return `${apiUrl(API_ROUTES.CARBON_AIR_QUALITY)}?${params.toString()}`;
+      };
+
+      const [baselineAirRes, currentAirRes, mineralRes] = await Promise.all([
+        fetch(buildAirQualityUrl(baselinePeriod.startDate, baselinePeriod.endDate)),
+        fetch(buildAirQualityUrl(currentPeriod.startDate, currentPeriod.endDate)),
         fetch(apiUrl(API_ROUTES.CARBON_MINERALS) + `?lat=${point.lat}&lng=${point.lng}`),
       ]);
 
-      const [airBody, mineralBody] = await Promise.all([airRes.text(), mineralRes.text()]);
+      const [baselineAirBody, currentAirBody, mineralBody] = await Promise.all([
+        baselineAirRes.text(),
+        currentAirRes.text(),
+        mineralRes.text(),
+      ]);
 
-      const airQuality = airRes.ok && airBody ? JSON.parse(airBody) as CarbonAirQualityResponse : null;
+      const baselineAirQuality = baselineAirRes.ok && baselineAirBody ? JSON.parse(baselineAirBody) as CarbonAirQualityResponse : null;
+      const currentAirQuality = currentAirRes.ok && currentAirBody ? JSON.parse(currentAirBody) as CarbonAirQualityResponse : null;
       const mineralData = mineralRes.ok && mineralBody ? JSON.parse(mineralBody) as CarbonMineralResponse : null;
-      const metadata = buildLiveSatelliteMetadata(airQuality, mineralData);
+      const metadata = buildLiveSatelliteMetadata(baselineAirQuality, currentAirQuality, mineralData);
 
       setSatelliteData((current) => {
         const next = { ...current, metadata };
-        if (typeof airQuality?.co2ppm === 'number' && Number.isFinite(airQuality.co2ppm)) {
-          next.co2ContextScore = clampScore(100 - ((airQuality.co2ppm - 380) / 2));
+        if (typeof baselineAirQuality?.ch4ppb === 'number' && Number.isFinite(baselineAirQuality.ch4ppb)) {
+          next.baselineMethaneScore = baselineAirQuality.ch4ppb;
+        }
+        if (typeof currentAirQuality?.ch4ppb === 'number' && Number.isFinite(currentAirQuality.ch4ppb)) {
+          next.currentMethaneScore = currentAirQuality.ch4ppb;
+        }
+        if (typeof baselineAirQuality?.no2 === 'number' && Number.isFinite(baselineAirQuality.no2)) {
+          next.baselineNO2Score = baselineAirQuality.no2;
+        }
+        if (typeof currentAirQuality?.no2 === 'number' && Number.isFinite(currentAirQuality.no2)) {
+          next.currentNO2Score = currentAirQuality.no2;
+        }
+        if (typeof currentAirQuality?.co2ppm === 'number' && Number.isFinite(currentAirQuality.co2ppm)) {
+          next.co2ContextScore = clampScore(100 - ((currentAirQuality.co2ppm - 380) / 2));
         }
         return next;
       });
@@ -1221,14 +1280,14 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       }));
       setStatusMessage(
         metadata.qaFlag === 'verified'
-          ? 'Live satellite source attached from the existing DPAL carbon adapters.'
+          ? 'Live Sentinel-5P methane and NO2 observations were attached for the selected baseline and current periods.'
           : metadata.qaFlag === 'review_needed'
-            ? 'Satellite adapter metadata was found, but the reading still needs review before it is treated as final proof.'
+            ? 'Sentinel-5P metadata was found, but the requested methane and NO2 observations still need review before they are treated as final proof.'
             : 'No live satellite adapter reading was available for the selected point.',
       );
     } catch (error) {
       console.error('Failed to load live satellite source:', error);
-      setStatusMessage('Unable to load the existing DPAL satellite source for this point.');
+      setStatusMessage(error instanceof Error ? error.message : 'Unable to load the existing DPAL satellite source for this point.');
     } finally {
       setIsLoadingSatelliteSource(false);
     }
@@ -1267,7 +1326,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       void loadLiveSatelliteSource(centerPoint);
     }, 650);
     return () => window.clearTimeout(handle);
-  }, [centerPoint?.lat, centerPoint?.lng]);
+  }, [baselinePeriod.endDate, baselinePeriod.startDate, centerPoint?.lat, centerPoint?.lng, currentPeriod.endDate, currentPeriod.startDate]);
 
   const handleSaveAudit = async () => {
     if (!validateAuditWorkspace()) {
