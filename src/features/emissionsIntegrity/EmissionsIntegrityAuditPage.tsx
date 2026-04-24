@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { getAccessToken } from '../../../auth/authStorage';
 import { MapContainer, Marker, Polygon, Polyline, TileLayer, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -39,7 +40,7 @@ import {
   SATELLITE_LAYER_OPTIONS,
   createDefaultMetadata,
 } from './utils/mockEmissionsData';
-import { calculateAdi, calculateAuditResults } from './utils/emissionsCalculations';
+import { calculateAdi, calculateAuditResults, hasMinimumAuditData } from './utils/emissionsCalculations';
 import { JURISDICTION_CONTEXT, LEGAL_DISCLAIMER } from './utils/jurisdictionRules';
 import type {
   AuditPeriod,
@@ -49,6 +50,7 @@ import type {
   EvidencePacket,
   Jurisdiction,
   LocationSelectionMethod,
+  SourceStatus,
 } from './types/emissionsIntegrity.types';
 import {
   createEmissionsAudit,
@@ -63,6 +65,16 @@ import {
   type EmissionsAuditSummary,
 } from '../../../services/emissionsAuditService';
 import { API_ROUTES, apiUrl } from '../../../constants';
+import {
+  clearEiasWorkspaceLocal,
+  getEiasWorkspaceInitialState,
+  saveEiasWorkspaceSnapshot,
+} from './utils/eiasWorkspacePersistence';
+
+/** Same host as `VITE_API_BASE` must expose `/api/emissions-audit/*` (Prisma `backend/` today; not on default Railway `dpal-ai-server`). */
+const EIAS_API_DISCLAIMER =
+  'Saved audits require an API that implements /api/emissions-audit/* and a compatible sign-in (local backend/Prisma JWT). Production Railway often returns 401/404 here; workspace + carbon adapter pulls still work.';
+const LOCAL_DRAFT_HINT = 'This browser keeps an auto-saved local draft of the workspace (facility, periods, inputs, links).';
 
 interface EmissionsIntegrityAuditPageProps {
   onReturn: () => void;
@@ -189,6 +201,7 @@ function createPeriod(
 function riskTone(risk: string): string {
   if (risk.startsWith('High')) return 'border-rose-500/40 bg-rose-500/10 text-rose-200';
   if (risk.startsWith('Medium')) return 'border-amber-500/40 bg-amber-500/10 text-amber-200';
+  if (risk.startsWith('Needs More Data')) return 'border-slate-600 bg-slate-800/70 text-slate-200';
   return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
 }
 
@@ -216,6 +229,16 @@ type CarbonMineralResponse = {
   message: string;
 };
 
+function hasPlaceholderLanguage(value?: string | null): boolean {
+  const normalized = value?.trim().toLowerCase() ?? '';
+  if (!normalized) return false;
+  return ['demo', 'placeholder', 'replace with verified', 'unavailable', 'not connected'].some((token) => normalized.includes(token));
+}
+
+function metadataUsesPlaceholderCopy(metadata: DataSourceMetadata): boolean {
+  return [metadata.sourceName, metadata.sourceUrl, metadata.datasetVersion, metadata.notes].some((value) => hasPlaceholderLanguage(value));
+}
+
 function getMetadataBanner(metadata: DataSourceMetadata): { tone: MetadataBannerTone; text: string } {
   if (metadata.qaFlag === 'verified') {
     return { tone: 'emerald', text: 'Verified source attached from the existing DPAL satellite adapter.' };
@@ -242,6 +265,77 @@ function normalizeSourceDate(value?: string): string {
 
 function clampScore(value: number, min = 0, max = 100): number {
   return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+}
+
+function isFiniteNonNegative(value: number): boolean {
+  return Number.isFinite(value) && value >= 0;
+}
+
+function estimateJurisdictionFromPoint(point: CoordinatePoint | null): Jurisdiction | null {
+  if (!point) return null;
+  const { lat, lng } = point;
+  if (lat >= 32.0 && lat <= 42.1 && lng >= -124.6 && lng <= -114.0) return 'California';
+  if (lat >= 31.2 && lat <= 37.1 && lng >= -114.9 && lng <= -109.0) return 'Arizona';
+  if (lat >= 31.3 && lat <= 37.1 && lng >= -109.1 && lng <= -103.0) return 'New Mexico';
+  return 'Federal';
+}
+
+function getLocationValidation(point: CoordinatePoint | null, polygon: CoordinatePoint[]) {
+  const hasMarker = Boolean(point);
+  const hasPolygon = polygon.length >= 3;
+  return {
+    hasMarker,
+    hasPolygon,
+    hasLocation: hasMarker || hasPolygon,
+  };
+}
+
+function isValidDateRange(startDate: string, endDate: string): boolean {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  return !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime()) && end >= start;
+}
+
+function getSourceStatus(metadata: DataSourceMetadata): SourceStatus {
+  const hasCoreFields = Boolean(
+    metadata.sourceName?.trim() ||
+    metadata.sourceUrl?.trim() ||
+    metadata.datasetVersion?.trim() ||
+    metadata.notes?.trim(),
+  );
+  if (!hasCoreFields) return 'MISSING';
+  if (metadataUsesPlaceholderCopy(metadata)) {
+    return metadata.qaFlag === 'estimated' ? 'ESTIMATED' : 'DEMO';
+  }
+  if (metadata.qaFlag === 'verified') return 'LIVE VERIFIED';
+  if (metadata.qaFlag === 'estimated') return 'ESTIMATED';
+  if (metadata.qaFlag === 'review_needed') return 'NEEDS REVIEW';
+  return 'DEMO';
+}
+
+function getMetadataBannerState(metadata: DataSourceMetadata): { tone: MetadataBannerTone; text: string } {
+  const sourceStatus = getSourceStatus(metadata);
+  if (sourceStatus === 'LIVE VERIFIED') {
+    return { tone: 'emerald', text: 'Verified source attached from the existing DPAL satellite adapter.' };
+  }
+  if (sourceStatus === 'NEEDS REVIEW') {
+    return { tone: 'amber', text: 'Source metadata attached. Review measurement availability before relying on it as final proof.' };
+  }
+  if (sourceStatus === 'ESTIMATED') {
+    return { tone: 'sky', text: 'Estimated source context is attached. Replace it with a live adapter read when possible.' };
+  }
+  if (sourceStatus === 'MISSING') {
+    return { tone: 'amber', text: 'No source metadata is attached yet. Add provenance before relying on this input.' };
+  }
+  return { tone: 'amber', text: 'Demo data - replace with verified satellite source.' };
+}
+
+function getSourceBadgeClass(status: SourceStatus): string {
+  if (status === 'LIVE VERIFIED') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200';
+  if (status === 'ESTIMATED') return 'border-sky-500/40 bg-sky-500/10 text-sky-200';
+  if (status === 'NEEDS REVIEW') return 'border-amber-500/40 bg-amber-500/10 text-amber-100';
+  if (status === 'MISSING') return 'border-slate-600 bg-slate-800/60 text-slate-300';
+  return 'border-amber-500/40 bg-amber-500/10 text-amber-100';
 }
 
 function buildLiveSatelliteMetadata(
@@ -284,7 +378,8 @@ function DatasetMetadataEditor({
   const update = <K extends keyof DataSourceMetadata>(key: K, value: DataSourceMetadata[K]) => {
     onChange({ ...metadata, [key]: value });
   };
-  const banner = getMetadataBanner(metadata);
+  const banner = getMetadataBannerState(metadata);
+  const sourceStatus = getSourceStatus(metadata);
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
@@ -293,7 +388,12 @@ function DatasetMetadataEditor({
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">{title}</p>
           <p className={`mt-1 text-xs ${getBannerClass(banner.tone)}`}>{banner.text}</p>
         </div>
-        <Database className="h-4 w-4 text-slate-500" />
+        <div className="flex items-center gap-2">
+          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${getSourceBadgeClass(sourceStatus)}`}>
+            {sourceStatus}
+          </span>
+          <Database className="h-4 w-4 text-slate-500" />
+        </div>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div>
@@ -362,6 +462,66 @@ function BoundaryPicker({
   );
 }
 
+function buildEvidencePacketFromParts(
+  audit: EmissionsAudit,
+  regulatoryMeta: DataSourceMetadata,
+  fieldReportMeta: DataSourceMetadata,
+): EvidencePacket {
+  return {
+    title: 'DPAL Emissions Integrity Audit Evidence Packet',
+    auditId: audit.auditId,
+    companyName: audit.facilityInfo.companyName,
+    facilityName: audit.facilityInfo.facilityName,
+    jurisdiction: audit.facilityInfo.jurisdiction,
+    industry: audit.facilityInfo.industry,
+    legalFramework: audit.facilityInfo.legalFramework,
+    location: audit.locationBoundary.point,
+    polygon: audit.locationBoundary.polygon,
+    mapBoundary: {
+      location: audit.locationBoundary.point,
+      polygon: audit.locationBoundary.polygon,
+      areaEstimateKm2: audit.locationBoundary.areaEstimateKm2,
+      stateLabel: audit.locationBoundary.stateLabel,
+    },
+    baselinePeriod: audit.baselinePeriod,
+    currentPeriod: audit.currentPeriod,
+    periodComparison: {
+      baselinePeriod: audit.baselinePeriod,
+      currentPeriod: audit.currentPeriod,
+    },
+    reportedData: audit.reportedData,
+    satelliteObservations: audit.satelliteObservations,
+    productionData: audit.productionData,
+    dataSources: {
+      reportedData: audit.reportedData.metadata,
+      satelliteObservations: audit.satelliteObservations.metadata,
+      productionData: audit.productionData.metadata,
+      regulatorySource: regulatoryMeta,
+      fieldReports: fieldReportMeta,
+    },
+    calculationResults: audit.calculationResults,
+    adiScore: audit.adi.score,
+    riskLevel: audit.adi.riskLevel,
+    confidence: audit.confidenceInputs,
+    legalContext: [...audit.legalContext, LEGAL_DISCLAIMER],
+    confidenceScore: audit.adi.confidenceScore,
+    limitations: audit.limitations,
+    recommendedNextSteps: audit.recommendedNextSteps,
+    generatedAt: new Date().toISOString(),
+    checksumPlaceholder: 'pending-checksum',
+    timestamps: {
+      exportedAt: new Date().toISOString(),
+      createdAt: audit.timestamps.createdAt,
+      updatedAt: audit.timestamps.updatedAt,
+    },
+    dpalLedgerPlaceholder: {
+      status: 'not_connected',
+      note: 'Ledger write integration not connected yet. Save-to-ledger is a placeholder.',
+    },
+    integrationHooks,
+  };
+}
+
 function buildAuditFromStored(source: any): EmissionsAudit {
   const calculations = source.calculations ?? {};
   const confidence = source.confidence ?? {};
@@ -410,15 +570,19 @@ function buildAuditFromStored(source: any): EmissionsAudit {
       currentMethaneScore: source.satelliteData?.currentMethaneScore ?? 0,
       baselineNO2Score: source.satelliteData?.baselineNO2Score ?? 0,
       currentNO2Score: source.satelliteData?.currentNO2Score ?? 0,
-      baselineActivityProxyScore: 0,
-      currentActivityProxyScore: 0,
-      co2ContextScore: 0,
+      baselineActivityProxyScore: source.satelliteData?.baselineActivityProxyScore ?? 0,
+      currentActivityProxyScore: source.satelliteData?.currentActivityProxyScore ?? 0,
+      co2ContextScore: source.satelliteData?.co2ContextScore ?? 0,
       enabledLayers: [...SATELLITE_LAYER_OPTIONS],
       metadata: source.satelliteData?.sourceMetadata ?? createDefaultMetadata('Satellite data'),
     },
     productionData: {
       baselineProductionOutput: source.productionData?.baselineOutput ?? 0,
       currentProductionOutput: source.productionData?.currentOutput ?? 0,
+      outputUnit:
+        typeof source.productionData?.outputUnit === 'string' && source.productionData.outputUnit.trim()
+          ? source.productionData.outputUnit
+          : defaultProductionData.outputUnit,
       metadata: source.productionData?.sourceMetadata ?? createDefaultMetadata('Production data'),
     },
     confidenceInputs: {
@@ -431,12 +595,15 @@ function buildAuditFromStored(source: any): EmissionsAudit {
       reportedReductionPct: calculations.reportedReductionPct ?? 0,
       methaneChangePct: calculations.methaneChangePct ?? 0,
       no2ChangePct: calculations.no2ChangePct ?? 0,
-      activityProxyChangePct: calculations.no2ChangePct ?? 0,
+      activityProxyChangePct: calculations.activityProxyChangePct ?? 0,
       baselineIntensity: calculations.baselineIntensity ?? 0,
       currentIntensity: calculations.currentIntensity ?? 0,
       intensityReductionPct: calculations.intensityReductionPct ?? 0,
       observedReductionPct: calculations.observedReductionPct ?? 0,
       discrepancyGap: calculations.discrepancyGap ?? 0,
+      auditDiscrepancyIndex: calculations.auditDiscrepancyIndex ?? calculations.ADI ?? 0,
+      overallConfidence: confidence.overallConfidence ?? 0,
+      riskLevel,
       interpretation:
         source.evidencePacket?.calculations?.interpretation ??
         `The company reported a ${reportedReduction.toFixed(1)}% reduction, while observed indicators suggest ${observedReduction.toFixed(1)}%.`,
@@ -458,31 +625,37 @@ function buildAuditFromStored(source: any): EmissionsAudit {
 }
 
 const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = ({ onReturn }) => {
-  const [facilityInfo, setFacilityInfo] = useState(defaultFacilityInfo);
-  const [locationMethod, setLocationMethod] = useState<LocationSelectionMethod>('GPS coordinate input');
-  const [gpsLat, setGpsLat] = useState('32.312');
-  const [gpsLng, setGpsLng] = useState('-104.234');
-  const [mapPoint, setMapPoint] = useState<CoordinatePoint | null>({ lat: 32.312, lng: -104.234 });
-  const [polygon, setPolygon] = useState<CoordinatePoint[]>([]);
-  const [drawingPolygon, setDrawingPolygon] = useState(false);
-  const [baselinePreset, setBaselinePreset] = useState<AuditPeriod['preset']>(defaultBaselinePeriod.preset);
-  const [currentPreset, setCurrentPreset] = useState<AuditPeriod['preset']>(defaultCurrentPeriod.preset);
-  const [baselineCustomStart, setBaselineCustomStart] = useState(defaultBaselinePeriod.startDate);
-  const [baselineCustomEnd, setBaselineCustomEnd] = useState(defaultBaselinePeriod.endDate);
-  const [currentCustomStart, setCurrentCustomStart] = useState(defaultCurrentPeriod.startDate);
-  const [currentCustomEnd, setCurrentCustomEnd] = useState(defaultCurrentPeriod.endDate);
-  const [reportedData, setReportedData] = useState(defaultReportedData);
-  const [satelliteData, setSatelliteData] = useState(defaultSatelliteData);
-  const [productionData, setProductionData] = useState(defaultProductionData);
-  const [confidenceInputs, setConfidenceInputs] = useState(defaultConfidenceInputs);
-  const [regulatoryMetadata, setRegulatoryMetadata] = useState(createDefaultMetadata('CARB MRR / EPA GHGRP placeholder'));
-  const [fieldReportMetadata, setFieldReportMetadata] = useState(createDefaultMetadata('DPAL field reports placeholder'));
-  const [facilitySearch, setFacilitySearch] = useState('');
+  const [initialWorkspace] = useState(() => getEiasWorkspaceInitialState());
+  const isFirstPersistEffect = useRef(true);
+  const skipNextWorkspacePersist = useRef(false);
+  const resultsRef = useRef<HTMLElement | null>(null);
+  const [lastLocalSaveAt, setLastLocalSaveAt] = useState<string | null>(null);
+
+  const [facilityInfo, setFacilityInfo] = useState(initialWorkspace.facilityInfo);
+  const [locationMethod, setLocationMethod] = useState<LocationSelectionMethod>(initialWorkspace.locationMethod);
+  const [gpsLat, setGpsLat] = useState(initialWorkspace.gpsLat);
+  const [gpsLng, setGpsLng] = useState(initialWorkspace.gpsLng);
+  const [mapPoint, setMapPoint] = useState<CoordinatePoint | null>(initialWorkspace.mapPoint);
+  const [polygon, setPolygon] = useState<CoordinatePoint[]>(initialWorkspace.polygon);
+  const [drawingPolygon, setDrawingPolygon] = useState(initialWorkspace.drawingPolygon);
+  const [baselinePreset, setBaselinePreset] = useState<AuditPeriod['preset']>(initialWorkspace.baselinePreset);
+  const [currentPreset, setCurrentPreset] = useState<AuditPeriod['preset']>(initialWorkspace.currentPreset);
+  const [baselineCustomStart, setBaselineCustomStart] = useState(initialWorkspace.baselineCustomStart);
+  const [baselineCustomEnd, setBaselineCustomEnd] = useState(initialWorkspace.baselineCustomEnd);
+  const [currentCustomStart, setCurrentCustomStart] = useState(initialWorkspace.currentCustomStart);
+  const [currentCustomEnd, setCurrentCustomEnd] = useState(initialWorkspace.currentCustomEnd);
+  const [reportedData, setReportedData] = useState(initialWorkspace.reportedData);
+  const [satelliteData, setSatelliteData] = useState(initialWorkspace.satelliteData);
+  const [productionData, setProductionData] = useState(initialWorkspace.productionData);
+  const [confidenceInputs, setConfidenceInputs] = useState(initialWorkspace.confidenceInputs);
+  const [regulatoryMetadata, setRegulatoryMetadata] = useState(initialWorkspace.regulatoryMetadata);
+  const [fieldReportMetadata, setFieldReportMetadata] = useState(initialWorkspace.fieldReportMetadata);
+  const [facilitySearch, setFacilitySearch] = useState(initialWorkspace.facilitySearch);
   const [warning, setWarning] = useState('');
   const [lastActionMessage, setLastActionMessage] = useState('No export or handoff action has been triggered yet.');
-  const [audit, setAudit] = useState<EmissionsAudit | null>(null);
-  const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
-  const [auditVersion, setAuditVersion] = useState(1);
+  const [audit, setAudit] = useState<EmissionsAudit | null>(initialWorkspace.audit);
+  const [savedAuditId, setSavedAuditId] = useState<string | null>(initialWorkspace.savedAuditId);
+  const [auditVersion, setAuditVersion] = useState(initialWorkspace.auditVersion);
   const [statusMessage, setStatusMessage] = useState('Audit workspace ready.');
   const [isSaving, setIsSaving] = useState(false);
   const [isLoadingList, setIsLoadingList] = useState(false);
@@ -491,13 +664,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   const [savedAudits, setSavedAudits] = useState<EmissionsAuditSummary[]>([]);
   const [viewMode, setViewMode] = useState<'workspace' | 'myAudits'>('workspace');
   const [versionHistory, setVersionHistory] = useState<Array<{ version: number; modifiedBy: string; changeSummary?: string | null; createdAt: string }>>([]);
-  const [linkFields, setLinkFields] = useState({
-    linkedReportId: '',
-    linkedMissionId: '',
-    linkedProjectId: '',
-    linkedMRVProjectId: '',
-    linkedEvidenceVaultId: '',
-  });
+  const [linkFields, setLinkFields] = useState(initialWorkspace.linkFields);
 
   const baselinePeriod = useMemo(
     () => createPeriod(baselinePreset, defaultBaselinePeriod, baselineCustomStart, baselineCustomEnd),
@@ -510,6 +677,8 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
   const areaEstimateKm2 = useMemo(() => computePolygonAreaKm2(polygon), [polygon]);
   const centerPoint = mapPoint ?? (polygon[0] ?? null);
+  const locationValidation = useMemo(() => getLocationValidation(centerPoint, polygon), [centerPoint, polygon]);
+  const estimatedJurisdiction = useMemo(() => estimateJurisdictionFromPoint(centerPoint), [centerPoint]);
   const filteredFacilities = useMemo(
     () =>
       demoFacilityResults.filter((result) =>
@@ -520,80 +689,195 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   );
 
   const legalContext = useMemo(() => JURISDICTION_CONTEXT[facilityInfo.jurisdiction as Jurisdiction], [facilityInfo.jurisdiction]);
-  const satelliteMetadataBanner = useMemo(() => getMetadataBanner(satelliteData.metadata), [satelliteData.metadata]);
-
-  const buildPayload = (): EmissionsAuditDraftPayload => ({
-    companyName: facilityInfo.companyName,
-    facilityName: facilityInfo.facilityName,
-    industry: facilityInfo.industry,
-    jurisdiction: facilityInfo.jurisdiction,
-    legalFramework: facilityInfo.legalFramework,
-    location: {
-      lat: centerPoint?.lat ?? null,
-      lng: centerPoint?.lng ?? null,
-      polygonGeoJSON: toPolygonGeoJSON(polygon),
-      areaEstimate: areaEstimateKm2,
-    },
-    baselinePeriod: {
-      startDate: baselinePeriod.startDate,
-      endDate: baselinePeriod.endDate,
-      label: baselinePeriod.label,
-    },
-    currentPeriod: {
-      startDate: currentPeriod.startDate,
-      endDate: currentPeriod.endDate,
-      label: currentPeriod.label,
-    },
-    reportedData: {
-      baselineCO2e: reportedData.baselineReportedEmissions,
-      currentCO2e: reportedData.currentReportedEmissions,
-      sourceMetadata: reportedData.metadata,
-    },
-    satelliteData: {
-      baselineMethaneScore: satelliteData.baselineMethaneScore,
-      currentMethaneScore: satelliteData.currentMethaneScore,
-      baselineNO2Score: satelliteData.baselineNO2Score,
-      currentNO2Score: satelliteData.currentNO2Score,
-      sourceMetadata: {
-        ...satelliteData.metadata,
-        notes: [
-          satelliteData.metadata.notes,
-          `Layer toggles: ${satelliteData.enabledLayers.join(', ')}`,
-          `Activity proxy baseline/current: ${satelliteData.baselineActivityProxyScore}/${satelliteData.currentActivityProxyScore}`,
-          `CO2 context score: ${satelliteData.co2ContextScore}`,
-          `Regulatory metadata source: ${regulatoryMetadata.sourceName}`,
-          `Field report source: ${fieldReportMetadata.sourceName}`,
-        ].filter(Boolean).join(' | '),
-      },
-    },
-    productionData: {
-      baselineOutput: productionData.baselineProductionOutput,
-      currentOutput: productionData.currentProductionOutput,
-      outputUnit: 'unit output',
-      sourceMetadata: productionData.metadata,
-    },
-    confidence: {
-      satelliteConfidence: confidenceInputs.satelliteDataConfidence,
-      regulatoryConfidence: confidenceInputs.regulatoryDataConfidence,
-      weatherQAConfidence: confidenceInputs.weatherQaConfidence,
-      overallConfidence: confidenceInputs.dataConfidence,
-    },
-    legalContext,
-    limitations,
-    recommendedNextSteps: audit?.recommendedNextSteps ?? [
-      'Compare the flagged discrepancy against permits, filings, and facility operating logs.',
-      'Validate weather conditions and QA flags for the selected observation window.',
-      'Escalate to a DPAL investigation case if discrepancy remains material after document review.',
+  const satelliteMetadataBanner = useMemo(() => getMetadataBannerState(satelliteData.metadata), [satelliteData.metadata]);
+  const jurisdictionMismatch = Boolean(estimatedJurisdiction && facilityInfo.jurisdiction !== estimatedJurisdiction);
+  const overallSourceStatuses = useMemo(
+    () => [
+      getSourceStatus(reportedData.metadata),
+      getSourceStatus(satelliteData.metadata),
+      getSourceStatus(productionData.metadata),
+      getSourceStatus(regulatoryMetadata),
+      getSourceStatus(fieldReportMetadata),
     ],
-    linkedReportId: linkFields.linkedReportId || null,
-    linkedMissionId: linkFields.linkedMissionId || null,
-    linkedProjectId: linkFields.linkedProjectId || null,
-    linkedMRVProjectId: linkFields.linkedMRVProjectId || null,
-    linkedEvidenceVaultId: linkFields.linkedEvidenceVaultId || null,
-    ledgerStatus: 'not_connected',
-    evidencePacket: evidencePacket ?? undefined,
-    version: auditVersion,
-  });
+    [fieldReportMetadata, productionData.metadata, regulatoryMetadata, reportedData.metadata, satelliteData.metadata],
+  );
+  const topDataQuality = useMemo(() => {
+    const uniqueStatuses = Array.from(new Set(overallSourceStatuses));
+    if (uniqueStatuses.length === 1) return uniqueStatuses[0];
+    return 'Mixed';
+  }, [overallSourceStatuses]);
+
+  const workspaceSnapshot = useMemo(
+    () => ({
+      facilityInfo,
+      locationMethod,
+      gpsLat,
+      gpsLng,
+      mapPoint,
+      polygon,
+      drawingPolygon,
+      baselinePreset,
+      currentPreset,
+      baselineCustomStart,
+      baselineCustomEnd,
+      currentCustomStart,
+      currentCustomEnd,
+      reportedData,
+      satelliteData,
+      productionData,
+      confidenceInputs,
+      regulatoryMetadata,
+      fieldReportMetadata,
+      facilitySearch,
+      linkFields,
+      savedAuditId,
+      auditVersion,
+      audit,
+    }),
+    [
+      facilityInfo,
+      locationMethod,
+      gpsLat,
+      gpsLng,
+      mapPoint,
+      polygon,
+      drawingPolygon,
+      baselinePreset,
+      currentPreset,
+      baselineCustomStart,
+      baselineCustomEnd,
+      currentCustomStart,
+      currentCustomEnd,
+      reportedData,
+      satelliteData,
+      productionData,
+      confidenceInputs,
+      regulatoryMetadata,
+      fieldReportMetadata,
+      facilitySearch,
+      linkFields,
+      savedAuditId,
+      auditVersion,
+      audit,
+    ],
+  );
+
+  useEffect(() => {
+    if (initialWorkspace.restoredFromLocal && initialWorkspace.restoredSavedAt) {
+      setLastLocalSaveAt(initialWorkspace.restoredSavedAt);
+      setStatusMessage(
+        `Restored local workspace from ${new Date(initialWorkspace.restoredSavedAt).toLocaleString()}. ${LOCAL_DRAFT_HINT}`,
+      );
+    }
+  }, [initialWorkspace.restoredFromLocal, initialWorkspace.restoredSavedAt]);
+
+  useEffect(() => {
+    if (isFirstPersistEffect.current) {
+      isFirstPersistEffect.current = false;
+      return;
+    }
+    if (skipNextWorkspacePersist.current) {
+      skipNextWorkspacePersist.current = false;
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      const savedAt = new Date().toISOString();
+      saveEiasWorkspaceSnapshot({
+        v: 1,
+        savedAt,
+        ...workspaceSnapshot,
+      });
+      setLastLocalSaveAt(savedAt);
+    }, 700);
+    return () => window.clearTimeout(handle);
+  }, [workspaceSnapshot]);
+
+  const buildPayload = (options?: {
+    auditSnapshot?: EmissionsAudit | null;
+    evidenceSnapshot?: EvidencePacket | null;
+  }): EmissionsAuditDraftPayload => {
+    const auditRef = options?.auditSnapshot ?? audit;
+    const evidence =
+      options?.evidenceSnapshot ??
+      (auditRef ? buildEvidencePacketFromParts(auditRef, regulatoryMetadata, fieldReportMetadata) : undefined);
+    return {
+      companyName: facilityInfo.companyName,
+      facilityName: facilityInfo.facilityName,
+      industry: facilityInfo.industry,
+      jurisdiction: facilityInfo.jurisdiction,
+      legalFramework: facilityInfo.legalFramework,
+      location: {
+        lat: centerPoint?.lat ?? null,
+        lng: centerPoint?.lng ?? null,
+        polygonGeoJSON: toPolygonGeoJSON(polygon),
+        areaEstimate: areaEstimateKm2,
+      },
+      baselinePeriod: {
+        startDate: baselinePeriod.startDate,
+        endDate: baselinePeriod.endDate,
+        label: baselinePeriod.label,
+      },
+      currentPeriod: {
+        startDate: currentPeriod.startDate,
+        endDate: currentPeriod.endDate,
+        label: currentPeriod.label,
+      },
+      reportedData: {
+        baselineCO2e: reportedData.baselineReportedEmissions,
+        currentCO2e: reportedData.currentReportedEmissions,
+        sourceMetadata: reportedData.metadata,
+      },
+      satelliteData: {
+        baselineMethaneScore: satelliteData.baselineMethaneScore,
+        currentMethaneScore: satelliteData.currentMethaneScore,
+        baselineNO2Score: satelliteData.baselineNO2Score,
+        currentNO2Score: satelliteData.currentNO2Score,
+        baselineActivityProxyScore: satelliteData.baselineActivityProxyScore,
+        currentActivityProxyScore: satelliteData.currentActivityProxyScore,
+        co2ContextScore: satelliteData.co2ContextScore,
+        sourceMetadata: {
+          ...satelliteData.metadata,
+          notes: [
+            satelliteData.metadata.notes,
+            `Layer toggles: ${satelliteData.enabledLayers.join(', ')}`,
+            `Activity proxy baseline/current: ${satelliteData.baselineActivityProxyScore}/${satelliteData.currentActivityProxyScore}`,
+            `CO2 context score: ${satelliteData.co2ContextScore}`,
+            `Regulatory metadata source: ${regulatoryMetadata.sourceName}`,
+            `Field report source: ${fieldReportMetadata.sourceName}`,
+          ].filter(Boolean).join(' | '),
+        },
+      },
+      productionData: {
+        baselineOutput: productionData.baselineProductionOutput,
+        currentOutput: productionData.currentProductionOutput,
+        outputUnit: productionData.outputUnit.trim() || defaultProductionData.outputUnit,
+        sourceMetadata: productionData.metadata,
+      },
+      confidence: {
+        satelliteConfidence: confidenceInputs.satelliteDataConfidence,
+        regulatoryConfidence: confidenceInputs.regulatoryDataConfidence,
+        weatherQAConfidence: confidenceInputs.weatherQaConfidence,
+        overallConfidence: confidenceInputs.dataConfidence,
+      },
+      legalContext,
+      limitations,
+      recommendedNextSteps: auditRef?.recommendedNextSteps?.length
+        ? auditRef.recommendedNextSteps
+        : [
+            'Compare the flagged discrepancy against permits, filings, and facility operating logs.',
+            'Validate weather conditions and QA flags for the selected observation window.',
+            'Escalate to a DPAL investigation case if discrepancy remains material after document review.',
+          ],
+      linkedReportId: linkFields.linkedReportId || null,
+      linkedMissionId: linkFields.linkedMissionId || null,
+      linkedProjectId: linkFields.linkedProjectId || null,
+      linkedMRVProjectId: linkFields.linkedMRVProjectId || null,
+      linkedEvidenceVaultId: linkFields.linkedEvidenceVaultId || null,
+      ledgerStatus: 'not_connected',
+      evidencePacket: evidence ?? undefined,
+      version: auditVersion,
+    };
+  };
 
   const hydrateFromServer = (rawAudit: any) => {
     const source = rawAudit?.fullAudit ?? rawAudit;
@@ -625,8 +909,8 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
     setBaselineCustomEnd(source.baselinePeriod?.endDate ?? defaultBaselinePeriod.endDate);
     setCurrentCustomStart(source.currentPeriod?.startDate ?? defaultCurrentPeriod.startDate);
     setCurrentCustomEnd(source.currentPeriod?.endDate ?? defaultCurrentPeriod.endDate);
-    setBaselinePreset(source.baselinePeriod?.label === 'Custom date range' ? 'custom' : defaultBaselinePeriod.preset);
-    setCurrentPreset(source.currentPeriod?.label === 'Custom date range' ? 'custom' : defaultCurrentPeriod.preset);
+    setBaselinePreset('custom');
+    setCurrentPreset('custom');
 
     if (source.reportedData) {
       setReportedData((current) => ({
@@ -643,6 +927,9 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
         currentMethaneScore: source.satelliteData.currentMethaneScore ?? current.currentMethaneScore,
         baselineNO2Score: source.satelliteData.baselineNO2Score ?? current.baselineNO2Score,
         currentNO2Score: source.satelliteData.currentNO2Score ?? current.currentNO2Score,
+        baselineActivityProxyScore: source.satelliteData.baselineActivityProxyScore ?? current.baselineActivityProxyScore,
+        currentActivityProxyScore: source.satelliteData.currentActivityProxyScore ?? current.currentActivityProxyScore,
+        co2ContextScore: source.satelliteData.co2ContextScore ?? current.co2ContextScore,
         metadata: source.satelliteData.sourceMetadata ?? current.metadata,
       }));
     }
@@ -651,6 +938,10 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
         ...current,
         baselineProductionOutput: source.productionData.baselineOutput ?? current.baselineProductionOutput,
         currentProductionOutput: source.productionData.currentOutput ?? current.currentProductionOutput,
+        outputUnit:
+          typeof source.productionData.outputUnit === 'string' && source.productionData.outputUnit.trim()
+            ? source.productionData.outputUnit
+            : current.outputUnit,
         metadata: source.productionData.sourceMetadata ?? current.metadata,
       }));
     }
@@ -690,7 +981,23 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       currentProductionOutput: productionData.currentProductionOutput,
       co2ContextScore: satelliteData.co2ContextScore,
     });
-    const adi = calculateAdi(calculationResults, confidenceInputs, facilityInfo.industry);
+    const adi = calculateAdi(calculationResults, confidenceInputs, facilityInfo.industry, hasMinimumAuditData({
+      industry: facilityInfo.industry,
+      baselineReportedEmissions: reportedData.baselineReportedEmissions,
+      currentReportedEmissions: reportedData.currentReportedEmissions,
+      baselineMethaneScore: satelliteData.baselineMethaneScore,
+      currentMethaneScore: satelliteData.currentMethaneScore,
+      baselineNO2Score: satelliteData.baselineNO2Score,
+      currentNO2Score: satelliteData.currentNO2Score,
+      baselineActivityProxyScore: satelliteData.baselineActivityProxyScore,
+      currentActivityProxyScore: satelliteData.currentActivityProxyScore,
+      baselineProductionOutput: productionData.baselineProductionOutput,
+      currentProductionOutput: productionData.currentProductionOutput,
+      co2ContextScore: satelliteData.co2ContextScore,
+    }));
+    calculationResults.auditDiscrepancyIndex = adi.score;
+    calculationResults.overallConfidence = adi.confidenceScore;
+    calculationResults.riskLevel = adi.riskLevel;
     const now = new Date().toISOString();
 
     return {
@@ -727,47 +1034,115 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
   const evidencePacket = useMemo<EvidencePacket | null>(() => {
     if (!audit) return null;
-    return {
-      auditId: audit.auditId,
-      companyName: audit.facilityInfo.companyName,
-      facilityName: audit.facilityInfo.facilityName,
-      jurisdiction: audit.facilityInfo.jurisdiction,
-      industry: audit.facilityInfo.industry,
-      location: audit.locationBoundary.point,
-      polygon: audit.locationBoundary.polygon,
-      baselinePeriod: audit.baselinePeriod,
-      currentPeriod: audit.currentPeriod,
-      reportedData: audit.reportedData,
-      satelliteObservations: audit.satelliteObservations,
-      productionData: audit.productionData,
-      calculationResults: audit.calculationResults,
-      adiScore: audit.adi.score,
-      riskLevel: audit.adi.riskLevel,
-      legalContext: [...audit.legalContext, LEGAL_DISCLAIMER],
-      confidenceScore: audit.adi.confidenceScore,
-      limitations: audit.limitations,
-      recommendedNextSteps: audit.recommendedNextSteps,
-      timestamps: {
-        exportedAt: new Date().toISOString(),
-        createdAt: audit.timestamps.createdAt,
-        updatedAt: audit.timestamps.updatedAt,
-      },
-      dpalLedgerPlaceholder: {
-        status: 'not_connected',
-        note: 'Ledger write integration not connected yet. Save-to-ledger is a placeholder.',
-      },
-      integrationHooks,
-    };
-  }, [audit]);
+    return buildEvidencePacketFromParts(audit, regulatoryMetadata, fieldReportMetadata);
+  }, [audit, fieldReportMetadata, regulatoryMetadata]);
+
+  const validateAuditWorkspace = () => {
+    if (!locationValidation.hasLocation) {
+      setWarning('Select a facility location or draw a boundary before running an audit.');
+      return false;
+    }
+    if (!facilityInfo.companyName.trim() || !facilityInfo.facilityName.trim()) {
+      setWarning('Enter a company name and facility name before running or saving an audit.');
+      return false;
+    }
+    if (!isValidDateRange(baselinePeriod.startDate, baselinePeriod.endDate)) {
+      setWarning('Review the baseline period dates before continuing.');
+      return false;
+    }
+    if (!isValidDateRange(currentPeriod.startDate, currentPeriod.endDate)) {
+      setWarning('Review the current period dates before continuing.');
+      return false;
+    }
+    if (new Date(currentPeriod.endDate) < new Date(baselinePeriod.endDate)) {
+      setWarning('Current period must not end before the baseline period.');
+      return false;
+    }
+    const numericValues = [
+      reportedData.baselineReportedEmissions,
+      reportedData.currentReportedEmissions,
+      satelliteData.baselineMethaneScore,
+      satelliteData.currentMethaneScore,
+      satelliteData.baselineNO2Score,
+      satelliteData.currentNO2Score,
+      satelliteData.baselineActivityProxyScore,
+      satelliteData.currentActivityProxyScore,
+      satelliteData.co2ContextScore,
+      productionData.baselineProductionOutput,
+      productionData.currentProductionOutput,
+      confidenceInputs.dataConfidence,
+      confidenceInputs.satelliteDataConfidence,
+      confidenceInputs.regulatoryDataConfidence,
+      confidenceInputs.weatherQaConfidence,
+    ];
+    if (!numericValues.every(isFiniteNonNegative)) {
+      setWarning('Use non-negative numeric values for emissions, activity, production, and confidence inputs.');
+      return false;
+    }
+    if (
+      confidenceInputs.dataConfidence > 100 ||
+      confidenceInputs.satelliteDataConfidence > 100 ||
+      confidenceInputs.regulatoryDataConfidence > 100 ||
+      confidenceInputs.weatherQaConfidence > 100
+    ) {
+      setWarning('Confidence inputs must stay between 0 and 100.');
+      return false;
+    }
+    if (jurisdictionMismatch) {
+      setWarning('Jurisdiction and selected location may not match. Review before saving.');
+    } else {
+      setWarning('');
+    }
+    return true;
+  };
 
   const runAudit = () => {
-    const hasLocation = Boolean(centerPoint) || polygon.length >= 3;
-    if (!hasLocation) {
-      setWarning('Select a facility location or boundary before running an emissions integrity audit.');
+    if (!validateAuditWorkspace()) {
       return;
     }
-    setWarning('');
     setAudit(buildAudit());
+    setStatusMessage('Audit calculated from the current workspace inputs.');
+    scrollResultsIntoView();
+  };
+
+  const handleResetForm = () => {
+    clearEiasWorkspaceLocal();
+    skipNextWorkspacePersist.current = true;
+    setLastLocalSaveAt(null);
+    setFacilityInfo(defaultFacilityInfo);
+    setLocationMethod('GPS coordinate input');
+    setGpsLat('32.312');
+    setGpsLng('-104.234');
+    setMapPoint({ lat: 32.312, lng: -104.234 });
+    setPolygon([]);
+    setDrawingPolygon(false);
+    setBaselinePreset(defaultBaselinePeriod.preset);
+    setCurrentPreset(defaultCurrentPeriod.preset);
+    setBaselineCustomStart(defaultBaselinePeriod.startDate);
+    setBaselineCustomEnd(defaultBaselinePeriod.endDate);
+    setCurrentCustomStart(defaultCurrentPeriod.startDate);
+    setCurrentCustomEnd(defaultCurrentPeriod.endDate);
+    setReportedData(defaultReportedData);
+    setSatelliteData(defaultSatelliteData);
+    setProductionData(defaultProductionData);
+    setConfidenceInputs(defaultConfidenceInputs);
+    setRegulatoryMetadata(createDefaultMetadata('CARB MRR / EPA GHGRP placeholder'));
+    setFieldReportMetadata(createDefaultMetadata('DPAL field reports placeholder'));
+    setFacilitySearch('');
+    setWarning('');
+    setAudit(null);
+    setSavedAuditId(null);
+    setAuditVersion(1);
+    setVersionHistory([]);
+    setLastActionMessage('No export or handoff action has been triggered yet.');
+    setStatusMessage('Audit workspace reset to default values.');
+    setLinkFields({
+      linkedReportId: '',
+      linkedMissionId: '',
+      linkedProjectId: '',
+      linkedMRVProjectId: '',
+      linkedEvidenceVaultId: '',
+    });
   };
 
   const updateFacility = <K extends keyof typeof defaultFacilityInfo>(key: K, value: (typeof defaultFacilityInfo)[K]) => {
@@ -868,7 +1243,15 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
         riskLevel: normalizeSummaryRisk(auditItem.riskLevel),
       })));
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Unable to load saved audits.');
+      const raw = error instanceof Error ? error.message : 'Unable to load saved audits.';
+      const lower = raw.toLowerCase();
+      if (lower.includes('sign in') || lower.includes('401')) {
+        setStatusMessage(`${raw} ${EIAS_API_DISCLAIMER}`);
+      } else if (lower.includes('404') || lower.includes('not found')) {
+        setStatusMessage(`${raw} The API host may not implement emissions audit routes yet. ${EIAS_API_DISCLAIMER}`);
+      } else {
+        setStatusMessage(raw);
+      }
     } finally {
       setIsLoadingList(false);
     }
@@ -880,30 +1263,36 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
   useEffect(() => {
     if (!centerPoint) return;
-    void loadLiveSatelliteSource(centerPoint);
+    const handle = window.setTimeout(() => {
+      void loadLiveSatelliteSource(centerPoint);
+    }, 650);
+    return () => window.clearTimeout(handle);
   }, [centerPoint?.lat, centerPoint?.lng]);
 
   const handleSaveAudit = async () => {
-    if (!audit) {
-      runAudit();
-    }
-    const hasLocation = Boolean(centerPoint) || polygon.length >= 3;
-    if (!hasLocation) {
-      setWarning('Select a facility location or boundary before running an emissions integrity audit.');
+    if (!validateAuditWorkspace()) {
       return;
     }
+    if (!getAccessToken()) {
+      setStatusMessage(`Sign in required to save audits to the API. ${EIAS_API_DISCLAIMER}`);
+      return;
+    }
+    const snapshot = buildAudit();
+    setAudit(snapshot);
+    const packet = buildEvidencePacketFromParts(snapshot, regulatoryMetadata, fieldReportMetadata);
     setIsSaving(true);
-    setStatusMessage(savedAuditId ? 'Updating auditâ€¦' : 'Saving auditâ€¦');
+    setStatusMessage(savedAuditId ? 'Updating audit...' : 'Saving audit...');
     try {
-      const payload = buildPayload();
+      const payload = buildPayload({ auditSnapshot: snapshot, evidenceSnapshot: packet });
       const response = savedAuditId
         ? await updateEmissionsAudit(savedAuditId, payload)
         : await createEmissionsAudit(payload);
       setSavedAuditId(response.auditId);
       hydrateFromServer(response.audit);
+      const nextVersion = Number((response.audit as { version?: number })?.version);
       setVersionHistory((current) => [
         {
-          version: savedAuditId ? auditVersion + 1 : 1,
+          version: Number.isFinite(nextVersion) ? nextVersion : savedAuditId ? auditVersion + 1 : 1,
           modifiedBy: 'current-user',
           changeSummary: savedAuditId ? 'Updated audit' : 'Created audit',
           createdAt: new Date().toISOString(),
@@ -913,20 +1302,29 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       setStatusMessage(`${savedAuditId ? 'Updated' : 'Saved'} audit successfully. Audit ID: ${response.auditId}`);
       await refreshSavedAudits();
     } catch (error) {
-      setStatusMessage(error instanceof Error ? error.message : 'Failed to save audit.');
+      const raw = error instanceof Error ? error.message : 'Failed to save audit.';
+      const lower = raw.toLowerCase();
+      if (lower.includes('sign in') || lower.includes('401')) {
+        setStatusMessage(`${raw} ${EIAS_API_DISCLAIMER} ${LOCAL_DRAFT_HINT}`);
+      } else if (lower.includes('404') || lower.includes('not found')) {
+        setStatusMessage(`${raw} ${EIAS_API_DISCLAIMER} ${LOCAL_DRAFT_HINT}`);
+      } else {
+        setStatusMessage(raw);
+      }
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleLoadAudit = async (auditId: string) => {
-    setStatusMessage('Loading auditâ€¦');
+    setStatusMessage('Loading audit...');
     try {
       const response = await getEmissionsAudit(auditId);
       hydrateFromServer(response.audit);
       setVersionHistory(response.versionHistory);
       setViewMode('workspace');
       setStatusMessage(`Loaded audit ${auditId}.`);
+      scrollResultsIntoView();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'Failed to load audit.');
     }
@@ -949,8 +1347,14 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   };
 
   const handleServerExport = async () => {
+    if (!validateAuditWorkspace()) return;
     if (!savedAuditId) {
-      setStatusMessage('Save the audit before exporting the persisted evidence packet.');
+      const localAudit = audit ?? buildAudit();
+      const localPacket = buildEvidencePacketFromParts(localAudit, regulatoryMetadata, fieldReportMetadata);
+      setAudit(localAudit);
+      downloadJson(`${localAudit.auditId}-evidence-packet.json`, localPacket);
+      setLastActionMessage('Exported local evidence packet JSON. Save the audit to export the persisted backend copy.');
+      setStatusMessage('Exported local evidence packet JSON.');
       return;
     }
     setIsExporting(true);
@@ -958,8 +1362,10 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       const response = await exportEmissionsAudit(savedAuditId);
       downloadJson(`${savedAuditId}-evidence-packet.json`, response.export);
       setLastActionMessage('Exported persisted evidence packet JSON from the backend.');
+      setStatusMessage(`Exported persisted evidence packet for audit ${savedAuditId}.`);
     } catch (error) {
       setLastActionMessage(error instanceof Error ? error.message : 'Failed to export audit.');
+      setStatusMessage(error instanceof Error ? error.message : 'Failed to export audit.');
     } finally {
       setIsExporting(false);
     }
@@ -976,6 +1382,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       hydrateFromServer(response.audit);
       setStatusMessage(`Recalculated audit ${savedAuditId} from stored inputs.`);
       await refreshSavedAudits();
+      scrollResultsIntoView();
     } catch (error) {
       setStatusMessage(error instanceof Error ? error.message : 'Failed to recalculate audit.');
     }
@@ -1001,6 +1408,67 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
     }
   };
 
+  const metricNeedsData = useMemo(
+    () => !hasMinimumAuditData({
+      industry: facilityInfo.industry,
+      baselineReportedEmissions: reportedData.baselineReportedEmissions,
+      currentReportedEmissions: reportedData.currentReportedEmissions,
+      baselineMethaneScore: satelliteData.baselineMethaneScore,
+      currentMethaneScore: satelliteData.currentMethaneScore,
+      baselineNO2Score: satelliteData.baselineNO2Score,
+      currentNO2Score: satelliteData.currentNO2Score,
+      baselineActivityProxyScore: satelliteData.baselineActivityProxyScore,
+      currentActivityProxyScore: satelliteData.currentActivityProxyScore,
+      baselineProductionOutput: productionData.baselineProductionOutput,
+      currentProductionOutput: productionData.currentProductionOutput,
+      co2ContextScore: satelliteData.co2ContextScore,
+    }),
+    [
+      facilityInfo.industry,
+      productionData.baselineProductionOutput,
+      productionData.currentProductionOutput,
+      reportedData.baselineReportedEmissions,
+      reportedData.currentReportedEmissions,
+      satelliteData.baselineActivityProxyScore,
+      satelliteData.baselineMethaneScore,
+      satelliteData.baselineNO2Score,
+      satelliteData.co2ContextScore,
+      satelliteData.currentActivityProxyScore,
+      satelliteData.currentMethaneScore,
+      satelliteData.currentNO2Score,
+    ],
+  );
+
+  const auditStatusLabel = audit
+    ? audit.adi.riskLevel === 'Needs More Data'
+      ? 'Needs More Data'
+      : audit.adi.riskLevel.startsWith('High')
+        ? 'High Risk'
+        : savedAuditId
+          ? 'Saved'
+          : 'Draft'
+    : savedAuditId
+      ? 'Saved'
+      : 'Draft';
+
+  const formatAuditMetric = (value?: number | null, digits = 1, suffix = ''): string => {
+    if (metricNeedsData || value == null || !Number.isFinite(value)) return 'Needs More Data';
+    return `${value.toFixed(digits)}${suffix}`;
+  };
+
+  const canRunOrSave =
+    locationValidation.hasLocation &&
+    facilityInfo.companyName.trim().length > 0 &&
+    facilityInfo.facilityName.trim().length > 0 &&
+    isValidDateRange(baselinePeriod.startDate, baselinePeriod.endDate) &&
+    isValidDateRange(currentPeriod.startDate, currentPeriod.endDate);
+
+  const scrollResultsIntoView = () => {
+    window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 60);
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
@@ -1021,6 +1489,17 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
           <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             Emissions-claim verification tied to location, boundary, source metadata, and audit export.
           </div>
+        </div>
+
+        <div className="mb-6 rounded-2xl border border-amber-500/35 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+          <span className="font-bold text-amber-200">API note: </span>
+          {EIAS_API_DISCLAIMER}{' '}
+          <span className="text-amber-200/95">{LOCAL_DRAFT_HINT}</span>
+          {lastLocalSaveAt ? (
+            <span className="mt-2 block font-mono text-[11px] text-amber-50/90">
+              Local draft last saved: {new Date(lastLocalSaveAt).toLocaleString()}
+            </span>
+          ) : null}
         </div>
 
         <div className="mb-6 grid gap-4 xl:grid-cols-[0.8fr_1.2fr]">
@@ -1057,11 +1536,32 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
             <div className="flex flex-wrap items-center justify-between gap-3">
               <span>{statusMessage}</span>
               <span className="font-mono text-xs text-slate-400">
-                {savedAuditId ? `Audit ID: ${savedAuditId} · v${auditVersion}` : 'Unsaved draft'}
+                {savedAuditId ? `Audit ID: ${savedAuditId} - v${auditVersion}` : 'Unsaved draft'}
               </span>
             </div>
           </div>
         </div>
+
+        <section className="mb-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Location Selected</p>
+            <p className={`mt-2 text-lg font-black ${locationValidation.hasLocation ? 'text-emerald-300' : 'text-rose-300'}`}>
+              {locationValidation.hasLocation ? 'Yes' : 'No'}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Data Quality</p>
+            <p className="mt-2 text-lg font-black text-white">{topDataQuality}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Audit Status</p>
+            <p className="mt-2 text-lg font-black text-white">{auditStatusLabel}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">State Estimate</p>
+            <p className="mt-2 text-lg font-black text-white">{estimatedJurisdiction ?? 'Unavailable'}</p>
+          </div>
+        </section>
 
         {viewMode === 'myAudits' ? (
           <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
@@ -1081,7 +1581,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
             {isLoadingList ? (
               <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 px-6 py-10 text-center text-slate-400">
-                Loading saved auditsâ€¦
+                Loading saved audits...
               </div>
             ) : savedAudits.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/40 px-6 py-10 text-center text-slate-400">
@@ -1120,12 +1620,13 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
         ) : null}
 
         <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-          <section className="space-y-6">
+          <div className="space-y-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Project / Facility Intake</p>
                   <h2 className="mt-1 text-xl font-black text-white">Facility intake and audit scope</h2>
+                  <p className="mt-2 text-sm text-slate-400">Define the company, facility, jurisdiction, and comparison periods before running the audit.</p>
                 </div>
                 <ShieldCheck className="h-5 w-5 text-emerald-400" />
               </div>
@@ -1201,6 +1702,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Map Boundary / Satellite Layer Panel</p>
                   <h2 className="mt-1 text-xl font-black text-white">Facility location, boundary, and layer controls</h2>
+                  <p className="mt-2 text-sm text-slate-400">Select a marker or draw a polygon boundary. Location is required before the audit can run or save.</p>
                 </div>
                 <MapPin className="h-5 w-5 text-orange-400" />
               </div>
@@ -1229,7 +1731,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                       disabled={!centerPoint || isLoadingSatelliteSource}
                       className="rounded-lg border border-white/10 bg-slate-950/60 px-3 py-1.5 text-xs font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-white/20"
                     >
-                      {isLoadingSatelliteSource ? 'Refreshing…' : 'Refresh source'}
+                      {isLoadingSatelliteSource ? 'Refreshing...' : 'Refresh source'}
                     </button>
                   </div>
                 </div>
@@ -1299,7 +1801,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
               <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
                 <div className="overflow-hidden rounded-2xl border border-slate-800">
-                  <MapContainer center={centerPoint ? [centerPoint.lat, centerPoint.lng] : [34.25, -106.2]} zoom={6} style={{ height: '440px', width: '100%' }} scrollWheelZoom>
+                  <MapContainer center={centerPoint ? [centerPoint.lat, centerPoint.lng] : [34.25, -106.2]} zoom={6} style={{ height: '400px', width: '100%' }} scrollWheelZoom>
                     <TileLayer
                       url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
                       attribution="Esri"
@@ -1345,6 +1847,11 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                       </button>
                     </div>
                     <p className="mt-3 text-xs text-slate-400">Click the map to place a facility marker or add polygon vertices. No audit runs without a selected point or a boundary.</p>
+                    {jurisdictionMismatch ? (
+                      <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                        Jurisdiction and selected location may not match. Review before saving.
+                      </p>
+                    ) : null}
                   </div>
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
@@ -1364,7 +1871,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">State</p>
-                        <p className="mt-1 font-black text-white">{facilityInfo.jurisdiction}</p>
+                        <p className="mt-1 font-black text-white">{estimatedJurisdiction ?? facilityInfo.jurisdiction}</p>
                       </div>
                       <div className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-3">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Selected Industry</p>
@@ -1399,14 +1906,15 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 </div>
               </div>
             </div>
-          </section>
+          </div>
 
-          <section className="space-y-6">
+          <div className="space-y-6">
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
               <div className="mb-4 flex items-center justify-between">
                 <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Manual + Future API Inputs</p>
                   <h2 className="mt-1 text-xl font-black text-white">Audit inputs and confidence controls</h2>
+                  <p className="mt-2 text-sm text-slate-400">Enter reported, observed, production, and confidence values. Live source cards below show what is verified and what still needs review.</p>
                 </div>
                 <Activity className="h-5 w-5 text-sky-400" />
               </div>
@@ -1467,6 +1975,15 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                       <label className={labelCls}>Current production output</label>
                       <input className={inputCls} type="number" value={productionData.currentProductionOutput} onChange={(event) => updateProduction('currentProductionOutput', Number(event.target.value))} />
                     </div>
+                    <div className="md:col-span-2">
+                      <label className={labelCls}>Production output unit (drives intensity tCO2e / unit)</label>
+                      <input
+                        className={inputCls}
+                        value={productionData.outputUnit}
+                        onChange={(event) => updateProduction('outputUnit', event.target.value)}
+                        placeholder="e.g. MMBtu/yr, tonnes clinker, bbl oil equivalent"
+                      />
+                    </div>
                     <div>
                       <label className={labelCls}>Data confidence</label>
                       <input className={inputCls} type="number" min="0" max="100" value={confidenceInputs.dataConfidence} onChange={(event) => updateConfidence('dataConfidence', Number(event.target.value))} />
@@ -1486,11 +2003,16 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                   </div>
                 </div>
 
-                <DatasetMetadataEditor title="Reported data source metadata" metadata={reportedData.metadata} onChange={(metadata) => updateReported('metadata', metadata)} />
-                <DatasetMetadataEditor title="Satellite observation metadata" metadata={satelliteData.metadata} onChange={(metadata) => updateSatellite('metadata', metadata)} />
-                <DatasetMetadataEditor title="Production data metadata" metadata={productionData.metadata} onChange={(metadata) => updateProduction('metadata', metadata)} />
-                <DatasetMetadataEditor title="Regulatory source metadata" metadata={regulatoryMetadata} onChange={setRegulatoryMetadata} />
-                <DatasetMetadataEditor title="DPAL field report metadata" metadata={fieldReportMetadata} onChange={setFieldReportMetadata} />
+                <details className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4" open={false}>
+                  <summary className="cursor-pointer text-sm font-black text-white">Source metadata and provenance</summary>
+                  <div className="mt-4 grid gap-4">
+                    <DatasetMetadataEditor title="Reported data source metadata" metadata={reportedData.metadata} onChange={(metadata) => updateReported('metadata', metadata)} />
+                    <DatasetMetadataEditor title="Satellite observation metadata" metadata={satelliteData.metadata} onChange={(metadata) => updateSatellite('metadata', metadata)} />
+                    <DatasetMetadataEditor title="Production data metadata" metadata={productionData.metadata} onChange={(metadata) => updateProduction('metadata', metadata)} />
+                    <DatasetMetadataEditor title="Regulatory source metadata" metadata={regulatoryMetadata} onChange={setRegulatoryMetadata} />
+                    <DatasetMetadataEditor title="DPAL field report metadata" metadata={fieldReportMetadata} onChange={setFieldReportMetadata} />
+                  </div>
+                </details>
               </div>
 
               {warning ? (
@@ -1499,19 +2021,21 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 </div>
               ) : null}
 
-              <div className="mt-5 flex flex-wrap gap-3">
+              <div className="sticky top-4 z-10 mt-5 rounded-2xl border border-slate-800 bg-slate-950/95 p-3 backdrop-blur">
+                <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
                   onClick={runAudit}
-                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-500"
+                  disabled={!canRunOrSave}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:opacity-50 hover:bg-emerald-500"
                 >
                   <RefreshCw className="h-4 w-4" />
-                  Run Emissions Integrity Audit
+                  Run Audit
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleSaveAudit()}
-                  disabled={isSaving}
+                  disabled={isSaving || !canRunOrSave}
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-bold text-slate-200 transition disabled:cursor-not-allowed disabled:opacity-60 hover:border-slate-500 hover:text-white"
                 >
                   <Database className="h-4 w-4" />
@@ -1520,10 +2044,22 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 <button
                   type="button"
                   onClick={() => void handleRecalculate()}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:text-white"
+                  disabled={!canRunOrSave && !savedAuditId}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-bold text-slate-200 transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-slate-500 hover:text-white"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Recalculate
+                </button>
+                <button
+                  type="button"
+                  disabled={isExporting || (!savedAuditId && !canRunOrSave && !audit)}
+                  onClick={() => {
+                    void handleServerExport();
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-bold text-slate-200 transition disabled:cursor-not-allowed disabled:opacity-50 hover:border-slate-500 hover:text-white"
+                >
+                  <FileText className="h-4 w-4" />
+                  Export Evidence Packet
                 </button>
                 <button
                   type="button"
@@ -1534,10 +2070,24 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                   <AlertTriangle className="h-4 w-4" />
                   Delete Audit
                 </button>
-                <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-300">
-                  Future API placeholders: CARB MRR · EPA GHGRP · NASA EMIT · Sentinel-5P · OCO-2/OCO-3 · State permits · Company disclosures · DPAL field reports
-                </div>
+                <button
+                  type="button"
+                  onClick={handleResetForm}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950 px-5 py-3 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:text-white"
+                >
+                  <Info className="h-4 w-4" />
+                  Reset Form
+                </button>
               </div>
+              <p className="mt-3 text-xs text-slate-400">
+                Backend persistence is enabled for create, update, delete, recalculate, and export when the API supports it. The workspace also auto-saves in this browser (see API note above). Reset Form clears the local draft and defaults the page.
+              </p>
+              {!canRunOrSave ? (
+                <p className="mt-2 text-xs text-amber-300">
+                  Run and save stay disabled until location, company/facility names, and valid audit periods are in place.
+                </p>
+              ) : null}
+            </div>
             </div>
 
             <div className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
@@ -1559,11 +2109,11 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 {LEGAL_DISCLAIMER}
               </div>
             </div>
-          </section>
+          </div>
         </div>
 
         <div className="mt-6 grid gap-6">
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
+          <section ref={resultsRef} className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
             <div className="mb-5 flex items-center justify-between gap-3">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">Results Dashboard</p>
@@ -1577,19 +2127,19 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <p className="text-[10px] uppercase tracking-wide text-slate-500">Reported reduction %</p>
-                    <p className="mt-2 text-3xl font-black text-white">{toFixedNumber(audit.calculationResults.reportedReductionPct, 1)}%</p>
+                    <p className="mt-2 text-3xl font-black text-white">{formatAuditMetric(audit.calculationResults.reportedReductionPct, 1, '%')}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <p className="text-[10px] uppercase tracking-wide text-slate-500">Observed reduction %</p>
-                    <p className="mt-2 text-3xl font-black text-white">{toFixedNumber(audit.calculationResults.observedReductionPct, 1)}%</p>
+                    <p className="mt-2 text-3xl font-black text-white">{formatAuditMetric(audit.calculationResults.observedReductionPct, 1, '%')}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <p className="text-[10px] uppercase tracking-wide text-slate-500">Discrepancy gap</p>
-                    <p className="mt-2 text-3xl font-black text-white">{toFixedNumber(audit.calculationResults.discrepancyGap, 1)} pts</p>
+                    <p className="mt-2 text-3xl font-black text-white">{formatAuditMetric(audit.calculationResults.discrepancyGap, 1, ' pts')}</p>
                   </div>
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <p className="text-[10px] uppercase tracking-wide text-slate-500">ADI score</p>
-                    <p className="mt-2 text-3xl font-black text-white">{audit.adi.score}</p>
+                    <p className="mt-2 text-3xl font-black text-white">{metricNeedsData ? 'Needs More Data' : audit.adi.score}</p>
                   </div>
                   <div className={`rounded-2xl border p-4 ${riskTone(audit.adi.riskLevel)}`}>
                     <p className="text-[10px] uppercase tracking-wide">Risk level</p>
@@ -1603,23 +2153,23 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                     <div className="mt-4 grid gap-3 sm:grid-cols-3">
                       <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Baseline intensity</p>
-                        <p className="mt-1 font-black text-white">{toFixedNumber(audit.calculationResults.baselineIntensity, 4)}</p>
+                        <p className="mt-1 font-black text-white">{formatAuditMetric(audit.calculationResults.baselineIntensity, 4)}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Current intensity</p>
-                        <p className="mt-1 font-black text-white">{toFixedNumber(audit.calculationResults.currentIntensity, 4)}</p>
+                        <p className="mt-1 font-black text-white">{formatAuditMetric(audit.calculationResults.currentIntensity, 4)}</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Intensity reduction %</p>
-                        <p className="mt-1 font-black text-white">{toFixedNumber(audit.calculationResults.intensityReductionPct, 1)}%</p>
+                        <p className="mt-1 font-black text-white">{formatAuditMetric(audit.calculationResults.intensityReductionPct, 1, '%')}</p>
                       </div>
                     </div>
                     <div className="mt-4 space-y-2 text-sm text-slate-300">
                       {[
-                        ['Methane change', `${toFixedNumber(audit.calculationResults.methaneChangePct, 1)}%`],
-                        ['NO2 activity change', `${toFixedNumber(audit.calculationResults.no2ChangePct, 1)}%`],
-                        ['Activity proxy change', `${toFixedNumber(audit.calculationResults.activityProxyChangePct, 1)}%`],
-                        ['Confidence score', `${audit.adi.confidenceScore}/100`],
+                        ['Methane change', formatAuditMetric(audit.calculationResults.methaneChangePct, 1, '%')],
+                        ['NO2 activity change', formatAuditMetric(audit.calculationResults.no2ChangePct, 1, '%')],
+                        ['Activity proxy change', formatAuditMetric(audit.calculationResults.activityProxyChangePct, 1, '%')],
+                        ['Confidence score', metricNeedsData ? 'Needs More Data' : `${audit.adi.confidenceScore}/100`],
                       ].map(([label, value]) => (
                         <div key={label} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
                           <span>{label}</span>
@@ -1631,7 +2181,11 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
                   <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
                     <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">Plain-English Interpretation</p>
-                    <p className="mt-4 text-base leading-7 text-slate-200">{audit.calculationResults.interpretation}</p>
+                    <p className="mt-4 text-base leading-7 text-slate-200">
+                      {metricNeedsData
+                        ? 'Needs More Data. Add reported emissions, observed signal baselines, and production output before relying on the discrepancy interpretation.'
+                        : audit.calculationResults.interpretation}
+                    </p>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       {Object.entries(audit.adi.weights).map(([key, value]) => (
                         <div key={key} className="rounded-xl border border-slate-800 bg-slate-900 p-3">
@@ -1684,7 +2238,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
               <div className="flex flex-wrap gap-3">
                 <button
                   type="button"
-                  disabled={!evidencePacket || isExporting}
+                  disabled={isExporting || (!savedAuditId && !canRunOrSave && !audit)}
                   onClick={() => {
                     void handleServerExport();
                   }}

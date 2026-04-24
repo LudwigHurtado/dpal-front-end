@@ -38,29 +38,48 @@ function buildEvidencePacket(auditId: string, payload: EmissionsAuditPayloadInpu
   return {
     title: 'DPAL Emissions Integrity Audit Evidence Packet',
     auditId,
-    company: payload.companyName,
-    facility: payload.facilityName,
+    companyName: payload.companyName,
+    facilityName: payload.facilityName,
     jurisdiction: payload.jurisdiction,
+    industry: payload.industry,
     legalFramework: payload.legalFramework,
+    location: {
+      lat: payload.location.lat ?? null,
+      lng: payload.location.lng ?? null,
+    },
+    polygon: payload.location.polygonGeoJSON?.coordinates?.[0]?.slice?.(0, -1)?.map?.((pair: [number, number]) => ({ lat: pair[1], lng: pair[0] })) ?? [],
     mapBoundary: payload.location,
     periodComparison: {
       baselinePeriod: payload.baselinePeriod,
       currentPeriod: payload.currentPeriod,
     },
+    baselinePeriod: payload.baselinePeriod,
+    currentPeriod: payload.currentPeriod,
     dataSources: {
       reportedData: payload.reportedData ?? null,
       satelliteData: payload.satelliteData ?? null,
       productionData: payload.productionData ?? null,
     },
+    reportedData: payload.reportedData ?? null,
+    satelliteObservations: payload.satelliteData ?? null,
+    productionData: payload.productionData ?? null,
     calculations: {
       ...derived.calculations,
       interpretation:
         `The company reported a ${derived.calculations.reportedReductionPct.toFixed(1)}% reduction, ` +
         `while observed indicators suggest ${derived.calculations.observedReductionPct.toFixed(1)}%.`,
     },
+    calculationResults: {
+      ...derived.calculations,
+      interpretation:
+        `The company reported a ${derived.calculations.reportedReductionPct.toFixed(1)}% reduction, ` +
+        `while observed indicators suggest ${derived.calculations.observedReductionPct.toFixed(1)}%.`,
+    },
     ADI: derived.calculations.auditDiscrepancyIndex,
+    adiScore: derived.calculations.auditDiscrepancyIndex,
     riskLevel: derived.riskLevel,
     confidence: derived.confidence,
+    confidenceScore: derived.confidence.overallConfidence,
     legalContext: payload.legalContext,
     limitations: payload.limitations,
     recommendedNextSteps: payload.recommendedNextSteps,

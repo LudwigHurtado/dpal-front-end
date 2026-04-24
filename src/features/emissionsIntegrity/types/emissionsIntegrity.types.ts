@@ -26,6 +26,7 @@ export type LocationSelectionMethod =
 export type RiskLevel = 'Low / Consistent' | 'Medium / Needs Review' | 'High / Material Discrepancy' | 'Needs More Data';
 
 export type QaFlag = 'verified' | 'review_needed' | 'demo' | 'estimated';
+export type SourceStatus = 'LIVE VERIFIED' | 'ESTIMATED' | 'DEMO' | 'MISSING' | 'NEEDS REVIEW';
 
 export interface AuditPeriod {
   label: string;
@@ -90,6 +91,8 @@ export interface SatelliteObservationData {
 export interface ProductionData {
   baselineProductionOutput: number;
   currentProductionOutput: number;
+  /** Normalized activity driver for intensity (e.g. MMBtu, tonnes product, bbl oil). */
+  outputUnit: string;
   metadata: DataSourceMetadata;
 }
 
@@ -110,6 +113,9 @@ export interface CalculationResults {
   intensityReductionPct: number;
   observedReductionPct: number;
   discrepancyGap: number;
+  auditDiscrepancyIndex?: number;
+  overallConfidence?: number;
+  riskLevel?: RiskLevel;
   interpretation: string;
 }
 
@@ -148,20 +154,27 @@ export interface EvidencePacket {
   facilityName: string;
   jurisdiction: Jurisdiction;
   industry: EmissionsIndustry;
+  legalFramework?: LegalFramework;
   location: CoordinatePoint | null;
   polygon: CoordinatePoint[];
+  mapBoundary?: unknown;
   baselinePeriod: AuditPeriod;
   currentPeriod: AuditPeriod;
+  periodComparison?: unknown;
   reportedData: ReportedEmissionsData;
   satelliteObservations: SatelliteObservationData;
   productionData: ProductionData;
+  dataSources?: unknown;
   calculationResults: CalculationResults;
   adiScore: number;
   riskLevel: RiskLevel;
+  confidence?: unknown;
   legalContext: string[];
   confidenceScore: number;
   limitations: string[];
   recommendedNextSteps: string[];
+  generatedAt?: string;
+  checksumPlaceholder?: string;
   timestamps: {
     exportedAt: string;
     createdAt: string;

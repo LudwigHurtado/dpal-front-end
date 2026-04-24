@@ -141,6 +141,7 @@ export const defaultSatelliteData: SatelliteObservationData = {
 export const defaultProductionData: ProductionData = {
   baselineProductionOutput: 510000,
   currentProductionOutput: 475000,
+  outputUnit: 'MMBtu / yr (facility thermal + process)',
   metadata: createDefaultMetadata('Company disclosures / permit filings placeholder'),
 };
 

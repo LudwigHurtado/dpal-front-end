@@ -7,12 +7,12 @@ import type {
 } from '../types/emissionsIntegrity.types';
 
 const safePct = (baseline: number, current: number): number => {
-  if (!Number.isFinite(baseline) || baseline === 0) return 0;
+  if (!Number.isFinite(baseline) || baseline <= 0) return 0;
   return ((baseline - current) / baseline) * 100;
 };
 
 const safeDivide = (numerator: number, denominator: number): number => {
-  if (!Number.isFinite(denominator) || denominator === 0) return 0;
+  if (!Number.isFinite(denominator) || denominator <= 0) return 0;
   return numerator / denominator;
 };
 
@@ -84,10 +84,21 @@ export function calculateAuditResults(input: CalculationInputs): CalculationResu
   };
 }
 
+export function hasMinimumAuditData(input: CalculationInputs): boolean {
+  return (
+    input.baselineReportedEmissions > 0 &&
+    input.baselineMethaneScore > 0 &&
+    input.baselineNO2Score > 0 &&
+    input.baselineProductionOutput > 0 &&
+    input.currentProductionOutput > 0
+  );
+}
+
 export function calculateAdi(
   calculationResults: CalculationResults,
   confidenceInputs: AuditConfidenceInputs,
   industry: EmissionsIndustry,
+  hasRequiredData = true,
 ): AuditDiscrepancyIndex {
   const weights = getIndustryWeights(industry);
   const credibilityPenalty = clamp(Math.abs(calculationResults.discrepancyGap) * 1.8, 0, 55);
@@ -115,8 +126,18 @@ export function calculateAdi(
   const score = Math.round(clamp(100 - credibilityPenalty * 0.65 + consistencyScore * 0.35 + confidenceScore * 0.15 - 20, 0, 100));
 
   let riskLevel: RiskLevel = 'Low / Consistent';
-  if (score < 70 || Math.abs(calculationResults.discrepancyGap) >= 10) riskLevel = 'Medium / Needs Review';
-  if (score < 45 || Math.abs(calculationResults.discrepancyGap) >= 18) riskLevel = 'High / Material Discrepancy';
+  const absoluteGap = Math.abs(calculationResults.discrepancyGap);
+  if (!hasRequiredData || confidenceScore < 40) {
+    riskLevel = 'Needs More Data';
+  } else if (absoluteGap > 25) {
+    riskLevel = 'High / Material Discrepancy';
+  } else if (absoluteGap > 10) {
+    riskLevel = 'Medium / Needs Review';
+  } else if (absoluteGap <= 10 && confidenceScore >= 70) {
+    riskLevel = 'Low / Consistent';
+  } else {
+    riskLevel = 'Medium / Needs Review';
+  }
 
   return {
     score,

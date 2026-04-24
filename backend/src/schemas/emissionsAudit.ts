@@ -54,6 +54,9 @@ const satelliteDataSchema = z.object({
   currentMethaneScore: z.number().finite().min(0),
   baselineNO2Score: z.number().finite().min(0),
   currentNO2Score: z.number().finite().min(0),
+  baselineActivityProxyScore: z.number().finite().min(0).optional(),
+  currentActivityProxyScore: z.number().finite().min(0).optional(),
+  co2ContextScore: z.number().finite().min(0).max(100).optional(),
   sourceMetadata: sourceMetadataSchema,
 });
 

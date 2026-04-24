@@ -6,6 +6,8 @@ type IndustryWeights = {
   reportedReduction: number;
   no2Activity: number;
   confidence: number;
+  activityProxy?: number;
+  co2Context?: number;
   landUseBiomass?: number;
 };
 
@@ -50,17 +52,17 @@ export function calculateOverallConfidence(input: EmissionsAuditPayloadInput['co
 export function getIndustryWeights(industry: EmissionsAuditPayloadInput['industry']): IndustryWeights {
   switch (industry) {
     case 'Oil & Gas':
-      return { methane: 0.35, productionIntensity: 0.25, reportedReduction: 0.15, no2Activity: 0.15, confidence: 0.1 };
+      return { methane: 0.35, productionIntensity: 0.25, reportedReduction: 0.15, no2Activity: 0.15, activityProxy: 0, co2Context: 0, confidence: 0.1 };
     case 'Power Plant':
-      return { methane: 0.05, productionIntensity: 0.25, reportedReduction: 0.3, no2Activity: 0.3, confidence: 0.1 };
+      return { methane: 0.05, productionIntensity: 0.25, reportedReduction: 0.3, no2Activity: 0.3, activityProxy: 0, co2Context: 0, confidence: 0.1 };
     case 'Cement':
-      return { methane: 0.05, productionIntensity: 0.3, reportedReduction: 0.35, no2Activity: 0.2, confidence: 0.1 };
+      return { methane: 0.05, productionIntensity: 0.3, reportedReduction: 0.35, no2Activity: 0.2, activityProxy: 0, co2Context: 0, confidence: 0.1 };
     case 'Mining':
-      return { methane: 0.1, productionIntensity: 0.25, reportedReduction: 0.25, no2Activity: 0.25, confidence: 0.15 };
+      return { methane: 0.1, productionIntensity: 0.25, reportedReduction: 0.25, no2Activity: 0.25, activityProxy: 0.1, co2Context: 0, confidence: 0.15 };
     case 'Agriculture / AFOLU':
-      return { methane: 0.1, productionIntensity: 0.2, reportedReduction: 0.2, no2Activity: 0.2, confidence: 0.15, landUseBiomass: 0.35 };
+      return { methane: 0.1, productionIntensity: 0.2, reportedReduction: 0.2, no2Activity: 0.2, activityProxy: 0, co2Context: 0, confidence: 0.15, landUseBiomass: 0.35 };
     default:
-      return { methane: 0.2, productionIntensity: 0.25, reportedReduction: 0.25, no2Activity: 0.2, confidence: 0.1 };
+      return { methane: 0.2, productionIntensity: 0.25, reportedReduction: 0.25, no2Activity: 0.2, activityProxy: 0.2, co2Context: 0, confidence: 0.1 };
   }
 }
 
@@ -68,17 +70,23 @@ export function calculateObservedReduction(args: {
   industry: EmissionsAuditPayloadInput['industry'];
   methaneChangePct: number;
   no2ChangePct: number;
+  activityProxyChangePct: number;
   intensityReductionPct: number;
+  co2ContextScore?: number;
   landUseBiomassPlaceholder?: number;
 }): number {
   const weights = getIndustryWeights(args.industry);
   const landUseWeight = weights.landUseBiomass ?? 0;
-  const observedWeightTotal = weights.methane + weights.no2Activity + weights.productionIntensity + landUseWeight;
+  const activityWeight = weights.activityProxy ?? 0;
+  const co2Weight = weights.co2Context ?? 0;
+  const observedWeightTotal = weights.methane + weights.no2Activity + activityWeight + weights.productionIntensity + landUseWeight + co2Weight;
   if (observedWeightTotal <= 0) return 0;
   const observedScore =
     args.methaneChangePct * weights.methane +
     args.no2ChangePct * weights.no2Activity +
+    args.activityProxyChangePct * activityWeight +
     args.intensityReductionPct * weights.productionIntensity +
+    (args.co2ContextScore ?? 0) * co2Weight +
     (args.landUseBiomassPlaceholder ?? 0) * landUseWeight;
   return observedScore / observedWeightTotal;
 }
@@ -92,6 +100,7 @@ export function calculateADI(args: {
   reportedReductionPct: number;
   methaneChangePct: number;
   no2ChangePct: number;
+  activityProxyChangePct: number;
   intensityReductionPct: number;
   overallConfidence: number;
   observedReductionPct: number;
@@ -100,6 +109,7 @@ export function calculateADI(args: {
   const reportedConsistency = clamp(100 - Math.abs(args.reportedReductionPct - args.observedReductionPct), 0, 100);
   const methaneConsistency = clamp(100 - Math.abs(args.reportedReductionPct - args.methaneChangePct), 0, 100);
   const no2Consistency = clamp(100 - Math.abs(args.reportedReductionPct - args.no2ChangePct), 0, 100);
+  const activityConsistency = clamp(100 - Math.abs(args.reportedReductionPct - args.activityProxyChangePct), 0, 100);
   const intensityConsistency = clamp(100 - Math.abs(args.reportedReductionPct - args.intensityReductionPct), 0, 100);
   const landUseComponent = reportedConsistency;
 
@@ -108,6 +118,7 @@ export function calculateADI(args: {
     intensityConsistency * weights.productionIntensity +
     reportedConsistency * weights.reportedReduction +
     no2Consistency * weights.no2Activity +
+    activityConsistency * (weights.activityProxy ?? 0) +
     args.overallConfidence * weights.confidence +
     landUseComponent * (weights.landUseBiomass ?? 0);
 
@@ -134,6 +145,10 @@ export function runEmissionsAuditCalculations(payload: EmissionsAuditPayloadInpu
     payload.satelliteData?.baselineNO2Score ?? 0,
     payload.satelliteData?.currentNO2Score ?? 0,
   );
+  const activityProxyChangePct = safePercentChange(
+    payload.satelliteData?.baselineActivityProxyScore ?? 0,
+    payload.satelliteData?.currentActivityProxyScore ?? 0,
+  );
   const reportedReductionPct = calculateReportedReduction(baselineCO2e, currentCO2e);
   const baselineIntensity = calculateEmissionIntensity(
     baselineCO2e,
@@ -145,11 +160,19 @@ export function runEmissionsAuditCalculations(payload: EmissionsAuditPayloadInpu
   );
   const intensityReductionPct = calculateIntensityReduction(baselineIntensity, currentIntensity);
   const overallConfidence = calculateOverallConfidence(payload.confidence);
+  const hasRequiredCoreValues =
+    baselineCO2e > 0 &&
+    (payload.satelliteData?.baselineMethaneScore ?? 0) > 0 &&
+    (payload.satelliteData?.baselineNO2Score ?? 0) > 0 &&
+    (payload.productionData?.baselineOutput ?? 0) > 0 &&
+    (payload.productionData?.currentOutput ?? 0) > 0;
   const observedReductionPct = calculateObservedReduction({
     industry: payload.industry,
     methaneChangePct,
     no2ChangePct,
+    activityProxyChangePct,
     intensityReductionPct,
+    co2ContextScore: payload.satelliteData?.co2ContextScore ?? 0,
     landUseBiomassPlaceholder: payload.industry === 'Agriculture / AFOLU' ? reportedReductionPct * 0.5 : 0,
   });
   const discrepancyGap = calculateDiscrepancyGap(reportedReductionPct, observedReductionPct);
@@ -158,23 +181,29 @@ export function runEmissionsAuditCalculations(payload: EmissionsAuditPayloadInpu
     reportedReductionPct,
     methaneChangePct,
     no2ChangePct,
+    activityProxyChangePct,
     intensityReductionPct,
     overallConfidence,
     observedReductionPct,
   });
-  const riskLevel = calculateRiskLevel(discrepancyGap, overallConfidence);
+  const riskLevel = hasRequiredCoreValues
+    ? calculateRiskLevel(discrepancyGap, overallConfidence)
+    : 'Needs More Data';
 
   return {
     calculations: {
       reportedReductionPct,
       methaneChangePct,
       no2ChangePct,
+      activityProxyChangePct,
       baselineIntensity,
       currentIntensity,
       intensityReductionPct,
       observedReductionPct,
       discrepancyGap,
       auditDiscrepancyIndex,
+      overallConfidence,
+      riskLevel,
     },
     confidence: {
       ...payload.confidence,

@@ -58,6 +58,9 @@ export interface EmissionsAuditDraftPayload {
     currentMethaneScore: number;
     baselineNO2Score: number;
     currentNO2Score: number;
+    baselineActivityProxyScore?: number;
+    currentActivityProxyScore?: number;
+    co2ContextScore?: number;
     sourceMetadata: unknown;
   } | null;
   productionData?: {
