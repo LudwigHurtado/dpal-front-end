@@ -1,6 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Circle, MapContainer, Polygon, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
 import type { Hero } from '../types';
+import { GIBS_LAYERS, gibsDefaultDate, gibsTileUrl } from '../services/gibsService';
 import {
   communityImpactOptions,
   concernTypes,
@@ -83,6 +86,56 @@ function statusTone(status: WaterIndicator['status']): string {
   return 'text-rose-200 border-rose-500/50 bg-rose-900/20';
 }
 
+type BasemapStyle = 'satellite' | 'terrain' | 'dark';
+
+const layerToGibsLayer: Record<string, string> = {
+  sentinel2: 'VIIRS_SNPP_CorrectedReflectance_TrueColor',
+  landsat89: 'MODIS_Terra_CorrectedReflectance_TrueColor',
+  sentinel1: 'MODIS_Terra_CorrectedReflectance_Bands367',
+  sentinel3: 'MODIS_Aqua_CorrectedReflectance_TrueColor',
+  swot: 'MODIS_Terra_Water_Vapor_5km_Day',
+  gracefo: 'SMAP_L3_Passive_Day_SoilMoisture_Option1',
+  ecostress: 'MODIS_Terra_Land_Surface_Temp_Day',
+};
+
+function focusPointFromProject(project: AquaScanProject): [number, number] {
+  const lat = Number(project.latitude);
+  const lng = Number(project.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
+    return [20, 0];
+  }
+  return [lat, lng];
+}
+
+function MapViewSync({ center }: { center: [number, number] }): null {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, Math.max(6, map.getZoom()));
+  }, [center, map]);
+  return null;
+}
+
+function MapInteractionCapture({
+  drawingAoi,
+  onInspect,
+  onAoiPoint,
+}: {
+  drawingAoi: boolean;
+  onInspect: (point: [number, number]) => void;
+  onAoiPoint: (point: [number, number]) => void;
+}): null {
+  useMapEvents({
+    click(event) {
+      const point: [number, number] = [event.latlng.lat, event.latlng.lng];
+      onInspect(point);
+      if (drawingAoi) {
+        onAoiPoint(point);
+      }
+    },
+  });
+  return null;
+}
+
 export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(mockWaterProjects[0]?.id ?? '');
@@ -91,14 +144,20 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [showPacket, setShowPacket] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
   const [actionNotice, setActionNotice] = useState<string>('');
-  const [mapZoom, setMapZoom] = useState(100);
-  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
   const [mapExpanded, setMapExpanded] = useState(false);
-  const [mapStyle, setMapStyle] = useState<'satellite' | 'terrain' | 'dark'>('satellite');
+  const [mapStyle, setMapStyle] = useState<BasemapStyle>('satellite');
   const [gpsMode, setGpsMode] = useState<'Demo' | 'Active'>('Demo');
-  const [isDraggingMap, setIsDraggingMap] = useState(false);
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [boundaryRevision, setBoundaryRevision] = useState(0);
+  const [selectedDate, setSelectedDate] = useState(gibsDefaultDate());
+  const [mapCenter, setMapCenter] = useState<[number, number]>(focusPointFromProject(mockWaterProjects[0]));
+  const [inspectedPoint, setInspectedPoint] = useState<[number, number] | null>(null);
+  const [aoiPoints, setAoiPoints] = useState<[number, number][]>([]);
+  const [drawingAoi, setDrawingAoi] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [imageryLoading, setImageryLoading] = useState(true);
+  const [imageryError, setImageryError] = useState<string | null>(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState<string>(new Date().toLocaleTimeString());
   const [overlayState, setOverlayState] = useState({
     boundary: true,
     riskZone: true,
@@ -127,6 +186,20 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     () => projects.find((p) => p.id === selectedProjectId) ?? draftProject,
     [projects, selectedProjectId, draftProject],
   );
+  const activeGibsLayer = useMemo(
+    () =>
+      GIBS_LAYERS.find((layer) => layer.id === layerToGibsLayer[selectedLayerIds[0] ?? 'sentinel2'])
+      ?? GIBS_LAYERS[0],
+    [selectedLayerIds],
+  );
+  const tileUrl = useMemo(
+    () => gibsTileUrl(activeGibsLayer.id, selectedDate, activeGibsLayer.tileMatrixLevel, activeGibsLayer.format),
+    [activeGibsLayer, selectedDate],
+  );
+
+  useEffect(() => {
+    setMapCenter(focusPointFromProject(selectedProject));
+  }, [selectedProject]);
 
   const validatorStatus = selectedProject.validatorStatus;
 
@@ -181,23 +254,6 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     };
   }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus]);
 
-  const riskLabelTone =
-    riskBand(riskScore) === 'High Risk'
-      ? 'border-rose-500/50 bg-rose-900/20 text-rose-100'
-      : riskBand(riskScore) === 'Elevated'
-      ? 'border-orange-500/50 bg-orange-900/20 text-orange-100'
-      : riskBand(riskScore) === 'Watchlist'
-      ? 'border-amber-500/50 bg-amber-900/20 text-amber-100'
-      : 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100';
-
-  const mapConcernOverlayLabel =
-    selectedProject.concernType === 'Suspected Contamination' || selectedProject.concernType === 'Industrial Discharge'
-      ? 'Priority overlay: downstream anomaly corridor'
-      : selectedProject.concernType === 'Flooding'
-      ? 'Priority overlay: flood-extent expansion belt'
-      : selectedProject.concernType === 'Drought'
-      ? 'Priority overlay: low-storage stress zone'
-      : 'Priority overlay: turbidity and runoff watch zone';
   const latitudeDisplay = Number(selectedProject.latitude || 0).toFixed(4);
   const longitudeDisplay = Number(selectedProject.longitude || 0).toFixed(4);
 
@@ -283,31 +339,57 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   }
 
   function centerOnProject(): void {
-    setMapOffset({ x: 0, y: 0 });
+    setMapCenter(focusPointFromProject(selectedProject));
     setActionNotice('Map centered on selected project.');
   }
 
   function centerOnGps(): void {
-    setGpsMode('Active');
-    setMapOffset({ x: 10, y: -8 });
-    setActionNotice('Centered on current GPS (demo).');
+    if (!navigator.geolocation) {
+      setActionNotice('Geolocation is not supported in this browser.');
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setGpsMode('Active');
+        const nextCenter: [number, number] = [position.coords.latitude, position.coords.longitude];
+        setMapCenter(nextCenter);
+        setInspectedPoint(nextCenter);
+        setActionNotice('Centered on current GPS location.');
+      },
+      () => {
+        setActionNotice('Could not access GPS location. Check browser permissions.');
+      },
+    );
   }
 
-  function beginMapDrag(event: React.MouseEvent<HTMLDivElement>): void {
-    setIsDraggingMap(true);
-    setDragStart({ x: event.clientX - mapOffset.x, y: event.clientY - mapOffset.y });
-  }
-
-  function moveMapDrag(event: React.MouseEvent<HTMLDivElement>): void {
-    if (!isDraggingMap) return;
-    setMapOffset({
-      x: event.clientX - dragStart.x,
-      y: event.clientY - dragStart.y,
-    });
-  }
-
-  function endMapDrag(): void {
-    setIsDraggingMap(false);
+  async function runLocationSearch(): Promise<void> {
+    const query = searchQuery.trim();
+    if (!query) {
+      setActionNotice('Enter a location to search.');
+      return;
+    }
+    setSearchBusy(true);
+    try {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
+      if (!response.ok) {
+        throw new Error('Search provider unavailable');
+      }
+      const rows = await response.json() as Array<{ lat: string; lon: string; display_name: string }>;
+      if (!rows.length) {
+        setActionNotice('No matching location found.');
+        return;
+      }
+      const lat = Number(rows[0].lat);
+      const lng = Number(rows[0].lon);
+      setMapCenter([lat, lng]);
+      setInspectedPoint([lat, lng]);
+      setActionNotice(`Centered map on ${rows[0].display_name}.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Location search failed.';
+      setActionNotice(message);
+    } finally {
+      setSearchBusy(false);
+    }
   }
 
   const actionButtons = [
@@ -570,22 +652,46 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <span>Layers: <span className="font-semibold text-emerald-200">{selectedLayerIds.length} selected</span></span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" onClick={() => setMapZoom((prev) => Math.min(180, prev + 10))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom +</button>
-              <button type="button" onClick={() => setMapZoom((prev) => Math.max(70, prev - 10))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom -</button>
               <button type="button" onClick={centerOnProject} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Center on project</button>
               <button type="button" onClick={centerOnGps} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Use current GPS</button>
               <button type="button" onClick={() => setMapExpanded((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{mapExpanded ? 'Collapse map' : 'Expand map'}</button>
               <button type="button" onClick={() => setBoundaryDrawn((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{boundaryDrawn ? 'Hide boundary' : 'Show boundary'}</button>
-              <button type="button" onClick={() => setBoundaryRevision((prev) => prev + 1)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Edit/Redraw boundary</button>
+              <button type="button" onClick={() => { setDrawingAoi((prev) => !prev); setBoundaryDrawn(true); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{drawingAoi ? 'Stop AOI draw' : 'Draw AOI points'}</button>
+              <button type="button" onClick={() => { setAoiPoints([]); setBoundaryRevision((prev) => prev + 1); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Clear AOI</button>
+              <button type="button" onClick={() => { setImageryLoading(true); setImageryError(null); setLastRefreshTime(new Date().toLocaleTimeString()); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
+              <button type="button" onClick={() => setMapCenter([20, 0])} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Reset view</button>
               <select
                 value={mapStyle}
                 onChange={(event) => setMapStyle(event.target.value as 'satellite' | 'terrain' | 'dark')}
                 className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
               >
-                <option value="satellite">Satellite-style</option>
-                <option value="terrain">Terrain-style</option>
-                <option value="dark">Dark monitoring-style</option>
+                <option value="satellite">Satellite + labels</option>
+                <option value="terrain">Terrain base + satellite overlay</option>
+                <option value="dark">Dark monitoring base</option>
               </select>
+              <input
+                type="date"
+                value={selectedDate}
+                max={gibsDefaultDate()}
+                onChange={(event) => {
+                  setSelectedDate(event.target.value);
+                  setImageryLoading(true);
+                  setImageryError(null);
+                  setLastRefreshTime(new Date().toLocaleTimeString());
+                }}
+                className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search location"
+                  className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                />
+                <button type="button" onClick={runLocationSearch} disabled={searchBusy} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200 disabled:opacity-60">
+                  {searchBusy ? 'Searching...' : 'Search'}
+                </button>
+              </div>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
               <button type="button" onClick={() => toggleOverlay('boundary')} className={`rounded border px-2 py-1 ${overlayState.boundary ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Boundary</button>
@@ -595,75 +701,105 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <button type="button" onClick={() => toggleOverlay('flowDirection')} className={`rounded border px-2 py-1 ${overlayState.flowDirection ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flow direction</button>
             </div>
           </div>
-
-          <div
-            role="presentation"
-            onMouseDown={beginMapDrag}
-            onMouseMove={moveMapDrag}
-            onMouseUp={endMapDrag}
-            onMouseLeave={endMapDrag}
-            className={`relative cursor-grab overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[34rem]' : 'h-[24rem]'} ${
-              mapStyle === 'satellite'
-                ? 'bg-gradient-to-br from-slate-900 via-cyan-950/50 to-slate-900'
-                : mapStyle === 'terrain'
-                ? 'bg-gradient-to-br from-emerald-950/40 via-slate-900 to-amber-950/30'
-                : 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/40'
-            }`}
-          >
-            <div
-              className="absolute inset-0 transition-transform duration-150"
-              style={{
-                transform: `translate(${mapOffset.x}px, ${mapOffset.y}px) scale(${mapZoom / 100})`,
-                transformOrigin: 'center center',
-              }}
+          <div className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[34rem]' : 'h-[24rem]'}`}>
+            {imageryLoading ? (
+              <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
+                Loading latest available satellite-connected imagery...
+              </div>
+            ) : null}
+            {imageryError ? (
+              <div className="absolute inset-x-0 top-0 z-[500] bg-rose-950/85 px-3 py-1 text-[11px] text-rose-100">
+                {imageryError}
+              </div>
+            ) : null}
+            <MapContainer
+              center={mapCenter}
+              zoom={7}
+              style={{ height: '100%', width: '100%' }}
             >
-              <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.25) 1px, transparent 0)', backgroundSize: '22px 22px' }} />
-              <div className="absolute left-[8%] top-[56%] h-2 w-[84%] rounded-full bg-cyan-500/30 blur-sm" />
-              <div className="absolute left-[20%] top-[38%] h-28 w-28 rounded-full border border-cyan-300/30 bg-cyan-500/10" />
-
-              {overlayState.boundary && boundaryDrawn ? (
-                <div
-                  className="absolute left-[24%] top-[26%] h-[42%] w-[47%] rounded-[28%_34%_40%_24%] border-2 border-cyan-300/70 bg-cyan-500/10"
-                  style={{ transform: `rotate(${boundaryRevision % 2 === 0 ? '-6deg' : '4deg'})` }}
+              <MapViewSync center={mapCenter} />
+              <MapInteractionCapture
+                drawingAoi={drawingAoi}
+                onInspect={(point) => setInspectedPoint(point)}
+                onAoiPoint={(point) => setAoiPoints((prev) => [...prev, point])}
+              />
+              {mapStyle === 'dark' ? (
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; OpenStreetMap contributors &copy; CARTO'
                 />
+              ) : mapStyle === 'terrain' ? (
+                <TileLayer
+                  url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
+                  attribution='Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'
+                />
+              ) : (
+                <TileLayer
+                  url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  attribution='Tiles &copy; Esri'
+                />
+              )}
+              <TileLayer
+                key={`${activeGibsLayer.id}-${selectedDate}`}
+                url={tileUrl}
+                opacity={0.72}
+                attribution='Imagery: NASA GIBS / ESDIS'
+                eventHandlers={{
+                  loading: () => {
+                    setImageryLoading(true);
+                    setImageryError(null);
+                  },
+                  load: () => {
+                    setImageryLoading(false);
+                  },
+                  tileerror: () => {
+                    setImageryLoading(false);
+                    setImageryError('Satellite tile fetch issue detected. Try another date or layer.');
+                  },
+                }}
+              />
+              {overlayState.boundary && boundaryDrawn && aoiPoints.length >= 3 ? (
+                <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.1 }} />
               ) : null}
-              {overlayState.riskZone ? (
-                <div className={`absolute left-[40%] top-[34%] h-24 w-36 rounded-full border ${riskLabelTone} opacity-80`} />
+              {overlayState.boundary && boundaryDrawn && aoiPoints.length < 3 ? (
+                <Circle center={mapCenter} radius={4200} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }} />
+              ) : null}
+              {overlayState.flowDirection ? (
+                <Polyline positions={[[mapCenter[0] + 0.05, mapCenter[1] - 0.07], [mapCenter[0] - 0.07, mapCenter[1] + 0.09]]} pathOptions={{ color: '#38bdf8', dashArray: '6 6' }} />
               ) : null}
               {overlayState.reportPins ? (
                 <>
-                  <span className="absolute left-[34%] top-[42%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
-                  <span className="absolute left-[58%] top-[50%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
-                  <span className="absolute left-[47%] top-[61%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+                  <Circle center={[mapCenter[0] + 0.08, mapCenter[1] - 0.03]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }} />
+                  <Circle center={[mapCenter[0] - 0.03, mapCenter[1] + 0.06]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }} />
                 </>
               ) : null}
               {overlayState.samplePoints ? (
                 <>
-                  <span className="absolute left-[41%] top-[48%] h-2.5 w-2.5 rounded-full bg-emerald-300" />
-                  <span className="absolute left-[52%] top-[43%] h-2.5 w-2.5 rounded-full bg-emerald-300" />
-                  <span className="absolute left-[55%] top-[58%] h-2.5 w-2.5 rounded-full bg-emerald-300" />
+                  <Circle center={[mapCenter[0] + 0.03, mapCenter[1] + 0.02]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }} />
+                  <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }} />
                 </>
               ) : null}
-              <span className="absolute left-[49%] top-[46%] h-4 w-4 rounded-full border-2 border-white bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
-              {overlayState.flowDirection ? (
-                <div className="absolute bottom-4 right-4 rounded-md border border-slate-500/70 bg-black/45 px-2 py-1 text-[10px] font-semibold text-slate-100">
-                  Flow NW → SE
-                </div>
-              ) : null}
-            </div>
-
-            <div className="absolute right-3 top-3 rounded-md border border-slate-500/70 bg-black/45 px-2 py-1 text-[10px] font-semibold text-cyan-100">
-              Drag to pan · Zoom {mapZoom}%
-            </div>
+              <Circle center={inspectedPoint ?? mapCenter} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.7 }} />
+            </MapContainer>
           </div>
 
           <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-slate-700 bg-slate-950/80 p-3 text-[11px] text-slate-200 md:grid-cols-6">
             <div><span className="text-slate-400">Project ID:</span> {selectedProject.id}</div>
             <div><span className="text-slate-400">Water body type:</span> {selectedProject.waterBodyType}</div>
-            <div><span className="text-slate-400">Last updated:</span> {new Date().toLocaleTimeString()}</div>
+            <div><span className="text-slate-400">Last refresh:</span> {lastRefreshTime}</div>
             <div><span className="text-slate-400">Boundary status:</span> {boundaryDrawn ? `Adjusted v${boundaryRevision + 1}` : 'Not defined'}</div>
             <div><span className="text-slate-400">Evidence points:</span> {selectedProject.evidenceCount}</div>
             <div><span className="text-slate-400">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</div>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3 text-[11px] text-cyan-100 md:grid-cols-2 lg:grid-cols-4">
+            <div><span className="text-cyan-300/80">Inspect point:</span> {(inspectedPoint ?? mapCenter)[0].toFixed(5)}, {(inspectedPoint ?? mapCenter)[1].toFixed(5)}</div>
+            <div><span className="text-cyan-300/80">Satellite source:</span> NASA GIBS ({activeGibsLayer.label})</div>
+            <div><span className="text-cyan-300/80">Acquisition date:</span> {selectedDate}</div>
+            <div><span className="text-cyan-300/80">Resolution:</span> {activeGibsLayer.description}</div>
+            <div><span className="text-cyan-300/80">Coverage area:</span> {aoiPoints.length >= 3 ? `${aoiPoints.length} AOI vertices` : 'Project-centered boundary'}</div>
+            <div><span className="text-cyan-300/80">Layer selected:</span> {activeGibsLayer.label}</div>
+            <div><span className="text-cyan-300/80">Quality note:</span> {imageryError ? 'Tile fetch issue' : 'Latest available scene'}</div>
+            <div><span className="text-cyan-300/80">Model status:</span> NDWI and risk metrics are estimated/model-derived</div>
           </div>
         </section>
 

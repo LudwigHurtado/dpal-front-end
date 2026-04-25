@@ -223,7 +223,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
       <section className="mb-10">
         <h2 className="text-base md:text-lg font-bold text-emerald-200">Carbon &amp; MRV</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Carbon Intelligence & MRV" subLabel="Includes Carbon Overview, MRV Calculations, Verification, and VIU / Impact Units." status="MRV" colorClass="teal" bgImageUrl="/main-screen/land-mineral-monitoring.png" onClick={() => onNavigate('dpalCarbon')} />
+          <HubCard icon={<Globe className="w-8 h-8" />} label="Carbon Intelligence & MRV" subLabel="Includes Carbon Overview, MRV Calculations, Verification, and VIU / Impact Units." status="MRV" colorClass="teal" bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png" onClick={() => onNavigate('dpalCarbon')} />
         </div>
       </section>
 
@@ -236,7 +236,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             subLabel="General emissions integrity checks with CARB California deep-link mode."
             status="Audit"
             colorClass="emerald"
-            bgImageUrl="/main-screen/land-mineral-monitoring.png"
+            bgImageUrl="/environmental-intelligence/emissions-audit-main.png"
             onClick={() => onNavigate('emissionsIntegrityAudit')}
           >
             <button type="button" onClick={() => onNavigate('emissionsIntegrityAudit')} className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100">General</button>
