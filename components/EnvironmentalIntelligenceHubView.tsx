@@ -231,6 +231,24 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         <h2 className="text-base md:text-lg font-bold text-emerald-200">Compliance &amp; Audits</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
           <HubCard
+            icon={<Database className="w-8 h-8" />}
+            label="EPA Live GHG Intelligence"
+            subLabel="Official U.S. EPA Envirofacts / GHGRP reported facility data baseline for DPAL investigations."
+            status="Official Data"
+            colorClass="sky"
+            bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png"
+            onClick={() => onNavigate('epaGhgLive')}
+          />
+          <HubCard
+            icon={<Database className="w-8 h-8" />}
+            label="Envirofacts Geo Intelligence"
+            subLabel="Live EPA Envirofacts geographic search and map dashboard for public-data baseline investigations."
+            status="Official Data"
+            colorClass="sky"
+            bgImageUrl="/environmental-intelligence/air-quality-control-main.png"
+            onClick={() => onNavigate('envirofactsGeoIntelligence')}
+          />
+          <HubCard
             icon={<ShieldCheck className="w-8 h-8" />}
             label="Emissions Audit"
             subLabel="General emissions integrity checks with CARB California deep-link mode."

@@ -108,7 +108,9 @@ import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLin
 import { useTranslations } from './i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  epaFacilityDetailPath,
   marketplaceMissionDetailPath,
+  parseEpaFacilityIdFromPath,
   parseMarketplaceListingIdFromPath,
   pathToView,
   viewToPath,
@@ -123,8 +125,12 @@ import EnvironmentalIntelligenceHub from './src/features/environmentalPreview/En
 import GenericEnvironmentalModule from './src/features/environmentalPreview/GenericEnvironmentalModule';
 import FuelStorageAuditPage from './src/features/environmentalPreview/FuelStorageAuditPage';
 import EvidencePacketViewer from './src/features/environmentalPreview/EvidencePacketViewer';
+import EpaLiveDashboard from './src/environmental/epa-live/EpaLiveDashboard';
+import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvidencePage';
+import type { EpaFacilityProfile } from './src/types/epa';
+import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -290,6 +296,12 @@ function getInitialMarketplaceListingIdFromWindow(): string | null {
   return parseMarketplaceListingIdFromPath(normalized);
 }
 
+function getInitialEpaFacilityIdFromWindow(): string | null {
+  if (typeof window === 'undefined') return null;
+  const normalized = window.location.pathname.replace(/\/$/, '') || '/';
+  return parseEpaFacilityIdFromPath(normalized);
+}
+
 function getInitialCurrentView(): View {
   if (typeof window === 'undefined') return 'mainMenu';
   const params = new URLSearchParams(window.location.search);
@@ -376,6 +388,10 @@ const App: React.FC = () => {
   const [marketplaceDetailListingId, setMarketplaceDetailListingId] = useState<string | null>(
     getInitialMarketplaceListingIdFromWindow,
   );
+  const [epaFacilityDetailId, setEpaFacilityDetailId] = useState<string | null>(
+    getInitialEpaFacilityIdFromWindow,
+  );
+  const [epaFacilitySnapshot, setEpaFacilitySnapshot] = useState<EpaFacilityProfile | null>(null);
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -477,6 +493,17 @@ const App: React.FC = () => {
       return;
     }
 
+    const epaFacilityIdFromPath = parseEpaFacilityIdFromPath(normalizedPath);
+    if (epaFacilityIdFromPath) {
+      setEpaFacilityDetailId(epaFacilityIdFromPath);
+      setCurrentView((prev) => {
+        if (prev === 'epaGhgFacilityDetail') return prev;
+        backNavRef.current = true;
+        return 'epaGhgFacilityDetail';
+      });
+      return;
+    }
+
     const v = pathToView(location.pathname);
     if (v == null) {
       if (location.pathname !== '/' && location.pathname !== '/index.html') {
@@ -505,6 +532,13 @@ const App: React.FC = () => {
       navigate(path, { replace: false });
       return;
     }
+    if (currentView === 'epaGhgFacilityDetail' && epaFacilityDetailId) {
+      const path = epaFacilityDetailPath(epaFacilityDetailId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
@@ -520,7 +554,7 @@ const App: React.FC = () => {
     if (full === cur) return;
     navigate(full, { replace: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync only when view changes; do not re-run on every query/hash change
-  }, [currentView, marketplaceDetailListingId, navigate]);
+  }, [currentView, marketplaceDetailListingId, epaFacilityDetailId, navigate]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {
@@ -557,6 +591,11 @@ const App: React.FC = () => {
       }
       return;
     }
+    if (currentView === 'epaGhgFacilityDetail' && !epaFacilityDetailId) {
+      navigate('/environmental-intelligence/epa-ghg', { replace: true });
+      setCurrentView('epaGhgLive');
+      return;
+    }
     if (currentView === 'missionComplete' && !completedMissionSummary) {
       setCurrentView('mainMenu');
       return;
@@ -578,6 +617,7 @@ const App: React.FC = () => {
     selectedIntelForMission,
     selectedMissionForDetail,
     marketplaceDetailListingId,
+    epaFacilityDetailId,
     completedMissionSummary,
     selectedReportForIncidentRoom,
     gatewayCategory,
@@ -1054,6 +1094,16 @@ const App: React.FC = () => {
     setCurrentView('marketplaceMissionDetail');
   }, [currentView]);
 
+  const openEpaFacilityDetail = useCallback(
+    (facilityId: string, snapshot?: EpaFacilityProfile | null) => {
+      setEpaFacilityDetailId(facilityId);
+      if (snapshot) setEpaFacilitySnapshot(snapshot);
+      setPrevView(currentView);
+      setCurrentView('epaGhgFacilityDetail');
+    },
+    [currentView],
+  );
+
   const marketplaceListingDetail = useMemo(() => {
     if (!marketplaceDetailListingId) return null;
     return getMarketplaceListingDetail(marketplaceDetailListingId);
@@ -1062,6 +1112,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (currentView !== 'marketplaceMissionDetail') {
       setMarketplaceDetailListingId(null);
+    }
+  }, [currentView]);
+
+  useEffect(() => {
+    if (currentView !== 'epaGhgFacilityDetail') {
+      setEpaFacilityDetailId(null);
+      setEpaFacilitySnapshot(null);
     }
   }, [currentView]);
 
@@ -2358,6 +2415,23 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             onNavigate={(view) => setCurrentView(view)}
           />
+        )}
+
+        {currentView === 'epaGhgLive' && (
+          <EpaLiveDashboard
+            onOpenFacilityPage={(facilityId, snapshot) => openEpaFacilityDetail(facilityId, snapshot)}
+          />
+        )}
+
+        {currentView === 'epaGhgFacilityDetail' && (
+          <EpaFacilityEvidencePage
+            profile={epaFacilitySnapshot}
+            onReturn={() => setCurrentView('epaGhgLive')}
+          />
+        )}
+
+        {currentView === 'envirofactsGeoIntelligence' && (
+          <EnvirofactsGeoDashboard />
         )}
 
         {currentView === 'carbonMRV' && (

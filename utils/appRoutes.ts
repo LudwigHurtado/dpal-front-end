@@ -5,6 +5,7 @@
 
 /** Marketplace listing detail — not in VIEW_PATHS; path includes id (see `marketplaceMissionDetailPath`). */
 export const MARKETPLACE_MISSION_DETAIL_PREFIX = '/missions/m';
+export const EPA_GHG_FACILITY_DETAIL_PREFIX = '/environmental-intelligence/epa-ghg/facility';
 
 export function marketplaceMissionDetailPath(listingId: string): string {
   return `${MARKETPLACE_MISSION_DETAIL_PREFIX}/${encodeURIComponent(listingId)}`;
@@ -15,6 +16,17 @@ export function parseMarketplaceListingIdFromPath(pathname: string): string | nu
   const normalized = pathname.replace(/\/$/, '') || '/';
   const m = normalized.match(/^\/missions\/m\/([^/]+)$/);
   return m ? decodeURIComponent(m[1]) : null;
+}
+
+/** Returns raw facility id segment or null if pathname is not an EPA facility detail URL. */
+export function parseEpaFacilityIdFromPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  const m = normalized.match(/^\/environmental-intelligence\/epa-ghg\/facility\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export function epaFacilityDetailPath(facilityId: string): string {
+  return `${EPA_GHG_FACILITY_DETAIL_PREFIX}/${encodeURIComponent(facilityId)}`;
 }
 
 /** view id → pathname (single segment or nested, no trailing slash except root). */
@@ -88,6 +100,8 @@ export const VIEW_PATHS: Record<string, string> = {
   carbEmissionsAudit: '/carb-emissions-audit',
   hazardousWasteAudit: '/hazardous-waste-audit',
   environmentalIntelligenceHub: '/environmental-intelligence',
+  epaGhgLive: '/environmental-intelligence/epa-ghg',
+  envirofactsGeoIntelligence: '/environmental-intelligence/envirofacts-map',
   previewEnvironmentalCommandCenter: '/preview/environmental-command-center',
   previewEnvironmentalIntelligenceHub: '/preview/environmental-intelligence-hub',
   previewFuelStorageAudit: '/preview/fuel-storage-audit',
@@ -104,9 +118,12 @@ export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
   /** Legacy map/beacon screen removed — land on Mission Marketplace. */
   if (normalized === '/field-missions') return 'missionMarketplace';
+  if (normalized === '/environmental/epa-live') return 'epaGhgLive';
+  if (normalized === '/environmental/envirofacts-map') return 'envirofactsGeoIntelligence';
   /** Legacy AFOLU paths kept for backwards-compatible deep links/bookmarks. */
   if (normalized === '/aflu' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
   if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
+  if (/^\/environmental-intelligence\/epa-ghg\/facility\/[^/]+$/.test(normalized)) return 'epaGhgFacilityDetail';
   if (/^\/preview\/module-preview\/[^/]+$/.test(normalized)) return 'previewModule';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';

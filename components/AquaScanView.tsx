@@ -5,6 +5,12 @@ import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
 import type { Hero } from '../types';
 import { GIBS_LAYERS, gibsDefaultDate, gibsTileUrl } from '../services/gibsService';
 import {
+  getWaterHistory,
+  getWaterSnapshotByAOI,
+  getWaterSnapshotByPoint,
+  type WaterAnalysisResponse,
+} from '../services/waterAnalysisService';
+import {
   communityImpactOptions,
   concernTypes,
   mockEvidencePackets,
@@ -98,6 +104,34 @@ const layerToGibsLayer: Record<string, string> = {
   ecostress: 'MODIS_Terra_Land_Surface_Temp_Day',
 };
 
+const layerToAnalysisKey: Record<string, string> = {
+  sentinel2: 'ndwi',
+  landsat89: 'water_extent',
+  sentinel1: 'flood_wetness',
+  sentinel3: 'chlorophyll_proxy',
+  swot: 'surface_water',
+  gracefo: 'water_storage',
+  ecostress: 'thermal_anomaly',
+};
+
+function polygonAreaSqKm(points: [number, number][]): number {
+  if (points.length < 3) return 0;
+  const lat0 = points.reduce((sum, p) => sum + p[1], 0) / points.length;
+  const kmPerDegLat = 111.32;
+  const kmPerDegLng = 111.32 * Math.cos((lat0 * Math.PI) / 180);
+  let sum = 0;
+  for (let i = 0; i < points.length; i += 1) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[(i + 1) % points.length];
+    const x1km = x1 * kmPerDegLng;
+    const x2km = x2 * kmPerDegLng;
+    const y1km = y1 * kmPerDegLat;
+    const y2km = y2 * kmPerDegLat;
+    sum += x1km * y2km - x2km * y1km;
+  }
+  return Math.abs(sum) / 2;
+}
+
 function focusPointFromProject(project: AquaScanProject): [number, number] {
   const lat = Number(project.latitude);
   const lng = Number(project.longitude);
@@ -189,6 +223,12 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [beforeImageryError, setBeforeImageryError] = useState<string | null>(null);
   const [partialFailure, setPartialFailure] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<string>(new Date().toLocaleTimeString());
+  const [waterApiLoading, setWaterApiLoading] = useState(false);
+  const [waterApiError, setWaterApiError] = useState<string | null>(null);
+  const [waterApiNotice, setWaterApiNotice] = useState<string | null>(null);
+  const [waterApiMode, setWaterApiMode] = useState<'point' | 'aoi'>('point');
+  const [waterData, setWaterData] = useState<WaterAnalysisResponse | null>(null);
+  const [waterHistoryDelta, setWaterHistoryDelta] = useState<string>('Pending history');
   const [layerOpacity, setLayerOpacity] = useState(72);
   const [overlayState, setOverlayState] = useState({
     boundary: true,
@@ -202,6 +242,8 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     flowDirection: true,
   });
   const mapViewportRef = useRef<HTMLDivElement | null>(null);
+  const waterRequestAbortRef = useRef<AbortController | null>(null);
+  const waterDebounceRef = useRef<number | null>(null);
 
   const [draftProject, setDraftProject] = useState<AquaScanProject>({
     id: 'AQ-DRAFT',
@@ -237,6 +279,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     () => gibsTileUrl(activeGibsLayer.id, compareDate, activeGibsLayer.tileMatrixLevel, activeGibsLayer.format),
     [activeGibsLayer, compareDate],
   );
+  const selectedAnalysisLayer = layerToAnalysisKey[selectedLayerIds[0] ?? 'sentinel2'] ?? 'ndwi';
+  const activeAoi = aoiPoints.length >= 3 ? aoiPoints : savedAoiPoints.length >= 3 ? savedAoiPoints : null;
+  const aoiAreaSqKm = polygonAreaSqKm(activeAoi ?? []);
 
   useEffect(() => {
     setMapCenter(focusPointFromProject(selectedProject));
@@ -255,6 +300,92 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     }
   }, []);
 
+  useEffect(() => () => {
+    if (waterRequestAbortRef.current) {
+      waterRequestAbortRef.current.abort();
+    }
+    if (waterDebounceRef.current) {
+      window.clearTimeout(waterDebounceRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    const point: [number, number] = inspectedPoint ?? mapCenter;
+    const shouldUseAoi = Boolean(activeAoi && activeAoi.length >= 3);
+    if (waterDebounceRef.current) {
+      window.clearTimeout(waterDebounceRef.current);
+    }
+    if (waterRequestAbortRef.current) {
+      waterRequestAbortRef.current.abort();
+    }
+
+    waterDebounceRef.current = window.setTimeout(async () => {
+      const controller = new AbortController();
+      waterRequestAbortRef.current = controller;
+      setWaterApiLoading(true);
+      setWaterApiError(null);
+      setWaterApiNotice('Fetching water intelligence for selected area...');
+      setWaterApiMode(shouldUseAoi ? 'aoi' : 'point');
+      try {
+        const snapshot = shouldUseAoi
+          ? await getWaterSnapshotByAOI({
+              polygonCoordinates: activeAoi as [number, number][],
+              date: selectedDate,
+              layer: selectedAnalysisLayer,
+              signal: controller.signal,
+            })
+          : await getWaterSnapshotByPoint({
+              lat: point[0],
+              lng: point[1],
+              date: selectedDate,
+              layer: selectedAnalysisLayer,
+              signal: controller.signal,
+            });
+        setWaterData(snapshot);
+
+        const history = await getWaterHistory({
+          lat: shouldUseAoi ? undefined : point[0],
+          lng: shouldUseAoi ? undefined : point[1],
+          polygonCoordinates: shouldUseAoi ? (activeAoi as [number, number][]) : undefined,
+          startDate: compareEnabled ? compareDate : selectedDate,
+          endDate: selectedDate,
+          layer: selectedAnalysisLayer,
+          signal: controller.signal,
+        });
+        const [first, last] = [history.points[0], history.points[history.points.length - 1]];
+        if (first?.ndwi != null && last?.ndwi != null) {
+          const delta = (last.ndwi - first.ndwi).toFixed(2);
+          setWaterHistoryDelta(`${delta.startsWith('-') ? '' : '+'}${delta} NDWI from ${first.date} to ${last.date}`);
+        } else {
+          setWaterHistoryDelta('History available, limited NDWI values');
+        }
+
+        if (snapshot.status.qualityFlag === 'Cloudy' || snapshot.status.qualityFlag === 'Partial') {
+          setWaterApiNotice('Cloud cover or tile quality may limit confidence.');
+        } else if (snapshot.status.qualityFlag === 'Estimated') {
+          setWaterApiNotice('Satellite-derived values are estimated for this selection.');
+        } else {
+          setWaterApiNotice(null);
+        }
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        setWaterApiError(error instanceof Error ? error.message : 'Backend unavailable — showing map imagery only.');
+        setWaterApiNotice('Backend unavailable — showing map imagery only.');
+      } finally {
+        if (!controller.signal.aborted) {
+          setWaterApiLoading(false);
+          setLastRefreshTime(new Date().toLocaleTimeString());
+        }
+      }
+    }, 320);
+
+    return () => {
+      if (waterDebounceRef.current) {
+        window.clearTimeout(waterDebounceRef.current);
+      }
+    };
+  }, [activeAoi, compareDate, compareEnabled, inspectedPoint, mapCenter, selectedAnalysisLayer, selectedDate]);
+
   const validatorStatus = selectedProject.validatorStatus;
 
   const anomalyLayerCount = selectedLayerIds.length;
@@ -271,27 +402,29 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
 
   const indicators = useMemo<WaterIndicator[]>(() => {
     const status = mapBandToStatus(riskScore);
+    const api = waterData?.waterAnalysis;
+    const quality = waterData?.status;
     return [
-      { id: 'turbidity', label: 'Turbidity Index', value: `${Math.max(18, Math.round(riskScore * 0.9))}/100`, trend: '+12% from baseline', status, explanation: 'Suspended solids signal compared with rolling baseline.' },
-      { id: 'algae', label: 'Algae / Chlorophyll Risk', value: `${Math.round(riskScore * 0.76)}/100`, trend: 'Stable over 30 days', status, explanation: 'Potential bloom pressure from chlorophyll-style indicators.' },
-      { id: 'extent', label: 'Water Extent Change', value: `${Math.round(riskScore * 0.42)}%`, trend: '+5% month-over-month', status, explanation: 'Surface-water boundary shift versus prior period.' },
-      { id: 'flood', label: 'Flood Risk', value: `${Math.round(riskScore * 0.81)}/100`, trend: '+9% from baseline', status, explanation: 'Flood susceptibility from extent and terrain cues.' },
+      { id: 'turbidity', label: 'Turbidity Proxy', value: api?.turbidityProxy ?? `${Math.max(18, Math.round(riskScore * 0.9))}/100`, trend: waterHistoryDelta, status, explanation: 'Satellite-derived turbidity proxy, not a lab turbidity measurement.' },
+      { id: 'algae', label: 'Water Presence', value: api?.waterPresence ?? `${Math.round(riskScore * 0.76)}/100`, trend: 'Derived from selected product', status, explanation: 'Derived water detection status from selected point/AOI.' },
+      { id: 'extent', label: 'Surface Water Estimate', value: api?.surfaceWaterEstimate ?? `${Math.round(riskScore * 0.42)}%`, trend: waterHistoryDelta, status, explanation: 'Surface-water estimate from satellite/model layers.' },
+      { id: 'flood', label: 'Risk Level', value: quality?.riskLevel ?? `${Math.round(riskScore * 0.81)}/100`, trend: quality?.qualityFlag ? `Quality: ${quality.qualityFlag}` : '+9% from baseline', status, explanation: 'Risk combines water and quality interpretation from latest snapshot.' },
       { id: 'drought', label: 'Drought Stress', value: `${Math.round(riskScore * 0.62)}/100`, trend: 'Stable over 30 days', status, explanation: 'Storage and stress patterns from basin-scale indicators.' },
-      { id: 'thermal', label: 'Thermal Anomaly', value: `${Math.round(riskScore * 0.73)}/100`, trend: '+3% this week', status, explanation: 'Surface-heat variance relative to seasonal expectation.' },
-      { id: 'confidence', label: 'Evidence Confidence', value: `${Math.min(95, 45 + selectedProject.evidenceCount * 4 + anomalyLayerCount * 4)}%`, trend: `${selectedProject.evidenceCount} evidence item(s) logged`, status, explanation: 'Confidence is strengthened by corroborating evidence artifacts.' },
+      { id: 'thermal', label: 'Thermal Anomaly', value: api?.thermalAnomaly ?? `${Math.round(riskScore * 0.73)}/100`, trend: '+3% this week', status, explanation: 'Thermal anomaly interpreted from selected satellite product.' },
+      { id: 'confidence', label: 'Snapshot Confidence', value: `${Math.round((api?.confidence ?? Math.min(0.95, (45 + selectedProject.evidenceCount * 4 + anomalyLayerCount * 4) / 100)) * 100)}%`, trend: `${selectedProject.evidenceCount} evidence item(s) logged`, status, explanation: 'Confidence is satellite-derived and affected by cloud/coverage quality.' },
       { id: 'validator', label: 'Verification Status', value: validatorStatus, trend: validatorStatus === 'Validated' ? 'Validator-approved packet' : 'Awaiting final validation', status, explanation: 'Current verification state of the evidence package.' },
     ];
-  }, [riskScore, validatorStatus, selectedProject.evidenceCount, anomalyLayerCount]);
+  }, [anomalyLayerCount, riskScore, selectedProject.evidenceCount, validatorStatus, waterData, waterHistoryDelta]);
 
   const aiSummary = useMemo(
     () => buildAiSummary(selectedProject.concernType, selectedProject.locationName || 'the selected area'),
     [selectedProject.concernType, selectedProject.locationName],
   );
   const inspectPoint = inspectedPoint ?? mapCenter;
-  const inspectNdwiEstimate = Math.max(-0.2, Math.min(0.9, ((inspectPoint[0] + 90) / 180) * 0.8 - ((Math.abs(inspectPoint[1]) / 180) * 0.2)));
-  const inspectWaterExtentEstimate = Math.round(Math.max(8, Math.min(97, 48 + inspectNdwiEstimate * 32 + (riskScore * 0.18))));
-  const inspectFloodWetnessEstimate = Math.round(Math.max(5, Math.min(95, 35 + riskScore * 0.55)));
-  const inspectQualityConfidence = Math.round(Math.max(45, Math.min(98, 62 + anomalyLayerCount * 4 + (imageryError ? -20 : 0))));
+  const inspectNdwiEstimate = waterData?.waterAnalysis.ndwi ?? Math.max(-0.2, Math.min(0.9, ((inspectPoint[0] + 90) / 180) * 0.8 - ((Math.abs(inspectPoint[1]) / 180) * 0.2)));
+  const inspectWaterExtentEstimate = waterData?.waterAnalysis.surfaceWaterEstimate ?? 'Medium';
+  const inspectFloodWetnessEstimate = waterData?.status.riskLevel ?? 'Moderate';
+  const inspectQualityConfidence = Math.round((waterData?.waterAnalysis.confidence ?? Math.max(0.45, Math.min(0.98, (62 + anomalyLayerCount * 4 + (imageryError ? -20 : 0)) / 100))) * 100);
 
   const packetPreview = useMemo(() => {
     const template = mockEvidencePackets[0];
@@ -505,6 +638,19 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
         {actionNotice ? (
           <div className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm text-cyan-100">{actionNotice}</div>
+        ) : null}
+        {waterApiLoading ? (
+          <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/25 px-4 py-2 text-sm text-cyan-100">
+            Fetching water intelligence for selected area...
+          </div>
+        ) : null}
+        {waterApiError ? (
+          <div className="rounded-xl border border-rose-500/40 bg-rose-950/25 px-4 py-2 text-sm text-rose-100">
+            {waterApiError.includes('unavailable') ? 'Satellite product unavailable for this date/location.' : waterApiError}
+          </div>
+        ) : null}
+        {waterApiNotice ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-2 text-sm text-amber-100">{waterApiNotice}</div>
         ) : null}
 
         <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
@@ -749,7 +895,18 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <button type="button" onClick={() => setBoundaryDrawn((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{boundaryDrawn ? 'Hide boundary' : 'Show boundary'}</button>
               <button type="button" onClick={() => { setDrawingAoi((prev) => !prev); setBoundaryDrawn(true); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{drawingAoi ? 'Stop AOI draw' : 'Draw AOI points'}</button>
               <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Undo AOI point</button>
-              <button type="button" onClick={() => { setAoiPoints([]); setBoundaryRevision((prev) => prev + 1); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Clear AOI</button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAoiPoints([]);
+                  setSavedAoiPoints([]);
+                  localStorage.removeItem('dpal_aquascan_saved_aoi_v1');
+                  setBoundaryRevision((prev) => prev + 1);
+                }}
+                className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200"
+              >
+                Clear AOI
+              </button>
               <button type="button" onClick={saveAoi} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Save AOI</button>
               <button type="button" onClick={() => { setImageryLoading(true); setImageryError(null); setBeforeImageryError(null); setPartialFailure(false); setLastRefreshTime(new Date().toLocaleTimeString()); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
               <button type="button" onClick={() => runMapCommand('reset')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Reset view</button>
@@ -962,20 +1119,29 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             <div><span className="text-slate-400">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</div>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3 text-[11px] text-cyan-100 md:grid-cols-2 lg:grid-cols-4">
-            <div><span className="text-cyan-300/80">Inspect point:</span> {inspectPoint[0].toFixed(5)}, {inspectPoint[1].toFixed(5)}</div>
-            <div><span className="text-cyan-300/80">Satellite source:</span> NASA GIBS ({activeGibsLayer.label})</div>
-            <div><span className="text-cyan-300/80">Acquisition date:</span> {selectedDate}</div>
-            <div><span className="text-cyan-300/80">Resolution:</span> {activeGibsLayer.description}</div>
-            <div><span className="text-cyan-300/80">Coverage area:</span> {aoiPoints.length >= 3 ? `${aoiPoints.length} AOI vertices (draft)` : savedAoiPoints.length >= 3 ? `${savedAoiPoints.length} AOI vertices (saved)` : 'Project-centered boundary'}</div>
-            <div><span className="text-cyan-300/80">Layer selected:</span> {activeGibsLayer.label}</div>
-            <div><span className="text-cyan-300/80">Quality note:</span> {partialFailure ? 'Partial layer fallback in effect' : imageryError ? 'Tile fetch issue' : 'Latest available scene'}</div>
-            <div><span className="text-cyan-300/80">Confidence:</span> {inspectQualityConfidence}%</div>
-            <div><span className="text-cyan-300/80">NDWI proxy:</span> {inspectNdwiEstimate.toFixed(2)} (estimated)</div>
-            <div><span className="text-cyan-300/80">Surface water extent:</span> {inspectWaterExtentEstimate}% (modeled)</div>
-            <div><span className="text-cyan-300/80">Flood/wetness:</span> {inspectFloodWetnessEstimate}% (modeled)</div>
-            <div><span className="text-cyan-300/80">Layer pixel context:</span> R/G/B and index values are interpreted from selected satellite tile at clicked point.</div>
+            <div><span className="text-cyan-300/80">Selection mode:</span> {waterApiMode === 'aoi' ? 'AOI Mode Active' : 'Point Mode Active'}</div>
+            <div><span className="text-cyan-300/80">Selected coordinates:</span> {(waterData?.location.lat ?? inspectPoint[0]).toFixed(5)}, {(waterData?.location.lng ?? inspectPoint[1]).toFixed(5)}</div>
+            <div><span className="text-cyan-300/80">Area name:</span> {waterData?.location.name ?? 'Selected area'}</div>
+            <div><span className="text-cyan-300/80">AOI area:</span> {activeAoi ? `${aoiAreaSqKm.toFixed(2)} km²` : 'Point inspection'}</div>
+            <div><span className="text-cyan-300/80">Satellite provider:</span> {waterData?.satellite.provider ?? 'NASA GIBS / Sentinel / Landsat'}</div>
+            <div><span className="text-cyan-300/80">Product / layer:</span> {waterData?.satellite.product ?? activeGibsLayer.label}</div>
+            <div><span className="text-cyan-300/80">Acquisition date:</span> {waterData?.satellite.acquisitionDate ?? selectedDate}</div>
+            <div><span className="text-cyan-300/80">Resolution:</span> {waterData?.satellite.resolution ?? activeGibsLayer.description}</div>
+            <div><span className="text-cyan-300/80">Cloud cover:</span> {waterData?.satellite.cloudCover ?? 'estimated or unavailable'}</div>
+            <div><span className="text-cyan-300/80">NDWI / water index:</span> {inspectNdwiEstimate.toFixed(2)} (satellite-derived)</div>
+            <div><span className="text-cyan-300/80">Water presence:</span> {waterData?.waterAnalysis.waterPresence ?? 'Review'}</div>
+            <div><span className="text-cyan-300/80">Surface water estimate:</span> {inspectWaterExtentEstimate} (satellite/model-estimated)</div>
+            <div><span className="text-cyan-300/80">Turbidity proxy:</span> {waterData?.waterAnalysis.turbidityProxy ?? 'unavailable'} (proxy estimate)</div>
+            <div><span className="text-cyan-300/80">Thermal anomaly:</span> {waterData?.waterAnalysis.thermalAnomaly ?? 'Review'}</div>
+            <div><span className="text-cyan-300/80">Shoreline change:</span> {waterData?.waterAnalysis.shorelineChange ?? 'Stable'}</div>
+            <div><span className="text-cyan-300/80">Confidence score:</span> {inspectQualityConfidence}%</div>
+            <div><span className="text-cyan-300/80">Quality flag:</span> {waterData?.status.qualityFlag ?? (partialFailure ? 'Partial' : imageryError ? 'Estimated' : 'Clear')}</div>
+            <div><span className="text-cyan-300/80">Risk level:</span> {inspectFloodWetnessEstimate}</div>
+            <div><span className="text-cyan-300/80">Last updated:</span> {waterData?.status.lastUpdated ?? lastRefreshTime}</div>
+            <div><span className="text-cyan-300/80">History delta:</span> {waterHistoryDelta}</div>
+            <div><span className="text-cyan-300/80">Layer pixel context:</span> Derived from selected tile response at clicked point/AOI.</div>
             <div><span className="text-cyan-300/80">Compare window:</span> {compareEnabled ? `${compareDate} vs ${selectedDate}` : 'Off'}</div>
-            <div><span className="text-cyan-300/80">Model status:</span> Satellite-derived indicators are estimated/model-derived and require field validation for legal claims.</div>
+            <div><span className="text-cyan-300/80">Credibility:</span> Satellite-derived/model-estimated. Field validation required for pH, dissolved oxygen, conductivity, and lab-grade contamination claims.</div>
           </div>
           {beforeImageryError ? (
             <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-100">{beforeImageryError}</p>
