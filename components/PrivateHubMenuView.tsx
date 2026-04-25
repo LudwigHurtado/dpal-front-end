@@ -66,6 +66,13 @@ const PrivateHubMenuView: React.FC<PrivateHubMenuViewProps> = ({ onReturn, onNav
         >
           Back to Home
         </button>
+        <button
+          type="button"
+          onClick={() => onNavigate('heroHub', undefined, 'profile')}
+          className="mb-4 ml-2 rounded-lg border border-emerald-500/60 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/40"
+        >
+          Bypass Login (Demo)
+        </button>
         <p className="text-[11px] font-black uppercase tracking-[0.22em] text-cyan-300">Private Space</p>
         <h1 className="mt-2 text-2xl md:text-3xl font-black tracking-tight text-white">Hero Profile &amp; Vault Menu</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-200">

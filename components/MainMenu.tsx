@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from '../i18n';
-import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves, Lock } from './icons';
+import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves } from './icons';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS, getValidatorPortalUrl } from '../constants';
 import {
@@ -275,11 +275,11 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule 
-                    icon={<Lock className="w-8 h-8" />}
+                    icon={<User className="w-8 h-8" />}
                     label="Private Hero Space"
-                    subLabel="Secure access to your profile, contributions, collection, wallet, and vault"
-                    status="Secured"
-                    colorClass="purple"
+                    subLabel="Profile, contributions, collection, wallet, and vault in one separate space"
+                    status="Private"
+                    colorClass="cyan"
                     bgImageUrl="/main-screen/my-reports.png"
                     onClick={() => onNavigate('privateHubMenu')}
                 />

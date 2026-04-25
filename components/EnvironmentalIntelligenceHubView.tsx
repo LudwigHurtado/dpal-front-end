@@ -64,6 +64,14 @@ const latestPackets = [
 const workflowSteps = ['Monitor', 'Analyze', 'Audit', 'Verify', 'Export'];
 
 const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubViewProps> = ({ onReturn, onNavigate }) => {
+  const ENTRY_MODAL_STORAGE_KEY = 'dpal-environmental-hub-entry-seen';
+  const [showEntryModal, setShowEntryModal] = React.useState(() => {
+    try {
+      return localStorage.getItem(ENTRY_MODAL_STORAGE_KEY) !== '1';
+    } catch {
+      return true;
+    }
+  });
   const [liveMockMode, setLiveMockMode] = React.useState(true);
   const [lastRefreshed, setLastRefreshed] = React.useState(() => new Date());
   const [refreshTick, setRefreshTick] = React.useState(0);
@@ -101,6 +109,15 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
   }, [liveMockMode, refreshTick]);
 
   const refreshedTime = lastRefreshed.toLocaleTimeString([], { hour12: false });
+
+  const dismissEntryModal = React.useCallback(() => {
+    setShowEntryModal(false);
+    try {
+      localStorage.setItem(ENTRY_MODAL_STORAGE_KEY, '1');
+    } catch {
+      /* ignore storage errors */
+    }
+  }, []);
 
   const commandStripLive = [
     {
@@ -149,6 +166,40 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
+      {showEntryModal ? (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 p-4">
+          <div className="w-full max-w-5xl rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-3 md:p-4">
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300 mb-2">Environmental Intelligence Hub</p>
+            <div className="relative rounded-2xl overflow-hidden border dpal-border-subtle">
+              <img
+                src="/environmental-intelligence/hub-layout-reference.png"
+                alt="Environmental Intelligence Hub entry visual"
+                className="w-full h-auto object-cover"
+              />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  dismissEntryModal();
+                  onNavigate('environmentalIntelligenceHub');
+                }}
+                className="rounded-lg border border-cyan-400/60 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-slate-900/85"
+              >
+                Open Hub Link
+              </button>
+              <button
+                type="button"
+                onClick={dismissEntryModal}
+                className="rounded-lg border border-emerald-500/60 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/40"
+              >
+                Enter Hub
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="mb-6">
         <button
           type="button"
@@ -157,24 +208,6 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         >
           Back to Home
         </button>
-        <div className="rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-3 md:p-4 overflow-hidden mb-4">
-          <div className="relative rounded-2xl overflow-hidden border dpal-border-subtle">
-            <img
-              src="/environmental-intelligence/hub-layout-reference.png"
-              alt="Environmental Intelligence Hub main visual"
-              className="w-full h-auto object-cover"
-            />
-            <div className="absolute top-3 right-3 md:top-4 md:right-4">
-              <button
-                type="button"
-                onClick={() => onNavigate('environmentalIntelligenceHub')}
-                className="rounded-lg border border-cyan-400/60 bg-slate-950/70 px-3 py-1.5 text-xs font-semibold text-cyan-100 hover:bg-slate-900/85"
-              >
-                Open Hub Link
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       <section className="mb-10">

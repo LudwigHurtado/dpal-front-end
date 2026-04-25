@@ -345,9 +345,7 @@ const Header: React.FC<HeaderProps> = ({
               <NavIcon label="DPAL Lifts" title="DPAL Lifts — Decentralized Public Assistance Lifts" color="emerald" icon={<Shield className="w-5 h-5"/>} onClick={() => onNavigate('dpalLifts')} />
               <NavIcon label="Work Network" title="DPAL Work Network" color="blue" icon={<Briefcase className="w-5 h-5"/>} onClick={() => onNavigate('aiWorkDirectives')} />
               <NavIcon label="Learning lab" color="purple" icon={<Monitor className="w-5 h-5"/>} onClick={() => onNavigate('trainingHolodeck')} />
-              <NavIcon label="My collection" color="blue" icon={<Package className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'collection')} />
-              <NavIcon label="Wallet & coins" color="amber" icon={<Coins className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'vault')} />
-              <NavIcon label="Profile & badges" color="cyan" icon={<Award className="w-5 h-5"/>} onClick={() => onNavigate('heroHub', undefined, 'profile')} />
+              <NavIcon label="Private Space" color="cyan" icon={<User className="w-5 h-5"/>} onClick={() => onNavigate('privateHubMenu')} />
               <NavIcon label="Help Center" color="blue" icon={<ShieldCheck className="w-5 h-5"/>} onClick={() => onNavigate('helpCenter')} />
             </div>
           </div>

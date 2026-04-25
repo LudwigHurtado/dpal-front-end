@@ -91,6 +91,21 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [showPacket, setShowPacket] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
   const [actionNotice, setActionNotice] = useState<string>('');
+  const [mapZoom, setMapZoom] = useState(100);
+  const [mapOffset, setMapOffset] = useState({ x: 0, y: 0 });
+  const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapStyle, setMapStyle] = useState<'satellite' | 'terrain' | 'dark'>('satellite');
+  const [gpsMode, setGpsMode] = useState<'Demo' | 'Active'>('Demo');
+  const [isDraggingMap, setIsDraggingMap] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [boundaryRevision, setBoundaryRevision] = useState(0);
+  const [overlayState, setOverlayState] = useState({
+    boundary: true,
+    riskZone: true,
+    reportPins: true,
+    samplePoints: true,
+    flowDirection: true,
+  });
 
   const [draftProject, setDraftProject] = useState<AquaScanProject>({
     id: 'AQ-DRAFT',
@@ -183,6 +198,8 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       : selectedProject.concernType === 'Drought'
       ? 'Priority overlay: low-storage stress zone'
       : 'Priority overlay: turbidity and runoff watch zone';
+  const latitudeDisplay = Number(selectedProject.latitude || 0).toFixed(4);
+  const longitudeDisplay = Number(selectedProject.longitude || 0).toFixed(4);
 
   function toggleLayer(layerId: string): void {
     setSelectedLayerIds((prev) =>
@@ -259,6 +276,38 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     setBoundaryDrawn(true);
     setShowPacket(true);
     setActionNotice('Demo scenario loaded.');
+  }
+
+  function toggleOverlay(key: keyof typeof overlayState): void {
+    setOverlayState((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function centerOnProject(): void {
+    setMapOffset({ x: 0, y: 0 });
+    setActionNotice('Map centered on selected project.');
+  }
+
+  function centerOnGps(): void {
+    setGpsMode('Active');
+    setMapOffset({ x: 10, y: -8 });
+    setActionNotice('Centered on current GPS (demo).');
+  }
+
+  function beginMapDrag(event: React.MouseEvent<HTMLDivElement>): void {
+    setIsDraggingMap(true);
+    setDragStart({ x: event.clientX - mapOffset.x, y: event.clientY - mapOffset.y });
+  }
+
+  function moveMapDrag(event: React.MouseEvent<HTMLDivElement>): void {
+    if (!isDraggingMap) return;
+    setMapOffset({
+      x: event.clientX - dragStart.x,
+      y: event.clientY - dragStart.y,
+    });
+  }
+
+  function endMapDrag(): void {
+    setIsDraggingMap(false);
   }
 
   const actionButtons = [
@@ -503,6 +552,121 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           </article>
         </section>
 
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
+          <div className="mb-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-300">AquaScan Map &amp; GPS</p>
+            <p className="mt-1 text-xs text-slate-300">
+              Visual monitoring area for the selected water project, including project location, scan boundary, risk zones, evidence points, and GPS context. The map can be adjusted by the user to inspect, refine, and manage the monitoring area.
+            </p>
+          </div>
+
+          <div className="mb-3 rounded-xl border border-slate-700 bg-slate-950/80 p-3">
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 md:grid-cols-6">
+              <span>Location: <span className="font-semibold text-white">{selectedProject.locationName || 'Unspecified'}</span></span>
+              <span>Lat: <span className="font-semibold text-white">{latitudeDisplay}</span></span>
+              <span>Lng: <span className="font-semibold text-white">{longitudeDisplay}</span></span>
+              <span>GPS: <span className="font-semibold text-cyan-200">{gpsMode}</span></span>
+              <span>Concern: <span className="font-semibold text-amber-200">{selectedProject.concernType}</span></span>
+              <span>Layers: <span className="font-semibold text-emerald-200">{selectedLayerIds.length} selected</span></span>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setMapZoom((prev) => Math.min(180, prev + 10))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom +</button>
+              <button type="button" onClick={() => setMapZoom((prev) => Math.max(70, prev - 10))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom -</button>
+              <button type="button" onClick={centerOnProject} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Center on project</button>
+              <button type="button" onClick={centerOnGps} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Use current GPS</button>
+              <button type="button" onClick={() => setMapExpanded((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{mapExpanded ? 'Collapse map' : 'Expand map'}</button>
+              <button type="button" onClick={() => setBoundaryDrawn((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{boundaryDrawn ? 'Hide boundary' : 'Show boundary'}</button>
+              <button type="button" onClick={() => setBoundaryRevision((prev) => prev + 1)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Edit/Redraw boundary</button>
+              <select
+                value={mapStyle}
+                onChange={(event) => setMapStyle(event.target.value as 'satellite' | 'terrain' | 'dark')}
+                className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+              >
+                <option value="satellite">Satellite-style</option>
+                <option value="terrain">Terrain-style</option>
+                <option value="dark">Dark monitoring-style</option>
+              </select>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+              <button type="button" onClick={() => toggleOverlay('boundary')} className={`rounded border px-2 py-1 ${overlayState.boundary ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Boundary</button>
+              <button type="button" onClick={() => toggleOverlay('riskZone')} className={`rounded border px-2 py-1 ${overlayState.riskZone ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Risk zone</button>
+              <button type="button" onClick={() => toggleOverlay('reportPins')} className={`rounded border px-2 py-1 ${overlayState.reportPins ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Report pins</button>
+              <button type="button" onClick={() => toggleOverlay('samplePoints')} className={`rounded border px-2 py-1 ${overlayState.samplePoints ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Sample points</button>
+              <button type="button" onClick={() => toggleOverlay('flowDirection')} className={`rounded border px-2 py-1 ${overlayState.flowDirection ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flow direction</button>
+            </div>
+          </div>
+
+          <div
+            role="presentation"
+            onMouseDown={beginMapDrag}
+            onMouseMove={moveMapDrag}
+            onMouseUp={endMapDrag}
+            onMouseLeave={endMapDrag}
+            className={`relative cursor-grab overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[34rem]' : 'h-[24rem]'} ${
+              mapStyle === 'satellite'
+                ? 'bg-gradient-to-br from-slate-900 via-cyan-950/50 to-slate-900'
+                : mapStyle === 'terrain'
+                ? 'bg-gradient-to-br from-emerald-950/40 via-slate-900 to-amber-950/30'
+                : 'bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950/40'
+            }`}
+          >
+            <div
+              className="absolute inset-0 transition-transform duration-150"
+              style={{
+                transform: `translate(${mapOffset.x}px, ${mapOffset.y}px) scale(${mapZoom / 100})`,
+                transformOrigin: 'center center',
+              }}
+            >
+              <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.25) 1px, transparent 0)', backgroundSize: '22px 22px' }} />
+              <div className="absolute left-[8%] top-[56%] h-2 w-[84%] rounded-full bg-cyan-500/30 blur-sm" />
+              <div className="absolute left-[20%] top-[38%] h-28 w-28 rounded-full border border-cyan-300/30 bg-cyan-500/10" />
+
+              {overlayState.boundary && boundaryDrawn ? (
+                <div
+                  className="absolute left-[24%] top-[26%] h-[42%] w-[47%] rounded-[28%_34%_40%_24%] border-2 border-cyan-300/70 bg-cyan-500/10"
+                  style={{ transform: `rotate(${boundaryRevision % 2 === 0 ? '-6deg' : '4deg'})` }}
+                />
+              ) : null}
+              {overlayState.riskZone ? (
+                <div className={`absolute left-[40%] top-[34%] h-24 w-36 rounded-full border ${riskLabelTone} opacity-80`} />
+              ) : null}
+              {overlayState.reportPins ? (
+                <>
+                  <span className="absolute left-[34%] top-[42%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+                  <span className="absolute left-[58%] top-[50%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+                  <span className="absolute left-[47%] top-[61%] h-3 w-3 rounded-full bg-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.9)]" />
+                </>
+              ) : null}
+              {overlayState.samplePoints ? (
+                <>
+                  <span className="absolute left-[41%] top-[48%] h-2.5 w-2.5 rounded-full bg-emerald-300" />
+                  <span className="absolute left-[52%] top-[43%] h-2.5 w-2.5 rounded-full bg-emerald-300" />
+                  <span className="absolute left-[55%] top-[58%] h-2.5 w-2.5 rounded-full bg-emerald-300" />
+                </>
+              ) : null}
+              <span className="absolute left-[49%] top-[46%] h-4 w-4 rounded-full border-2 border-white bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.9)]" />
+              {overlayState.flowDirection ? (
+                <div className="absolute bottom-4 right-4 rounded-md border border-slate-500/70 bg-black/45 px-2 py-1 text-[10px] font-semibold text-slate-100">
+                  Flow NW → SE
+                </div>
+              ) : null}
+            </div>
+
+            <div className="absolute right-3 top-3 rounded-md border border-slate-500/70 bg-black/45 px-2 py-1 text-[10px] font-semibold text-cyan-100">
+              Drag to pan · Zoom {mapZoom}%
+            </div>
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-slate-700 bg-slate-950/80 p-3 text-[11px] text-slate-200 md:grid-cols-6">
+            <div><span className="text-slate-400">Project ID:</span> {selectedProject.id}</div>
+            <div><span className="text-slate-400">Water body type:</span> {selectedProject.waterBodyType}</div>
+            <div><span className="text-slate-400">Last updated:</span> {new Date().toLocaleTimeString()}</div>
+            <div><span className="text-slate-400">Boundary status:</span> {boundaryDrawn ? `Adjusted v${boundaryRevision + 1}` : 'Not defined'}</div>
+            <div><span className="text-slate-400">Evidence points:</span> {selectedProject.evidenceCount}</div>
+            <div><span className="text-slate-400">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</div>
+          </div>
+        </section>
+
         <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
           {indicators.map((item) => (
             <article key={item.id} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
@@ -517,44 +681,12 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           ))}
         </section>
 
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 lg:col-span-2">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-300">Map / Scan Area Panel</p>
-              <span className="rounded-full border border-slate-500 px-2 py-0.5 text-[10px] uppercase tracking-wider text-slate-300">Mock map panel</span>
-            </div>
-            <div className="relative overflow-hidden rounded-xl border border-slate-700 bg-gradient-to-br from-slate-900 via-cyan-950/50 to-slate-900 p-4">
-              <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(148,163,184,0.25) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-              <div className="relative z-10 grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="rounded-lg border border-cyan-500/40 bg-cyan-900/20 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-cyan-300">Selected Project Location</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{selectedProject.locationName || 'Select a project location'}</p>
-                  <p className="text-xs text-slate-300">Lat {selectedProject.latitude || '—'} · Lng {selectedProject.longitude || '—'}</p>
-                </div>
-                <div className="rounded-lg border border-indigo-500/40 bg-indigo-900/20 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-indigo-300">Scan Boundary Placeholder</p>
-                  <p className="mt-1 text-xs text-slate-200">{selectedProject.polygonPlaceholder || 'No boundary set. Use intake placeholder.'}</p>
-                </div>
-                <div className={`rounded-lg border p-3 text-xs md:col-span-2 ${riskLabelTone}`}>
-                  Risk zone overlay: <span className="font-semibold">{riskBand(riskScore)}</span> · Concern emphasis: {mapConcernOverlayLabel}
-                </div>
-                <div className="rounded-lg border border-amber-500/40 bg-amber-900/20 p-3 text-xs text-slate-100">Report pins: 4 active markers</div>
-                <div className="rounded-lg border border-blue-500/40 bg-blue-900/20 p-3 text-xs text-slate-100">Sample collection points: 3 provisional sites</div>
-                <div className="rounded-lg border border-emerald-500/40 bg-emerald-900/20 p-3 text-xs text-slate-100">Upstream → Downstream: Northwest to Southeast (mock flow direction)</div>
-                <div className="rounded-lg border border-cyan-500/40 bg-cyan-900/20 p-3 text-xs text-slate-100">
-                  Layer status: {selectedLayerIds.length} selected · {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ')}
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-purple-300">AI Water Intelligence Summary</p>
-            <p className="mt-3 text-sm leading-relaxed text-slate-200">{aiSummary}</p>
-            <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-[11px] text-amber-100">
-              Satellite indicators are screening tools. Confirmed contamination requires field sampling, laboratory testing, or official verification.
-            </p>
-          </article>
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-purple-300">AI Water Intelligence Summary</p>
+          <p className="mt-3 text-sm leading-relaxed text-slate-200">{aiSummary}</p>
+          <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-[11px] text-amber-100">
+            Satellite indicators are screening tools. Confirmed contamination requires field sampling, laboratory testing, or official verification.
+          </p>
         </section>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
