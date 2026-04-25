@@ -6,6 +6,7 @@ import EnvirofactsResultsTable from './EnvirofactsResultsTable';
 import EnvirofactsFacilityDrawer from './EnvirofactsFacilityDrawer';
 import EnvirofactsEvidenceImportPanel from './EnvirofactsEvidenceImportPanel';
 import { searchEnvirofacts } from '../../services/envirofactsService';
+import { useNavigate } from 'react-router-dom';
 import type {
   EnvirofactsEvidenceRecord,
   EnvirofactsFilters,
@@ -44,6 +45,7 @@ function toEvidence(record: EnvirofactsRecord): EnvirofactsEvidenceRecord {
     latitude: record.latitude,
     longitude: record.longitude,
     environmentalMediaCategory: record.environmentalCategory,
+    sourceFlags: record.sourceFlags,
     importedAtIso: new Date().toISOString(),
     dpalStatus: 'Official Public Record Imported',
     legalNote: LEGAL_NOTE,
@@ -51,6 +53,7 @@ function toEvidence(record: EnvirofactsRecord): EnvirofactsEvidenceRecord {
 }
 
 const EnvirofactsGeoDashboard: React.FC = () => {
+  const navigate = useNavigate();
   const [filters, setFilters] = React.useState(DEFAULT_FILTERS);
   const [rows, setRows] = React.useState<EnvirofactsRecord[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -120,9 +123,26 @@ const EnvirofactsGeoDashboard: React.FC = () => {
     setEvidenceRecords((prev) => [toEvidence(record), ...prev]);
   };
 
+  const clearFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    void runSearch(DEFAULT_FILTERS);
+  };
+
   return (
     <div className="mx-auto max-w-[1450px] px-4 pb-24 pt-6">
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">DPAL Environmental Intelligence</p>
+      <div className="mt-2 inline-flex rounded-lg border border-slate-700 bg-slate-900/80 p-1 text-xs">
+        <button
+          type="button"
+          onClick={() => navigate('/environmental-intelligence/epa-ghg')}
+          className="rounded-md px-3 py-1 font-semibold text-slate-300 hover:bg-slate-800"
+        >
+          EPA GHG Intelligence
+        </button>
+        <button type="button" className="rounded-md border border-cyan-500/60 bg-cyan-900/30 px-3 py-1 font-semibold text-cyan-100">
+          Envirofacts Geo Intelligence
+        </button>
+      </div>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-white">Envirofacts Geo Intelligence</h1>
       <p className="mt-1 text-sm text-slate-300">Live EPA Envirofacts geographic search and mapping for evidence-ready public accountability analysis.</p>
 
@@ -137,6 +157,7 @@ const EnvirofactsGeoDashboard: React.FC = () => {
           filters={filters}
           onChange={(next) => setFilters((prev) => ({ ...prev, ...next }))}
           onSearch={() => void runSearch({ ...filters, page: 1 })}
+          onClear={clearFilters}
         />
       </div>
 

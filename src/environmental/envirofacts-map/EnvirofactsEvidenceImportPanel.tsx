@@ -17,6 +17,7 @@ const EnvirofactsEvidenceImportPanel: React.FC<Props> = ({ records }) => (
           <article key={`${entry.recordId}-${entry.importedAtIso}`} className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200">
             <p className="font-semibold text-slate-100">{entry.facilityName || 'EPA Record'}</p>
             <p>{entry.city}, {entry.state} · {entry.environmentalMediaCategory}</p>
+            <p>Source flags: {entry.sourceFlags.join(', ') || 'Facilities'}</p>
             <p>{entry.dpalStatus}</p>
           </article>
         ))}

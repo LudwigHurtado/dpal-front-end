@@ -6,6 +6,7 @@ import EpaFacilityMap from './EpaFacilityMap';
 import EpaFacilityTable from './EpaFacilityTable';
 import EpaFacilityDetailDrawer from './EpaFacilityDetailDrawer';
 import EpaEvidenceImportPanel from './EpaEvidenceImportPanel';
+import { useNavigate } from 'react-router-dom';
 
 type Props = {
   onOpenFacilityPage: (facilityId: string, snapshot: EpaFacilityProfile | null) => void;
@@ -48,6 +49,7 @@ function buildEvidenceRecord(profile: EpaFacilityProfile): EpaEvidencePacketReco
 }
 
 const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage }) => {
+  const navigate = useNavigate();
   const [filters, setFilters] = React.useState<EpaFilters>(DEFAULT_FILTERS);
   const [rows, setRows] = React.useState<EpaFacilityProfile[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -101,13 +103,44 @@ const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage }) => {
     void loadData(next);
   };
 
+  const handleClearFilters = () => {
+    setFilters(DEFAULT_FILTERS);
+    void loadData(DEFAULT_FILTERS);
+  };
+
+  const handleApplyQuickTest = (nextFilters: Partial<EpaFilters>) => {
+    const next = {
+      ...DEFAULT_FILTERS,
+      ...nextFilters,
+      page: 1,
+    };
+    setFilters(next);
+    void loadData(next);
+  };
+
   const handleAddToPacket = (profile: EpaFacilityProfile) => {
     setImportedRecords((prev) => [buildEvidenceRecord(profile), ...prev]);
   };
 
+  const missingCoordinateCount = rows.filter(
+    (entry) => entry.facility.latitude == null || entry.facility.longitude == null,
+  ).length;
+
   return (
     <div className="mx-auto max-w-[1400px] px-4 pb-24 pt-6">
       <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">DPAL Environmental Intelligence</p>
+      <div className="mt-2 inline-flex rounded-lg border border-slate-700 bg-slate-900/80 p-1 text-xs">
+        <button type="button" className="rounded-md border border-cyan-500/60 bg-cyan-900/30 px-3 py-1 font-semibold text-cyan-100">
+          EPA GHG Intelligence
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate('/environmental-intelligence/envirofacts-map')}
+          className="rounded-md px-3 py-1 font-semibold text-slate-300 hover:bg-slate-800"
+        >
+          Envirofacts Geo Intelligence
+        </button>
+      </div>
       <h1 className="mt-1 text-3xl font-black tracking-tight text-white">EPA Live GHG Intelligence</h1>
       <p className="mt-1 text-sm text-slate-300">Official EPA greenhouse gas facility data connected to DPAL evidence review.</p>
 
@@ -121,7 +154,14 @@ const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage }) => {
       </section>
 
       <div className="mt-4">
-        <EpaGasFilters filters={filters} gasOptions={gasOptions} onChange={handleChange} onSearch={handleSearch} />
+        <EpaGasFilters
+          filters={filters}
+          gasOptions={gasOptions}
+          onChange={handleChange}
+          onSearch={handleSearch}
+          onClear={handleClearFilters}
+          onApplyQuickTest={handleApplyQuickTest}
+        />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -135,12 +175,19 @@ const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage }) => {
         {loading ? <p className="rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-200">Loading EPA records...</p> : null}
         {error ? <p className="rounded-xl border border-rose-700 bg-rose-950/40 p-3 text-sm text-rose-100">{error}</p> : null}
         {!loading && !error && rows.length === 0 ? (
-          <p className="rounded-xl border border-amber-700 bg-amber-950/35 p-3 text-sm text-amber-100">No records found for the selected filters.</p>
+          <p className="rounded-xl border border-amber-700 bg-amber-950/35 p-3 text-sm text-amber-100">
+            No EPA records found for this exact filter combination. Try removing Facility Name, Parent Company, ZIP, or Industry Type.
+          </p>
         ) : null}
         {!loading && !error && rows.length > 0 ? (
           <>
             {sourceLabel === 'mock' ? (
               <p className="mb-3 rounded-xl border border-amber-700 bg-amber-950/35 p-3 text-xs text-amber-100">Live EPA API unavailable. Showing clearly labeled mock fallback data.</p>
+            ) : null}
+            {missingCoordinateCount > 0 ? (
+              <p className="mb-3 rounded-xl border border-sky-700/70 bg-sky-950/35 p-3 text-xs text-sky-100">
+                Some official EPA records do not include coordinates. They are listed below but cannot be pinned on the map.
+              </p>
             ) : null}
             <EpaFacilityTable rows={rows} onOpenFacility={setSelectedFacilityId} onAddToPacket={handleAddToPacket} />
           </>

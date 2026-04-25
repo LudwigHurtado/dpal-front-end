@@ -5,12 +5,13 @@ type Props = {
   filters: EnvirofactsFilters;
   onChange: (next: Partial<EnvirofactsFilters>) => void;
   onSearch: () => void;
+  onClear: () => void;
 };
 
 const inputCls = 'w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 outline-none focus:border-cyan-500';
 const labelCls = 'mb-1 block text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400';
 
-const EnvirofactsSearchPanel: React.FC<Props> = ({ filters, onChange, onSearch }) => {
+const EnvirofactsSearchPanel: React.FC<Props> = ({ filters, onChange, onSearch, onClear }) => {
   return (
     <section className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 md:p-5">
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -26,6 +27,7 @@ const EnvirofactsSearchPanel: React.FC<Props> = ({ filters, onChange, onSearch }
       </div>
       <div className="mt-4 flex items-center gap-3">
         <button type="button" onClick={onSearch} className="rounded-lg border border-cyan-500/70 bg-cyan-900/35 px-4 py-2 text-sm font-semibold text-cyan-100">Search Envirofacts</button>
+        <button type="button" onClick={onClear} className="rounded-lg border border-slate-600 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-slate-800">Clear Filters</button>
         <p className="text-xs text-slate-400">Paginated JSON search optimized for Envirofacts service limits.</p>
       </div>
     </section>

@@ -33,6 +33,7 @@ const EnvirofactsMap: React.FC<Props> = ({ rows, onOpen, onAddEvidence }) => {
                   <p><strong>{row.facilityName || row.recordName || 'EPA Record'}</strong></p>
                   <p>Source: {row.sourceDatabase}</p>
                   <p>Category: {row.environmentalCategory || 'Facilities'}</p>
+                  <p>Flags: {row.sourceFlags.join(', ') || 'Facilities'}</p>
                   <p>{[row.address, row.city, row.county, row.state].filter(Boolean).join(', ')}</p>
                   <p>Coordinates: {row.latitude}, {row.longitude}</p>
                   <p>DPAL review: Verification Needed</p>

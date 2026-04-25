@@ -31,7 +31,16 @@ const EnvirofactsResultsTable: React.FC<Props> = ({ rows, onOpen, onAddEvidence 
             <tr key={row.id} className="border-b border-slate-800 text-slate-100">
               <td className="px-2 py-2">{row.facilityName || row.recordName || 'EPA Record'}</td>
               <td className="px-2 py-2">{row.sourceDatabase}</td>
-              <td className="px-2 py-2">{row.environmentalCategory || 'Facilities'}</td>
+              <td className="px-2 py-2">
+                <div className="flex flex-wrap gap-1">
+                  <span className="rounded border border-slate-700 bg-slate-950 px-2 py-0.5">{row.environmentalCategory || 'Facilities'}</span>
+                  {row.sourceFlags.slice(0, 3).map((flag) => (
+                    <span key={`${row.id}-${flag}`} className="rounded border border-cyan-700/60 bg-cyan-950/35 px-2 py-0.5 text-cyan-100">
+                      {flag}
+                    </span>
+                  ))}
+                </div>
+              </td>
               <td className="px-2 py-2">{row.city || 'N/A'}</td>
               <td className="px-2 py-2">{row.state || 'N/A'}</td>
               <td className="px-2 py-2">{row.county || 'N/A'}</td>

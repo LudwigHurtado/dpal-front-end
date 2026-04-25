@@ -12,6 +12,7 @@ export type EnvirofactsRecord = {
   sourceDatabase: string;
   sourceTable: string;
   environmentalCategory: string;
+  sourceFlags: string[];
   waterBody: string;
   complianceStatus: string;
   recordId: string;
@@ -47,6 +48,7 @@ export type EnvirofactsEvidenceRecord = {
   latitude: number | null;
   longitude: number | null;
   environmentalMediaCategory: string;
+  sourceFlags: string[];
   importedAtIso: string;
   dpalStatus: 'Official Public Record Imported';
   legalNote: string;

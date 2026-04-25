@@ -21,6 +21,7 @@ const MOCK_ROWS: EnvirofactsRecord[] = [
     sourceDatabase: 'EPA Envirofacts',
     sourceTable: TABLE,
     environmentalCategory: 'Water',
+    sourceFlags: ['Air', 'Water', 'Waste', 'Toxics'],
     waterBody: 'Lake Michigan',
     complianceStatus: 'Verification Needed',
     recordId: 'ENV-DEMO-001',
@@ -55,7 +56,7 @@ function applyClientFilters(rows: EnvirofactsRecord[], filters: EnvirofactsFilte
   return rows.filter((row) => {
     if (qAddress && !row.address.toLowerCase().includes(qAddress)) return false;
     if (qWaterBody && !row.waterBody.toLowerCase().includes(qWaterBody)) return false;
-    if (qSource && !`${row.sourceDatabase} ${row.sourceTable}`.toLowerCase().includes(qSource)) return false;
+    if (qSource && !`${row.sourceDatabase} ${row.sourceTable} ${row.sourceFlags.join(' ')}`.toLowerCase().includes(qSource)) return false;
     if (qCategory && !row.environmentalCategory.toLowerCase().includes(qCategory)) return false;
     return true;
   });
