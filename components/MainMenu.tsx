@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from '../i18n';
-import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves } from './icons';
+import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves, Lock } from './icons';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS, getValidatorPortalUrl } from '../constants';
 import {
@@ -275,13 +275,13 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule 
-                    icon={<Activity className="w-8 h-8" />}
-                    label="My Contributions"
-                    subLabel="Your personal story of care and impact"
-                    status="Safe"
-                    colorClass="cyan"
+                    icon={<Lock className="w-8 h-8" />}
+                    label="Private Hero Space"
+                    subLabel="Secure access to your profile, contributions, collection, wallet, and vault"
+                    status="Secured"
+                    colorClass="purple"
                     bgImageUrl="/main-screen/my-reports.png"
-                    onClick={() => onNavigate('hub', undefined, 'my_reports')}
+                    onClick={() => onNavigate('privateHubMenu')}
                 />
 
                 <PrimaryNavModule
@@ -294,25 +294,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('missionMarketplace')}
                 />
 
-                <PrimaryNavModule 
-                    icon={<Package className="w-8 h-8" />}
-                    label="My Collection"
-                    subLabel="Evidence, badges, and milestones you earned"
-                    status="Yours"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/asset-archive.png"
-                    onClick={() => onNavigate('heroHub', undefined, 'collection')}
-                />
-
-                <PrimaryNavModule 
-                    icon={<Coins className="w-8 h-8" />}
-                    label="Wallet & Coins"
-                    subLabel="Share resources with people you trust"
-                    status="Open"
-                    colorClass="amber"
-                    bgImageUrl="/main-screen/coin-exchange.png"
-                    onClick={() => onNavigate('heroHub', undefined, 'vault')}
-                />
+                
 
                 <PrimaryNavModule 
                     icon={<Fingerprint className="w-8 h-8" />}
@@ -360,7 +342,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Monitor conditions, verify claims, run audits, and generate evidence-backed environmental reports."
                     status="Open Hub"
                     colorClass="teal"
-                    bgImageUrl="/environmental-intelligence/hub-main-menu-card.png"
+                    bgImageUrl="/environmental-intelligence/hub-layout-reference.png"
                     onClick={() => onNavigate('environmentalIntelligenceHub')}
                 />
 

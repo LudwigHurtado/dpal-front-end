@@ -48,7 +48,7 @@ import EcosystemOverview from './components/EcosystemOverview';
 import SustainmentCenter from './components/SustainmentCenter';
 import OffsetMarketplaceView from './components/OffsetMarketplaceView';
 import CarbonMRVDashboard from './components/CarbonMRVDashboard';
-import WaterMonitorView from './components/WaterMonitorView';
+import AquaScanView from './components/AquaScanView';
 import EcologicalConservationView from './components/EcologicalConservationView';
 import EarthObservationView from './components/EarthObservationView';
 import AfoluEngineView from './components/AfoluEngineView';
@@ -117,13 +117,14 @@ import EmissionsIntegrityAuditPage from './src/features/emissionsIntegrity/Emiss
 import CarbEmissionsAuditPage from './src/features/carbEmissionsAudit/CarbEmissionsAuditPage';
 import HazardousWasteAuditPage from './src/features/hazardousWasteAudit/HazardousWasteAuditPage';
 import EnvironmentalIntelligenceHubView from './components/EnvironmentalIntelligenceHubView';
+import PrivateHubMenuView from './components/PrivateHubMenuView';
 import EnvironmentalCommandCenter from './src/features/environmentalPreview/EnvironmentalCommandCenter';
 import EnvironmentalIntelligenceHub from './src/features/environmentalPreview/EnvironmentalIntelligenceHub';
 import GenericEnvironmentalModule from './src/features/environmentalPreview/GenericEnvironmentalModule';
 import FuelStorageAuditPage from './src/features/environmentalPreview/FuelStorageAuditPage';
 import EvidencePacketViewer from './src/features/environmentalPreview/EvidencePacketViewer';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2177,6 +2178,13 @@ const App: React.FC = () => {
           <HeroHub onReturnToHub={() => goBack('mainMenu')} missions={missions} isLoadingMissions={false} hero={heroWithRank} setHero={setHero} heroLocation={heroLocation} setHeroLocation={setHeroLocation} onGenerateNewMissions={() => {}} reports={reports} iapPacks={IAP_PACKS} storeItems={STORE_ITEMS} onInitiateHCPurchase={() => {}} onInitiateStoreItemPurchase={() => {}} onAddHeroPersona={handleAddHeroPersona} onDeleteHeroPersona={handleDeleteHeroPersona} onEquipHeroPersona={(pid) => setHero(prev => ({ ...prev, equippedPersonaId: pid }))} onGenerateHeroBackstory={async () => {}} onSaveHeroPersona={handleSaveHeroPersonaServer} onMintHeroPersona={handleMintHeroPersonaServer} onNavigateToMissionDetail={(m) => { setSelectedMissionForDetail(m); setCurrentView('missionDetail'); }} onNavigate={handleNavigate} activeTab={heroHubTab} setActiveTab={setHeroHubTab} />
         )}
 
+        {currentView === 'privateHubMenu' && (
+          <PrivateHubMenuView
+            onReturn={() => goBack('mainMenu')}
+            onNavigate={handleNavigate}
+          />
+        )}
+
         {currentView === 'transparencyDatabase' && (
           <TransparencyDatabaseView
             onReturn={() => goBack('mainMenu')}
@@ -2417,7 +2425,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'waterMonitor' && (
-          <WaterMonitorView
+          <AquaScanView
             onReturn={() => goBack('mainMenu')}
             hero={hero}
           />

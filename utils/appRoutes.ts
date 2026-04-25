@@ -25,6 +25,7 @@ export const VIEW_PATHS: Record<string, string> = {
   categoryModeShell: '/mode-shell',
   hub: '/hub',
   heroHub: '/hero',
+  privateHubMenu: '/private-hub',
   educationRoleSelection: '/education',
   reportSubmission: '/report/new',
   missionComplete: '/mission/complete',
