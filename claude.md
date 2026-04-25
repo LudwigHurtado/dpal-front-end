@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-24 (EIAS local workspace persistence + production output unit, API disclaimer/host split; AFOLU / calculator notes unchanged)
+Last updated: 2026-04-25 (Private Hero Space separation, AquaScan demo-map upgrade, one-time Environmental Hub entry modal, lint/build stability fixes)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -134,6 +134,7 @@ If a dashboard shows “disconnected” or wrong API:
 | `categorySelection` | `/categories` | Report category picker |
 | `hub` | `/hub` | My Reports + Feed + Map tabs |
 | `heroHub` | `/hero` | Hero profile, missions, vault, mint |
+| `privateHubMenu` | `/private-hub` | Private Hero Space (profile, contributions, collection, wallet, vault) |
 | `transparencyDatabase` | `/ledger` | Public blockchain ledger |
 | `missionMarketplace` | `/missions` | **Missions Hub V2** (Hub home + sections via `?section=`) |
 | `missionAssignmentV2` | `/missions/v2` | Mission workspace engine |
@@ -147,7 +148,7 @@ If a dashboard shows “disconnected” or wrong API:
 | `dpalLocator` | `/locator` | Family / asset locator |
 | `offsetMarketplace` | `/offsets` | Carbon Credit Market (buy, retire, register land, learn) |
 | `carbonMRV` | `/carbon` | Carbon MRV Engine (register projects, satellite, score, validator, credits) |
-| `waterMonitor` | `/water` | **Water Monitor** (water projects, satellite snapshots, impact score, validator, credits) |
+| `waterMonitor` | `/water` | **DPAL AquaScan** (project intake, satellite-layer selector, full-width map/GPS workspace, AI summary, evidence packet, action center - demo mode) |
 | `ecologicalConservation` | `/ecology` | **Ecological Conservation** (Landsat foliage scan, NDVI, habitat risk, AI chat) |
 | `gameHub` | `/games` | **Play & Learn / DPAL Mission Ops** embedded Phaser game |
 | `emissionsIntegrityAudit` | `/emissions-integrity-audit` | **EIAS** — facility intake, audit scope, ADI / evidence packet; live hints via **`/api/carbon/*`** when pointed at Railway; **save/list** needs **`/api/emissions-audit/*`** on the same host (implemented on Prisma **`backend/`** + `DpalUser` JWT, not default Mongo Railway) |
@@ -202,6 +203,46 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-25 — Private-space routing + AquaScan demo polish + environmental entry modal
+
+#### Private user tools moved out of the main menu category surface
+- Added dedicated view `privateHubMenu` and route `/private-hub`.
+- Main menu now exposes one tile (`Private Hero Space`) instead of separate wallet/collection/profile-style entries.
+- Header icon rail consolidated from individual `My collection` / `Wallet & coins` / `Profile & badges` icons to one `Private Space` shortcut.
+- `components/PrivateHubMenuView.tsx` includes a `Bypass Login (Demo)` quick-entry button for presentations.
+
+#### AquaScan now drives `/water` as the primary water workspace
+- `App.tsx` now renders `components/AquaScanView.tsx` for `currentView === 'waterMonitor'`.
+- Added explicit top label:
+  - `Demo Mode: satellite layers, AI summary, evidence packet, and actions use mock data.`
+- Added investor/public-readable onboarding panel:
+  - `How to Use DPAL AquaScan` (step workflow)
+  - `What AquaScan Can and Cannot Do` (scientific/legal expectations)
+- Added one-click `Run Demo Scenario` for live walkthrough setup.
+
+#### AquaScan map/GPS section upgraded to a full-width interactive demo workspace
+- New section order anchors map immediately below Satellite Layer Selector + Risk Score row.
+- Full-width `AquaScan Map & GPS` panel now includes:
+  - toolbar with location, lat/lng, GPS mode, concern, active layers
+  - controls for zoom in/out, pan/drag, center on project, center on GPS, expand/collapse map
+  - map style switcher (`satellite`, `terrain`, `dark monitoring`)
+  - overlay toggles (`boundary`, `risk zone`, `report pins`, `sample points`, `flow direction`)
+  - editable/redraw boundary simulation state
+  - concern-sensitive overlay emphasis text
+  - bottom status strip fields: Project ID, Water body type, Last updated, Boundary status, Evidence points, Selected layers
+
+#### AquaScan evidence packet + action center demo behavior refined
+- Evidence packet preview now reads like a document:
+  - packet title, generated time, project ID, concern type, risk band, lab status, validator status, audit/ledger placeholders
+  - explicit note: `Export not connected - demo preview only.`
+- Action center remains frontend-only but visibly updates demo state (sample/lab/export effects).
+
+#### Environmental Intelligence Hub entry image behavior
+- Converted top hero image in `components/EnvironmentalIntelligenceHubView.tsx` into a one-time entry modal.
+- Modal appears once per browser and persists dismissal in localStorage:
+  - key: `dpal-environmental-hub-entry-seen`
+- Removed always-visible top image block from the page body after entry.
 
 ### 2026-04-21 — AFOLU command center, mission deployment flow, MRV review record
 

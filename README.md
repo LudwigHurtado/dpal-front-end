@@ -67,10 +67,11 @@ After changing Railway variables, redeploy or restart the backend service.
 |-------|---------|
 | `/` | Main menu - 20 nav tiles |
 | `/hub` | My Reports + Feed + Map |
+| `/private-hub` | Private Hero Space - profile, contributions, collection, wallet, vault (separate from main categories) |
 | `/politician` | Public Accountability Engine |
 | `/offsets` | Carbon Credit Market - buy, retire, register land |
 | `/carbon` | Carbon MRV Engine - satellite NDVI, score, validator |
-| `/water` | Water Monitor - satellite snapshots, impact score, credits |
+| `/water` | DPAL AquaScan - intake, layers, map/GPS workspace, AI summary, evidence packet (demo mode) |
 | `/ecology` | Ecological Conservation - Landsat foliage scan, NDVI, habitat risk |
 | `/afolu` | AFOLU Carbon & Proof Engine |
 | `/games` | Play & Learn hub with the embedded DPAL Mission Ops Phaser game |
@@ -127,6 +128,29 @@ State is in-session only for now. There is no backend persistence yet.
 - Mineral detector readings now separate verified bedrock/mineral indicators from EMIT dust-source availability
 - Water Monitor Sentinel-1 SAR now shows a clearly labeled fallback estimate card when the backend returns `sentinel1.ok: false`
 - Git author identity for this repo is set to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>`
+
+## Recent UX updates (2026-04-25)
+
+- **Private user area separated from main menu categories**
+  - New dedicated route and view: `/private-hub` via `privateHubMenu`
+  - Main menu now uses one entry tile: `Private Hero Space`
+  - Top header shortcuts for wallet/collection/profile were consolidated into one `Private Space` shortcut
+  - Added `Bypass Login (Demo)` button in `components/PrivateHubMenuView.tsx`
+- **AquaScan replaced legacy WaterMonitor view at `/water`**
+  - `App.tsx` now renders `components/AquaScanView.tsx` for `waterMonitor`
+  - Added clear top notice: `Demo Mode: satellite layers, AI summary, evidence packet, and actions use mock data.`
+  - Added guided `How to Use DPAL AquaScan` help section with can/cannot-do expectations
+  - Added full-width `AquaScan Map & GPS` section below satellite/risk row:
+    - toolbar for location/GPS/concern/layer count
+    - interactive demo controls (zoom, pan/drag, center project, center GPS, expand map, style switcher)
+    - overlay toggles (boundary, risk zone, report pins, sample points, flow direction)
+    - editable boundary simulation and concern-sensitive overlay emphasis
+    - bottom status strip (Project ID, water body type, last updated, boundary status, evidence points, selected layers)
+  - Evidence packet preview now reads like a proof document and includes explicit demo export disclaimer
+  - Added one-click `Run Demo Scenario` for live walkthroughs
+- **Environmental Intelligence Hub entry image converted to one-time popup**
+  - The top image is now shown as an entry modal only once per browser
+  - Dismiss state stored in localStorage (`dpal-environmental-hub-entry-seen`)
 
 ---
 
