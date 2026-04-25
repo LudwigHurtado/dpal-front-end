@@ -86,6 +86,7 @@ export const VIEW_PATHS: Record<string, string> = {
   emissionsIntegrityAudit: '/emissions-integrity-audit',
   carbEmissionsAudit: '/carb-emissions-audit',
   hazardousWasteAudit: '/hazardous-waste-audit',
+  environmentalIntelligenceHub: '/environmental-intelligence',
   previewEnvironmentalCommandCenter: '/preview/environmental-command-center',
   previewEnvironmentalIntelligenceHub: '/preview/environmental-intelligence-hub',
   previewFuelStorageAudit: '/preview/fuel-storage-audit',
