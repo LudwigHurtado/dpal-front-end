@@ -39,6 +39,15 @@ type CarbFacility = {
   retrievalDate?: string;
 };
 
+type ImportResultSummary = {
+  imported: number;
+  acceptedRows: number;
+  rejectedRows: number;
+  missingRequiredFields: string[];
+  warnings: string[];
+  sourceMode: 'IMPORTED' | 'DEMO_FALLBACK';
+};
+
 const legalContext = [
   'California’s CARB Mandatory Reporting Regulation requires covered facilities and suppliers to report greenhouse gas emissions.',
   'DPAL does not replace CARB or make final legal findings. DPAL reviews available public data, reported emissions, facility trends, and external evidence to identify possible discrepancies requiring further review.',
@@ -103,6 +112,47 @@ const manualMarker = L.divIcon({
 
 const CA_CENTER: [number, number] = [36.7783, -119.4179];
 
+function downloadJsonFile(filename: string, payload: unknown) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function openPrintableEvidencePacket(title: string, payload: unknown) {
+  const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=760');
+  if (!printWindow) return false;
+  const escaped = JSON.stringify(payload, null, 2)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  printWindow.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${title}</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 24px; color: #111827; }
+      h1 { font-size: 22px; margin-bottom: 8px; }
+      p { margin: 0 0 16px; color: #4b5563; }
+      pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.45; background: #f8fafc; border: 1px solid #cbd5e1; padding: 16px; border-radius: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>${title}</h1>
+    <p>Use your browser print dialog to save this evidence packet as PDF.</p>
+    <pre>${escaped}</pre>
+  </body>
+</html>`);
+  printWindow.document.close();
+  printWindow.focus();
+  window.setTimeout(() => printWindow.print(), 250);
+  return true;
+}
+
 function CarbMapRecenter({ center }: { center: [number, number] }) {
   const map = useMap();
   useEffect(() => {
@@ -129,6 +179,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [facilitySearch, setFacilitySearch] = useState({ q: '', facilityId: '', city: '', county: '', sector: '', year: '' });
   const [facilities, setFacilities] = useState<CarbFacility[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<CarbFacility | null>(null);
   const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK'>('DEMO_FALLBACK');
@@ -154,7 +205,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [importJsonText, setImportJsonText] = useState('');
   const [importDatasetVersion, setImportDatasetVersion] = useState('');
   const [importSourceUrl, setImportSourceUrl] = useState('');
-  const [importResult, setImportResult] = useState<{ imported: number; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' } | null>(null);
+  const [importResult, setImportResult] = useState<ImportResultSummary | null>(null);
   const pageSize = 8;
   const [aiNarrative, setAiNarrative] = useState('');
   const [hasProductionData, setHasProductionData] = useState(false);
@@ -167,6 +218,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
   const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
+
+  const updateSearchField = (key: keyof typeof facilitySearch, value: string) => {
+    setFacilitySearch((prev) => ({ ...prev, [key]: value }));
+    setHasSearched(false);
+  };
 
   const facilityYearRecords = useMemo(
     () => (!selected ? [] : facilities.filter((row) => row.facilityId === selected.facilityId)),
@@ -219,7 +275,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const n2oReduction = toPct(Number(n2oBaseline), Number(n2oCurrent));
   const co2Reduction = toPct(Number(co2Baseline), Number(co2Current));
 
-  const discrepancyScore = useMemo(() => {
+  const integrityScore = useMemo(() => {
     if (!selected || !baselineEmissions || !currentEmissions) return null;
     const reported = Number(((Number(baselineEmissions) - Number(currentEmissions)) / Number(baselineEmissions)) * 100);
     const claimGapWeight = claimParsed.claimReductionPct == null ? 10 : Math.min(35, Math.abs(claimParsed.claimReductionPct - reported) * 1.2);
@@ -231,16 +287,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     return Math.max(0, Math.min(100, Math.round(claimGapWeight + emissionsTrendWeight + methaneTrend + verificationWeight + missingPenalty + satelliteEvidenceWeight)));
   }, [selected, baselineEmissions, currentEmissions, claimParsed.claimReductionPct, methaneReduction, n2oReduction, co2Reduction]);
 
-  const riskLevel = discrepancyScore == null ? 'Needs More Data' : discrepancyScore <= 25 ? 'Low' : discrepancyScore <= 60 ? 'Medium' : 'High';
+  const riskLevel = integrityScore == null ? 'Needs More Data' : integrityScore <= 25 ? 'Low' : integrityScore <= 60 ? 'Medium' : 'High';
 
   const claimComparison = useMemo(() => {
     if (!companyClaim.trim()) return 'Claim requires more data';
-    if (discrepancyScore == null) return 'Claim requires more data';
-    if (discrepancyScore <= 20) return 'Claim appears consistent';
-    if (discrepancyScore <= 45) return 'Claim appears partially supported';
-    if (discrepancyScore <= 60) return 'Claim requires more data';
+    if (integrityScore == null) return 'Claim requires more data';
+    if (integrityScore <= 20) return 'Claim appears consistent';
+    if (integrityScore <= 45) return 'Claim appears partially supported';
+    if (integrityScore <= 60) return 'Claim requires more data';
     return 'Claim may be inconsistent with reported CARB data';
-  }, [companyClaim, discrepancyScore]);
+  }, [companyClaim, integrityScore]);
 
   const calculatedReductionNumber = useMemo(() => {
     if (!baselineEmissions || Number(baselineEmissions) <= 0 || currentEmissions === '') return null;
@@ -392,7 +448,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
         claimGapPct: claimGap,
       },
       discrepancyInterpretation: {
-        discrepancyScore: discrepancyScore ?? 'Needs More Data',
+        integrityScore: integrityScore ?? 'Needs More Data',
         riskLevel,
         text: discrepancyInterpretation,
       },
@@ -409,7 +465,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     yearOverYearFinding,
     claimVerificationClassification,
     claimGap,
-    discrepancyScore,
+    integrityScore,
     riskLevel,
     discrepancyInterpretation,
     verificationChecklist,
@@ -430,7 +486,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
       return categories;
     }
 
-    if (claimComparison.includes('inconsistent') || (discrepancyScore ?? 0) > 60) {
+    if (claimComparison.includes('inconsistent') || (integrityScore ?? 0) > 60) {
       categories.push({
         id: 'claim-inconsistency',
         title: 'Potential Claim Discrepancy - Requires Review',
@@ -494,9 +550,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     }
 
     return categories;
-  }, [selected, claimComparison, discrepancyScore, methaneReduction, baselineEmissions, currentEmissions, co2Reduction, n2oReduction]);
+  }, [selected, claimComparison, integrityScore, methaneReduction, baselineEmissions, currentEmissions, co2Reduction, n2oReduction]);
 
-  const canSaveOrExport = Boolean(selected && baselineYear && currentYear && baselineEmissions && currentEmissions);
+  const canSaveOrExport = Boolean(hasSearched && selected && baselineYear && currentYear && baselineEmissions && currentEmissions);
 
   const dataSources = sourceRows.map((sourceName) => ({
     sourceName,
@@ -524,7 +580,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     calculatedReduction,
     companyClaim,
     claimComparison,
-    discrepancyScore,
+    integrityScore,
     riskLevel,
     verificationStatus: selected?.verificationStatus ?? 'NEEDS REVIEW',
     dataSources,
@@ -555,12 +611,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     setDatasetVersion(res.datasetVersion ?? 'unavailable');
     setRetrievalDate(res.retrievalDate ?? '');
     setCurrentPage(1);
+    setHasSearched(true);
     setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
     setIsSearching(false);
     return res;
   };
 
   const handleSearch = async () => {
+    const hasAnyFilter = Object.values(facilitySearch).some((value) => value.trim().length > 0);
+    if (!hasAnyFilter) {
+      setFacilities([]);
+      setSelected(null);
+      setHasSearched(false);
+      setMessage('Enter at least one search filter before searching CARB facilities.');
+      return;
+    }
     const res = await executeSearch();
     if (!res.count && facilitySearch.q.trim()) {
       setMessage(
@@ -570,15 +635,6 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
       );
     }
   };
-
-  useEffect(() => {
-    const hasAnyFilter = Object.values(facilitySearch).some((value) => value.trim().length > 0);
-    if (!hasAnyFilter) return;
-    const timer = window.setTimeout(() => {
-      void handleSearch();
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [facilitySearch.q, facilitySearch.facilityId, facilitySearch.city, facilitySearch.county, facilitySearch.sector, facilitySearch.year]);
 
   const visibleSearchWarnings = useMemo(() => {
     if (sourceMode === 'IMPORTED') {
@@ -664,7 +720,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     const text = [
       `DPAL CARB review summary for ${selected.facilityName} (${selected.facilityId}) in ${selected.city}, ${selected.county}.`,
       `Comparison years: baseline ${baselineYear || 'n/a'} and current ${currentYear || 'n/a'}. Reported reduction: ${calculatedReduction}.`,
-      `Claim assessment outcome: ${claimComparison}. Discrepancy score: ${discrepancyScore ?? 'Needs More Data'} with risk level ${riskLevel}.`,
+      `Claim assessment outcome: ${claimComparison}. Integrity score: ${integrityScore ?? 'Needs More Data'} with risk level ${riskLevel}.`,
       `Current review categories: ${categorySummary || 'No categories generated yet'}.`,
       'This narrative is advisory and identifies potential discrepancy indicators for further review. It is not a final legal finding.',
     ].join(' ');
@@ -696,8 +752,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     calculatedReductionPct: calculatedReduction,
     companyClaimText: companyClaim,
     claimReductionPct: claimParsed.claimReductionPct,
-    claimGap: discrepancyScore == null || claimParsed.claimReductionPct == null || calculatedReduction === 'Needs More Data' ? null : claimParsed.claimReductionPct - Number(calculatedReduction.replace('%', '')),
-    discrepancyScore,
+    claimGap: integrityScore == null || claimParsed.claimReductionPct == null || calculatedReduction === 'Needs More Data' ? null : claimParsed.claimReductionPct - Number(calculatedReduction.replace('%', '')),
+    discrepancyScore: integrityScore,
     riskLevel,
     verificationStatus: selected?.verificationStatus ?? 'NEEDS REVIEW',
     dataSources,
@@ -712,7 +768,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
 
   const handleSave = async () => {
     if (!canSaveOrExport) {
-      setMessage('Select a CARB facility and comparison years before generating an audit.');
+      setMessage('Search, select a CARB facility, and choose comparison years before saving an audit.');
       return;
     }
     const payload = buildPayload();
@@ -723,22 +779,27 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
 
   const handleExport = async () => {
     if (!canSaveOrExport) {
-      setMessage('Select a CARB facility and comparison years before generating an audit.');
+      setMessage('Search and select a CARB facility with comparison years before exporting evidence.');
       return;
     }
     if (!savedAuditId) {
-      const blob = new Blob([JSON.stringify(evidencePacket, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${evidencePacket.auditId}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
+      downloadJsonFile(`${evidencePacket.auditId}.json`, evidencePacket);
       setMessage('Exported local CARB evidence packet JSON.');
       return;
     }
-    await exportCarbAudit(savedAuditId);
+    const result = await exportCarbAudit(savedAuditId);
+    downloadJsonFile(`${savedAuditId}.json`, result.export);
     setMessage(`Exported persisted CARB audit ${savedAuditId}.`);
+  };
+
+  const handleExportPdf = async () => {
+    if (!canSaveOrExport) {
+      setMessage('Search and select a CARB facility with comparison years before exporting evidence.');
+      return;
+    }
+    const packet = !savedAuditId ? evidencePacket : (await exportCarbAudit(savedAuditId)).export;
+    const opened = openPrintableEvidencePacket(`DPAL CARB Evidence Packet ${savedAuditId ?? evidencePacket.auditId}`, packet);
+    setMessage(opened ? 'Opened printable evidence packet. Use Print to save as PDF.' : 'Pop-up blocked. Allow pop-ups to export PDF.');
   };
 
   return (
@@ -782,7 +843,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
           <button onClick={() => void handleImportDataset()} className="mt-3 rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white">Import CARB Dataset</button>
           {importResult ? (
             <div className="mt-3 rounded-lg border border-slate-700 p-3 text-sm text-slate-200">
+              <p>Accepted rows: {importResult.acceptedRows}</p>
+              <p>Rejected rows: {importResult.rejectedRows}</p>
               <p>Imported count: {importResult.imported}</p>
+              <p>Missing required fields: {importResult.missingRequiredFields.length ? importResult.missingRequiredFields.join(', ') : 'None'}</p>
               <p>Source mode: {importResult.sourceMode}</p>
               <p>Warnings: {importResult.warnings.length ? importResult.warnings.join(' | ') : 'None'}</p>
             </div>
@@ -826,7 +890,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
               <button onClick={() => void handleImportDataset()} className="mt-3 rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white">Import CARB Dataset</button>
               {importResult ? (
                 <div className="mt-3 rounded-lg border border-slate-700 p-3 text-sm text-slate-200">
+                  <p>Accepted rows: {importResult.acceptedRows}</p>
+                  <p>Rejected rows: {importResult.rejectedRows}</p>
                   <p>Imported count: {importResult.imported}</p>
+                  <p>Missing required fields: {importResult.missingRequiredFields.length ? importResult.missingRequiredFields.join(', ') : 'None'}</p>
                   <p>Source mode: {importResult.sourceMode}</p>
                   <p>Warnings: {importResult.warnings.length ? importResult.warnings.join(' | ') : 'None'}</p>
                 </div>
@@ -839,9 +906,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
         <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
           <h2 className="text-lg font-bold text-white">California facility map and search</h2>
+          <p className="mt-1 text-xs text-slate-300">Search first, then select a facility match. No search, no product.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {Object.entries(facilitySearch).map(([k, v]) => (
-              <input key={k} value={v} placeholder={k} onChange={(e) => setFacilitySearch((prev) => ({ ...prev, [k]: e.target.value }))} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+              <input key={k} value={v} placeholder={k} onChange={(e) => updateSearchField(k as keyof typeof facilitySearch, e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
             ))}
           </div>
           <button onClick={() => void handleSearch()} className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
@@ -854,6 +922,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
           <p className="mt-2 text-xs text-slate-300">
             Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span> {isSearching ? '| Searching...' : ''}
           </p>
+          {!hasSearched ? (
+            <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/40 p-3 text-sm text-slate-300">
+              Run a facility search to unlock facility selection, year comparison, and evidence export.
+            </div>
+          ) : null}
           {visibleSearchWarnings.length ? (
             <div className="mt-2 rounded-lg border border-amber-600 bg-amber-950/30 p-2 text-xs text-amber-200">
               {visibleSearchWarnings.map((warning) => <p key={warning}>{warning}</p>)}
@@ -891,14 +964,46 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
           {selected && (selected.latitude == null || selected.longitude == null) ? (
             <p className="mt-2 text-xs text-amber-300">Facility location missing from CARB dataset. Click on the map to place a temporary marker before satellite comparison.</p>
           ) : null}
-          <div className="mt-3 max-h-56 overflow-auto space-y-2">
-            {paginatedFacilities.map((facility) => (
-              <button key={`${facility.facilityId}-${facility.reportingYear}`} onClick={() => setSelected(facility)} className="w-full rounded-lg border border-slate-700 p-2 text-left text-sm text-slate-200 hover:border-emerald-500">
-                <div className="font-semibold">{facility.facilityName}</div>
-                <div className="text-xs text-slate-400">{facility.facilityId} | {facility.city} | {facility.reportingYear}</div>
-                <div className="mt-1 inline-flex rounded-full border border-slate-500 px-2 py-0.5 text-[10px]">{facility.sourceStatus}</div>
-              </button>
-            ))}
+          <div className="mt-3 overflow-auto rounded-xl border border-slate-700">
+            <table className="min-w-full text-left text-sm text-slate-200">
+              <thead className="bg-slate-950/80 text-xs uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-2">Facility Match Results</th>
+                  <th className="px-3 py-2">Facility ID</th>
+                  <th className="px-3 py-2">City</th>
+                  <th className="px-3 py-2">Year</th>
+                  <th className="px-3 py-2">Source</th>
+                  <th className="px-3 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!hasSearched ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-400" colSpan={6}>Search required before facility matches can be displayed.</td>
+                  </tr>
+                ) : paginatedFacilities.length ? paginatedFacilities.map((facility) => (
+                  <tr key={`${facility.facilityId}-${facility.reportingYear}`} className="border-t border-slate-800">
+                    <td className="px-3 py-3">
+                      <div className="font-semibold">{facility.facilityName}</div>
+                      <div className="text-xs text-slate-400">{facility.operatorName}</div>
+                    </td>
+                    <td className="px-3 py-3">{facility.facilityId}</td>
+                    <td className="px-3 py-3">{facility.city}</td>
+                    <td className="px-3 py-3">{facility.reportingYear}</td>
+                    <td className="px-3 py-3">{facility.sourceStatus}</td>
+                    <td className="px-3 py-3">
+                      <button onClick={() => setSelected(facility)} className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">
+                        Select
+                      </button>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-400" colSpan={6}>No facility matches found for the current search.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
           {facilities.length > pageSize ? (
             <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
@@ -923,12 +1028,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
 
         <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
           <h2 className="text-lg font-bold text-white">Reported data and claim analyzer</h2>
+          {!hasSearched ? <p className="mt-1 text-xs text-amber-300">Search for a facility first. No search, no product.</p> : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <select value={String(baselineYear)} onChange={(e) => setBaselineYear(e.target.value ? Number(e.target.value) : '')} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200">
+            <select value={String(baselineYear)} onChange={(e) => setBaselineYear(e.target.value ? Number(e.target.value) : '')} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
               <option value="">Baseline year</option>
               {availableYears.map((year) => <option key={`b-${year}`} value={year}>{year}</option>)}
             </select>
-            <select value={String(currentYear)} onChange={(e) => setCurrentYear(e.target.value ? Number(e.target.value) : '')} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200">
+            <select value={String(currentYear)} onChange={(e) => setCurrentYear(e.target.value ? Number(e.target.value) : '')} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
               <option value="">Current year</option>
               {availableYears.map((year) => <option key={`c-${year}`} value={year}>{year}</option>)}
             </select>
@@ -951,14 +1057,37 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
             <p>N2O reduction: <span className="font-semibold">{n2oReduction}</span></p>
             {!baselineEmissions || !currentEmissions ? <p className="mt-1 text-amber-300">Needs More Data: emissions records missing for one or both selected years.</p> : null}
           </div>
+          <div className="mt-3 rounded-xl border border-slate-700 p-3 text-sm text-slate-200">
+            <p className="text-xs uppercase tracking-widest text-slate-400">Baseline / Current Year Comparison</p>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs text-slate-300">
+              <p className="font-semibold text-white">Metric</p>
+              <p className="font-semibold text-white">{baselineYear || 'Baseline'}</p>
+              <p className="font-semibold text-white">{currentYear || 'Current'}</p>
+              <p>Total CO2e</p>
+              <p>{formatNumber(baselineEmissions)}</p>
+              <p>{formatNumber(currentEmissions)}</p>
+              <p>Methane CH4</p>
+              <p>{formatNumber(methaneBaseline)}</p>
+              <p>{formatNumber(methaneCurrent)}</p>
+              <p>Nitrous Oxide N2O</p>
+              <p>{formatNumber(n2oBaseline)}</p>
+              <p>{formatNumber(n2oCurrent)}</p>
+              <p>Carbon Dioxide CO2</p>
+              <p>{formatNumber(co2Baseline)}</p>
+              <p>{formatNumber(co2Current)}</p>
+            </div>
+          </div>
         </section>
       </div>
 
       <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Discrepancy Score</p>
-          <p className="text-3xl font-black text-white">{discrepancyScore ?? 'Needs More Data'}</p>
+          <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
+          <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
           <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
+          <p className="mt-2 text-xs text-slate-400">
+            Integrity Score measures record completeness, consistency, and verification strength. It does not determine guilt, liability, or regulatory violation.
+          </p>
         </div>
         <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 xl:col-span-2">
           <p className="text-xs uppercase tracking-widest text-slate-400">CARB Data Sources</p>
@@ -1069,7 +1198,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
           </div>
           <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
             <p className="text-xs uppercase tracking-widest text-slate-400">Discrepancy interpretation</p>
-            <p className="mt-1"><span className="text-slate-400">Score:</span> {String(verificationSummary.discrepancyInterpretation.discrepancyScore)}</p>
+            <p className="mt-1"><span className="text-slate-400">Integrity Score:</span> {String(verificationSummary.discrepancyInterpretation.integrityScore)}</p>
             <p><span className="text-slate-400">Risk level:</span> {verificationSummary.discrepancyInterpretation.riskLevel}</p>
             <p className="mt-1">{verificationSummary.discrepancyInterpretation.text}</p>
           </div>
@@ -1157,13 +1286,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
         <div className="mt-3 flex flex-wrap gap-2">
           <button onClick={() => void handleSave()} disabled={!canSaveOrExport} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save CARB Audit</button>
           <button onClick={() => void handleExport()} disabled={!canSaveOrExport} className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Export Evidence Packet JSON</button>
-          <button onClick={() => setMessage('Export PDF placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Export PDF Placeholder</button>
+          <button onClick={() => void handleExportPdf()} disabled={!canSaveOrExport} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100 disabled:opacity-50">Export Evidence Packet PDF</button>
           <button onClick={() => setMessage('Link to DPAL Evidence Vault placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Link to DPAL Evidence Vault</button>
           <button onClick={() => setMessage('Link to DPAL MRV Project placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Link to DPAL MRV Project</button>
           <button onClick={() => setMessage('Create Investigation Case placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Create Investigation Case</button>
           <button onClick={() => void listCarbAudits().then((res) => setMessage(`Loaded ${res.audits.length} saved CARB audits.`)).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Failed to load audits.'))} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Load Saved Audits</button>
         </div>
-        {!canSaveOrExport ? <p className="mt-2 text-sm text-amber-300">Select a CARB facility and comparison years before generating an audit.</p> : null}
+        {!canSaveOrExport ? <p className="mt-2 text-sm text-amber-300">Search for a facility, select a match, and choose baseline/current years before saving or exporting.</p> : null}
         <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
       </section>
     </div>

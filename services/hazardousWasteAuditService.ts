@@ -27,7 +27,7 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
 }
 
 export async function createHazardousWasteAudit(payload: unknown) {
-  return requestJson<{ ok: true; auditId: string; audit: unknown }>(API_ROUTES.HAZ_WASTE_AUDIT_CREATE, { method: 'POST', body: JSON.stringify(payload) });
+  return requestJson<{ ok: true; auditId: string; audit: any }>(API_ROUTES.HAZ_WASTE_AUDIT_CREATE, { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export async function listHazardousWasteAudits() {
@@ -42,7 +42,7 @@ export async function getHazardousWasteAudit(id: string) {
 }
 
 export async function updateHazardousWasteAudit(id: string, payload: unknown) {
-  return requestJson<{ ok: true; auditId: string; audit: unknown }>(HAZ_WASTE_AUDIT_DETAIL(id), { method: 'PUT', body: JSON.stringify(payload) });
+  return requestJson<{ ok: true; auditId: string; audit: any }>(HAZ_WASTE_AUDIT_DETAIL(id), { method: 'PUT', body: JSON.stringify(payload) });
 }
 
 export async function deleteHazardousWasteAudit(id: string) {
@@ -50,11 +50,11 @@ export async function deleteHazardousWasteAudit(id: string) {
 }
 
 export async function exportHazardousWasteAudit(id: string) {
-  return requestJson<{ ok: true; export: unknown }>(HAZ_WASTE_AUDIT_EXPORT_DETAIL(id), { method: 'POST', body: JSON.stringify({ format: 'json' }) });
+  return requestJson<{ ok: true; export: any; pdfPlaceholder?: { status: string } }>(HAZ_WASTE_AUDIT_EXPORT_DETAIL(id), { method: 'POST', body: JSON.stringify({ format: 'json' }) });
 }
 
 export async function recalculateHazardousWasteAudit(id: string) {
-  return requestJson<{ ok: true; auditId: string; audit: unknown }>(HAZ_WASTE_AUDIT_RECALCULATE(id), { method: 'POST', body: JSON.stringify({}) });
+  return requestJson<{ ok: true; auditId: string; audit: any }>(HAZ_WASTE_AUDIT_RECALCULATE(id), { method: 'POST', body: JSON.stringify({}) });
 }
 
 export async function linkHazardousWasteAudit(id: string, links: Record<string, unknown>) {
@@ -74,7 +74,7 @@ export async function searchRcraFacilities(params: Record<string, string>) {
   }>(apiUrl(`${API_ROUTES.RCRA_DATA_SEARCH}?${qs.toString()}`), { method: 'GET' });
 }
 
-export async function importRcraFacilities(payload: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string }) {
+export async function importRcraFacilities(payload: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string; dataType?: string }) {
   return requestJson<{ ok: true; imported: number; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' }>(API_ROUTES.RCRA_DATA_IMPORT, {
     method: 'POST',
     body: JSON.stringify(payload),

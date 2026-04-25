@@ -5,9 +5,11 @@ import 'leaflet/dist/leaflet.css';
 import { useAuth } from '../../../auth/AuthContext';
 import {
   createHazardousWasteAudit,
+  getHazardousWasteAudit,
   exportHazardousWasteAudit,
   importRcraFacilities,
   listHazardousWasteAudits,
+  recalculateHazardousWasteAudit,
   searchRcraFacilities,
   updateHazardousWasteAudit,
 } from '../../../services/hazardousWasteAuditService';
@@ -15,6 +17,25 @@ import {
 type Props = { onReturn: () => void };
 type RiskLevel = 'Low' | 'Medium' | 'High' | 'Needs More Data';
 type SourceMode = 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK';
+type PacketStatus = 'Packet Ready' | 'Unsaved Packet' | 'Saved Packet' | 'Missing Required Data';
+type SavedAuditSummary = { id: string; facilityName: string; updatedAt: string };
+type PacketHistoryStatus = 'Unsaved' | 'Saved' | 'Regenerated' | 'Exported';
+type PacketHistorySource = 'Local Form State' | 'Saved Audit API' | 'Recalculation API';
+type PacketHistory = {
+  status: PacketHistoryStatus;
+  source: PacketHistorySource;
+  lastGeneratedAt: string | null;
+  lastSavedAt: string | null;
+  lastExportedAt: string | null;
+  auditId: string | null;
+  version: number | null;
+  events: Array<{
+    action: 'Generated' | 'Saved' | 'Exported' | 'Loaded' | 'Recalculated' | 'Copied';
+    timestamp: string;
+    source: PacketHistorySource;
+    auditId: string | null;
+  }>;
+};
 
 type RcraFacility = {
   epaId: string;
@@ -92,6 +113,13 @@ const checklistBadgeClass = (status: string): string => {
   return 'bg-amber-100 text-amber-700 border-amber-200';
 };
 
+const packetHistoryBadgeClass = (status: PacketHistoryStatus): string => {
+  if (status === 'Saved') return 'border-emerald-200 bg-emerald-100 text-emerald-700';
+  if (status === 'Regenerated') return 'border-blue-200 bg-blue-100 text-blue-700';
+  if (status === 'Exported') return 'border-indigo-200 bg-indigo-100 text-indigo-700';
+  return 'border-amber-200 bg-amber-100 text-amber-700';
+};
+
 const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
   const auth = useAuth();
   const [facilitySearch, setFacilitySearch] = useState({
@@ -101,7 +129,11 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
     city: '',
     county: '',
     state: '',
+    zip: '',
+    parentCompany: '',
+    frsId: '',
     generatorStatus: '',
+    permitStatus: '',
     reportingYear: '',
     naicsCode: '',
   });
@@ -126,7 +158,22 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [importJsonText, setImportJsonText] = useState('');
   const [importDatasetVersion, setImportDatasetVersion] = useState('');
   const [importSourceUrl, setImportSourceUrl] = useState('');
+  const [importDataType, setImportDataType] = useState('facility_master');
   const [importResult, setImportResult] = useState<{ imported: number; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' } | null>(null);
+  const [savedAudits, setSavedAudits] = useState<SavedAuditSummary[]>([]);
+  const [selectedAuditToLoad, setSelectedAuditToLoad] = useState('');
+  const [evidencePacketPreview, setEvidencePacketPreview] = useState<any | null>(null);
+  const [packetStatus, setPacketStatus] = useState<PacketStatus>('Missing Required Data');
+  const [packetHistory, setPacketHistory] = useState<PacketHistory>({
+    status: 'Unsaved',
+    source: 'Local Form State',
+    lastGeneratedAt: null,
+    lastSavedAt: null,
+    lastExportedAt: null,
+    auditId: null,
+    version: null,
+    events: [],
+  });
 
   const facilityRecords = useMemo(() => (!selected ? [] : facilities.filter((row) => row.epaId === selected.epaId)), [facilities, selected]);
   const availableYears = useMemo(() => Array.from(new Set(facilityRecords.map((row) => row.reportingYear))).sort((a, b) => b - a), [facilityRecords]);
@@ -256,7 +303,19 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
     [selected, sourceMode, yearOverYearWasteChangePct, baselineYear, currentYear, baselineHazWasteTons, currentHazWasteTons, activityDiscrepancy, recommendedNextSteps, checklist],
   );
 
-  const evidencePacket = {
+  const dataSources = useMemo(
+    () => facilities.slice(0, 5).map((row) => ({ dataSource: row.dataSource, sourceStatus: row.sourceStatus, datasetVersion: row.datasetVersion, retrievalDate: row.retrievalDate })),
+    [facilities],
+  );
+  const baselineRecord = useMemo(() => (baselineYear ? facilityRecords.find((row) => row.reportingYear === baselineYear) ?? null : null), [facilityRecords, baselineYear]);
+  const currentRecord = useMemo(() => (currentYear ? facilityRecords.find((row) => row.reportingYear === currentYear) ?? null : null), [facilityRecords, currentYear]);
+  const requiredDataMissing = useMemo(
+    () => !selected || !baselineYear || !currentYear || !baselineRecord || !currentRecord || !sourceMode || !dataSources.length,
+    [selected, baselineYear, currentYear, baselineRecord, currentRecord, sourceMode, dataSources.length],
+  );
+
+  const evidencePacket = useMemo(() => ({
+    packetHistory,
     hazardousWasteIntegrity: {
       facilityIdentity: verificationSummary.facilityIdentity,
       reportingComparison: {
@@ -283,19 +342,30 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
         activityDiscrepancy,
       },
       discrepancyScore: complianceRiskScore,
+      integrityScore: complianceRiskScore,
       riskLevel,
       claimAnalysis: { claimText: companyClaim, claimReductionPct, classification: claimAnalysis },
+      verificationSummary,
       sourceMode,
-      dataSources: facilities.slice(0, 5).map((row) => ({ dataSource: row.dataSource, sourceStatus: row.sourceStatus, datasetVersion: row.datasetVersion, retrievalDate: row.retrievalDate })),
+      dataSources,
       limitations: verificationSummary.limitations,
       recommendedNextSteps,
       generatedAt: new Date().toISOString(),
       dpalLedgerPlaceholder: { status: 'not_connected' },
       checksumPlaceholder: 'pending-checksum',
+      packetHistory,
     },
-  };
+  }), [verificationSummary, baselineYear, currentYear, baselineHazWasteTons, currentHazWasteTons, baselineManifestCount, currentManifestCount, yearOverYearWasteChangePct, manifestChangePct, selected, activityDiscrepancy, complianceRiskScore, riskLevel, companyClaim, claimReductionPct, claimAnalysis, sourceMode, dataSources, recommendedNextSteps, packetHistory]);
 
   const canSave = Boolean(selected && baselineYear && currentYear && baselineHazWasteTons !== '' && currentHazWasteTons !== '');
+
+  useEffect(() => {
+    if (requiredDataMissing) {
+      setPacketStatus('Missing Required Data');
+      return;
+    }
+    setPacketStatus(savedAuditId ? 'Saved Packet' : evidencePacketPreview ? 'Unsaved Packet' : 'Packet Ready');
+  }, [requiredDataMissing, savedAuditId, evidencePacketPreview]);
 
   const executeSearch = async () => {
     const res = await searchRcraFacilities({
@@ -311,12 +381,26 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
     setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
   };
 
+  const devLog = (event: string, payload?: unknown) => {
+    if (import.meta.env.DEV) {
+      console.log(`[hazardous-waste-audit] ${event}`, payload ?? '');
+    }
+  };
+  const nowIso = () => new Date().toISOString();
+  const pushPacketEvent = (
+    history: PacketHistory,
+    action: 'Generated' | 'Saved' | 'Exported' | 'Loaded' | 'Recalculated' | 'Copied',
+    source: PacketHistorySource,
+    auditId: string | null,
+  ) => [{ action, timestamp: nowIso(), source, auditId }, ...(history.events ?? [])].slice(0, 3);
+
   const handleImport = async () => {
     const result = await importRcraFacilities({
       csvText: importCsvText.trim() || undefined,
       jsonText: importJsonText.trim() || undefined,
       datasetVersion: importDatasetVersion.trim() || undefined,
       sourceUrl: importSourceUrl.trim() || undefined,
+      dataType: importDataType,
     });
     setImportResult(result);
     setMessage(`Imported ${result.imported} RCRA record(s).`);
@@ -355,8 +439,8 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
     riskLevel,
     sourceMode,
     verificationSummary,
-    dataSources: evidencePacket.hazardousWasteIntegrity.dataSources,
-    evidencePacket,
+    dataSources,
+    evidencePacket: evidencePacketPreview ?? evidencePacket,
     limitations: verificationSummary.limitations,
     recommendedNextSteps,
     linkedMRVProjectId: null,
@@ -372,27 +456,193 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
     const payload = buildPayload();
     const result = savedAuditId ? await updateHazardousWasteAudit(savedAuditId, payload) : await createHazardousWasteAudit(payload);
     setSavedAuditId(result.auditId);
+    const savedAt = nowIso();
+    const nextHistory: PacketHistory = {
+      ...packetHistory,
+      status: 'Saved',
+      source: 'Saved Audit API',
+      lastSavedAt: savedAt,
+      auditId: result.auditId,
+      version: Number(result.audit?.version ?? packetHistory.version ?? 1),
+      lastGeneratedAt: packetHistory.lastGeneratedAt ?? savedAt,
+      events: pushPacketEvent(packetHistory, 'Saved', 'Saved Audit API', result.auditId),
+    };
+    setPacketHistory(nextHistory);
+    setEvidencePacketPreview(
+      (evidencePacketPreview ?? evidencePacket)
+        ? {
+            ...(evidencePacketPreview ?? evidencePacket),
+            packetHistory: nextHistory,
+            hazardousWasteIntegrity: {
+              ...((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity ?? {}),
+              packetHistory: nextHistory,
+            },
+          }
+        : evidencePacketPreview ?? evidencePacket,
+    );
+    setPacketStatus('Saved Packet');
+    devLog('evidence packet saved', { auditId: result.auditId });
     setMessage(`Hazardous waste audit saved: ${result.auditId}`);
   };
 
-  const handleExport = async () => {
-    if (!canSave) {
-      setMessage('Select a facility and comparison years before exporting.');
+  const handleGeneratePacket = () => {
+    if (requiredDataMissing) {
+      setPacketStatus('Missing Required Data');
+      setMessage('Missing required data for packet generation. Select facility, years, records, and ensure data sources are present.');
       return;
     }
+    const generatedAt = nowIso();
+    const nextHistory: PacketHistory = {
+      ...packetHistory,
+      status: 'Regenerated',
+      source: 'Local Form State',
+      lastGeneratedAt: generatedAt,
+      auditId: savedAuditId ?? packetHistory.auditId,
+      events: pushPacketEvent(packetHistory, 'Generated', 'Local Form State', savedAuditId ?? packetHistory.auditId),
+    };
+    setPacketHistory(nextHistory);
+    setEvidencePacketPreview({ ...evidencePacket, packetHistory: nextHistory, hazardousWasteIntegrity: { ...(evidencePacket.hazardousWasteIntegrity ?? {}), packetHistory: nextHistory } });
+    setPacketStatus(savedAuditId ? 'Saved Packet' : 'Unsaved Packet');
+    devLog('evidence packet generated', { savedAuditId, sourceMode });
+    setMessage(savedAuditId ? 'Evidence packet regenerated.' : 'Evidence packet generated. Save audit to preserve it.');
+  };
+
+  const handleExport = async () => {
+    if (requiredDataMissing) {
+      setPacketStatus('Missing Required Data');
+      setMessage('Missing required data for export.');
+      return;
+    }
+    const packetToExport = evidencePacketPreview ?? evidencePacket;
     if (!savedAuditId) {
-      const blob = new Blob([JSON.stringify(evidencePacket, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(packetToExport, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `RCRA-${Date.now()}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      setMessage('Exported local hazardous waste evidence packet JSON.');
+      setPacketStatus('Unsaved Packet');
+      const exportedAt = nowIso();
+      setPacketHistory((prev) => ({
+        ...prev,
+        status: 'Exported',
+        source: 'Local Form State',
+        lastExportedAt: exportedAt,
+        events: pushPacketEvent(prev, 'Exported', 'Local Form State', prev.auditId),
+      }));
+      setMessage('This packet has not been saved yet. Save the audit to preserve it.');
+      devLog('evidence packet export requested', { mode: 'local-unsaved' });
       return;
     }
-    await exportHazardousWasteAudit(savedAuditId);
+    const response = await exportHazardousWasteAudit(savedAuditId);
+    const blob = new Blob([JSON.stringify(response.export, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${savedAuditId}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setEvidencePacketPreview((response.export as any) ?? packetToExport);
+    setPacketStatus('Saved Packet');
+    const exportedAt = nowIso();
+    setPacketHistory((prev) => ({
+      ...prev,
+      status: 'Exported',
+      lastExportedAt: exportedAt,
+      source: prev.auditId ? 'Saved Audit API' : prev.source,
+      events: pushPacketEvent(prev, 'Exported', prev.auditId ? 'Saved Audit API' : prev.source, prev.auditId),
+    }));
+    devLog('evidence packet export requested', { mode: 'api', auditId: savedAuditId });
     setMessage(`Exported persisted audit ${savedAuditId}.`);
+  };
+
+  const handleExportPdfPlaceholder = () => {
+    const packetToExport = evidencePacketPreview ?? evidencePacket;
+    const blob = new Blob([JSON.stringify({ pdfPlaceholder: true, packet: packetToExport }, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${savedAuditId ?? `RCRA-${Date.now()}`}-pdf-placeholder.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setMessage('Exported PDF placeholder payload.');
+  };
+
+  const handleCopyPacketJson = async () => {
+    const packetToCopy = evidencePacketPreview ?? evidencePacket;
+    await navigator.clipboard.writeText(JSON.stringify(packetToCopy, null, 2));
+    setPacketHistory((prev) => ({
+      ...prev,
+      status: 'Exported',
+      lastExportedAt: nowIso(),
+      events: pushPacketEvent(prev, 'Copied', prev.source, prev.auditId),
+    }));
+    setMessage('Evidence packet JSON copied to clipboard.');
+  };
+
+  const handleLoadSavedAudits = async () => {
+    const res = await listHazardousWasteAudits();
+    setSavedAudits((res.audits ?? []).map((item) => ({ id: item.id, facilityName: item.facilityName, updatedAt: item.updatedAt })));
+    setMessage(`Loaded ${res.audits.length} saved hazardous waste audits.`);
+  };
+
+  const handleLoadSavedAudit = async () => {
+    if (!selectedAuditToLoad) return;
+    const res = await getHazardousWasteAudit(selectedAuditToLoad);
+    const audit = res.audit;
+    setSavedAuditId(audit.id);
+    setSourceMode((String(audit.sourceMode || sourceMode) as SourceMode));
+    setBaselineYear(Number(audit.baselineYear || ''));
+    setCurrentYear(Number(audit.currentYear || ''));
+    setBaselineHazWasteTons(Number(audit.baselineHazardousWasteTons || ''));
+    setCurrentHazWasteTons(Number(audit.currentHazardousWasteTons || ''));
+    setBaselineManifestCount(Number(audit.baselineManifestCount || ''));
+    setCurrentManifestCount(Number(audit.currentManifestCount || ''));
+    setCompanyClaim(String(audit.claimText || ''));
+    setEvidencePacketPreview((audit.evidencePacketJson as any) ?? null);
+    const savedHistory = (audit.evidencePacketJson as any)?.packetHistory as Partial<PacketHistory> | undefined;
+    setPacketHistory((prev) => ({
+      ...prev,
+      ...savedHistory,
+      status: 'Saved',
+      source: 'Saved Audit API',
+      auditId: audit.id,
+      version: Number(audit.version ?? savedHistory?.version ?? prev.version ?? 1),
+      lastSavedAt: String(savedHistory?.lastSavedAt ?? audit.updatedAt ?? nowIso()),
+      events: pushPacketEvent(
+        {
+          ...prev,
+          ...savedHistory,
+          events: Array.isArray(savedHistory?.events) ? (savedHistory?.events as PacketHistory['events']) : prev.events,
+        },
+        'Loaded',
+        'Saved Audit API',
+        audit.id,
+      ),
+    }));
+    setPacketStatus('Saved Packet');
+    setMessage(`Loaded saved audit ${audit.id}.`);
+  };
+
+  const handleRecalculate = async () => {
+    if (!savedAuditId) {
+      setMessage('Save the audit before recalculating.');
+      return;
+    }
+    const res = await recalculateHazardousWasteAudit(savedAuditId);
+    setEvidencePacketPreview((res.audit?.evidencePacketJson as any) ?? evidencePacket);
+    setPacketHistory((prev) => ({
+      ...prev,
+      status: 'Regenerated',
+      source: 'Recalculation API',
+      auditId: savedAuditId,
+      version: Number(res.audit?.version ?? prev.version ?? 1),
+      lastGeneratedAt: nowIso(),
+      events: pushPacketEvent(prev, 'Recalculated', 'Recalculation API', savedAuditId),
+    }));
+    setPacketStatus('Saved Packet');
+    setMessage(`Recalculated audit ${savedAuditId} and regenerated evidence packet.`);
   };
 
   const center: [number, number] =
@@ -440,6 +690,14 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
           {showDevImport ? (
             <div className="mt-2 space-y-2 rounded-xl border border-slate-800 bg-slate-900 p-3">
               <p className="text-[11px] text-slate-300">Use `backend/data/rcra/` for file-based import.</p>
+              <select value={importDataType} onChange={(e) => setImportDataType(e.target.value)} className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200">
+                <option value="facility_master">Facility Master List</option>
+                <option value="biennial_report">Biennial Waste Report</option>
+                <option value="compliance">Compliance / Enforcement</option>
+                <option value="permit">Permit Records</option>
+                <option value="manifest">Manifest / Shipment Activity</option>
+                <option value="evidence">DPAL Evidence Layer</option>
+              </select>
               <textarea value={importCsvText} onChange={(e) => setImportCsvText(e.target.value)} placeholder="Paste RCRA CSV text" className="h-24 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
               <textarea value={importJsonText} onChange={(e) => setImportJsonText(e.target.value)} placeholder="Paste RCRA JSON array text" className="h-24 w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
               <input value={importDatasetVersion} onChange={(e) => setImportDatasetVersion(e.target.value)} placeholder="datasetVersion" className="w-full rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
@@ -474,12 +732,32 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
                 </MapContainer>
               </div>
               <div className="mt-3 max-h-44 overflow-auto space-y-2">
-                {facilities.map((facility) => (
-                  <button key={`${facility.epaId}-${facility.reportingYear}`} onClick={() => setSelected(facility)} className="w-full rounded-lg border border-slate-200 bg-slate-50 p-2 text-left text-sm text-slate-800 hover:border-slate-400">
-                    <div className="font-semibold">{facility.facilityName}</div>
-                    <div className="text-xs text-slate-500">{facility.epaId} | {facility.city}, {facility.state} | {facility.reportingYear}</div>
-                  </button>
-                ))}
+                <table className="w-full text-left text-xs text-slate-700">
+                  <thead className="bg-slate-100 text-[11px] uppercase tracking-wide text-slate-600">
+                    <tr>
+                      <th className="px-2 py-1">EPA ID</th>
+                      <th className="px-2 py-1">Facility</th>
+                      <th className="px-2 py-1">City</th>
+                      <th className="px-2 py-1">State</th>
+                      <th className="px-2 py-1">Generator</th>
+                      <th className="px-2 py-1">Permit</th>
+                      <th className="px-2 py-1">Risk</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {facilities.map((facility) => (
+                      <tr key={`${facility.epaId}-${facility.reportingYear}`} onClick={() => setSelected(facility)} className="cursor-pointer border-t border-slate-200 hover:bg-slate-50">
+                        <td className="px-2 py-1">{facility.epaId}</td>
+                        <td className="px-2 py-1">{facility.facilityName}</td>
+                        <td className="px-2 py-1">{facility.city}</td>
+                        <td className="px-2 py-1">{facility.state}</td>
+                        <td className="px-2 py-1">{facility.generatorStatus}</td>
+                        <td className="px-2 py-1">{facility.permitStatus}</td>
+                        <td className="px-2 py-1">{facility.sourceStatus}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </section>
 
@@ -538,6 +816,13 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
 
             <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h2 className="text-base font-bold text-slate-900">Legal and Data Sources</h2>
+              <div className="mt-2 rounded-lg border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800">
+                <p className="font-semibold">Data Source Confidence</p>
+                <p>Facility identity layer: {sourceMode === 'LIVE' ? 'Live EPA feed' : sourceMode === 'IMPORTED' ? 'Imported facility master layer' : 'Demo fallback only'}</p>
+                <p>Waste/manifest layer: {facilities.some((f) => f.manifestCount != null) ? 'Present' : 'Needs additional upload'}</p>
+                <p>Compliance/permit layer: {facilities.some((f) => f.permitStatus && f.complianceStatus) ? 'Present' : 'Needs additional upload'}</p>
+                <p>Evidence layer: {dpalEvidenceAttached ? 'Manual DPAL evidence attached' : 'No DPAL evidence linked yet'}</p>
+              </div>
               <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
                 {facilities.slice(0, 6).map((row) => (
                   <p key={`${row.epaId}-${row.reportingYear}`}>{row.dataSource} | {row.sourceStatus} | {row.datasetVersion || 'n/a'}</p>
@@ -551,12 +836,74 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-base font-bold text-slate-900">Evidence Packet Preview</h2>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <button onClick={() => void handleSave()} disabled={!canSave} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save Audit</button>
-              <button onClick={() => void handleExport()} disabled={!canSave} className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Export Evidence Packet JSON</button>
-              <button onClick={() => void listHazardousWasteAudits().then((res) => setMessage(`Loaded ${res.audits.length} saved hazardous waste audits.`)).catch((err: unknown) => setMessage(err instanceof Error ? err.message : 'Failed to load audits.'))} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">Load Saved Audits</button>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <span className={`rounded-full border px-2 py-0.5 text-xs ${packetStatus === 'Saved Packet' ? 'border-emerald-300 bg-emerald-50 text-emerald-700' : packetStatus === 'Unsaved Packet' ? 'border-amber-300 bg-amber-50 text-amber-700' : packetStatus === 'Packet Ready' ? 'border-sky-300 bg-sky-50 text-sky-700' : 'border-rose-300 bg-rose-50 text-rose-700'}`}>{packetStatus}</span>
+              {packetStatus === 'Missing Required Data' ? <span className="text-xs text-rose-700">facility, years, baseline/current records, source mode, and data sources are required.</span> : null}
             </div>
-            <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">{JSON.stringify(evidencePacket, null, 2)}</pre>
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-700">Packet History</p>
+                <span className={`rounded-full border px-2 py-0.5 text-xs ${packetHistoryBadgeClass(packetHistory.status)}`}>{packetHistory.status}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-1 text-xs text-slate-700 sm:grid-cols-2">
+                <p><span className="font-semibold">Packet Source:</span> {packetHistory.source}</p>
+                <p><span className="font-semibold">Audit ID:</span> {packetHistory.auditId || 'n/a'}</p>
+                <p><span className="font-semibold">Packet Version:</span> {packetHistory.version ?? 'n/a'}</p>
+                <p><span className="font-semibold">Last Generated At:</span> {packetHistory.lastGeneratedAt || 'n/a'}</p>
+                <p><span className="font-semibold">Last Saved At:</span> {packetHistory.lastSavedAt || 'n/a'}</p>
+                <p><span className="font-semibold">Last Exported At:</span> {packetHistory.lastExportedAt || 'n/a'}</p>
+              </div>
+              <div className="mt-2 border-t border-slate-200 pt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Packet Event Trail</p>
+                <div className="mt-1 space-y-1">
+                  {(packetHistory.events ?? []).length ? (
+                    packetHistory.events.slice(0, 3).map((event, index) => (
+                      <div key={`${event.action}-${event.timestamp}-${index}`} className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <span className="rounded-full border border-slate-200 bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">{event.action}</span>
+                          <span>{event.source}</span>
+                          <span>{event.auditId || 'no-audit-id'}</span>
+                        </div>
+                        <span>{event.timestamp}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-[11px] text-slate-500">No packet events yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button onClick={handleGeneratePacket} disabled={requiredDataMissing} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50">Generate Evidence Packet</button>
+              <button onClick={() => void handleSave()} disabled={!canSave} className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save Audit</button>
+              <button onClick={() => void handleExport()} disabled={requiredDataMissing} className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Export JSON</button>
+              <button onClick={handleExportPdfPlaceholder} disabled={requiredDataMissing} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">Export PDF Placeholder</button>
+              <button onClick={() => void handleCopyPacketJson()} disabled={requiredDataMissing} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">Copy Packet JSON</button>
+              <button onClick={() => void handleRecalculate()} disabled={!savedAuditId} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">Recalculate Audit</button>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button onClick={() => void handleLoadSavedAudits()} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700">Load Saved Audits</button>
+              <select value={selectedAuditToLoad} onChange={(e) => setSelectedAuditToLoad(e.target.value)} className="rounded-lg border border-slate-300 bg-slate-50 px-2 py-2 text-sm text-slate-800">
+                <option value="">Select saved audit</option>
+                {savedAudits.map((audit) => (
+                  <option key={audit.id} value={audit.id}>{audit.facilityName || 'Unnamed'} ({audit.id})</option>
+                ))}
+              </select>
+              <button onClick={() => void handleLoadSavedAudit()} disabled={!selectedAuditToLoad} className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 disabled:opacity-50">Load Selected Audit</button>
+            </div>
+            <div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Facility Identity</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.facilityIdentity ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Reporting Comparison</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.reportingComparison ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Compliance Summary</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.complianceSummary ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Activity Indicators</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.activityIndicators ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Integrity Score & Risk Level</p><pre className="mt-1 overflow-auto">{JSON.stringify({ integrityScore: (evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.integrityScore, riskLevel: (evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.riskLevel }, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Claim Analysis</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.claimAnalysis ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Verification Summary</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.verificationSummary ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Data Sources</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.dataSources ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Limitations</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.limitations ?? null, null, 2)}</pre></div>
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700"><p className="font-semibold">Recommended Next Steps</p><pre className="mt-1 overflow-auto">{JSON.stringify((evidencePacketPreview ?? evidencePacket).hazardousWasteIntegrity?.recommendedNextSteps ?? null, null, 2)}</pre></div>
+            </div>
+            <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">{JSON.stringify(evidencePacketPreview ?? evidencePacket, null, 2)}</pre>
           </section>
         </main>
       </div>

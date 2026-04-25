@@ -38,6 +38,14 @@ type SearchParams = {
   limit?: number;
 };
 
+type ImportValidationSummary = {
+  imported: number;
+  warnings: string[];
+  acceptedRows: number;
+  rejectedRows: number;
+  missingRequiredFields: string[];
+};
+
 const aliasMap: Record<keyof Omit<CARBFacilityRecord, 'state' | 'sourceStatus' | 'datasetVersion' | 'retrievalDate' | 'dataSource'>, string[]> = {
   facilityId: ['facility_id', 'facilityid', 'arb id', 'arb_id', 'arbid'],
   facilityName: ['facility_name', 'facilityname'],
@@ -232,6 +240,21 @@ function normalizeRow(
   };
 }
 
+function validateImportRow(row: Record<string, unknown>): { missing: string[] } {
+  const missing: string[] = [];
+  const facilityId = String(getAliasedValue(row, aliasMap.facilityId) ?? '').trim();
+  const facilityName = String(getAliasedValue(row, aliasMap.facilityName) ?? '').trim();
+  const reportingYear = Number(getAliasedValue(row, aliasMap.reportingYear) ?? 0);
+  const totalCO2e = toNumOrNull(getAliasedValue(row, aliasMap.totalCO2e));
+
+  if (!facilityId) missing.push('facilityId');
+  if (!facilityName) missing.push('facilityName');
+  if (!Number.isFinite(reportingYear) || reportingYear <= 0) missing.push('reportingYear');
+  if (totalCO2e == null) missing.push('totalCO2e');
+
+  return { missing };
+}
+
 function applySearch(records: CARBFacilityRecord[], params: SearchParams): CARBFacilityRecord[] {
   const q = (params.q ?? '').toLowerCase().trim();
   const facilityId = (params.facilityId ?? '').toLowerCase().trim();
@@ -338,7 +361,7 @@ export async function searchCarbFacilityRecords(params: SearchParams): Promise<{
   return { results, count: results.length, sourceMode, warnings };
 }
 
-export async function importCarbDataset(input: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string }): Promise<{ imported: number; warnings: string[] }> {
+export async function importCarbDataset(input: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string }): Promise<ImportValidationSummary> {
   const warnings: string[] = [];
   const rows: Record<string, unknown>[] = [];
 
@@ -363,22 +386,51 @@ export async function importCarbDataset(input: { records?: unknown[]; csvText?: 
 
   if (!rows.length) {
     warnings.push('No rows provided for import.');
-    return { imported: 0, warnings };
+    return {
+      imported: 0,
+      warnings,
+      acceptedRows: 0,
+      rejectedRows: 0,
+      missingRequiredFields: [],
+    };
   }
 
-  importedRecords = rows.map((row) => normalizeRow(row, {
-    dataSource: 'Imported CARB dataset',
-    sourceUrl: input.sourceUrl ?? '',
-    datasetVersion: input.datasetVersion ?? `manual-import-${Date.now()}`,
-    retrievalDate: new Date().toISOString().slice(0, 10),
-    baseStatus: 'IMPORTED DATASET',
-  }));
+  const datasetVersion = input.datasetVersion ?? `manual-import-${Date.now()}`;
+  const retrievalDate = new Date().toISOString().slice(0, 10);
+  const accepted: CARBFacilityRecord[] = [];
+  const missingRequiredFields = new Set<string>();
+  let rejectedRows = 0;
+
+  rows.forEach((row, index) => {
+    const validation = validateImportRow(row);
+    if (validation.missing.length > 0) {
+      rejectedRows += 1;
+      validation.missing.forEach((field) => missingRequiredFields.add(field));
+      warnings.push(`Row ${index + 2} rejected: missing ${validation.missing.join(', ')}.`);
+      return;
+    }
+    accepted.push(normalizeRow(row, {
+      dataSource: 'Imported CARB dataset',
+      sourceUrl: input.sourceUrl ?? '',
+      datasetVersion,
+      retrievalDate,
+      baseStatus: 'IMPORTED DATASET',
+    }));
+  });
+
+  importedRecords = accepted;
   importedMeta = {
-    datasetVersion: input.datasetVersion ?? `manual-import-${Date.now()}`,
-    retrievalDate: new Date().toISOString().slice(0, 10),
+    datasetVersion,
+    retrievalDate,
   };
   importedBootstrapped = true;
-  return { imported: importedRecords.length, warnings };
+  return {
+    imported: importedRecords.length,
+    warnings,
+    acceptedRows: accepted.length,
+    rejectedRows,
+    missingRequiredFields: Array.from(missingRequiredFields),
+  };
 }
 
 export function getCarbImportMeta() {

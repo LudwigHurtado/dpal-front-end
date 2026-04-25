@@ -89,7 +89,7 @@ export async function searchCarbFacilities(params: Record<string, string>) {
 }
 
 export async function importCarbFacilities(payload: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string }) {
-  return requestJson<{ ok: true; imported: number; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' }>(
+  return requestJson<{ ok: true; imported: number; acceptedRows: number; rejectedRows: number; missingRequiredFields: string[]; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' }>(
     API_ROUTES.CARB_DATA_IMPORT,
     { method: 'POST', body: JSON.stringify(payload) },
   );

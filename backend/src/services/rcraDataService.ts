@@ -40,23 +40,41 @@ type SearchParams = {
   q?: string;
   epaId?: string;
   facilityName?: string;
+  parentCompany?: string;
+  frsId?: string;
   city?: string;
   county?: string;
   state?: string;
+  zip?: string;
   generatorStatus?: string;
+  permitStatus?: string;
   reportingYear?: number;
   naicsCode?: string;
   limit?: number;
 };
 
+type LayerType = 'facility_master' | 'biennial_report' | 'compliance' | 'permit' | 'manifest' | 'evidence';
+
+type LayerImportInput = {
+  records?: unknown[];
+  csvText?: string;
+  jsonText?: string;
+  datasetVersion?: string;
+  sourceUrl?: string;
+  dataType?: string;
+};
+
 const aliasMap: Record<string, string[]> = {
   epaId: ['epa_id', 'epa id'],
+  frsId: ['frs_id', 'frs id'],
   facilityName: ['facility_name', 'facility name'],
   operatorName: ['operator_name', 'handler name', 'operator name'],
+  parentCompany: ['parent_company', 'parent company', 'company_name', 'company name'],
   address: ['address', 'street address'],
   city: ['city'],
   county: ['county'],
   state: ['state'],
+  zip: ['zip', 'zip_code', 'postal_code', 'postal code'],
   latitude: ['latitude', 'lat'],
   longitude: ['longitude', 'lng', 'lon'],
   naicsCode: ['naics_code', 'naics code'],
@@ -171,6 +189,14 @@ const demoFallback: RcraFacilityRecord[] = [
 let importedRecords: RcraFacilityRecord[] = [];
 let importedMeta = { datasetVersion: 'import-not-loaded', retrievalDate: new Date().toISOString().slice(0, 10) };
 let importedBootstrapped = false;
+const layeredStore: Record<LayerType, Record<string, Record<string, unknown>>> = {
+  facility_master: {},
+  biennial_report: {},
+  compliance: {},
+  permit: {},
+  manifest: {},
+  evidence: {},
+};
 
 const normalizeKey = (value: string) => value.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 const toNum = (value: unknown): number | null => {
@@ -276,16 +302,63 @@ function normalizeRow(row: Record<string, unknown>, sourceInfo: { dataSource: st
   };
 }
 
+function buildLayerKey(row: Record<string, unknown>, fallbackIndex: number): string {
+  const epa = String(getAliasedValue(row, aliasMap.epaId) ?? '').trim();
+  const year = String(getAliasedValue(row, aliasMap.reportingYear) ?? '').trim();
+  return [epa || `MISSING_${fallbackIndex}`, year || 'all'].join('__');
+}
+
+function toLayerType(value: unknown): LayerType {
+  const raw = String(value ?? '').trim().toLowerCase();
+  if (raw === 'biennial_report') return 'biennial_report';
+  if (raw === 'compliance') return 'compliance';
+  if (raw === 'permit') return 'permit';
+  if (raw === 'manifest') return 'manifest';
+  if (raw === 'evidence') return 'evidence';
+  return 'facility_master';
+}
+
+function aggregateLayeredRecords(sourceInfo: { datasetVersion: string; retrievalDate: string; sourceUrl?: string }): RcraFacilityRecord[] {
+  const keys = new Set<string>();
+  (Object.keys(layeredStore) as LayerType[]).forEach((layer) => {
+    Object.keys(layeredStore[layer]).forEach((key) => keys.add(key));
+  });
+  const output: RcraFacilityRecord[] = [];
+  keys.forEach((key) => {
+    const facility = layeredStore.facility_master[key] ?? {};
+    const biennial = layeredStore.biennial_report[key] ?? {};
+    const compliance = layeredStore.compliance[key] ?? {};
+    const permit = layeredStore.permit[key] ?? {};
+    const manifest = layeredStore.manifest[key] ?? {};
+    const evidence = layeredStore.evidence[key] ?? {};
+    const merged = { ...facility, ...biennial, ...compliance, ...permit, ...manifest, ...evidence };
+    output.push(
+      normalizeRow(merged, {
+        dataSource: 'Imported layered RCRA datasets',
+        sourceUrl: sourceInfo.sourceUrl,
+        datasetVersion: sourceInfo.datasetVersion,
+        retrievalDate: sourceInfo.retrievalDate,
+        baseStatus: 'IMPORTED DATASET',
+      }),
+    );
+  });
+  return output;
+}
+
 function applySearch(records: RcraFacilityRecord[], params: SearchParams): RcraFacilityRecord[] {
   const q = (params.q ?? '').toLowerCase().trim();
   const limit = Math.min(Math.max(params.limit ?? 50, 1), 500);
   const filtered = records.filter((record) => {
     if (params.epaId && !record.epaId.toLowerCase().includes(params.epaId.toLowerCase())) return false;
     if (params.facilityName && !record.facilityName.toLowerCase().includes(params.facilityName.toLowerCase())) return false;
+    if (params.parentCompany && !record.operatorName.toLowerCase().includes(params.parentCompany.toLowerCase())) return false;
+    if (params.frsId && !record.dataSource.toLowerCase().includes(params.frsId.toLowerCase())) return false;
     if (params.city && !record.city.toLowerCase().includes(params.city.toLowerCase())) return false;
     if (params.county && !record.county.toLowerCase().includes(params.county.toLowerCase())) return false;
     if (params.state && !record.state.toLowerCase().includes(params.state.toLowerCase())) return false;
+    if (params.zip && !record.address.toLowerCase().includes(params.zip.toLowerCase())) return false;
     if (params.generatorStatus && record.generatorStatus.toLowerCase() !== params.generatorStatus.toLowerCase()) return false;
+    if (params.permitStatus && !record.permitStatus.toLowerCase().includes(params.permitStatus.toLowerCase())) return false;
     if (params.naicsCode && !record.naicsCode.toLowerCase().includes(params.naicsCode.toLowerCase())) return false;
     if (params.reportingYear && record.reportingYear !== params.reportingYear) return false;
     if (q) {
@@ -322,17 +395,14 @@ async function loadImportedFromDiskIfAny(): Promise<void> {
         ? (Array.isArray(JSON.parse(text)) ? JSON.parse(text) : [])
         : csvToRows(text);
       for (const row of rows) {
-        out.push(normalizeRow(row, {
-          dataSource: `Imported RCRA dataset (${file})`,
-          sourceUrl: '',
-          datasetVersion: `import-${file}`,
-          retrievalDate: new Date().toISOString().slice(0, 10),
-          baseStatus: 'IMPORTED DATASET',
-        }));
+        const layer = toLayerType((row as { dataType?: unknown }).dataType ?? (file.includes('biennial') ? 'biennial_report' : file.includes('permit') ? 'permit' : file.includes('compliance') ? 'compliance' : file.includes('manifest') ? 'manifest' : file.includes('evidence') ? 'evidence' : 'facility_master'));
+        const key = buildLayerKey(row, out.length);
+        layeredStore[layer][key] = { ...(layeredStore[layer][key] ?? {}), ...row };
       }
     }
-    if (out.length) {
-      importedRecords = out;
+    const aggregated = aggregateLayeredRecords({ datasetVersion: `import-batch-${Date.now()}`, retrievalDate: new Date().toISOString().slice(0, 10) });
+    if (aggregated.length) {
+      importedRecords = aggregated;
       importedMeta = { datasetVersion: `import-batch-${Date.now()}`, retrievalDate: new Date().toISOString().slice(0, 10) };
     }
   } catch {
@@ -386,7 +456,7 @@ export async function searchRcraFacilityRecords(params: SearchParams): Promise<{
   return { results, count: results.length, sourceMode, warnings };
 }
 
-export async function importRcraDataset(input: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string }): Promise<{ imported: number; warnings: string[] }> {
+export async function importRcraDataset(input: LayerImportInput): Promise<{ imported: number; warnings: string[] }> {
   const warnings: string[] = [];
   const rows: Record<string, unknown>[] = [];
   if (Array.isArray(input.records)) rows.push(...(input.records as Record<string, unknown>[]));
@@ -401,15 +471,16 @@ export async function importRcraDataset(input: { records?: unknown[]; csvText?: 
     }
   }
   if (!rows.length) return { imported: 0, warnings: [...warnings, 'No rows provided for import.'] };
-  importedRecords = rows.map((row) =>
-    normalizeRow(row, {
-      dataSource: 'Imported RCRA dataset',
-      sourceUrl: input.sourceUrl ?? '',
-      datasetVersion: input.datasetVersion ?? `manual-import-${Date.now()}`,
-      retrievalDate: new Date().toISOString().slice(0, 10),
-      baseStatus: 'IMPORTED DATASET',
-    }),
-  );
+  const dataType = toLayerType(input.dataType);
+  rows.forEach((row, index) => {
+    const key = buildLayerKey(row, index);
+    layeredStore[dataType][key] = { ...(layeredStore[dataType][key] ?? {}), ...row };
+  });
+  importedRecords = aggregateLayeredRecords({
+    sourceUrl: input.sourceUrl ?? '',
+    datasetVersion: input.datasetVersion ?? `manual-import-${Date.now()}`,
+    retrievalDate: new Date().toISOString().slice(0, 10),
+  });
   importedMeta = {
     datasetVersion: input.datasetVersion ?? `manual-import-${Date.now()}`,
     retrievalDate: new Date().toISOString().slice(0, 10),

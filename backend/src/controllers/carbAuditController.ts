@@ -112,6 +112,9 @@ export async function importCarbData(req: Request, res: Response): Promise<void>
   res.status(201).json({
     ok: true,
     imported: imported.imported,
+    acceptedRows: imported.acceptedRows,
+    rejectedRows: imported.rejectedRows,
+    missingRequiredFields: imported.missingRequiredFields,
     warnings: imported.warnings,
     sourceMode: imported.imported > 0 ? 'IMPORTED' : 'DEMO_FALLBACK',
   });

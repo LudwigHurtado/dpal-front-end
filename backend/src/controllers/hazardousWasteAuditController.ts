@@ -13,6 +13,11 @@ import { getRcraImportMeta, importRcraDataset, searchRcraFacilityRecords } from 
 const prismaDb = prisma as any;
 const toJson = (value: unknown): Prisma.InputJsonValue => value as Prisma.InputJsonValue;
 const memoryAudits = new Map<string, any>();
+const debugLog = (message: string, payload?: unknown) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`[haz-waste-audit] ${message}`, payload ?? '');
+  }
+};
 
 const isAdmin = (req: Request) => req.dpalUser?.role === DpalUserRole.admin;
 const toRisk = (value: string): 'low' | 'medium' | 'high' | 'needs_more_data' => {
@@ -114,7 +119,7 @@ function toDbData(auditId: string, userId: string, payload: HazardousWasteAuditP
     payload.baselineManifestCount > 0
       ? ((payload.baselineManifestCount - payload.currentManifestCount) / payload.baselineManifestCount) * 100
       : null;
-  return {
+  const dbData = {
     id: auditId,
     userId,
     epaId: payload.epaId,
@@ -165,6 +170,8 @@ function toDbData(auditId: string, userId: string, payload: HazardousWasteAuditP
     deletedAt: null,
     updatedAt: new Date(),
   };
+  debugLog('evidence packet saved', { auditId, sourceMode: payload.sourceMode });
+  return dbData;
 }
 
 export async function getRcraDataHealth(_req: Request, res: Response): Promise<void> {
@@ -176,10 +183,14 @@ export async function searchRcraData(req: Request, res: Response): Promise<void>
     q: String(req.query.q ?? ''),
     epaId: String(req.query.epaId ?? ''),
     facilityName: String(req.query.facilityName ?? ''),
+    parentCompany: String(req.query.parentCompany ?? ''),
+    frsId: String(req.query.frsId ?? ''),
     city: String(req.query.city ?? ''),
     county: String(req.query.county ?? ''),
     state: String(req.query.state ?? ''),
+    zip: String(req.query.zip ?? ''),
     generatorStatus: String(req.query.generatorStatus ?? ''),
+    permitStatus: String(req.query.permitStatus ?? ''),
     reportingYear: Number(req.query.reportingYear || 0) || undefined,
     naicsCode: String(req.query.naicsCode ?? ''),
     limit: Number(req.query.limit || 50) || 50,
@@ -203,6 +214,7 @@ export async function importRcraData(req: Request, res: Response): Promise<void>
     jsonText: typeof req.body?.jsonText === 'string' ? req.body.jsonText : undefined,
     datasetVersion: typeof req.body?.datasetVersion === 'string' ? req.body.datasetVersion : undefined,
     sourceUrl: typeof req.body?.sourceUrl === 'string' ? req.body.sourceUrl : undefined,
+    dataType: typeof req.body?.dataType === 'string' ? req.body.dataType : undefined,
   });
   res.status(201).json({ ok: true, imported: imported.imported, warnings: imported.warnings, sourceMode: imported.imported > 0 ? 'IMPORTED' : 'DEMO_FALLBACK' });
 }
@@ -273,6 +285,7 @@ export async function exportHazardousWasteAudit(req: Request, res: Response): Pr
     return;
   }
   const id = parsed.data.id ?? paramId(req);
+  debugLog('evidence packet export requested', { auditId: id });
   const memory = memoryAudits.get(id);
   if (memory) {
     if (memory.userId !== req.dpalUser!.id && !isAdmin(req)) {
@@ -303,6 +316,74 @@ export async function recalculateHazardousWasteAudit(req: Request, res: Response
   const discrepancy = Math.abs(wasteChange - manifestChange);
   const score = Math.min(100, Math.max(0, Math.round(discrepancy + Number(existing.violationsCount || 0) * 6 + Number(existing.enforcementActionsCount || 0) * 8)));
   const riskLevel = score <= 25 ? 'Low' : score <= 60 ? 'Medium' : 'High';
+  const previousPacketHistory = existing.evidencePacketJson?.packetHistory ?? {};
+  const previousEvents = Array.isArray(previousPacketHistory.events) ? previousPacketHistory.events : [];
+  const packetHistory = {
+    status: 'Regenerated',
+    source: 'Recalculation API',
+    lastGeneratedAt: new Date().toISOString(),
+    lastSavedAt: previousPacketHistory.lastSavedAt ?? null,
+    lastExportedAt: previousPacketHistory.lastExportedAt ?? null,
+    auditId: existing.id,
+    version: (existing.version ?? 1) + 1,
+    events: [
+      {
+        action: 'Recalculated',
+        timestamp: new Date().toISOString(),
+        source: 'Recalculation API',
+        auditId: existing.id,
+      },
+      ...previousEvents,
+    ].slice(0, 3),
+  };
+  const regeneratedEvidencePacket = {
+    packetHistory,
+    hazardousWasteIntegrity: {
+      facilityIdentity: {
+        epaId: existing.epaId,
+        facilityName: existing.facilityName,
+        operatorName: existing.operatorName,
+        city: existing.city,
+        county: existing.county,
+        state: existing.state,
+      },
+      reportingComparison: {
+        baselineYear: existing.baselineYear,
+        currentYear: existing.currentYear,
+        baselineHazardousWasteTons: existing.baselineHazardousWasteTons,
+        currentHazardousWasteTons: existing.currentHazardousWasteTons,
+        baselineManifestCount: existing.baselineManifestCount,
+        currentManifestCount: existing.currentManifestCount,
+        wasteChangePct: wasteChange,
+        manifestChangePct: manifestChange,
+      },
+      complianceSummary: {
+        permitStatus: existing.permitStatus,
+        complianceStatus: existing.complianceStatus,
+        correctiveActionStatus: existing.correctiveActionStatus,
+        violationsCount: existing.violationsCount,
+        enforcementActionsCount: existing.enforcementActionsCount,
+      },
+      activityIndicators: {
+        activityDiscrepancy: existing.activityDiscrepancy ?? null,
+      },
+      integrityScore: score,
+      riskLevel,
+      claimAnalysis: existing.claimAnalysisJson ?? null,
+      verificationSummary: existing.verificationSummaryJson ?? null,
+      sourceMode: existing.sourceMode,
+      dataSources: existing.dataSourcesJson ?? [],
+      limitations: existing.netCarbonRealityJson?.limitations ?? [],
+      recommendedNextSteps: existing.netCarbonRealityJson?.recommendedNextSteps ?? [],
+      packetHistory,
+      generatedAt: new Date().toISOString(),
+      dpalLedgerPlaceholder: { status: 'not_connected' },
+      checksumPlaceholder: 'pending-checksum',
+    },
+    auditId: existing.id,
+    module: 'Hazardous Waste Integrity Audit',
+    generatedAt: new Date().toISOString(),
+  };
   const updated = {
     ...existing,
     complianceRiskScore: score,
@@ -310,9 +391,11 @@ export async function recalculateHazardousWasteAudit(req: Request, res: Response
     wasteChangePct: wasteChange,
     manifestChangePct: manifestChange,
     riskLevel: toRisk(riskLevel),
+    evidencePacketJson: regeneratedEvidencePacket,
     version: (existing.version ?? 1) + 1,
     updatedAt: new Date(),
   };
+  debugLog('evidence packet generated', { auditId: existing.id, event: 'recalculate' });
   if (prismaDb.hazardousWasteAudit) {
     const dbUpdated = await prismaDb.hazardousWasteAudit.update({ where: { id: existing.id }, data: updated });
     res.json({ ok: true, auditId: dbUpdated.id, audit: dbUpdated });
