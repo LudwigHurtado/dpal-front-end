@@ -140,6 +140,9 @@ const PrimaryNavModule: React.FC<{
                 >
                     {label}
                 </h3>
+                <p className="mt-3 text-xs leading-relaxed text-slate-200/90 drop-shadow-[0_1px_4px_rgba(0,0,0,0.8)]">
+                    {subLabel}
+                </p>
             </div>
 
             <div className={`absolute bottom-6 right-6 text-${colorClass}-500 opacity-0 group-hover:opacity-100 transition-all translate-x-4 group-hover:translate-x-0 duration-500`}>
@@ -351,81 +354,34 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('politicianTransparency')}
                 />
 
-                <PrimaryNavModule
-                    icon={<Globe className="w-8 h-8" />}
-                    label="Green Impact"
-                    subLabel="Climate projects you can follow with confidence"
-                    status="Open"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
-                    onClick={() => onNavigate('offsetMarketplace')}
-                />
+                <div className="sm:col-span-2 lg:col-span-4 mt-2 mb-1 rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-5 md:p-7">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Environmental Intelligence Hub</p>
+                    <h2 className="mt-2 text-2xl md:text-3xl font-black tracking-tight text-white">Environmental Intelligence Hub</h2>
+                    <p className="mt-2 text-sm md:text-base text-slate-200">
+                        Monitor conditions, verify claims, run audits, and generate evidence-backed environmental reports.
+                    </p>
+                </div>
+
+                <div className="sm:col-span-2 lg:col-span-4 mt-1">
+                    <h3 className="text-base md:text-lg font-bold text-cyan-200">Monitoring &amp; Remote Sensing</h3>
+                    <p className="mt-1 text-xs md:text-sm text-slate-300">Observe environmental conditions using satellite, sensor, and geospatial data.</p>
+                </div>
 
                 <PrimaryNavModule
                     icon={<Globe className="w-8 h-8" />}
                     label="Earth Observation"
-                    subLabel="LEO satellite analysis for environment and civic signals"
-                    status="New"
+                    subLabel="LEO satellite analysis for environment and civic signals."
+                    status="Monitoring"
                     colorClass="sky"
                     bgImageUrl="/main-screen/satellite-water-analysis.png"
                     onClick={() => onNavigate('earthObservation')}
                 />
 
                 <PrimaryNavModule
-                    icon={<Globe className="w-8 h-8" />}
-                    label="Ecological Conservation"
-                    subLabel="Landsat 9 OLI-2 foliage and habitat monitoring"
-                    status="New"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
-                    onClick={() => onNavigate('ecologicalConservation')}
-                />
-
-                <PrimaryNavModule
-                    icon={<Globe className="w-8 h-8" />}
-                    label="DPAL Carbon"
-                    subLabel="17 carbon methodologies, impact map, credit calculator, and MRV pipeline"
-                    status="CARBON"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
-                    onClick={() => onNavigate('dpalCarbon')}
-                />
-
-                <PrimaryNavModule
-                    icon={<ShieldCheck className="w-8 h-8" />}
-                    label="Forest Integrity"
-                    subLabel="AFOLU projects, missions, proof, monitoring, and buyer reports"
-                    status="AFOLU"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
-                    onClick={() => onNavigate('afoluEngine')}
-                />
-
-                <PrimaryNavModule
-                    icon={<Globe className="w-8 h-8" />}
-                    label="Carbon MRV Engine"
-                    subLabel="Register land · Monitor · Verify · Issue credits"
-                    status="New"
-                    colorClass="teal"
-                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
-                    onClick={() => onNavigate('carbonMRV')}
-                />
-
-                <PrimaryNavModule
-                    icon={<Activity className="w-8 h-8" />}
-                    label="Global Signals"
-                    subLabel="USGS · NASA EONET · OpenAQ · live hazard feeds · mission conversion"
-                    status="Live"
-                    colorClass="amber"
-                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
-                    onClick={() => onNavigate('globalSignals')}
-                />
-
-                <PrimaryNavModule
                     icon={<Waves className="w-8 h-8" />}
                     label="Water Satellite Monitor"
-                    subLabel="Live SMAP · SWOT · GRACE-FO · GIBS · Copernicus readings"
-                    status="Live"
+                    subLabel="Live SMAP, SWOT, GRACE-FO, GIBS, and Copernicus readings."
+                    status="Monitoring"
                     colorClass="sky"
                     bgImageUrl="/main-screen/water-project-monitoring.png"
                     onClick={() => onNavigate('waterMonitor')}
@@ -434,8 +390,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 <PrimaryNavModule
                     icon={<Activity className="w-8 h-8" />}
                     label="Air Quality Control"
-                    subLabel="OpenAQ · CO₂ · CH₄ · NO₂ · AQI live readings"
-                    status="Live"
+                    subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings."
+                    status="Monitoring"
                     colorClass="sky"
                     bgImageUrl="/main-screen/satellite-water-analysis.png"
                     onClick={() => onNavigate('airQualityMonitor')}
@@ -443,8 +399,38 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<ShieldCheck className="w-8 h-8" />}
-                    label="Emissions Integrity Audit"
-                    subLabel="Verify emissions-reduction claims against regulatory, satellite, and activity evidence"
+                    label="Forest Integrity"
+                    subLabel="AFOLU projects, monitoring, mission evidence, and buyer-grade reports."
+                    status="Monitoring"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('afoluEngine')}
+                />
+
+                <div className="sm:col-span-2 lg:col-span-4 mt-3">
+                    <h3 className="text-base md:text-lg font-bold text-emerald-200">Carbon &amp; MRV</h3>
+                    <p className="mt-1 text-xs md:text-sm text-slate-300">Measure, calculate, verify, and explain carbon impacts.</p>
+                </div>
+
+                <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
+                    label="Carbon Intelligence & MRV"
+                    subLabel="Includes Carbon Overview, MRV Calculations, Verification, and VIU / Impact Units."
+                    status="MRV"
+                    colorClass="teal"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('dpalCarbon')}
+                />
+
+                <div className="sm:col-span-2 lg:col-span-4 mt-3">
+                    <h3 className="text-base md:text-lg font-bold text-emerald-200">Compliance &amp; Audits</h3>
+                    <p className="mt-1 text-xs md:text-sm text-slate-300">Compare reported data against evidence, detect discrepancies, and export audit packets.</p>
+                </div>
+
+                <PrimaryNavModule
+                    icon={<ShieldCheck className="w-8 h-8" />}
+                    label="Emissions Audit"
+                    subLabel="Modes: General Emissions Integrity and CARB California Audit (deep link preserved at /carb-emissions-audit)."
                     status="Audit"
                     colorClass="emerald"
                     bgImageUrl="/main-screen/land-mineral-monitoring.png"
@@ -453,22 +439,52 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<ShieldCheck className="w-8 h-8" />}
-                    label="CARB Emissions Audit"
-                    subLabel="California facility emissions reporting, reduction review, and discrepancy analysis."
-                    status="CARB"
-                    colorClass="emerald"
-                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
-                    onClick={() => onNavigate('carbEmissionsAudit')}
-                />
-
-                <PrimaryNavModule
-                    icon={<ShieldCheck className="w-8 h-8" />}
                     label="Hazardous Waste Integrity Audit"
                     subLabel="RCRA facility reporting, permit, compliance, and waste activity review."
-                    status="RCRA"
+                    status="Audit"
                     colorClass="emerald"
                     bgImageUrl="/main-screen/land-mineral-monitoring.png"
                     onClick={() => onNavigate('hazardousWasteAudit')}
+                />
+
+                <div className="sm:col-span-2 lg:col-span-4 mt-3">
+                    <h3 className="text-base md:text-lg font-bold text-emerald-200">Ecosystem &amp; Impact</h3>
+                    <p className="mt-1 text-xs md:text-sm text-slate-300">Track conservation outcomes, environmental projects, and public-facing impact summaries.</p>
+                </div>
+
+                <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
+                    label="Ecological Conservation"
+                    subLabel="Landsat 9 OLI-2 foliage and habitat monitoring."
+                    status="Impact"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/land-mineral-monitoring.png"
+                    onClick={() => onNavigate('ecologicalConservation')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Globe className="w-8 h-8" />}
+                    label="Impact Dashboard"
+                    subLabel="Climate projects and outcomes you can follow with confidence."
+                    status="Impact"
+                    colorClass="emerald"
+                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    onClick={() => onNavigate('offsetMarketplace')}
+                />
+
+                <div className="sm:col-span-2 lg:col-span-4 mt-3">
+                    <h3 className="text-base md:text-lg font-bold text-amber-200">Signals &amp; Intelligence</h3>
+                    <p className="mt-1 text-xs md:text-sm text-slate-300">Detect cross-domain anomalies, alerts, and environmental intelligence signals.</p>
+                </div>
+
+                <PrimaryNavModule
+                    icon={<Activity className="w-8 h-8" />}
+                    label="Global Environmental Signals"
+                    subLabel="USGS, NASA EONET, OpenAQ, live hazard feeds, and mission conversion."
+                    status="Signals"
+                    colorClass="amber"
+                    bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png"
+                    onClick={() => onNavigate('globalSignals')}
                 />
 
                 <PrimaryNavModule

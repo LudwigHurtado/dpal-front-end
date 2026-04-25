@@ -116,8 +116,13 @@ import {
 import EmissionsIntegrityAuditPage from './src/features/emissionsIntegrity/EmissionsIntegrityAuditPage';
 import CarbEmissionsAuditPage from './src/features/carbEmissionsAudit/CarbEmissionsAuditPage';
 import HazardousWasteAuditPage from './src/features/hazardousWasteAudit/HazardousWasteAuditPage';
+import EnvironmentalCommandCenter from './src/features/environmentalPreview/EnvironmentalCommandCenter';
+import EnvironmentalIntelligenceHub from './src/features/environmentalPreview/EnvironmentalIntelligenceHub';
+import GenericEnvironmentalModule from './src/features/environmentalPreview/GenericEnvironmentalModule';
+import FuelStorageAuditPage from './src/features/environmentalPreview/FuelStorageAuditPage';
+import EvidencePacketViewer from './src/features/environmentalPreview/EvidencePacketViewer';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -331,6 +336,10 @@ const getInitialHeroLocation = (reports: Report[]): string => {
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const previewModuleType = useMemo(() => {
+    const m = location.pathname.match(/^\/preview\/module-preview\/([^/]+)$/);
+    return m?.[1] ? decodeURIComponent(m[1]) : 'environmental-module';
+  }, [location.pathname]);
   const [reports, setReports] = useState<Report[]>(getInitialReports);
   const [currentView, setCurrentView] = useState<View>(getInitialCurrentView);
   const [prevView, setPrevView] = useState<View>('mainMenu');
@@ -2409,6 +2418,42 @@ const App: React.FC = () => {
         {currentView === 'globalSignals' && (
           <GlobalSignalsView
             onReturn={() => goBack('mainMenu')}
+          />
+        )}
+
+        {currentView === 'previewEnvironmentalCommandCenter' && (
+          <EnvironmentalCommandCenter
+            activePath={location.pathname}
+            onNavigatePath={(path) => navigate(path)}
+          />
+        )}
+
+        {currentView === 'previewEnvironmentalIntelligenceHub' && (
+          <EnvironmentalIntelligenceHub
+            activePath={location.pathname}
+            onNavigatePath={(path) => navigate(path)}
+          />
+        )}
+
+        {currentView === 'previewFuelStorageAudit' && (
+          <FuelStorageAuditPage
+            activePath={location.pathname}
+            onNavigatePath={(path) => navigate(path)}
+          />
+        )}
+
+        {currentView === 'previewEvidencePacket' && (
+          <EvidencePacketViewer
+            activePath={location.pathname}
+            onNavigatePath={(path) => navigate(path)}
+          />
+        )}
+
+        {currentView === 'previewModule' && (
+          <GenericEnvironmentalModule
+            activePath={location.pathname}
+            moduleType={previewModuleType}
+            onNavigatePath={(path) => navigate(path)}
           />
         )}
       </main>

@@ -86,6 +86,11 @@ export const VIEW_PATHS: Record<string, string> = {
   emissionsIntegrityAudit: '/emissions-integrity-audit',
   carbEmissionsAudit: '/carb-emissions-audit',
   hazardousWasteAudit: '/hazardous-waste-audit',
+  previewEnvironmentalCommandCenter: '/preview/environmental-command-center',
+  previewEnvironmentalIntelligenceHub: '/preview/environmental-intelligence-hub',
+  previewFuelStorageAudit: '/preview/fuel-storage-audit',
+  previewEvidencePacket: '/preview/evidence-packet',
+  previewModule: '/preview/module-preview',
 };
 
 export function viewToPath(view: string): string {
@@ -100,6 +105,7 @@ export function pathToView(pathname: string): string | null {
   /** Legacy AFOLU paths kept for backwards-compatible deep links/bookmarks. */
   if (normalized === '/aflu' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
   if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
+  if (/^\/preview\/module-preview\/[^/]+$/.test(normalized)) return 'previewModule';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';
     return seg === normalized;
