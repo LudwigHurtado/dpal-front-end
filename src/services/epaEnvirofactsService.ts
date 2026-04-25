@@ -2,9 +2,10 @@ import type { EpaFacilityProfile, EpaFilters, EpaGasRecord, EpaSearchResponse } 
 import { buildEpaFilteredUrl, buildEpaMultiFilterUrl, buildEpaTableUrl } from '../utils/epaApiBuilder';
 import { buildFacilityProfiles, normalizeEmissionRow, normalizeFacilityRow, normalizeGasRow } from './epaNormalizer';
 
-const FACILITY_TABLE = 'PUB_DIM_FACILITY';
-const EMISSIONS_TABLE = 'PUB_FACTS_SUBP_GHG_EMISSION';
-const GASES_TABLE = 'PUB_DIM_GHG';
+/** GHGRP tables must use program-qualified names per EPA Envirofacts Data Service API. */
+const FACILITY_TABLE = 'ghg.PUB_DIM_FACILITY';
+const EMISSIONS_TABLE = 'ghg.PUB_FACTS_SUBP_GHG_EMISSION';
+const GASES_TABLE = 'ghg.PUB_DIM_GHG';
 const LEGAL_NOTICE =
   'Source: U.S. EPA Envirofacts / GHGRP public data. Status: Official reported data, not an independent DPAL accusation.';
 
@@ -52,34 +53,49 @@ const MOCK_FALLBACK_RESPONSE: EpaSearchResponse = {
     `${LEGAL_NOTICE} Mock fallback is shown because the live EPA service could not be reached.`,
 };
 
+function cleanField(value: string): string {
+  return value.replace(/,+$/g, '').trim();
+}
+
+/** 1-based inclusive row range for a page (EPA first index is 1). */
+function pageToRange(page: number, pageSize: number): { first: number; last: number } {
+  const p = Math.max(1, page);
+  const size = Math.max(1, Math.min(100, pageSize));
+  const first = (p - 1) * size + 1;
+  const last = p * size;
+  return { first, last };
+}
+
 async function fetchJsonRows(url: string): Promise<Record<string, unknown>[]> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`EPA request failed (${response.status})`);
   }
-  const payload = await response.json();
-  return Array.isArray(payload) ? payload : [];
+  const payload: unknown = await response.json();
+  if (payload && typeof payload === 'object' && !Array.isArray(payload) && 'error' in (payload as object)) {
+    throw new Error(`EPA API error: ${JSON.stringify((payload as { error?: unknown }).error)}`);
+  }
+  return Array.isArray(payload) ? (payload as Record<string, unknown>[]) : [];
 }
 
-function buildFacilityUrl(filters: EpaFilters, startRow: number, endRow: number): string {
-  const exactFilters = [
-    filters.state ? { field: 'STATE', operator: 'equals' as const, value: filters.state } : null,
-    filters.city ? { field: 'CITY', operator: 'equals' as const, value: filters.city } : null,
-    filters.county ? { field: 'COUNTY', operator: 'equals' as const, value: filters.county } : null,
-    filters.zip ? { field: 'ZIP', operator: 'equals' as const, value: filters.zip } : null,
-    filters.year ? { field: 'YEAR', operator: 'equals' as const, value: filters.year } : null,
-  ].filter(Boolean) as Array<{ field: string; operator: 'equals'; value: string }>;
+function buildFacilityUrl(filters: EpaFilters, first: number, last: number): string {
+  const exactFilters: Array<{ field: string; operator: 'equals'; value: string }> = [];
+  if (filters.state) exactFilters.push({ field: 'state', operator: 'equals', value: cleanField(filters.state) });
+  if (filters.city) exactFilters.push({ field: 'city', operator: 'equals', value: cleanField(filters.city) });
+  if (filters.county) exactFilters.push({ field: 'county', operator: 'equals', value: cleanField(filters.county) });
+  if (filters.zip) exactFilters.push({ field: 'zip', operator: 'equals', value: cleanField(filters.zip) });
+  if (filters.year) exactFilters.push({ field: 'year', operator: 'equals', value: cleanField(filters.year) });
 
   if (exactFilters.length > 0) {
-    return buildEpaMultiFilterUrl(FACILITY_TABLE, exactFilters, startRow, endRow);
+    return buildEpaMultiFilterUrl(FACILITY_TABLE, exactFilters, first, last);
   }
   if (filters.facilityName) {
-    return buildEpaFilteredUrl(FACILITY_TABLE, 'FACILITY_NAME', 'contains', filters.facilityName, startRow, endRow);
+    return buildEpaFilteredUrl(FACILITY_TABLE, 'facility_name', 'contains', filters.facilityName, first, last);
   }
   if (filters.parentCompany) {
-    return buildEpaFilteredUrl(FACILITY_TABLE, 'PARENT_COMPANY', 'contains', filters.parentCompany, startRow, endRow);
+    return buildEpaFilteredUrl(FACILITY_TABLE, 'parent_company', 'contains', filters.parentCompany, first, last);
   }
-  return buildEpaTableUrl(FACILITY_TABLE, startRow, endRow);
+  return buildEpaTableUrl(FACILITY_TABLE, first, last);
 }
 
 function pickGasIdFromFilter(filters: EpaFilters, gases: EpaGasRecord[]): string | null {
@@ -122,7 +138,7 @@ function applyClientFiltering(rows: EpaFacilityProfile[], filters: EpaFilters): 
 
 export async function fetchEpaGases(): Promise<EpaGasRecord[]> {
   try {
-    const rows = await fetchJsonRows(buildEpaTableUrl(GASES_TABLE, 0, 200));
+    const rows = await fetchJsonRows(buildEpaTableUrl(GASES_TABLE, 1, 200));
     return rows.map(normalizeGasRow);
   } catch {
     return MOCK_GASES;
@@ -132,22 +148,22 @@ export async function fetchEpaGases(): Promise<EpaGasRecord[]> {
 export async function fetchEpaFacilityProfiles(filters: EpaFilters): Promise<EpaSearchResponse> {
   const page = Math.max(1, filters.page);
   const pageSize = Math.max(1, Math.min(100, filters.pageSize));
-  const startRow = (page - 1) * pageSize;
-  const endRow = startRow + pageSize;
+  const { first, last } = pageToRange(page, pageSize);
 
   try {
     const gases = await fetchEpaGases();
-    const facilityRows = await fetchJsonRows(buildFacilityUrl(filters, startRow, endRow));
-    const facilities = facilityRows.map(normalizeFacilityRow);
+    const facilityRows = await fetchJsonRows(buildFacilityUrl(filters, first, last));
+    const facilities = facilityRows.map(normalizeFacilityRow).filter((f) => f.facilityId);
 
     const gasIdFilter = pickGasIdFromFilter(filters, gases);
     const emissionsUrl = filters.year
-      ? buildEpaFilteredUrl(EMISSIONS_TABLE, 'YEAR', 'equals', filters.year, 0, 5000)
-      : buildEpaTableUrl(EMISSIONS_TABLE, 0, 5000);
+      ? buildEpaFilteredUrl(EMISSIONS_TABLE, 'year', 'equals', cleanField(filters.year), 1, 5000)
+      : buildEpaTableUrl(EMISSIONS_TABLE, 1, 3000);
     const emissionsRows = await fetchJsonRows(emissionsUrl);
+    const facilityIdSet = new Set(facilities.map((f) => f.facilityId));
     const emissions = emissionsRows.map(normalizeEmissionRow).filter((item) => {
       if (!item.facilityId) return false;
-      if (!facilities.some((facility) => facility.facilityId === item.facilityId)) return false;
+      if (!facilityIdSet.has(item.facilityId)) return false;
       if (gasIdFilter && item.gasId !== gasIdFilter) return false;
       return true;
     });

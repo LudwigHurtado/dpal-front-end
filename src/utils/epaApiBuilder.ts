@@ -6,31 +6,35 @@ function encodeSegment(value: string): string {
   return encodeURIComponent(value.trim());
 }
 
-export function buildEpaTableUrl(table: string, startRow: number, endRow: number): string {
-  return `${EPA_BASE_URL}/${table}/ROWS/${startRow}:${endRow}/JSON`;
+/**
+ * Envirofacts URL shape (see https://www.epa.gov/enviro/envirofacts-data-service-api):
+ *   [table]/[column][operator][value]/.../[first]:[last]/[format]
+ * First row is 1-based (not zero). Do not use legacy ROWS/0:N for GHGRP tables.
+ */
+export function buildEpaTableUrl(qualifiedTable: string, firstInclusive: number, lastInclusive: number): string {
+  return `${EPA_BASE_URL}/${qualifiedTable}/${firstInclusive}:${lastInclusive}/json`;
 }
 
 export function buildEpaFilteredUrl(
-  table: string,
+  qualifiedTable: string,
   field: string,
   operator: EpaOperator,
   value: string,
-  startRow: number,
-  endRow: number,
+  firstInclusive: number,
+  lastInclusive: number,
 ): string {
-  return `${EPA_BASE_URL}/${table}/${encodeSegment(field)}/${operator}/${encodeSegment(value)}/${startRow}:${endRow}/JSON`;
+  return `${EPA_BASE_URL}/${qualifiedTable}/${encodeSegment(field)}/${operator}/${encodeSegment(value)}/${firstInclusive}:${lastInclusive}/json`;
 }
 
+/** Multiple filters combined with /and/ (EPA conjunction syntax). */
 export function buildEpaMultiFilterUrl(
-  table: string,
+  qualifiedTable: string,
   filters: Array<{ field: string; operator: EpaOperator; value: string }>,
-  startRow: number,
-  endRow: number,
+  firstInclusive: number,
+  lastInclusive: number,
 ): string {
-  const segments = filters.flatMap((entry) => [
-    encodeSegment(entry.field),
-    entry.operator,
-    encodeSegment(entry.value),
-  ]);
-  return `${EPA_BASE_URL}/${table}/${segments.join('/')}/${startRow}:${endRow}/JSON`;
+  const triples = filters.map(
+    (entry) => `${encodeSegment(entry.field)}/${entry.operator}/${encodeSegment(entry.value)}`,
+  );
+  return `${EPA_BASE_URL}/${qualifiedTable}/${triples.join('/and/')}/${firstInclusive}:${lastInclusive}/json`;
 }

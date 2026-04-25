@@ -5,54 +5,95 @@ type Props = {
   rows: EnvirofactsRecord[];
   onOpen: (recordId: string) => void;
   onAddEvidence: (recordId: string) => void;
+  onCompareSatellite?: (recordId: string) => void;
+  onCreateInvestigation?: (recordId: string) => void;
 };
 
-const EnvirofactsResultsTable: React.FC<Props> = ({ rows, onOpen, onAddEvidence }) => (
-  <section className="rounded-2xl border border-slate-700/80 bg-slate-900/70 p-4 md:p-5">
-    <h2 className="text-base font-bold text-slate-100">Results Table</h2>
-    <div className="mt-3 overflow-x-auto">
-      <table className="min-w-[1100px] w-full text-left text-xs">
+const btn =
+  'rounded border border-slate-600 bg-slate-950 px-2 py-1 text-[10px] font-semibold text-slate-200 hover:border-slate-500 hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-40';
+
+const EnvirofactsResultsTable: React.FC<Props> = ({
+  rows,
+  onOpen,
+  onAddEvidence,
+  onCompareSatellite,
+  onCreateInvestigation,
+}) => (
+  <section className="rounded-xl border border-slate-700/90 bg-slate-900/75 p-4 shadow-sm md:p-5">
+    <h2 className="text-sm font-semibold tracking-wide text-slate-100">Results</h2>
+    <p className="mt-1 text-xs text-slate-500">Official EPA fields normalized for review. Coordinates may be absent even when the record is valid.</p>
+    <div className="mt-4 overflow-x-auto rounded-lg border border-slate-800/80">
+      <table className="min-w-[1200px] w-full text-left text-xs">
         <thead>
-          <tr className="border-b border-slate-700 text-slate-300">
-            <th className="px-2 py-2">Facility/Record</th>
-            <th className="px-2 py-2">Source</th>
-            <th className="px-2 py-2">Category</th>
-            <th className="px-2 py-2">City</th>
-            <th className="px-2 py-2">State</th>
-            <th className="px-2 py-2">County</th>
-            <th className="px-2 py-2">ZIP</th>
-            <th className="px-2 py-2">Coordinates</th>
-            <th className="px-2 py-2">DPAL Status</th>
-            <th className="px-2 py-2">Actions</th>
+          <tr className="border-b border-slate-700 bg-slate-950/80 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            <th className="px-3 py-2">Facility / Record</th>
+            <th className="px-3 py-2">EPA source flags</th>
+            <th className="px-3 py-2">Category</th>
+            <th className="px-3 py-2">Address</th>
+            <th className="px-3 py-2">City</th>
+            <th className="px-3 py-2">County</th>
+            <th className="px-3 py-2">State</th>
+            <th className="px-3 py-2">ZIP</th>
+            <th className="px-3 py-2">Registry ID</th>
+            <th className="px-3 py-2">Coordinates</th>
+            <th className="px-3 py-2">DPAL status</th>
+            <th className="px-3 py-2">Actions</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id} className="border-b border-slate-800 text-slate-100">
-              <td className="px-2 py-2">{row.facilityName || row.recordName || 'EPA Record'}</td>
-              <td className="px-2 py-2">{row.sourceDatabase}</td>
-              <td className="px-2 py-2">
-                <div className="flex flex-wrap gap-1">
-                  <span className="rounded border border-slate-700 bg-slate-950 px-2 py-0.5">{row.environmentalCategory || 'Facilities'}</span>
-                  {row.sourceFlags.slice(0, 3).map((flag) => (
-                    <span key={`${row.id}-${flag}`} className="rounded border border-cyan-700/60 bg-cyan-950/35 px-2 py-0.5 text-cyan-100">
-                      {flag}
-                    </span>
-                  ))}
+            <tr key={row.id} className="border-b border-slate-800/90 text-slate-200 last:border-0">
+              <td className="px-3 py-2 font-medium text-slate-100">{row.facilityName || row.recordName || 'EPA Record'}</td>
+              <td className="px-3 py-2">
+                <div className="flex max-w-[220px] flex-wrap gap-1">
+                  {row.sourceFlags.length ? (
+                    row.sourceFlags.map((flag) => (
+                      <span key={`${row.id}-${flag}`} className="rounded border border-slate-700 bg-slate-950 px-1.5 py-0.5 text-[10px] text-slate-300">
+                        {flag}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-slate-500">—</span>
+                  )}
                 </div>
               </td>
-              <td className="px-2 py-2">{row.city || 'N/A'}</td>
-              <td className="px-2 py-2">{row.state || 'N/A'}</td>
-              <td className="px-2 py-2">{row.county || 'N/A'}</td>
-              <td className="px-2 py-2">{row.zip || 'N/A'}</td>
-              <td className="px-2 py-2">
-                {row.latitude != null && row.longitude != null ? `${row.latitude}, ${row.longitude}` : 'coordinates unavailable'}
+              <td className="px-3 py-2 text-slate-300">{row.environmentalCategory || '—'}</td>
+              <td className="max-w-[200px] px-3 py-2 text-slate-400">{row.address || '—'}</td>
+              <td className="px-3 py-2">{row.city || '—'}</td>
+              <td className="px-3 py-2">{row.county || '—'}</td>
+              <td className="px-3 py-2">{row.state || '—'}</td>
+              <td className="px-3 py-2">{row.zip || '—'}</td>
+              <td className="px-3 py-2 font-mono text-[10px] text-slate-400">{row.recordId || '—'}</td>
+              <td className="px-3 py-2 font-mono text-[10px] text-slate-400">
+                {row.pinnable ? `${row.latitude}, ${row.longitude}` : 'Unavailable'}
               </td>
-              <td className="px-2 py-2">Public Data Baseline</td>
-              <td className="px-2 py-2">
-                <div className="flex gap-2">
-                  <button type="button" onClick={() => onOpen(row.id)} className="rounded border border-cyan-500/60 bg-cyan-900/30 px-2 py-1 text-[11px] text-cyan-100">Open</button>
-                  <button type="button" onClick={() => onAddEvidence(row.id)} className="rounded border border-emerald-500/60 bg-emerald-900/30 px-2 py-1 text-[11px] text-emerald-100">Add</button>
+              <td className="max-w-[220px] px-3 py-2 text-[10px] leading-snug text-slate-400">{row.dpalReviewStatus}</td>
+              <td className="px-3 py-2">
+                <div className="flex flex-col gap-1">
+                  <button type="button" className={btn} onClick={() => onOpen(row.id)}>
+                    Open Details
+                  </button>
+                  <button type="button" className={btn} onClick={() => onAddEvidence(row.id)}>
+                    Add to Evidence Packet
+                  </button>
+                  <button
+                    type="button"
+                    className={btn}
+                    title="Satellite comparison workflow is not wired yet."
+                    disabled={!onCompareSatellite}
+                    onClick={() => onCompareSatellite?.(row.id)}
+                  >
+                    Compare Satellite Data
+                  </button>
+                  <button
+                    type="button"
+                    className={btn}
+                    title="Investigation workflow is not wired yet."
+                    disabled={!onCreateInvestigation}
+                    onClick={() => onCreateInvestigation?.(row.id)}
+                  >
+                    Create Investigation
+                  </button>
                 </div>
               </td>
             </tr>

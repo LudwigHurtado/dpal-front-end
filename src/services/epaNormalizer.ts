@@ -16,44 +16,52 @@ function toNumberSafe(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/** Read first present key from row (EPA JSON is usually snake_case; metadata docs use UPPER). */
+function pick(row: Record<string, unknown>, ...keys: string[]): unknown {
+  for (const key of keys) {
+    if (key in row && row[key] != null && row[key] !== '') return row[key];
+  }
+  return undefined;
+}
+
 export function normalizeFacilityRow(row: Record<string, unknown>): EpaFacilityRecord {
   return {
-    facilityId: toStringSafe(row.FACILITY_ID),
-    facilityName: toStringSafe(row.FACILITY_NAME),
-    address1: toStringSafe(row.ADDRESS1),
-    address2: toStringSafe(row.ADDRESS2),
-    city: toStringSafe(row.CITY),
-    county: toStringSafe(row.COUNTY),
-    state: toStringSafe(row.STATE),
-    stateName: toStringSafe(row.STATE_NAME),
-    zip: toStringSafe(row.ZIP),
-    latitude: toNumberSafe(row.LATITUDE),
-    longitude: toNumberSafe(row.LONGITUDE),
-    parentCompany: toStringSafe(row.PARENT_COMPANY),
-    frsId: toStringSafe(row.FRS_ID),
-    facilityTypes: toStringSafe(row.FACILITY_TYPES),
-    reportedIndustryTypes: toStringSafe(row.REPORTED_INDUSTRY_TYPES),
-    reportedSubparts: toStringSafe(row.REPORTED_SUBPARTS),
-    year: toNumberSafe(row.YEAR),
+    facilityId: toStringSafe(pick(row, 'facility_id', 'FACILITY_ID')),
+    facilityName: toStringSafe(pick(row, 'facility_name', 'FACILITY_NAME')),
+    address1: toStringSafe(pick(row, 'address1', 'ADDRESS1')),
+    address2: toStringSafe(pick(row, 'address2', 'ADDRESS2')),
+    city: toStringSafe(pick(row, 'city', 'CITY')),
+    county: toStringSafe(pick(row, 'county', 'COUNTY')),
+    state: toStringSafe(pick(row, 'state', 'STATE')),
+    stateName: toStringSafe(pick(row, 'state_name', 'STATE_NAME')),
+    zip: toStringSafe(pick(row, 'zip', 'ZIP')),
+    latitude: toNumberSafe(pick(row, 'latitude', 'LATITUDE', 'latitude83', 'LATITUDE83')),
+    longitude: toNumberSafe(pick(row, 'longitude', 'LONGITUDE', 'longitude83', 'LONGITUDE83')),
+    parentCompany: toStringSafe(pick(row, 'parent_company', 'PARENT_COMPANY')),
+    frsId: toStringSafe(pick(row, 'frs_id', 'FRS_ID')),
+    facilityTypes: toStringSafe(pick(row, 'facility_types', 'FACILITY_TYPES')),
+    reportedIndustryTypes: toStringSafe(pick(row, 'reported_industry_types', 'REPORTED_INDUSTRY_TYPES')),
+    reportedSubparts: toStringSafe(pick(row, 'reported_subparts', 'REPORTED_SUBPARTS')),
+    year: toNumberSafe(pick(row, 'year', 'YEAR')),
   };
 }
 
 export function normalizeEmissionRow(row: Record<string, unknown>): EpaEmissionRecord {
   return {
-    facilityId: toStringSafe(row.FACILITY_ID),
-    co2eEmission: toNumberSafe(row.CO2E_EMISSION),
-    gasId: toStringSafe(row.GAS_ID),
-    subPartId: toStringSafe(row.SUB_PART_ID),
-    year: toNumberSafe(row.YEAR),
+    facilityId: toStringSafe(pick(row, 'facility_id', 'FACILITY_ID')),
+    co2eEmission: toNumberSafe(pick(row, 'co2e_emission', 'CO2E_EMISSION')),
+    gasId: toStringSafe(pick(row, 'gas_id', 'GAS_ID')),
+    subPartId: toStringSafe(pick(row, 'sub_part_id', 'SUB_PART_ID')),
+    year: toNumberSafe(pick(row, 'year', 'YEAR')),
   };
 }
 
 export function normalizeGasRow(row: Record<string, unknown>): EpaGasRecord {
   return {
-    gasId: toStringSafe(row.GAS_ID),
-    gasName: toStringSafe(row.GAS_NAME),
-    gasCode: toStringSafe(row.GAS_CODE),
-    gasLabel: toStringSafe(row.GAS_LABEL),
+    gasId: toStringSafe(pick(row, 'gas_id', 'GAS_ID')),
+    gasName: toStringSafe(pick(row, 'gas_name', 'GAS_NAME')),
+    gasCode: toStringSafe(pick(row, 'gas_code', 'GAS_CODE')),
+    gasLabel: toStringSafe(pick(row, 'gas_label', 'GAS_LABEL')),
   };
 }
 
