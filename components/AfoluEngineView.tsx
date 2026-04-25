@@ -1487,16 +1487,16 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       <main className="mx-auto max-w-7xl px-4 py-6 pb-24">
         <section className="mb-6 grid gap-3 lg:grid-cols-5">
           {[
-            ['1. Project Setup', 'Create the record and lock geography basics', () => openProjectSetup()],
-            ['2. AOI & Map', 'Define parcel label, coordinates, and map context', () => setActiveTab('projects')],
-            ['3. Missions & Evidence', 'Launch work and capture proof in order', () => setActiveTab('missions')],
-            ['4. MRV Review', 'Check monitoring and verification before packaging', () => setSurfaceView('mrvResults')],
-            ['5. Buyer Package', 'Move the supported project into commercial prep', () => setSurfaceView('buyerPackage')],
-          ].map(([title, detail, onClick]) => (
+            { title: '1. Project Setup', detail: 'Create the record and lock geography basics', onClick: () => openProjectSetup() },
+            { title: '2. AOI & Map', detail: 'Define parcel label, coordinates, and map context', onClick: () => setActiveTab('projects') },
+            { title: '3. Missions & Evidence', detail: 'Launch work and capture proof in order', onClick: () => setActiveTab('missions') },
+            { title: '4. MRV Review', detail: 'Check monitoring and verification before packaging', onClick: () => setSurfaceView('mrvResults') },
+            { title: '5. Buyer Package', detail: 'Move the supported project into commercial prep', onClick: () => setSurfaceView('buyerPackage') },
+          ].map(({ title, detail, onClick }) => (
             <button
               key={title}
               type="button"
-              onClick={onClick as () => void}
+              onClick={onClick}
               className="rounded-lg border border-slate-800 bg-slate-900/80 p-4 text-left transition hover:border-emerald-500"
             >
               <p className="text-xs font-bold uppercase tracking-wide text-emerald-300">{title}</p>

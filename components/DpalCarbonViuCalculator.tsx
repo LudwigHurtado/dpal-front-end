@@ -1339,7 +1339,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
       modelVersion: aiModelVersion,
       sourceStack: dataSourceStack,
       activeLayer: layerLabel,
-      scanReadiness,
+      scanReadiness: `${scanReadiness}`,
       confidence: liveReading.confidence,
       lastScanAt: lastAiScanAt,
     },
@@ -1891,6 +1891,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
               onVertexDrag={handleVertexDrag}
               onVertexSelect={setSelectedPoint}
               fitTrigger={fitBoundaryTrigger}
+              recenterTrigger={mapRecenterTrigger}
               label={`${aoiId} / ${siteName}`}
             />
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">

@@ -166,6 +166,24 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     };
   }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus]);
 
+  const riskLabelTone =
+    riskBand(riskScore) === 'High Risk'
+      ? 'border-rose-500/50 bg-rose-900/20 text-rose-100'
+      : riskBand(riskScore) === 'Elevated'
+      ? 'border-orange-500/50 bg-orange-900/20 text-orange-100'
+      : riskBand(riskScore) === 'Watchlist'
+      ? 'border-amber-500/50 bg-amber-900/20 text-amber-100'
+      : 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100';
+
+  const mapConcernOverlayLabel =
+    selectedProject.concernType === 'Suspected Contamination' || selectedProject.concernType === 'Industrial Discharge'
+      ? 'Priority overlay: downstream anomaly corridor'
+      : selectedProject.concernType === 'Flooding'
+      ? 'Priority overlay: flood-extent expansion belt'
+      : selectedProject.concernType === 'Drought'
+      ? 'Priority overlay: low-storage stress zone'
+      : 'Priority overlay: turbidity and runoff watch zone';
+
   function toggleLayer(layerId: string): void {
     setSelectedLayerIds((prev) =>
       prev.includes(layerId) ? prev.filter((id) => id !== layerId) : [...prev, layerId],
@@ -212,6 +230,37 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     setActionNotice(`${actionLabel} queued in demo mode.`);
   }
 
+  function runDemoScenario(): void {
+    const preferredProject =
+      projects.find((project) => project.waterBodyType === 'River')
+      ?? projects.find((project) => project.waterBodyType === 'Wetland')
+      ?? projects[0];
+
+    if (!preferredProject) {
+      setActionNotice('Create a project first, then run demo scenario.');
+      return;
+    }
+
+    setSelectedProjectId(preferredProject.id);
+    setProjects((prev) =>
+      prev.map((project) =>
+        project.id === preferredProject.id
+          ? {
+              ...project,
+              concernType: project.waterBodyType === 'Wetland' ? 'Turbidity' : 'Suspected Contamination',
+              evidenceCount: Math.max(project.evidenceCount, 6),
+              hasLabResult: false,
+              validatorStatus: 'Reviewed',
+            }
+          : project,
+      ),
+    );
+    setSelectedLayerIds(['sentinel2', 'sentinel1', 'landsat89', 'sentinel3', 'swot']);
+    setBoundaryDrawn(true);
+    setShowPacket(true);
+    setActionNotice('Demo scenario loaded.');
+  }
+
   const actionButtons = [
     'Launch Field Mission',
     'Request Water Sample',
@@ -249,28 +298,40 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">How to Use DPAL AquaScan</p>
               <p className="mt-1 text-sm text-slate-300">Simple workflow for evidence-based water monitoring in demo mode.</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowGuide((prev) => !prev)}
-              className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-cyan-500/50"
-            >
-              {showGuide ? 'Hide Guide' : 'Show Guide'}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={runDemoScenario}
+                className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/35"
+              >
+                Run Demo Scenario
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowGuide((prev) => !prev)}
+                className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-cyan-500/50"
+              >
+                {showGuide ? 'Hide Guide' : 'Show Guide'}
+              </button>
+            </div>
           </div>
+          <p className="mt-3 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs text-cyan-100">
+            Demo Mode: satellite layers, AI summary, evidence packet, and actions use mock data.
+          </p>
 
           {showGuide ? (
             <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
               <article className="rounded-xl border border-slate-700 bg-slate-950 p-4 lg:col-span-2">
                 <h3 className="text-sm font-semibold text-slate-100">Workflow Steps</h3>
                 <ol className="mt-3 space-y-2 text-sm text-slate-300">
-                  <li>1. Select or create a water monitoring project.</li>
-                  <li>2. Choose the water concern type.</li>
-                  <li>3. Review the satellite-style indicators.</li>
-                  <li>4. Check the map and scan boundary.</li>
-                  <li>5. Read the AI Water Intelligence Summary.</li>
-                  <li>6. Upload field evidence or lab results.</li>
-                  <li>7. Generate an evidence packet.</li>
-                  <li>8. Send the case to the next action: field mission, sample request, authority notice, restoration project, public ledger, or export.</li>
+                  <li>Step 1: Select a water project.</li>
+                  <li>Step 2: Choose the concern type.</li>
+                  <li>Step 3: Review satellite-style indicators.</li>
+                  <li>Step 4: Inspect the scan area/map.</li>
+                  <li>Step 5: Read the AI Water Intelligence Summary.</li>
+                  <li>Step 6: Upload field evidence or lab results.</li>
+                  <li>Step 7: Generate an evidence packet.</li>
+                  <li>Step 8: Route the issue to field mission, sample request, authority notice, restoration project, public ledger, or export.</li>
                 </ol>
               </article>
               <article className="rounded-xl border border-slate-700 bg-slate-950 p-4">
@@ -281,16 +342,16 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                     <li>- Identify potential water-risk indicators.</li>
                     <li>- Compare conditions against a mock baseline.</li>
                     <li>- Organize satellite, field, and community evidence.</li>
-                    <li>- Help prepare an evidence packet.</li>
                     <li>- Recommend next steps.</li>
+                    <li>- Generate a demo evidence packet.</li>
                   </ul>
                 </div>
                 <div className="mt-3">
                   <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Cannot do</p>
                   <ul className="mt-1 space-y-1 text-xs text-slate-300">
                     <li>- Confirm contamination without field sampling, lab testing, or official verification.</li>
-                    <li>- Replace government or certified laboratory findings.</li>
-                    <li>- Guarantee carbon credits or legal findings from satellite data alone.</li>
+                    <li>- Replace certified laboratory results.</li>
+                    <li>- Guarantee carbon credits, legal findings, or official enforcement action from satellite indicators alone.</li>
                   </ul>
                 </div>
               </article>
@@ -474,9 +535,15 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   <p className="text-[10px] uppercase tracking-widest text-indigo-300">Scan Boundary Placeholder</p>
                   <p className="mt-1 text-xs text-slate-200">{selectedProject.polygonPlaceholder || 'No boundary set. Use intake placeholder.'}</p>
                 </div>
-                <div className="rounded-lg border border-rose-500/40 bg-rose-900/20 p-3 text-xs text-slate-100">Risk zone overlay placeholder: <span className="font-semibold">{riskBand(riskScore)}</span></div>
-                <div className="rounded-lg border border-amber-500/40 bg-amber-900/20 p-3 text-xs text-slate-100">Report pins: 4 · Sample collection points: 3</div>
-                <div className="rounded-lg border border-emerald-500/40 bg-emerald-900/20 p-3 text-xs text-slate-100 md:col-span-2">Upstream → Downstream direction marker: Northwest to Southeast (mock directional flow).</div>
+                <div className={`rounded-lg border p-3 text-xs md:col-span-2 ${riskLabelTone}`}>
+                  Risk zone overlay: <span className="font-semibold">{riskBand(riskScore)}</span> · Concern emphasis: {mapConcernOverlayLabel}
+                </div>
+                <div className="rounded-lg border border-amber-500/40 bg-amber-900/20 p-3 text-xs text-slate-100">Report pins: 4 active markers</div>
+                <div className="rounded-lg border border-blue-500/40 bg-blue-900/20 p-3 text-xs text-slate-100">Sample collection points: 3 provisional sites</div>
+                <div className="rounded-lg border border-emerald-500/40 bg-emerald-900/20 p-3 text-xs text-slate-100">Upstream → Downstream: Northwest to Southeast (mock flow direction)</div>
+                <div className="rounded-lg border border-cyan-500/40 bg-cyan-900/20 p-3 text-xs text-slate-100">
+                  Layer status: {selectedLayerIds.length} selected · {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ')}
+                </div>
               </div>
             </div>
           </article>
@@ -500,17 +567,24 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             </div>
             {showPacket ? (
               <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200">
-                <p><span className="text-slate-400">Project:</span> {packetPreview.projectName}</p>
+                <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet (Demo Preview)</p>
+                <p><span className="text-slate-400">Generated date/time:</span> {packetPreview.timestamp}</p>
+                <p><span className="text-slate-400">Project ID:</span> {selectedProject.id}</p>
+                <p><span className="text-slate-400">Packet title:</span> {packetPreview.projectName}</p>
                 <p><span className="text-slate-400">Location:</span> {packetPreview.location}</p>
-                <p><span className="text-slate-400">Date/time:</span> {packetPreview.timestamp}</p>
+                <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
                 <p><span className="text-slate-400">Selected satellite layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
-                <p><span className="text-slate-400">Scan type:</span> {packetPreview.scanType}</p>
-                <p><span className="text-slate-400">Risk score:</span> {packetPreview.riskScore} ({riskBand(packetPreview.riskScore)})</p>
-                <p><span className="text-slate-400">AI summary:</span> {packetPreview.aiSummary}</p>
-                <p><span className="text-slate-400">Uploaded evidence:</span> {packetPreview.uploadedEvidence} item(s)</p>
+                <p><span className="text-slate-400">Risk score band:</span> {packetPreview.riskScore} ({riskBand(packetPreview.riskScore)})</p>
+                <p><span className="text-slate-400">Evidence count:</span> {packetPreview.uploadedEvidence} item(s)</p>
+                <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
                 <p><span className="text-slate-400">Validator status:</span> {packetPreview.validatorStatus}</p>
-                <p><span className="text-slate-400">Recommended next action:</span> {packetPreview.recommendedNextAction}</p>
-                <p><span className="text-slate-400">Audit ID / ledger hash:</span> {packetPreview.auditId} / {packetPreview.ledgerHash}</p>
+                <p><span className="text-slate-400">AI summary:</span> {packetPreview.aiSummary}</p>
+                <p><span className="text-slate-400">Recommended action:</span> {packetPreview.recommendedNextAction}</p>
+                <p><span className="text-slate-400">Audit ID placeholder:</span> {packetPreview.auditId}</p>
+                <p><span className="text-slate-400">Ledger hash placeholder:</span> {packetPreview.ledgerHash}</p>
+                <p className="rounded-md border border-amber-500/40 bg-amber-900/20 px-2 py-1 text-amber-100">
+                  Export not connected — demo preview only.
+                </p>
               </div>
             ) : (
               <p className="text-xs text-slate-400">Generate a demo packet preview from current project state and selected layers.</p>
