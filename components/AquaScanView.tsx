@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, CheckCircle, Database, Droplets, FileText, Globe, MapPin, Plus, RefreshCw, Send, ShieldCheck, Thermometer, Waves } from './icons';
+import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
 import type { Hero } from '../types';
 import {
   communityImpactOptions,
@@ -87,10 +87,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(mockWaterProjects[0]?.id ?? '');
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(mockSatelliteLayers.slice(0, 3).map((l) => l.id));
-  const [evidenceUploads, setEvidenceUploads] = useState<string[]>([]);
   const [boundaryDrawn, setBoundaryDrawn] = useState(false);
-  const [validatorStatus, setValidatorStatus] = useState<'Pending' | 'Reviewed' | 'Validated'>('Pending');
   const [showPacket, setShowPacket] = useState(false);
+  const [showGuide, setShowGuide] = useState(true);
   const [actionNotice, setActionNotice] = useState<string>('');
 
   const [draftProject, setDraftProject] = useState<AquaScanProject>({
@@ -114,17 +113,19 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     [projects, selectedProjectId, draftProject],
   );
 
+  const validatorStatus = selectedProject.validatorStatus;
+
   const anomalyLayerCount = selectedLayerIds.length;
 
   const riskScore = useMemo(() => {
     const base = concernWeights[selectedProject.concernType] ?? 40;
-    const evidenceBoost = Math.min(18, (evidenceUploads.length + selectedProject.evidenceCount) * 4);
+    const evidenceBoost = Math.min(18, selectedProject.evidenceCount * 4);
     const anomalyBoost = anomalyLayerCount >= 5 ? 14 : anomalyLayerCount >= 3 ? 8 : 4;
     const boundaryBoost = boundaryDrawn ? 6 : 0;
-    const validatorBoost = validatorStatus === 'Validated' ? 8 : validatorStatus === 'Reviewed' ? 4 : 0;
+    const validatorBoost = selectedProject.validatorStatus === 'Validated' ? 8 : selectedProject.validatorStatus === 'Reviewed' ? 4 : 0;
     const labReduction = selectedProject.hasLabResult ? -10 : 0;
     return clampRisk(base + evidenceBoost + anomalyBoost + boundaryBoost + validatorBoost + labReduction);
-  }, [selectedProject, evidenceUploads.length, anomalyLayerCount, boundaryDrawn, validatorStatus]);
+  }, [selectedProject, anomalyLayerCount, boundaryDrawn]);
 
   const indicators = useMemo<WaterIndicator[]>(() => {
     const status = mapBandToStatus(riskScore);
@@ -135,10 +136,10 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       { id: 'flood', label: 'Flood Risk', value: `${Math.round(riskScore * 0.81)}/100`, trend: '+9% from baseline', status, explanation: 'Flood susceptibility from extent and terrain cues.' },
       { id: 'drought', label: 'Drought Stress', value: `${Math.round(riskScore * 0.62)}/100`, trend: 'Stable over 30 days', status, explanation: 'Storage and stress patterns from basin-scale indicators.' },
       { id: 'thermal', label: 'Thermal Anomaly', value: `${Math.round(riskScore * 0.73)}/100`, trend: '+3% this week', status, explanation: 'Surface-heat variance relative to seasonal expectation.' },
-      { id: 'confidence', label: 'Evidence Confidence', value: `${Math.min(95, 45 + evidenceUploads.length * 7 + anomalyLayerCount * 4)}%`, trend: `${evidenceUploads.length} evidence item(s) uploaded`, status, explanation: 'Confidence is strengthened by corroborating evidence artifacts.' },
+      { id: 'confidence', label: 'Evidence Confidence', value: `${Math.min(95, 45 + selectedProject.evidenceCount * 4 + anomalyLayerCount * 4)}%`, trend: `${selectedProject.evidenceCount} evidence item(s) logged`, status, explanation: 'Confidence is strengthened by corroborating evidence artifacts.' },
       { id: 'validator', label: 'Verification Status', value: validatorStatus, trend: validatorStatus === 'Validated' ? 'Validator-approved packet' : 'Awaiting final validation', status, explanation: 'Current verification state of the evidence package.' },
     ];
-  }, [riskScore, validatorStatus, evidenceUploads.length, anomalyLayerCount]);
+  }, [riskScore, validatorStatus, selectedProject.evidenceCount, anomalyLayerCount]);
 
   const aiSummary = useMemo(
     () => buildAiSummary(selectedProject.concernType, selectedProject.locationName || 'the selected area'),
@@ -156,19 +157,30 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       timestamp: new Date().toLocaleString(),
       riskScore,
       aiSummary,
-      uploadedEvidence: evidenceUploads.length,
+      uploadedEvidence: selectedProject.evidenceCount,
       validatorStatus,
       recommendedNextAction:
         riskBand(riskScore) === 'High Risk'
           ? 'Escalate with field sampling and notify relevant authority.'
           : template.recommendedNextAction,
     };
-  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, evidenceUploads.length, validatorStatus]);
+  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus]);
 
   function toggleLayer(layerId: string): void {
     setSelectedLayerIds((prev) =>
       prev.includes(layerId) ? prev.filter((id) => id !== layerId) : [...prev, layerId],
     );
+  }
+
+  function updateSelectedProject(patch: Partial<AquaScanProject>): void {
+    setProjects((prev) => prev.map((project) => (project.id === selectedProjectId ? { ...project, ...patch } : project)));
+  }
+
+  function addEvidenceItem(): void {
+    if (selectedProjectId) {
+      updateSelectedProject({ evidenceCount: selectedProject.evidenceCount + 1 });
+    }
+    setActionNotice('Evidence item added in demo mode.');
   }
 
   function saveDraftProject(): void {
@@ -179,8 +191,8 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     const next: AquaScanProject = {
       ...draftProject,
       id: `AQ-${Date.now().toString().slice(-6)}`,
-      evidenceCount: draftProject.evidenceCount + evidenceUploads.length,
-      validatorStatus,
+      evidenceCount: draftProject.evidenceCount,
+      validatorStatus: draftProject.validatorStatus,
     };
     setProjects((prev) => [next, ...prev]);
     setSelectedProjectId(next.id);
@@ -188,6 +200,15 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   }
 
   function runAction(actionLabel: string): void {
+    if (actionLabel === 'Upload Lab Result' && selectedProjectId) {
+      updateSelectedProject({ hasLabResult: true });
+    }
+    if (actionLabel === 'Request Water Sample' && selectedProjectId) {
+      updateSelectedProject({ evidenceCount: selectedProject.evidenceCount + 1 });
+    }
+    if (actionLabel === 'Export Evidence Packet') {
+      setShowPacket(true);
+    }
     setActionNotice(`${actionLabel} queued in demo mode.`);
   }
 
@@ -213,7 +234,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             <span className="text-sm font-semibold">DPAL AquaScan</span>
             <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">Demo layers</span>
           </div>
-          <div className="ml-auto text-[11px] text-slate-400">Evidence-based water screening workspace</div>
+          <div className="ml-auto hidden text-[11px] text-slate-400 md:block">Evidence-based water screening workspace</div>
         </div>
       </div>
 
@@ -221,6 +242,61 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
         {actionNotice ? (
           <div className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm text-cyan-100">{actionNotice}</div>
         ) : null}
+
+        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">How to Use DPAL AquaScan</p>
+              <p className="mt-1 text-sm text-slate-300">Simple workflow for evidence-based water monitoring in demo mode.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowGuide((prev) => !prev)}
+              className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-cyan-500/50"
+            >
+              {showGuide ? 'Hide Guide' : 'Show Guide'}
+            </button>
+          </div>
+
+          {showGuide ? (
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <article className="rounded-xl border border-slate-700 bg-slate-950 p-4 lg:col-span-2">
+                <h3 className="text-sm font-semibold text-slate-100">Workflow Steps</h3>
+                <ol className="mt-3 space-y-2 text-sm text-slate-300">
+                  <li>1. Select or create a water monitoring project.</li>
+                  <li>2. Choose the water concern type.</li>
+                  <li>3. Review the satellite-style indicators.</li>
+                  <li>4. Check the map and scan boundary.</li>
+                  <li>5. Read the AI Water Intelligence Summary.</li>
+                  <li>6. Upload field evidence or lab results.</li>
+                  <li>7. Generate an evidence packet.</li>
+                  <li>8. Send the case to the next action: field mission, sample request, authority notice, restoration project, public ledger, or export.</li>
+                </ol>
+              </article>
+              <article className="rounded-xl border border-slate-700 bg-slate-950 p-4">
+                <h3 className="text-sm font-semibold text-slate-100">What AquaScan Can and Cannot Do</h3>
+                <div className="mt-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Can do</p>
+                  <ul className="mt-1 space-y-1 text-xs text-slate-300">
+                    <li>- Identify potential water-risk indicators.</li>
+                    <li>- Compare conditions against a mock baseline.</li>
+                    <li>- Organize satellite, field, and community evidence.</li>
+                    <li>- Help prepare an evidence packet.</li>
+                    <li>- Recommend next steps.</li>
+                  </ul>
+                </div>
+                <div className="mt-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Cannot do</p>
+                  <ul className="mt-1 space-y-1 text-xs text-slate-300">
+                    <li>- Confirm contamination without field sampling, lab testing, or official verification.</li>
+                    <li>- Replace government or certified laboratory findings.</li>
+                    <li>- Guarantee carbon credits or legal findings from satellite data alone.</li>
+                  </ul>
+                </div>
+              </article>
+            </div>
+          ) : null}
+        </section>
 
         <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Water Project Intake Panel</p>
@@ -240,8 +316,8 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               {suspectedSources.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
             <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-              <button type="button" className="rounded-md border border-cyan-500/50 bg-cyan-900/25 px-2 py-1 text-cyan-100" onClick={() => setEvidenceUploads((prev) => [...prev, `evidence-${Date.now()}`])}>Upload evidence (mock)</button>
-              <span className="text-slate-400">{evidenceUploads.length} file(s)</span>
+              <button type="button" className="rounded-md border border-cyan-500/50 bg-cyan-900/25 px-2 py-1 text-cyan-100" onClick={addEvidenceItem}>Upload evidence (mock)</button>
+              <span className="text-slate-400">{selectedProject.evidenceCount} total evidence item(s)</span>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
               <input id="boundary-flag" type="checkbox" checked={boundaryDrawn} onChange={(event) => setBoundaryDrawn(event.target.checked)} />
@@ -290,6 +366,32 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               ))}
             </select>
           </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+            <select
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"
+              value={selectedProject.concernType}
+              onChange={(event) => selectedProjectId && updateSelectedProject({ concernType: event.target.value as ConcernType })}
+            >
+              {concernTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+            </select>
+            <select
+              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"
+              value={selectedProject.validatorStatus}
+              onChange={(event) => selectedProjectId && updateSelectedProject({ validatorStatus: event.target.value as AquaScanProject['validatorStatus'] })}
+            >
+              <option value="Pending">Validator: Pending</option>
+              <option value="Reviewed">Validator: Reviewed</option>
+              <option value="Validated">Validator: Validated</option>
+            </select>
+            <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-300">
+              <input
+                type="checkbox"
+                checked={selectedProject.hasLabResult}
+                onChange={(event) => selectedProjectId && updateSelectedProject({ hasLabResult: event.target.checked })}
+              />
+              Lab result uploaded
+            </label>
+          </div>
         </section>
 
         <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -310,7 +412,10 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   >
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-bold text-slate-100">{layer.name}</h3>
-                      <span className="text-[10px] uppercase tracking-wider text-slate-400">{layer.category}</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                        {active ? <CheckCircle className="h-3.5 w-3.5 text-cyan-300" /> : null}
+                        {layer.category}
+                      </span>
                     </div>
                     <p className="mt-1 text-xs text-slate-300">{layer.purpose}</p>
                     <p className="mt-1 text-[11px] text-slate-500">{layer.capability}</p>
@@ -324,7 +429,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Risk Score Logic</p>
             <div className="mt-3 space-y-2 text-xs text-slate-300">
               <div className="flex justify-between"><span>Concern type baseline</span><span>+{concernWeights[selectedProject.concernType]}</span></div>
-              <div className="flex justify-between"><span>Evidence items</span><span>+{Math.min(18, (evidenceUploads.length + selectedProject.evidenceCount) * 4)}</span></div>
+              <div className="flex justify-between"><span>Evidence items</span><span>+{Math.min(18, selectedProject.evidenceCount * 4)} ({selectedProject.evidenceCount})</span></div>
               <div className="flex justify-between"><span>Satellite anomaly status</span><span>+{anomalyLayerCount >= 5 ? 14 : anomalyLayerCount >= 3 ? 8 : 4}</span></div>
               <div className="flex justify-between"><span>Lab result uploaded</span><span>{selectedProject.hasLabResult ? '-10' : '0'}</span></div>
               <div className="flex justify-between"><span>Validator status</span><span>{validatorStatus === 'Validated' ? '+8' : validatorStatus === 'Reviewed' ? '+4' : '0'}</span></div>
@@ -422,9 +527,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               ))}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-              <button type="button" onClick={() => setValidatorStatus('Pending')} className="rounded border border-slate-600 px-2 py-1">Set Pending</button>
-              <button type="button" onClick={() => setValidatorStatus('Reviewed')} className="rounded border border-slate-600 px-2 py-1">Set Reviewed</button>
-              <button type="button" onClick={() => setValidatorStatus('Validated')} className="rounded border border-slate-600 px-2 py-1">Set Validated</button>
+              <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Pending' })} className="rounded border border-slate-600 px-2 py-1">Set Pending</button>
+              <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Reviewed' })} className="rounded border border-slate-600 px-2 py-1">Set Reviewed</button>
+              <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Validated' })} className="rounded border border-slate-600 px-2 py-1">Set Validated</button>
             </div>
           </article>
         </section>
