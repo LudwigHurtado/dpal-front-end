@@ -342,7 +342,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Monitor conditions, verify claims, run audits, and generate evidence-backed environmental reports."
                     status="Open Hub"
                     colorClass="teal"
-                    bgImageUrl="/environmental-intelligence/hub-layout-reference.png"
+                    bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png"
                     onClick={() => onNavigate('environmentalIntelligenceHub')}
                 />
 

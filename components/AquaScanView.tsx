@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, MapContainer, Polygon, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
@@ -136,6 +136,29 @@ function MapInteractionCapture({
   return null;
 }
 
+function MapCommandBridge({
+  commandTick,
+  command,
+  center,
+}: {
+  commandTick: number;
+  command: 'none' | 'zoomIn' | 'zoomOut' | 'panNorth' | 'panSouth' | 'panEast' | 'panWest' | 'reset';
+  center: [number, number];
+}): null {
+  const map = useMap();
+  useEffect(() => {
+    if (!commandTick || command === 'none') return;
+    if (command === 'zoomIn') map.zoomIn();
+    if (command === 'zoomOut') map.zoomOut();
+    if (command === 'panNorth') map.panBy([0, -140]);
+    if (command === 'panSouth') map.panBy([0, 140]);
+    if (command === 'panEast') map.panBy([140, 0]);
+    if (command === 'panWest') map.panBy([-140, 0]);
+    if (command === 'reset') map.setView(center, 7);
+  }, [commandTick, command, center, map]);
+  return null;
+}
+
 export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(mockWaterProjects[0]?.id ?? '');
@@ -144,27 +167,41 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [showPacket, setShowPacket] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
   const [actionNotice, setActionNotice] = useState<string>('');
+  const [commandTick, setCommandTick] = useState(0);
+  const [mapCommand, setMapCommand] = useState<'none' | 'zoomIn' | 'zoomOut' | 'panNorth' | 'panSouth' | 'panEast' | 'panWest' | 'reset'>('none');
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapStyle, setMapStyle] = useState<BasemapStyle>('satellite');
   const [gpsMode, setGpsMode] = useState<'Demo' | 'Active'>('Demo');
   const [boundaryRevision, setBoundaryRevision] = useState(0);
   const [selectedDate, setSelectedDate] = useState(gibsDefaultDate());
+  const [compareDate, setCompareDate] = useState(gibsDefaultDate());
+  const [compareEnabled, setCompareEnabled] = useState(false);
+  const [compareOpacity, setCompareOpacity] = useState(35);
   const [mapCenter, setMapCenter] = useState<[number, number]>(focusPointFromProject(mockWaterProjects[0]));
   const [inspectedPoint, setInspectedPoint] = useState<[number, number] | null>(null);
   const [aoiPoints, setAoiPoints] = useState<[number, number][]>([]);
+  const [savedAoiPoints, setSavedAoiPoints] = useState<[number, number][]>([]);
   const [drawingAoi, setDrawingAoi] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchBusy, setSearchBusy] = useState(false);
   const [imageryLoading, setImageryLoading] = useState(true);
   const [imageryError, setImageryError] = useState<string | null>(null);
+  const [beforeImageryError, setBeforeImageryError] = useState<string | null>(null);
+  const [partialFailure, setPartialFailure] = useState(false);
   const [lastRefreshTime, setLastRefreshTime] = useState<string>(new Date().toLocaleTimeString());
+  const [layerOpacity, setLayerOpacity] = useState(72);
   const [overlayState, setOverlayState] = useState({
     boundary: true,
+    waterExtent: true,
+    ndwiProxy: true,
+    floodWetness: true,
     riskZone: true,
     reportPins: true,
     samplePoints: true,
+    anomalyHotspots: true,
     flowDirection: true,
   });
+  const mapViewportRef = useRef<HTMLDivElement | null>(null);
 
   const [draftProject, setDraftProject] = useState<AquaScanProject>({
     id: 'AQ-DRAFT',
@@ -196,10 +233,27 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     () => gibsTileUrl(activeGibsLayer.id, selectedDate, activeGibsLayer.tileMatrixLevel, activeGibsLayer.format),
     [activeGibsLayer, selectedDate],
   );
+  const compareTileUrl = useMemo(
+    () => gibsTileUrl(activeGibsLayer.id, compareDate, activeGibsLayer.tileMatrixLevel, activeGibsLayer.format),
+    [activeGibsLayer, compareDate],
+  );
 
   useEffect(() => {
     setMapCenter(focusPointFromProject(selectedProject));
   }, [selectedProject]);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('dpal_aquascan_saved_aoi_v1');
+    if (!stored) return;
+    try {
+      const parsed = JSON.parse(stored) as Array<[number, number]>;
+      if (Array.isArray(parsed)) {
+        setSavedAoiPoints(parsed);
+      }
+    } catch {
+      // Ignore invalid localStorage payload.
+    }
+  }, []);
 
   const validatorStatus = selectedProject.validatorStatus;
 
@@ -233,6 +287,11 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     () => buildAiSummary(selectedProject.concernType, selectedProject.locationName || 'the selected area'),
     [selectedProject.concernType, selectedProject.locationName],
   );
+  const inspectPoint = inspectedPoint ?? mapCenter;
+  const inspectNdwiEstimate = Math.max(-0.2, Math.min(0.9, ((inspectPoint[0] + 90) / 180) * 0.8 - ((Math.abs(inspectPoint[1]) / 180) * 0.2)));
+  const inspectWaterExtentEstimate = Math.round(Math.max(8, Math.min(97, 48 + inspectNdwiEstimate * 32 + (riskScore * 0.18))));
+  const inspectFloodWetnessEstimate = Math.round(Math.max(5, Math.min(95, 35 + riskScore * 0.55)));
+  const inspectQualityConfidence = Math.round(Math.max(45, Math.min(98, 62 + anomalyLayerCount * 4 + (imageryError ? -20 : 0))));
 
   const packetPreview = useMemo(() => {
     const template = mockEvidencePackets[0];
@@ -390,6 +449,31 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     } finally {
       setSearchBusy(false);
     }
+  }
+
+  function runMapCommand(command: 'zoomIn' | 'zoomOut' | 'panNorth' | 'panSouth' | 'panEast' | 'panWest' | 'reset'): void {
+    setMapCommand(command);
+    setCommandTick((prev) => prev + 1);
+  }
+
+  function saveAoi(): void {
+    if (aoiPoints.length < 3) {
+      setActionNotice('Draw at least 3 points before saving AOI.');
+      return;
+    }
+    setSavedAoiPoints(aoiPoints);
+    localStorage.setItem('dpal_aquascan_saved_aoi_v1', JSON.stringify(aoiPoints));
+    setActionNotice('AOI saved for this browser.');
+  }
+
+  async function toggleFullscreen(): Promise<void> {
+    const target = mapViewportRef.current;
+    if (!target) return;
+    if (!document.fullscreenElement) {
+      await target.requestFullscreen();
+      return;
+    }
+    await document.exitFullscreen();
   }
 
   const actionButtons = [
@@ -652,14 +736,23 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <span>Layers: <span className="font-semibold text-emerald-200">{selectedLayerIds.length} selected</span></span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => runMapCommand('zoomIn')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom +</button>
+              <button type="button" onClick={() => runMapCommand('zoomOut')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom -</button>
+              <button type="button" onClick={() => runMapCommand('panNorth')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan N</button>
+              <button type="button" onClick={() => runMapCommand('panSouth')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan S</button>
+              <button type="button" onClick={() => runMapCommand('panEast')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan E</button>
+              <button type="button" onClick={() => runMapCommand('panWest')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan W</button>
               <button type="button" onClick={centerOnProject} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Center on project</button>
               <button type="button" onClick={centerOnGps} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Use current GPS</button>
               <button type="button" onClick={() => setMapExpanded((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{mapExpanded ? 'Collapse map' : 'Expand map'}</button>
+              <button type="button" onClick={toggleFullscreen} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Fullscreen</button>
               <button type="button" onClick={() => setBoundaryDrawn((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{boundaryDrawn ? 'Hide boundary' : 'Show boundary'}</button>
               <button type="button" onClick={() => { setDrawingAoi((prev) => !prev); setBoundaryDrawn(true); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{drawingAoi ? 'Stop AOI draw' : 'Draw AOI points'}</button>
+              <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Undo AOI point</button>
               <button type="button" onClick={() => { setAoiPoints([]); setBoundaryRevision((prev) => prev + 1); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Clear AOI</button>
-              <button type="button" onClick={() => { setImageryLoading(true); setImageryError(null); setLastRefreshTime(new Date().toLocaleTimeString()); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
-              <button type="button" onClick={() => setMapCenter([20, 0])} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Reset view</button>
+              <button type="button" onClick={saveAoi} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Save AOI</button>
+              <button type="button" onClick={() => { setImageryLoading(true); setImageryError(null); setBeforeImageryError(null); setPartialFailure(false); setLastRefreshTime(new Date().toLocaleTimeString()); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
+              <button type="button" onClick={() => runMapCommand('reset')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Reset view</button>
               <select
                 value={mapStyle}
                 onChange={(event) => setMapStyle(event.target.value as 'satellite' | 'terrain' | 'dark')}
@@ -677,10 +770,41 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   setSelectedDate(event.target.value);
                   setImageryLoading(true);
                   setImageryError(null);
+                  setBeforeImageryError(null);
+                  setPartialFailure(false);
                   setLastRefreshTime(new Date().toLocaleTimeString());
                 }}
                 className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
               />
+              <label className="flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
+                Layer opacity
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={layerOpacity}
+                  onChange={(event) => setLayerOpacity(Number(event.target.value))}
+                />
+              </label>
+              <label className="flex items-center gap-2 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
+                <input type="checkbox" checked={compareEnabled} onChange={(event) => { setCompareEnabled(event.target.checked); setBeforeImageryError(null); setPartialFailure(false); }} />
+                Compare dates
+              </label>
+              {compareEnabled ? (
+                <>
+                  <input
+                    type="date"
+                    value={compareDate}
+                    max={gibsDefaultDate()}
+                    onChange={(event) => setCompareDate(event.target.value)}
+                    className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                  />
+                  <label className="flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
+                    Before/after
+                    <input type="range" min={0} max={100} value={compareOpacity} onChange={(event) => setCompareOpacity(Number(event.target.value))} />
+                  </label>
+                </>
+              ) : null}
               <div className="flex items-center gap-2">
                 <input
                   value={searchQuery}
@@ -695,13 +819,17 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             </div>
             <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
               <button type="button" onClick={() => toggleOverlay('boundary')} className={`rounded border px-2 py-1 ${overlayState.boundary ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Boundary</button>
+              <button type="button" onClick={() => toggleOverlay('waterExtent')} className={`rounded border px-2 py-1 ${overlayState.waterExtent ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Water extent</button>
+              <button type="button" onClick={() => toggleOverlay('ndwiProxy')} className={`rounded border px-2 py-1 ${overlayState.ndwiProxy ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>NDWI proxy</button>
+              <button type="button" onClick={() => toggleOverlay('floodWetness')} className={`rounded border px-2 py-1 ${overlayState.floodWetness ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flood/wetness</button>
               <button type="button" onClick={() => toggleOverlay('riskZone')} className={`rounded border px-2 py-1 ${overlayState.riskZone ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Risk zone</button>
               <button type="button" onClick={() => toggleOverlay('reportPins')} className={`rounded border px-2 py-1 ${overlayState.reportPins ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Report pins</button>
               <button type="button" onClick={() => toggleOverlay('samplePoints')} className={`rounded border px-2 py-1 ${overlayState.samplePoints ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Sample points</button>
+              <button type="button" onClick={() => toggleOverlay('anomalyHotspots')} className={`rounded border px-2 py-1 ${overlayState.anomalyHotspots ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Anomaly hotspots</button>
               <button type="button" onClick={() => toggleOverlay('flowDirection')} className={`rounded border px-2 py-1 ${overlayState.flowDirection ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flow direction</button>
             </div>
           </div>
-          <div className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[34rem]' : 'h-[24rem]'}`}>
+          <div ref={mapViewportRef} className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[34rem]' : 'h-[24rem]'}`}>
             {imageryLoading ? (
               <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
                 Loading latest available satellite-connected imagery...
@@ -712,12 +840,18 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                 {imageryError}
               </div>
             ) : null}
+            {partialFailure ? (
+              <div className="absolute inset-x-0 top-8 z-[500] bg-amber-950/85 px-3 py-1 text-[11px] text-amber-100">
+                Partial failure: one or more layers unavailable. Base map remains active.
+              </div>
+            ) : null}
             <MapContainer
               center={mapCenter}
               zoom={7}
               style={{ height: '100%', width: '100%' }}
             >
               <MapViewSync center={mapCenter} />
+              <MapCommandBridge commandTick={commandTick} command={mapCommand} center={mapCenter} />
               <MapInteractionCapture
                 drawingAoi={drawingAoi}
                 onInspect={(point) => setInspectedPoint(point)}
@@ -742,7 +876,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <TileLayer
                 key={`${activeGibsLayer.id}-${selectedDate}`}
                 url={tileUrl}
-                opacity={0.72}
+                opacity={layerOpacity / 100}
                 attribution='Imagery: NASA GIBS / ESDIS'
                 eventHandlers={{
                   loading: () => {
@@ -755,11 +889,41 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   tileerror: () => {
                     setImageryLoading(false);
                     setImageryError('Satellite tile fetch issue detected. Try another date or layer.');
+                    setPartialFailure(true);
                   },
                 }}
               />
+              {compareEnabled ? (
+                <TileLayer
+                  key={`${activeGibsLayer.id}-${compareDate}-before`}
+                  url={compareTileUrl}
+                  opacity={compareOpacity / 100}
+                  attribution='Comparison imagery: NASA GIBS / ESDIS'
+                  eventHandlers={{
+                    tileerror: () => {
+                      setBeforeImageryError('Compare layer unavailable for selected date.');
+                      setPartialFailure(true);
+                    },
+                  }}
+                />
+              ) : null}
+              {overlayState.waterExtent ? (
+                <Circle center={[mapCenter[0] + 0.01, mapCenter[1]]} radius={5400} pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.07 }} />
+              ) : null}
+              {overlayState.ndwiProxy ? (
+                <Circle center={[mapCenter[0] - 0.02, mapCenter[1] + 0.03]} radius={3900} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.08 }} />
+              ) : null}
+              {overlayState.floodWetness ? (
+                <Circle center={[mapCenter[0] + 0.05, mapCenter[1] - 0.04]} radius={3100} pathOptions={{ color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.08 }} />
+              ) : null}
+              {overlayState.riskZone ? (
+                <Circle center={[mapCenter[0] + 0.01, mapCenter[1] + 0.05]} radius={2200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.13 }} />
+              ) : null}
               {overlayState.boundary && boundaryDrawn && aoiPoints.length >= 3 ? (
                 <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.1 }} />
+              ) : null}
+              {overlayState.boundary && savedAoiPoints.length >= 3 ? (
+                <Polygon positions={savedAoiPoints} pathOptions={{ color: '#eab308', weight: 1.5, dashArray: '5 5', fillOpacity: 0.05 }} />
               ) : null}
               {overlayState.boundary && boundaryDrawn && aoiPoints.length < 3 ? (
                 <Circle center={mapCenter} radius={4200} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }} />
@@ -779,6 +943,12 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }} />
                 </>
               ) : null}
+              {overlayState.anomalyHotspots ? (
+                <>
+                  <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.45 }} />
+                  <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.45 }} />
+                </>
+              ) : null}
               <Circle center={inspectedPoint ?? mapCenter} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.7 }} />
             </MapContainer>
           </div>
@@ -792,15 +962,24 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             <div><span className="text-slate-400">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</div>
           </div>
           <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3 text-[11px] text-cyan-100 md:grid-cols-2 lg:grid-cols-4">
-            <div><span className="text-cyan-300/80">Inspect point:</span> {(inspectedPoint ?? mapCenter)[0].toFixed(5)}, {(inspectedPoint ?? mapCenter)[1].toFixed(5)}</div>
+            <div><span className="text-cyan-300/80">Inspect point:</span> {inspectPoint[0].toFixed(5)}, {inspectPoint[1].toFixed(5)}</div>
             <div><span className="text-cyan-300/80">Satellite source:</span> NASA GIBS ({activeGibsLayer.label})</div>
             <div><span className="text-cyan-300/80">Acquisition date:</span> {selectedDate}</div>
             <div><span className="text-cyan-300/80">Resolution:</span> {activeGibsLayer.description}</div>
-            <div><span className="text-cyan-300/80">Coverage area:</span> {aoiPoints.length >= 3 ? `${aoiPoints.length} AOI vertices` : 'Project-centered boundary'}</div>
+            <div><span className="text-cyan-300/80">Coverage area:</span> {aoiPoints.length >= 3 ? `${aoiPoints.length} AOI vertices (draft)` : savedAoiPoints.length >= 3 ? `${savedAoiPoints.length} AOI vertices (saved)` : 'Project-centered boundary'}</div>
             <div><span className="text-cyan-300/80">Layer selected:</span> {activeGibsLayer.label}</div>
-            <div><span className="text-cyan-300/80">Quality note:</span> {imageryError ? 'Tile fetch issue' : 'Latest available scene'}</div>
-            <div><span className="text-cyan-300/80">Model status:</span> NDWI and risk metrics are estimated/model-derived</div>
+            <div><span className="text-cyan-300/80">Quality note:</span> {partialFailure ? 'Partial layer fallback in effect' : imageryError ? 'Tile fetch issue' : 'Latest available scene'}</div>
+            <div><span className="text-cyan-300/80">Confidence:</span> {inspectQualityConfidence}%</div>
+            <div><span className="text-cyan-300/80">NDWI proxy:</span> {inspectNdwiEstimate.toFixed(2)} (estimated)</div>
+            <div><span className="text-cyan-300/80">Surface water extent:</span> {inspectWaterExtentEstimate}% (modeled)</div>
+            <div><span className="text-cyan-300/80">Flood/wetness:</span> {inspectFloodWetnessEstimate}% (modeled)</div>
+            <div><span className="text-cyan-300/80">Layer pixel context:</span> R/G/B and index values are interpreted from selected satellite tile at clicked point.</div>
+            <div><span className="text-cyan-300/80">Compare window:</span> {compareEnabled ? `${compareDate} vs ${selectedDate}` : 'Off'}</div>
+            <div><span className="text-cyan-300/80">Model status:</span> Satellite-derived indicators are estimated/model-derived and require field validation for legal claims.</div>
           </div>
+          {beforeImageryError ? (
+            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-100">{beforeImageryError}</p>
+          ) : null}
         </section>
 
         <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">

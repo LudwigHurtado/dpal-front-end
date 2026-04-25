@@ -213,10 +213,10 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
       <section className="mb-10">
         <h2 className="text-base md:text-lg font-bold text-cyan-200">Monitoring &amp; Remote Sensing</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Earth Observation" subLabel="LEO satellite analysis for environment and civic signals." status="Monitoring" colorClass="sky" bgImageUrl="/main-screen/satellite-water-analysis.png" onClick={() => onNavigate('earthObservation')} />
-          <HubCard icon={<Waves className="w-8 h-8" />} label="Water Satellite Monitor" subLabel="Live SMAP, SWOT, GRACE-FO, GIBS, and Copernicus readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/aqua-scan-hero.png" onClick={() => onNavigate('waterMonitor')} />
-          <HubCard icon={<Activity className="w-8 h-8" />} label="Air Quality Control" subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/air-scan-hero.png" onClick={() => onNavigate('airQualityMonitor')} />
-          <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Forest Integrity" subLabel="AFOLU projects, monitoring, mission evidence, and buyer-grade reports." status="Monitoring" colorClass="emerald" bgImageUrl="/main-screen/land-mineral-monitoring.png" onClick={() => onNavigate('afoluEngine')} />
+          <HubCard icon={<Globe className="w-8 h-8" />} label="Earth Observation" subLabel="LEO satellite analysis for environment and civic signals." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png" onClick={() => onNavigate('earthObservation')} />
+          <HubCard icon={<Waves className="w-8 h-8" />} label="Water Satellite Monitor" subLabel="Live SMAP, SWOT, GRACE-FO, GIBS, and Copernicus readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png" onClick={() => onNavigate('waterMonitor')} />
+          <HubCard icon={<Activity className="w-8 h-8" />} label="Air Quality Control" subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('airQualityMonitor')} />
+          <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Forest Integrity" subLabel="AFOLU projects, monitoring, mission evidence, and buyer-grade reports." status="Monitoring" colorClass="emerald" bgImageUrl="/environmental-intelligence/forest-integrity-main.png" onClick={() => onNavigate('afoluEngine')} />
         </div>
       </section>
 
@@ -242,23 +242,23 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             <button type="button" onClick={() => onNavigate('emissionsIntegrityAudit')} className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100">General</button>
             <button type="button" onClick={() => onNavigate('carbEmissionsAudit')} className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100">CARB California</button>
           </HubCard>
-          <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Hazardous Waste Integrity Audit" subLabel="RCRA facility reporting, permit, compliance, and waste activity review." status="Audit" colorClass="emerald" bgImageUrl="/main-screen/land-mineral-monitoring.png" onClick={() => onNavigate('hazardousWasteAudit')} />
-          <HubCard icon={<Database className="w-8 h-8" />} label="Fuel Storage Integrity Audit" subLabel="Preview workspace for storage-throughput reconciliation and leak risk signals." status="Preview" colorClass="amber" bgImageUrl="/main-screen/water-project-monitoring.png" onClick={() => onNavigate('previewFuelStorageAudit')} />
+          <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Hazardous Waste Integrity Audit" subLabel="RCRA facility reporting, permit, compliance, and waste activity review." status="Audit" colorClass="emerald" bgImageUrl="/environmental-intelligence/emissions-audit-carb-main.png" onClick={() => onNavigate('hazardousWasteAudit')} />
+          <HubCard icon={<Database className="w-8 h-8" />} label="Fuel Storage Integrity Audit" subLabel="Preview workspace for storage-throughput reconciliation and leak risk signals." status="Preview" colorClass="amber" bgImageUrl="/environmental-intelligence/emissions-audit-carb-main.png" onClick={() => onNavigate('previewFuelStorageAudit')} />
         </div>
       </section>
 
       <section className="mb-10">
         <h2 className="text-base md:text-lg font-bold text-emerald-200">Ecosystem &amp; Impact</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Ecological Conservation" subLabel="Landsat 9 OLI-2 foliage and habitat monitoring." status="Impact" colorClass="emerald" bgImageUrl="/main-screen/land-mineral-monitoring.png" onClick={() => onNavigate('ecologicalConservation')} />
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Impact Dashboard" subLabel="Climate projects and outcomes you can follow with confidence." status="Impact" colorClass="emerald" bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png" onClick={() => onNavigate('offsetMarketplace')} />
+          <HubCard icon={<Globe className="w-8 h-8" />} label="Ecological Conservation" subLabel="Landsat 9 OLI-2 foliage and habitat monitoring." status="Impact" colorClass="emerald" bgImageUrl="/environmental-intelligence/forest-integrity-main.png" onClick={() => onNavigate('ecologicalConservation')} />
+          <HubCard icon={<Globe className="w-8 h-8" />} label="Impact Dashboard" subLabel="Climate projects and outcomes you can follow with confidence." status="Impact" colorClass="emerald" bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png" onClick={() => onNavigate('offsetMarketplace')} />
         </div>
       </section>
 
       <section className="mb-10">
         <h2 className="text-base md:text-lg font-bold text-amber-200">Signals &amp; Intelligence</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Activity className="w-8 h-8" />} label="Global Environmental Signals" subLabel="USGS, NASA EONET, OpenAQ, live hazard feeds, and mission conversion." status="Signals" colorClass="amber" bgImageUrl="/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png" onClick={() => onNavigate('globalSignals')} />
+          <HubCard icon={<Activity className="w-8 h-8" />} label="Global Environmental Signals" subLabel="USGS, NASA EONET, OpenAQ, live hazard feeds, and mission conversion." status="Signals" colorClass="amber" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('globalSignals')} />
         </div>
       </section>
 
