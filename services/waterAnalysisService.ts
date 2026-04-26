@@ -204,41 +204,15 @@ export async function getWaterSnapshotByAOI(req: WaterAoiRequest): Promise<Water
     layer: req.layer,
   };
 
-  try {
-    const response = await fetch(apiUrl(endpoint.aoiSnapshot), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: req.signal,
-    });
-    const payload = await parseOrThrow<WaterAnalysisResponse>(response);
-    setCache(key, payload);
-    return payload;
-  } catch {
-    const [firstLng, firstLat] = req.polygonCoordinates[0] ?? [0, 0];
-    const fallback = await getWaterSnapshotByPoint({
-      lat: firstLat,
-      lng: firstLng,
-      date: req.date,
-      layer: req.layer,
-      signal: req.signal,
-    });
-    const patched: WaterAnalysisResponse = {
-      ...fallback,
-      location: {
-        lat: firstLat,
-        lng: firstLng,
-        name: 'AOI aggregate area',
-      },
-      status: {
-        ...fallback.status,
-        qualityFlag: 'Estimated',
-        note: 'AOI endpoint unavailable; using nearest point estimate. Field validation required for lab-grade chemistry.',
-      },
-    };
-    setCache(key, patched);
-    return patched;
-  }
+  const response = await fetch(apiUrl(endpoint.aoiSnapshot), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: req.signal,
+  });
+  const payload = await parseOrThrow<WaterAnalysisResponse>(response);
+  setCache(key, payload);
+  return payload;
 }
 
 export async function getWaterHistory(req: WaterHistoryRequest): Promise<HistoryResponse> {
@@ -262,19 +236,8 @@ export async function getWaterHistory(req: WaterHistoryRequest): Promise<History
     params.set('aoi', aoiHash(req.polygonCoordinates));
   }
 
-  try {
-    const response = await fetch(apiUrl(`${endpoint.history}?${params.toString()}`), { signal: req.signal });
-    const payload = await parseOrThrow<HistoryResponse>(response);
-    setCache(key, payload);
-    return payload;
-  } catch {
-    const fallback: HistoryResponse = {
-      points: [
-        { date: req.startDate, ndwi: 0.26, confidence: 0.68, surfaceWaterEstimate: 'Medium' },
-        { date: req.endDate, ndwi: 0.33, confidence: 0.74, surfaceWaterEstimate: 'Medium' },
-      ],
-    };
-    setCache(key, fallback);
-    return fallback;
-  }
+  const response = await fetch(apiUrl(`${endpoint.history}?${params.toString()}`), { signal: req.signal });
+  const payload = await parseOrThrow<HistoryResponse>(response);
+  setCache(key, payload);
+  return payload;
 }

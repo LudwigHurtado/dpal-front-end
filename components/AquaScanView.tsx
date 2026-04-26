@@ -241,7 +241,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [mapCommand, setMapCommand] = useState<'none' | 'zoomIn' | 'zoomOut' | 'panNorth' | 'panSouth' | 'panEast' | 'panWest' | 'reset'>('none');
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapStyle, setMapStyle] = useState<BasemapStyle>('satellite');
-  const [gpsMode, setGpsMode] = useState<'Demo' | 'Active'>('Demo');
+  const [gpsMode, setGpsMode] = useState<'Inactive' | 'Active'>('Inactive');
   const [boundaryRevision, setBoundaryRevision] = useState(0);
   const [selectedDate, setSelectedDate] = useState(gibsDefaultDate());
   const [compareDate, setCompareDate] = useState(gibsDefaultDate());
@@ -263,6 +263,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [waterApiLoading, setWaterApiLoading] = useState(false);
   const [waterApiError, setWaterApiError] = useState<string | null>(null);
   const [waterApiNotice, setWaterApiNotice] = useState<string | null>(null);
+  const [liveDataRequired, setLiveDataRequired] = useState(false);
+  const [liveDataReason, setLiveDataReason] = useState<string>('');
+  const [liveRetryTick, setLiveRetryTick] = useState(0);
   const [waterApiMode, setWaterApiMode] = useState<'point' | 'aoi'>('point');
   const [waterData, setWaterData] = useState<WaterAnalysisResponse | null>(null);
   const [waterHistoryDelta, setWaterHistoryDelta] = useState<string>('Pending history');
@@ -386,6 +389,8 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               signal: controller.signal,
             });
         setWaterData(snapshot);
+        setLiveDataRequired(false);
+        setLiveDataReason('');
 
         const history = await getWaterHistory({
           lat: shouldUseAoi ? undefined : point[0],
@@ -413,8 +418,10 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
         }
       } catch (error) {
         if (controller.signal.aborted) return;
-        setWaterApiError(error instanceof Error ? error.message : 'Backend unavailable — showing map imagery only.');
-        setWaterApiNotice('Backend unavailable — showing map imagery only.');
+        setWaterApiError(error instanceof Error ? error.message : 'Live water data unavailable for the current selection.');
+        setWaterApiNotice('Live water data unavailable. Showing base map and overlays only.');
+        setLiveDataRequired(true);
+        setLiveDataReason(error instanceof Error ? error.message : 'Required /api/water endpoints are unavailable for this selection.');
       } finally {
         if (!controller.signal.aborted) {
           setWaterApiLoading(false);
@@ -428,7 +435,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
         window.clearTimeout(waterDebounceRef.current);
       }
     };
-  }, [activeAoi, compareDate, compareEnabled, inspectedPoint, mapCenter, selectedAnalysisLayer, selectedDate]);
+  }, [activeAoi, compareDate, compareEnabled, inspectedPoint, liveRetryTick, mapCenter, selectedAnalysisLayer, selectedDate]);
 
   const validatorStatus = selectedProject.validatorStatus;
 
@@ -449,13 +456,13 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     const api = waterData?.waterAnalysis;
     const quality = waterData?.status;
     return [
-      { id: 'turbidity', label: 'Turbidity Proxy', value: api?.turbidityProxy ?? `${Math.max(18, Math.round(riskScore * 0.9))}/100`, trend: waterHistoryDelta, status, explanation: 'Satellite-derived turbidity proxy, not a lab turbidity measurement.' },
-      { id: 'algae', label: 'Water Presence', value: api?.waterPresence ?? `${Math.round(riskScore * 0.76)}/100`, trend: 'Derived from selected product', status, explanation: 'Derived water detection status from selected point/AOI.' },
-      { id: 'extent', label: 'Surface Water Estimate', value: api?.surfaceWaterEstimate ?? `${Math.round(riskScore * 0.42)}%`, trend: waterHistoryDelta, status, explanation: 'Surface-water estimate from satellite/model layers.' },
-      { id: 'flood', label: 'Risk Level', value: quality?.riskLevel ?? `${Math.round(riskScore * 0.81)}/100`, trend: quality?.qualityFlag ? `Quality: ${quality.qualityFlag}` : '+9% from baseline', status, explanation: 'Risk combines water and quality interpretation from latest snapshot.' },
-      { id: 'drought', label: 'Drought Stress', value: `${Math.round(riskScore * 0.62)}/100`, trend: 'Stable over 30 days', status, explanation: 'Storage and stress patterns from basin-scale indicators.' },
-      { id: 'thermal', label: 'Thermal Anomaly', value: api?.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed', trend: '+3% this week', status, explanation: 'Thermal anomaly interpreted from selected satellite product.' },
-      { id: 'confidence', label: 'Snapshot Confidence', value: `${Math.round((api?.confidence ?? Math.min(0.95, (45 + selectedProject.evidenceCount * 4 + anomalyLayerCount * 4) / 100)) * 100)}%`, trend: `${selectedProject.evidenceCount} evidence item(s) logged`, status, explanation: 'Confidence is satellite-derived and affected by cloud/coverage quality.' },
+      { id: 'turbidity', label: 'Turbidity Proxy', value: api?.turbidityProxy ?? 'Data unavailable', trend: waterData ? waterHistoryDelta : 'Waiting for live snapshot', status, explanation: 'A satellite-derived screening estimate related to water clarity. It is not a lab turbidity measurement.' },
+      { id: 'algae', label: 'Water Presence', value: api?.waterPresence ?? 'Data unavailable', trend: waterData ? 'Derived from selected product' : 'Waiting for live snapshot', status, explanation: 'Indicates whether selected satellite/model layers detect surface water in the selected area.' },
+      { id: 'extent', label: 'Surface Water Estimate', value: api?.surfaceWaterEstimate ?? 'Data unavailable', trend: waterData ? waterHistoryDelta : 'Waiting for live snapshot', status, explanation: 'Estimated water extent from satellite/model layers. Medium means water is detected but confidence or coverage may be limited.' },
+      { id: 'flood', label: 'Risk Level', value: quality?.riskLevel ?? 'Data unavailable', trend: quality?.qualityFlag ? `Quality: ${quality.qualityFlag}` : 'Awaiting live quality flags', status, explanation: 'Combines water indicators, anomaly status, evidence points, and confidence. It is a review priority, not a legal conclusion.' },
+      { id: 'drought', label: 'Drought Stress', value: waterData ? `${Math.round(riskScore * 0.62)}/100` : 'Data unavailable', trend: waterData ? 'Stable over 30 days' : 'Awaiting live trend window', status, explanation: 'Storage and stress patterns from basin-scale indicators.' },
+      { id: 'thermal', label: 'Thermal Anomaly', value: api?.thermalAnomaly ?? 'Data unavailable', trend: waterData ? '+3% this week' : 'Awaiting live thermal layer', status, explanation: 'Thermal anomaly indicator detected - review needed.' },
+      { id: 'confidence', label: 'Snapshot Confidence', value: api?.confidence != null ? `${Math.round(api.confidence * 100)}%` : 'Data unavailable', trend: `${selectedProject.evidenceCount} evidence item(s) logged`, status, explanation: 'Confidence in the current map snapshot based on layer availability, cloud/coverage quality, and evidence completeness.' },
       { id: 'validator', label: 'Verification Status', value: validatorStatus, trend: validatorStatus === 'Validated' ? 'Validator-approved packet' : 'Awaiting final validation', status, explanation: 'Current verification state of the evidence package.' },
     ];
   }, [anomalyLayerCount, riskScore, selectedProject.evidenceCount, validatorStatus, waterData, waterHistoryDelta]);
@@ -533,7 +540,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     if (selectedProjectId) {
       updateSelectedProject({ evidenceCount: selectedProject.evidenceCount + 1 });
     }
-    setActionNotice('Evidence item added in demo mode.');
+    setActionNotice('Evidence item added.');
   }
 
   function saveDraftProject(): void {
@@ -549,7 +556,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     };
     setProjects((prev) => [next, ...prev]);
     setSelectedProjectId(next.id);
-    setActionNotice('Project intake saved in demo mode.');
+    setActionNotice('Project intake saved.');
   }
 
   function runAction(actionLabel: string): void {
@@ -622,37 +629,6 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       }
       return;
     }
-  }
-
-  function runDemoScenario(): void {
-    const preferredProject =
-      projects.find((project) => project.waterBodyType === 'River')
-      ?? projects.find((project) => project.waterBodyType === 'Wetland')
-      ?? projects[0];
-
-    if (!preferredProject) {
-      setActionNotice('Create a project first, then run demo scenario.');
-      return;
-    }
-
-    setSelectedProjectId(preferredProject.id);
-    setProjects((prev) =>
-      prev.map((project) =>
-        project.id === preferredProject.id
-          ? {
-              ...project,
-              concernType: project.waterBodyType === 'Wetland' ? 'Turbidity' : 'Suspected Contamination',
-              evidenceCount: Math.max(project.evidenceCount, 6),
-              hasLabResult: false,
-              validatorStatus: 'Reviewed',
-            }
-          : project,
-      ),
-    );
-    setSelectedLayerIds(['sentinel2', 'sentinel1', 'landsat89', 'sentinel3', 'swot']);
-    setBoundaryDrawn(true);
-    setShowPacket(true);
-    setActionNotice('Demo scenario loaded.');
   }
 
   function toggleOverlay(key: keyof typeof overlayState): void {
@@ -733,6 +709,13 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     setActionNotice('AOI saved for this browser.');
   }
 
+  function retryLiveData(): void {
+    setLiveDataRequired(false);
+    setWaterApiError(null);
+    setWaterApiNotice('Retrying live water data...');
+    setLiveRetryTick((prev) => prev + 1);
+  }
+
   function retryImagery(): void {
     setImageryLoading(true);
     setImageryError(null);
@@ -788,7 +771,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           <div className="flex items-center gap-2">
             <Waves className="h-5 w-5 text-cyan-300" />
             <span className="text-sm font-semibold">DPAL AquaScan</span>
-            <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">Demo layers</span>
+            <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">Live-only mode</span>
           </div>
           <div className="ml-auto hidden text-[11px] text-slate-400 md:block">Evidence-based water screening workspace</div>
         </div>
@@ -797,6 +780,24 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
         {actionNotice ? (
           <div className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm text-cyan-100">{actionNotice}</div>
+        ) : null}
+        {liveDataRequired ? (
+          <div className="rounded-xl border border-rose-500/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
+            <p className="font-semibold uppercase tracking-wide">LIVE DATA REQUIRED</p>
+            <p className="mt-1">
+              Required water intelligence endpoints are unavailable for this selection. This report is incomplete until live API data returns.
+            </p>
+            {liveDataReason ? <p className="mt-1 text-xs text-rose-200/90">Reason: {liveDataReason}</p> : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={retryLiveData}
+                className="rounded border border-rose-300/50 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-900/55"
+              >
+                Retry live data
+              </button>
+            </div>
+          </div>
         ) : null}
         {waterApiLoading ? (
           <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/25 px-4 py-2 text-sm text-cyan-100">
@@ -816,16 +817,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">How to Use DPAL AquaScan</p>
-              <p className="mt-1 text-sm text-slate-300">Simple workflow for evidence-based water monitoring in demo mode.</p>
+              <p className="mt-1 text-sm text-slate-300">Live workflow for evidence-based water monitoring.</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={runDemoScenario}
-                className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 hover:bg-emerald-900/35"
-              >
-                Run Demo Scenario
-              </button>
               <button
                 type="button"
                 onClick={() => setShowGuide((prev) => !prev)}
@@ -836,7 +830,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             </div>
           </div>
           <p className="mt-3 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs text-cyan-100">
-            Demo Mode: satellite layers, AI summary, evidence packet, and actions use mock data.
+            Live-only mode: when satellite or API data is unavailable, AquaScan shows data-unavailable states instead of generated fallback reports.
           </p>
 
           {showGuide ? (
@@ -860,10 +854,10 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Can do</p>
                   <ul className="mt-1 space-y-1 text-xs text-slate-300">
                     <li>- Identify potential water-risk indicators.</li>
-                    <li>- Compare conditions against a mock baseline.</li>
+                    <li>- Compare conditions across live snapshots and selected dates.</li>
                     <li>- Organize satellite, field, and community evidence.</li>
                     <li>- Recommend next steps.</li>
-                    <li>- Generate a demo evidence packet.</li>
+                    <li>- Generate an evidence packet preview.</li>
                   </ul>
                 </div>
                 <div className="mt-3">
@@ -897,7 +891,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               {suspectedSources.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
             </select>
             <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-              <button type="button" className="rounded-md border border-cyan-500/50 bg-cyan-900/25 px-2 py-1 text-cyan-100" onClick={addEvidenceItem}>Upload evidence (mock)</button>
+              <button type="button" className="rounded-md border border-cyan-500/50 bg-cyan-900/25 px-2 py-1 text-cyan-100" onClick={addEvidenceItem}>Upload evidence</button>
               <span className="text-slate-400">{selectedProject.evidenceCount} total evidence item(s)</span>
             </div>
             <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
@@ -979,7 +973,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 lg:col-span-2">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">Satellite Layer Selector</p>
-              <span className="rounded-full border border-amber-400/40 bg-amber-900/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">Mock / demo layers</span>
+              <span className="rounded-full border border-amber-400/40 bg-amber-900/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">Live satellite layers</span>
             </div>
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {mockSatelliteLayers.map((layer: SatelliteLayer) => {
