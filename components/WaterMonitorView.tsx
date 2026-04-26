@@ -347,6 +347,7 @@ interface PlatformStats {
 interface WaterMonitorViewProps {
   onReturn: () => void;
   hero?: Hero;
+  onOpenAquaScan?: () => void;
 }
 
 // ── Satellite imagery map for project detail view (Google Maps) ───────────────
@@ -3369,7 +3370,7 @@ function Dashboard({
 
 type SubView = 'dashboard' | 'create' | 'project' | 'validator' | 'credits';
 
-export default function WaterMonitorView({ onReturn }: WaterMonitorViewProps) {
+export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMonitorViewProps) {
   const [subView, setSubView] = useState<SubView>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string>('');
 
@@ -3396,11 +3397,23 @@ export default function WaterMonitorView({ onReturn }: WaterMonitorViewProps) {
           </button>
           <div className="flex items-center gap-2">
             <Waves className="w-[18px] h-[18px] text-teal-400" />
-            <span className="text-sm font-semibold text-slate-100">Water Monitor</span>
+            <span className="text-sm font-semibold text-slate-100">Water Operations Engine</span>
           </div>
+          <div className="text-[11px] text-slate-400 hidden lg:block">
+            Projects, satellite snapshots, Water Impact Score, validator queue, WaterGlobe, and water credits
+          </div>
+          {onOpenAquaScan ? (
+            <button
+              type="button"
+              onClick={onOpenAquaScan}
+              className="ml-auto rounded-lg border border-teal-500/40 bg-teal-900/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-teal-100 hover:bg-teal-900/45"
+            >
+              Open AquaScan
+            </button>
+          ) : null}
 
           {/* Nav tabs */}
-          <nav className="ml-4 flex items-center gap-1">
+          <nav className="ml-2 flex items-center gap-1">
             {([
               { id: 'dashboard', label: 'Dashboard' },
               { id: 'validator', label: 'Validator' },
@@ -3424,6 +3437,9 @@ export default function WaterMonitorView({ onReturn }: WaterMonitorViewProps) {
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
+          <span className="font-semibold text-teal-200">Source status:</span> Water Operations Engine uses API-backed routes when available and can fall back to demo/showcase states when endpoints are unavailable.
+        </div>
         {subView === 'dashboard' && (
           <Dashboard
             onViewProject={goProject}

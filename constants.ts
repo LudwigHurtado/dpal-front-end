@@ -150,6 +150,11 @@ export const API_ROUTES = {
   WATER_STATS: '/api/water/stats',
   WATER_ACTIVITY_FEED: '/api/water/activity/feed',
   WATER_SATELLITE_PREVIEW: '/api/water/satellite-preview',
+  COPERNICUS_STATUS: '/api/copernicus/status',
+  COPERNICUS_CATALOG_SEARCH: '/api/copernicus/catalog/search',
+  COPERNICUS_PROCESS: '/api/copernicus/process',
+  COPERNICUS_STATISTICS: '/api/copernicus/statistics',
+  COPERNICUS_EVIDENCE_PACKET: '/api/copernicus/evidence-packet',
   DISASTERS_FEED: '/api/disasters/feed',
   /** DPAL Global Signals Engine */
   SIGNALS_LIST:          '/api/signals',

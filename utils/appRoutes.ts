@@ -90,6 +90,10 @@ export const VIEW_PATHS: Record<string, string> = {
   createMission: '/missions/create',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   waterMonitor: '/water',
+  /** Explicit AquaScan route for side-by-side testing */
+  aquaScanWater: '/water/aquascan',
+  /** Water Operations Engine route for operational workflows */
+  waterOperationsEngine: '/water/monitor',
   /** DPAL Global Signals Engine — live feeds from USGS / NASA EONET / OpenAQ */
   globalSignals: '/global-signals',
   /** DPAL Impact Registry — environmental project tracking, evidence, monitoring, verification, claims */

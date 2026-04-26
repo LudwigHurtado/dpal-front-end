@@ -49,6 +49,7 @@ import SustainmentCenter from './components/SustainmentCenter';
 import OffsetMarketplaceView from './components/OffsetMarketplaceView';
 import CarbonMRVDashboard from './components/CarbonMRVDashboard';
 import AquaScanView from './components/AquaScanView';
+import WaterMonitorView from './components/WaterMonitorView';
 import EcologicalConservationView from './components/EcologicalConservationView';
 import EarthObservationView from './components/EarthObservationView';
 import AfoluEngineView from './components/AfoluEngineView';
@@ -130,7 +131,7 @@ import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvi
 import type { EpaFacilityProfile } from './src/types/epa';
 import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2503,6 +2504,23 @@ const App: React.FC = () => {
           <AquaScanView
             onReturn={() => goBack('mainMenu')}
             hero={hero}
+            onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+          />
+        )}
+
+        {currentView === 'aquaScanWater' && (
+          <AquaScanView
+            onReturn={() => goBack('mainMenu')}
+            hero={hero}
+            onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+          />
+        )}
+
+        {currentView === 'waterOperationsEngine' && (
+          <WaterMonitorView
+            onReturn={() => goBack('mainMenu')}
+            hero={hero}
+            onOpenAquaScan={() => setCurrentView('aquaScanWater')}
           />
         )}
 

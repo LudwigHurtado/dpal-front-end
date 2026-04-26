@@ -24,10 +24,21 @@ import {
   type SatelliteLayer,
   type WaterIndicator,
 } from './water/aquaScanMockData';
+import { fetchCopernicusSetupState, getCopernicusSetupState } from '../services/copernicus/processService';
+import { fetchAoiStatisticsComparison } from '../services/copernicus/statisticsService';
+import type {
+  CopernicusAoiGeoJson,
+  CopernicusIndexType,
+  CopernicusStatisticsComparisonResponse,
+  CopernicusValidatorStatus,
+  SatelliteEvidencePacket,
+} from '../services/copernicus/types';
+import { apiUrl, API_ROUTES } from '../constants';
 
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
+  onOpenWaterOperations?: () => void;
 }
 
 const DEFAULT_WEST_US_CENTER: [number, number] = [37.25, -119.8];
@@ -150,6 +161,20 @@ function parseCoordinateInput(raw: string | number | null | undefined): number |
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function toAoiGeoJson(points: [number, number][] | null): CopernicusAoiGeoJson | null {
+  if (!points || points.length < 3) return null;
+  const ring = points.map(([lat, lng]) => [lng, lat]);
+  const [firstLng, firstLat] = ring[0];
+  const [lastLng, lastLat] = ring[ring.length - 1];
+  if (firstLng !== lastLng || firstLat !== lastLat) {
+    ring.push([firstLng, firstLat]);
+  }
+  return {
+    type: 'Polygon',
+    coordinates: [ring],
+  };
+}
+
 function focusPointFromProject(project: AquaScanProject): [number, number] {
   const parsedLat = parseCoordinateInput(project.latitude);
   const parsedLng = parseCoordinateInput(project.longitude);
@@ -229,7 +254,7 @@ function MapCommandBridge({
   return null;
 }
 
-export default function AquaScanView({ onReturn }: AquaScanViewProps) {
+export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(mockWaterProjects[0]?.id ?? '');
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(mockSatelliteLayers.slice(0, 3).map((l) => l.id));
@@ -268,6 +293,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [liveRetryTick, setLiveRetryTick] = useState(0);
   const [waterApiMode, setWaterApiMode] = useState<'point' | 'aoi'>('point');
   const [waterData, setWaterData] = useState<WaterAnalysisResponse | null>(null);
+  const [showRightLayerPanel, setShowRightLayerPanel] = useState(false);
   const [waterHistoryDelta, setWaterHistoryDelta] = useState<string>('Pending history');
   const [layerOpacity, setLayerOpacity] = useState(72);
   const [actionDraftCounts, setActionDraftCounts] = useState({
@@ -307,6 +333,26 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     hasLabResult: false,
     validatorStatus: 'Pending',
   });
+  const [copernicusSetup, setCopernicusSetup] = useState(() => getCopernicusSetupState());
+  const [comparisonIndexType, setComparisonIndexType] = useState<CopernicusIndexType>('NDWI');
+  const [comparisonCollection, setComparisonCollection] = useState<'sentinel-2-l2a' | 'sentinel-1-grd'>('sentinel-2-l2a');
+  const [beforeRange, setBeforeRange] = useState({ from: gibsDefaultDate(), to: gibsDefaultDate() });
+  const [afterRange, setAfterRange] = useState({ from: gibsDefaultDate(), to: gibsDefaultDate() });
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+  const [comparisonError, setComparisonError] = useState<string | null>(null);
+  const [comparisonResult, setComparisonResult] = useState<CopernicusStatisticsComparisonResponse | null>(null);
+  const [validatorGateStatus, setValidatorGateStatus] = useState<CopernicusValidatorStatus>('pending_review');
+  const [calculationHistory, setCalculationHistory] = useState<Array<{
+    calculationId: string;
+    projectId: string;
+    indexType: CopernicusIndexType;
+    before: { from: string; to: string };
+    after: { from: string; to: string };
+    deltaPercent: number | null;
+    confidenceScore: number;
+    validatorStatus: CopernicusValidatorStatus;
+    generatedAt: string;
+  }>>([]);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId) ?? draftProject,
@@ -355,6 +401,40 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       window.clearTimeout(waterDebounceRef.current);
     }
   }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchCopernicusSetupState(controller.signal)
+      .then((status) => setCopernicusSetup(status))
+      .catch(() => {
+        setCopernicusSetup((prev) => ({
+          ...prev,
+          configured: false,
+          message: 'Copernicus backend not configured',
+        }));
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const key = `dpal_aquascan_calc_history_${selectedProject.id}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) {
+        setCalculationHistory([]);
+        return;
+      }
+      const parsed = JSON.parse(raw) as typeof calculationHistory;
+      setCalculationHistory(Array.isArray(parsed) ? parsed : []);
+    } catch {
+      setCalculationHistory([]);
+    }
+  }, [selectedProject.id]);
+
+  useEffect(() => {
+    const key = `dpal_aquascan_calc_history_${selectedProject.id}`;
+    localStorage.setItem(key, JSON.stringify(calculationHistory));
+  }, [calculationHistory, selectedProject.id]);
 
   useEffect(() => {
     const point: [number, number] = inspectedPoint ?? mapCenter;
@@ -520,6 +600,39 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           : template.recommendedNextAction,
     };
   }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, mapCenter, activeAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.reportPins, overlayState.samplePoints, imageryError, partialFailure, imageryLoading]);
+  const evidencePacket = useMemo<SatelliteEvidencePacket>(() => {
+    const beforeValue = comparisonResult?.before.mean ?? null;
+    const afterValue = comparisonResult?.after.mean ?? null;
+    const deltaPercent = comparisonResult?.delta.percentChange ?? null;
+    return {
+      projectId: selectedProject.id,
+      projectName: selectedProject.projectName || 'Unnamed project',
+      aoiGeoJson: toAoiGeoJson(activeAoi),
+      centerLatLng: { lat: mapCenter[0], lng: mapCenter[1] },
+      satelliteCollection: comparisonResult?.collection ?? comparisonCollection,
+      productId: waterData?.satellite.product ?? 'S2_L2A_PENDING_PRODUCT_ID',
+      acquisitionDate: comparisonResult?.generatedAt ?? waterData?.satellite.acquisitionDate ?? selectedDate,
+      cloudCover: waterData?.satellite.cloudCover ?? 'unavailable',
+      indexType: comparisonResult?.indexType ?? comparisonIndexType,
+      beforeValue,
+      afterValue,
+      deltaPercent,
+      confidenceScore: comparisonResult?.confidenceScore ?? (inspectQualityConfidence / 100),
+      dataSourceCitation: comparisonResult?.sourceCitation ?? 'Copernicus Sentinel Hub + DPAL Water Analysis',
+      assumptions: [
+        'Satellite index values are indicative and depend on scene quality.',
+        'Before/after values are generated from backend-controlled index formulas.',
+      ],
+      limitations: [
+        'Not a certified carbon credit determination.',
+        'Field validation and applicable methodology checks are required before certification claims.',
+      ],
+      generatedAt: new Date().toISOString(),
+      validatorStatus: validatorGateStatus,
+      photos: [],
+      notes: `Indicative MRV estimate. ${packetPreview.legalSafeNote}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
+    };
+  }, [activeAoi, comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, mapCenter, packetPreview.legalSafeNote, selectedDate, selectedProject.id, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product]);
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -557,6 +670,52 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     setProjects((prev) => [next, ...prev]);
     setSelectedProjectId(next.id);
     setActionNotice('Project intake saved.');
+  }
+
+  async function runMrvComparison(): Promise<void> {
+    const aoi = toAoiGeoJson(activeAoi);
+    if (!aoi) {
+      setComparisonError('AOI required before calculation');
+      return;
+    }
+    if (!beforeRange.from || !beforeRange.to || !afterRange.from || !afterRange.to) {
+      setComparisonError('Before and after date ranges are required.');
+      return;
+    }
+    if (beforeRange.from === afterRange.from && beforeRange.to === afterRange.to) {
+      setComparisonError('Before and after date ranges cannot be identical.');
+      return;
+    }
+    setComparisonError(null);
+    setComparisonLoading(true);
+    try {
+      const result = await fetchAoiStatisticsComparison({
+        aoiGeoJson: aoi,
+        indexType: comparisonIndexType,
+        collection: comparisonCollection,
+        before: beforeRange,
+        after: afterRange,
+      });
+      setComparisonResult(result);
+      setValidatorGateStatus('pending_review');
+      const historyItem = {
+        calculationId: `calc-${Date.now()}`,
+        projectId: selectedProject.id,
+        indexType: comparisonIndexType,
+        before: { ...beforeRange },
+        after: { ...afterRange },
+        deltaPercent: result.delta.percentChange,
+        confidenceScore: result.confidenceScore,
+        validatorStatus: 'pending_review' as CopernicusValidatorStatus,
+        generatedAt: result.generatedAt,
+      };
+      setCalculationHistory((prev) => [historyItem, ...prev].slice(0, 20));
+      setActionNotice('MRV comparison completed. Pending Validator Review.');
+    } catch (error) {
+      setComparisonError(error instanceof Error ? error.message : 'Comparison failed');
+    } finally {
+      setComparisonLoading(false);
+    }
   }
 
   function runAction(actionLabel: string): void {
@@ -629,6 +788,35 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       }
       return;
     }
+  }
+
+  async function exportEvidencePacketJson(): Promise<void> {
+    try {
+      const response = await fetch(apiUrl(API_ROUTES.COPERNICUS_EVIDENCE_PACKET), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(evidencePacket),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { packet?: SatelliteEvidencePacket; error?: string };
+      if (!response.ok || !payload.packet) {
+        setActionNotice(payload.error ?? 'Unable to export evidence packet JSON.');
+        return;
+      }
+      const blob = new Blob([JSON.stringify(payload.packet, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `satellite-evidence-packet-${selectedProject.id}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      setActionNotice('Satellite Evidence Packet exported as JSON.');
+    } catch {
+      setActionNotice('Unable to export evidence packet JSON.');
+    }
+  }
+
+  function exportEvidencePacketPdf(): void {
+    setActionNotice('PDF export pending backend implementation.');
   }
 
   function toggleOverlay(key: keyof typeof overlayState): void {
@@ -773,11 +961,53 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             <span className="text-sm font-semibold">DPAL AquaScan</span>
             <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">Live-only mode</span>
           </div>
-          <div className="ml-auto hidden text-[11px] text-slate-400 md:block">Evidence-based water screening workspace</div>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="hidden text-[11px] text-slate-400 md:block">Scan, intake, map/GPS, and evidence packet workspace</span>
+            {onOpenWaterOperations ? (
+              <button
+                type="button"
+                onClick={onOpenWaterOperations}
+                className="rounded-lg border border-cyan-500/40 bg-cyan-900/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-100 hover:bg-cyan-900/45"
+              >
+                Open Water Operations Engine
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
+        <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
+          <span className="font-semibold text-cyan-200">Source status:</span> AquaScan may include mixed sources depending on panel state (live API, local browser draft, frontend state, and demo scaffolding).
+        </div>
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 px-4 py-3 text-xs text-indigo-100">
+          <p className="font-semibold uppercase tracking-wide">Copernicus / Sentinel setup</p>
+          {copernicusSetup.configured ? (
+            <p className="mt-1">Configured for live Copernicus API usage. Catalog, Process, and Statistical endpoints are available for MRV evidence workflows.</p>
+          ) : (
+            <p className="mt-1">
+              Copernicus backend not configured. Missing: {copernicusSetup.missing.join(', ') || 'backend credentials'}. This workspace remains API-ready without pretending mock data is live.
+            </p>
+          )}
+          <p className="mt-1 text-indigo-200/80">
+            Indicative MRV estimate - not certified carbon credit.
+          </p>
+        </div>
+        {!waterData && !waterApiLoading ? (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
+            Satellite data unavailable for current state. Select coordinates/date and verify API availability.
+          </div>
+        ) : null}
+        {activeAoi == null ? (
+          <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
+            AOI required before calculation for polygon statistics. Point mode remains available for quick inspection.
+          </div>
+        ) : null}
+        {waterApiError && /not found|no scene|unavailable/i.test(waterApiError) ? (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-2 text-xs text-amber-100">
+            No valid scene found for this date range.
+          </div>
+        ) : null}
         {actionNotice ? (
           <div className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm text-cyan-100">{actionNotice}</div>
         ) : null}
@@ -1017,11 +1247,81 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           </article>
         </section>
 
+        <section className="rounded-2xl border border-cyan-700/40 bg-slate-900/60 p-4 md:p-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">MRV Statistics Comparison</p>
+            <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+              Indicative MRV estimate - not certified carbon credit
+            </span>
+          </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
+            <select value={comparisonIndexType} onChange={(e) => setComparisonIndexType(e.target.value as CopernicusIndexType)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
+              <option value="NDVI">NDVI</option>
+              <option value="NDWI">NDWI</option>
+              <option value="NDMI">NDMI</option>
+              <option value="NBR">NBR</option>
+            </select>
+            <select value={comparisonCollection} onChange={(e) => setComparisonCollection(e.target.value as 'sentinel-2-l2a' | 'sentinel-1-grd')} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
+              <option value="sentinel-2-l2a">Sentinel-2 L2A</option>
+              <option value="sentinel-1-grd">Sentinel-1 GRD</option>
+            </select>
+            <input type="date" value={beforeRange.from} onChange={(e) => setBeforeRange((p) => ({ ...p, from: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
+            <input type="date" value={beforeRange.to} onChange={(e) => setBeforeRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
+            <input type="date" value={afterRange.from} onChange={(e) => setAfterRange((p) => ({ ...p, from: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
+            <input type="date" value={afterRange.to} onChange={(e) => setAfterRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
+          </div>
+          <p className="mt-2 text-[11px] text-slate-400">
+            AOI summary: {activeAoi ? `${activeAoi.length} points, ${aoiAreaSqKm.toFixed(2)} km²` : 'No AOI selected'}
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button type="button" onClick={() => { void runMrvComparison(); }} disabled={comparisonLoading} className="rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-60">
+              {comparisonLoading ? 'Calculating...' : 'Calculate Comparison'}
+            </button>
+            <span className="text-[11px] text-slate-400">Validator gate: {validatorGateStatus.replace(/_/g, ' ')}</span>
+            <button type="button" onClick={() => setValidatorGateStatus('pending_review')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">pending_review</button>
+            <button type="button" onClick={() => setValidatorGateStatus('needs_more_evidence')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">needs_more_evidence</button>
+            <button type="button" onClick={() => setValidatorGateStatus('approved')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">approved</button>
+            <button type="button" onClick={() => setValidatorGateStatus('rejected')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">rejected</button>
+          </div>
+          {comparisonError ? <p className="mt-2 text-xs text-rose-300">{comparisonError}</p> : null}
+          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
+            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Before mean</p><p className="font-bold">{comparisonResult?.before.mean ?? 'N/A'}</p></div>
+            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">After mean</p><p className="font-bold">{comparisonResult?.after.mean ?? 'N/A'}</p></div>
+            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Absolute change</p><p className="font-bold">{comparisonResult?.delta.absoluteChange ?? 'N/A'}</p></div>
+            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Percent change</p><p className="font-bold">{comparisonResult?.delta.percentChange ?? 'N/A'}%</p></div>
+            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Confidence</p><p className="font-bold">{comparisonResult ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'N/A'}</p></div>
+          </div>
+          {comparisonResult?.warnings?.length ? (
+            <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-xs text-amber-100">
+              Warnings: {comparisonResult.warnings.join(' | ')}
+            </div>
+          ) : null}
+          <p className="mt-2 text-xs text-slate-300">{comparisonResult?.delta.interpretation ?? 'Run comparison to see interpretation.'}</p>
+          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-[11px] text-slate-300">
+            NDVI = vegetation health · NDWI = water presence · NDMI = moisture stress · NBR = fire/burn disturbance
+          </div>
+          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-xs text-slate-300">
+            <p className="font-semibold text-slate-200">Calculation history (local browser per project)</p>
+            {calculationHistory.length === 0 ? <p className="mt-1 text-slate-500">No saved calculations yet.</p> : (
+              <div className="mt-1 space-y-1">
+                {calculationHistory.slice(0, 5).map((item) => (
+                  <p key={item.calculationId}>
+                    {item.generatedAt} · {item.indexType} · {item.deltaPercent ?? 'N/A'}% · {Math.round(item.confidenceScore * 100)}% · {item.validatorStatus}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
         <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
           <div className="mb-3">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-300">AquaScan Map &amp; GPS</p>
             <p className="mt-1 text-xs text-slate-300">
               Visual monitoring area for the selected water project, including project location, scan boundary, risk zones, evidence points, and GPS context. The map can be adjusted by the user to inspect, refine, and manage the monitoring area.
+            </p>
+            <p className="mt-2 text-[11px] text-amber-100">
+              What am I looking at? Satellite/base imagery plus DPAL overlays for review prioritization. Indicators are screening signals and require field or laboratory validation.
             </p>
           </div>
 
@@ -1187,6 +1487,30 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             </div>
           </div>
           <div ref={mapViewportRef} className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[42rem]' : 'h-[32rem]'}`}>
+            <div className="absolute right-3 top-12 z-[520] flex flex-col items-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowRightLayerPanel((prev) => !prev)}
+                className="rounded border border-cyan-500/40 bg-slate-950/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-100"
+              >
+                {showRightLayerPanel ? 'Hide layers' : 'Show layers'}
+              </button>
+              {showRightLayerPanel ? (
+                <div className="w-64 rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-[10px] text-slate-200">
+                  <p className="font-semibold text-cyan-200">Layer controls (collapsible)</p>
+                  <p className="mt-1 text-slate-400">Selected layers: {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</p>
+                  <label className="mt-2 flex items-center justify-between gap-2">
+                    <span>Opacity</span>
+                    <input type="range" min={0} max={100} value={layerOpacity} onChange={(event) => setLayerOpacity(Number(event.target.value))} />
+                  </label>
+                  <label className="mt-2 flex items-center gap-2">
+                    <input type="checkbox" checked={compareEnabled} onChange={(event) => setCompareEnabled(event.target.checked)} />
+                    Date compare
+                  </label>
+                  <p className="mt-1 text-slate-500">Right panel is collapsible to avoid blocking report data.</p>
+                </div>
+              ) : null}
+            </div>
             <div className="pointer-events-none absolute right-2 top-2 z-[510] rounded border border-slate-700/80 bg-slate-950/85 px-2 py-1 text-[10px] text-slate-200">
               Satellite / base map imagery · Overlays: DPAL water indicators
             </div>
@@ -1443,10 +1767,21 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
             <div className="mb-3 flex items-center justify-between">
               <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">Evidence Packet Generator</p>
-              <button type="button" onClick={() => setShowPacket((prev) => !prev)} className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100">
-                Generate Evidence Packet
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" onClick={() => setShowPacket((prev) => !prev)} className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100">
+                  Generate Evidence Packet
+                </button>
+                <button type="button" onClick={exportEvidencePacketJson} className="rounded-lg border border-cyan-500/50 bg-cyan-900/25 px-3 py-1.5 text-xs font-semibold text-cyan-100">
+                  Export JSON
+                </button>
+                <button type="button" onClick={exportEvidencePacketPdf} className="rounded-lg border border-slate-600 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-slate-200">
+                  Export PDF
+                </button>
+              </div>
             </div>
+            <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-100">
+              Indicative MRV estimate - not certified carbon credit.
+            </p>
             {showPacket ? (
               <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200">
                 <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet Preview</p>
@@ -1470,9 +1805,15 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                 <p><span className="text-slate-400">Sample points count:</span> {packetPreview.samplePointsCount}</p>
                 <p><span className="text-slate-400">Tile status:</span> {packetPreview.tileStatus}</p>
                 <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
-                <p><span className="text-slate-400">Validator status:</span> {packetPreview.validatorStatus}</p>
+                <p><span className="text-slate-400">Validator status:</span> {evidencePacket.validatorStatus}</p>
                 <p><span className="text-slate-400">AI summary:</span> {packetPreview.aiSummary}</p>
                 <p><span className="text-slate-400">Recommended action:</span> {packetPreview.recommendedNextAction}</p>
+                <p><span className="text-slate-400">Evidence packet product ID:</span> {evidencePacket.productId}</p>
+                <p><span className="text-slate-400">Index type:</span> {evidencePacket.indexType}</p>
+                <p><span className="text-slate-400">Before value:</span> {evidencePacket.beforeValue ?? 'N/A'}</p>
+                <p><span className="text-slate-400">After value:</span> {evidencePacket.afterValue ?? 'N/A'}</p>
+                <p><span className="text-slate-400">Delta %:</span> {evidencePacket.deltaPercent ?? 'N/A'}</p>
+                <p><span className="text-slate-400">Data source citation:</span> {evidencePacket.dataSourceCitation}</p>
                 <p className="rounded-md border border-amber-500/40 bg-amber-900/20 px-2 py-1 text-amber-100">
                   {packetPreview.legalSafeNote}
                 </p>
