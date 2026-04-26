@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
@@ -39,6 +39,16 @@ interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
   onOpenWaterOperations?: () => void;
+}
+
+interface FocusLocation {
+  source: 'search' | 'gps' | 'manual';
+  query: string;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+  aoiGeoJson: CopernicusAoiGeoJson | null;
+  resolvedAt: string;
 }
 
 const DEFAULT_WEST_US_CENTER: [number, number] = [37.25, -119.8];
@@ -254,8 +264,56 @@ function MapCommandBridge({
   return null;
 }
 
+function AiSectionHelper({
+  title,
+  quickTip,
+  bullets,
+  helpersExpanded,
+  tone = 'default',
+}: {
+  title: string;
+  quickTip: string;
+  bullets: string[];
+  helpersExpanded: boolean;
+  tone?: 'default' | 'setup' | 'location' | 'analysis' | 'report' | 'workflow';
+}): React.ReactElement {
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setIsOpen(helpersExpanded);
+  }, [helpersExpanded]);
+
+  const toneClasses: Record<NonNullable<typeof tone>, string> = {
+    default: 'border-indigo-500/35 bg-indigo-950/20 text-indigo-100',
+    setup: 'border-emerald-500/35 bg-emerald-950/20 text-emerald-100',
+    location: 'border-sky-500/35 bg-sky-950/20 text-sky-100',
+    analysis: 'border-cyan-500/35 bg-cyan-950/20 text-cyan-100',
+    report: 'border-amber-500/35 bg-amber-950/20 text-amber-100',
+    workflow: 'border-violet-500/35 bg-violet-950/20 text-violet-100',
+  };
+
+  return (
+    <details
+      open={isOpen}
+      onToggle={(event) => setIsOpen((event.currentTarget as HTMLDetailsElement).open)}
+      className={`mt-3 rounded-lg border px-3 py-2 text-xs ${toneClasses[tone]}`}
+    >
+      <summary className="cursor-pointer list-none font-semibold">
+        AI helper: {title}
+      </summary>
+      <p className="mt-2">{quickTip}</p>
+      <ul className="mt-2 space-y-1">
+        {bullets.map((bullet) => (
+          <li key={bullet}>- {bullet}</li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
+  const [helpersExpanded, setHelpersExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>(mockWaterProjects[0]?.id ?? '');
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(mockSatelliteLayers.slice(0, 3).map((l) => l.id));
   const [boundaryDrawn, setBoundaryDrawn] = useState(false);
@@ -272,7 +330,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const [compareDate, setCompareDate] = useState(gibsDefaultDate());
   const [compareEnabled, setCompareEnabled] = useState(false);
   const [compareOpacity, setCompareOpacity] = useState(35);
-  const [mapCenter, setMapCenter] = useState<[number, number]>(focusPointFromProject(mockWaterProjects[0]));
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_WEST_US_CENTER);
   const [inspectedPoint, setInspectedPoint] = useState<[number, number] | null>(null);
   const [aoiPoints, setAoiPoints] = useState<[number, number][]>([]);
   const [savedAoiPoints, setSavedAoiPoints] = useState<[number, number][]>([]);
@@ -334,6 +392,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     validatorStatus: 'Pending',
   });
   const [copernicusSetup, setCopernicusSetup] = useState(() => getCopernicusSetupState());
+  const [selectedFocusLocation, setSelectedFocusLocation] = useState<FocusLocation | null>(null);
+  const [activeTab, setActiveTab] = useState<'intake' | 'layers' | 'mrv' | 'evidence' | 'actions'>('intake');
   const [comparisonIndexType, setComparisonIndexType] = useState<CopernicusIndexType>('NDWI');
   const [comparisonCollection, setComparisonCollection] = useState<'sentinel-2-l2a' | 'sentinel-1-grd'>('sentinel-2-l2a');
   const [beforeRange, setBeforeRange] = useState({ from: gibsDefaultDate(), to: gibsDefaultDate() });
@@ -377,8 +437,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const aoiAreaSqKm = polygonAreaSqKm(activeAoi ?? []);
 
   useEffect(() => {
-    setMapCenter(focusPointFromProject(selectedProject));
-  }, [selectedProject]);
+    if (selectedFocusLocation) {
+      setMapCenter([selectedFocusLocation.latitude, selectedFocusLocation.longitude]);
+    }
+  }, [selectedFocusLocation]);
 
   useEffect(() => {
     const stored = localStorage.getItem('dpal_aquascan_saved_aoi_v1');
@@ -567,6 +629,37 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     if (inspectQualityConfidence < 65) return 'Add evidence or change satellite date.';
     return 'Notify authority or launch field mission if indicators remain strong after validation.';
   }, [inspectQualityConfidence, riskScore, waterData?.waterAnalysis.thermalAnomaly, waterData?.waterAnalysis.turbidityProxy]);
+
+  const displayAiSummary = useMemo(() => {
+    if (!selectedFocusLocation) {
+      return 'Select a focus location to begin water intelligence analysis.';
+    }
+    if (!waterData) {
+      return 'Live satellite intelligence is unavailable for the selected location. Select a valid AOI/date range or retry live data before generating a conclusion.';
+    }
+    return buildAiSummary(selectedProject.concernType, selectedFocusLocation.displayName.split(',')[0]);
+  }, [selectedFocusLocation, waterData, selectedProject.concernType]);
+
+  const focusAoiStatus = activeAoi && activeAoi.length >= 3
+    ? `Drawn (${activeAoi.length} pts)`
+    : savedAoiPoints.length >= 3
+      ? 'Saved'
+      : 'Missing';
+
+  type WorkflowStepStatus = 'complete' | 'needs_attention' | 'locked' | 'pending';
+  const workflowSteps: Array<{
+    id: string;
+    label: string;
+    status: WorkflowStepStatus;
+    tabId?: 'intake' | 'layers' | 'mrv' | 'evidence' | 'actions';
+  }> = [
+    { id: 'location', label: 'Location', status: selectedFocusLocation ? 'complete' : 'needs_attention' },
+    { id: 'boundary', label: 'Boundary', status: !selectedFocusLocation ? 'locked' : activeAoi && activeAoi.length >= 3 ? 'complete' : 'pending', tabId: 'intake' },
+    { id: 'layers', label: 'Layers', status: selectedLayerIds.length > 0 ? 'complete' : 'pending', tabId: 'layers' },
+    { id: 'compare', label: 'Compare', status: !activeAoi ? 'locked' : comparisonResult ? 'complete' : 'pending', tabId: 'mrv' },
+    { id: 'evidence', label: 'Evidence', status: selectedProject.evidenceCount > 0 ? 'complete' : 'pending', tabId: 'evidence' },
+    { id: 'action', label: 'Action', status: 'pending', tabId: 'actions' },
+  ];
 
   const packetPreview = useMemo(() => {
     const template = mockEvidencePackets[0];
@@ -841,10 +934,26 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     navigator.geolocation.getCurrentPosition(
       (position) => {
         setGpsMode('Active');
-        const nextCenter: [number, number] = [position.coords.latitude, position.coords.longitude];
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const nextCenter: [number, number] = [lat, lng];
         setMapCenter(nextCenter);
         setInspectedPoint(nextCenter);
-        setActionNotice('Centered on current GPS location.');
+        setSelectedFocusLocation({
+          source: 'gps',
+          query: 'Current GPS location',
+          displayName: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          latitude: lat,
+          longitude: lng,
+          aoiGeoJson: null,
+          resolvedAt: new Date().toISOString(),
+        });
+        setDraftProject((prev) => ({
+          ...prev,
+          latitude: String(lat.toFixed(6)),
+          longitude: String(lng.toFixed(6)),
+        }));
+        setActionNotice('Focused on current GPS location.');
       },
       () => {
         setActionNotice('Could not access GPS location. Check browser permissions.');
@@ -871,9 +980,25 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       }
       const lat = Number(rows[0].lat);
       const lng = Number(rows[0].lon);
+      const displayName = rows[0].display_name;
       setMapCenter([lat, lng]);
       setInspectedPoint([lat, lng]);
-      setActionNotice(`Centered map on ${rows[0].display_name}.`);
+      setSelectedFocusLocation({
+        source: 'search',
+        query,
+        displayName,
+        latitude: lat,
+        longitude: lng,
+        aoiGeoJson: null,
+        resolvedAt: new Date().toISOString(),
+      });
+      setDraftProject((prev) => ({
+        ...prev,
+        locationName: displayName.split(',')[0],
+        latitude: String(lat.toFixed(6)),
+        longitude: String(lng.toFixed(6)),
+      }));
+      setActionNotice(`Focused on ${displayName.split(',')[0]}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Location search failed.';
       setActionNotice(message);
@@ -894,6 +1019,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     }
     setSavedAoiPoints(aoiPoints);
     localStorage.setItem('dpal_aquascan_saved_aoi_v1', JSON.stringify(aoiPoints));
+    setSelectedFocusLocation((prev) =>
+      prev ? { ...prev, aoiGeoJson: toAoiGeoJson(aoiPoints) } : prev,
+    );
     setActionNotice('AOI saved for this browser.');
   }
 
@@ -950,22 +1078,46 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4 sm:px-6">
-          <button onClick={onReturn} className="rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200" aria-label="Return to main menu">
-            <ArrowLeft className="h-[18px] w-[18px]" />
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      {/* â”€â”€ 1. Premium Header â”€â”€ */}
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+        <div className="mx-auto flex h-12 max-w-[1400px] items-center gap-3 px-4 sm:px-6">
+          <button
+            onClick={onReturn}
+            className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
+            aria-label="Return to main menu"
+          >
+            <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex items-center gap-2">
-            <Waves className="h-5 w-5 text-cyan-300" />
-            <span className="text-sm font-semibold">DPAL AquaScan</span>
-            <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">Live-only mode</span>
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Waves className="h-4 w-4 shrink-0 text-cyan-300" />
+            <span className="text-sm font-bold">DPAL AquaScan MRV</span>
+            <span className="hidden text-[10px] text-slate-500 lg:block">
+              Environmental Intelligence / DPAL Water Command Center / AquaScan MRV
+            </span>
           </div>
-          <div className="hidden text-[10px] text-slate-400 lg:block">
-            Environmental Intelligence / DPAL Water Command Center / AquaScan MRV
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="hidden text-[11px] text-slate-400 md:block">Scan, intake, map/GPS, and evidence packet workspace</span>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">
+              Live-only
+            </span>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                copernicusSetup.configured
+                  ? 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200'
+                  : 'border-slate-700 text-slate-500'
+              }`}
+            >
+              Copernicus: {copernicusSetup.configured ? 'OK' : 'Not configured'}
+            </span>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                selectedProject.validatorStatus === 'Validated'
+                  ? 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200'
+                  : 'border-amber-500/40 bg-amber-900/20 text-amber-200'
+              }`}
+            >
+              Validator: {selectedProject.validatorStatus}
+            </span>
             {onOpenWaterOperations ? (
               <button
                 type="button"
@@ -977,573 +1129,394 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             ) : null}
           </div>
         </div>
+      </header>
+
+      {/* â”€â”€ 2. Focus Location Command Bar â”€â”€ */}
+      <div className="border-b border-slate-800 bg-slate-900/80 px-4 py-2.5 sm:px-6">
+        <div className="mx-auto max-w-[1400px]">
+          <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
+            Focus Location
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  void runLocationSearch();
+                }
+              }}
+              placeholder="Enter address, city, water body, or GPS coordinates"
+              className="h-8 min-w-[240px] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 text-sm text-slate-100 placeholder-slate-500 focus:border-cyan-500/60 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => { void runLocationSearch(); }}
+              disabled={searchBusy}
+              className="h-8 rounded-lg border border-cyan-500/50 bg-cyan-900/30 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-900/50 disabled:opacity-60"
+            >
+              {searchBusy ? 'Searchingâ€¦' : 'Locate on Map'}
+            </button>
+            <button
+              type="button"
+              onClick={centerOnGps}
+              className="h-8 rounded-lg border border-slate-600 bg-slate-800/60 px-3 text-xs font-semibold text-slate-200 hover:border-cyan-500/40"
+            >
+              Use My GPS
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDrawingAoi((prev) => !prev);
+                setBoundaryDrawn(true);
+              }}
+              className={`h-8 rounded-lg border px-3 text-xs font-semibold transition ${
+                drawingAoi
+                  ? 'border-cyan-500/60 bg-cyan-900/30 text-cyan-100'
+                  : 'border-slate-600 bg-slate-800/60 text-slate-200 hover:border-cyan-500/40'
+              }`}
+            >
+              {drawingAoi ? 'Stop Draw' : 'Draw AOI'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedFocusLocation(null);
+                setSearchQuery('');
+                setMapCenter(DEFAULT_WEST_US_CENTER);
+                setInspectedPoint(null);
+                setAoiPoints([]);
+                setSavedAoiPoints([]);
+                setBoundaryDrawn(false);
+                localStorage.removeItem('dpal_aquascan_saved_aoi_v1');
+                setActionNotice('Focus location cleared.');
+              }}
+              className="h-8 rounded-lg border border-rose-500/40 bg-rose-900/20 px-3 text-xs font-semibold text-rose-200 hover:bg-rose-900/35"
+            >
+              Clear
+            </button>
+          </div>
+          {selectedFocusLocation ? (
+            <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-slate-300">
+              <span>
+                <span className="text-slate-500">Focused on:</span>{' '}
+                <span className="font-semibold text-cyan-200">
+                  {selectedFocusLocation.displayName.split(',').slice(0, 2).join(',')}
+                </span>
+              </span>
+              <span>
+                <span className="text-slate-500">Lat/Lng:</span>{' '}
+                {selectedFocusLocation.latitude.toFixed(5)}, {selectedFocusLocation.longitude.toFixed(5)}
+              </span>
+              <span>
+                <span className="text-slate-500">AOI:</span>{' '}
+                <span className={focusAoiStatus === 'Missing' ? 'text-amber-300' : 'text-emerald-300'}>
+                  {focusAoiStatus}
+                </span>
+              </span>
+            </div>
+          ) : (
+            <p className="mt-1 text-[11px] text-slate-500">No focus location selected.</p>
+          )}
+        </div>
       </div>
 
-      <div className="mx-auto max-w-[1400px] space-y-6 px-4 py-6 sm:px-6">
-        <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
-          <span className="font-semibold text-cyan-200">Source status:</span> AquaScan may include mixed sources depending on panel state (live API, local browser draft, frontend state, and demo scaffolding).
-        </div>
-        <div className="rounded-xl border border-indigo-500/30 bg-indigo-950/20 px-4 py-3 text-xs text-indigo-100">
-          <p className="font-semibold uppercase tracking-wide">Copernicus / Sentinel setup</p>
-          {copernicusSetup.configured ? (
-            <p className="mt-1">Configured for live Copernicus API usage. Catalog, Process, and Statistical endpoints are available for MRV evidence workflows.</p>
-          ) : (
-            <p className="mt-1">
-              Copernicus backend not configured. Missing: {copernicusSetup.missing.join(', ') || 'backend credentials'}. This workspace remains API-ready without pretending mock data is live.
-            </p>
-          )}
-          <p className="mt-1 text-indigo-200/80">
-            Indicative MRV estimate - not certified carbon credit.
-          </p>
-        </div>
-        {!waterData && !waterApiLoading ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
-            Satellite data unavailable for current state. Select coordinates/date and verify API availability.
-          </div>
-        ) : null}
-        {activeAoi == null ? (
-          <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
-            AOI required before calculation for polygon statistics. Point mode remains available for quick inspection.
-          </div>
-        ) : null}
-        {waterApiError && /not found|no scene|unavailable/i.test(waterApiError) ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-2 text-xs text-amber-100">
-            No valid scene found for this date range.
-          </div>
-        ) : null}
-        {actionNotice ? (
-          <div className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm text-cyan-100">{actionNotice}</div>
-        ) : null}
-        {liveDataRequired ? (
-          <div className="rounded-xl border border-rose-500/50 bg-rose-950/30 px-4 py-3 text-sm text-rose-100">
-            <p className="font-semibold uppercase tracking-wide">LIVE DATA REQUIRED</p>
-            <p className="mt-1">
-              Required water intelligence endpoints are unavailable for this selection. This report is incomplete until live API data returns.
-            </p>
-            {liveDataReason ? <p className="mt-1 text-xs text-rose-200/90">Reason: {liveDataReason}</p> : null}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={retryLiveData}
-                className="rounded border border-rose-300/50 bg-rose-900/40 px-3 py-1.5 text-xs font-semibold text-rose-100 hover:bg-rose-900/55"
-              >
-                Retry live data
-              </button>
-            </div>
-          </div>
-        ) : null}
-        {waterApiLoading ? (
-          <div className="rounded-xl border border-cyan-500/40 bg-cyan-950/25 px-4 py-2 text-sm text-cyan-100">
-            Fetching water intelligence for selected area...
-          </div>
-        ) : null}
-        {waterApiError ? (
-          <div className="rounded-xl border border-rose-500/40 bg-rose-950/25 px-4 py-2 text-sm text-rose-100">
-            {waterApiError.includes('unavailable') ? 'Satellite product unavailable for this date/location.' : waterApiError}
-          </div>
-        ) : null}
-        {waterApiNotice ? (
-          <div className="rounded-xl border border-amber-500/40 bg-amber-900/20 px-4 py-2 text-sm text-amber-100">{waterApiNotice}</div>
-        ) : null}
-
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">How to Use DPAL AquaScan</p>
-              <p className="mt-1 text-sm text-slate-300">Live workflow for evidence-based water monitoring.</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setShowGuide((prev) => !prev)}
-                className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:border-cyan-500/50"
-              >
-                {showGuide ? 'Hide Guide' : 'Show Guide'}
-              </button>
-            </div>
-          </div>
-          <p className="mt-3 rounded-lg border border-cyan-500/40 bg-cyan-900/20 px-3 py-2 text-xs text-cyan-100">
-            Live-only mode: when satellite or API data is unavailable, AquaScan shows data-unavailable states instead of generated fallback reports.
-          </p>
-
-          {showGuide ? (
-            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-              <article className="rounded-xl border border-slate-700 bg-slate-950 p-4 lg:col-span-2">
-                <h3 className="text-sm font-semibold text-slate-100">Workflow Steps</h3>
-                <ol className="mt-3 space-y-2 text-sm text-slate-300">
-                  <li>Step 1: Select a water project.</li>
-                  <li>Step 2: Choose the concern type.</li>
-                  <li>Step 3: Review satellite-style indicators.</li>
-                  <li>Step 4: Inspect the scan area/map.</li>
-                  <li>Step 5: Read the AI Water Intelligence Summary.</li>
-                  <li>Step 6: Upload field evidence or lab results.</li>
-                  <li>Step 7: Generate an evidence packet.</li>
-                  <li>Step 8: Route the issue to field mission, sample request, authority notice, restoration project, public ledger, or export.</li>
-                </ol>
-              </article>
-              <article className="rounded-xl border border-slate-700 bg-slate-950 p-4">
-                <h3 className="text-sm font-semibold text-slate-100">What AquaScan Can and Cannot Do</h3>
-                <div className="mt-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-emerald-300">Can do</p>
-                  <ul className="mt-1 space-y-1 text-xs text-slate-300">
-                    <li>- Identify potential water-risk indicators.</li>
-                    <li>- Compare conditions across live snapshots and selected dates.</li>
-                    <li>- Organize satellite, field, and community evidence.</li>
-                    <li>- Recommend next steps.</li>
-                    <li>- Generate an evidence packet preview.</li>
-                  </ul>
-                </div>
-                <div className="mt-3">
-                  <p className="text-xs font-bold uppercase tracking-wider text-amber-300">Cannot do</p>
-                  <ul className="mt-1 space-y-1 text-xs text-slate-300">
-                    <li>- Confirm contamination without field sampling, lab testing, or official verification.</li>
-                    <li>- Replace certified laboratory results.</li>
-                    <li>- Guarantee carbon credits, legal findings, or official enforcement action from satellite indicators alone.</li>
-                  </ul>
-                </div>
-              </article>
-            </div>
+      {/* â”€â”€ 3. Compact Status Chips â”€â”€ */}
+      <div className="border-b border-slate-800/60 bg-slate-950/40 px-4 sm:px-6">
+        <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 py-1.5">
+          {!waterData && !waterApiLoading && selectedFocusLocation ? (
+            <span className="rounded-full border border-rose-500/40 bg-rose-900/20 px-2 py-0.5 text-[10px] text-rose-200">
+              Satellite data: Unavailable
+            </span>
           ) : null}
-        </section>
-
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Water Project Intake Panel</p>
-          <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <input className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="Project name" value={draftProject.projectName} onChange={(event) => setDraftProject((prev) => ({ ...prev, projectName: event.target.value }))} />
-            <select className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" value={draftProject.waterBodyType} onChange={(event) => setDraftProject((prev) => ({ ...prev, waterBodyType: event.target.value as AquaScanProject['waterBodyType'] }))}>
-              {waterBodyTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-            <input className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="Location name" value={draftProject.locationName} onChange={(event) => setDraftProject((prev) => ({ ...prev, locationName: event.target.value }))} />
-            <select className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" value={draftProject.concernType} onChange={(event) => setDraftProject((prev) => ({ ...prev, concernType: event.target.value as ConcernType }))}>
-              {concernTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-            <input className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="GPS latitude" value={draftProject.latitude} onChange={(event) => setDraftProject((prev) => ({ ...prev, latitude: event.target.value }))} />
-            <input className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" placeholder="GPS longitude" value={draftProject.longitude} onChange={(event) => setDraftProject((prev) => ({ ...prev, longitude: event.target.value }))} />
-            <input className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm md:col-span-2" placeholder="Optional polygon / boundary placeholder" value={draftProject.polygonPlaceholder} onChange={(event) => setDraftProject((prev) => ({ ...prev, polygonPlaceholder: event.target.value }))} />
-            <select className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm" value={draftProject.suspectedSource} onChange={(event) => setDraftProject((prev) => ({ ...prev, suspectedSource: event.target.value as AquaScanProject['suspectedSource'] }))}>
-              {suspectedSources.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-            <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-              <button type="button" className="rounded-md border border-cyan-500/50 bg-cyan-900/25 px-2 py-1 text-cyan-100" onClick={addEvidenceItem}>Upload evidence</button>
-              <span className="text-slate-400">{selectedProject.evidenceCount} total evidence item(s)</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-              <input id="boundary-flag" type="checkbox" checked={boundaryDrawn} onChange={(event) => setBoundaryDrawn(event.target.checked)} />
-              <label htmlFor="boundary-flag" className="text-slate-300">Boundary placeholder captured</label>
-            </div>
-          </div>
-          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950 p-3">
-            <p className="mb-2 text-xs font-semibold text-slate-300">Community impact</p>
-            <div className="flex flex-wrap gap-2">
-              {communityImpactOptions.map((impact) => {
-                const active = draftProject.communityImpact.includes(impact);
-                return (
-                  <button
-                    key={impact}
-                    type="button"
-                    onClick={() =>
-                      setDraftProject((prev) => ({
-                        ...prev,
-                        communityImpact: active
-                          ? prev.communityImpact.filter((i) => i !== impact)
-                          : [...prev.communityImpact, impact],
-                      }))
-                    }
-                    className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-cyan-500/60 bg-cyan-900/30 text-cyan-100' : 'border-slate-600 bg-slate-800/60 text-slate-300'}`}
-                  >
-                    {impact}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <button type="button" onClick={saveDraftProject} className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/60 bg-emerald-900/25 px-3 py-2 text-xs font-semibold text-emerald-100">
-              <Plus className="h-3.5 w-3.5" />
-              Save Project Intake
-            </button>
-            <select
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"
-              value={selectedProjectId}
-              onChange={(event) => setSelectedProjectId(event.target.value)}
+          {waterApiLoading ? (
+            <span className="rounded-full border border-cyan-500/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] text-cyan-200">
+              Fetching satellite dataâ€¦
+            </span>
+          ) : null}
+          {activeAoi == null && selectedFocusLocation ? (
+            <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200">
+              AOI: Required for polygon stats
+            </span>
+          ) : null}
+          {waterApiError && /not found|no scene|unavailable/i.test(waterApiError) ? (
+            <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200">
+              Scene: None found for selected date
+            </span>
+          ) : null}
+          {liveDataRequired ? (
+            <span
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer rounded-full border border-rose-500/40 bg-rose-900/20 px-2 py-0.5 text-[10px] text-rose-200 hover:bg-rose-900/35"
+              onClick={retryLiveData}
+              onKeyDown={(e) => { if (e.key === 'Enter') retryLiveData(); }}
+              title={liveDataReason}
             >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.projectName}
+              Live data: Required â€” click to retry
+            </span>
+          ) : null}
+          {imageryError ? (
+            <span
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-900/35"
+              onClick={retryImagery}
+              onKeyDown={(e) => { if (e.key === 'Enter') retryImagery(); }}
+              title={imageryError}
+            >
+              Imagery: Tile error â€” click to retry
+            </span>
+          ) : null}
+          {waterApiNotice && !waterApiLoading ? (
+            <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400">
+              {waterApiNotice.length > 70 ? `${waterApiNotice.slice(0, 70)}â€¦` : waterApiNotice}
+            </span>
+          ) : null}
+          {actionNotice ? (
+            <span className="rounded-full border border-cyan-500/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] text-cyan-100">
+              {actionNotice}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
+      {/* â”€â”€ 4. Main Workspace (3-column) â”€â”€ */}
+      <div className="mx-auto flex w-full max-w-[1400px] flex-1">
+
+        {/* Left: Workflow Rail */}
+        <nav className="hidden w-[180px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-slate-800 p-3 lg:flex">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Workflow</p>
+          {workflowSteps.map((step) => (
+            <button
+              key={step.id}
+              type="button"
+              onClick={() => { if (step.tabId) setActiveTab(step.tabId); }}
+              className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
+                step.status === 'complete'
+                  ? 'text-emerald-300 hover:bg-emerald-900/20'
+                  : step.status === 'needs_attention'
+                    ? 'text-amber-200 hover:bg-amber-900/20'
+                    : step.status === 'locked'
+                      ? 'cursor-not-allowed text-slate-600'
+                      : 'text-slate-400 hover:bg-slate-800/60'
+              }`}
+            >
+              <span
+                className={`h-2 w-2 shrink-0 rounded-full ${
+                  step.status === 'complete'
+                    ? 'bg-emerald-400'
+                    : step.status === 'needs_attention'
+                      ? 'bg-amber-400'
+                      : step.status === 'locked'
+                        ? 'bg-slate-700'
+                        : 'bg-slate-600'
+                }`}
+              />
+              <span className="font-semibold">{step.label}</span>
+              <span className="ml-auto text-[10px] opacity-60">
+                {step.status === 'complete' ? 'âœ“' : step.status === 'needs_attention' ? '!' : step.status === 'locked' ? 'â€”' : 'â—‹'}
+              </span>
+            </button>
+          ))}
+          <div className="mt-3 border-t border-slate-800 pt-3">
+            <p className="text-[10px] text-slate-500">Project</p>
+            <select
+              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] text-slate-300"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+            >
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.projectName || p.id}
                 </option>
               ))}
             </select>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
-            <select
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"
-              value={selectedProject.concernType}
-              onChange={(event) => selectedProjectId && updateSelectedProject({ concernType: event.target.value as ConcernType })}
-            >
-              {concernTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
-            </select>
-            <select
-              className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs"
-              value={selectedProject.validatorStatus}
-              onChange={(event) => selectedProjectId && updateSelectedProject({ validatorStatus: event.target.value as AquaScanProject['validatorStatus'] })}
-            >
-              <option value="Pending">Validator: Pending</option>
-              <option value="Reviewed">Validator: Reviewed</option>
-              <option value="Validated">Validator: Validated</option>
-            </select>
-            <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-300">
-              <input
-                type="checkbox"
-                checked={selectedProject.hasLabResult}
-                onChange={(event) => selectedProjectId && updateSelectedProject({ hasLabResult: event.target.checked })}
-              />
-              Lab result uploaded
-            </label>
+          <div className="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[10px] text-slate-500">
+            <p>Risk: <span className="font-bold text-white">{selectedFocusLocation ? `${riskScore}/100` : 'â€”'}</span></p>
+            <p>Concern: <span className="text-amber-200">{selectedProject.concernType}</span></p>
+            <p>Validator: <span className="text-slate-300">{selectedProject.validatorStatus}</span></p>
           </div>
-        </section>
+        </nav>
 
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 lg:col-span-2">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">Satellite Layer Selector</p>
-              <span className="rounded-full border border-amber-400/40 bg-amber-900/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">Live satellite layers</span>
-            </div>
-            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              {mockSatelliteLayers.map((layer: SatelliteLayer) => {
-                const active = selectedLayerIds.includes(layer.id);
-                return (
-                  <button
-                    key={layer.id}
-                    type="button"
-                    onClick={() => toggleLayer(layer.id)}
-                    className={`rounded-xl border p-3 text-left transition ${active ? 'border-cyan-500/60 bg-cyan-900/20' : 'border-slate-700 bg-slate-950/70 hover:border-slate-500'}`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold text-slate-100">{layer.name}</h3>
-                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
-                        {active ? <CheckCircle className="h-3.5 w-3.5 text-cyan-300" /> : null}
-                        {layer.category}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-300">{layer.purpose}</p>
-                    <p className="mt-1 text-[11px] text-slate-500">{layer.capability}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Risk Score Logic</p>
-            <div className="mt-3 space-y-2 text-xs text-slate-300">
-              <div className="flex justify-between"><span>Concern type baseline</span><span>+{concernWeights[selectedProject.concernType]}</span></div>
-              <div className="flex justify-between"><span>Evidence items</span><span>+{Math.min(18, selectedProject.evidenceCount * 4)} ({selectedProject.evidenceCount})</span></div>
-              <div className="flex justify-between"><span>Satellite anomaly status</span><span>+{anomalyLayerCount >= 5 ? 14 : anomalyLayerCount >= 3 ? 8 : 4}</span></div>
-              <div className="flex justify-between"><span>Lab result uploaded</span><span>{selectedProject.hasLabResult ? '-10' : '0'}</span></div>
-              <div className="flex justify-between"><span>Validator status</span><span>{validatorStatus === 'Validated' ? '+8' : validatorStatus === 'Reviewed' ? '+4' : '0'}</span></div>
-            </div>
-            <div className="mt-4 rounded-xl border border-slate-600 bg-slate-950 p-3">
-              <p className="text-[10px] uppercase tracking-wider text-slate-400">Current risk score</p>
-              <p className="mt-1 text-2xl font-black text-white">{riskScore} / 100</p>
-              <p className="text-xs text-cyan-200">{riskBand(riskScore)}</p>
-            </div>
-          </article>
-        </section>
-
-        <section className="rounded-2xl border border-cyan-700/40 bg-slate-900/60 p-4 md:p-5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">MRV Statistics Comparison</p>
-            <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-              Indicative MRV estimate - not certified carbon credit
-            </span>
-          </div>
-          <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
-            <select value={comparisonIndexType} onChange={(e) => setComparisonIndexType(e.target.value as CopernicusIndexType)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-              <option value="NDVI">NDVI</option>
-              <option value="NDWI">NDWI</option>
-              <option value="NDMI">NDMI</option>
-              <option value="NBR">NBR</option>
-            </select>
-            <select value={comparisonCollection} onChange={(e) => setComparisonCollection(e.target.value as 'sentinel-2-l2a' | 'sentinel-1-grd')} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-              <option value="sentinel-2-l2a">Sentinel-2 L2A</option>
-              <option value="sentinel-1-grd">Sentinel-1 GRD</option>
-            </select>
-            <input type="date" value={beforeRange.from} onChange={(e) => setBeforeRange((p) => ({ ...p, from: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
-            <input type="date" value={beforeRange.to} onChange={(e) => setBeforeRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
-            <input type="date" value={afterRange.from} onChange={(e) => setAfterRange((p) => ({ ...p, from: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
-            <input type="date" value={afterRange.to} onChange={(e) => setAfterRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs" />
-          </div>
-          <p className="mt-2 text-[11px] text-slate-400">
-            AOI summary: {activeAoi ? `${activeAoi.length} points, ${aoiAreaSqKm.toFixed(2)} km²` : 'No AOI selected'}
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <button type="button" onClick={() => { void runMrvComparison(); }} disabled={comparisonLoading} className="rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-60">
-              {comparisonLoading ? 'Calculating...' : 'Calculate Comparison'}
-            </button>
-            <span className="text-[11px] text-slate-400">Validator gate: {validatorGateStatus.replace(/_/g, ' ')}</span>
-            <button type="button" onClick={() => setValidatorGateStatus('pending_review')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">pending_review</button>
-            <button type="button" onClick={() => setValidatorGateStatus('needs_more_evidence')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">needs_more_evidence</button>
-            <button type="button" onClick={() => setValidatorGateStatus('approved')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">approved</button>
-            <button type="button" onClick={() => setValidatorGateStatus('rejected')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-300">rejected</button>
-          </div>
-          {comparisonError ? <p className="mt-2 text-xs text-rose-300">{comparisonError}</p> : null}
-          <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
-            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Before mean</p><p className="font-bold">{comparisonResult?.before.mean ?? 'N/A'}</p></div>
-            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">After mean</p><p className="font-bold">{comparisonResult?.after.mean ?? 'N/A'}</p></div>
-            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Absolute change</p><p className="font-bold">{comparisonResult?.delta.absoluteChange ?? 'N/A'}</p></div>
-            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Percent change</p><p className="font-bold">{comparisonResult?.delta.percentChange ?? 'N/A'}%</p></div>
-            <div className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs"><p className="text-slate-400">Confidence</p><p className="font-bold">{comparisonResult ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'N/A'}</p></div>
-          </div>
-          {comparisonResult?.warnings?.length ? (
-            <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-xs text-amber-100">
-              Warnings: {comparisonResult.warnings.join(' | ')}
-            </div>
-          ) : null}
-          <p className="mt-2 text-xs text-slate-300">{comparisonResult?.delta.interpretation ?? 'Run comparison to see interpretation.'}</p>
-          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-[11px] text-slate-300">
-            NDVI = vegetation health · NDWI = water presence · NDMI = moisture stress · NBR = fire/burn disturbance
-          </div>
-          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-xs text-slate-300">
-            <p className="font-semibold text-slate-200">Calculation history (local browser per project)</p>
-            {calculationHistory.length === 0 ? <p className="mt-1 text-slate-500">No saved calculations yet.</p> : (
-              <div className="mt-1 space-y-1">
-                {calculationHistory.slice(0, 5).map((item) => (
-                  <p key={item.calculationId}>
-                    {item.generatedAt} · {item.indexType} · {item.deltaPercent ?? 'N/A'}% · {Math.round(item.confidenceScore * 100)}% · {item.validatorStatus}
-                  </p>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4 md:p-5">
-          <div className="mb-3">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-blue-300">AquaScan Map &amp; GPS</p>
-            <p className="mt-1 text-xs text-slate-300">
-              Visual monitoring area for the selected water project, including project location, scan boundary, risk zones, evidence points, and GPS context. The map can be adjusted by the user to inspect, refine, and manage the monitoring area.
-            </p>
-            <p className="mt-2 text-[11px] text-amber-100">
-              What am I looking at? Satellite/base imagery plus DPAL overlays for review prioritization. Indicators are screening signals and require field or laboratory validation.
-            </p>
-          </div>
-
-          <div className="mb-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
-            <article className="rounded-xl border border-slate-700 bg-slate-950/80 p-3 xl:col-span-2">
-              <h3 className="text-sm font-semibold text-slate-100">What am I seeing?</h3>
-              <p className="mt-2 text-xs leading-relaxed text-slate-300">
-                This map shows a DPAL AquaScan monitoring area. The satellite image is the base view. The colored circles and points are evidence overlays used to help identify water-risk indicators. They do not prove contamination by themselves. They help decide where to inspect, sample, or request official review.
-              </p>
-              <p className="mt-2 text-[11px] text-slate-500">
-                Satellite / base map imagery · Overlays: DPAL water indicators. The imagery is loaded as map tiles. If some tiles fail, the base map remains active while DPAL keeps the evidence overlays visible.
-              </p>
-            </article>
-            <article className="rounded-xl border border-slate-700 bg-slate-950/80 p-3">
-              <h3 className="text-sm font-semibold text-slate-100">Selected Layers Explained</h3>
-              <ul className="mt-2 space-y-1 text-[11px] text-slate-300">
-                <li><span className="font-semibold text-slate-200">Sentinel-2:</span> Optical imagery for visible water color, vegetation, and surface changes.</li>
-                <li><span className="font-semibold text-slate-200">Landsat 8/9:</span> Medium-resolution historical imagery for before/after comparison.</li>
-                <li><span className="font-semibold text-slate-200">Sentinel-1 SAR:</span> Radar imagery for water/flood detection even with clouds.</li>
-              </ul>
-              <p className="mt-2 text-[11px] text-slate-500">These layers are screening tools. Combine with field sampling or official data before making contamination claims.</p>
-            </article>
-          </div>
-
-          <article className="mb-3 rounded-xl border border-slate-700 bg-slate-950/80 p-3">
-            <h3 className="text-sm font-semibold text-slate-100">Map Legend</h3>
-            <div className="mt-2 grid grid-cols-1 gap-2 text-[11px] text-slate-300 md:grid-cols-2 xl:grid-cols-3">
-              <p title="Selected water scan area or water presence zone."><span className="inline-block h-2 w-2 rounded-full bg-cyan-300 align-middle" /> Blue / cyan ring: selected water scan area or water presence zone</p>
-              <p title="Elevated turbidity proxy screening zone."><span className="inline-block h-2 w-2 rounded-full bg-orange-400 align-middle" /> Orange ring: elevated turbidity or review zone</p>
-              <p title="High-priority anomaly/report marker."><span className="inline-block h-2 w-2 rounded-full bg-red-500 align-middle" /> Red marker: high-priority anomaly or report point</p>
-              <p title="Secondary review indicator zone."><span className="inline-block h-2 w-2 rounded-full bg-purple-400 align-middle" /> Purple ring: secondary review zone</p>
-              <p title="Evidence points, sample points, or report pins."><span className="inline-block h-2 w-2 rounded-full bg-emerald-400 align-middle" /> Small dots: evidence points, sample points, or report pins</p>
-              <p title="Project/AOI boundary lines and polygons."><span className="inline-block h-2 w-2 rounded-full bg-yellow-300 align-middle" /> Boundary line: project/AOI boundary</p>
-              <p title="Likely water movement direction indicator."><span className="inline-block h-2 w-2 rounded-full bg-sky-400 align-middle" /> Flow marker: likely water movement direction</p>
-              <p title="Overlapping indicators from selected layers."><span className="inline-block h-2 w-2 rounded-full bg-slate-300 align-middle" /> Cluster / multiple circles: overlapping indicators from selected layers</p>
-            </div>
-          </article>
-
-          <div className="mb-3 rounded-xl border border-slate-700 bg-slate-950/80 p-3">
-            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 md:grid-cols-6">
-              <span>Location: <span className="font-semibold text-white">{selectedProject.locationName || 'Unspecified'}</span></span>
-              <span>Lat: <span className="font-semibold text-white">{latitudeDisplay}</span></span>
-              <span>Lng: <span className="font-semibold text-white">{longitudeDisplay}</span></span>
-              <span>GPS: <span className="font-semibold text-cyan-200">{gpsMode}</span></span>
-              <span>Concern: <span className="font-semibold text-amber-200">{selectedProject.concernType}</span></span>
-              <span>Layers: <span className="font-semibold text-emerald-200">{selectedLayerIds.length} selected</span></span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" onClick={() => runMapCommand('zoomIn')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom +</button>
-              <button type="button" onClick={() => runMapCommand('zoomOut')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Zoom -</button>
-              <button type="button" onClick={() => runMapCommand('panNorth')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan N</button>
-              <button type="button" onClick={() => runMapCommand('panSouth')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan S</button>
-              <button type="button" onClick={() => runMapCommand('panEast')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan E</button>
-              <button type="button" onClick={() => runMapCommand('panWest')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Pan W</button>
-              <button type="button" onClick={centerOnProject} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Center on project</button>
-              <button type="button" onClick={centerOnGps} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Use current GPS</button>
-              <button type="button" onClick={() => setMapExpanded((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{mapExpanded ? 'Collapse map' : 'Expand map'}</button>
-              <button type="button" onClick={toggleFullscreen} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Fullscreen</button>
-              <button type="button" onClick={() => setBoundaryDrawn((prev) => !prev)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{boundaryDrawn ? 'Hide boundary' : 'Show boundary'}</button>
-              <button type="button" onClick={() => { setDrawingAoi((prev) => !prev); setBoundaryDrawn(true); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">{drawingAoi ? 'Stop AOI draw' : 'Draw AOI points'}</button>
-              <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Undo AOI point</button>
-              <button
-                type="button"
-                onClick={() => {
-                  setAoiPoints([]);
-                  setSavedAoiPoints([]);
-                  localStorage.removeItem('dpal_aquascan_saved_aoi_v1');
-                  setBoundaryRevision((prev) => prev + 1);
-                }}
-                className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200"
-              >
-                Clear AOI
+        {/* Center: Map */}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {/* Map toolbar */}
+          <div className="border-b border-slate-800 bg-slate-900/60 px-3 py-1.5">
+            <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+              <button type="button" onClick={() => runMapCommand('zoomIn')} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">+</button>
+              <button type="button" onClick={() => runMapCommand('zoomOut')} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">âˆ’</button>
+              <button type="button" onClick={centerOnProject} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">Center</button>
+              <button type="button" onClick={centerOnGps} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">GPS</button>
+              <button type="button" onClick={() => setMapExpanded((prev) => !prev)} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">
+                {mapExpanded ? 'Contract' : 'Expand'}
               </button>
-              <button type="button" onClick={saveAoi} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Save AOI</button>
-              <button type="button" onClick={retryImagery} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
-              <button type="button" onClick={() => runMapCommand('reset')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Reset view</button>
               <select
                 value={mapStyle}
-                onChange={(event) => setMapStyle(event.target.value as 'satellite' | 'terrain' | 'dark')}
-                className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                onChange={(e) => setMapStyle(e.target.value as BasemapStyle)}
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-slate-300"
               >
-                <option value="satellite">Satellite + labels</option>
-                <option value="terrain">Terrain base + satellite overlay</option>
-                <option value="dark">Dark monitoring base</option>
+                <option value="satellite">Satellite</option>
+                <option value="terrain">Terrain</option>
+                <option value="dark">Dark</option>
               </select>
               <input
                 type="date"
                 value={selectedDate}
                 max={gibsDefaultDate()}
-                onChange={(event) => {
-                  setSelectedDate(event.target.value);
+                onChange={(e) => {
+                  setSelectedDate(e.target.value);
                   setImageryLoading(true);
                   setImageryError(null);
                   setBeforeImageryError(null);
                   setPartialFailure(false);
                   setLastRefreshTime(new Date().toLocaleTimeString());
                 }}
-                className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-slate-300"
               />
-              <label className="flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
-                Layer opacity
+              <label className="flex items-center gap-1 text-slate-400">
                 <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={layerOpacity}
-                  onChange={(event) => setLayerOpacity(Number(event.target.value))}
+                  type="checkbox"
+                  checked={compareEnabled}
+                  onChange={(e) => { setCompareEnabled(e.target.checked); setBeforeImageryError(null); setPartialFailure(false); }}
                 />
-              </label>
-              <label className="flex items-center gap-2 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
-                <input type="checkbox" checked={compareEnabled} onChange={(event) => { setCompareEnabled(event.target.checked); setBeforeImageryError(null); setPartialFailure(false); }} />
-                Compare dates
+                Compare
               </label>
               {compareEnabled ? (
-                <>
-                  <input
-                    type="date"
-                    value={compareDate}
-                    max={gibsDefaultDate()}
-                    onChange={(event) => setCompareDate(event.target.value)}
-                    className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
-                  />
-                  <label className="flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
-                    Before/after
-                    <input type="range" min={0} max={100} value={compareOpacity} onChange={(event) => setCompareOpacity(Number(event.target.value))} />
-                  </label>
-                </>
-              ) : null}
-              <div className="flex items-center gap-2">
                 <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search location"
-                  className="rounded border border-slate-600 bg-slate-900 px-2 py-1 text-[11px] text-slate-200"
+                  type="date"
+                  value={compareDate}
+                  max={gibsDefaultDate()}
+                  onChange={(e) => setCompareDate(e.target.value)}
+                  className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-slate-300"
                 />
-                <button type="button" onClick={runLocationSearch} disabled={searchBusy} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200 disabled:opacity-60">
-                  {searchBusy ? 'Searching...' : 'Search'}
-                </button>
+              ) : null}
+              <div className="ml-auto flex items-center gap-1">
+                {drawingAoi ? <span className="text-cyan-300">Drawing AOIâ€¦</span> : null}
+                {aoiPoints.length > 0 ? (
+                  <>
+                    <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300">Undo</button>
+                    <button type="button" onClick={saveAoi} className="rounded border border-emerald-500/50 bg-emerald-900/20 px-2 py-0.5 text-emerald-200">Save AOI</button>
+                    <button
+                      type="button"
+                      onClick={() => { setAoiPoints([]); setSavedAoiPoints([]); localStorage.removeItem('dpal_aquascan_saved_aoi_v1'); setBoundaryRevision((prev) => prev + 1); }}
+                      className="rounded border border-slate-700 px-2 py-0.5 text-slate-300"
+                    >
+                      Clear AOI
+                    </button>
+                  </>
+                ) : null}
+                <label className="flex items-center gap-1 rounded border border-slate-700 px-2 py-0.5 text-slate-400">
+                  Opacity
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    value={layerOpacity}
+                    onChange={(e) => setLayerOpacity(Number(e.target.value))}
+                    className="w-16"
+                  />
+                </label>
+                <button type="button" onClick={retryImagery} className="rounded border border-slate-700 px-2 py-0.5 text-slate-400">â†»</button>
               </div>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-              <button type="button" onClick={() => toggleOverlay('boundary')} className={`rounded border px-2 py-1 ${overlayState.boundary ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Boundary</button>
-              <button type="button" onClick={() => toggleOverlay('waterExtent')} className={`rounded border px-2 py-1 ${overlayState.waterExtent ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Water extent</button>
-              <button type="button" onClick={() => toggleOverlay('ndwiProxy')} className={`rounded border px-2 py-1 ${overlayState.ndwiProxy ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>NDWI proxy</button>
-              <button type="button" onClick={() => toggleOverlay('floodWetness')} className={`rounded border px-2 py-1 ${overlayState.floodWetness ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flood/wetness</button>
-              <button type="button" onClick={() => toggleOverlay('riskZone')} className={`rounded border px-2 py-1 ${overlayState.riskZone ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Risk zone</button>
-              <button type="button" onClick={() => toggleOverlay('reportPins')} className={`rounded border px-2 py-1 ${overlayState.reportPins ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Report pins</button>
-              <button type="button" onClick={() => toggleOverlay('samplePoints')} className={`rounded border px-2 py-1 ${overlayState.samplePoints ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Sample points</button>
-              <button type="button" onClick={() => toggleOverlay('anomalyHotspots')} className={`rounded border px-2 py-1 ${overlayState.anomalyHotspots ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Anomaly hotspots</button>
-              <button type="button" onClick={() => toggleOverlay('flowDirection')} className={`rounded border px-2 py-1 ${overlayState.flowDirection ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flow direction</button>
+            {/* Overlay toggles */}
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(
+                [
+                  ['boundary', 'Boundary'],
+                  ['riskZone', 'Risk zone'],
+                  ['reportPins', 'Reports'],
+                  ['samplePoints', 'Samples'],
+                  ['flowDirection', 'Flow'],
+                  ['waterExtent', 'Water extent'],
+                  ['ndwiProxy', 'NDWI proxy'],
+                  ['floodWetness', 'Flood/wet'],
+                  ['anomalyHotspots', 'Anomalies'],
+                ] as [keyof typeof overlayState, string][]
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => toggleOverlay(key)}
+                  className={`rounded border px-1.5 py-0.5 text-[10px] ${overlayState[key] ? 'border-cyan-500/50 text-cyan-200' : 'border-slate-700 text-slate-500'}`}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="mb-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3 text-[11px] text-cyan-100">
-            <p className="font-semibold text-cyan-200">Image / Tile Status</p>
-            <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-4">
-              <p><span className="text-cyan-300/80">Base map:</span> Active</p>
-              <p><span className="text-cyan-300/80">Satellite layer:</span> {imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active'}</p>
-              <p><span className="text-cyan-300/80">Selected date:</span> {selectedDate}</p>
-              <p><span className="text-cyan-300/80">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</p>
-              <p><span className="text-cyan-300/80">Tile status:</span> {imageryError ? 'Tile fetch issue' : partialFailure ? 'Some tiles unavailable' : 'Tiles loaded'}</p>
-              <p><span className="text-cyan-300/80">Last refresh:</span> {lastRefreshTime}</p>
-              <p><span className="text-cyan-300/80">Failing layer:</span> {failingLayerName ?? 'None detected'}</p>
-            </div>
-          </div>
-          <div ref={mapViewportRef} className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[42rem]' : 'h-[32rem]'}`}>
-            <div className="absolute right-3 top-12 z-[520] flex flex-col items-end gap-2">
-              <button
-                type="button"
-                onClick={() => setShowRightLayerPanel((prev) => !prev)}
-                className="rounded border border-cyan-500/40 bg-slate-950/90 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan-100"
-              >
-                {showRightLayerPanel ? 'Hide layers' : 'Show layers'}
-              </button>
-              {showRightLayerPanel ? (
-                <div className="w-64 rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-[10px] text-slate-200">
-                  <p className="font-semibold text-cyan-200">Layer controls (collapsible)</p>
-                  <p className="mt-1 text-slate-400">Selected layers: {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</p>
-                  <label className="mt-2 flex items-center justify-between gap-2">
-                    <span>Opacity</span>
-                    <input type="range" min={0} max={100} value={layerOpacity} onChange={(event) => setLayerOpacity(Number(event.target.value))} />
-                  </label>
-                  <label className="mt-2 flex items-center gap-2">
-                    <input type="checkbox" checked={compareEnabled} onChange={(event) => setCompareEnabled(event.target.checked)} />
-                    Date compare
-                  </label>
-                  <p className="mt-1 text-slate-500">Right panel is collapsible to avoid blocking report data.</p>
-                </div>
-              ) : null}
-            </div>
+
+          {/* Map viewport */}
+          <div
+            ref={mapViewportRef}
+            className="relative overflow-hidden"
+            style={{ height: mapExpanded ? '65vh' : '55vh', minHeight: mapExpanded ? '520px' : '420px' }}
+          >
             <div className="pointer-events-none absolute right-2 top-2 z-[510] rounded border border-slate-700/80 bg-slate-950/85 px-2 py-1 text-[10px] text-slate-200">
-              Satellite / base map imagery · Overlays: DPAL water indicators
+              {selectedFocusLocation
+                ? selectedFocusLocation.displayName.split(',')[0]
+                : 'No location selected â€” use Focus Location above'}
             </div>
             {imageryLoading ? (
               <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
-                Loading latest available satellite-connected imagery...
+                Loading satellite imageryâ€¦
               </div>
             ) : null}
             {imageryError ? (
-              <div className="absolute inset-x-0 top-0 z-[500] bg-rose-950/85 px-3 py-2 text-[11px] text-rose-100">
-                <p>{imageryError}</p>
-                {failingLayerName ? <p className="mt-1 text-rose-200/90">Failing layer: {failingLayerName}</p> : null}
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button type="button" onClick={retryImagery} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Retry imagery</button>
-                  <button type="button" onClick={useBaseMapOnly} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Use base map only</button>
-                  <button type="button" onClick={() => { setSelectedDate(gibsDefaultDate()); retryImagery(); }} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Change date</button>
-                  <button type="button" onClick={resetLayers} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Reset layers</button>
+              <div className="absolute inset-x-0 top-0 z-[500] bg-rose-950/85 px-3 py-1.5 text-[11px] text-rose-100">
+                <span>{imageryError.split('.')[0]}.</span>
+                <button type="button" onClick={retryImagery} className="ml-2 underline">Retry</button>
+                <button type="button" onClick={useBaseMapOnly} className="ml-2 underline">Base map only</button>
+                <button type="button" onClick={() => { setSelectedDate(gibsDefaultDate()); retryImagery(); }} className="ml-2 underline">Change date</button>
+              </div>
+            ) : null}
+            {partialFailure && !imageryError ? (
+              <div className="absolute inset-x-0 top-7 z-[500] bg-amber-950/80 px-3 py-0.5 text-[10px] text-amber-100">
+                Partial tile failure â€” base map active
+              </div>
+            ) : null}
+            {/* Right overlay panel */}
+            <div className="absolute right-3 top-10 z-[520]">
+              <button
+                type="button"
+                onClick={() => setShowRightLayerPanel((prev) => !prev)}
+                className="rounded border border-cyan-500/40 bg-slate-950/90 px-2 py-0.5 text-[10px] font-semibold text-cyan-100"
+              >
+                {showRightLayerPanel ? 'Hide' : 'Layers'}
+              </button>
+              {showRightLayerPanel ? (
+                <div className="mt-1 w-52 rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-[10px]">
+                  <p className="font-semibold text-cyan-200">Layer controls</p>
+                  <p className="mt-1 text-slate-400">
+                    Active: {mockSatelliteLayers.filter((l) => selectedLayerIds.includes(l.id)).map((l) => l.name).join(', ') || 'None'}
+                  </p>
+                  <label className="mt-1.5 flex items-center justify-between gap-2 text-slate-300">
+                    Opacity
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      value={layerOpacity}
+                      onChange={(e) => setLayerOpacity(Number(e.target.value))}
+                      className="w-24"
+                    />
+                  </label>
+                  <label className="mt-1 flex items-center gap-2 text-slate-300">
+                    <input type="checkbox" checked={compareEnabled} onChange={(e) => setCompareEnabled(e.target.checked)} />
+                    Date compare
+                  </label>
+                  {compareEnabled ? (
+                    <label className="mt-1 flex items-center justify-between gap-2 text-slate-300">
+                      Before/after
+                      <input type="range" min={0} max={100} value={compareOpacity} onChange={(e) => setCompareOpacity(Number(e.target.value))} className="w-24" />
+                    </label>
+                  ) : null}
                 </div>
-              </div>
-            ) : null}
-            {partialFailure ? (
-              <div className="absolute inset-x-0 top-8 z-[500] bg-amber-950/85 px-3 py-1 text-[11px] text-amber-100">
-                Partial failure: one or more layers unavailable. Base map remains active.
-              </div>
-            ) : null}
-            <MapContainer
-              center={mapCenter}
-              zoom={7}
-              style={{ height: '100%', width: '100%' }}
-            >
+              ) : null}
+            </div>
+            <MapContainer center={mapCenter} zoom={7} style={{ height: '100%', width: '100%' }}>
               <MapResizeSync trigger={mapExpanded ? 1 : 0} />
               <MapViewSync center={mapCenter} />
               <MapCommandBridge commandTick={commandTick} command={mapCommand} center={mapCenter} />
@@ -1553,20 +1526,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 onAoiPoint={(point) => setAoiPoints((prev) => [...prev, point])}
               />
               {mapStyle === 'dark' ? (
-                <TileLayer
-                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                  attribution='&copy; OpenStreetMap contributors &copy; CARTO'
-                />
+                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap contributors &copy; CARTO' />
               ) : mapStyle === 'terrain' ? (
-                <TileLayer
-                  url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png"
-                  attribution='Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap'
-                />
+                <TileLayer url="https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png" attribution='Map data: &copy; OpenStreetMap contributors, SRTM | Map style: &copy; OpenTopoMap' />
               ) : (
-                <TileLayer
-                  url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                  attribution='Tiles &copy; Esri'
-                />
+                <TileLayer url="https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution='Tiles &copy; Esri' />
               )}
               <TileLayer
                 key={`${activeGibsLayer.id}-${selectedDate}`}
@@ -1574,13 +1538,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 opacity={layerOpacity / 100}
                 attribution='Imagery: NASA GIBS / ESDIS'
                 eventHandlers={{
-                  loading: () => {
-                    setImageryLoading(true);
-                    setImageryError(null);
-                  },
-                  load: () => {
-                    setImageryLoading(false);
-                  },
+                  loading: () => { setImageryLoading(true); setImageryError(null); },
+                  load: () => { setImageryLoading(false); },
                   tileerror: () => {
                     setImageryLoading(false);
                     setFailingLayerName(activeGibsLayer.label);
@@ -1609,13 +1568,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <Popup>
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold">Water Presence Zone</p>
-                      <p>Overlay type: Blue/cyan scan area</p>
-                      <p>Meaning: Surface water indicator zone from selected layers.</p>
-                      <p>Source layer: {activeGibsLayer.label}</p>
+                      <p>Source: {activeGibsLayer.label}</p>
                       <p>Confidence: {inspectQualityConfidence}%</p>
-                      <p>Coordinates: {(mapCenter[0] + 0.01).toFixed(5)}, {mapCenter[1].toFixed(5)}</p>
-                      <p>Recommended next action: Compare layers and request sample if persistent.</p>
-                      <p className="text-[11px]">Screening indicator only; not a confirmed contamination finding.</p>
+                      <p className="text-[10px]">Screening indicator only.</p>
                     </div>
                   </Popup>
                 </Circle>
@@ -1625,13 +1580,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <Popup>
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold">NDWI Proxy Zone</p>
-                      <p>Overlay type: Water index indicator</p>
-                      <p>Meaning: Satellite-derived water index focus area.</p>
-                      <p>Source layer: {activeGibsLayer.label}</p>
-                      <p>Confidence: {inspectQualityConfidence}%</p>
-                      <p>Coordinates: {(mapCenter[0] - 0.02).toFixed(5)}, {(mapCenter[1] + 0.03).toFixed(5)}</p>
-                      <p>Recommended next action: Validate with field observations and date comparison.</p>
-                      <p className="text-[11px]">Screening indicator only; not a confirmed contamination finding.</p>
+                      <p>Source: {activeGibsLayer.label}</p>
+                      <p className="text-[10px]">Screening indicator only.</p>
                     </div>
                   </Popup>
                 </Circle>
@@ -1644,13 +1594,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <Popup>
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold">Orange Review Zone</p>
-                      <p>Overlay type: Elevated turbidity/review indicator</p>
-                      <p>Meaning: Satellite-derived turbidity proxy is elevated in this area.</p>
-                      <p>Source layer: {activeGibsLayer.label}</p>
-                      <p>Confidence: {inspectQualityConfidence}%</p>
-                      <p>Coordinates: {(mapCenter[0] + 0.01).toFixed(5)}, {(mapCenter[1] + 0.05).toFixed(5)}</p>
-                      <p>Recommended next action: Request field sample or compare with lab data.</p>
-                      <p className="text-[11px]">This is a screening indicator, not a lab-confirmed contamination finding.</p>
+                      <p>Source: {activeGibsLayer.label}</p>
+                      <p className="text-[10px]">Request sample or compare with lab data.</p>
                     </div>
                   </Popup>
                 </Circle>
@@ -1665,35 +1610,38 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 <Circle center={mapCenter} radius={4200} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }} />
               ) : null}
               {overlayState.flowDirection ? (
-                <Polyline positions={[[mapCenter[0] + 0.05, mapCenter[1] - 0.07], [mapCenter[0] - 0.07, mapCenter[1] + 0.09]]} pathOptions={{ color: '#38bdf8', dashArray: '6 6' }} />
+                <Polyline
+                  positions={[[mapCenter[0] + 0.05, mapCenter[1] - 0.07], [mapCenter[0] - 0.07, mapCenter[1] + 0.09]]}
+                  pathOptions={{ color: '#38bdf8', dashArray: '6 6' }}
+                />
               ) : null}
               {overlayState.reportPins ? (
                 <>
                   <Circle center={[mapCenter[0] + 0.08, mapCenter[1] - 0.03]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Overlay type: Report point</p><p>Recommended next action: Open evidence record and verify in field.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Open evidence record and verify in field.</p></div></Popup>
                   </Circle>
                   <Circle center={[mapCenter[0] - 0.03, mapCenter[1] + 0.06]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Overlay type: Report point</p><p>Recommended next action: Open evidence record and verify in field.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Open evidence record and verify in field.</p></div></Popup>
                   </Circle>
                 </>
               ) : null}
               {overlayState.samplePoints ? (
                 <>
                   <Circle center={[mapCenter[0] + 0.03, mapCenter[1] + 0.02]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Meaning: Field sample candidate point.</p><p>Legal note: Requires lab testing for confirmation.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Requires lab testing for confirmation.</p></div></Popup>
                   </Circle>
                   <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Meaning: Field sample candidate point.</p><p>Legal note: Requires lab testing for confirmation.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Requires lab testing for confirmation.</p></div></Popup>
                   </Circle>
                 </>
               ) : null}
               {overlayState.anomalyHotspots ? (
                 <>
                   <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">High-priority anomaly</p><p>Meaning: Elevated multi-layer anomaly cluster.</p><p>Recommended next action: Compare dates/layers and inspect area.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">High-priority anomaly</p><p>Compare dates/layers and inspect area.</p></div></Popup>
                   </Circle>
                   <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Secondary anomaly zone</p><p>Meaning: Overlapping indicators need review.</p><p>Recommended next action: Add evidence or request sample.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Secondary anomaly</p><p>Add evidence or request sample.</p></div></Popup>
                   </Circle>
                 </>
               ) : null}
@@ -1701,162 +1649,583 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             </MapContainer>
           </div>
 
-          <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-slate-700 bg-slate-950/80 p-3 text-[11px] text-slate-200 md:grid-cols-6">
-            <div><span className="text-slate-400">Project ID:</span> {selectedProject.id}</div>
-            <div><span className="text-slate-400">Water body type:</span> {selectedProject.waterBodyType}</div>
-            <div><span className="text-slate-400">Last refresh:</span> {lastRefreshTime}</div>
-            <div><span className="text-slate-400">Boundary status:</span> {boundaryDrawn ? `Adjusted v${boundaryRevision + 1}` : 'Not defined'}</div>
-            <div><span className="text-slate-400">Evidence points:</span> {selectedProject.evidenceCount}</div>
-            <div><span className="text-slate-400">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</div>
+          {/* Map status strip */}
+          <div className="border-t border-slate-800 bg-slate-900/60 px-3 py-1">
+            <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-[10px] text-slate-400 md:grid-cols-6">
+              <span>Project: <span className="text-slate-300">{selectedProject.id}</span></span>
+              <span>Type: <span className="text-slate-300">{selectedProject.waterBodyType}</span></span>
+              <span>Updated: <span className="text-slate-300">{lastRefreshTime}</span></span>
+              <span>Boundary: <span className="text-slate-300">{boundaryDrawn ? `v${boundaryRevision + 1}` : 'Not set'}</span></span>
+              <span>Evidence: <span className="text-slate-300">{selectedProject.evidenceCount}</span></span>
+              <span>Layers: <span className="text-slate-300">{selectedLayerIds.length}</span></span>
+            </div>
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3 text-[11px] text-cyan-100 md:grid-cols-2 lg:grid-cols-4">
-            <div><span className="text-cyan-300/80">Selection mode:</span> {waterApiMode === 'aoi' ? 'AOI Mode Active' : 'Point Mode Active'}</div>
-            <div><span className="text-cyan-300/80">Selected coordinates:</span> {(waterData?.location.lat ?? inspectPoint[0]).toFixed(5)}, {(waterData?.location.lng ?? inspectPoint[1]).toFixed(5)}</div>
-            <div><span className="text-cyan-300/80">Area name:</span> {waterData?.location.name ?? 'Selected area'}</div>
-            <div><span className="text-cyan-300/80">AOI area:</span> {activeAoi ? `${aoiAreaSqKm.toFixed(2)} km²` : 'Point inspection'}</div>
-            <div><span className="text-cyan-300/80">Satellite provider:</span> {waterData?.satellite.provider ?? 'NASA GIBS / Sentinel / Landsat'}</div>
-            <div><span className="text-cyan-300/80">Product / layer:</span> {waterData?.satellite.product ?? activeGibsLayer.label}</div>
-            <div><span className="text-cyan-300/80">Acquisition date:</span> {waterData?.satellite.acquisitionDate ?? selectedDate}</div>
-            <div><span className="text-cyan-300/80">Resolution:</span> {waterData?.satellite.resolution ?? activeGibsLayer.description}</div>
-            <div><span className="text-cyan-300/80">Cloud cover:</span> {waterData?.satellite.cloudCover ?? 'estimated or unavailable'}</div>
-            <div><span className="text-cyan-300/80">NDWI / water index:</span> {inspectNdwiEstimate.toFixed(2)} (satellite-derived)</div>
-            <div><span className="text-cyan-300/80">Water presence:</span> {waterData?.waterAnalysis.waterPresence ?? 'Review'}</div>
-            <div><span className="text-cyan-300/80">Surface water estimate:</span> {inspectWaterExtentEstimate} (satellite/model-estimated)</div>
-            <div><span className="text-cyan-300/80">Turbidity proxy:</span> {waterData?.waterAnalysis.turbidityProxy ?? 'unavailable'} (proxy estimate)</div>
-            <div><span className="text-cyan-300/80">Thermal anomaly:</span> {waterData?.waterAnalysis.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed'}</div>
-            <div><span className="text-cyan-300/80">Shoreline change:</span> {waterData?.waterAnalysis.shorelineChange ?? 'Stable'}</div>
-            <div><span className="text-cyan-300/80">Confidence score:</span> {inspectQualityConfidence}%</div>
-            <div><span className="text-cyan-300/80">Quality flag:</span> {waterData?.status.qualityFlag ?? (partialFailure ? 'Partial' : imageryError ? 'Estimated' : 'Clear')}</div>
-            <div><span className="text-cyan-300/80">Risk level:</span> {inspectFloodWetnessEstimate}</div>
-            <div><span className="text-cyan-300/80">Last updated:</span> {waterData?.status.lastUpdated ?? lastRefreshTime}</div>
-            <div><span className="text-cyan-300/80">History delta:</span> {waterHistoryDelta}</div>
-            <div><span className="text-cyan-300/80">Layer pixel context:</span> Derived from selected tile response at clicked point/AOI.</div>
-            <div><span className="text-cyan-300/80">Compare window:</span> {compareEnabled ? `${compareDate} vs ${selectedDate}` : 'Off'}</div>
-            <div><span className="text-cyan-300/80">Credibility:</span> Satellite-derived/model-estimated. Field validation required for pH, dissolved oxygen, conductivity, and lab-grade contamination claims.</div>
-          </div>
-          {beforeImageryError ? (
-            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-100">{beforeImageryError}</p>
-          ) : null}
-        </section>
+        </div>
 
-        <section className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          {indicators.map((item) => (
-            <article key={item.id} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-slate-200" title={item.explanation}>
-                  {item.label} <span className="text-[10px] text-slate-400">(i)</span>
-                </p>
-                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(item.status)}`}>{statusLabel(item.status)}</span>
-              </div>
-              <p className="mt-2 text-xl font-black text-white">{item.value}</p>
-              <p className="text-[11px] text-cyan-200">{item.trend}</p>
-              <p className="mt-1 text-[11px] text-slate-400">{item.explanation}</p>
-            </article>
+        {/* Right: Intelligence Panel */}
+        <aside className="hidden w-[240px] shrink-0 overflow-y-auto border-l border-slate-800 p-3 lg:block">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Intelligence</p>
+
+          {/* Risk Score */}
+          <div className="mb-2 rounded-lg border border-slate-700 bg-slate-900/80 p-2.5">
+            <p className="text-[10px] uppercase tracking-wider text-slate-400">Risk Score</p>
+            <p className="mt-1 text-2xl font-black text-white">
+              {selectedFocusLocation ? riskScore : 'â€”'}
+              <span className="text-sm font-normal text-slate-400">/100</span>
+            </p>
+            <p className="text-xs text-cyan-200">
+              {selectedFocusLocation ? riskBand(riskScore) : 'No location'}
+            </p>
+          </div>
+
+          {/* Compact info cards */}
+          {(
+            [
+              ['AOI Status', focusAoiStatus, focusAoiStatus !== 'Missing' ? 'text-emerald-300' : 'text-amber-300'],
+              [
+                'Live Data',
+                selectedFocusLocation
+                  ? waterData ? 'Available' : waterApiLoading ? 'Fetchingâ€¦' : 'Unavailable'
+                  : 'No location',
+                waterData ? 'text-emerald-300' : 'text-rose-300',
+              ],
+              ['Index', comparisonIndexType, 'text-cyan-200'],
+              ['Confidence', selectedFocusLocation ? `${inspectQualityConfidence}%` : 'â€”', 'text-slate-200'],
+              [
+                'Validator',
+                selectedProject.validatorStatus,
+                selectedProject.validatorStatus === 'Validated' ? 'text-emerald-300' : 'text-amber-200',
+              ],
+              ['Collection', comparisonCollection === 'sentinel-2-l2a' ? 'Sentinel-2' : 'Sentinel-1', 'text-slate-300'],
+              ['Scene date', waterData?.satellite.acquisitionDate ?? (selectedFocusLocation ? 'Pending' : 'â€”'), 'text-slate-300'],
+              ['Cloud cover', waterData?.satellite.cloudCover ?? 'â€”', 'text-slate-300'],
+            ] as [string, string, string][]
+          ).map(([label, value, valueClass]) => (
+            <div key={label} className="mb-1.5 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-2.5 py-1.5 text-[10px]">
+              <span className="text-slate-500">{label}</span>
+              <span className={`font-semibold ${valueClass}`}>{value}</span>
+            </div>
           ))}
-        </section>
 
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-purple-300">AI Water Intelligence Summary</p>
-          <p className="mt-3 text-sm leading-relaxed text-slate-200">{aiSummary}</p>
-          <p className="mt-2 text-xs text-cyan-200">
-            Recommended next step: {recommendedNextStep}
-          </p>
-          <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-[11px] text-amber-100">
-            Satellite indicators are screening tools. Confirmed contamination requires field sampling, laboratory testing, or official verification.
-          </p>
-        </section>
+          {/* Next step */}
+          <div className="mt-2 rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-2.5 text-[10px]">
+            <p className="mb-1 font-semibold uppercase tracking-wider text-cyan-300">Next step</p>
+            <p className="text-slate-300">
+              {selectedFocusLocation ? recommendedNextStep : 'Select a focus location.'}
+            </p>
+          </div>
 
-        <section className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">Evidence Packet Generator</p>
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" onClick={() => setShowPacket((prev) => !prev)} className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100">
-                  Generate Evidence Packet
-                </button>
-                <button type="button" onClick={exportEvidencePacketJson} className="rounded-lg border border-cyan-500/50 bg-cyan-900/25 px-3 py-1.5 text-xs font-semibold text-cyan-100">
-                  Export JSON
-                </button>
-                <button type="button" onClick={exportEvidencePacketPdf} className="rounded-lg border border-slate-600 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-slate-200">
-                  Export PDF
-                </button>
+          {/* MRV result */}
+          {comparisonResult ? (
+            <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-2.5 text-[10px]">
+              <p className="mb-1 font-semibold uppercase tracking-wider text-emerald-300">MRV Result</p>
+              <div className="space-y-0.5 text-slate-300">
+                <p>Before: {String(comparisonResult.before.mean ?? 'N/A')}</p>
+                <p>After: {String(comparisonResult.after.mean ?? 'N/A')}</p>
+                <p>Î”: {comparisonResult.delta.percentChange ?? 'N/A'}%</p>
+                <p>Conf: {Math.round(comparisonResult.confidenceScore * 100)}%</p>
               </div>
             </div>
-            <p className="mb-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-[11px] text-amber-100">
-              Indicative MRV estimate - not certified carbon credit.
-            </p>
-            {showPacket ? (
-              <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200">
-                <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet Preview</p>
-                <p><span className="text-slate-400">Generated date/time:</span> {packetPreview.timestamp}</p>
-                <p><span className="text-slate-400">Project ID:</span> {selectedProject.id}</p>
-                <p><span className="text-slate-400">Packet title:</span> {packetPreview.projectName}</p>
-                <p><span className="text-slate-400">Location:</span> {packetPreview.location}</p>
-                <p><span className="text-slate-400">Coordinates:</span> {packetPreview.coordinates.lat.toFixed(5)}, {packetPreview.coordinates.lng.toFixed(5)}</p>
-                <p><span className="text-slate-400">AOI boundary points:</span> {packetPreview.aoiBoundary.length}</p>
-                <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
-                <p><span className="text-slate-400">Selected satellite layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
-                <p><span className="text-slate-400">Selected date:</span> {packetPreview.selectedDate}</p>
-                <p><span className="text-slate-400">NDWI / water index:</span> {packetPreview.ndwi ?? 'N/A'}</p>
-                <p><span className="text-slate-400">Water presence:</span> {packetPreview.waterPresence}</p>
-                <p><span className="text-slate-400">Turbidity proxy:</span> {packetPreview.turbidityProxy}</p>
-                <p><span className="text-slate-400">Thermal anomaly:</span> {packetPreview.thermalAnomaly}</p>
-                <p><span className="text-slate-400">Confidence score:</span> {packetPreview.confidenceScore}%</p>
-                <p><span className="text-slate-400">Risk score band:</span> {packetPreview.riskScore} ({riskBand(packetPreview.riskScore)})</p>
-                <p><span className="text-slate-400">Evidence count:</span> {packetPreview.uploadedEvidence} item(s)</p>
-                <p><span className="text-slate-400">Report pins count:</span> {packetPreview.reportPinsCount}</p>
-                <p><span className="text-slate-400">Sample points count:</span> {packetPreview.samplePointsCount}</p>
-                <p><span className="text-slate-400">Tile status:</span> {packetPreview.tileStatus}</p>
-                <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
-                <p><span className="text-slate-400">Validator status:</span> {evidencePacket.validatorStatus}</p>
-                <p><span className="text-slate-400">AI summary:</span> {packetPreview.aiSummary}</p>
-                <p><span className="text-slate-400">Recommended action:</span> {packetPreview.recommendedNextAction}</p>
-                <p><span className="text-slate-400">Evidence packet product ID:</span> {evidencePacket.productId}</p>
-                <p><span className="text-slate-400">Index type:</span> {evidencePacket.indexType}</p>
-                <p><span className="text-slate-400">Before value:</span> {evidencePacket.beforeValue ?? 'N/A'}</p>
-                <p><span className="text-slate-400">After value:</span> {evidencePacket.afterValue ?? 'N/A'}</p>
-                <p><span className="text-slate-400">Delta %:</span> {evidencePacket.deltaPercent ?? 'N/A'}</p>
-                <p><span className="text-slate-400">Data source citation:</span> {evidencePacket.dataSourceCitation}</p>
-                <p className="rounded-md border border-amber-500/40 bg-amber-900/20 px-2 py-1 text-amber-100">
-                  {packetPreview.legalSafeNote}
+          ) : null}
+
+          <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
+            Indicative MRV estimate â€” not certified carbon credit. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
+          </p>
+        </aside>
+      </div>
+
+      {/* â”€â”€ 5. Bottom Workspace Tabs â”€â”€ */}
+      <div className="border-t border-slate-800 bg-slate-950">
+        <div className="mx-auto max-w-[1400px]">
+          {/* Tab nav */}
+          <div className="flex overflow-x-auto border-b border-slate-800">
+            {(
+              [
+                ['intake', 'Intake'],
+                ['layers', 'Layers'],
+                ['mrv', 'MRV Compare'],
+                ['evidence', 'Evidence Packet'],
+                ['actions', 'Actions'],
+              ] as [typeof activeTab, string][]
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
+                  activeTab === id
+                    ? 'border-cyan-400 text-cyan-200'
+                    : 'border-transparent text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {/* Tab content */}
+          <div className="p-4 sm:p-5">
+
+            {/* â”€â”€ Intake Tab â”€â”€ */}
+            {activeTab === 'intake' ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                  <input
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+                    placeholder="Project name"
+                    value={draftProject.projectName}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, projectName: e.target.value }))}
+                  />
+                  <select
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                    value={draftProject.waterBodyType}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, waterBodyType: e.target.value as AquaScanProject['waterBodyType'] }))}
+                  >
+                    {waterBodyTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                  <input
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+                    placeholder="Location name"
+                    value={draftProject.locationName}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, locationName: e.target.value }))}
+                  />
+                  <select
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                    value={draftProject.concernType}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, concernType: e.target.value as ConcernType }))}
+                  >
+                    {concernTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                  <input
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+                    placeholder="GPS latitude"
+                    value={draftProject.latitude}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, latitude: e.target.value }))}
+                  />
+                  <input
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500"
+                    placeholder="GPS longitude"
+                    value={draftProject.longitude}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, longitude: e.target.value }))}
+                  />
+                  <input
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 md:col-span-2"
+                    placeholder="Optional polygon / boundary placeholder"
+                    value={draftProject.polygonPlaceholder}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, polygonPlaceholder: e.target.value }))}
+                  />
+                  <select
+                    className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+                    value={draftProject.suspectedSource}
+                    onChange={(e) => setDraftProject((prev) => ({ ...prev, suspectedSource: e.target.value as AquaScanProject['suspectedSource'] }))}
+                  >
+                    {suspectedSources.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
+                    <button type="button" className="rounded-md border border-cyan-500/50 bg-cyan-900/25 px-2 py-1 text-cyan-100" onClick={addEvidenceItem}>
+                      Upload evidence
+                    </button>
+                    <span className="text-slate-400">{selectedProject.evidenceCount} item(s)</span>
+                  </div>
+                  <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
+                    <input id="boundary-flag" type="checkbox" checked={boundaryDrawn} onChange={(e) => setBoundaryDrawn(e.target.checked)} />
+                    <label htmlFor="boundary-flag" className="text-slate-300">Boundary captured</label>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
+                  <p className="mb-2 text-xs font-semibold text-slate-300">Community impact</p>
+                  <div className="flex flex-wrap gap-2">
+                    {communityImpactOptions.map((impact) => {
+                      const active = draftProject.communityImpact.includes(impact);
+                      return (
+                        <button
+                          key={impact}
+                          type="button"
+                          onClick={() =>
+                            setDraftProject((prev) => ({
+                              ...prev,
+                              communityImpact: active
+                                ? prev.communityImpact.filter((i) => i !== impact)
+                                : [...prev.communityImpact, impact],
+                            }))
+                          }
+                          className={`rounded-full border px-2.5 py-1 text-[11px] ${active ? 'border-cyan-500/60 bg-cyan-900/30 text-cyan-100' : 'border-slate-600 bg-slate-800/60 text-slate-300'}`}
+                        >
+                          {impact}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={saveDraftProject}
+                    className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/60 bg-emerald-900/25 px-3 py-2 text-xs font-semibold text-emerald-100"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Save Project Intake
+                  </button>
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                      value={selectedProject.concernType}
+                      onChange={(e) => selectedProjectId && updateSelectedProject({ concernType: e.target.value as ConcernType })}
+                    >
+                      {concernTypes.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                    <select
+                      className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                      value={selectedProject.validatorStatus}
+                      onChange={(e) => selectedProjectId && updateSelectedProject({ validatorStatus: e.target.value as AquaScanProject['validatorStatus'] })}
+                    >
+                      <option value="Pending">Validator: Pending</option>
+                      <option value="Reviewed">Validator: Reviewed</option>
+                      <option value="Validated">Validator: Validated</option>
+                    </select>
+                    <label className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={selectedProject.hasLabResult}
+                        onChange={(e) => selectedProjectId && updateSelectedProject({ hasLabResult: e.target.checked })}
+                      />
+                      Lab result uploaded
+                    </label>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {/* â”€â”€ Layers Tab â”€â”€ */}
+            {activeTab === 'layers' ? (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-300">Select satellite layers for analysis</p>
+                  <span className="rounded-full border border-amber-400/40 bg-amber-900/25 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-100">
+                    Live satellite layers
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {mockSatelliteLayers.map((layer: SatelliteLayer) => {
+                    const active = selectedLayerIds.includes(layer.id);
+                    return (
+                      <button
+                        key={layer.id}
+                        type="button"
+                        onClick={() => toggleLayer(layer.id)}
+                        className={`rounded-xl border p-3 text-left transition ${active ? 'border-cyan-500/60 bg-cyan-900/20' : 'border-slate-700 bg-slate-950/70 hover:border-slate-500'}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-sm font-bold text-slate-100">{layer.name}</h3>
+                          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-slate-400">
+                            {active ? <CheckCircle className="h-3.5 w-3.5 text-cyan-300" /> : null}
+                            {layer.category}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-300">{layer.purpose}</p>
+                        <p className="mt-1 text-[11px] text-slate-500">{layer.capability}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-[11px] text-slate-400">
+                  NDVI = vegetation health Â· NDWI = water presence Â· NDMI = moisture stress Â· NBR = fire/burn disturbance
+                </div>
+                {/* Risk score breakdown */}
+                <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Risk Score Logic</p>
+                  <div className="space-y-1.5 text-xs text-slate-300">
+                    <div className="flex justify-between"><span>Concern type baseline</span><span>+{concernWeights[selectedProject.concernType]}</span></div>
+                    <div className="flex justify-between"><span>Evidence items ({selectedProject.evidenceCount})</span><span>+{Math.min(18, selectedProject.evidenceCount * 4)}</span></div>
+                    <div className="flex justify-between"><span>Satellite anomaly status</span><span>+{anomalyLayerCount >= 5 ? 14 : anomalyLayerCount >= 3 ? 8 : 4}</span></div>
+                    <div className="flex justify-between"><span>Lab result uploaded</span><span>{selectedProject.hasLabResult ? '-10' : '0'}</span></div>
+                    <div className="flex justify-between"><span>Validator status</span><span>{validatorStatus === 'Validated' ? '+8' : validatorStatus === 'Reviewed' ? '+4' : '0'}</span></div>
+                    <div className="mt-2 flex justify-between border-t border-slate-700 pt-2 font-semibold">
+                      <span>Total</span>
+                      <span className="text-xl font-black text-white">{selectedFocusLocation ? `${riskScore}/100` : 'â€”'}</span>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-xs text-cyan-200">
+                    {selectedFocusLocation ? riskBand(riskScore) : 'Select a location to compute risk.'}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            {/* â”€â”€ MRV Compare Tab â”€â”€ */}
+            {activeTab === 'mrv' ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-xs font-semibold text-slate-300">Before/after index comparison using Copernicus Statistical API</p>
+                  <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
+                    Indicative MRV estimate â€” not certified carbon credit
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400">Index</span>
+                    <select value={comparisonIndexType} onChange={(e) => setComparisonIndexType(e.target.value as CopernicusIndexType)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100">
+                      <option value="NDVI">NDVI</option>
+                      <option value="NDWI">NDWI</option>
+                      <option value="NDMI">NDMI</option>
+                      <option value="NBR">NBR</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400">Collection</span>
+                    <select value={comparisonCollection} onChange={(e) => setComparisonCollection(e.target.value as 'sentinel-2-l2a' | 'sentinel-1-grd')} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100">
+                      <option value="sentinel-2-l2a">Sentinel-2 L2A</option>
+                      <option value="sentinel-1-grd">Sentinel-1 GRD</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400">Before from</span>
+                    <input type="date" value={beforeRange.from} onChange={(e) => setBeforeRange((p) => ({ ...p, from: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400">Before to</span>
+                    <input type="date" value={beforeRange.to} onChange={(e) => setBeforeRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400">After from</span>
+                    <input type="date" value={afterRange.from} onChange={(e) => setAfterRange((p) => ({ ...p, from: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100" />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-slate-400">After to</span>
+                    <input type="date" value={afterRange.to} onChange={(e) => setAfterRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100" />
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  AOI: {activeAoi ? `${activeAoi.length} points, ${aoiAreaSqKm.toFixed(2)} kmÂ²` : 'No AOI â€” draw one on the map then save it'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { void runMrvComparison(); }}
+                    disabled={comparisonLoading}
+                    className="rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-60"
+                  >
+                    {comparisonLoading ? 'Calculatingâ€¦' : 'Calculate Comparison'}
+                  </button>
+                  <span className="text-[11px] text-slate-400">Gate: {validatorGateStatus.replace(/_/g, ' ')}</span>
+                  {(['pending_review', 'needs_more_evidence', 'approved', 'rejected'] as CopernicusValidatorStatus[]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setValidatorGateStatus(s)}
+                      className={`rounded border px-2 py-0.5 text-[10px] ${validatorGateStatus === s ? 'border-cyan-500/50 text-cyan-200' : 'border-slate-600 text-slate-400'}`}
+                    >
+                      {s.replace(/_/g, ' ')}
+                    </button>
+                  ))}
+                </div>
+                {comparisonError ? <p className="text-xs text-rose-300">{comparisonError}</p> : null}
+                <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                  {(
+                    [
+                      ['Before mean', String(comparisonResult?.before.mean ?? 'N/A')],
+                      ['After mean', String(comparisonResult?.after.mean ?? 'N/A')],
+                      ['Absolute change', String(comparisonResult?.delta.absoluteChange ?? 'N/A')],
+                      ['Percent change', comparisonResult?.delta.percentChange != null ? `${comparisonResult.delta.percentChange}%` : 'N/A'],
+                      ['Confidence', comparisonResult ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'N/A'],
+                    ] as [string, string][]
+                  ).map(([label, value]) => (
+                    <div key={label} className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs">
+                      <p className="text-slate-400">{label}</p>
+                      <p className="font-bold text-slate-100">{value}</p>
+                    </div>
+                  ))}
+                </div>
+                {comparisonResult?.warnings?.length ? (
+                  <p className="text-[11px] text-amber-200">Warnings: {comparisonResult.warnings.join(' | ')}</p>
+                ) : null}
+                {comparisonResult ? (
+                  <p className="text-xs text-slate-300">{comparisonResult.delta.interpretation}</p>
+                ) : (
+                  <p className="text-xs text-slate-500">Run comparison to see interpretation.</p>
+                )}
+                <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-xs text-slate-300">
+                  <p className="mb-1 font-semibold text-slate-200">Calculation history (local per project)</p>
+                  {calculationHistory.length === 0 ? (
+                    <p className="text-slate-500">No saved calculations yet.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {calculationHistory.slice(0, 5).map((item) => (
+                        <p key={item.calculationId} className="text-[11px]">
+                          {item.generatedAt.slice(0, 10)} Â· {item.indexType} Â· {item.deltaPercent ?? 'N/A'}% Â· {Math.round(item.confidenceScore * 100)}% conf Â· {item.validatorStatus.replace(/_/g, ' ')}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+
+            {/* â”€â”€ Evidence Packet Tab â”€â”€ */}
+            {activeTab === 'evidence' ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowPacket((prev) => !prev)}
+                    className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100"
+                  >
+                    {showPacket ? 'Hide Packet Preview' : 'Generate Evidence Packet'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void exportEvidencePacketJson(); }}
+                    className="rounded-lg border border-cyan-500/50 bg-cyan-900/25 px-3 py-1.5 text-xs font-semibold text-cyan-100"
+                  >
+                    Export JSON
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportEvidencePacketPdf}
+                    className="rounded-lg border border-slate-600 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-slate-300"
+                  >
+                    Export PDF (pending)
+                  </button>
+                  <span className="text-[11px] text-amber-200">
+                    Indicative MRV estimate â€” not certified carbon credit.
+                  </span>
+                </div>
+
+                {/* Satellite indicators */}
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:grid-cols-4">
+                  {indicators.map((item) => (
+                    <article key={item.id} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs font-semibold text-slate-200" title={item.explanation}>
+                          {item.label}
+                        </p>
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(item.status)}`}>
+                          {statusLabel(item.status)}
+                        </span>
+                      </div>
+                      <p className="mt-1.5 text-lg font-black text-white">
+                        {selectedFocusLocation ? item.value : 'â€”'}
+                      </p>
+                      <p className="text-[11px] text-cyan-200">
+                        {selectedFocusLocation ? item.trend : 'No location selected'}
+                      </p>
+                    </article>
+                  ))}
+                </div>
+
+                {/* AI summary */}
+                <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-purple-300">
+                    AI Water Intelligence Summary
+                  </p>
+                  <p className="text-sm leading-relaxed text-slate-200">{displayAiSummary}</p>
+                  {waterData && selectedFocusLocation ? (
+                    <>
+                      <p className="mt-2 text-xs text-cyan-200">Recommended next step: {recommendedNextStep}</p>
+                      <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-[11px] text-amber-100">
+                        Satellite indicators are screening tools. Confirmed contamination requires field sampling, laboratory testing, or official verification.
+                      </p>
+                    </>
+                  ) : null}
+                </div>
+
+                {/* Packet preview */}
+                {showPacket ? (
+                  <div className="space-y-1.5 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs text-slate-200">
+                    <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet Preview</p>
+                    <p className="text-[10px] text-slate-500">Export not connected â€” demo preview only.</p>
+                    <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
+                      <p><span className="text-slate-400">Generated:</span> {packetPreview.timestamp}</p>
+                      <p><span className="text-slate-400">Project ID:</span> {selectedProject.id}</p>
+                      <p>
+                        <span className="text-slate-400">Location:</span>{' '}
+                        {selectedFocusLocation
+                          ? selectedFocusLocation.displayName.split(',').slice(0, 2).join(',')
+                          : 'No focus location selected'}
+                      </p>
+                      <p>
+                        <span className="text-slate-400">Coordinates:</span>{' '}
+                        {selectedFocusLocation
+                          ? `${selectedFocusLocation.latitude.toFixed(5)}, ${selectedFocusLocation.longitude.toFixed(5)}`
+                          : 'N/A'}
+                      </p>
+                      <p><span className="text-slate-400">AOI boundary points:</span> {packetPreview.aoiBoundary.length}</p>
+                      <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
+                      <p><span className="text-slate-400">Layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
+                      <p><span className="text-slate-400">Selected date:</span> {packetPreview.selectedDate}</p>
+                      <p><span className="text-slate-400">NDWI / water index:</span> {selectedFocusLocation ? (packetPreview.ndwi ?? 'N/A') : 'No location'}</p>
+                      <p><span className="text-slate-400">Water presence:</span> {selectedFocusLocation ? packetPreview.waterPresence : 'No location'}</p>
+                      <p><span className="text-slate-400">Confidence:</span> {selectedFocusLocation ? `${packetPreview.confidenceScore}%` : 'â€”'}</p>
+                      <p><span className="text-slate-400">Risk band:</span> {selectedFocusLocation ? `${packetPreview.riskScore} (${riskBand(packetPreview.riskScore)})` : 'â€”'}</p>
+                      <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
+                      <p><span className="text-slate-400">Validator:</span> {evidencePacket.validatorStatus}</p>
+                      <p><span className="text-slate-400">Index type:</span> {evidencePacket.indexType}</p>
+                      <p><span className="text-slate-400">Before value:</span> {evidencePacket.beforeValue ?? 'N/A'}</p>
+                      <p><span className="text-slate-400">After value:</span> {evidencePacket.afterValue ?? 'N/A'}</p>
+                      <p><span className="text-slate-400">Delta %:</span> {evidencePacket.deltaPercent ?? 'N/A'}</p>
+                      <p><span className="text-slate-400">Data source:</span> {evidencePacket.dataSourceCitation}</p>
+                    </div>
+                    <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-900/20 px-2 py-1 text-amber-100">
+                      {packetPreview.legalSafeNote}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400">
+                    Generate a packet from the current map state, selected layers, coordinates, indicators, and evidence.
+                  </p>
+                )}
+
+                {/* Validator gate */}
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <span className="text-slate-400">Validator gate:</span>
+                  {(['pending_review', 'needs_more_evidence', 'approved', 'rejected'] as CopernicusValidatorStatus[]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setValidatorGateStatus(s)}
+                      className={`rounded border px-2 py-1 ${validatorGateStatus === s ? 'border-cyan-500/50 text-cyan-200' : 'border-slate-600 text-slate-400'}`}
+                    >
+                      {s.replace(/_/g, ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {/* â”€â”€ Actions Tab â”€â”€ */}
+            {activeTab === 'actions' ? (
+              <div className="space-y-4">
+                <p className="text-xs text-slate-400">
+                  Route screening results into accountable operational steps. These actions create draft records. Confirm contamination before escalating to authorities.
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {actionButtons.map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() => runAction(label)}
+                      className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2.5 text-left text-xs font-semibold text-slate-100 transition hover:border-cyan-500/50 hover:bg-cyan-900/20"
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                  <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Pending' })} className="rounded border border-slate-600 px-2 py-1 text-slate-300">Set Pending</button>
+                  <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Reviewed' })} className="rounded border border-slate-600 px-2 py-1 text-slate-300">Set Reviewed</button>
+                  <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Validated' })} className="rounded border border-slate-600 px-2 py-1 text-slate-300">Set Validated</button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  Drafts: Field missions {actionDraftCounts.fieldMission} Â· Samples {actionDraftCounts.sampleRequest} Â· Lab {actionDraftCounts.labUploads} Â· Notices {actionDraftCounts.authorityNotifications} Â· Restoration {actionDraftCounts.restorationDrafts}
+                </p>
+                <p className="rounded-lg border border-amber-500/30 bg-amber-900/15 p-3 text-[11px] text-amber-100">
+                  DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
                 </p>
               </div>
-            ) : (
-              <p className="text-xs text-slate-400">Generate an AquaScan Evidence Packet from the current map state, selected layers, coordinates, indicators, and uploaded/field evidence.</p>
-            )}
-            <p className="mt-2 text-[11px] text-slate-500">
-              The packet is a preliminary screening report. It can support field missions, sample requests, lab uploads, authority notification, or public ledger review after validation.
-            </p>
-          </article>
+            ) : null}
 
-          <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
-            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Action Center</p>
-            <p className="mt-2 text-xs text-slate-400">
-              What is this report for? This report helps DPAL organize water-risk evidence. It can be used to request a water sample, launch a field mission, upload lab results, notify an authority, create a restoration project, or add verified results to the public ledger. It is not a final contamination finding until validated by field sampling, lab testing, or official review.
-            </p>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              {actionButtons.map((label) => (
-                <button key={label} type="button" onClick={() => runAction(label)} className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-left text-xs font-semibold text-slate-100 hover:border-cyan-500/50 hover:bg-cyan-900/20">
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-400">
-              <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Pending' })} className="rounded border border-slate-600 px-2 py-1">Set Pending</button>
-              <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Reviewed' })} className="rounded border border-slate-600 px-2 py-1">Set Reviewed</button>
-              <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Validated' })} className="rounded border border-slate-600 px-2 py-1">Set Validated</button>
-            </div>
-            <p className="mt-2 text-[11px] text-slate-500">
-              Drafts created: Field missions {actionDraftCounts.fieldMission}, Samples {actionDraftCounts.sampleRequest}, Lab uploads {actionDraftCounts.labUploads}, Authority notices {actionDraftCounts.authorityNotifications}, Restoration drafts {actionDraftCounts.restorationDrafts}.
-            </p>
-          </article>
-        </section>
-
-        <section className="rounded-2xl border border-amber-500/40 bg-amber-900/20 p-4">
-          <p className="text-sm font-semibold text-amber-100">
-            DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory or official verification.
-          </p>
-        </section>
+          </div>
+        </div>
       </div>
     </div>
   );
