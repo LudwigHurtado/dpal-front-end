@@ -12,6 +12,14 @@ npm install
 npm run dev
 ```
 
+Use the same API host locally as production:
+
+```bash
+# .env.local
+VITE_API_BASE=https://web-production-a27b.up.railway.app
+VITE_USE_SERVER_AI=true
+```
+
 Build for production:
 
 ```bash
@@ -58,6 +66,20 @@ Backend-only satellite credentials live on Railway, not in Vercel:
 | `COPERNICUS_CLIENT_SECRET` | Sentinel Hub / Copernicus OAuth client secret |
 
 After changing Railway variables, redeploy or restart the backend service.
+
+---
+
+## Dev = Production parity checklist
+
+Use this checklist when you want local behavior to match production as closely as possible.
+
+1. Set `VITE_API_BASE` in `.env.local` to the same Railway URL used in production.
+2. Set `VITE_USE_SERVER_AI=true` so AI calls use backend `POST /api/ai/gemini` like production.
+3. Do not rely on localStorage-only fallbacks when validating production behavior.
+4. Run smoke checks against the same API base:
+   - `GET {VITE_API_BASE}/health`
+   - `GET {VITE_API_BASE}/api/ai/status`
+5. Restart Vite after env changes (`npm run dev`).
 
 ---
 
@@ -193,6 +215,15 @@ For the Railway backend, push to `main` in `dpal-ai-server` and Railway auto-dep
 ```text
 GET https://web-production-a27b.up.railway.app/health
 GET https://web-production-a27b.up.railway.app/api/ai/status
+```
+
+Recommended git sync flow before deploy:
+
+```bash
+git pull --rebase --autostash
+git add README.md CLAUDE.md
+git commit -m "docs: align dev/prod parity guidance"
+git push
 ```
 
 ---

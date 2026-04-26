@@ -51,6 +51,18 @@ All Vite-exposed vars must be prefixed with **`VITE_`**. Copy `.env.example` →
 
 See **`vite-env.d.ts`** for the full typed list.
 
+### Dev/Prod parity (required setup)
+
+To make local dev behave like production, use the same backend and AI path:
+
+- Set `.env.local` `VITE_API_BASE=https://web-production-a27b.up.railway.app`
+- Set `.env.local` `VITE_USE_SERVER_AI=true`
+- Prefer backend keys on Railway (`GEMINI_API_KEY`) instead of browser-exposed client keys
+- Restart Vite after env changes
+- Validate parity with:
+  - `GET {VITE_API_BASE}/health`
+  - `GET {VITE_API_BASE}/api/ai/status`
+
 ### Vite dev proxy (OpenAI)
 
 `vite.config.ts` maps **`/openai-proxy`** → `https://api.openai.com` and sets `Authorization` from `VITE_OPENAI_API_KEY` in `.env.local`. Client code uses `/openai-proxy/v1/...` when `import.meta.env.DEV` is true.
@@ -683,6 +695,17 @@ Backend folder:
 
 ```bash
 cd backend && npm run dev   # Express + Prisma, port 3001 (see backend README if present)
+```
+
+### Git sync workflow (pull/stage/commit/push)
+
+Use this exact order when updating docs/config and shipping quickly:
+
+```bash
+git pull --rebase --autostash
+git add README.md CLAUDE.md
+git commit -m "docs: align dev/prod parity guidance"
+git push
 ```
 
 ---
