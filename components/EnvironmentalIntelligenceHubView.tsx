@@ -214,7 +214,30 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         <h2 className="text-base md:text-lg font-bold text-cyan-200">Monitoring &amp; Remote Sensing</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
           <HubCard icon={<Globe className="w-8 h-8" />} label="Earth Observation" subLabel="LEO satellite analysis for environment and civic signals." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png" onClick={() => onNavigate('earthObservation')} />
-          <HubCard icon={<Waves className="w-8 h-8" />} label="Water Satellite Monitor" subLabel="Live SMAP, SWOT, GRACE-FO, GIBS, and Copernicus readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png" onClick={() => onNavigate('waterMonitor')} />
+          <HubCard
+            icon={<Waves className="w-8 h-8" />}
+            label="DPAL Water Command Center"
+            subLabel="Satellite MRV, water evidence packets, validator review, and operations dashboard."
+            status="Monitoring"
+            colorClass="sky"
+            bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png"
+            onClick={() => onNavigate('waterMonitor')}
+          >
+            <button
+              type="button"
+              onClick={() => onNavigate('aquaScanWater')}
+              className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100"
+            >
+              Open AquaScan MRV
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('waterOperationsEngine')}
+              className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100"
+            >
+              Open Water Operations Engine
+            </button>
+          </HubCard>
           <HubCard icon={<Activity className="w-8 h-8" />} label="Air Quality Control" subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('airQualityMonitor')} />
           <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Forest Integrity" subLabel="AFOLU projects, monitoring, mission evidence, and buyer-grade reports." status="Monitoring" colorClass="emerald" bgImageUrl="/environmental-intelligence/forest-integrity-main.png" onClick={() => onNavigate('afoluEngine')} />
         </div>

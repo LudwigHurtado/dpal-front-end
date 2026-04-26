@@ -961,6 +961,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             <span className="text-sm font-semibold">DPAL AquaScan</span>
             <span className="rounded-full border border-cyan-400/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-200">Live-only mode</span>
           </div>
+          <div className="hidden text-[10px] text-slate-400 lg:block">
+            Environmental Intelligence / DPAL Water Command Center / AquaScan MRV
+          </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="hidden text-[11px] text-slate-400 md:block">Scan, intake, map/GPS, and evidence packet workspace</span>
             {onOpenWaterOperations ? (

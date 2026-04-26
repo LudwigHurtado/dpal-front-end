@@ -17,6 +17,8 @@ interface DpalCarbonViewProps {
   onReturn: () => void;
   onGoToAfolu: () => void;
   onGoToWater: () => void;
+  onGoToAquaScanWater?: () => void;
+  onGoToWaterOperationsEngine?: () => void;
   onGoToCarbon: () => void;
   onGoToOffsets: () => void;
   onGoToEcology?: () => void;
@@ -575,7 +577,7 @@ const QrReportModal: React.FC<{ project: DpalCarbonProject; onClose: () => void 
    Main view
 ───────────────────────────────────────────── */
 const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
-  onReturn, onGoToAfolu, onGoToWater, onGoToCarbon, onGoToOffsets,
+  onReturn, onGoToAfolu, onGoToWater, onGoToAquaScanWater, onGoToWaterOperationsEngine, onGoToCarbon, onGoToOffsets,
   onGoToEcology, onGoToMissions, onGoToAir, onGoToImpact, onGoToEmissionsAudit,
 }) => {
   const [view, setView] = useState<'home' | 'calculator'>('home');
@@ -596,7 +598,7 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
 
   const PLATFORM_MODULES = [
     { id: 'afolu',   name: 'Forest Integrity',    desc: 'AFOLU projects, patrol missions, proof, and buyer packages.',         icon: Globe,        accent: 'text-emerald-300', border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', onClick: onGoToAfolu,                             status: 'Live'         },
-    { id: 'water',   name: 'Water Monitor',        desc: 'Satellite water snapshots, blue carbon projects, and impact scores.', icon: Droplets,     accent: 'text-cyan-300',    border: 'border-cyan-500/30',    bg: 'bg-cyan-500/10',    onClick: onGoToWater,                             status: 'Live'         },
+    { id: 'water',   name: 'DPAL Water Command Center', desc: 'AquaScan MRV and Water Operations Engine for water evidence and operations.', icon: Droplets, accent: 'text-cyan-300', border: 'border-cyan-500/30', bg: 'bg-cyan-500/10', onClick: onGoToAquaScanWater ?? onGoToWater, status: 'Live' },
     { id: 'carbon',  name: 'Carbon MRV Engine',    desc: 'Register projects, run MRV reviews, and generate credit packages.',   icon: Database,     accent: 'text-sky-300',     border: 'border-sky-500/30',     bg: 'bg-sky-500/10',     onClick: onGoToCarbon,                            status: 'Live'         },
     { id: 'offsets', name: 'Carbon Marketplace',   desc: 'Buy, sell, and retire verified carbon credits on the open market.',  icon: Award,        accent: 'text-amber-300',   border: 'border-amber-500/30',   bg: 'bg-amber-500/10',   onClick: onGoToOffsets,                           status: 'Live'         },
     { id: 'ecology', name: 'Ecological Conservation', desc: 'Landsat foliage scans, NDVI mapping, and habitat risk analysis.',  icon: Activity,     accent: 'text-lime-300',    border: 'border-lime-500/30',    bg: 'bg-lime-500/10',    onClick: onGoToEcology ?? (() => {}),             status: onGoToEcology ? 'Live' : 'Explore' },
@@ -893,9 +895,14 @@ const DpalCarbonView: React.FC<DpalCarbonViewProps> = ({
                     </button>
                   )}
                   {(proj.category === 'water') && (
-                    <button onClick={onGoToWater} className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-500 hover:text-cyan-200 transition">
-                      Open in Water Monitor
-                    </button>
+                    <>
+                      <button onClick={onGoToAquaScanWater ?? onGoToWater} className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-500 hover:text-cyan-200 transition">
+                        Open AquaScan MRV
+                      </button>
+                      <button onClick={onGoToWaterOperationsEngine ?? onGoToWater} className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-xs font-bold text-slate-300 hover:border-cyan-500 hover:text-cyan-200 transition">
+                        Open Water Operations Engine
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

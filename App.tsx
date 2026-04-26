@@ -2470,6 +2470,8 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             onGoToAfolu={() => setCurrentView('afoluEngine')}
             onGoToWater={() => setCurrentView('waterMonitor')}
+            onGoToAquaScanWater={() => setCurrentView('aquaScanWater')}
+            onGoToWaterOperationsEngine={() => setCurrentView('waterOperationsEngine')}
             onGoToCarbon={() => setCurrentView('carbonMRV')}
             onGoToOffsets={() => setCurrentView('offsetMarketplace')}
             onGoToEmissionsAudit={() => setCurrentView('emissionsIntegrityAudit')}

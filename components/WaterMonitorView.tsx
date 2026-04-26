@@ -3399,6 +3399,9 @@ export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMoni
             <Waves className="w-[18px] h-[18px] text-teal-400" />
             <span className="text-sm font-semibold text-slate-100">Water Operations Engine</span>
           </div>
+          <div className="text-[10px] text-slate-400 hidden lg:block">
+            Environmental Intelligence / DPAL Water Command Center / Water Operations Engine
+          </div>
           <div className="text-[11px] text-slate-400 hidden lg:block">
             Projects, satellite snapshots, Water Impact Score, validator queue, WaterGlobe, and water credits
           </div>
@@ -3408,7 +3411,7 @@ export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMoni
               onClick={onOpenAquaScan}
               className="ml-auto rounded-lg border border-teal-500/40 bg-teal-900/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-teal-100 hover:bg-teal-900/45"
             >
-              Open AquaScan
+              Open AquaScan MRV
             </button>
           ) : null}
 
