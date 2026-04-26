@@ -393,6 +393,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const [entitiesLoading, setEntitiesLoading] = useState(false);
   const [entitiesError, setEntitiesError] = useState<string | null>(null);
   const [showAoiReviewNotice, setShowAoiReviewNotice] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
 
   const [draftProject, setDraftProject] = useState<AquaScanProject>({
     id: 'AQ-DRAFT',
@@ -760,7 +761,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       generatedAt: new Date().toISOString(),
       validatorStatus: validatorGateStatus,
       photos: [],
-      notes: `Indicative MRV estimate. ${packetPreview.legalSafeNote}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
+      notes: `Indicative MRV estimate. ${packetPreview.legalSafeNote}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: local_preview_or_unavailable). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
     };
   }, [activeAoi, comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, mapCenter, packetPreview.legalSafeNote, selectedDate, selectedProject.id, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product]);
 
@@ -1672,29 +1673,35 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             </div>
             {/* Overlay toggles */}
-            <div className="mt-1 flex flex-wrap gap-1">
+            <div className="mt-1 flex flex-wrap items-center gap-1">
               {(
                 [
-                  ['boundary', 'Boundary'],
-                  ['riskZone', 'Risk zone'],
-                  ['reportPins', 'Reports'],
-                  ['samplePoints', 'Samples'],
-                  ['flowDirection', 'Flow'],
-                  ['waterExtent', 'Water extent'],
-                  ['ndwiProxy', 'NDWI proxy'],
-                  ['floodWetness', 'Flood/wet'],
-                  ['anomalyHotspots', 'Anomalies'],
-                ] as [keyof typeof overlayState, string][]
-              ).map(([key, label]) => (
+                  ['boundary', 'Boundary', 'Toggle AOI boundary polygon'],
+                  ['riskZone', 'Risk zone', 'Toggle risk review zone overlay (concern-based, always available)'],
+                  ['reportPins', 'Reports', 'Toggle report / evidence pins'],
+                  ['samplePoints', 'Samples', 'Toggle field sample candidate points'],
+                  ['flowDirection', 'Flow', 'Toggle flow direction guide (indicative only, not a hydrological measurement)'],
+                  ['waterExtent', 'Water extent', 'Toggle water presence zone (requires live satellite data)'],
+                  ['ndwiProxy', 'NDWI proxy', 'NDWI estimates water presence from satellite bands. Requires live satellite data - hidden when unavailable. Not a confirmed measurement.'],
+                  ['floodWetness', 'Flood/wet', 'Toggle flood/wetness indicator (requires live satellite data)'],
+                  ['anomalyHotspots', 'Anomalies', 'Toggle multi-layer anomaly hotspot zones'],
+                ] as [keyof typeof overlayState, string, string][]
+              ).map(([key, label, tooltip]) => (
                 <button
                   key={key}
                   type="button"
+                  title={tooltip}
                   onClick={() => toggleOverlay(key)}
                   className={`rounded border px-1.5 py-0.5 text-[10px] ${overlayState[key] ? 'border-cyan-500/50 text-cyan-200' : 'border-slate-700 text-slate-500'}`}
                 >
                   {label}
                 </button>
               ))}
+              {overlayState.ndwiProxy && !waterData ? (
+                <span className="rounded border border-amber-500/30 bg-amber-900/15 px-1.5 py-0.5 text-[10px] text-amber-300">
+                  {activeAoi ? 'NDWI proxy - unavailable (no live data)' : 'Draw an AOI to calculate polygon NDWI'}
+                </span>
+              ) : null}
             </div>
           </div>
 
@@ -1708,6 +1715,56 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               {selectedFocusLocation
                 ? selectedFocusLocation.displayName.split(',')[0]
                 : 'No location selected - use Focus Location above'}
+            </div>
+            {/* Compact map legend */}
+            <div className="absolute bottom-2 left-2 z-[520]">
+              <button
+                type="button"
+                onClick={() => setLegendOpen((prev) => !prev)}
+                className="rounded border border-slate-700/80 bg-slate-950/90 px-2 py-0.5 text-[10px] font-semibold text-slate-300 hover:bg-slate-900"
+              >
+                {legendOpen ? 'Hide legend' : 'Legend'}
+              </button>
+              {legendOpen ? (
+                <div className="mt-1 w-56 rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-[10px] text-slate-300">
+                  <p className="mb-1.5 font-bold uppercase tracking-wider text-slate-400">Map Legend</p>
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#fb7185]" />
+                      <span>Selected focus / project point</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#22d3ee] bg-transparent" />
+                      <span>AOI boundary (user-drawn)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#3b82f6] bg-[#3b82f6]/20" />
+                      <span>NDWI proxy (live data only)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#22c55e] bg-[#22c55e]/20" />
+                      <span>Water presence zone (live data only)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#f97316] bg-[#f97316]/20" />
+                      <span>Risk review zone</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#f59e0b]" />
+                      <span>Report pin (evidence point)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#34d399]" />
+                      <span>Sample point (field candidate)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-0.5 w-3 shrink-0 border-t-2 border-dashed border-[#38bdf8]" />
+                      <span>Flow direction guide (indicative)</span>
+                    </div>
+                  </div>
+                  <p className="mt-1.5 text-[9px] text-slate-600">Overlays are screening indicators only.</p>
+                </div>
+              ) : null}
             </div>
             {imageryLoading ? (
               <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
@@ -1813,89 +1870,128 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   }}
                 />
               ) : null}
-              {overlayState.waterExtent ? (
+              {/* Water extent - live data only */}
+              {overlayState.waterExtent && waterData ? (
                 <Circle center={[mapCenter[0] + 0.01, mapCenter[1]]} radius={5400} pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.07 }}>
                   <Popup>
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold">Water Presence Zone</p>
-                      <p>Source: {activeGibsLayer.label}</p>
-                      <p>Confidence: {inspectQualityConfidence != null ? `${inspectQualityConfidence}%` : 'Pending live data'}</p>
-                      <p className="text-[10px]">Screening indicator only.</p>
+                      <p>Source: {activeGibsLayer.label} (live)</p>
+                      <p>Confidence: {inspectQualityConfidence != null ? `${inspectQualityConfidence}%` : 'N/A'}</p>
+                      <p className="text-[10px] text-gray-500">Screening indicator only - not a confirmed measurement.</p>
                     </div>
                   </Popup>
                 </Circle>
               ) : null}
-              {overlayState.ndwiProxy ? (
-                <Circle center={[mapCenter[0] - 0.02, mapCenter[1] + 0.03]} radius={3900} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.08 }}>
+              {/* NDWI proxy - live data only; hidden when unavailable to avoid looking like a real result */}
+              {overlayState.ndwiProxy && waterData ? (
+                <Circle center={[mapCenter[0] - 0.02, mapCenter[1] + 0.03]} radius={3900} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.07, dashArray: '6 4' }}>
                   <Popup>
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold">NDWI Proxy Zone</p>
-                      <p>Source: {activeGibsLayer.label}</p>
-                      <p className="text-[10px]">Screening indicator only.</p>
+                      <p>Source: {activeGibsLayer.label} (live)</p>
+                      <p className="text-[10px]">NDWI estimates water presence from satellite bands. This is a screening indicator and requires live satellite data plus field validation. Not a confirmed satellite measurement.</p>
                     </div>
                   </Popup>
                 </Circle>
               ) : null}
-              {overlayState.floodWetness ? (
-                <Circle center={[mapCenter[0] + 0.05, mapCenter[1] - 0.04]} radius={3100} pathOptions={{ color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.08 }} />
+              {/* Flood/wetness - live data only */}
+              {overlayState.floodWetness && waterData ? (
+                <Circle center={[mapCenter[0] + 0.05, mapCenter[1] - 0.04]} radius={3100} pathOptions={{ color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.07 }}>
+                  <Popup>
+                    <div className="text-xs space-y-1">
+                      <p className="font-semibold">Flood / Wetness Indicator</p>
+                      <p className="text-[10px] text-gray-500">Screening indicator only - live data required.</p>
+                    </div>
+                  </Popup>
+                </Circle>
               ) : null}
+              {/* Risk zone - always shown when toggled (derived from concern weights, not raw satellite) */}
               {overlayState.riskZone ? (
-                <Circle center={[mapCenter[0] + 0.01, mapCenter[1] + 0.05]} radius={2200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.13 }}>
+                <Circle center={[mapCenter[0] + 0.01, mapCenter[1] + 0.05]} radius={2200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.10 }}>
                   <Popup>
                     <div className="space-y-1 text-xs">
-                      <p className="font-semibold">Orange Review Zone</p>
-                      <p>Source: {activeGibsLayer.label}</p>
-                      <p className="text-[10px]">Request sample or compare with lab data.</p>
+                      <p className="font-semibold">Risk Review Zone</p>
+                      <p>Based on concern type and selected layers.</p>
+                      <p className="text-[10px] text-gray-500">Request sample or compare with lab data. Screening indicator - not a confirmed finding.</p>
                     </div>
                   </Popup>
                 </Circle>
               ) : null}
+              {/* AOI boundary */}
               {overlayState.boundary && boundaryDrawn && aoiPoints.length >= 3 ? (
-                <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.1 }} />
+                <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }}>
+                  <Popup><div className="text-xs"><p className="font-semibold">AOI Boundary</p><p>User-drawn area of interest.</p></div></Popup>
+                </Polygon>
               ) : null}
               {overlayState.boundary && savedAoiPoints.length >= 3 ? (
-                <Polygon positions={savedAoiPoints} pathOptions={{ color: '#eab308', weight: 1.5, dashArray: '5 5', fillOpacity: 0.05 }} />
+                <Polygon positions={savedAoiPoints} pathOptions={{ color: '#eab308', weight: 1.5, dashArray: '5 5', fillOpacity: 0.05 }}>
+                  <Popup><div className="text-xs"><p className="font-semibold">Saved AOI Boundary</p><p>Previously saved area of interest.</p></div></Popup>
+                </Polygon>
               ) : null}
               {overlayState.boundary && boundaryDrawn && aoiPoints.length < 3 ? (
-                <Circle center={mapCenter} radius={4200} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }} />
+                <Circle center={mapCenter} radius={4200} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.06 }}>
+                  <Popup><div className="text-xs"><p>Draft AOI boundary placeholder. Draw at least 3 points to define a polygon.</p></div></Popup>
+                </Circle>
               ) : null}
+              {/* Flow direction guide */}
               {overlayState.flowDirection ? (
                 <Polyline
                   positions={[[mapCenter[0] + 0.05, mapCenter[1] - 0.07], [mapCenter[0] - 0.07, mapCenter[1] + 0.09]]}
-                  pathOptions={{ color: '#38bdf8', dashArray: '6 6' }}
-                />
+                  pathOptions={{ color: '#38bdf8', dashArray: '8 5', weight: 2 }}
+                >
+                  <Popup>
+                    <div className="text-xs space-y-1">
+                      <p className="font-semibold">Flow direction guide (indicative)</p>
+                      <p className="text-[10px] text-gray-500">Approximate water movement direction for investigation context. Not a confirmed hydrological measurement.</p>
+                    </div>
+                  </Popup>
+                </Polyline>
               ) : null}
+              {/* Report pins */}
               {overlayState.reportPins ? (
                 <>
                   <Circle center={[mapCenter[0] + 0.08, mapCenter[1] - 0.03]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Open evidence record and verify in field.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Community or uploaded evidence point. Verify in field before drawing conclusions.</p></div></Popup>
                   </Circle>
                   <Circle center={[mapCenter[0] - 0.03, mapCenter[1] + 0.06]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Open evidence record and verify in field.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Community or uploaded evidence point. Verify in field before drawing conclusions.</p></div></Popup>
                   </Circle>
                 </>
               ) : null}
+              {/* Sample points */}
               {overlayState.samplePoints ? (
                 <>
                   <Circle center={[mapCenter[0] + 0.03, mapCenter[1] + 0.02]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Requires lab testing for confirmation.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Field sample candidate. Requires lab testing for confirmation.</p></div></Popup>
                   </Circle>
                   <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Requires lab testing for confirmation.</p></div></Popup>
+                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Field sample candidate. Requires lab testing for confirmation.</p></div></Popup>
                   </Circle>
                 </>
               ) : null}
+              {/* Anomaly hotspots */}
               {overlayState.anomalyHotspots ? (
                 <>
-                  <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">High-priority anomaly</p><p>Compare dates/layers and inspect area.</p></div></Popup>
+                  <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.40 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Priority review zone</p><p>Multi-layer screening signal. Compare dates/layers and inspect area. Not a confirmed finding.</p></div></Popup>
                   </Circle>
-                  <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Secondary anomaly</p><p>Add evidence or request sample.</p></div></Popup>
+                  <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.40 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Secondary review zone</p><p>Overlapping screening signals. Add evidence or request sample.</p></div></Popup>
                   </Circle>
                 </>
               ) : null}
-              <Circle center={inspectedPoint ?? mapCenter} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.7 }} />
+              {/* Selected focus / project point */}
+              <Circle center={inspectedPoint ?? mapCenter} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.75 }}>
+                <Popup>
+                  <div className="text-xs space-y-1">
+                    <p className="font-semibold">Selected focus / project point</p>
+                    <p>Lat: {(inspectedPoint ?? mapCenter)[0].toFixed(5)}</p>
+                    <p>Lng: {(inspectedPoint ?? mapCenter)[1].toFixed(5)}</p>
+                    <p className="text-[10px] text-gray-500">This marker shows the current focus or inspection point. Click the map to move it.</p>
+                  </div>
+                </Popup>
+              </Circle>
             </MapContainer>
           </div>
 
