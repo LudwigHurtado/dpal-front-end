@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Circle, MapContainer, Polygon, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
 import type { Hero } from '../types';
@@ -29,6 +29,8 @@ interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
 }
+
+const DEFAULT_WEST_US_CENTER: [number, number] = [37.25, -119.8];
 
 const concernWeights: Record<ConcernType, number> = {
   Turbidity: 48,
@@ -92,6 +94,11 @@ function statusTone(status: WaterIndicator['status']): string {
   return 'text-rose-200 border-rose-500/50 bg-rose-900/20';
 }
 
+function statusLabel(status: WaterIndicator['status']): string {
+  if (status === 'Elevated') return 'Elevated indicator - needs review';
+  return status;
+}
+
 type BasemapStyle = 'satellite' | 'terrain' | 'dark';
 
 const layerToGibsLayer: Record<string, string> = {
@@ -132,13 +139,31 @@ function polygonAreaSqKm(points: [number, number][]): number {
   return Math.abs(sum) / 2;
 }
 
+function parseCoordinateInput(raw: string | number | null | undefined): number | null {
+  if (raw == null) return null;
+  const text = String(raw).trim();
+  if (!text) return null;
+  // Allow common pasted formats like "40.1234," or extra spaces.
+  const normalized = text.replace(/,/g, '').replace(/[^\d+-.]/g, '');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function focusPointFromProject(project: AquaScanProject): [number, number] {
-  const lat = Number(project.latitude);
-  const lng = Number(project.longitude);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) {
-    return [20, 0];
+  const parsedLat = parseCoordinateInput(project.latitude);
+  const parsedLng = parseCoordinateInput(project.longitude);
+  if (parsedLat == null || parsedLng == null) {
+    return DEFAULT_WEST_US_CENTER;
   }
-  return [lat, lng];
+  // Gracefully handle accidental lat/lng swap.
+  if (Math.abs(parsedLat) > 90 && Math.abs(parsedLng) <= 90) {
+    return [parsedLng, parsedLat];
+  }
+  if (Math.abs(parsedLat) > 90 || Math.abs(parsedLng) > 180 || (parsedLat === 0 && parsedLng === 0)) {
+    return DEFAULT_WEST_US_CENTER;
+  }
+  return [parsedLat, parsedLng];
 }
 
 function MapViewSync({ center }: { center: [number, number] }): null {
@@ -233,6 +258,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [imageryError, setImageryError] = useState<string | null>(null);
   const [beforeImageryError, setBeforeImageryError] = useState<string | null>(null);
   const [partialFailure, setPartialFailure] = useState(false);
+  const [failingLayerName, setFailingLayerName] = useState<string | null>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState<string>(new Date().toLocaleTimeString());
   const [waterApiLoading, setWaterApiLoading] = useState(false);
   const [waterApiError, setWaterApiError] = useState<string | null>(null);
@@ -241,6 +267,13 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const [waterData, setWaterData] = useState<WaterAnalysisResponse | null>(null);
   const [waterHistoryDelta, setWaterHistoryDelta] = useState<string>('Pending history');
   const [layerOpacity, setLayerOpacity] = useState(72);
+  const [actionDraftCounts, setActionDraftCounts] = useState({
+    fieldMission: 0,
+    sampleRequest: 0,
+    labUploads: 0,
+    authorityNotifications: 0,
+    restorationDrafts: 0,
+  });
   const [overlayState, setOverlayState] = useState({
     boundary: true,
     waterExtent: true,
@@ -421,7 +454,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       { id: 'extent', label: 'Surface Water Estimate', value: api?.surfaceWaterEstimate ?? `${Math.round(riskScore * 0.42)}%`, trend: waterHistoryDelta, status, explanation: 'Surface-water estimate from satellite/model layers.' },
       { id: 'flood', label: 'Risk Level', value: quality?.riskLevel ?? `${Math.round(riskScore * 0.81)}/100`, trend: quality?.qualityFlag ? `Quality: ${quality.qualityFlag}` : '+9% from baseline', status, explanation: 'Risk combines water and quality interpretation from latest snapshot.' },
       { id: 'drought', label: 'Drought Stress', value: `${Math.round(riskScore * 0.62)}/100`, trend: 'Stable over 30 days', status, explanation: 'Storage and stress patterns from basin-scale indicators.' },
-      { id: 'thermal', label: 'Thermal Anomaly', value: api?.thermalAnomaly ?? `${Math.round(riskScore * 0.73)}/100`, trend: '+3% this week', status, explanation: 'Thermal anomaly interpreted from selected satellite product.' },
+      { id: 'thermal', label: 'Thermal Anomaly', value: api?.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed', trend: '+3% this week', status, explanation: 'Thermal anomaly interpreted from selected satellite product.' },
       { id: 'confidence', label: 'Snapshot Confidence', value: `${Math.round((api?.confidence ?? Math.min(0.95, (45 + selectedProject.evidenceCount * 4 + anomalyLayerCount * 4) / 100)) * 100)}%`, trend: `${selectedProject.evidenceCount} evidence item(s) logged`, status, explanation: 'Confidence is satellite-derived and affected by cloud/coverage quality.' },
       { id: 'validator', label: 'Verification Status', value: validatorStatus, trend: validatorStatus === 'Validated' ? 'Validator-approved packet' : 'Awaiting final validation', status, explanation: 'Current verification state of the evidence package.' },
     ];
@@ -436,6 +469,17 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   const inspectWaterExtentEstimate = waterData?.waterAnalysis.surfaceWaterEstimate ?? 'Medium';
   const inspectFloodWetnessEstimate = waterData?.status.riskLevel ?? 'Moderate';
   const inspectQualityConfidence = Math.round((waterData?.waterAnalysis.confidence ?? Math.max(0.45, Math.min(0.98, (62 + anomalyLayerCount * 4 + (imageryError ? -20 : 0)) / 100))) * 100);
+  const recommendedNextStep = useMemo(() => {
+    if (riskScore <= 25) return 'Continue monitoring.';
+    if (String(waterData?.waterAnalysis.turbidityProxy ?? '').toLowerCase().includes('high') || riskScore > 50) {
+      return 'Request water sample.';
+    }
+    if (String(waterData?.waterAnalysis.thermalAnomaly ?? '').toLowerCase().includes('elevated') || String(waterData?.waterAnalysis.thermalAnomaly ?? '').toLowerCase().includes('detected')) {
+      return 'Compare date/layers and inspect area.';
+    }
+    if (inspectQualityConfidence < 65) return 'Add evidence or change satellite date.';
+    return 'Notify authority or launch field mission if indicators remain strong after validation.';
+  }, [inspectQualityConfidence, riskScore, waterData?.waterAnalysis.thermalAnomaly, waterData?.waterAnalysis.turbidityProxy]);
 
   const packetPreview = useMemo(() => {
     const template = mockEvidencePackets[0];
@@ -450,15 +494,30 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
       aiSummary,
       uploadedEvidence: selectedProject.evidenceCount,
       validatorStatus,
+      coordinates: { lat: mapCenter[0], lng: mapCenter[1] },
+      aoiBoundary: activeAoi ?? [],
+      selectedDate,
+      ndwi: Number.isFinite(inspectNdwiEstimate) ? Number(inspectNdwiEstimate.toFixed(2)) : null,
+      waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Review needed',
+      turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'unavailable',
+      thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed',
+      confidenceScore: inspectQualityConfidence,
+      reportPinsCount: overlayState.reportPins ? 2 : 0,
+      samplePointsCount: overlayState.samplePoints ? 2 : 0,
+      tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
+      legalSafeNote:
+        'DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification.',
       recommendedNextAction:
         riskBand(riskScore) === 'High Risk'
           ? 'Escalate with field sampling and notify relevant authority.'
           : template.recommendedNextAction,
     };
-  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus]);
+  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, mapCenter, activeAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.reportPins, overlayState.samplePoints, imageryError, partialFailure, imageryLoading]);
 
-  const latitudeDisplay = Number(selectedProject.latitude || 0).toFixed(4);
-  const longitudeDisplay = Number(selectedProject.longitude || 0).toFixed(4);
+  const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
+  const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
+  const latitudeDisplay = latitudeDisplayValue == null ? 'N/A' : latitudeDisplayValue.toFixed(4);
+  const longitudeDisplay = longitudeDisplayValue == null ? 'N/A' : longitudeDisplayValue.toFixed(4);
 
   function toggleLayer(layerId: string): void {
     setSelectedLayerIds((prev) =>
@@ -494,16 +553,75 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   }
 
   function runAction(actionLabel: string): void {
-    if (actionLabel === 'Upload Lab Result' && selectedProjectId) {
-      updateSelectedProject({ hasLabResult: true });
+    if (actionLabel === 'Launch Field Mission') {
+      setActionDraftCounts((prev) => ({ ...prev, fieldMission: prev.fieldMission + 1 }));
+      setActionNotice('Field mission draft created.');
+      return;
     }
     if (actionLabel === 'Request Water Sample' && selectedProjectId) {
       updateSelectedProject({ evidenceCount: selectedProject.evidenceCount + 1 });
+      setActionDraftCounts((prev) => ({ ...prev, sampleRequest: prev.sampleRequest + 1 }));
+      setActionNotice('Sample request draft created.');
+      return;
+    }
+    if (actionLabel === 'Upload Lab Result' && selectedProjectId) {
+      updateSelectedProject({ hasLabResult: true });
+      setActionDraftCounts((prev) => ({ ...prev, labUploads: prev.labUploads + 1 }));
+      setActionNotice('Lab upload placeholder opened. Attach validated results when available.');
+      return;
+    }
+    if (actionLabel === 'Notify Authority') {
+      setActionDraftCounts((prev) => ({ ...prev, authorityNotifications: prev.authorityNotifications + 1 }));
+      setActionNotice('Authority notification draft created.');
+      return;
+    }
+    if (actionLabel === 'Create Restoration Project') {
+      setActionDraftCounts((prev) => ({ ...prev, restorationDrafts: prev.restorationDrafts + 1 }));
+      setActionNotice('Restoration project draft created.');
+      return;
+    }
+    if (actionLabel === 'Add to Public Ledger') {
+      setActionNotice('Requires validation before public ledger publishing.');
+      return;
     }
     if (actionLabel === 'Export Evidence Packet') {
       setShowPacket(true);
+      try {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          projectId: selectedProject.id,
+          projectName: selectedProject.projectName || 'Unnamed project',
+          locationName: selectedProject.locationName || 'No location selected',
+          coordinates: { lat: mapCenter[0], lng: mapCenter[1] },
+          aoiBoundary: activeAoi ?? [],
+          selectedLayers: mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name),
+          selectedDate,
+          turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'unavailable',
+          ndwi: Number.isFinite(inspectNdwiEstimate) ? Number(inspectNdwiEstimate.toFixed(2)) : null,
+          waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Review needed',
+          thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed',
+          confidenceScore: inspectQualityConfidence,
+          evidencePointsCount: selectedProject.evidenceCount,
+          reportPinsCount: overlayState.reportPins ? 2 : 0,
+          samplePointsCount: overlayState.samplePoints ? 2 : 0,
+          tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
+          legalSafeNote:
+            'DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification.',
+          recommendedNextAction: packetPreview.recommendedNextAction,
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `aquascan-evidence-${selectedProject.id}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setActionNotice('Evidence packet exported as JSON preview.');
+      } catch {
+        setActionNotice('Evidence packet preview generated. Download is ready for wiring.');
+      }
+      return;
     }
-    setActionNotice(`${actionLabel} queued in demo mode.`);
   }
 
   function runDemoScenario(): void {
@@ -542,7 +660,12 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
   }
 
   function centerOnProject(): void {
-    setMapCenter(focusPointFromProject(selectedProject));
+    const next = focusPointFromProject(selectedProject);
+    setMapCenter(next);
+    if (next[0] === DEFAULT_WEST_US_CENTER[0] && next[1] === DEFAULT_WEST_US_CENTER[1]) {
+      setActionNotice('Coordinates are invalid or incomplete. Use numeric latitude/longitude like 36.7783 and -119.4179.');
+      return;
+    }
     setActionNotice('Map centered on selected project.');
   }
 
@@ -608,6 +731,31 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
     setSavedAoiPoints(aoiPoints);
     localStorage.setItem('dpal_aquascan_saved_aoi_v1', JSON.stringify(aoiPoints));
     setActionNotice('AOI saved for this browser.');
+  }
+
+  function retryImagery(): void {
+    setImageryLoading(true);
+    setImageryError(null);
+    setBeforeImageryError(null);
+    setPartialFailure(false);
+    setFailingLayerName(null);
+    setLastRefreshTime(new Date().toLocaleTimeString());
+  }
+
+  function useBaseMapOnly(): void {
+    setLayerOpacity(0);
+    setCompareEnabled(false);
+    setImageryError(null);
+    setBeforeImageryError(null);
+    setPartialFailure(false);
+    setActionNotice('Switched to base map only.');
+  }
+
+  function resetLayers(): void {
+    setSelectedLayerIds(mockSatelliteLayers.slice(0, 3).map((l) => l.id));
+    setLayerOpacity(72);
+    setCompareEnabled(false);
+    retryImagery();
   }
 
   async function toggleFullscreen(): Promise<void> {
@@ -883,6 +1031,41 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             </p>
           </div>
 
+          <div className="mb-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <article className="rounded-xl border border-slate-700 bg-slate-950/80 p-3 xl:col-span-2">
+              <h3 className="text-sm font-semibold text-slate-100">What am I seeing?</h3>
+              <p className="mt-2 text-xs leading-relaxed text-slate-300">
+                This map shows a DPAL AquaScan monitoring area. The satellite image is the base view. The colored circles and points are evidence overlays used to help identify water-risk indicators. They do not prove contamination by themselves. They help decide where to inspect, sample, or request official review.
+              </p>
+              <p className="mt-2 text-[11px] text-slate-500">
+                Satellite / base map imagery · Overlays: DPAL water indicators. The imagery is loaded as map tiles. If some tiles fail, the base map remains active while DPAL keeps the evidence overlays visible.
+              </p>
+            </article>
+            <article className="rounded-xl border border-slate-700 bg-slate-950/80 p-3">
+              <h3 className="text-sm font-semibold text-slate-100">Selected Layers Explained</h3>
+              <ul className="mt-2 space-y-1 text-[11px] text-slate-300">
+                <li><span className="font-semibold text-slate-200">Sentinel-2:</span> Optical imagery for visible water color, vegetation, and surface changes.</li>
+                <li><span className="font-semibold text-slate-200">Landsat 8/9:</span> Medium-resolution historical imagery for before/after comparison.</li>
+                <li><span className="font-semibold text-slate-200">Sentinel-1 SAR:</span> Radar imagery for water/flood detection even with clouds.</li>
+              </ul>
+              <p className="mt-2 text-[11px] text-slate-500">These layers are screening tools. Combine with field sampling or official data before making contamination claims.</p>
+            </article>
+          </div>
+
+          <article className="mb-3 rounded-xl border border-slate-700 bg-slate-950/80 p-3">
+            <h3 className="text-sm font-semibold text-slate-100">Map Legend</h3>
+            <div className="mt-2 grid grid-cols-1 gap-2 text-[11px] text-slate-300 md:grid-cols-2 xl:grid-cols-3">
+              <p title="Selected water scan area or water presence zone."><span className="inline-block h-2 w-2 rounded-full bg-cyan-300 align-middle" /> Blue / cyan ring: selected water scan area or water presence zone</p>
+              <p title="Elevated turbidity proxy screening zone."><span className="inline-block h-2 w-2 rounded-full bg-orange-400 align-middle" /> Orange ring: elevated turbidity or review zone</p>
+              <p title="High-priority anomaly/report marker."><span className="inline-block h-2 w-2 rounded-full bg-red-500 align-middle" /> Red marker: high-priority anomaly or report point</p>
+              <p title="Secondary review indicator zone."><span className="inline-block h-2 w-2 rounded-full bg-purple-400 align-middle" /> Purple ring: secondary review zone</p>
+              <p title="Evidence points, sample points, or report pins."><span className="inline-block h-2 w-2 rounded-full bg-emerald-400 align-middle" /> Small dots: evidence points, sample points, or report pins</p>
+              <p title="Project/AOI boundary lines and polygons."><span className="inline-block h-2 w-2 rounded-full bg-yellow-300 align-middle" /> Boundary line: project/AOI boundary</p>
+              <p title="Likely water movement direction indicator."><span className="inline-block h-2 w-2 rounded-full bg-sky-400 align-middle" /> Flow marker: likely water movement direction</p>
+              <p title="Overlapping indicators from selected layers."><span className="inline-block h-2 w-2 rounded-full bg-slate-300 align-middle" /> Cluster / multiple circles: overlapping indicators from selected layers</p>
+            </div>
+          </article>
+
           <div className="mb-3 rounded-xl border border-slate-700 bg-slate-950/80 p-3">
             <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300 md:grid-cols-6">
               <span>Location: <span className="font-semibold text-white">{selectedProject.locationName || 'Unspecified'}</span></span>
@@ -919,7 +1102,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                 Clear AOI
               </button>
               <button type="button" onClick={saveAoi} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Save AOI</button>
-              <button type="button" onClick={() => { setImageryLoading(true); setImageryError(null); setBeforeImageryError(null); setPartialFailure(false); setLastRefreshTime(new Date().toLocaleTimeString()); }} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
+              <button type="button" onClick={retryImagery} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Refresh imagery</button>
               <button type="button" onClick={() => runMapCommand('reset')} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">Reset view</button>
               <select
                 value={mapStyle}
@@ -997,15 +1180,37 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <button type="button" onClick={() => toggleOverlay('flowDirection')} className={`rounded border px-2 py-1 ${overlayState.flowDirection ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flow direction</button>
             </div>
           </div>
+          <div className="mb-3 rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3 text-[11px] text-cyan-100">
+            <p className="font-semibold text-cyan-200">Image / Tile Status</p>
+            <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-4">
+              <p><span className="text-cyan-300/80">Base map:</span> Active</p>
+              <p><span className="text-cyan-300/80">Satellite layer:</span> {imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active'}</p>
+              <p><span className="text-cyan-300/80">Selected date:</span> {selectedDate}</p>
+              <p><span className="text-cyan-300/80">Selected layers:</span> {mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None'}</p>
+              <p><span className="text-cyan-300/80">Tile status:</span> {imageryError ? 'Tile fetch issue' : partialFailure ? 'Some tiles unavailable' : 'Tiles loaded'}</p>
+              <p><span className="text-cyan-300/80">Last refresh:</span> {lastRefreshTime}</p>
+              <p><span className="text-cyan-300/80">Failing layer:</span> {failingLayerName ?? 'None detected'}</p>
+            </div>
+          </div>
           <div ref={mapViewportRef} className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[42rem]' : 'h-[32rem]'}`}>
+            <div className="pointer-events-none absolute right-2 top-2 z-[510] rounded border border-slate-700/80 bg-slate-950/85 px-2 py-1 text-[10px] text-slate-200">
+              Satellite / base map imagery · Overlays: DPAL water indicators
+            </div>
             {imageryLoading ? (
               <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
                 Loading latest available satellite-connected imagery...
               </div>
             ) : null}
             {imageryError ? (
-              <div className="absolute inset-x-0 top-0 z-[500] bg-rose-950/85 px-3 py-1 text-[11px] text-rose-100">
-                {imageryError}
+              <div className="absolute inset-x-0 top-0 z-[500] bg-rose-950/85 px-3 py-2 text-[11px] text-rose-100">
+                <p>{imageryError}</p>
+                {failingLayerName ? <p className="mt-1 text-rose-200/90">Failing layer: {failingLayerName}</p> : null}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={retryImagery} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Retry imagery</button>
+                  <button type="button" onClick={useBaseMapOnly} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Use base map only</button>
+                  <button type="button" onClick={() => { setSelectedDate(gibsDefaultDate()); retryImagery(); }} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Change date</button>
+                  <button type="button" onClick={resetLayers} className="rounded border border-rose-300/40 bg-rose-900/40 px-2 py-1 text-[10px]">Reset layers</button>
+                </div>
               </div>
             ) : null}
             {partialFailure ? (
@@ -1057,7 +1262,8 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   },
                   tileerror: () => {
                     setImageryLoading(false);
-                    setImageryError('Satellite tile fetch issue detected. Try another date or layer.');
+                    setFailingLayerName(activeGibsLayer.label);
+                    setImageryError('Some satellite image tiles did not load for the selected date, zoom level, or layer. The base map remains active. Try changing the date, reducing zoom, refreshing imagery, or selecting another satellite layer.');
                     setPartialFailure(true);
                   },
                 }}
@@ -1070,6 +1276,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                   attribution='Comparison imagery: NASA GIBS / ESDIS'
                   eventHandlers={{
                     tileerror: () => {
+                      setFailingLayerName(`${activeGibsLayer.label} (comparison)`);
                       setBeforeImageryError('Compare layer unavailable for selected date.');
                       setPartialFailure(true);
                     },
@@ -1077,16 +1284,55 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
                 />
               ) : null}
               {overlayState.waterExtent ? (
-                <Circle center={[mapCenter[0] + 0.01, mapCenter[1]]} radius={5400} pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.07 }} />
+                <Circle center={[mapCenter[0] + 0.01, mapCenter[1]]} radius={5400} pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.07 }}>
+                  <Popup>
+                    <div className="space-y-1 text-xs">
+                      <p className="font-semibold">Water Presence Zone</p>
+                      <p>Overlay type: Blue/cyan scan area</p>
+                      <p>Meaning: Surface water indicator zone from selected layers.</p>
+                      <p>Source layer: {activeGibsLayer.label}</p>
+                      <p>Confidence: {inspectQualityConfidence}%</p>
+                      <p>Coordinates: {(mapCenter[0] + 0.01).toFixed(5)}, {mapCenter[1].toFixed(5)}</p>
+                      <p>Recommended next action: Compare layers and request sample if persistent.</p>
+                      <p className="text-[11px]">Screening indicator only; not a confirmed contamination finding.</p>
+                    </div>
+                  </Popup>
+                </Circle>
               ) : null}
               {overlayState.ndwiProxy ? (
-                <Circle center={[mapCenter[0] - 0.02, mapCenter[1] + 0.03]} radius={3900} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.08 }} />
+                <Circle center={[mapCenter[0] - 0.02, mapCenter[1] + 0.03]} radius={3900} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.08 }}>
+                  <Popup>
+                    <div className="space-y-1 text-xs">
+                      <p className="font-semibold">NDWI Proxy Zone</p>
+                      <p>Overlay type: Water index indicator</p>
+                      <p>Meaning: Satellite-derived water index focus area.</p>
+                      <p>Source layer: {activeGibsLayer.label}</p>
+                      <p>Confidence: {inspectQualityConfidence}%</p>
+                      <p>Coordinates: {(mapCenter[0] - 0.02).toFixed(5)}, {(mapCenter[1] + 0.03).toFixed(5)}</p>
+                      <p>Recommended next action: Validate with field observations and date comparison.</p>
+                      <p className="text-[11px]">Screening indicator only; not a confirmed contamination finding.</p>
+                    </div>
+                  </Popup>
+                </Circle>
               ) : null}
               {overlayState.floodWetness ? (
                 <Circle center={[mapCenter[0] + 0.05, mapCenter[1] - 0.04]} radius={3100} pathOptions={{ color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.08 }} />
               ) : null}
               {overlayState.riskZone ? (
-                <Circle center={[mapCenter[0] + 0.01, mapCenter[1] + 0.05]} radius={2200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.13 }} />
+                <Circle center={[mapCenter[0] + 0.01, mapCenter[1] + 0.05]} radius={2200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.13 }}>
+                  <Popup>
+                    <div className="space-y-1 text-xs">
+                      <p className="font-semibold">Orange Review Zone</p>
+                      <p>Overlay type: Elevated turbidity/review indicator</p>
+                      <p>Meaning: Satellite-derived turbidity proxy is elevated in this area.</p>
+                      <p>Source layer: {activeGibsLayer.label}</p>
+                      <p>Confidence: {inspectQualityConfidence}%</p>
+                      <p>Coordinates: {(mapCenter[0] + 0.01).toFixed(5)}, {(mapCenter[1] + 0.05).toFixed(5)}</p>
+                      <p>Recommended next action: Request field sample or compare with lab data.</p>
+                      <p className="text-[11px]">This is a screening indicator, not a lab-confirmed contamination finding.</p>
+                    </div>
+                  </Popup>
+                </Circle>
               ) : null}
               {overlayState.boundary && boundaryDrawn && aoiPoints.length >= 3 ? (
                 <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.1 }} />
@@ -1102,20 +1348,32 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               ) : null}
               {overlayState.reportPins ? (
                 <>
-                  <Circle center={[mapCenter[0] + 0.08, mapCenter[1] - 0.03]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }} />
-                  <Circle center={[mapCenter[0] - 0.03, mapCenter[1] + 0.06]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }} />
+                  <Circle center={[mapCenter[0] + 0.08, mapCenter[1] - 0.03]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Overlay type: Report point</p><p>Recommended next action: Open evidence record and verify in field.</p></div></Popup>
+                  </Circle>
+                  <Circle center={[mapCenter[0] - 0.03, mapCenter[1] + 0.06]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Overlay type: Report point</p><p>Recommended next action: Open evidence record and verify in field.</p></div></Popup>
+                  </Circle>
                 </>
               ) : null}
               {overlayState.samplePoints ? (
                 <>
-                  <Circle center={[mapCenter[0] + 0.03, mapCenter[1] + 0.02]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }} />
-                  <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }} />
+                  <Circle center={[mapCenter[0] + 0.03, mapCenter[1] + 0.02]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Meaning: Field sample candidate point.</p><p>Legal note: Requires lab testing for confirmation.</p></div></Popup>
+                  </Circle>
+                  <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Meaning: Field sample candidate point.</p><p>Legal note: Requires lab testing for confirmation.</p></div></Popup>
+                  </Circle>
                 </>
               ) : null}
               {overlayState.anomalyHotspots ? (
                 <>
-                  <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.45 }} />
-                  <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.45 }} />
+                  <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.45 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">High-priority anomaly</p><p>Meaning: Elevated multi-layer anomaly cluster.</p><p>Recommended next action: Compare dates/layers and inspect area.</p></div></Popup>
+                  </Circle>
+                  <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.45 }}>
+                    <Popup><div className="text-xs"><p className="font-semibold">Secondary anomaly zone</p><p>Meaning: Overlapping indicators need review.</p><p>Recommended next action: Add evidence or request sample.</p></div></Popup>
+                  </Circle>
                 </>
               ) : null}
               <Circle center={inspectedPoint ?? mapCenter} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.7 }} />
@@ -1144,7 +1402,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             <div><span className="text-cyan-300/80">Water presence:</span> {waterData?.waterAnalysis.waterPresence ?? 'Review'}</div>
             <div><span className="text-cyan-300/80">Surface water estimate:</span> {inspectWaterExtentEstimate} (satellite/model-estimated)</div>
             <div><span className="text-cyan-300/80">Turbidity proxy:</span> {waterData?.waterAnalysis.turbidityProxy ?? 'unavailable'} (proxy estimate)</div>
-            <div><span className="text-cyan-300/80">Thermal anomaly:</span> {waterData?.waterAnalysis.thermalAnomaly ?? 'Review'}</div>
+            <div><span className="text-cyan-300/80">Thermal anomaly:</span> {waterData?.waterAnalysis.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed'}</div>
             <div><span className="text-cyan-300/80">Shoreline change:</span> {waterData?.waterAnalysis.shorelineChange ?? 'Stable'}</div>
             <div><span className="text-cyan-300/80">Confidence score:</span> {inspectQualityConfidence}%</div>
             <div><span className="text-cyan-300/80">Quality flag:</span> {waterData?.status.qualityFlag ?? (partialFailure ? 'Partial' : imageryError ? 'Estimated' : 'Clear')}</div>
@@ -1164,8 +1422,10 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
           {indicators.map((item) => (
             <article key={item.id} className="rounded-xl border border-slate-700 bg-slate-900/60 p-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold text-slate-200">{item.label}</p>
-                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(item.status)}`}>{item.status}</span>
+                <p className="text-xs font-semibold text-slate-200" title={item.explanation}>
+                  {item.label} <span className="text-[10px] text-slate-400">(i)</span>
+                </p>
+                <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(item.status)}`}>{statusLabel(item.status)}</span>
               </div>
               <p className="mt-2 text-xl font-black text-white">{item.value}</p>
               <p className="text-[11px] text-cyan-200">{item.trend}</p>
@@ -1177,6 +1437,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
         <section className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-purple-300">AI Water Intelligence Summary</p>
           <p className="mt-3 text-sm leading-relaxed text-slate-200">{aiSummary}</p>
+          <p className="mt-2 text-xs text-cyan-200">
+            Recommended next step: {recommendedNextStep}
+          </p>
           <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-900/20 p-2 text-[11px] text-amber-100">
             Satellite indicators are screening tools. Confirmed contamination requires field sampling, laboratory testing, or official verification.
           </p>
@@ -1192,32 +1455,47 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
             </div>
             {showPacket ? (
               <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200">
-                <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet (Demo Preview)</p>
+                <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet Preview</p>
                 <p><span className="text-slate-400">Generated date/time:</span> {packetPreview.timestamp}</p>
                 <p><span className="text-slate-400">Project ID:</span> {selectedProject.id}</p>
                 <p><span className="text-slate-400">Packet title:</span> {packetPreview.projectName}</p>
                 <p><span className="text-slate-400">Location:</span> {packetPreview.location}</p>
+                <p><span className="text-slate-400">Coordinates:</span> {packetPreview.coordinates.lat.toFixed(5)}, {packetPreview.coordinates.lng.toFixed(5)}</p>
+                <p><span className="text-slate-400">AOI boundary points:</span> {packetPreview.aoiBoundary.length}</p>
                 <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
                 <p><span className="text-slate-400">Selected satellite layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
+                <p><span className="text-slate-400">Selected date:</span> {packetPreview.selectedDate}</p>
+                <p><span className="text-slate-400">NDWI / water index:</span> {packetPreview.ndwi ?? 'N/A'}</p>
+                <p><span className="text-slate-400">Water presence:</span> {packetPreview.waterPresence}</p>
+                <p><span className="text-slate-400">Turbidity proxy:</span> {packetPreview.turbidityProxy}</p>
+                <p><span className="text-slate-400">Thermal anomaly:</span> {packetPreview.thermalAnomaly}</p>
+                <p><span className="text-slate-400">Confidence score:</span> {packetPreview.confidenceScore}%</p>
                 <p><span className="text-slate-400">Risk score band:</span> {packetPreview.riskScore} ({riskBand(packetPreview.riskScore)})</p>
                 <p><span className="text-slate-400">Evidence count:</span> {packetPreview.uploadedEvidence} item(s)</p>
+                <p><span className="text-slate-400">Report pins count:</span> {packetPreview.reportPinsCount}</p>
+                <p><span className="text-slate-400">Sample points count:</span> {packetPreview.samplePointsCount}</p>
+                <p><span className="text-slate-400">Tile status:</span> {packetPreview.tileStatus}</p>
                 <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
                 <p><span className="text-slate-400">Validator status:</span> {packetPreview.validatorStatus}</p>
                 <p><span className="text-slate-400">AI summary:</span> {packetPreview.aiSummary}</p>
                 <p><span className="text-slate-400">Recommended action:</span> {packetPreview.recommendedNextAction}</p>
-                <p><span className="text-slate-400">Audit ID placeholder:</span> {packetPreview.auditId}</p>
-                <p><span className="text-slate-400">Ledger hash placeholder:</span> {packetPreview.ledgerHash}</p>
                 <p className="rounded-md border border-amber-500/40 bg-amber-900/20 px-2 py-1 text-amber-100">
-                  Export not connected — demo preview only.
+                  {packetPreview.legalSafeNote}
                 </p>
               </div>
             ) : (
-              <p className="text-xs text-slate-400">Generate a demo packet preview from current project state and selected layers.</p>
+              <p className="text-xs text-slate-400">Generate an AquaScan Evidence Packet from the current map state, selected layers, coordinates, indicators, and uploaded/field evidence.</p>
             )}
+            <p className="mt-2 text-[11px] text-slate-500">
+              The packet is a preliminary screening report. It can support field missions, sample requests, lab uploads, authority notification, or public ledger review after validation.
+            </p>
           </article>
 
           <article className="rounded-2xl border border-slate-700 bg-slate-900/60 p-4">
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Action Center</p>
+            <p className="mt-2 text-xs text-slate-400">
+              What is this report for? This report helps DPAL organize water-risk evidence. It can be used to request a water sample, launch a field mission, upload lab results, notify an authority, create a restoration project, or add verified results to the public ledger. It is not a final contamination finding until validated by field sampling, lab testing, or official review.
+            </p>
             <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               {actionButtons.map((label) => (
                 <button key={label} type="button" onClick={() => runAction(label)} className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2 text-left text-xs font-semibold text-slate-100 hover:border-cyan-500/50 hover:bg-cyan-900/20">
@@ -1230,6 +1508,9 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Reviewed' })} className="rounded border border-slate-600 px-2 py-1">Set Reviewed</button>
               <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Validated' })} className="rounded border border-slate-600 px-2 py-1">Set Validated</button>
             </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              Drafts created: Field missions {actionDraftCounts.fieldMission}, Samples {actionDraftCounts.sampleRequest}, Lab uploads {actionDraftCounts.labUploads}, Authority notices {actionDraftCounts.authorityNotifications}, Restoration drafts {actionDraftCounts.restorationDrafts}.
+            </p>
           </article>
         </section>
 
