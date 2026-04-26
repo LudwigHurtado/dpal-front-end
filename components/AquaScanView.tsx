@@ -1157,29 +1157,27 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     setInspectedPoint(point);
 
     if (drawingAoi) {
-      // In AOI mode: add point only; set temp focus on the very first point if none exists
-      setAoiPoints((prev) => {
-        const next = [...prev, point];
-        if (next.length === 1 && !selectedFocusLocation) {
-          setMapCenter(point);
-          setSelectedFocusLocation({
-            source: 'manual',
-            query: `${lat}, ${lng}`,
-            displayName: `Focus set from first AOI point (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-            latitude: lat,
-            longitude: lng,
-            aoiGeoJson: null,
-            resolvedAt: new Date().toISOString(),
-          });
-          setDraftProject((prev2) => ({
-            ...prev2,
-            latitude: String(lat),
-            longitude: String(lng),
-          }));
-          setSelectedProjectId('AQ-DRAFT');
-        }
-        return next;
-      });
+      // AOI mode: onAoiPoint (called by MapInteractionCapture after onInspect) adds the point.
+      // Here we only handle the first-point focus side-effect when no location is set yet.
+      // We do NOT call setAoiPoints here to avoid double-adding.
+      if (!selectedFocusLocation) {
+        setMapCenter(point);
+        setSelectedFocusLocation({
+          source: 'manual',
+          query: `${lat}, ${lng}`,
+          displayName: `Focus set from first AOI point (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+          latitude: lat,
+          longitude: lng,
+          aoiGeoJson: null,
+          resolvedAt: new Date().toISOString(),
+        });
+        setDraftProject((prev2) => ({
+          ...prev2,
+          latitude: String(lat),
+          longitude: String(lng),
+        }));
+        setSelectedProjectId('AQ-DRAFT');
+      }
       return;
     }
 
