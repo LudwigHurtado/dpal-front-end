@@ -34,6 +34,8 @@ import type {
   SatelliteEvidencePacket,
 } from '../services/copernicus/types';
 import { apiUrl, API_ROUTES } from '../constants';
+import { reverseGeocodeLatLng } from '../services/geocodingService';
+import { lookupNearbyEntities, type NearbyEntity } from '../services/entityLookupService';
 
 interface AquaScanViewProps {
   onReturn: () => void;
@@ -42,7 +44,7 @@ interface AquaScanViewProps {
 }
 
 interface FocusLocation {
-  source: 'search' | 'gps' | 'manual';
+  source: 'search' | 'gps' | 'manual' | 'map_click';
   query: string;
   displayName: string;
   latitude: number;
@@ -385,6 +387,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const mapViewportRef = useRef<HTMLDivElement | null>(null);
   const waterRequestAbortRef = useRef<AbortController | null>(null);
   const waterDebounceRef = useRef<number | null>(null);
+  const entityLookupAbortRef = useRef<AbortController | null>(null);
+
+  const [nearbyEntities, setNearbyEntities] = useState<NearbyEntity[]>([]);
+  const [entitiesLoading, setEntitiesLoading] = useState(false);
+  const [entitiesError, setEntitiesError] = useState<string | null>(null);
+  const [showAoiReviewNotice, setShowAoiReviewNotice] = useState(false);
 
   const [draftProject, setDraftProject] = useState<AquaScanProject>({
     id: 'AQ-DRAFT',
@@ -471,6 +479,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     }
     if (waterDebounceRef.current) {
       window.clearTimeout(waterDebounceRef.current);
+    }
+    if (entityLookupAbortRef.current) {
+      entityLookupAbortRef.current.abort();
     }
   }, []);
 
@@ -910,18 +921,35 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }
 
   async function exportEvidencePacketJson(): Promise<void> {
+    const nearbyContext = nearbyEntities.length > 0
+      ? {
+          searchRadiusKm: 5,
+          entities: nearbyEntities,
+          disclaimer: 'Nearby mapped entities are contextual leads only and do not prove responsibility.',
+        }
+      : undefined;
+
     try {
       const response = await fetch(apiUrl(API_ROUTES.COPERNICUS_EVIDENCE_PACKET), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(evidencePacket),
+        body: JSON.stringify({ ...evidencePacket, nearbyContext }),
       });
       const payload = (await response.json().catch(() => ({}))) as { packet?: SatelliteEvidencePacket; error?: string };
       if (!response.ok || !payload.packet) {
-        setActionNotice(payload.error ?? 'Unable to export evidence packet JSON.');
+        // Fall back to local JSON export with nearby context included
+        const localPayload = { ...evidencePacket, nearbyContext };
+        const blob = new Blob([JSON.stringify(localPayload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `satellite-evidence-packet-${selectedProject.id}.json`;
+        link.click();
+        URL.revokeObjectURL(url);
+        setActionNotice('Evidence packet exported as JSON (local export - backend unavailable).');
         return;
       }
-      const blob = new Blob([JSON.stringify(payload.packet, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify({ ...payload.packet, nearbyContext }, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -1101,6 +1129,121 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     setActionNotice('AOI saved for this browser.');
   }
 
+  async function runEntityLookup(lat: number, lng: number, controller: AbortController): Promise<void> {
+    setEntitiesLoading(true);
+    setEntitiesError(null);
+    setNearbyEntities([]);
+    try {
+      const entities = await lookupNearbyEntities(lat, lng, 5, controller.signal);
+      if (!controller.signal.aborted) {
+        setNearbyEntities(entities);
+        if (entities.length === 0) {
+          setEntitiesError('No nearby mapped entities available for this point.');
+        }
+      }
+    } catch {
+      if (!controller.signal.aborted) {
+        setEntitiesError('No nearby mapped entities available for this point.');
+      }
+    } finally {
+      if (!controller.signal.aborted) {
+        setEntitiesLoading(false);
+      }
+    }
+  }
+
+  async function handleMapClick(point: [number, number]): Promise<void> {
+    const [lat, lng] = point;
+    setInspectedPoint(point);
+
+    if (drawingAoi) {
+      // In AOI mode: add point only; set temp focus on the very first point if none exists
+      setAoiPoints((prev) => {
+        const next = [...prev, point];
+        if (next.length === 1 && !selectedFocusLocation) {
+          setMapCenter(point);
+          setSelectedFocusLocation({
+            source: 'manual',
+            query: `${lat}, ${lng}`,
+            displayName: `Focus set from first AOI point (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+            latitude: lat,
+            longitude: lng,
+            aoiGeoJson: null,
+            resolvedAt: new Date().toISOString(),
+          });
+          setDraftProject((prev2) => ({
+            ...prev2,
+            latitude: String(lat),
+            longitude: String(lng),
+          }));
+          setSelectedProjectId('AQ-DRAFT');
+        }
+        return next;
+      });
+      return;
+    }
+
+    // Non-AOI click: become the new focus location
+    // Cancel any running entity lookup
+    if (entityLookupAbortRef.current) entityLookupAbortRef.current.abort();
+    const entityController = new AbortController();
+    entityLookupAbortRef.current = entityController;
+
+    // Clear stale data from the previous location
+    setWaterData(null);
+    setComparisonResult(null);
+    if (activeAoi) setShowAoiReviewNotice(true);
+    setMapCenter(point);
+
+    // Immediately set focus with coordinates before reverse geocode completes
+    const coordLabel = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    setSelectedFocusLocation({
+      source: 'map_click',
+      query: coordLabel,
+      displayName: `Map point at ${coordLabel}`,
+      latitude: lat,
+      longitude: lng,
+      aoiGeoJson: null,
+      resolvedAt: new Date().toISOString(),
+    });
+    setSelectedProjectId('AQ-DRAFT');
+
+    // Start entity lookup in parallel with reverse geocoding
+    void runEntityLookup(lat, lng, entityController);
+
+    // Reverse geocode to get a friendly name — update display once resolved
+    try {
+      const geo = await reverseGeocodeLatLng(lat, lng, entityController.signal);
+      if (!entityController.signal.aborted) {
+        setSelectedFocusLocation({
+          source: 'map_click',
+          query: coordLabel,
+          displayName: `Map point near ${geo.shortName}`,
+          latitude: lat,
+          longitude: lng,
+          aoiGeoJson: null,
+          resolvedAt: new Date().toISOString(),
+        });
+        setDraftProject((prev) => ({
+          ...prev,
+          projectName: prev.projectName || `${geo.shortName} Water Scan`,
+          locationName: geo.shortName,
+          latitude: String(lat),
+          longitude: String(lng),
+        }));
+      }
+    } catch {
+      // Reverse geocode failed — keep coordinate-only display name already set
+      setDraftProject((prev) => ({
+        ...prev,
+        projectName: prev.projectName || `${coordLabel} Water Scan`,
+        locationName: coordLabel,
+        latitude: String(lat),
+        longitude: String(lng),
+      }));
+    }
+  }
+
   function retryLiveData(): void {
     setLiveDataRequired(false);
     setWaterApiError(null);
@@ -1264,6 +1407,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             <button
               type="button"
               onClick={() => {
+                if (entityLookupAbortRef.current) entityLookupAbortRef.current.abort();
                 setSelectedFocusLocation(null);
                 setSearchQuery('');
                 setMapCenter(DEFAULT_WEST_US_CENTER);
@@ -1271,6 +1415,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 setAoiPoints([]);
                 setSavedAoiPoints([]);
                 setBoundaryDrawn(false);
+                setNearbyEntities([]);
+                setEntitiesLoading(false);
+                setEntitiesError(null);
+                setShowAoiReviewNotice(false);
+                setWaterData(null);
+                setComparisonResult(null);
                 localStorage.removeItem('dpal_aquascan_saved_aoi_v1');
                 setActionNotice('Focus location cleared.');
               }}
@@ -1354,6 +1504,18 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           {waterApiNotice && !waterApiLoading ? (
             <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400">
               {waterApiNotice.length > 70 ? `${waterApiNotice.slice(0, 70)}...` : waterApiNotice}
+            </span>
+          ) : null}
+          {showAoiReviewNotice ? (
+            <span
+              role="button"
+              tabIndex={0}
+              className="cursor-pointer rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200 hover:bg-amber-900/35"
+              onClick={() => setShowAoiReviewNotice(false)}
+              onKeyDown={(e) => { if (e.key === 'Enter') setShowAoiReviewNotice(false); }}
+              title="Location changed - AOI may no longer match. Redraw or keep it."
+            >
+              AOI may need review after location change - click to dismiss
             </span>
           ) : null}
           {actionNotice ? (
@@ -1612,7 +1774,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               <MapCommandBridge commandTick={commandTick} command={mapCommand} center={mapCenter} />
               <MapInteractionCapture
                 drawingAoi={drawingAoi}
-                onInspect={(point) => setInspectedPoint(point)}
+                onInspect={(point) => { void handleMapClick(point); }}
                 onAoiPoint={(point) => setAoiPoints((prev) => [...prev, point])}
               />
               {mapStyle === 'dark' ? (
@@ -1812,11 +1974,48 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               <div className="space-y-0.5 text-slate-300">
                 <p>Before: {String(comparisonResult.before.mean ?? 'N/A')}</p>
                 <p>After: {String(comparisonResult.after.mean ?? 'N/A')}</p>
-                <p>Î”: {comparisonResult.delta.percentChange ?? 'N/A'}%</p>
+                <p>Delta: {comparisonResult.delta.percentChange ?? 'N/A'}%</p>
                 <p>Conf: {Math.round(comparisonResult.confidenceScore * 100)}%</p>
               </div>
             </div>
           ) : null}
+
+          {/* Nearby Mapped Entities */}
+          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 p-2.5">
+            <p className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Nearby Mapped Entities
+            </p>
+            {!selectedFocusLocation ? (
+              <p className="text-[10px] text-slate-600">
+                Select or click a map location to search nearby mapped entities.
+              </p>
+            ) : entitiesLoading ? (
+              <p className="text-[10px] text-slate-400">Searching nearby mapped entities...</p>
+            ) : nearbyEntities.length === 0 ? (
+              <p className="text-[10px] text-slate-500">
+                {entitiesError ?? 'No nearby mapped entities available.'}
+              </p>
+            ) : (
+              <div className="space-y-1.5">
+                {nearbyEntities.slice(0, 6).map((e) => (
+                  <div key={e.id} className="rounded border border-slate-800 bg-slate-950/60 p-1.5 text-[10px]">
+                    <p className="font-semibold text-slate-200 truncate" title={e.name}>{e.name}</p>
+                    <div className="mt-0.5 flex items-center gap-2 text-slate-500">
+                      <span>{e.category}</span>
+                      <span>{e.distanceKm} km</span>
+                      <span className="ml-auto">{e.source}</span>
+                    </div>
+                  </div>
+                ))}
+                {nearbyEntities.length > 6 ? (
+                  <p className="text-[10px] text-slate-600">+{nearbyEntities.length - 6} more in Nearby Context tab</p>
+                ) : null}
+              </div>
+            )}
+            <p className="mt-1.5 text-[9px] leading-relaxed text-slate-600">
+              Context only - proximity does not prove responsibility.
+            </p>
+          </div>
 
           <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
             Indicative MRV estimate - not certified carbon credit. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
@@ -2325,6 +2524,41 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 <p className="rounded-lg border border-amber-500/30 bg-amber-900/15 p-3 text-[11px] text-amber-100">
                   DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
                 </p>
+
+                {/* Nearby Context */}
+                <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-300">
+                    Nearby Context
+                  </p>
+                  <p className="mb-2 text-[11px] text-amber-200">
+                    Nearby mapped entities are contextual leads only. They are not evidence of contamination, liability, or wrongdoing.
+                  </p>
+                  {!selectedFocusLocation ? (
+                    <p className="text-xs text-slate-500">Select or click a map location to search nearby mapped entities.</p>
+                  ) : entitiesLoading ? (
+                    <p className="text-xs text-slate-400">Searching nearby mapped entities...</p>
+                  ) : nearbyEntities.length === 0 ? (
+                    <p className="text-xs text-slate-500">{entitiesError ?? 'No nearby mapped entities available.'}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {nearbyEntities.map((e) => (
+                        <div key={e.id} className="flex items-start gap-3 rounded-lg border border-slate-800 bg-slate-950/60 p-2.5 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-semibold text-slate-200 truncate" title={e.name}>{e.name}</p>
+                            <p className="mt-0.5 text-slate-500">{e.category}</p>
+                          </div>
+                          <div className="shrink-0 text-right text-[10px] text-slate-500">
+                            <p>{e.distanceKm} km</p>
+                            <p>{e.source}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <p className="mt-2 text-[10px] text-slate-600">
+                    Search radius: 5 km. Source: OpenStreetMap via Overpass API. Nearby mapped entities are for investigation context only. Field evidence, lab results, official records, or validator review are required before making conclusions.
+                  </p>
+                </div>
               </div>
             ) : null}
 
