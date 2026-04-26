@@ -142,6 +142,16 @@ const layerToAnalysisKey: Record<string, string> = {
   ecostress: 'thermal_anomaly',
 };
 
+function parseGpsCoords(query: string): { lat: number; lng: number } | null {
+  const match = query.trim().match(/^(-?\d{1,3}(?:\.\d+)?)[,\s]+(-?\d{1,3}(?:\.\d+)?)$/);
+  if (!match) return null;
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
 function polygonAreaSqKm(points: [number, number][]): number {
   if (points.length < 3) return 0;
   const lat0 = points.reduce((sum, p) => sum + p[1], 0) / points.length;
@@ -314,7 +324,7 @@ function AiSectionHelper({
 export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
   const [helpersExpanded, setHelpersExpanded] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(mockWaterProjects[0]?.id ?? '');
+  const [selectedProjectId, setSelectedProjectId] = useState<string>('AQ-DRAFT');
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(mockSatelliteLayers.slice(0, 3).map((l) => l.id));
   const [boundaryDrawn, setBoundaryDrawn] = useState(false);
   const [showPacket, setShowPacket] = useState(false);
@@ -614,10 +624,13 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     [selectedProject.concernType, selectedProject.locationName],
   );
   const inspectPoint = inspectedPoint ?? mapCenter;
-  const inspectNdwiEstimate = waterData?.waterAnalysis.ndwi ?? Math.max(-0.2, Math.min(0.9, ((inspectPoint[0] + 90) / 180) * 0.8 - ((Math.abs(inspectPoint[1]) / 180) * 0.2)));
-  const inspectWaterExtentEstimate = waterData?.waterAnalysis.surfaceWaterEstimate ?? 'Medium';
-  const inspectFloodWetnessEstimate = waterData?.status.riskLevel ?? 'Moderate';
-  const inspectQualityConfidence = Math.round((waterData?.waterAnalysis.confidence ?? Math.max(0.45, Math.min(0.98, (62 + anomalyLayerCount * 4 + (imageryError ? -20 : 0)) / 100))) * 100);
+  // Only surface real live values — never fabricate readings when waterData is absent.
+  const inspectNdwiEstimate: number | null = waterData?.waterAnalysis.ndwi ?? null;
+  const inspectWaterExtentEstimate = waterData?.waterAnalysis.surfaceWaterEstimate ?? 'Pending live data';
+  const inspectFloodWetnessEstimate = waterData?.status.riskLevel ?? 'Pending live data';
+  const inspectQualityConfidence: number | null = waterData?.waterAnalysis.confidence != null
+    ? Math.round(waterData.waterAnalysis.confidence * 100)
+    : null;
   const recommendedNextStep = useMemo(() => {
     if (riskScore <= 25) return 'Continue monitoring.';
     if (String(waterData?.waterAnalysis.turbidityProxy ?? '').toLowerCase().includes('high') || riskScore > 50) {
@@ -626,7 +639,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     if (String(waterData?.waterAnalysis.thermalAnomaly ?? '').toLowerCase().includes('elevated') || String(waterData?.waterAnalysis.thermalAnomaly ?? '').toLowerCase().includes('detected')) {
       return 'Compare date/layers and inspect area.';
     }
-    if (inspectQualityConfidence < 65) return 'Add evidence or change satellite date.';
+    if ((inspectQualityConfidence ?? 0) < 65) return 'Add evidence or change satellite date.';
     return 'Notify authority or launch field mission if indicators remain strong after validation.';
   }, [inspectQualityConfidence, riskScore, waterData?.waterAnalysis.thermalAnomaly, waterData?.waterAnalysis.turbidityProxy]);
 
@@ -661,6 +674,19 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     { id: 'action', label: 'Action', status: 'pending', tabId: 'actions' },
   ];
 
+  const mrvBlockReason = !selectedFocusLocation
+    ? 'Select a focus location first'
+    : !activeAoi
+      ? 'Draw and save an AOI on the map first'
+      : !beforeRange.from || !beforeRange.to
+        ? 'Enter a complete before date range'
+        : !afterRange.from || !afterRange.to
+          ? 'Enter a complete after date range'
+          : beforeRange.from === afterRange.from && beforeRange.to === afterRange.to
+            ? 'Before and after date ranges cannot be identical'
+            : '';
+  const canCalculateMrv = mrvBlockReason === '' && !comparisonLoading;
+
   const packetPreview = useMemo(() => {
     const template = mockEvidencePackets[0];
     return {
@@ -677,11 +703,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       coordinates: { lat: mapCenter[0], lng: mapCenter[1] },
       aoiBoundary: activeAoi ?? [],
       selectedDate,
-      ndwi: Number.isFinite(inspectNdwiEstimate) ? Number(inspectNdwiEstimate.toFixed(2)) : null,
-      waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Review needed',
-      turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'unavailable',
-      thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed',
-      confidenceScore: inspectQualityConfidence,
+      ndwi: inspectNdwiEstimate != null ? Number(inspectNdwiEstimate.toFixed(2)) : null,
+      waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Pending live data',
+      turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'Pending live data',
+      thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Pending live data',
+      confidenceScore: inspectQualityConfidence ?? null,
       reportPinsCount: overlayState.reportPins ? 2 : 0,
       samplePointsCount: overlayState.samplePoints ? 2 : 0,
       tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
@@ -710,7 +736,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       beforeValue,
       afterValue,
       deltaPercent,
-      confidenceScore: comparisonResult?.confidenceScore ?? (inspectQualityConfidence / 100),
+      confidenceScore: comparisonResult?.confidenceScore ?? ((inspectQualityConfidence ?? 0) / 100),
       dataSourceCitation: comparisonResult?.sourceCitation ?? 'Copernicus Sentinel Hub + DPAL Water Analysis',
       assumptions: [
         'Satellite index values are indicative and depend on scene quality.',
@@ -855,11 +881,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           aoiBoundary: activeAoi ?? [],
           selectedLayers: mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name),
           selectedDate,
-          turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'unavailable',
-          ndwi: Number.isFinite(inspectNdwiEstimate) ? Number(inspectNdwiEstimate.toFixed(2)) : null,
-          waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Review needed',
-          thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Thermal anomaly indicator detected - review needed',
-          confidenceScore: inspectQualityConfidence,
+          turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'Pending live data',
+          ndwi: inspectNdwiEstimate != null ? Number(inspectNdwiEstimate.toFixed(2)) : null,
+          waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Pending live data',
+          thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Pending live data',
+          confidenceScore: inspectQualityConfidence ?? null,
           evidencePointsCount: selectedProject.evidenceCount,
           reportPinsCount: overlayState.reportPins ? 2 : 0,
           samplePointsCount: overlayState.samplePoints ? 2 : 0,
@@ -950,9 +976,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         });
         setDraftProject((prev) => ({
           ...prev,
-          latitude: String(lat.toFixed(6)),
-          longitude: String(lng.toFixed(6)),
+          projectName: prev.projectName || 'GPS Location Water Scan',
+          locationName: prev.locationName || `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          latitude: String(lat),
+          longitude: String(lng),
         }));
+        setSelectedProjectId('AQ-DRAFT');
         setActionNotice('Focused on current GPS location.');
       },
       () => {
@@ -969,6 +998,50 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     }
     setSearchBusy(true);
     try {
+      const gps = parseGpsCoords(query);
+
+      if (gps) {
+        // User typed raw GPS coordinates — preserve them exactly and reverse-geocode a name.
+        const { lat, lng } = gps;
+        let displayName = `GPS point (${lat.toFixed(6)}, ${lng.toFixed(6)})`;
+        try {
+          const rev = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=10&addressdetails=0`,
+          );
+          if (rev.ok) {
+            const revData = await rev.json() as { display_name?: string };
+            if (revData.display_name) {
+              displayName = `GPS point in ${revData.display_name.split(',').slice(0, 2).join(',')}`;
+            }
+          }
+        } catch {
+          // Reverse geocode failed — fall back to coordinate-based name.
+        }
+        const locationLabel = displayName.split(' in ')[1]?.split(',')[0] ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+        setMapCenter([lat, lng]);
+        setInspectedPoint([lat, lng]);
+        setSelectedFocusLocation({
+          source: 'manual',
+          query,
+          displayName,
+          latitude: lat,
+          longitude: lng,
+          aoiGeoJson: null,
+          resolvedAt: new Date().toISOString(),
+        });
+        setDraftProject((prev) => ({
+          ...prev,
+          projectName: prev.projectName || `${locationLabel} Water Scan`,
+          locationName: locationLabel,
+          latitude: String(lat),
+          longitude: String(lng),
+        }));
+        setSelectedProjectId('AQ-DRAFT');
+        setActionNotice(`Focused on ${displayName}.`);
+        return;
+      }
+
+      // Normal text/address search via Nominatim forward geocoding.
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
       if (!response.ok) {
         throw new Error('Search provider unavailable');
@@ -981,6 +1054,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       const lat = Number(rows[0].lat);
       const lng = Number(rows[0].lon);
       const displayName = rows[0].display_name;
+      const shortName = displayName.split(',')[0];
       setMapCenter([lat, lng]);
       setInspectedPoint([lat, lng]);
       setSelectedFocusLocation({
@@ -994,11 +1068,13 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       });
       setDraftProject((prev) => ({
         ...prev,
-        locationName: displayName.split(',')[0],
+        projectName: prev.projectName || `${shortName} Water Scan`,
+        locationName: shortName,
         latitude: String(lat.toFixed(6)),
         longitude: String(lng.toFixed(6)),
       }));
-      setActionNotice(`Focused on ${displayName.split(',')[0]}.`);
+      setSelectedProjectId('AQ-DRAFT');
+      setActionNotice(`Focused on ${shortName}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Location search failed.';
       setActionNotice(message);
@@ -1155,7 +1231,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               disabled={searchBusy}
               className="h-8 rounded-lg border border-cyan-500/50 bg-cyan-900/30 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-900/50 disabled:opacity-60"
             >
-              {searchBusy ? 'Searchingâ€¦' : 'Locate on Map'}
+              {searchBusy ? 'Searching...' : 'Locate on Map'}
             </button>
             <button
               type="button"
@@ -1231,7 +1307,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           ) : null}
           {waterApiLoading ? (
             <span className="rounded-full border border-cyan-500/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] text-cyan-200">
-              Fetching satellite dataâ€¦
+              Fetching satellite data...
             </span>
           ) : null}
           {activeAoi == null && selectedFocusLocation ? (
@@ -1241,7 +1317,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           ) : null}
           {waterApiError && /not found|no scene|unavailable/i.test(waterApiError) ? (
             <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200">
-              Scene: None found for selected date
+              Scene: None found for selected date - try a wider date range or different satellite layer
             </span>
           ) : null}
           {liveDataRequired ? (
@@ -1253,7 +1329,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               onKeyDown={(e) => { if (e.key === 'Enter') retryLiveData(); }}
               title={liveDataReason}
             >
-              Live data: Required â€” click to retry
+              Live data: Required - click to retry
             </span>
           ) : null}
           {imageryError ? (
@@ -1265,12 +1341,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               onKeyDown={(e) => { if (e.key === 'Enter') retryImagery(); }}
               title={imageryError}
             >
-              Imagery: Tile error â€” click to retry
+              Imagery: Tile error - click to retry
             </span>
           ) : null}
           {waterApiNotice && !waterApiLoading ? (
             <span className="rounded-full border border-slate-600 px-2 py-0.5 text-[10px] text-slate-400">
-              {waterApiNotice.length > 70 ? `${waterApiNotice.slice(0, 70)}â€¦` : waterApiNotice}
+              {waterApiNotice.length > 70 ? `${waterApiNotice.slice(0, 70)}...` : waterApiNotice}
             </span>
           ) : null}
           {actionNotice ? (
@@ -1315,7 +1391,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               />
               <span className="font-semibold">{step.label}</span>
               <span className="ml-auto text-[10px] opacity-60">
-                {step.status === 'complete' ? 'âœ“' : step.status === 'needs_attention' ? '!' : step.status === 'locked' ? 'â€”' : 'â—‹'}
+                {step.status === 'complete' ? 'v' : step.status === 'needs_attention' ? '!' : step.status === 'locked' ? '-' : 'o'}
               </span>
             </button>
           ))}
@@ -1334,7 +1410,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             </select>
           </div>
           <div className="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[10px] text-slate-500">
-            <p>Risk: <span className="font-bold text-white">{selectedFocusLocation ? `${riskScore}/100` : 'â€”'}</span></p>
+            <p>Risk: <span className="font-bold text-white">{selectedFocusLocation ? `${riskScore}/100` : '-'}</span></p>
             <p>Concern: <span className="text-amber-200">{selectedProject.concernType}</span></p>
             <p>Validator: <span className="text-slate-300">{selectedProject.validatorStatus}</span></p>
           </div>
@@ -1393,7 +1469,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 />
               ) : null}
               <div className="ml-auto flex items-center gap-1">
-                {drawingAoi ? <span className="text-cyan-300">Drawing AOIâ€¦</span> : null}
+                {drawingAoi ? <span className="text-cyan-300">Drawing AOI...</span> : null}
                 {aoiPoints.length > 0 ? (
                   <>
                     <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300">Undo</button>
@@ -1457,11 +1533,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             <div className="pointer-events-none absolute right-2 top-2 z-[510] rounded border border-slate-700/80 bg-slate-950/85 px-2 py-1 text-[10px] text-slate-200">
               {selectedFocusLocation
                 ? selectedFocusLocation.displayName.split(',')[0]
-                : 'No location selected â€” use Focus Location above'}
+                : 'No location selected - use Focus Location above'}
             </div>
             {imageryLoading ? (
               <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
-                Loading satellite imageryâ€¦
+                Loading satellite imagery...
               </div>
             ) : null}
             {imageryError ? (
@@ -1474,7 +1550,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             ) : null}
             {partialFailure && !imageryError ? (
               <div className="absolute inset-x-0 top-7 z-[500] bg-amber-950/80 px-3 py-0.5 text-[10px] text-amber-100">
-                Partial tile failure â€” base map active
+                Partial tile failure - base map active
               </div>
             ) : null}
             {/* Right overlay panel */}
@@ -1569,7 +1645,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     <div className="space-y-1 text-xs">
                       <p className="font-semibold">Water Presence Zone</p>
                       <p>Source: {activeGibsLayer.label}</p>
-                      <p>Confidence: {inspectQualityConfidence}%</p>
+                      <p>Confidence: {inspectQualityConfidence != null ? `${inspectQualityConfidence}%` : 'Pending live data'}</p>
                       <p className="text-[10px]">Screening indicator only.</p>
                     </div>
                   </Popup>
@@ -1670,7 +1746,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           <div className="mb-2 rounded-lg border border-slate-700 bg-slate-900/80 p-2.5">
             <p className="text-[10px] uppercase tracking-wider text-slate-400">Risk Score</p>
             <p className="mt-1 text-2xl font-black text-white">
-              {selectedFocusLocation ? riskScore : 'â€”'}
+              {selectedFocusLocation ? riskScore : '-'}
               <span className="text-sm font-normal text-slate-400">/100</span>
             </p>
             <p className="text-xs text-cyan-200">
@@ -1685,20 +1761,20 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               [
                 'Live Data',
                 selectedFocusLocation
-                  ? waterData ? 'Available' : waterApiLoading ? 'Fetchingâ€¦' : 'Unavailable'
+                  ? waterData ? 'Available' : waterApiLoading ? 'Fetching...' : 'Unavailable'
                   : 'No location',
                 waterData ? 'text-emerald-300' : 'text-rose-300',
               ],
               ['Index', comparisonIndexType, 'text-cyan-200'],
-              ['Confidence', selectedFocusLocation ? `${inspectQualityConfidence}%` : 'â€”', 'text-slate-200'],
+              ['Confidence', selectedFocusLocation ? (inspectQualityConfidence != null ? `${inspectQualityConfidence}% (live)` : 'Pending live data') : '-', 'text-slate-200'],
               [
                 'Validator',
                 selectedProject.validatorStatus,
                 selectedProject.validatorStatus === 'Validated' ? 'text-emerald-300' : 'text-amber-200',
               ],
               ['Collection', comparisonCollection === 'sentinel-2-l2a' ? 'Sentinel-2' : 'Sentinel-1', 'text-slate-300'],
-              ['Scene date', waterData?.satellite.acquisitionDate ?? (selectedFocusLocation ? 'Pending' : 'â€”'), 'text-slate-300'],
-              ['Cloud cover', waterData?.satellite.cloudCover ?? 'â€”', 'text-slate-300'],
+              ['Scene date', waterData?.satellite.acquisitionDate ?? (selectedFocusLocation ? 'Pending' : '-'), 'text-slate-300'],
+              ['Cloud cover', waterData?.satellite.cloudCover ?? '-', 'text-slate-300'],
             ] as [string, string, string][]
           ).map(([label, value, valueClass]) => (
             <div key={label} className="mb-1.5 flex items-center justify-between rounded-lg border border-slate-800 bg-slate-900/50 px-2.5 py-1.5 text-[10px]">
@@ -1729,7 +1805,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           ) : null}
 
           <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
-            Indicative MRV estimate â€” not certified carbon credit. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
+            Indicative MRV estimate - not certified carbon credit. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
           </p>
         </aside>
       </div>
@@ -1929,7 +2005,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   })}
                 </div>
                 <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-[11px] text-slate-400">
-                  NDVI = vegetation health Â· NDWI = water presence Â· NDMI = moisture stress Â· NBR = fire/burn disturbance
+                  NDVI = vegetation health . NDWI = water presence . NDMI = moisture stress . NBR = fire/burn disturbance
                 </div>
                 {/* Risk score breakdown */}
                 <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
@@ -1942,7 +2018,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     <div className="flex justify-between"><span>Validator status</span><span>{validatorStatus === 'Validated' ? '+8' : validatorStatus === 'Reviewed' ? '+4' : '0'}</span></div>
                     <div className="mt-2 flex justify-between border-t border-slate-700 pt-2 font-semibold">
                       <span>Total</span>
-                      <span className="text-xl font-black text-white">{selectedFocusLocation ? `${riskScore}/100` : 'â€”'}</span>
+                      <span className="text-xl font-black text-white">{selectedFocusLocation ? `${riskScore}/100` : '-'}</span>
                     </div>
                   </div>
                   <p className="mt-1 text-xs text-cyan-200">
@@ -1958,7 +2034,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs font-semibold text-slate-300">Before/after index comparison using Copernicus Statistical API</p>
                   <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-100">
-                    Indicative MRV estimate â€” not certified carbon credit
+                    Indicative MRV estimate - not certified carbon credit
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
@@ -1996,17 +2072,23 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  AOI: {activeAoi ? `${activeAoi.length} points, ${aoiAreaSqKm.toFixed(2)} kmÂ²` : 'No AOI â€” draw one on the map then save it'}
+                  AOI: {activeAoi ? `${activeAoi.length} points, ${aoiAreaSqKm.toFixed(2)} km2` : 'No AOI - draw one on the map then save it'}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => { void runMrvComparison(); }}
-                    disabled={comparisonLoading}
-                    className="rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-60"
+                    disabled={!canCalculateMrv}
+                    title={mrvBlockReason || undefined}
+                    className="rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {comparisonLoading ? 'Calculatingâ€¦' : 'Calculate Comparison'}
+                    {comparisonLoading ? 'Calculating...' : 'Calculate Comparison'}
                   </button>
+                  {mrvBlockReason ? (
+                    <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200">
+                      {mrvBlockReason}
+                    </span>
+                  ) : null}
                   <span className="text-[11px] text-slate-400">Gate: {validatorGateStatus.replace(/_/g, ' ')}</span>
                   {(['pending_review', 'needs_more_evidence', 'approved', 'rejected'] as CopernicusValidatorStatus[]).map((s) => (
                     <button
@@ -2052,7 +2134,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     <div className="space-y-1">
                       {calculationHistory.slice(0, 5).map((item) => (
                         <p key={item.calculationId} className="text-[11px]">
-                          {item.generatedAt.slice(0, 10)} Â· {item.indexType} Â· {item.deltaPercent ?? 'N/A'}% Â· {Math.round(item.confidenceScore * 100)}% conf Â· {item.validatorStatus.replace(/_/g, ' ')}
+                          {item.generatedAt.slice(0, 10)} . {item.indexType} . {item.deltaPercent ?? 'N/A'}% . {Math.round(item.confidenceScore * 100)}% conf . {item.validatorStatus.replace(/_/g, ' ')}
                         </p>
                       ))}
                     </div>
@@ -2087,7 +2169,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     Export PDF (pending)
                   </button>
                   <span className="text-[11px] text-amber-200">
-                    Indicative MRV estimate â€” not certified carbon credit.
+                    Indicative MRV estimate - not certified carbon credit.
                   </span>
                 </div>
 
@@ -2104,7 +2186,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                         </span>
                       </div>
                       <p className="mt-1.5 text-lg font-black text-white">
-                        {selectedFocusLocation ? item.value : 'â€”'}
+                        {selectedFocusLocation ? item.value : '-'}
                       </p>
                       <p className="text-[11px] text-cyan-200">
                         {selectedFocusLocation ? item.trend : 'No location selected'}
@@ -2133,7 +2215,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 {showPacket ? (
                   <div className="space-y-1.5 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs text-slate-200">
                     <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet Preview</p>
-                    <p className="text-[10px] text-slate-500">Export not connected â€” demo preview only.</p>
+                    <p className="text-[10px] text-slate-500">Export not connected - demo preview only.</p>
                     <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
                       <p><span className="text-slate-400">Generated:</span> {packetPreview.timestamp}</p>
                       <p><span className="text-slate-400">Project ID:</span> {selectedProject.id}</p>
@@ -2153,10 +2235,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
                       <p><span className="text-slate-400">Layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
                       <p><span className="text-slate-400">Selected date:</span> {packetPreview.selectedDate}</p>
-                      <p><span className="text-slate-400">NDWI / water index:</span> {selectedFocusLocation ? (packetPreview.ndwi ?? 'N/A') : 'No location'}</p>
+                      <p><span className="text-slate-400">NDWI / water index:</span> {selectedFocusLocation ? (packetPreview.ndwi != null ? `${packetPreview.ndwi} (live)` : 'Pending live data') : 'No location'}</p>
                       <p><span className="text-slate-400">Water presence:</span> {selectedFocusLocation ? packetPreview.waterPresence : 'No location'}</p>
-                      <p><span className="text-slate-400">Confidence:</span> {selectedFocusLocation ? `${packetPreview.confidenceScore}%` : 'â€”'}</p>
-                      <p><span className="text-slate-400">Risk band:</span> {selectedFocusLocation ? `${packetPreview.riskScore} (${riskBand(packetPreview.riskScore)})` : 'â€”'}</p>
+                      <p><span className="text-slate-400">Confidence:</span> {selectedFocusLocation ? (packetPreview.confidenceScore != null ? `${packetPreview.confidenceScore}% (live)` : 'Pending live data') : '-'}</p>
+                      <p><span className="text-slate-400">Risk band:</span> {selectedFocusLocation ? `${packetPreview.riskScore} (${riskBand(packetPreview.riskScore)})` : '-'}</p>
                       <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
                       <p><span className="text-slate-400">Validator:</span> {evidencePacket.validatorStatus}</p>
                       <p><span className="text-slate-400">Index type:</span> {evidencePacket.indexType}</p>
@@ -2216,7 +2298,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Validated' })} className="rounded border border-slate-600 px-2 py-1 text-slate-300">Set Validated</button>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Drafts: Field missions {actionDraftCounts.fieldMission} Â· Samples {actionDraftCounts.sampleRequest} Â· Lab {actionDraftCounts.labUploads} Â· Notices {actionDraftCounts.authorityNotifications} Â· Restoration {actionDraftCounts.restorationDrafts}
+                  Drafts: Field missions {actionDraftCounts.fieldMission} . Samples {actionDraftCounts.sampleRequest} . Lab {actionDraftCounts.labUploads} . Notices {actionDraftCounts.authorityNotifications} . Restoration {actionDraftCounts.restorationDrafts}
                 </p>
                 <p className="rounded-lg border border-amber-500/30 bg-amber-900/15 p-3 text-[11px] text-amber-100">
                   DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
