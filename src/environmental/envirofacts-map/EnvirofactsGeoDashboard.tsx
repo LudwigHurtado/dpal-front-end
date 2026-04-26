@@ -101,6 +101,24 @@ type CacheEntry = {
   legalNotice: string;
 };
 
+type SatelliteComparisonItem = {
+  id: string;
+  recordId: string;
+  facilityName: string;
+  state: string;
+  requestedAtIso: string;
+  status: 'Satellite Comparison Pending';
+};
+
+type InvestigationItem = {
+  id: string;
+  recordId: string;
+  facilityName: string;
+  state: string;
+  createdAtIso: string;
+  status: 'Investigation Ready';
+};
+
 const EnvirofactsGeoDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [filters, setFilters] = React.useState(DEFAULT_FILTERS);
@@ -113,9 +131,15 @@ const EnvirofactsGeoDashboard: React.FC = () => {
   const [lastLiveMeta, setLastLiveMeta] = React.useState<EnvirofactsSearchMeta | null>(null);
   const [activeLayers, setActiveLayers] = React.useState<EnvirofactsLayer[]>(ALL_LAYERS);
   const [drawerId, setDrawerId] = React.useState<string | null>(null);
+  const [mapFocusRecordId, setMapFocusRecordId] = React.useState<string | null>(null);
   const [evidenceRecords, setEvidenceRecords] = React.useState<EnvirofactsEvidencePacket[]>([]);
+  const [evidencePanelOpen, setEvidencePanelOpen] = React.useState(false);
   const [searchCache, setSearchCache] = React.useState<CacheEntry[]>([]);
   const [hasSearched, setHasSearched] = React.useState(false);
+  const [drawerInitialTab, setDrawerInitialTab] = React.useState<'EPA Record' | 'Satellite Comparison' | 'Investigation Timeline'>('EPA Record');
+  const [workflowNotice, setWorkflowNotice] = React.useState<string | null>(null);
+  const [satelliteQueue, setSatelliteQueue] = React.useState<SatelliteComparisonItem[]>([]);
+  const [investigationQueue, setInvestigationQueue] = React.useState<InvestigationItem[]>([]);
 
   const drawerRecord = React.useMemo(() => rows.find((entry) => entry.id === drawerId) ?? null, [rows, drawerId]);
 
@@ -184,6 +208,64 @@ const EnvirofactsGeoDashboard: React.FC = () => {
     const record = rows.find((entry) => entry.id === id);
     if (!record) return;
     setEvidenceRecords((prev) => [toEvidencePacket(record), ...prev]);
+    setEvidencePanelOpen(true);
+    setWorkflowNotice('Evidence packet imported.');
+  };
+
+  const queueSatelliteComparison = (id: string) => {
+    const record = rows.find((entry) => entry.id === id);
+    if (!record) return;
+    setSatelliteQueue((prev) => [
+      {
+        id: `sat-${record.id}-${Date.now()}`,
+        recordId: record.recordId || record.id,
+        facilityName: record.facilityName || record.recordName || 'EPA Record',
+        state: record.state || 'N/A',
+        requestedAtIso: new Date().toISOString(),
+        status: 'Satellite Comparison Pending',
+      },
+      ...prev,
+    ]);
+    setDrawerInitialTab('Satellite Comparison');
+    setDrawerId(record.id);
+    setWorkflowNotice(`Satellite comparison queued for ${record.facilityName || record.recordName || 'selected record'}.`);
+  };
+
+  const createInvestigation = (id: string) => {
+    const record = rows.find((entry) => entry.id === id);
+    if (!record) return;
+    setInvestigationQueue((prev) => [
+      {
+        id: `inv-${record.id}-${Date.now()}`,
+        recordId: record.recordId || record.id,
+        facilityName: record.facilityName || record.recordName || 'EPA Record',
+        state: record.state || 'N/A',
+        createdAtIso: new Date().toISOString(),
+        status: 'Investigation Ready',
+      },
+      ...prev,
+    ]);
+    setDrawerInitialTab('Investigation Timeline');
+    setDrawerId(record.id);
+    setWorkflowNotice(`Investigation entry created for ${record.facilityName || record.recordName || 'selected record'}.`);
+  };
+
+  const centerMapOnRecord = (id: string) => {
+    const record = rows.find((entry) => entry.id === id);
+    if (!record) return;
+    if (!record.pinnable) {
+      setWorkflowNotice('Map centering action ready for wiring: this record has no valid coordinates.');
+      return;
+    }
+    setMapFocusRecordId(id);
+    setWorkflowNotice(`Map centered on ${record.facilityName || record.recordName || 'selected record'}.`);
+  };
+
+  const prepareEchoLookup = (id: string) => {
+    const record = rows.find((entry) => entry.id === id);
+    if (!record) return;
+    const target = record.recordId || record.facilityName || record.recordName || 'selected record';
+    setWorkflowNotice(`ECHO lookup prepared for ${target}.`);
   };
 
   const clearFilters = () => {
@@ -195,6 +277,8 @@ const EnvirofactsGeoDashboard: React.FC = () => {
     setError(null);
     setHasSearched(false);
     setDrawerId(null);
+    setWorkflowNotice(null);
+    setMapFocusRecordId(null);
   };
 
   const apiStatus: ApiConnectionStatus = loading
@@ -211,10 +295,6 @@ const EnvirofactsGeoDashboard: React.FC = () => {
 
   const pinnableInResults = rows.filter((r) => r.pinnable).length;
   const mapNoCoord = layerFiltered.filter((r) => !r.pinnable).length;
-
-  const onWorkflowPlaceholder = React.useCallback((_id: string) => {
-    void _id;
-  }, []);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -252,6 +332,11 @@ const EnvirofactsGeoDashboard: React.FC = () => {
             enforcement outcome.
           </p>
         </section>
+        {workflowNotice ? (
+          <section className="mt-4 rounded-xl border border-emerald-900/40 bg-emerald-950/20 px-4 py-3 text-xs text-emerald-100">
+            {workflowNotice}
+          </section>
+        ) : null}
 
         <div className="mt-6 space-y-6">
           <EnvirofactsSearchPanel
@@ -270,8 +355,9 @@ const EnvirofactsGeoDashboard: React.FC = () => {
             onAddEvidence={addEvidence}
             noCoordinateCount={mapNoCoord}
             recordCount={layerFiltered.length}
-            onCompareSatellite={onWorkflowPlaceholder}
-            onCreateInvestigation={onWorkflowPlaceholder}
+            focusRecordId={mapFocusRecordId}
+            onCompareSatellite={queueSatelliteComparison}
+            onCreateInvestigation={createInvestigation}
           />
 
           <section className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-4 md:px-5">
@@ -332,28 +418,93 @@ const EnvirofactsGeoDashboard: React.FC = () => {
             </p>
           ) : null}
 
-          <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
-            <div className="space-y-6 xl:col-span-3">
-              {hasSearched && !loading && layerFiltered.length > 0 ? (
-                <EnvirofactsResultsTable
-                  rows={layerFiltered}
-                  onOpen={setDrawerId}
-                  onAddEvidence={addEvidence}
-                  onCompareSatellite={onWorkflowPlaceholder}
-                  onCreateInvestigation={onWorkflowPlaceholder}
-                />
-              ) : null}
-            </div>
-            <div className="xl:col-span-2">
-              <EnvirofactsEvidenceImportPanel records={evidenceRecords} />
-            </div>
-          </div>
+          <section className="rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-4 md:px-5">
+            <h3 className="text-sm font-semibold tracking-wide text-slate-100">What EPA gives DPAL for each record</h3>
+            <ul className="mt-3 grid grid-cols-1 gap-1.5 text-xs text-slate-400 md:grid-cols-2">
+              <li>- Facility or record name</li>
+              <li>- Address and geographic location</li>
+              <li>- City, county, state, ZIP</li>
+              <li>- Registry ID / EPA record identity</li>
+              <li>- Latitude and longitude when available</li>
+              <li>- EPA source systems / program flags</li>
+              <li>- Environmental category</li>
+              <li>- Coordinates availability</li>
+              <li>- DPAL evidence status</li>
+              <li>- Legal-safe public-data baseline note</li>
+            </ul>
+            <p className="mt-3 text-xs text-slate-500">
+              The table shows summary fields. Click Open Details to view the complete EPA record and DPAL evidence packet preview.
+            </p>
+          </section>
+
+          {hasSearched && !loading && layerFiltered.length > 0 ? (
+            <EnvirofactsResultsTable
+              rows={layerFiltered}
+              onOpen={setDrawerId}
+              onAddEvidence={addEvidence}
+              onCompareSatellite={queueSatelliteComparison}
+              onCreateInvestigation={createInvestigation}
+            />
+          ) : null}
+
+          <EnvirofactsEvidenceImportPanel
+            records={evidenceRecords}
+            expanded={evidencePanelOpen}
+            onToggle={() => setEvidencePanelOpen((prev) => !prev)}
+          />
+
+          {(satelliteQueue.length > 0 || investigationQueue.length > 0) ? (
+            <section className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Satellite comparison queue</h3>
+                {satelliteQueue.length === 0 ? (
+                  <p className="mt-2 text-xs text-slate-500">No records queued yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {satelliteQueue.slice(0, 8).map((item) => (
+                      <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
+                        <p className="font-medium text-slate-100">{item.facilityName}</p>
+                        <p className="text-slate-500">Record {item.recordId} · {item.state}</p>
+                        <p className="text-amber-200">{item.status}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+              <article className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">Investigation queue</h3>
+                {investigationQueue.length === 0 ? (
+                  <p className="mt-2 text-xs text-slate-500">No investigation entries yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {investigationQueue.slice(0, 8).map((item) => (
+                      <div key={item.id} className="rounded-lg border border-slate-800 bg-slate-950/70 px-3 py-2 text-xs text-slate-300">
+                        <p className="font-medium text-slate-100">{item.facilityName}</p>
+                        <p className="text-slate-500">Record {item.recordId} · {item.state}</p>
+                        <p className="text-cyan-200">{item.status}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </article>
+            </section>
+          ) : null}
 
           <EnvirofactsDataSourcesPanel />
         </div>
       </div>
 
-      <EnvirofactsFacilityDrawer record={drawerRecord} open={Boolean(drawerRecord)} onClose={() => setDrawerId(null)} onAddEvidence={addEvidence} />
+      <EnvirofactsFacilityDrawer
+        record={drawerRecord}
+        open={Boolean(drawerRecord)}
+        onClose={() => setDrawerId(null)}
+        onAddEvidence={addEvidence}
+        onCenterMap={centerMapOnRecord}
+        onPrepareEchoLookup={prepareEchoLookup}
+        onCompareSatellite={queueSatelliteComparison}
+        onCreateInvestigation={createInvestigation}
+        initialTab={drawerInitialTab}
+      />
     </div>
   );
 };

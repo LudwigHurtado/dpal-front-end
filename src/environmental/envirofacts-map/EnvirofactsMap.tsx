@@ -29,6 +29,32 @@ function FitBounds({ positions }: { positions: [number, number][] }) {
   return null;
 }
 
+function FocusOnRecord({ position }: { position: [number, number] | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!position) return;
+    map.setView(position, Math.max(map.getZoom(), 11), { animate: true });
+  }, [map, position]);
+  return null;
+}
+
+function ResizeSync({ trigger }: { trigger: number }) {
+  const map = useMap();
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [map, trigger]);
+
+  useEffect(() => {
+    const onResize = () => map.invalidateSize();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, [map]);
+  return null;
+}
+
 type ClusterProps = {
   rows: EnvirofactsRecord[];
   onOpen: (id: string) => void;
@@ -123,6 +149,7 @@ type Props = {
   onAddEvidence: (recordId: string) => void;
   noCoordinateCount: number;
   recordCount: number;
+  focusRecordId?: string | null;
   onCompareSatellite?: (id: string) => void;
   onCreateInvestigation?: (id: string) => void;
 };
@@ -133,11 +160,19 @@ const EnvirofactsMap: React.FC<Props> = ({
   onAddEvidence,
   noCoordinateCount,
   recordCount,
+  focusRecordId = null,
   onCompareSatellite,
   onCreateInvestigation,
 }) => {
   const withCoords = rows.filter((row) => row.pinnable && row.latitude != null && row.longitude != null);
   const positions = withCoords.map((row) => [row.latitude as number, row.longitude as number] as [number, number]);
+  const resizeTrigger = rows.length + noCoordinateCount;
+  const focusPosition = React.useMemo(() => {
+    if (!focusRecordId) return null;
+    const focused = rows.find((row) => row.id === focusRecordId && row.pinnable && row.latitude != null && row.longitude != null);
+    if (!focused) return null;
+    return [focused.latitude as number, focused.longitude as number] as [number, number];
+  }, [focusRecordId, rows]);
 
   return (
     <section className="rounded-xl border border-slate-700/90 bg-slate-900/80 shadow-sm">
@@ -160,8 +195,10 @@ const EnvirofactsMap: React.FC<Props> = ({
       <div className="relative w-full overflow-hidden rounded-b-xl border-t border-slate-800/80">
         <div className="h-[min(520px,62vh)] w-full min-h-[360px]">
           <MapContainer center={[39.5, -98.35]} zoom={4} scrollWheelZoom className="h-full w-full" style={{ background: '#0f172a' }}>
+            <ResizeSync trigger={resizeTrigger} />
             <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             <FitBounds positions={positions} />
+            <FocusOnRecord position={focusPosition} />
             <ClusteredMarkers
               rows={rows}
               onOpen={onOpen}

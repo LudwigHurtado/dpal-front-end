@@ -149,6 +149,17 @@ function MapViewSync({ center }: { center: [number, number] }): null {
   return null;
 }
 
+function MapResizeSync({ trigger }: { trigger: number }): null {
+  const map = useMap();
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      map.invalidateSize();
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [map, trigger]);
+  return null;
+}
+
 function MapInteractionCapture({
   drawingAoi,
   onInspect,
@@ -986,7 +997,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               <button type="button" onClick={() => toggleOverlay('flowDirection')} className={`rounded border px-2 py-1 ${overlayState.flowDirection ? 'border-cyan-500/60 text-cyan-200' : 'border-slate-600 text-slate-300'}`}>Flow direction</button>
             </div>
           </div>
-          <div ref={mapViewportRef} className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[34rem]' : 'h-[24rem]'}`}>
+          <div ref={mapViewportRef} className={`relative overflow-hidden rounded-xl border border-slate-700 ${mapExpanded ? 'h-[42rem]' : 'h-[32rem]'}`}>
             {imageryLoading ? (
               <div className="absolute inset-x-0 top-0 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
                 Loading latest available satellite-connected imagery...
@@ -1007,6 +1018,7 @@ export default function AquaScanView({ onReturn }: AquaScanViewProps) {
               zoom={7}
               style={{ height: '100%', width: '100%' }}
             >
+              <MapResizeSync trigger={mapExpanded ? 1 : 0} />
               <MapViewSync center={mapCenter} />
               <MapCommandBridge commandTick={commandTick} command={mapCommand} center={mapCenter} />
               <MapInteractionCapture
