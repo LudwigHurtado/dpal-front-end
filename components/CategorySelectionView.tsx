@@ -33,6 +33,7 @@ const HIDDEN_REPORT_PICKER_CATEGORIES = new Set<Category>([
 interface CategorySelectionViewProps {
   onSelectCategory: (category: Category) => void;
   onSelectMissions: (category: Category) => void;
+  onOpenCarbAudit?: () => void;
   onSelectWork?: (category: Category) => void;
   onSelectPlay?: () => void;
   onSelectHelp?: () => void;
@@ -97,6 +98,7 @@ const CategoryCardGallery: React.FC<{ category: Category }> = ({ category }) => 
 const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
   onSelectCategory,
   onSelectMissions,
+  onOpenCarbAudit,
   onSelectWork,
   onSelectPlay,
   onSelectHelp,
@@ -441,6 +443,29 @@ const CategorySelectionView: React.FC<CategorySelectionViewProps> = ({
                     )}
                 </div>
             </header>
+
+            {onOpenCarbAudit && (
+              <section className="mb-10">
+                <div className="rounded-[2rem] border-2 border-emerald-500/40 bg-emerald-950/25 p-6 shadow-2xl">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.28em] text-emerald-300">Special Module</p>
+                      <h2 className="mt-2 text-2xl font-black uppercase tracking-tight text-white">CARB Emissions Auditor</h2>
+                      <p className="mt-2 text-xs font-semibold uppercase tracking-[0.15em] text-zinc-300">
+                        Open your California CARB facility audit workspace
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={onOpenCarbAudit}
+                      className="inline-flex items-center justify-center rounded-2xl bg-emerald-500 px-6 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-950 transition hover:bg-emerald-400"
+                    >
+                      Open CARB Audit
+                    </button>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {viewMode === 'next' && (
                 <section className="mb-10 space-y-6">

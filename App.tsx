@@ -1934,6 +1934,7 @@ const App: React.FC = () => {
         {currentView === 'categorySelection' && (
           <CategorySelectionView 
             helpSectorFocusSignal={helpSectorFocusSignal}
+            onOpenCarbAudit={() => handleNavigate('carbEmissionsAudit')}
             onSelectCategory={(cat) => {
               // Skip the gateway / mode-shell intermediate screens and open the reporter directly
               setGatewayCategory(cat);
