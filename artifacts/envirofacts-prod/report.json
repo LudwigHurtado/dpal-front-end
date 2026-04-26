@@ -1,0 +1,59 @@
+{
+  "startedAt": "2026-04-25T23:37:58.447Z",
+  "base": "https://dpal-front-end.vercel.app",
+  "routes": {
+    "/environmental-intelligence/envirofacts-map": {
+      "status": 200,
+      "finalUrl": "https://dpal-front-end.vercel.app/environmental-intelligence/envirofacts-map"
+    },
+    "/environmental/envirofacts-map": {
+      "status": 200,
+      "finalUrl": "https://dpal-front-end.vercel.app/environmental/envirofacts-map"
+    },
+    "/environmental-intelligence/epa-ghg": {
+      "status": 200,
+      "finalUrl": "https://dpal-front-end.vercel.app/environmental-intelligence/epa-ghg"
+    }
+  },
+  "checks": {
+    "legalBanner": true,
+    "dataSourcesPanel": true,
+    "layerToggles": true,
+    "apiStatusConnected": false,
+    "resultsTableVisible": true,
+    "evidencePanelVisible": true,
+    "mockFallbackVisible": false,
+    "clusterNodeCount": 0,
+    "markerNodeCount": 0,
+    "clusteredMapLikely": false,
+    "drawerOpened": false,
+    "evidenceJsonVisible": false,
+    "mobileHeaderVisible": true
+  },
+  "consoleErrors": [
+    "Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR",
+    "Failed to load resource: net::ERR_SSL_PROTOCOL_ERROR"
+  ],
+  "pageErrors": [],
+  "epaNetwork": [
+    {
+      "url": "https://data.epa.gov/efservice/lookups.mv_new_geo_best_picks/postal_code/beginsWith/60085/1:100/json",
+      "status": 200
+    }
+  ],
+  "screenshots": {
+    "initial": "C:\\dpal-front-end\\artifacts\\envirofacts-prod\\01-initial-envirofacts-page.png",
+    "searchResults": "C:\\dpal-front-end\\artifacts\\envirofacts-prod\\02-zip-60085-results.png",
+    "clusterMap": "C:\\dpal-front-end\\artifacts\\envirofacts-prod\\03-map-clusters.png",
+    "evidencePanel": "C:\\dpal-front-end\\artifacts\\envirofacts-prod\\05-evidence-panel.png",
+    "apiAndSources": "C:\\dpal-front-end\\artifacts\\envirofacts-prod\\06-api-status-and-data-sources.png",
+    "mobile": "C:\\dpal-front-end\\artifacts\\envirofacts-prod\\07-mobile-envirofacts.png"
+  },
+  "notes": [
+    "No \"Open Details\" button found in results table.",
+    "No \"Add to Evidence Packet\" button found."
+  ],
+  "finishedAt": "2026-04-25T23:38:16.691Z",
+  "epaNetworkCount": 1,
+  "epaNetwork2xx": 1
+}

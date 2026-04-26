@@ -1,0 +1,173 @@
+{
+  "startedAt": "2026-04-25T23:48:41.413Z",
+  "base": "https://dpal-front-end.vercel.app",
+  "route": "/water",
+  "routeStatus": 200,
+  "checks": {
+    "noBlankScreen": true,
+    "headerVisible": true,
+    "mapSectionVisible": true,
+    "mapContainerVisible": true,
+    "mapHeightPx": 384,
+    "mapWidthPx": 1310,
+    "mapHeightAtLeast500": false,
+    "leafletContainerVisible": true,
+    "tileDomCount": 38,
+    "tilesRendered": true,
+    "layerSelectorVisible": true,
+    "layerOptionCount": 7,
+    "layerToggleInteracted": true,
+    "zoomInButton": true,
+    "zoomOutButton": true,
+    "centerOnProject": true,
+    "resetView": true,
+    "gpsButtonClicked": true,
+    "metadataPanelVisible": true,
+    "selectedCoordinatesVisible": true,
+    "aoiDrawInteracted": true,
+    "aoiSaveButtonVisible": true,
+    "locationSearchAttempted": true,
+    "refreshImageryClicked": true,
+    "imageryLoadingBannerSeen": true,
+    "mobileHeaderVisible": true,
+    "mobileMapSectionVisible": true,
+    "backNavigationStable": false
+  },
+  "consoleErrors": [
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()",
+    "Failed to load resource: the server responded with a status of 404 ()"
+  ],
+  "pageErrors": [],
+  "network": {
+    "gibs": [
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/30.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/29.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/32.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/31.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/33.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/28.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/33.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/28.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/31.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/29.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/30.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/29.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/28.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/32.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/29.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/33.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/28.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/33.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/32.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/31.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/30.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/35.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/47/34.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/34.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/46/35.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/34.jpg",
+        "status": 200
+      },
+      {
+        "url": "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_SNPP_CorrectedReflectance_TrueColor/default/2026-04-24/GoogleMapsCompatible_Level9/7/48/35.jpg",
+        "status": 200
+      }
+    ],
+    "nominatim": [
+      {
+        "url": "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=Waukegan%2C%20IL",
+        "status": 200
+      }
+    ],
+    "tileErrors": [],
+    "gibs2xx": 27,
+    "nominatimCount": 1,
+    "tileErrorCount": 0
+  },
+  "screenshots": {
+    "initial": "C:\\dpal-front-end\\artifacts\\water-prod\\01-water-initial.png",
+    "desktopMap": "C:\\dpal-front-end\\artifacts\\water-prod\\02-water-desktop-map.png",
+    "mobile": "C:\\dpal-front-end\\artifacts\\water-prod\\03-water-mobile.png"
+  },
+  "notes": [],
+  "finishedAt": "2026-04-25T23:49:22.283Z"
+}
