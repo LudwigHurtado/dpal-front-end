@@ -1155,7 +1155,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
-      {/* â”€â”€ 1. Premium Header â”€â”€ */}
+      {/* -- 1. Premium Header -- */}
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
         <div className="mx-auto flex h-12 max-w-[1400px] items-center gap-3 px-4 sm:px-6">
           <button
@@ -1207,7 +1207,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         </div>
       </header>
 
-      {/* â”€â”€ 2. Focus Location Command Bar â”€â”€ */}
+      {/* -- 2. Focus Location Command Bar -- */}
       <div className="border-b border-slate-800 bg-slate-900/80 px-4 py-2.5 sm:px-6">
         <div className="mx-auto max-w-[1400px]">
           <p className="mb-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">
@@ -1243,13 +1243,20 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             <button
               type="button"
               onClick={() => {
+                if (!selectedFocusLocation) {
+                  setActionNotice('Select a focus location before drawing an AOI.');
+                  return;
+                }
                 setDrawingAoi((prev) => !prev);
                 setBoundaryDrawn(true);
               }}
+              title={selectedFocusLocation ? undefined : 'Select a focus location before drawing an AOI'}
               className={`h-8 rounded-lg border px-3 text-xs font-semibold transition ${
                 drawingAoi
                   ? 'border-cyan-500/60 bg-cyan-900/30 text-cyan-100'
-                  : 'border-slate-600 bg-slate-800/60 text-slate-200 hover:border-cyan-500/40'
+                  : selectedFocusLocation
+                    ? 'border-slate-600 bg-slate-800/60 text-slate-200 hover:border-cyan-500/40'
+                    : 'border-slate-700 bg-slate-900/40 text-slate-500 cursor-not-allowed'
               }`}
             >
               {drawingAoi ? 'Stop Draw' : 'Draw AOI'}
@@ -1297,7 +1304,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         </div>
       </div>
 
-      {/* â”€â”€ 3. Compact Status Chips â”€â”€ */}
+      {/* -- 3. Compact Status Chips -- */}
       <div className="border-b border-slate-800/60 bg-slate-950/40 px-4 sm:px-6">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 py-1.5">
           {!waterData && !waterApiLoading && selectedFocusLocation ? (
@@ -1357,7 +1364,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         </div>
       </div>
 
-      {/* â”€â”€ 4. Main Workspace (3-column) â”€â”€ */}
+      {/* -- 4. Main Workspace (3-column) -- */}
       <div className="mx-auto flex w-full max-w-[1400px] flex-1">
 
         {/* Left: Workflow Rail */}
@@ -1391,28 +1398,35 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               />
               <span className="font-semibold">{step.label}</span>
               <span className="ml-auto text-[10px] opacity-60">
-                {step.status === 'complete' ? 'v' : step.status === 'needs_attention' ? '!' : step.status === 'locked' ? '-' : 'o'}
+                {step.status === 'complete' ? 'Done' : step.status === 'needs_attention' ? 'Required' : step.status === 'locked' ? 'Locked' : 'Pending'}
               </span>
             </button>
           ))}
           <div className="mt-3 border-t border-slate-800 pt-3">
             <p className="text-[10px] text-slate-500">Project</p>
-            <select
-              className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] text-slate-300"
-              value={selectedProjectId}
-              onChange={(e) => setSelectedProjectId(e.target.value)}
-            >
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.projectName || p.id}
+            {selectedFocusLocation ? (
+              <select
+                className="mt-1 w-full rounded border border-slate-700 bg-slate-950 px-2 py-1 text-[10px] text-slate-300"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+              >
+                <option value="AQ-DRAFT">
+                  {draftProject.projectName || 'New AquaScan Project'}
                 </option>
-              ))}
-            </select>
+                {projects.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.projectName || p.id}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="mt-1 text-[10px] text-slate-600">No active project</p>
+            )}
           </div>
           <div className="mt-3 space-y-1 border-t border-slate-800 pt-3 text-[10px] text-slate-500">
             <p>Risk: <span className="font-bold text-white">{selectedFocusLocation ? `${riskScore}/100` : '-'}</span></p>
-            <p>Concern: <span className="text-amber-200">{selectedProject.concernType}</span></p>
-            <p>Validator: <span className="text-slate-300">{selectedProject.validatorStatus}</span></p>
+            <p>Concern: <span className="text-amber-200">{selectedFocusLocation ? selectedProject.concernType : '-'}</span></p>
+            <p>Validator: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.validatorStatus : 'Pending'}</span></p>
           </div>
         </nav>
 
@@ -1422,7 +1436,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           <div className="border-b border-slate-800 bg-slate-900/60 px-3 py-1.5">
             <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
               <button type="button" onClick={() => runMapCommand('zoomIn')} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">+</button>
-              <button type="button" onClick={() => runMapCommand('zoomOut')} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">âˆ’</button>
+              <button type="button" onClick={() => runMapCommand('zoomOut')} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">-</button>
               <button type="button" onClick={centerOnProject} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">Center</button>
               <button type="button" onClick={centerOnGps} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">GPS</button>
               <button type="button" onClick={() => setMapExpanded((prev) => !prev)} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 hover:border-slate-500">
@@ -1494,7 +1508,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     className="w-16"
                   />
                 </label>
-                <button type="button" onClick={retryImagery} className="rounded border border-slate-700 px-2 py-0.5 text-slate-400">â†»</button>
+                <button type="button" onClick={retryImagery} className="rounded border border-slate-700 px-2 py-0.5 text-slate-400">Refresh</button>
               </div>
             </div>
             {/* Overlay toggles */}
@@ -1728,11 +1742,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           {/* Map status strip */}
           <div className="border-t border-slate-800 bg-slate-900/60 px-3 py-1">
             <div className="grid grid-cols-3 gap-x-4 gap-y-0.5 text-[10px] text-slate-400 md:grid-cols-6">
-              <span>Project: <span className="text-slate-300">{selectedProject.id}</span></span>
-              <span>Type: <span className="text-slate-300">{selectedProject.waterBodyType}</span></span>
-              <span>Updated: <span className="text-slate-300">{lastRefreshTime}</span></span>
+              <span>Project: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.id : 'Not started'}</span></span>
+              <span>Type: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.waterBodyType : 'Select after focus location'}</span></span>
+              <span>Updated: <span className="text-slate-300">{selectedFocusLocation ? lastRefreshTime : '-'}</span></span>
               <span>Boundary: <span className="text-slate-300">{boundaryDrawn ? `v${boundaryRevision + 1}` : 'Not set'}</span></span>
-              <span>Evidence: <span className="text-slate-300">{selectedProject.evidenceCount}</span></span>
+              <span>Evidence: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.evidenceCount : 0}</span></span>
               <span>Layers: <span className="text-slate-300">{selectedLayerIds.length}</span></span>
             </div>
           </div>
@@ -1810,7 +1824,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         </aside>
       </div>
 
-      {/* â”€â”€ 5. Bottom Workspace Tabs â”€â”€ */}
+      {/* -- 5. Bottom Workspace Tabs -- */}
       <div className="border-t border-slate-800 bg-slate-950">
         <div className="mx-auto max-w-[1400px]">
           {/* Tab nav */}
@@ -1842,7 +1856,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           {/* Tab content */}
           <div className="p-4 sm:p-5">
 
-            {/* â”€â”€ Intake Tab â”€â”€ */}
+            {/* -- Intake Tab -- */}
             {activeTab === 'intake' ? (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
@@ -1972,7 +1986,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             ) : null}
 
-            {/* â”€â”€ Layers Tab â”€â”€ */}
+            {/* -- Layers Tab -- */}
             {activeTab === 'layers' ? (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
@@ -2028,7 +2042,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             ) : null}
 
-            {/* â”€â”€ MRV Compare Tab â”€â”€ */}
+            {/* -- MRV Compare Tab -- */}
             {activeTab === 'mrv' ? (
               <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
@@ -2143,28 +2157,36 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             ) : null}
 
-            {/* â”€â”€ Evidence Packet Tab â”€â”€ */}
+            {/* -- Evidence Packet Tab -- */}
             {activeTab === 'evidence' ? (
               <div className="space-y-4">
+                {!selectedFocusLocation ? (
+                  <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
+                    Select a focus location before generating an evidence packet.
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowPacket((prev) => !prev)}
-                    className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100"
+                    disabled={!selectedFocusLocation}
+                    className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {showPacket ? 'Hide Packet Preview' : 'Generate Evidence Packet'}
                   </button>
                   <button
                     type="button"
                     onClick={() => { void exportEvidencePacketJson(); }}
-                    className="rounded-lg border border-cyan-500/50 bg-cyan-900/25 px-3 py-1.5 text-xs font-semibold text-cyan-100"
+                    disabled={!selectedFocusLocation}
+                    className="rounded-lg border border-cyan-500/50 bg-cyan-900/25 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Export JSON
                   </button>
                   <button
                     type="button"
                     onClick={exportEvidencePacketPdf}
-                    className="rounded-lg border border-slate-600 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-slate-300"
+                    disabled={!selectedFocusLocation}
+                    className="rounded-lg border border-slate-600 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Export PDF (pending)
                   </button>
@@ -2181,15 +2203,15 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                         <p className="text-xs font-semibold text-slate-200" title={item.explanation}>
                           {item.label}
                         </p>
-                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${statusTone(item.status)}`}>
-                          {statusLabel(item.status)}
+                        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${selectedFocusLocation ? statusTone(item.status) : 'border-slate-700 bg-slate-900/50 text-slate-500'}`}>
+                          {selectedFocusLocation ? statusLabel(item.status) : 'Pending location'}
                         </span>
                       </div>
                       <p className="mt-1.5 text-lg font-black text-white">
                         {selectedFocusLocation ? item.value : '-'}
                       </p>
-                      <p className="text-[11px] text-cyan-200">
-                        {selectedFocusLocation ? item.trend : 'No location selected'}
+                      <p className="text-[11px] text-slate-400">
+                        {selectedFocusLocation ? item.trend : 'Select a focus location to evaluate this indicator.'}
                       </p>
                     </article>
                   ))}
@@ -2274,7 +2296,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             ) : null}
 
-            {/* â”€â”€ Actions Tab â”€â”€ */}
+            {/* -- Actions Tab -- */}
             {activeTab === 'actions' ? (
               <div className="space-y-4">
                 <p className="text-xs text-slate-400">
