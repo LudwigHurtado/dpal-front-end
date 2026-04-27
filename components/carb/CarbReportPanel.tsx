@@ -53,7 +53,7 @@ export default function CarbReportPanel({
   const roomReady = Boolean(report?.situationRoom.roomId);
 
   return (
-    <section className="rounded-[1.75rem] border border-cyan-500/20 bg-slate-950/80 p-4 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
+    <section className="rounded-[1.75rem] border border-cyan-500/20 bg-slate-950/80 p-3 shadow-[0_20px_60px_rgba(2,6,23,0.35)] sm:p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300">CARB Specialized Report</p>
@@ -78,78 +78,98 @@ export default function CarbReportPanel({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
+      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className="rounded-xl border border-cyan-500/30 bg-cyan-950/20 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-200">Primary</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <button
           type="button"
           onClick={onGenerateReport}
           disabled={!canGenerate || busy}
-          className="rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-xl border border-cyan-400/40 bg-cyan-500/15 px-4 py-2 text-sm font-semibold text-cyan-100 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {busy ? 'Generating report...' : 'Generate CARB Report'}
-        </button>
-        <button
+            </button>
+            <button
           type="button"
           onClick={onDownloadPdf}
           disabled={!report || busy}
-          className="rounded-xl border border-emerald-500/40 bg-emerald-900/20 px-4 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50"
+          className="w-full rounded-xl border border-emerald-500/40 bg-emerald-900/20 px-4 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50"
         >
           Download PDF Report
-        </button>
-        <button
-          type="button"
-          onClick={onOpenReport}
-          disabled={!report || busy}
-          className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm font-semibold text-cyan-100 disabled:opacity-50"
-        >
-          Open CARB Report Tab
-        </button>
-        <button
+            </button>
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-700 bg-slate-900/40 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-300">Sharing</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              onClick={onCopyVerificationLink}
+              disabled={!report || busy || !onCopyVerificationLink}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+            >
+              Copy Verification Link
+            </button>
+            <button
+              type="button"
+              onClick={onOpenShareableReportPage}
+              disabled={!report || busy || !onOpenShareableReportPage}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+            >
+              Open Shareable Verification Page
+            </button>
+          </div>
+        </div>
+        <div className="rounded-xl border border-violet-500/30 bg-violet-950/20 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-violet-200">Workspace</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <button
           type="button"
           onClick={onOpenSituationRoom}
           disabled={!report || busy}
-          className="rounded-xl border border-violet-500/40 bg-violet-900/20 px-4 py-2 text-sm font-semibold text-violet-100 disabled:opacity-50"
+          className="w-full rounded-xl border border-violet-500/40 bg-violet-900/20 px-4 py-2 text-sm font-semibold text-violet-100 disabled:opacity-50"
         >
           Open Situation Room Tab
-        </button>
-        <button
+            </button>
+            <button
           type="button"
-          onClick={onExportEvidencePacket}
-          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100"
-        >
-          Export Evidence Packet JSON
-        </button>
-        <button
-          type="button"
-          onClick={onCopyVerificationLink}
-          disabled={!report || busy || !onCopyVerificationLink}
-          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
-        >
-          Copy Verification Link
-        </button>
-        <button
-          type="button"
-          onClick={onCopySituationRoomLink}
-          disabled={!report || busy || !onCopySituationRoomLink}
-          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
-        >
-          Copy Situation Room Link
-        </button>
-        <button
-          type="button"
-          onClick={onOpenShareableReportPage}
-          disabled={!report || busy || !onOpenShareableReportPage}
-          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
-        >
-          Open Shareable Verification Page
-        </button>
-        <button
-          type="button"
-          onClick={onOpenShareableSituationRoomPage}
-          disabled={!report || busy || !onOpenShareableSituationRoomPage}
-          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
-        >
-          Open Shareable Situation Room Link
-        </button>
+              onClick={onCopySituationRoomLink}
+              disabled={!report || busy || !onCopySituationRoomLink}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+            >
+              Copy Situation Room Link
+            </button>
+            <button
+              type="button"
+              onClick={onOpenShareableSituationRoomPage}
+              disabled={!report || busy || !onOpenShareableSituationRoomPage}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+            >
+              Open Shareable Situation Room Page
+            </button>
+          </div>
+        </div>
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-emerald-200">Evidence</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <button
+              type="button"
+              onClick={onExportEvidencePacket}
+              className="w-full rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100"
+            >
+              Export Evidence Packet JSON
+            </button>
+            <button
+              type="button"
+              onClick={onOpenReport}
+              disabled={!report || busy}
+              className="w-full rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm font-semibold text-cyan-100 disabled:opacity-50"
+            >
+              Open CARB Report Tab
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">

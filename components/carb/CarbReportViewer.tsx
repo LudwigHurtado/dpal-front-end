@@ -75,14 +75,14 @@ export default function CarbReportViewer({
 
   return (
     <div className="mx-auto max-w-6xl space-y-4">
-      <section className="rounded-[2rem] border border-slate-800 bg-slate-950/90 p-6 text-slate-200">
+      <section className="rounded-[2rem] border border-slate-800 bg-slate-950/90 p-4 text-slate-200 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300">DPAL CARB Specialized Emissions Report</p>
-            <h1 className="mt-1 text-3xl font-black text-white">Verification Viewer</h1>
+            <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">Verification Viewer</h1>
             <p className="mt-2 text-sm text-slate-400">Report ID: {report.reportId}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
             {!embedded ? <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">Back</button> : null}
             <button type="button" onClick={handleDownload} disabled={downloadBusy} className="rounded-xl border border-emerald-500/40 bg-emerald-900/20 px-3 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50">
               {downloadBusy ? 'Generating PDF...' : 'Download PDF'}
@@ -95,7 +95,7 @@ export default function CarbReportViewer({
       </section>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
-        <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-5 text-sm text-slate-300">
+        <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-3 text-sm text-slate-300 sm:p-5">
           <h2 className="text-lg font-bold text-white">Executive Summary</h2>
           <p className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${indexIntegrationStatus.tone}`}>
             {indexIntegrationStatus.label}

@@ -77,11 +77,11 @@ export default function CarbSituationRoom({ roomId, onReturn, embedded = false }
 
   return (
     <div className="mx-auto max-w-7xl space-y-4">
-      <section className="rounded-[2rem] border border-slate-800 bg-slate-950/90 p-6 text-slate-200">
+      <section className="rounded-[2rem] border border-slate-800 bg-slate-950/90 p-4 text-slate-200 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-[11px] font-black uppercase tracking-[0.3em] text-violet-300">CARB Situation Room</p>
-            <h1 className="mt-1 text-3xl font-black text-white">{report.facilityIdentity.facilityName}</h1>
+            <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{report.facilityIdentity.facilityName}</h1>
             <p className="mt-2 text-sm text-slate-400">Room ID: {report.situationRoom.roomId}</p>
             <p className="mt-1 text-xs text-slate-400">
               Level 3: Ongoing review space for notes, documents, satellite evidence, legal review, and regulator-ready investigation.
@@ -93,7 +93,7 @@ export default function CarbSituationRoom({ roomId, onReturn, embedded = false }
         </div>
       </section>
 
-      <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-5">
+      <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-3 sm:p-5">
         <h2 className="text-lg font-bold text-white">Discussion</h2>
         <div className="mt-4 h-[380px] space-y-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
           {messages.map((message) => (
@@ -106,13 +106,13 @@ export default function CarbSituationRoom({ roomId, onReturn, embedded = false }
             </article>
           ))}
         </div>
-        <div className="mt-4 flex gap-2">
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
           <textarea
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             rows={3}
             placeholder="Add CARB investigation notes..."
-            className="min-h-[88px] flex-1 rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500"
+            className="min-h-[88px] w-full flex-1 rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500"
           />
           <button
             type="button"
@@ -121,7 +121,7 @@ export default function CarbSituationRoom({ roomId, onReturn, embedded = false }
               setMessages((prev) => [...prev, buildLocalMessage('DPAL Operative', draft)]);
               setDraft('');
             }}
-            className="rounded-2xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-3 text-sm font-semibold text-cyan-100"
+            className="w-full rounded-2xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-3 text-sm font-semibold text-cyan-100 sm:w-auto"
           >
             Send
           </button>

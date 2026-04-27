@@ -351,6 +351,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [companyPickerError, setCompanyPickerError] = useState('');
   const [companyPickerQuery, setCompanyPickerQuery] = useState('');
   const [companyPickerMode, setCompanyPickerMode] = useState<'operator' | 'facility'>('operator');
+  const [statusExpanded, setStatusExpanded] = useState(false);
   const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
   const [recentCompanies, setRecentCompanies] = useState<string[]>([]);
@@ -669,7 +670,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     ] as Array<{ item: string; status: ChecklistStatus }>;
   }, [selected, baselineYear, currentYear, baselineEmissions, currentEmissions, companyClaim, hasProductionData, hasSatelliteEvidence]);
 
+  const isSameYearComparison = Boolean(baselineYear && currentYear && baselineYear === currentYear);
+  const hasSingleReportingYear = availableYears.length === 1;
+
   const yearOverYearFinding = useMemo(() => {
+    if (isSameYearComparison) {
+      return 'You are comparing the same year to itself. Choose different years if available.';
+    }
+    if (hasSingleReportingYear) {
+      return 'Only one reporting year is currently available for this facility in the active CARB dataset.';
+    }
     if (!selected || !baselineYear || !currentYear || calculatedReductionNumber == null || baselineEmissions === '' || currentEmissions === '') {
       return 'DPAL needs more data to complete the year-over-year comparison.';
     }
@@ -680,7 +690,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     return `DPAL compared ${baselineYear} and ${currentYear} reported emissions for ${selected.facilityName}. Reported CO2e changed from ${formatNumber(
       baselineEmissions,
     )} to ${formatNumber(currentEmissions)}, ${trendPhrase}`;
-  }, [selected, baselineYear, currentYear, calculatedReductionNumber, baselineEmissions, currentEmissions]);
+  }, [isSameYearComparison, hasSingleReportingYear, selected, baselineYear, currentYear, calculatedReductionNumber, baselineEmissions, currentEmissions]);
 
   const sourceModeText = useMemo(() => {
     if (sourceMode === 'LIVE' && !importedDatasetLoaded) {
@@ -1595,17 +1605,77 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   };
 
   return (
-    <div className="mx-auto max-w-[1450px] px-4 pb-20">
-      <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-black text-white">CARB Investigation Workspace</h1>
+    <div className="mx-auto max-w-[1450px] px-3 pb-20 sm:px-4 lg:px-5">
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-black text-white sm:text-2xl">CARB Investigation Workspace</h1>
+          <p className="mt-1 text-xs text-slate-400 sm:hidden">Search, compare, report, evidence, and room workflow in one responsive workspace.</p>
+        </div>
         <button onClick={onReturn} className="rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-100">Return</button>
       </div>
-      <p className="mb-2 text-sm text-slate-300">
-        Search CARB-reported emissions, compare facility trends, test company climate claims, generate a professional report, export a full evidence packet, and manage ongoing review from one workspace.
+      <p className="mb-2 hidden text-sm text-slate-300 sm:block">
+        This workspace helps you review a CARB-reported facility, compare emissions, test climate claims, generate a report, export evidence, and manage follow-up review.
       </p>
-      <section className="mb-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/15 p-4 text-xs text-cyan-100">
-        <h2 className="text-sm font-bold text-white">CARB Data Status</h2>
-        <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3">
+      <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300 sm:text-sm">
+        <p className="font-semibold text-white">How to use this workspace</p>
+        <ol className="mt-2 list-decimal space-y-1 pl-5">
+          <li>Search and select a CARB facility</li>
+          <li>Compare reporting years</li>
+          <li>Enter a company climate claim (optional)</li>
+          <li>Review findings and integrity score</li>
+          <li>Generate report or export evidence</li>
+          <li>Continue review in Situation Room</li>
+        </ol>
+      </section>
+      {selected ? (
+        <section className="mb-4 space-y-3">
+          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-950/20 p-3">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-emerald-200">Next Step</p>
+            <p className="mt-1 text-sm text-white">Step 1 complete: Facility selected</p>
+            <p className="mt-1 text-xs text-emerald-100">Selected facility: {selected.facilityName}</p>
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs text-emerald-100">
+              <li>Choose comparison years</li>
+              <li>Optionally paste a climate claim</li>
+              <li>Run investigation</li>
+              <li>Generate report</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-white">Selected Facility Summary</p>
+            <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
+              <p>Name: <span className="text-cyan-200">{selected.facilityName}</span></p>
+              <p>Facility ID: <span className="text-cyan-200">{selected.facilityId}</span></p>
+              <p>Sector: <span className="text-cyan-200">{selected.sector || 'n/a'}</span></p>
+              <p>Reporting years: <span className="text-cyan-200">{availableYears.join(', ') || 'n/a'}</span></p>
+              <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
+              <p>CO2e: <span className="text-cyan-200">{formatNumber(selected.totalCO2e)}</span></p>
+              <p className="sm:col-span-2 lg:col-span-1">Coordinates: <span className="text-cyan-200">{selected.latitude != null && selected.longitude != null ? 'Available' : 'Missing'}</span></p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            <button type="button" onClick={() => setActiveWorkspaceTab('search')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Compare Years</button>
+            <button type="button" onClick={() => setActiveWorkspaceTab('investigation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Run Investigation</button>
+            <button type="button" onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Generate Report</button>
+            <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Export Evidence</button>
+            <button type="button" onClick={() => setActiveWorkspaceTab('situation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Open Situation Room</button>
+          </div>
+        </section>
+      ) : null}
+      <section className="mb-4 rounded-2xl border border-cyan-500/30 bg-cyan-950/15 p-3 text-xs text-cyan-100 sm:p-4">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-bold text-white">CARB Data Status</h2>
+          <button
+            type="button"
+            onClick={() => setStatusExpanded((prev) => !prev)}
+            className="rounded-lg border border-slate-600 px-2 py-1 text-[11px] text-slate-200 sm:hidden"
+          >
+            {statusExpanded ? 'Hide' : 'Details'}
+          </button>
+        </div>
+        <div className="mt-2 rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2 sm:hidden">
+          {(carbDataStatus?.sourceMode ?? sourceMode)} · {carbDataStatus?.recordCount ?? facilities.length} records · {carbDataStatusReadiness}
+        </div>
+        <div className={`${statusExpanded ? 'mt-2 grid' : 'mt-2 hidden sm:grid'} grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3`}>
           <p>Live endpoint: <span className="text-cyan-200">{carbSearchFailed ? 'Failed' : 'Connected'}</span></p>
           <p>Source mode: <span className="text-cyan-200">{carbDataStatus?.sourceMode ?? sourceMode}</span></p>
           <p>Indexed records: <span className="text-cyan-200">{carbDataStatus?.recordCount ?? facilities.length} / 500</span></p>
@@ -1617,7 +1687,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         <p className="mt-2 rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2 text-slate-100">
           {carbDataStatusMessage}
         </p>
-        <div className="mt-3 rounded-lg border border-slate-700/70 bg-slate-900/40 p-3">
+        <div className={`${statusExpanded ? 'mt-3' : 'mt-3 hidden sm:block'} rounded-lg border border-slate-700/70 bg-slate-900/40 p-3`}>
           <p className="text-sm font-semibold text-white">Dataset Coverage</p>
           <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
             {[
@@ -1641,26 +1711,39 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </p>
         ) : null}
       </section>
-      <p className="mb-4 text-xs text-slate-400">
-        Workflow: 1) Search 2) Select Facility 3) Compare Years 4) Run Investigation Engine 5) Generate CARB Report 6) Export Evidence Packet 7) Situation Room Review.
-      </p>
-      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3">
-        <div className="flex flex-wrap gap-2">
+      <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3">
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Current Step</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
+          {['Search', 'Select', 'Compare', 'Report', 'Evidence', 'Room'].map((stepLabel) => (
+            <span
+              key={stepLabel}
+              className={`whitespace-nowrap rounded-full border px-3 py-1 ${
+                currentWorkflowStep.toLowerCase().includes(stepLabel.toLowerCase())
+                  ? 'border-cyan-500/70 bg-cyan-900/20 text-cyan-100'
+                  : 'border-slate-700 bg-slate-950/50 text-slate-300'
+              }`}
+            >
+              {stepLabel}
+            </span>
+          ))}
+        </div>
+      </section>
+      <section className="mt-4 sticky top-2 z-20 rounded-2xl border border-slate-700 bg-slate-900/95 p-2 sm:p-3">
+        <div className="flex gap-2 overflow-x-auto pb-1">
           {([
-            ['overview', 'Overview'],
-            ['search', 'Search'],
-            ['investigation', 'Investigation Engine'],
-            ['report', 'CARB Report'],
-            ['evidence', 'Evidence Packet'],
-            ['situation', 'Situation Room'],
-            ['sources', 'Sources'],
-            ['tasks', 'Tasks / Legal Review'],
-          ] as Array<[CarbWorkspaceTab, string]>).map(([tabId, label]) => (
+            ['search', 'Search', 'search'],
+            ['overview', 'Facility', 'overview'],
+            ['search', 'Compare', 'search'],
+            ['investigation', 'Findings', 'investigation'],
+            ['report', 'Report', 'report'],
+            ['evidence', 'Evidence', 'evidence'],
+            ['situation', 'Room', 'situation'],
+          ] as Array<[CarbWorkspaceTab, string, string]>).map(([tabId, label, keyId]) => (
             <button
-              key={tabId}
+              key={`${keyId}-${label}`}
               type="button"
               onClick={() => setActiveWorkspaceTab(tabId)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+              className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold ${
                 activeWorkspaceTab === tabId
                   ? 'border-cyan-500/60 bg-cyan-900/20 text-cyan-100'
                   : 'border-slate-700 bg-slate-950/40 text-slate-300'
@@ -1673,20 +1756,31 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       </section>
       {activeWorkspaceTab === 'overview' ? (
         <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
-          <div>
-            <p className="font-semibold text-white">What is happening now</p>
-            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-              <p>Selected facility: <span className="text-cyan-200">{selected?.facilityName ?? 'None'}</span></p>
-              <p>Current step: <span className="text-cyan-200">{currentWorkflowStep}</span></p>
-              <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
-              <p>Report generated: <span className="text-cyan-200">{generatedCarbReport ? 'Yes' : 'No'}</span></p>
-              <p>Evidence packet ready: <span className="text-cyan-200">{evidencePacketReady ? 'Yes' : 'No'}</span></p>
-              <p>Situation room open: <span className="text-cyan-200">No</span></p>
-              <p className="md:col-span-2 xl:col-span-2">Next recommended action: <span className="text-cyan-200">{nextRecommendedAction}</span></p>
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+            <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 lg:col-span-2">
+              <p className="font-semibold text-white">Current investigation status</p>
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <p>Selected facility: <span className="text-cyan-200">{selected?.facilityName ?? 'None'}</span></p>
+                <p>Current step: <span className="text-cyan-200">{currentWorkflowStep}</span></p>
+                <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
+                <p>Report generated: <span className="text-cyan-200">{generatedCarbReport ? 'Yes' : 'No'}</span></p>
+                <p>Evidence packet ready: <span className="text-cyan-200">{evidencePacketReady ? 'Yes' : 'No'}</span></p>
+                <p>Next recommended step: <span className="text-cyan-200">{nextRecommendedAction}</span></p>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <button type="button" onClick={() => setActiveWorkspaceTab('search')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Compare Years</button>
+                <button type="button" onClick={() => setActiveWorkspaceTab('investigation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Run Investigation</button>
+                <button type="button" onClick={() => setActiveWorkspaceTab('report')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Generate Report</button>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+              <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
+              <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
+              <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
             </div>
           </div>
-          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
-            <p className="text-sm font-semibold text-white">Live Dataset Summary</p>
+          <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-white">Data Sources</summary>
             <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
               <p>Official source URL: <span className="text-cyan-200 break-all">{carbDataStatus?.sourceUrl || 'Not provided'}</span></p>
               <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || 'n/a'}</span></p>
@@ -1697,7 +1791,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>County availability: <span className="text-cyan-200">{countyUnavailable ? 'Not provided by current workbook' : 'Provided'}</span></p>
               <p>Operator availability: <span className="text-cyan-200">{operatorUnavailable ? 'Not provided as separate field by current workbook' : 'Provided'}</span></p>
             </div>
-          </div>
+          </details>
           {showImportWizardCta ? (
             <div className="rounded-xl border border-amber-500/50 bg-amber-950/25 p-4 text-amber-100">
               <p className="text-sm font-bold">No searchable CARB records are loaded yet.</p>
@@ -1820,13 +1914,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       ) : null}
 
       {activeWorkspaceTab === 'search' ? (
-      <div ref={workspaceSplitRef} className="mt-4 flex min-h-[760px] gap-0 rounded-2xl border border-slate-700 bg-slate-900/70">
-        <section style={{ flexBasis: `${paneWidths.left}%` }} className="min-w-[300px] overflow-hidden border-r border-slate-700">
-          <div className="sticky top-0 z-10 border-b border-slate-700 bg-slate-900/95 px-4 py-3">
+      <div ref={workspaceSplitRef} className="mt-4 flex min-h-[760px] flex-col gap-4 rounded-2xl border border-slate-700 bg-slate-900/70 p-3 lg:grid lg:grid-cols-2 xl:flex xl:flex-row xl:gap-0 xl:p-0">
+        <section style={{ flexBasis: `${paneWidths.left}%` }} className="min-w-0 overflow-hidden rounded-xl border border-slate-700 lg:col-span-1 xl:min-w-[300px] xl:rounded-none xl:border-0 xl:border-r">
+          <div className="sticky top-[64px] z-10 border-b border-slate-700 bg-slate-900/95 px-3 py-3 sm:px-4">
             <h2 className="text-lg font-bold text-white">Facility Search / Results</h2>
             <p className="mt-1 text-[11px] text-slate-400">Search and select facility without leaving this workspace.</p>
           </div>
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
           <p className="mt-1 text-xs text-slate-300">Search official/imported CARB records or start a manual investigation. DPAL will not make verified conclusions until a CARB source record is selected or imported.</p>
           <p className="mt-1 text-[11px] text-slate-400">Try searching by operator, facility, county, sector, or year. Public brand names may not match official reporting names.</p>
           <div className="mt-3 rounded-xl border border-cyan-500/30 bg-cyan-950/15 p-3 text-xs text-cyan-100">
@@ -1872,18 +1966,30 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </div>
             ) : null}
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <input value={facilitySearch.q} placeholder="q" onChange={(e) => updateSearchField('q', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
-            <input value={facilitySearch.facilityId} placeholder="facilityId" onChange={(e) => updateSearchField('facilityId', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
-            <input value={facilitySearch.city} placeholder="city" onChange={(e) => updateSearchField('city', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
-            <input
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label className="text-xs text-slate-300">Keyword / Entity / Facility
+              <input value={facilitySearch.q} placeholder="e.g. shell, refinery, operator name" onChange={(e) => updateSearchField('q', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            </label>
+            <label className="text-xs text-slate-300">Facility ID
+              <input value={facilitySearch.facilityId} placeholder="Facility ID" onChange={(e) => updateSearchField('facilityId', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            </label>
+            <label className="text-xs text-slate-300">City
+              <input value={facilitySearch.city} placeholder="City" onChange={(e) => updateSearchField('city', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            </label>
+            <label className="text-xs text-slate-300">County
+              <input
               value={facilitySearch.county}
               placeholder={countyUnavailable ? 'Not available in current dataset.' : 'county'}
               onChange={(e) => updateSearchField('county', e.target.value)}
-              className={`rounded-lg border px-2 py-2 text-sm text-slate-200 ${countyUnavailable ? 'border-amber-500/60 bg-amber-950/20' : 'border-slate-600 bg-slate-950'}`}
+              className={`mt-1 w-full rounded-lg border px-2 py-2 text-sm text-slate-200 ${countyUnavailable ? 'border-amber-500/60 bg-amber-950/20' : 'border-slate-600 bg-slate-950'}`}
             />
-            <input value={facilitySearch.sector} placeholder="sector" onChange={(e) => updateSearchField('sector', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
-            <input value={facilitySearch.year} placeholder="year" onChange={(e) => updateSearchField('year', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            </label>
+            <label className="text-xs text-slate-300">Sector
+              <input value={facilitySearch.sector} placeholder="Sector" onChange={(e) => updateSearchField('sector', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            </label>
+            <label className="text-xs text-slate-300">Year
+              <input value={facilitySearch.year} placeholder="Year" onChange={(e) => updateSearchField('year', e.target.value)} className="mt-1 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            </label>
           </div>
           <div className="mt-2 space-y-1 text-[11px]">
             {operatorUnavailable ? (
@@ -1899,13 +2005,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p className="text-emerald-200">Year search is available.</p>
             ) : null}
           </div>
-          <button onClick={() => void handleSearch()} className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
-          <button
-            onClick={() => void handleOpenCompanyPicker()}
-            className="ml-2 mt-3 rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100"
-          >
-            Pick Company
-          </button>
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <button onClick={() => void handleSearch()} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
+            <button
+              onClick={() => void handleOpenCompanyPicker()}
+              className="rounded-lg border border-slate-600 px-3 py-2 text-sm font-semibold text-slate-100"
+            >
+              Pick Company
+            </button>
+          </div>
           <p className="mt-2 text-xs text-slate-300">
             Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span> {isSearching ? '| Searching...' : ''}
           </p>
@@ -2004,7 +2112,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             </div>
           ) : null}
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-700">
-            <MapContainer center={mapCenter} zoom={6} className="h-[340px] w-full">
+            <MapContainer center={mapCenter} zoom={6} className="h-[320px] w-full sm:h-[360px] lg:h-[420px]">
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -2111,7 +2219,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           {selected && (selected.latitude == null || selected.longitude == null) ? (
             <p className="mt-2 text-xs text-amber-300">Facility location missing from CARB dataset. Click on the map to place a temporary marker before satellite comparison.</p>
           ) : null}
-          <div className="mt-3 overflow-auto rounded-xl border border-slate-700">
+          <div className="mt-3 hidden overflow-x-auto rounded-xl border border-slate-700 sm:block">
             <table className="min-w-full text-left text-sm text-slate-200">
               <thead className="bg-slate-950/80 text-xs uppercase tracking-wider text-slate-400">
                 <tr>
@@ -2177,6 +2285,32 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </tbody>
             </table>
           </div>
+          <div className="mt-3 space-y-2 sm:hidden">
+            {!hasSearched ? (
+              <p className="rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-3 text-xs text-slate-400">Search required before facility matches can be displayed.</p>
+            ) : paginatedFacilities.length ? paginatedFacilities.map((facility) => (
+              <article key={`m-${facility.facilityId}-${facility.reportingYear}`} className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-200">
+                <p className="text-sm font-semibold text-white">{facility.facilityName}</p>
+                <p className="text-slate-400">{facility.operatorName}</p>
+                <p className="mt-1">Facility ID: {facility.facilityId}</p>
+                <p>City / County: {facility.city || 'n/a'} / {facility.county || 'n/a'}</p>
+                <p>Sector: {facility.sector || 'n/a'}</p>
+                <p>Year: {facility.reportingYear}</p>
+                <p>Source confidence: {sourceMode}</p>
+                <button
+                  onClick={() => {
+                    setSelected(facility);
+                    setActiveWorkspaceTab('investigation');
+                  }}
+                  className="mt-2 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"
+                >
+                  Select
+                </button>
+              </article>
+            )) : (
+              <p className="rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-3 text-xs text-slate-400">No facility matches found for the current search.</p>
+            )}
+          </div>
           {facilities.length > pageSize ? (
             <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
               <button
@@ -2201,17 +2335,17 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         <div
           role="separator"
           aria-label="Resize left and center panels"
-          className="w-2 cursor-col-resize bg-slate-800/70 hover:bg-cyan-700/50"
+          className="hidden w-2 cursor-col-resize bg-slate-800/70 hover:bg-cyan-700/50 xl:block"
           onMouseDown={() => setActiveResizeHandle('left')}
         />
-        <section style={{ flexBasis: `${centerPaneWidth}%` }} className="min-w-[320px] overflow-hidden border-r border-slate-700">
-          <div className="sticky top-0 z-10 border-b border-slate-700 bg-slate-900/95 px-4 py-3">
+        <section style={{ flexBasis: `${centerPaneWidth}%` }} className="min-w-0 overflow-hidden rounded-xl border border-slate-700 lg:col-span-1 xl:min-w-[320px] xl:rounded-none xl:border-0 xl:border-r">
+          <div className="sticky top-[64px] z-10 border-b border-slate-700 bg-slate-900/95 px-3 py-3 sm:px-4">
             <h2 className="text-lg font-bold text-white">Selected Facility + Map + Year Comparison</h2>
             <p className="mt-1 text-[11px] text-slate-400">Core facility profile and CARB emissions comparison workspace.</p>
           </div>
-          <div className="p-4">
+          <div className="p-3 sm:p-4">
           {!hasSearched ? <p className="mt-1 text-xs text-amber-300">Search for a facility first. No search, no product.</p> : null}
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <select value={String(baselineYear)} onChange={(e) => setBaselineYear(e.target.value ? Number(e.target.value) : '')} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
               <option value="">Baseline year</option>
               {availableYears.map((year) => <option key={`b-${year}`} value={year}>{year}</option>)}
@@ -2229,6 +2363,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             <input value={String(co2Baseline)} onChange={(e) => setCo2Baseline(e.target.value ? Number(e.target.value) : '')} placeholder="CO2 baseline" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
             <input value={String(co2Current)} onChange={(e) => setCo2Current(e.target.value ? Number(e.target.value) : '')} placeholder="CO2 current" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
           </div>
+          {isSameYearComparison ? (
+            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+              You are comparing the same year to itself. Choose different years if available.
+            </p>
+          ) : null}
+          {hasSingleReportingYear ? (
+            <p className="mt-2 rounded-lg border border-sky-500/40 bg-sky-950/20 px-3 py-2 text-xs text-sky-100">
+              Only one reporting year is currently available for this facility in the active CARB dataset.
+            </p>
+          ) : null}
           <textarea value={companyClaim} onChange={(e) => setCompanyClaim(e.target.value)} placeholder="Paste climate claim text here..." className="mt-3 h-24 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
           <p className="mt-2 text-xs text-slate-400">Parsed claim: reduction {claimParsed.claimReductionPct ?? 'n/a'}% | baseline {claimParsed.baselineYear ?? 'n/a'} | current {claimParsed.currentYear ?? 'n/a'}</p>
           <p className="mt-2 text-sm text-slate-300">{claimComparison}</p>
@@ -2279,15 +2423,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         <div
           role="separator"
           aria-label="Resize center and right panels"
-          className="w-2 cursor-col-resize bg-slate-800/70 hover:bg-cyan-700/50"
+          className="hidden w-2 cursor-col-resize bg-slate-800/70 hover:bg-cyan-700/50 xl:block"
           onMouseDown={() => setActiveResizeHandle('right')}
         />
-        <section style={{ flexBasis: `${paneWidths.right}%` }} className="min-w-[280px] overflow-hidden">
-          <div className="sticky top-0 z-10 border-b border-slate-700 bg-slate-900/95 px-4 py-3">
+        <section style={{ flexBasis: `${paneWidths.right}%` }} className="min-w-0 overflow-hidden rounded-xl border border-slate-700 lg:col-span-2 xl:min-w-[280px] xl:rounded-none xl:border-0">
+          <div className="sticky top-[64px] z-10 border-b border-slate-700 bg-slate-900/95 px-3 py-3 sm:px-4">
             <h2 className="text-lg font-bold text-white">DPAL Investigation Engine</h2>
             <p className="mt-1 text-[11px] text-slate-400">Live discrepancy posture, source quality, and next-action guidance.</p>
           </div>
-          <div className="space-y-3 p-4">
+          <div className="space-y-3 p-3 sm:p-4">
             <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3">
               <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
               <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
@@ -2312,7 +2456,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             </div>
             <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300">
               <p className="font-semibold text-white">Investigation Engine Score Explanation</p>
-              <div className="mt-2 space-y-2">
+              <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-1">
                 {investigationExplanationCards.map((card) => (
                   <div key={card.title} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
                     <p className="font-semibold text-white">{card.title}</p>
@@ -2345,44 +2489,6 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         </section>
       </div>
       ) : null}
-
-      <section className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
-          <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
-          <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
-          <p className="mt-2 text-xs text-slate-400">
-            Integrity Score measures record completeness, consistency, and verification strength. It does not determine guilt, liability, or regulatory violation.
-          </p>
-        </div>
-        <div className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4 xl:col-span-2">
-          <p className="text-xs uppercase tracking-widest text-slate-400">CARB Data Sources</p>
-          <p className="text-sm text-slate-300">Source mode: {sourceMode} | Dataset version: {datasetVersion} | Retrieval date: {retrievalDate || 'n/a'}</p>
-          {sourceMode === 'IMPORTED' ? (
-            <p className="mt-1 text-xs text-emerald-300">
-              Imported CARB dataset loaded. Confirm filename, retrieval date, and official source before final use.
-            </p>
-          ) : null}
-          {sourceMode === 'LIVE' && !importedDatasetLoaded ? (
-            <p className="mt-1 text-xs text-amber-300">
-              Live endpoint responded, but no imported CARB dataset is loaded. Search results may be incomplete until an official CARB spreadsheet is imported or the live connector returns indexed records.
-            </p>
-          ) : null}
-          {sourceMode === 'DEMO_FALLBACK' ? (
-            <p className="mt-1 text-xs text-amber-300">
-              Demo/fallback data only - not suitable for final conclusions.
-            </p>
-          ) : null}
-          {sourceMode === 'NEEDS_SOURCE' ? (
-            <p className="mt-1 text-xs text-violet-300">
-              Manual investigation mode active - official CARB source not confirmed.
-            </p>
-          ) : null}
-          <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-slate-200">
-            {dataSources.map((s) => <p key={s.sourceName}>{s.sourceName} | {s.sourceStatus} | {s.datasetVersion}</p>)}
-          </div>
-        </div>
-      </section>
 
       {showCompanyPicker ? (
         <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/90 p-4">
@@ -2456,11 +2562,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       ) : null}
 
       {activeWorkspaceTab === 'investigation' ? (
-      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-        <h2 className="text-lg font-bold text-white">Verification Summary</h2>
+      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3 sm:p-4">
+        <h2 className="text-lg font-bold text-white">Findings Summary</h2>
         <p className="mt-1 text-xs text-slate-300">Plain-English DPAL verification summary based on selected CARB facility data and current comparison inputs.</p>
 
-        <div className="mt-3 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
             <p className="text-xs uppercase tracking-widest text-slate-400">Facility identity</p>
             <p className="mt-1"><span className="text-slate-400">Name:</span> {verificationSummary.facilityIdentity.facilityName}</p>
@@ -2485,7 +2591,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <p className="mt-1">{verificationSummary.yearOverYearFinding}</p>
         </div>
 
-        <div className="mt-4 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
             <p className="text-xs uppercase tracking-widest text-slate-400">Claim verification result</p>
             <p className="mt-1"><span className="text-slate-400">Classification:</span> {verificationSummary.claimVerificationResult.label}</p>
@@ -2502,9 +2608,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
+        <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200" open>
+          <summary className="cursor-pointer text-xs uppercase tracking-widest text-slate-400">Verification checklist</summary>
           <div className="flex flex-wrap items-center gap-3">
-            <p className="text-xs uppercase tracking-widest text-slate-400">Verification checklist</p>
             <label className="inline-flex items-center gap-2 text-xs text-slate-300">
               <input type="checkbox" checked={hasProductionData} onChange={(e) => setHasProductionData(e.target.checked)} />
               Production/output data available
@@ -2514,7 +2620,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               Satellite/activity evidence attached
             </label>
           </div>
-          <div className="mt-2 grid grid-cols-1 gap-2 xl:grid-cols-2">
+          <div className="mt-2 grid grid-cols-1 gap-2 lg:grid-cols-2">
             {verificationSummary.checklist.map((entry) => (
               <div key={entry.item} className="flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900/60 px-3 py-2">
                 <span>{entry.item}</span>
@@ -2522,16 +2628,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </div>
             ))}
           </div>
-        </div>
+        </details>
 
-        <div className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
-          <p className="text-xs uppercase tracking-widest text-slate-400">Recommended next steps</p>
+        <details className="mt-4 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200" open>
+          <summary className="cursor-pointer text-xs uppercase tracking-widest text-slate-400">Recommended next steps</summary>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             {verificationSummary.recommendedNextSteps.map((step) => (
               <li key={step}>{step}</li>
             ))}
           </ul>
-        </div>
+        </details>
       </section>
       ) : null}
 
@@ -2585,7 +2691,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       ) : null}
 
       {activeWorkspaceTab === 'report' ? (
-      <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+      <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3 sm:p-4">
         <p className="rounded-lg border border-cyan-500/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
           Current report quality: <span className="font-semibold">{reportQualityRating}</span>
         </p>
@@ -2649,7 +2755,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <p className="mt-1 text-xs text-slate-400">
             Existing create/update/export CARB audit backend actions remain intact here.
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <button onClick={() => void handleSave()} disabled={!canSaveOrExport} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save Audit</button>
             <button onClick={() => void handleSave()} disabled={!canSaveOrExport || !savedAuditId} className="rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Update Audit</button>
             <button onClick={() => void handleExport()} disabled={!canSaveOrExport && !isManualInvestigationMode} className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Export Audit JSON</button>
@@ -2668,7 +2774,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             Full JSON/data bundle with sources, calculations, checklist, and limitations.
           </p>
           {canExportEvidencePacket ? (
-            <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
+            <>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <button onClick={() => void handleExportCarbEvidencePacket()} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-sm font-semibold text-cyan-100">Download Evidence JSON</button>
+                <button onClick={() => navigator.clipboard.writeText(JSON.stringify(evidencePacket, null, 2)).then(() => setMessage('Evidence JSON copied.')).catch(() => setMessage('Unable to copy evidence JSON.'))} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Copy JSON</button>
+              </div>
+              <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
+            </>
           ) : (
             <p className="mt-3 text-xs text-slate-400">Evidence packet preview becomes available once readiness requirements are met or manual investigation draft is started.</p>
           )}

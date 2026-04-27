@@ -86,6 +86,13 @@ function mergeReading(base: Reading, patch: Partial<Reading>): Reading {
   };
 }
 
+function pickFirstFinite(...values: Array<number | null | undefined>): number | null {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+  }
+  return null;
+}
+
 export async function resolveCarbEnvironmentalReadings(args: {
   lat: number | null | undefined;
   lng: number | null | undefined;
@@ -162,17 +169,39 @@ export async function resolveCarbEnvironmentalReadings(args: {
 
   tasks.push((async () => {
     try {
-      const res = await fetch(apiUrl(`/api/water/satellite-preview?lat=${args.lat}&lng=${args.lng}&areaLabel=CARB%20facility%20area`));
+      const res = await fetch(
+        apiUrl(`${API_ROUTES.WATER_SATELLITE_PREVIEW}?lat=${args.lat}&lng=${args.lng}&areaLabel=CARB%20facility%20area`),
+      );
       if (!res.ok) return;
       const payload = await res.json().catch(() => null) as {
-        adapters?: { copernicus?: { ndwiMean?: number | null; confidence?: number | null; captureDate?: string | null } };
+        adapters?: {
+          copernicus?: {
+            ndwiMean?: number | null;
+            ndwi?: number | null;
+            confidence?: number | null;
+            confidenceScore?: number | null;
+            captureDate?: string | null;
+          };
+        };
+        // Newer Aqua-related payloads may expose water analysis outside adapters.
+        waterAnalysis?: { ndwi?: number | null; confidenceScore?: number | null };
+        summary?: { confidenceScore?: number | null };
       } | null;
-      const ndwi = payload?.adapters?.copernicus?.ndwiMean;
-      if (typeof ndwi !== 'number' || !Number.isFinite(ndwi)) return;
+      const ndwi = pickFirstFinite(
+        payload?.adapters?.copernicus?.ndwiMean,
+        payload?.adapters?.copernicus?.ndwi,
+        payload?.waterAnalysis?.ndwi,
+      );
+      if (ndwi == null) return;
       const ndwiCurrent = clampIndexValue(ndwi);
       const ndwiBefore = clampIndexValue(ndwiCurrent - 0.04);
       const ndwiChange = Number((ndwiCurrent - ndwiBefore).toFixed(4));
-      const confRaw = payload?.adapters?.copernicus?.confidence;
+      const confRaw = pickFirstFinite(
+        payload?.adapters?.copernicus?.confidence,
+        payload?.adapters?.copernicus?.confidenceScore,
+        payload?.waterAnalysis?.confidenceScore,
+        payload?.summary?.confidenceScore,
+      );
       const ndwiBase = readings.get('NDWI');
       if (ndwiBase) {
         readings.set('NDWI', mergeReading(ndwiBase, {
