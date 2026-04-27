@@ -562,9 +562,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     before: { from: string; to: string };
     after: { from: string; to: string };
     deltaPercent: number | null;
-    confidenceScore: number;
+    confidenceScore: number | null;
     validatorStatus: CopernicusValidatorStatus;
     generatedAt: string;
+    summary: string;
   }>>([]);
 
   const selectedProject = useMemo(
@@ -592,6 +593,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const savedAoiAreaHectares = savedAoiAreaSqKm * 100;
   const savedAoiGeoJson = useMemo(() => toAoiGeoJson(savedAoi), [savedAoi]);
   const savedAoiSignature = useMemo(() => JSON.stringify(savedAoi ?? []), [savedAoi]);
+  const savedAoiCoordinateCount = savedAoi?.length ?? 0;
   const aoiStorageKey = useMemo(
     () => buildAoiStorageKey(selectedFocusLocation, selectedProjectId),
     [selectedFocusLocation, selectedProjectId],
@@ -669,6 +671,14 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   function applyComparisonPreset(preset: (typeof RECOMMENDED_COMPARISON_PRESETS)[number]): void {
     setBeforeRange({ ...preset.before });
     setAfterRange({ ...preset.after });
+    if ((import.meta as any).env?.DEV) {
+      console.info('[AquaScan] Applied preset', {
+        beforeFrom: preset.before.from,
+        beforeTo: preset.before.to,
+        afterFrom: preset.after.from,
+        afterTo: preset.after.to,
+      });
+    }
     setActionNotice(`Applied ${preset.label}: ${preset.description}.`);
   }
 
@@ -773,6 +783,37 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     const key = `dpal_aquascan_calc_history_${selectedProject.id}`;
     localStorage.setItem(key, JSON.stringify(calculationHistory));
   }, [calculationHistory, selectedProject.id]);
+
+  useEffect(() => {
+    if (comparisonLoading) return;
+    if (!comparisonResult && !comparisonError && validatorGateStatus === 'pending_review' && !showPacket) return;
+    if ((import.meta as any).env?.DEV) {
+      console.info('[AquaScan] Cleared stale MRV result', {
+        index: comparisonIndexType,
+        collection: comparisonCollection,
+        beforeRange: { ...beforeRange },
+        afterRange: { ...afterRange },
+        aoiCoordinateCount: savedAoiCoordinateCount,
+      });
+    }
+    setComparisonResult(null);
+    setComparisonError(null);
+    setValidatorGateStatus('pending_review');
+    setShowPacket(false);
+    clearLiveOverlayState();
+  }, [
+    beforeRange.from,
+    beforeRange.to,
+    afterRange.from,
+    afterRange.to,
+    comparisonCollection,
+    comparisonIndexType,
+    comparisonLoading,
+    savedAoiCoordinateCount,
+    savedAoiSignature,
+    showPacket,
+    validatorGateStatus,
+  ]);
 
   useEffect(() => {
     clearLiveOverlayState();
@@ -1022,6 +1063,19 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               ? 'Backend unavailable.'
               : '';
   const canCalculateMrv = mrvBlockReason === '' && !comparisonLoading;
+  const comparisonSampleCountBefore = comparisonResult?.before.sampleCount ?? 0;
+  const comparisonSampleCountAfter = comparisonResult?.after.sampleCount ?? 0;
+  const comparisonHasValidSamples = Boolean(
+    comparisonResult
+    && comparisonSampleCountBefore > 0
+    && comparisonSampleCountAfter > 0
+    && (comparisonResult.before.mean != null || comparisonResult.after.mean != null),
+  );
+  const comparisonMeasurementStatus = !comparisonResult
+    ? 'Measurement not yet completed.'
+    : comparisonHasValidSamples
+      ? 'Valid samples returned'
+      : 'No valid samples returned';
   const overlayDefinitions: Array<{
     overlayType: AquaScanOverlayType;
     label: string;
@@ -1160,7 +1214,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       beforeValue,
       afterValue,
       deltaPercent,
-      confidenceScore: comparisonResult?.confidenceScore ?? ((inspectQualityConfidence ?? 0) / 100),
+      confidenceScore: comparisonHasValidSamples ? (comparisonResult?.confidenceScore ?? ((inspectQualityConfidence ?? 0) / 100)) : 0,
       dataSourceCitation: comparisonResult?.sourceCitation ?? 'Copernicus Sentinel Hub + DPAL Water Analysis',
       assumptions: [
         'Satellite index values are indicative and depend on scene quality.',
@@ -1176,9 +1230,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       photos: [],
       measurements: overlayMeasurementRecords,
       overlays: overlayPacketRecords,
-      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResult ? '' : ' Measurement not yet completed.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
+      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResult ? ` Measurement status: ${comparisonMeasurementStatus}.` : ' Measurement not yet completed.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
     };
-  }, [comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, selectedFocusLocation, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, selectedProject.projectName, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, savedAoiGeoJson]);
+  }, [comparisonCollection, comparisonHasValidSamples, comparisonIndexType, comparisonMeasurementStatus, comparisonResult, inspectQualityConfidence, selectedFocusLocation, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, selectedProject.projectName, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, savedAoiGeoJson]);
   const canGenerateEvidencePacket = Boolean(selectedFocusLocation && readySavedAoi);
   const evidencePacketPayload = useMemo(() => ({
     ...evidencePacket,
@@ -1197,7 +1251,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       before: { ...beforeRange },
       after: { ...afterRange },
     },
-    measurementStatus: comparisonResult ? 'completed' : 'Measurement not yet completed.',
+    measurementStatus: comparisonMeasurementStatus,
     measurementSource: comparisonResult ? 'Copernicus AOI statistics' : 'Measurement unavailable',
     measurements: comparisonResult
       ? [{
@@ -1217,7 +1271,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             before: comparisonResult.before.cloudCoverage,
             after: comparisonResult.after.cloudCoverage,
           },
-          confidence: comparisonResult.confidenceScore,
+          confidence: comparisonHasValidSamples ? comparisonResult.confidenceScore : null,
           interpretation: comparisonResult.delta.interpretation,
           warnings: comparisonResult.warnings,
         }]
@@ -1231,7 +1285,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     warnings: comparisonResult?.warnings ?? [],
     limitations: evidencePacket.limitations,
     disclaimer: packetPreview.legalSafeNote,
-  }), [beforeRange, afterRange, comparisonResult, evidencePacket, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
+  }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResult, evidencePacket, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -1326,6 +1380,18 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       });
       setComparisonResult(result);
       setValidatorGateStatus('pending_review');
+      const noValidSamples = (result.before.sampleCount ?? 0) === 0 && (result.after.sampleCount ?? 0) === 0;
+      if ((import.meta as any).env?.DEV) {
+        console.info('[AquaScan] Comparison result', {
+          index: comparisonIndexType,
+          collection: comparisonCollection,
+          beforeRange: { ...beforeRange },
+          afterRange: { ...afterRange },
+          aoiCoordinateCount: savedAoiCoordinateCount,
+          sampleCountBefore: result.before.sampleCount ?? 0,
+          sampleCountAfter: result.after.sampleCount ?? 0,
+        });
+      }
       const historyItem = {
         calculationId: `calc-${Date.now()}`,
         projectId: selectedProject.id,
@@ -1333,14 +1399,27 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         before: { ...beforeRange },
         after: { ...afterRange },
         deltaPercent: result.delta.percentChange,
-        confidenceScore: result.confidenceScore,
+        confidenceScore: noValidSamples ? null : result.confidenceScore,
         validatorStatus: 'pending_review' as CopernicusValidatorStatus,
         generatedAt: result.generatedAt,
+        summary: noValidSamples ? `${comparisonIndexType} - no valid samples` : `${comparisonIndexType} - ${result.delta.percentChange ?? 'N/A'}%`,
       };
       setCalculationHistory((prev) => [historyItem, ...prev].slice(0, 20));
-      setActionNotice('MRV comparison completed. Pending Validator Review.');
+      setActionNotice(noValidSamples ? 'Comparison completed, but no valid samples were returned for the selected windows.' : 'MRV comparison completed. Pending Validator Review.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Comparison failed';
+      if ((import.meta as any).env?.DEV) {
+        console.info('[AquaScan] Comparison error', {
+          index: comparisonIndexType,
+          collection: comparisonCollection,
+          beforeRange: { ...beforeRange },
+          afterRange: { ...afterRange },
+          aoiCoordinateCount: savedAoiCoordinateCount,
+          sampleCountBefore: comparisonSampleCountBefore,
+          sampleCountAfter: comparisonSampleCountAfter,
+          error: message,
+        });
+      }
       if (/configured|unavailable|no comparison|no scene|not found|statistics api error/i.test(message)) {
         setComparisonError('Live AOI measurement unavailable for this AOI/date. Try a wider date range or different collection.');
       } else {
@@ -2621,7 +2700,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 <p>Before: {String(comparisonResult.before.mean ?? 'N/A')}</p>
                 <p>After: {String(comparisonResult.after.mean ?? 'N/A')}</p>
                 <p>Delta: {comparisonResult.delta.percentChange ?? 'N/A'}%</p>
-                <p>Conf: {Math.round(comparisonResult.confidenceScore * 100)}%</p>
+                <p>Conf: {comparisonHasValidSamples ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'Not available'}</p>
               </div>
             </div>
           ) : null}
@@ -3116,6 +3195,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   ))}
                 </div>
                 {comparisonError ? <p className="text-xs text-rose-300">{comparisonError}</p> : null}
+                {!comparisonResult ? <p className="text-xs text-slate-500">Run comparison to see results.</p> : null}
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                   {(
                     [
@@ -3123,11 +3203,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       ['After mean', String(comparisonResult?.after.mean ?? 'N/A')],
                       ['Absolute change', String(comparisonResult?.delta.absoluteChange ?? 'N/A')],
                       ['Percent change', comparisonResult?.delta.percentChange != null ? `${comparisonResult.delta.percentChange}%` : 'N/A'],
-                      ['Confidence', comparisonResult ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'N/A'],
+                      ['Confidence', comparisonResult ? (comparisonHasValidSamples ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'Not available') : 'N/A'],
                       ['Sample count', comparisonResult ? `${comparisonResult.before.sampleCount} / ${comparisonResult.after.sampleCount}` : 'N/A'],
                       ['No-data count', comparisonResult ? `${comparisonResult.before.noDataCount} / ${comparisonResult.after.noDataCount}` : 'N/A'],
                       ['Cloud cover', comparisonResult ? `${comparisonResult.before.cloudCoverage ?? 'N/A'} / ${comparisonResult.after.cloudCoverage ?? 'N/A'}` : 'N/A'],
                       ['Source', comparisonResult ? 'Copernicus AOI statistics' : 'N/A'],
+                      ['Measurement status', comparisonMeasurementStatus],
                     ] as [string, string][]
                   ).map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs">
@@ -3143,6 +3224,14 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <div className="space-y-1 text-xs text-slate-300">
                     <p>{comparisonResult.delta.interpretation}</p>
                     <p>Measurement source: Copernicus AOI statistics</p>
+                    {(import.meta as any).env?.DEV ? (
+                      <p className="text-[11px] text-slate-400">
+                        Debug: {comparisonIndexType} . {comparisonCollection} . {beforeRange.from || '-'} to {beforeRange.to || '-'} . {afterRange.from || '-'} to {afterRange.to || '-'} . AOI coords {savedAoiCoordinateCount} . Samples {comparisonSampleCountBefore} / {comparisonSampleCountAfter}
+                      </p>
+                    ) : null}
+                    {!comparisonHasValidSamples ? (
+                      <p className="text-amber-200">No valid samples returned for the selected AOI/date ranges.</p>
+                    ) : null}
                   </div>
                 ) : (
                   <p className="text-xs text-slate-500">Run comparison to see interpretation.</p>
@@ -3155,7 +3244,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     <div className="space-y-1">
                       {calculationHistory.slice(0, 5).map((item) => (
                         <p key={item.calculationId} className="text-[11px]">
-                          {item.generatedAt.slice(0, 10)} . {item.indexType} . {item.deltaPercent ?? 'N/A'}% . {Math.round(item.confidenceScore * 100)}% conf . {item.validatorStatus.replace(/_/g, ' ')}
+                          {item.generatedAt.slice(0, 10)} . {item.summary}
+                          {item.confidenceScore != null ? ` . ${Math.round(item.confidenceScore * 100)}% conf` : ''}
+                          {' . '}
+                          {item.validatorStatus.replace(/_/g, ' ')}
                         </p>
                       ))}
                     </div>
