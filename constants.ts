@@ -173,8 +173,10 @@ export const API_ROUTES = {
   /** California CARB Emissions Audit */
   CARB_AUDIT_CREATE: '/api/carb-audit/create',
   CARB_AUDIT_LIST: '/api/carb-audit/list',
+  CARB_DATA_STATUS: '/api/carb-data/status',
   CARB_DATA_SEARCH: '/api/carb-data/search',
   CARB_DATA_IMPORT: '/api/carb-data/import',
+  CARB_DATA_SYNC_OFFICIAL: '/api/carb-data/sync-official',
   HAZ_WASTE_AUDIT_CREATE: '/api/hazardous-waste-audit/create',
   HAZ_WASTE_AUDIT_LIST: '/api/hazardous-waste-audit/list',
   RCRA_DATA_SEARCH: '/api/rcra-data/search',

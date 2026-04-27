@@ -5,9 +5,11 @@ import L from 'leaflet';
 import {
   createCarbAudit,
   exportCarbAudit,
+  getCarbDataStatus,
   importCarbFacilities,
   listCarbAudits,
   searchCarbFacilities,
+  syncOfficialCarbData,
   updateCarbAudit,
 } from '../../../services/carbAuditService';
 import { useAuth } from '../../../auth/AuthContext';
@@ -78,10 +80,27 @@ type ImportResultSummary = {
   rejectedRows: number;
   missingRequiredFields: string[];
   warnings: string[];
-  sourceMode: 'IMPORTED' | 'DEMO_FALLBACK';
+  sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' | 'LIVE';
+  rejectedDetails?: Array<{ rowNumber: number; reason: string }>;
 };
 
 type InitialLoadStatus = 'Checking' | 'Records Loaded' | 'No Records' | 'Failed';
+
+type CarbDataStatus = {
+  sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
+  datasetLoaded: boolean;
+  datasetVersion: string;
+  sourceUrl: string;
+  retrievalDate: string;
+  recordCount: number;
+  availableYears: number[];
+  availableCounties: string[];
+  availableSectors: string[];
+  availableOperators: string[];
+  lastImportAt: string | null;
+  searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
+  warnings: string[];
+};
 
 const legalContext = [
   'California’s CARB Mandatory Reporting Regulation requires covered facilities and suppliers to report greenhouse gas emissions.',
@@ -183,6 +202,14 @@ function downloadJsonFile(filename: string, payload: unknown) {
   URL.revokeObjectURL(url);
 }
 
+function normalizeSearchInput(value: string): string {
+  return value.trim().replace(/\s+/g, ' ');
+}
+
+function normalizeCountyInput(value: string): string {
+  return normalizeSearchInput(value).replace(/\bcounty\b/gi, '').trim();
+}
+
 function openPrintableEvidencePacket(title: string, payload: unknown) {
   const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=760');
   if (!printWindow) return false;
@@ -262,6 +289,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [retrievalDate, setRetrievalDate] = useState('');
   const [initialLoadStatus, setInitialLoadStatus] = useState<InitialLoadStatus>('Checking');
   const [carbSearchFailed, setCarbSearchFailed] = useState(false);
+  const [carbDataStatus, setCarbDataStatus] = useState<CarbDataStatus | null>(null);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [baselineYear, setBaselineYear] = useState<number | ''>('');
   const [currentYear, setCurrentYear] = useState<number | ''>('');
@@ -341,22 +369,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const isNoExactMatch = hasSearched && facilities.length === 0;
   const shouldShowBrandSuggestions = BRAND_SEARCH_HINTS.includes(searchTerm.toLowerCase());
   const searchAssistantAliases = CARB_SEARCH_ASSISTANT_ALIASES[searchTerm.toLowerCase()] ?? [];
-  const carbDatasetReady = sourceMode === 'IMPORTED' || (sourceMode === 'LIVE' && Boolean(datasetVersion && datasetVersion !== 'import-not-loaded'));
-  const searchReadiness: 'Ready' | 'Limited' | 'Not Ready' = carbDatasetReady ? 'Ready' : sourceMode === 'DEMO_FALLBACK' ? 'Limited' : 'Not Ready';
+  const carbDatasetReady = Boolean(carbDataStatus?.datasetLoaded && (carbDataStatus?.recordCount ?? 0) > 0);
+  const searchReadiness: 'Ready' | 'Limited' | 'Not Ready' = carbDataStatus?.searchReadiness ?? (carbDatasetReady ? 'Ready' : 'Not Ready');
   const carbDataStatusReadiness: 'Ready' | 'Limited' | 'Not Ready' = useMemo(() => {
-    if (carbSearchFailed || facilities.length === 0) return 'Not Ready';
-    const hasSupportedSource = sourceMode === 'IMPORTED' || sourceMode === 'LIVE';
-    if (hasSupportedSource && datasetVersion !== 'import-not-loaded') return 'Ready';
-    if (sourceMode === 'LIVE' && datasetVersion === 'import-not-loaded') return 'Limited';
-    return 'Not Ready';
-  }, [carbSearchFailed, facilities.length, sourceMode, datasetVersion]);
+    if (carbSearchFailed) return 'Not Ready';
+    if (carbDataStatus) return carbDataStatus.searchReadiness;
+    return facilities.length > 0 ? 'Ready' : 'Not Ready';
+  }, [carbSearchFailed, carbDataStatus, facilities.length]);
   const carbDataStatusMessage = useMemo(() => {
     if (carbDataStatusReadiness === 'Ready') return 'CARB records are loaded and searchable.';
     if (carbDataStatusReadiness === 'Limited') return 'The endpoint responded, but the indexed dataset may not be fully loaded.';
     return 'No searchable CARB records are currently loaded.';
   }, [carbDataStatusReadiness]);
   const hasCountyNoMatch = isNoExactMatch && Boolean(facilitySearch.county.trim());
-  const showImportWizardCta = facilities.length === 0 && datasetVersion === 'import-not-loaded';
+  const showImportWizardCta = (carbDataStatus?.recordCount ?? facilities.length) === 0
+    && (carbDataStatus?.datasetVersion ?? datasetVersion) === 'import-not-loaded';
 
   useEffect(() => {
     if (selectedCoordinates) setManualCoordinates(null);
@@ -377,28 +404,36 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setInitialLoadStatus('Checking');
     void (async () => {
       try {
-        const res = await searchCarbFacilities({ limit: '500' });
+        const status = await getCarbDataStatus();
+        setCarbDataStatus(status);
         if (userInitiatedSearchRef.current) return;
-        setFacilities(res.results as CarbFacility[]);
-        setSourceMode(res.sourceMode);
-        setSearchWarnings(res.warnings ?? []);
-        setDatasetVersion(res.datasetVersion ?? 'unavailable');
-        setRetrievalDate(res.retrievalDate ?? '');
-        setCurrentPage(1);
-        setHasSearched(true);
-        setCarbSearchFailed(false);
-        if (res.count > 0) {
+        setSourceMode(status.sourceMode);
+        setSearchWarnings(status.warnings ?? []);
+        setDatasetVersion(status.datasetVersion ?? 'unavailable');
+        setRetrievalDate(status.retrievalDate ?? '');
+        if (status.recordCount > 0) {
+          const res = await searchCarbFacilities({ limit: '500' });
+          if (userInitiatedSearchRef.current) return;
+          setFacilities(res.results as CarbFacility[]);
+          setCurrentPage(1);
+          setHasSearched(true);
+          setCarbSearchFailed(false);
           setInitialLoadStatus('Records Loaded');
           setMessage(`Loaded ${res.count} CARB facility record(s).`);
         } else {
+          setFacilities([]);
+          setCurrentPage(1);
+          setHasSearched(true);
+          setCarbSearchFailed(false);
           setInitialLoadStatus('No Records');
           setMessage('No CARB facilities were returned on initial load. Import an official CARB dataset or start a manual investigation.');
         }
       } catch (error: unknown) {
         if (userInitiatedSearchRef.current) return;
+        setFacilities([]);
         setInitialLoadStatus('Failed');
         setCarbSearchFailed(true);
-        setMessage(error instanceof Error ? `CARB initial load failed: ${error.message}` : 'CARB initial load failed: unknown error');
+        setMessage(error instanceof Error ? `CARB backend is unavailable. Live search cannot run. ${error.message}` : 'CARB backend is unavailable. Live search cannot run.');
       }
     })();
   }, [hasSearched, isSearching]);
@@ -930,12 +965,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setIsSearching(true);
     try {
       const res = await searchCarbFacilities({
-        q: facilitySearch.q,
-        facilityId: facilitySearch.facilityId,
-        city: facilitySearch.city,
-        county: facilitySearch.county,
-        sector: facilitySearch.sector,
-        year: facilitySearch.year,
+        q: normalizeSearchInput(facilitySearch.q),
+        facilityId: normalizeSearchInput(facilitySearch.facilityId),
+        city: normalizeSearchInput(facilitySearch.city),
+        county: normalizeCountyInput(facilitySearch.county),
+        sector: normalizeSearchInput(facilitySearch.sector),
+        year: normalizeSearchInput(facilitySearch.year),
         limit: '500',
       });
       setFacilities(res.results as CarbFacility[]);
@@ -946,6 +981,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setCurrentPage(1);
       setHasSearched(true);
       setCarbSearchFailed(false);
+      setCarbDataStatus((prev) => prev ? {
+        ...prev,
+        sourceMode: res.sourceMode,
+        datasetVersion: res.datasetVersion ?? prev.datasetVersion,
+        retrievalDate: res.retrievalDate ?? prev.retrievalDate,
+        recordCount: res.count,
+      } : prev);
       setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
       return res;
     } catch (error: unknown) {
@@ -975,6 +1017,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         setCurrentPage(1);
         setHasSearched(true);
         setCarbSearchFailed(false);
+        setCarbDataStatus((prev) => prev ? {
+          ...prev,
+          sourceMode: res.sourceMode,
+          datasetVersion: res.datasetVersion ?? prev.datasetVersion,
+          retrievalDate: res.retrievalDate ?? prev.retrievalDate,
+          recordCount: res.count,
+        } : prev);
         setMessage(res.count > 0
           ? `Loaded ${res.count} CARB facility record(s).`
           : 'No CARB facilities were returned. Import an official CARB dataset or start a manual investigation.');
@@ -999,10 +1048,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       const canRunBroadFallback = Boolean(facilitySearch.city.trim() || facilitySearch.county.trim() || facilitySearch.sector.trim() || facilitySearch.year.trim());
       if (canRunBroadFallback) {
         const broadRes = await searchCarbFacilities({
-          city: facilitySearch.city,
-          county: facilitySearch.county,
-          sector: facilitySearch.sector,
-          year: facilitySearch.year,
+          city: normalizeSearchInput(facilitySearch.city),
+          county: normalizeCountyInput(facilitySearch.county),
+          sector: normalizeSearchInput(facilitySearch.sector),
+          year: normalizeSearchInput(facilitySearch.year),
           limit: '500',
         });
         if (broadRes.count > 0) {
@@ -1032,6 +1081,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setCurrentPage(1);
     setHasSearched(true);
     setCarbSearchFailed(false);
+    setCarbDataStatus((prev) => prev ? {
+      ...prev,
+      sourceMode: res.sourceMode,
+      datasetVersion: res.datasetVersion ?? prev.datasetVersion,
+      retrievalDate: res.retrievalDate ?? prev.retrievalDate,
+      recordCount: res.count,
+    } : prev);
     setMessage(`Loaded ${res.count} California-wide records for fallback investigation.`);
   };
 
@@ -1068,7 +1124,35 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     const result = await importCarbFacilities(payload);
     setImportResult(result);
     setMessage(`Imported ${result.imported} CARB record(s). Source mode: ${result.sourceMode}.`);
+    try {
+      const status = await getCarbDataStatus();
+      setCarbDataStatus(status);
+      setSourceMode(status.sourceMode);
+      setDatasetVersion(status.datasetVersion);
+      setRetrievalDate(status.retrievalDate);
+    } catch {
+      // keep previous status if unavailable
+    }
     await executeSearch();
+  };
+
+  const handleSyncOfficialDataset = async () => {
+    try {
+      const result = await syncOfficialCarbData();
+      setMessage(result.imported > 0
+        ? `Synced official CARB dataset. Imported ${result.imported} records.`
+        : `Official sync completed with no imported rows. ${result.warnings.join(' | ') || ''}`.trim());
+      const status = await getCarbDataStatus();
+      setCarbDataStatus(status);
+      setSourceMode(status.sourceMode);
+      setDatasetVersion(status.datasetVersion);
+      setRetrievalDate(status.retrievalDate);
+      if (status.recordCount > 0) {
+        await executeSearch();
+      }
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? `Official CARB sync failed: ${error.message}` : 'Official CARB sync failed.');
+    }
   };
 
   const handleOpenCompanyPicker = async () => {
@@ -1474,11 +1558,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         <h2 className="text-sm font-bold text-white">CARB Data Status</h2>
         <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3">
           <p>Live endpoint: <span className="text-cyan-200">{carbSearchFailed ? 'Failed' : 'Connected'}</span></p>
-          <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
-          <p>Indexed records: <span className="text-cyan-200">{facilities.length} / 500</span></p>
-          <p>Dataset version: <span className="text-cyan-200">{datasetVersion || 'n/a'}</span></p>
-          <p>Retrieval date: <span className="text-cyan-200">{retrievalDate || 'n/a'}</span></p>
+          <p>Source mode: <span className="text-cyan-200">{carbDataStatus?.sourceMode ?? sourceMode}</span></p>
+          <p>Indexed records: <span className="text-cyan-200">{carbDataStatus?.recordCount ?? facilities.length} / 500</span></p>
+          <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || datasetVersion || 'n/a'}</span></p>
+          <p>Retrieval date: <span className="text-cyan-200">{carbDataStatus?.retrievalDate || retrievalDate || 'n/a'}</span></p>
           <p>Search quality: <span className="text-cyan-200">{carbDataStatusReadiness}</span></p>
+          <p>Source URL: <span className="text-cyan-200 break-all">{carbDataStatus?.sourceUrl || 'Not provided'}</span></p>
         </div>
         <p className="mt-2 rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2 text-slate-100">
           {carbDataStatusMessage}
@@ -1541,6 +1626,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setShowDevImportOpen(true)} className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white">Open Official CARB Import Wizard</button>
+                <button type="button" onClick={() => void handleSyncOfficialDataset()} className="rounded-lg border border-cyan-500/50 px-3 py-2 text-xs font-semibold text-cyan-100">Sync Official CARB Source</button>
                 <button type="button" onClick={startManualInvestigation} className="rounded-lg border border-violet-400/60 px-3 py-2 text-xs text-violet-200">Start Manual Investigation Draft</button>
               </div>
             </div>

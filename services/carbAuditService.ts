@@ -88,9 +88,44 @@ export async function searchCarbFacilities(params: Record<string, string>) {
   }>(apiUrl(`${API_ROUTES.CARB_DATA_SEARCH}?${qs.toString()}`), { method: 'GET' });
 }
 
+export async function getCarbDataStatus() {
+  return requestJson<{
+    ok: true;
+    sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK';
+    datasetLoaded: boolean;
+    datasetVersion: string;
+    sourceUrl: string;
+    retrievalDate: string;
+    recordCount: number;
+    availableYears: number[];
+    availableCounties: string[];
+    availableSectors: string[];
+    availableOperators: string[];
+    lastImportAt: string | null;
+    searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
+    warnings: string[];
+  }>(API_ROUTES.CARB_DATA_STATUS, { method: 'GET' });
+}
+
 export async function importCarbFacilities(payload: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string }) {
-  return requestJson<{ ok: true; imported: number; acceptedRows: number; rejectedRows: number; missingRequiredFields: string[]; warnings: string[]; sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' }>(
+  return requestJson<{
+    ok: true;
+    imported: number;
+    acceptedRows: number;
+    rejectedRows: number;
+    missingRequiredFields: string[];
+    rejectedDetails?: Array<{ rowNumber: number; reason: string }>;
+    warnings: string[];
+    sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' | 'LIVE';
+  }>(
     API_ROUTES.CARB_DATA_IMPORT,
     { method: 'POST', body: JSON.stringify(payload) },
   );
+}
+
+export async function syncOfficialCarbData() {
+  return requestJson<{ ok: true; imported: number; warnings: string[] }>(API_ROUTES.CARB_DATA_SYNC_OFFICIAL, {
+    method: 'POST',
+    body: JSON.stringify({}),
+  });
 }

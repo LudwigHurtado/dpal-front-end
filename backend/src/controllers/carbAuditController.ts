@@ -3,7 +3,13 @@ import { Prisma, DpalUserRole } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { paramId } from '../lib/routeParams';
 import { carbAuditExportSchema, carbAuditLinkSchema, carbAuditPayloadSchema, type CarbAuditPayloadInput } from '../schemas/carbAudit';
-import { getCarbImportMeta, importCarbDataset, searchCarbFacilityRecords } from '../services/carbDataService';
+import {
+  getCarbDataStatus,
+  getCarbImportMeta,
+  importCarbDataset,
+  searchCarbFacilityRecords,
+  syncOfficialCarbDataset,
+} from '../services/carbDataService';
 
 const prismaDb = prisma as any;
 const toJson = (value: unknown): Prisma.InputJsonValue => value as Prisma.InputJsonValue;
@@ -81,11 +87,14 @@ export async function searchCarbData(req: Request, res: Response): Promise<void>
   const result = await searchCarbFacilityRecords({
     q: String(req.query.q ?? ''),
     facilityId: String(req.query.facilityId ?? ''),
+    operatorName: String(req.query.operatorName ?? ''),
+    facilityName: String(req.query.facilityName ?? ''),
     city: String(req.query.city ?? ''),
     county: String(req.query.county ?? ''),
     sector: String(req.query.sector ?? ''),
     year: Number(req.query.year || 0) || undefined,
     limit: Number(req.query.limit || 50) || 50,
+    offset: Number(req.query.offset || 0) || 0,
   });
   const meta = getCarbImportMeta();
   res.json({
@@ -99,6 +108,11 @@ export async function searchCarbData(req: Request, res: Response): Promise<void>
   });
 }
 
+export async function getCarbDataStatusHandler(_req: Request, res: Response): Promise<void> {
+  const status = await getCarbDataStatus();
+  res.json(status);
+}
+
 export async function importCarbData(req: Request, res: Response): Promise<void> {
   // TODO: wire multipart/form-data upload with multer for large CARB files.
   // For now this endpoint supports JSON body with records[] or csvText/jsonText.
@@ -108,6 +122,7 @@ export async function importCarbData(req: Request, res: Response): Promise<void>
     jsonText: typeof req.body?.jsonText === 'string' ? req.body.jsonText : undefined,
     datasetVersion: typeof req.body?.datasetVersion === 'string' ? req.body.datasetVersion : undefined,
     sourceUrl: typeof req.body?.sourceUrl === 'string' ? req.body.sourceUrl : undefined,
+    retrievalDate: typeof req.body?.retrievalDate === 'string' ? req.body.retrievalDate : undefined,
   });
   res.status(201).json({
     ok: true,
@@ -115,8 +130,22 @@ export async function importCarbData(req: Request, res: Response): Promise<void>
     acceptedRows: imported.acceptedRows,
     rejectedRows: imported.rejectedRows,
     missingRequiredFields: imported.missingRequiredFields,
+    rejectedDetails: imported.rejectedDetails,
     warnings: imported.warnings,
-    sourceMode: imported.imported > 0 ? 'IMPORTED' : 'DEMO_FALLBACK',
+    sourceMode: imported.imported > 0 ? 'IMPORTED' : 'LIVE',
+  });
+}
+
+export async function syncOfficialCarbData(req: Request, res: Response): Promise<void> {
+  if (!isAdmin(req)) {
+    res.status(403).json({ error: 'Forbidden', message: 'Admin role required for official dataset sync.' });
+    return;
+  }
+  const result = await syncOfficialCarbDataset();
+  res.status(201).json({
+    ok: true,
+    imported: result.imported,
+    warnings: result.warnings,
   });
 }
 
