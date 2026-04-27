@@ -16,12 +16,12 @@ interface AquaScanSituationRoomProps {
 }
 
 const ACTIONS = [
+  'Generate Evidence Packet',
+  'Attach Evidence',
+  'Request Water Sample',
+  'Assign Validator',
+  'Mark Needs Evidence',
   'Add note',
-  'Request water sample',
-  'Assign field verifier',
-  'Escalate to validator',
-  'Mark as reviewed',
-  'Attach new evidence',
 ] as const;
 
 export default function AquaScanSituationRoom({
@@ -129,6 +129,12 @@ export default function AquaScanSituationRoom({
             <p>Risk level: {report.aiIntelligence.riskLevel || 'Not available'}</p>
             <p>Evidence hash: {report.hashes.evidenceHash || 'Pending generation'}</p>
           </div>
+          {report.evidencePacket.status === 'not_generated' ? (
+            <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-900/15 p-3 text-sm text-amber-100">
+              <p>Evidence Packet not generated yet.</p>
+              <p className="mt-1 text-xs text-amber-200">Add photos, lab results, field notes, or validator comments when available.</p>
+            </div>
+          ) : null}
           <div className="mt-4">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Action checklist</p>
             <div className="mt-3 space-y-2">
@@ -195,6 +201,12 @@ export default function AquaScanSituationRoom({
           </div>
           <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
             <p className="text-xs font-black uppercase tracking-[0.22em] text-slate-500">Evidence sidebar</p>
+            {report.evidencePacket.status === 'not_generated' ? (
+              <div className="mt-2 rounded-xl border border-amber-500/30 bg-amber-900/15 p-3 text-sm text-amber-100">
+                <p>Evidence Packet not generated yet.</p>
+                <p className="mt-1 text-xs text-amber-200">Add photos, lab results, field notes, or validator comments when available.</p>
+              </div>
+            ) : null}
             <ul className="mt-2 space-y-2 text-sm text-slate-300">
               {(report.evidencePacket.includedFiles?.length ?? 0) === 0 && (report.evidencePacket.screenshots?.length ?? 0) === 0 ? (
                 <li>No uploaded evidence files yet.</li>

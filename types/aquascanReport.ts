@@ -19,6 +19,7 @@ export interface AquaScanEvidenceReport {
   createdAt: string;
   createdBy?: string;
   aquaScanResult: {
+    sourceLabel?: string;
     beforeDate?: string;
     afterDate?: string;
     comparisonDate?: string;
@@ -59,9 +60,11 @@ export interface AquaScanEvidenceReport {
     disclaimers: string[];
   };
   evidencePacket: {
+    status: 'not_generated' | 'generated' | 'partial';
     includedFiles?: AquaScanEvidenceAttachment[];
     screenshots?: AquaScanEvidenceScreenshot[];
     notes?: string[];
+    evidenceHash: string;
   };
   hashes: {
     reportPayloadHash: string;
@@ -100,5 +103,5 @@ export interface BuildAquaScanEvidenceReportInput {
   aquaScanResult: AquaScanEvidenceReport['aquaScanResult'];
   satelliteMetadata: AquaScanEvidenceReport['satelliteMetadata'];
   aiIntelligence: AquaScanEvidenceReport['aiIntelligence'];
-  evidencePacket: AquaScanEvidenceReport['evidencePacket'];
+  evidencePacket?: Partial<AquaScanEvidenceReport['evidencePacket']> | null;
 }

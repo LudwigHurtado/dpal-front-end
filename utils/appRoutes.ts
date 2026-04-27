@@ -8,6 +8,8 @@ export const MARKETPLACE_MISSION_DETAIL_PREFIX = '/missions/m';
 export const EPA_GHG_FACILITY_DETAIL_PREFIX = '/environmental-intelligence/epa-ghg/facility';
 export const AQUASCAN_REPORT_PREFIX = '/aquascan/reports';
 export const AQUASCAN_SITUATION_ROOM_PREFIX = '/aquascan/situation-room';
+export const CARB_REPORT_PREFIX = '/carb/reports';
+export const CARB_SITUATION_ROOM_PREFIX = '/carb/situation-room';
 
 export function marketplaceMissionDetailPath(listingId: string): string {
   return `${MARKETPLACE_MISSION_DETAIL_PREFIX}/${encodeURIComponent(listingId)}`;
@@ -48,6 +50,26 @@ export function aquaScanSituationRoomPath(roomId: string): string {
 export function parseAquaScanSituationRoomIdFromPath(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
   const m = normalized.match(/^\/aquascan\/situation-room\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export function carbReportPath(reportId: string): string {
+  return `${CARB_REPORT_PREFIX}/${encodeURIComponent(reportId)}`;
+}
+
+export function parseCarbReportIdFromPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  const m = normalized.match(/^\/carb\/reports\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export function carbSituationRoomPath(roomId: string): string {
+  return `${CARB_SITUATION_ROOM_PREFIX}/${encodeURIComponent(roomId)}`;
+}
+
+export function parseCarbSituationRoomIdFromPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  const m = normalized.match(/^\/carb\/situation-room\/([^/]+)$/);
   return m ? decodeURIComponent(m[1]) : null;
 }
 
@@ -116,6 +138,8 @@ export const VIEW_PATHS: Record<string, string> = {
   aquaScanWater: '/water/aquascan',
   aquascanReportViewer: '/aquascan/reports',
   aquascanSituationRoom: '/aquascan/situation-room',
+  carbReportViewer: '/carb/reports',
+  carbSituationRoom: '/carb/situation-room',
   /** Water Operations Engine route for operational workflows */
   waterOperationsEngine: '/water/monitor',
   /** DPAL Global Signals Engine — live feeds from USGS / NASA EONET / OpenAQ */
@@ -154,6 +178,8 @@ export function pathToView(pathname: string): string | null {
   if (/^\/environmental-intelligence\/epa-ghg\/facility\/[^/]+$/.test(normalized)) return 'epaGhgFacilityDetail';
   if (/^\/aquascan\/reports\/[^/]+$/.test(normalized)) return 'aquascanReportViewer';
   if (/^\/aquascan\/situation-room\/[^/]+$/.test(normalized)) return 'aquascanSituationRoom';
+  if (/^\/carb\/reports\/[^/]+$/.test(normalized)) return 'carbReportViewer';
+  if (/^\/carb\/situation-room\/[^/]+$/.test(normalized)) return 'carbSituationRoom';
   if (/^\/preview\/module-preview\/[^/]+$/.test(normalized)) return 'previewModule';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';

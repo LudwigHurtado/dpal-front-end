@@ -70,6 +70,7 @@ type AquaScanReaderContext = {
 };
 
 export type AquaScanIntelligenceOutput = {
+  stateLabel: 'active calculated result' | 'saved history result' | 'setup only' | 'no setup';
   summary: string;
   keyFindings: string[];
   confidenceInterpretation: string;
@@ -243,20 +244,47 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
   const historyContext = buildHistoryContext(args.selectedHistoryItem ?? args.calculationHistory[0] ?? null);
   const activeContext = currentContext ?? historyContext;
   const recentHistory = args.calculationHistory.slice(0, 3);
+  const hasSetup = Boolean(
+    args.savedAoiAreaSqKm > 0
+    && args.beforeRange.from
+    && args.beforeRange.to
+    && args.afterRange.from
+    && args.afterRange.to
+    && args.comparisonIndexType,
+  );
+  const stateLabel: AquaScanIntelligenceOutput['stateLabel'] = currentContext
+    ? 'active calculated result'
+    : historyContext
+      ? 'saved history result'
+      : hasSetup
+        ? 'setup only'
+        : 'no setup';
   const currentMeasurementStatus = currentContext
     ? `${currentContext.measurementStatus}. ${describeIndexReading(currentContext.indexType, currentContext.deltaPercent)}`
-    : 'No current comparison result is loaded. Previous measurements are available in history.';
+    : historyContext
+      ? 'Reading saved comparison history.'
+      : hasSetup
+        ? 'Dates are selected, but no active calculated comparison has been run yet.'
+        : 'No setup is ready yet. Select an AOI, index, and before/after date windows to prepare the comparison.';
 
   const summary = currentContext
-    ? `${describeIndexReading(currentContext.indexType, currentContext.deltaPercent)} ${describeStrength(currentContext.deltaPercent)} ${describeConfidence(currentContext.confidenceScore)}`
-    : recentHistory.length > 0
-      ? `No current comparison result is loaded. Previous measurements are available in history. Recent rows include ${recentHistory.map((item) => formatCalculationHistoryHeadline(item)).join('; ')}.`
-      : 'No current comparison result is loaded and no local history rows are available yet.';
+    ? `Active calculated comparison loaded. ${describeIndexReading(currentContext.indexType, currentContext.deltaPercent)} ${describeStrength(currentContext.deltaPercent)} ${describeConfidence(currentContext.confidenceScore)}`
+    : historyContext
+      ? `Reading saved comparison history. ${describeIndexReading(historyContext.indexType, historyContext.deltaPercent)} ${describeStrength(historyContext.deltaPercent)} ${describeConfidence(historyContext.confidenceScore)}`
+      : hasSetup
+        ? recentHistory.length > 0
+          ? `Comparison setup is ready, but the satellite calculation has not been run yet. Click Calculate Comparison to generate before/after measurement values. Saved comparison results are available. Restore a result or create a report directly from history. Recent rows include ${recentHistory.map((item) => formatCalculationHistoryHeadline(item)).join('; ')}.`
+          : 'Comparison setup is ready, but the satellite calculation has not been run yet. Click Calculate Comparison to generate before/after measurement values.'
+        : 'No setup is ready yet. Select an AOI, index, and before/after date windows to prepare the comparison.';
 
   const keyFindings = [
     currentContext
       ? `Current measurement status: ${currentContext.measurementStatus}.`
-      : 'Current measurement status: no active comparison is loaded.',
+      : historyContext
+        ? 'Current measurement status: reading saved comparison history.'
+        : hasSetup
+          ? 'Current measurement status: setup only, no active calculated result yet.'
+          : 'Current measurement status: no setup loaded.',
     activeContext ? describeIndexReading(activeContext.indexType, activeContext.deltaPercent) : 'No index reading is available yet.',
     activeContext ? describeStrength(activeContext.deltaPercent) : 'Change strength cannot be graded until a comparison exists.',
     activeContext ? describeConfidence(activeContext.confidenceScore) : 'Confidence cannot be interpreted until a comparison exists.',
@@ -299,7 +327,11 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
       ? 'Several indexes changed notably. Generate an Evidence Packet and send it to validator review.'
       : null,
     !currentContext
-      ? 'Restore a relevant history row or rerun Calculate Comparison for the current AOI and dates.'
+      ? historyContext
+        ? 'Use the saved history result directly, restore it into the current workspace, or create a report from that saved result.'
+        : hasSetup
+          ? 'Run Calculate Comparison for the current AOI and dates, create a preliminary setup report, or use a saved history result.'
+          : 'Select an AOI, choose an index, and enter before/after dates first.'
       : 'If this current result matters operationally, export an Evidence Packet and pair it with field evidence.',
   ].filter((value): value is string => Boolean(value));
 
@@ -344,6 +376,7 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
   };
 
   return {
+    stateLabel,
     summary,
     keyFindings,
     confidenceInterpretation,

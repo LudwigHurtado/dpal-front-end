@@ -1,5 +1,10 @@
 import QRCode from 'qrcode';
-import { aquaScanReportPath, aquaScanSituationRoomPath } from './appRoutes';
+import {
+  aquaScanReportPath,
+  aquaScanSituationRoomPath,
+  carbReportPath,
+  carbSituationRoomPath,
+} from './appRoutes';
 
 const QR_OPTIONS = {
   width: 280,
@@ -19,6 +24,14 @@ export function buildAquaScanReportUrl(reportId: string): string {
 
 export function buildAquaScanSituationRoomUrl(roomId: string): string {
   return buildAbsoluteAppUrl(aquaScanSituationRoomPath(roomId));
+}
+
+export function buildCarbReportUrl(reportId: string): string {
+  return buildAbsoluteAppUrl(carbReportPath(reportId));
+}
+
+export function buildCarbSituationRoomUrl(roomId: string): string {
+  return buildAbsoluteAppUrl(carbSituationRoomPath(roomId));
 }
 
 export async function generateQrCodeDataUrl(value: string): Promise<string> {

@@ -31,6 +31,8 @@ function buildHashablePayload(report: AquaScanEvidenceReport): Record<string, un
 
 function buildEvidenceHashablePayload(report: AquaScanEvidenceReport): Record<string, unknown> {
   return {
+    status: report.evidencePacket.status,
+    evidenceHash: report.evidencePacket.evidenceHash,
     includedFiles: report.evidencePacket.includedFiles ?? [],
     screenshots: report.evidencePacket.screenshots ?? [],
     notes: report.evidencePacket.notes ?? [],
@@ -39,7 +41,7 @@ function buildEvidenceHashablePayload(report: AquaScanEvidenceReport): Record<st
 
 export async function logAquaScanReportToLedger(report: AquaScanEvidenceReport): Promise<AquaScanEvidenceReport> {
   const reportPayloadHash = await sha256Json(buildHashablePayload(report));
-  const evidenceHash = await sha256Json(buildEvidenceHashablePayload(report));
+  const evidenceHash = report.evidencePacket.evidenceHash || await sha256Json(buildEvidenceHashablePayload(report));
   const chainResult = await addDataHashBlockToChain({
     reportId: report.reportId,
     dataHash: reportPayloadHash,

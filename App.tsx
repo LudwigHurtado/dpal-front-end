@@ -51,6 +51,8 @@ import CarbonMRVDashboard from './components/CarbonMRVDashboard';
 import AquaScanView from './components/AquaScanView';
 import AquaScanReportViewer from './components/aquascan/AquaScanReportViewer';
 import AquaScanSituationRoom from './components/aquascan/AquaScanSituationRoom';
+import CarbReportViewer from './components/carb/CarbReportViewer';
+import CarbSituationRoom from './components/carb/CarbSituationRoom';
 import WaterMonitorView from './components/WaterMonitorView';
 import EcologicalConservationView from './components/EcologicalConservationView';
 import EarthObservationView from './components/EarthObservationView';
@@ -113,8 +115,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import {
   aquaScanReportPath,
   aquaScanSituationRoomPath,
+  carbReportPath,
+  carbSituationRoomPath,
   parseAquaScanReportIdFromPath,
   parseAquaScanSituationRoomIdFromPath,
+  parseCarbReportIdFromPath,
+  parseCarbSituationRoomIdFromPath,
   epaFacilityDetailPath,
   marketplaceMissionDetailPath,
   pathToView,
@@ -137,7 +143,7 @@ import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvi
 import type { EpaFacilityProfile } from './src/types/epa';
 import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -405,6 +411,12 @@ const App: React.FC = () => {
   const [aquaScanSituationRoomId, setAquaScanSituationRoomId] = useState<string | null>(
     () => (typeof window !== 'undefined' ? parseAquaScanSituationRoomIdFromPath(window.location.pathname) : null),
   );
+  const [carbViewerReportId, setCarbViewerReportId] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? parseCarbReportIdFromPath(window.location.pathname) : null),
+  );
+  const [carbSituationRoomId, setCarbSituationRoomId] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? parseCarbSituationRoomIdFromPath(window.location.pathname) : null),
+  );
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -539,6 +551,28 @@ const App: React.FC = () => {
       return;
     }
 
+    const carbReportIdFromPath = parseCarbReportIdFromPath(normalizedPath);
+    if (carbReportIdFromPath) {
+      setCarbViewerReportId(carbReportIdFromPath);
+      setCurrentView((prev) => {
+        if (prev === 'carbReportViewer') return prev;
+        backNavRef.current = true;
+        return 'carbReportViewer';
+      });
+      return;
+    }
+
+    const carbSituationRoomIdFromPath = parseCarbSituationRoomIdFromPath(normalizedPath);
+    if (carbSituationRoomIdFromPath) {
+      setCarbSituationRoomId(carbSituationRoomIdFromPath);
+      setCurrentView((prev) => {
+        if (prev === 'carbSituationRoom') return prev;
+        backNavRef.current = true;
+        return 'carbSituationRoom';
+      });
+      return;
+    }
+
     const v = pathToView(location.pathname);
     if (v == null) {
       if (location.pathname !== '/' && location.pathname !== '/index.html') {
@@ -588,6 +622,20 @@ const App: React.FC = () => {
       navigate(path, { replace: false });
       return;
     }
+    if (currentView === 'carbReportViewer' && carbViewerReportId) {
+      const path = carbReportPath(carbViewerReportId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
+    if (currentView === 'carbSituationRoom' && carbSituationRoomId) {
+      const path = carbSituationRoomPath(carbSituationRoomId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
@@ -603,7 +651,7 @@ const App: React.FC = () => {
     if (full === cur) return;
     navigate(full, { replace: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync only when view changes; do not re-run on every query/hash change
-  }, [currentView, marketplaceDetailListingId, epaFacilityDetailId, aquaScanViewerReportId, aquaScanSituationRoomId, navigate]);
+  }, [currentView, marketplaceDetailListingId, epaFacilityDetailId, aquaScanViewerReportId, aquaScanSituationRoomId, carbViewerReportId, carbSituationRoomId, navigate]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {
@@ -651,6 +699,14 @@ const App: React.FC = () => {
     }
     if (currentView === 'aquascanSituationRoom' && !aquaScanSituationRoomId) {
       setCurrentView('aquaScanWater');
+      return;
+    }
+    if (currentView === 'carbReportViewer' && !carbViewerReportId) {
+      setCurrentView('carbEmissionsAudit');
+      return;
+    }
+    if (currentView === 'carbSituationRoom' && !carbSituationRoomId) {
+      setCurrentView('carbEmissionsAudit');
       return;
     }
     if (currentView === 'missionComplete' && !completedMissionSummary) {
@@ -1173,6 +1229,18 @@ const App: React.FC = () => {
     setAquaScanSituationRoomId(roomId);
     setPrevView(currentView);
     setCurrentView('aquascanSituationRoom');
+  }, [currentView]);
+
+  const openCarbReportViewer = useCallback((reportId: string) => {
+    setCarbViewerReportId(reportId);
+    setPrevView(currentView);
+    setCurrentView('carbReportViewer');
+  }, [currentView]);
+
+  const openCarbSituationRoom = useCallback((roomId: string) => {
+    setCarbSituationRoomId(roomId);
+    setPrevView(currentView);
+    setCurrentView('carbSituationRoom');
   }, [currentView]);
 
   const marketplaceListingDetail = useMemo(() => {
@@ -2557,6 +2625,23 @@ const App: React.FC = () => {
         {currentView === 'carbEmissionsAudit' && (
           <CarbEmissionsAuditPage
             onReturn={() => goBack('mainMenu')}
+            onOpenCarbReport={openCarbReportViewer}
+            onOpenCarbSituationRoom={openCarbSituationRoom}
+          />
+        )}
+
+        {currentView === 'carbReportViewer' && (
+          <CarbReportViewer
+            reportId={carbViewerReportId}
+            onReturn={() => goBack('carbEmissionsAudit')}
+            onOpenSituationRoom={openCarbSituationRoom}
+          />
+        )}
+
+        {currentView === 'carbSituationRoom' && (
+          <CarbSituationRoom
+            roomId={carbSituationRoomId}
+            onReturn={() => goBack('carbEmissionsAudit')}
           />
         )}
 

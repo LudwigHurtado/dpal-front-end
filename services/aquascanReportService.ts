@@ -1,5 +1,6 @@
 import type { AquaScanEvidenceReport, BuildAquaScanEvidenceReportInput } from '../types/aquascanReport';
 import { buildAquaScanReportUrl, buildAquaScanSituationRoomUrl } from '../utils/qrUtils';
+import { sha256Text } from '../utils/hashUtils';
 
 const STORAGE_KEY = 'dpal_aquascan_evidence_reports_v1';
 
@@ -63,12 +64,35 @@ export function updateAquaScanEvidenceReport(
   return nextReport;
 }
 
-export function buildAquaScanEvidenceReport(input: BuildAquaScanEvidenceReportInput): AquaScanEvidenceReport {
+async function buildDefaultEvidencePacket(input: BuildAquaScanEvidenceReportInput, reportId: string, createdAt: string): Promise<AquaScanEvidenceReport['evidencePacket']> {
+  const baseNotes = [
+    'No formal Evidence Packet was generated before this report.',
+    'This report was created from available AquaScan reading, map, satellite, AI, and project state.',
+  ];
+  const evidenceHash = await sha256Text(`${reportId}|${input.projectId ?? 'NO_PROJECT'}|${createdAt}|no-evidence-packet`);
+  return {
+    status: 'not_generated',
+    includedFiles: [],
+    screenshots: [],
+    notes: baseNotes,
+    evidenceHash,
+  };
+}
+
+export async function buildAquaScanEvidenceReport(input: BuildAquaScanEvidenceReportInput): Promise<AquaScanEvidenceReport> {
   const reportId = buildReportId(input.projectId);
   const roomId = buildRoomId(reportId, input.projectId);
   const createdAt = input.createdAt ?? new Date().toISOString();
   const reportUrl = buildAquaScanReportUrl(reportId);
   const roomUrl = buildAquaScanSituationRoomUrl(roomId);
+  const fallbackPacket = await buildDefaultEvidencePacket(input, reportId, createdAt);
+  const evidencePacket: AquaScanEvidenceReport['evidencePacket'] = {
+    status: input.evidencePacket?.status ?? fallbackPacket.status,
+    includedFiles: input.evidencePacket?.includedFiles ?? fallbackPacket.includedFiles,
+    screenshots: input.evidencePacket?.screenshots ?? fallbackPacket.screenshots,
+    notes: input.evidencePacket?.notes ?? fallbackPacket.notes,
+    evidenceHash: input.evidencePacket?.evidenceHash ?? fallbackPacket.evidenceHash,
+  };
 
   return {
     reportId,
@@ -79,9 +103,10 @@ export function buildAquaScanEvidenceReport(input: BuildAquaScanEvidenceReportIn
     aquaScanResult: input.aquaScanResult,
     satelliteMetadata: input.satelliteMetadata,
     aiIntelligence: input.aiIntelligence,
-    evidencePacket: input.evidencePacket,
+    evidencePacket,
     hashes: {
       reportPayloadHash: 'Pending generation',
+      evidenceHash: evidencePacket.evidenceHash,
     },
     ledger: {
       blockId: 'Pending connection',

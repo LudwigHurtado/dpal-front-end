@@ -148,6 +148,14 @@ export async function generateAquaScanEvidencePdf(report: AquaScanEvidenceReport
   });
 
   y = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y + 16;
+  y = addParagraph(doc, `Source: ${safe(report.aquaScanResult.sourceLabel, 'Current AquaScan state')}`, y);
+  if (report.aquaScanResult.sourceLabel === 'Preliminary / no active comparison loaded') {
+    y = addParagraph(
+      doc,
+      'This is a preliminary AquaScan setup report. Date windows and AOI were selected, but satellite/statistical comparison has not yet been calculated.',
+      y,
+    );
+  }
   if (y > 210) {
     doc.addPage();
     y = 18;
@@ -207,20 +215,47 @@ export async function generateAquaScanEvidencePdf(report: AquaScanEvidenceReport
     doc.addPage();
     y = 18;
   }
-  y = addSectionTitle(doc, 'Evidence Packet', y + 4);
+  y = addSectionTitle(doc, 'Evidence Packet Status', y + 4);
+  autoTable(doc, {
+    startY: y,
+    theme: 'grid',
+    body: [
+      ['Evidence Packet', report.evidencePacket.status === 'not_generated' ? 'Not generated' : report.evidencePacket.status],
+      ['Attached files', (report.evidencePacket.includedFiles?.length ?? 0) > 0 ? String(report.evidencePacket.includedFiles?.length ?? 0) : 'None'],
+      ['Evidence hash', report.evidencePacket.status === 'not_generated' ? 'Generated from available report payload' : safe(report.evidencePacket.evidenceHash)],
+      ['Status', report.evidencePacket.status === 'not_generated'
+        ? 'Preliminary report available; additional evidence can be attached later'
+        : 'Evidence packet metadata included in this report'],
+    ],
+    styles: { fontSize: 9, cellPadding: 2.2 },
+    columnStyles: { 0: { cellWidth: 46, fontStyle: 'bold' }, 1: { cellWidth: 134 } },
+  });
+  y = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y + 8;
+  y = addParagraph(
+    doc,
+    'This report may be supplemented with photos, lab results, field notes, validator review, or agency records.',
+    y,
+  );
+  y = addSectionTitle(doc, 'Evidence Packet Artifacts', y + 6);
   autoTable(doc, {
     startY: y,
     theme: 'grid',
     head: [['Artifact', 'Type', 'Hash / URL']],
     body: [
-      ...(report.evidencePacket.includedFiles?.map((file) => [file.name, file.type, safe(file.hash || file.url)]) ?? [['No attached files', 'Not available', 'Pending connection']]),
+      ...(report.evidencePacket.includedFiles?.length
+        ? report.evidencePacket.includedFiles.map((file) => [file.name, file.type, safe(file.hash || file.url)])
+        : [['Evidence files', 'None attached', 'Not generated yet']]),
       ...(report.evidencePacket.screenshots?.map((shot) => [shot.name, 'Screenshot', safe(shot.hash || shot.url)]) ?? []),
     ],
     styles: { fontSize: 9, cellPadding: 2.2 },
     headStyles: { fillColor: [6, 95, 70] },
   });
   y = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? y + 8;
-  y = addParagraph(doc, `Evidence hash: ${safe(report.hashes.evidenceHash, 'Pending generation')}`, y);
+  y = addParagraph(
+    doc,
+    `Evidence hash: ${report.evidencePacket.status === 'not_generated' ? 'Generated from available report payload' : safe(report.hashes.evidenceHash, 'Pending generation')}`,
+    y,
+  );
 
   if (y > 190) {
     doc.addPage();
