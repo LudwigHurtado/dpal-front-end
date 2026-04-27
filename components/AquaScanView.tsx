@@ -808,6 +808,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     }
     return buildAiSummary(selectedProject.concernType, selectedFocusLocation.displayName.split(',')[0]);
   }, [selectedFocusLocation, waterData, selectedProject.concernType]);
+  const toolsRunning = searchBusy || entitiesLoading || waterApiLoading;
+  const toolsStatusLabel = searchBusy
+    ? 'Searching focus location...'
+    : entitiesLoading && waterApiLoading
+      ? 'Running nearby search and satellite analysis...'
+      : entitiesLoading
+        ? 'Searching nearby mapped entities...'
+        : waterApiLoading
+          ? 'Running satellite analysis...'
+          : null;
 
   const focusAoiStatus = activeAoi && activeAoi.length >= 3
     ? `Drawn (${activeAoi.length} pts)`
@@ -1323,7 +1333,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       setActionNotice('Enter a location to search.');
       return;
     }
+    if (entityLookupAbortRef.current) {
+      entityLookupAbortRef.current.abort();
+    }
+    const entityController = new AbortController();
+    entityLookupAbortRef.current = entityController;
     setSearchBusy(true);
+    setNearbyEntities([]);
+    setEntitiesError(null);
+    setWaterData(null);
+    setComparisonResult(null);
     try {
       const gps = parseGpsCoords(query);
 
@@ -1364,6 +1383,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           longitude: String(lng),
         }));
         setSelectedProjectId('AQ-DRAFT');
+        void runEntityLookup(lat, lng, entityController);
         setActionNotice(`Focused on ${displayName}.`);
         return;
       }
@@ -1401,6 +1421,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         longitude: String(lng.toFixed(6)),
       }));
       setSelectedProjectId('AQ-DRAFT');
+      void runEntityLookup(lat, lng, entityController);
       setActionNotice(`Focused on ${shortName}.`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Location search failed.';
@@ -1754,7 +1775,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       {/* -- 3. Compact Status Chips -- */}
       <div className="border-b border-slate-800/60 bg-slate-950/40 px-4 sm:px-6">
         <div className="mx-auto flex max-w-[1400px] flex-wrap items-center gap-2 py-1.5">
-          {!waterData && !waterApiLoading && selectedFocusLocation ? (
+          {toolsRunning && toolsStatusLabel ? (
+            <span className="rounded-full border border-cyan-500/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] text-cyan-200">
+              {toolsStatusLabel}
+            </span>
+          ) : null}
+          {!waterData && !waterApiLoading && !toolsRunning && selectedFocusLocation && (waterApiError || liveDataRequired) ? (
             <span className="rounded-full border border-rose-500/40 bg-rose-900/20 px-2 py-0.5 text-[10px] text-rose-200">
               Satellite data: Unavailable
             </span>
