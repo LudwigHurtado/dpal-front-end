@@ -378,6 +378,7 @@ function buildStatisticsRequest(args: {
   fromDate: string;
   toDate: string;
 }): any {
+  const resolutionMeters = args.collection === 'sentinel-2-l2a' ? 10 : 10;
   return {
     input: {
       bounds: { geometry: args.aoiGeoJson },
@@ -399,9 +400,10 @@ function buildStatisticsRequest(args: {
         to: `${args.toDate}T23:59:59Z`,
       },
       aggregationInterval: { of: 'P1M' },
+      resx: `${resolutionMeters}m`,
+      resy: `${resolutionMeters}m`,
       evalscript: evalscriptSourceFor(args.indexType),
     },
-    calculations: { default: { statistics: { default: { percentiles: { k: [50] } } } } },
   };
 }
 
