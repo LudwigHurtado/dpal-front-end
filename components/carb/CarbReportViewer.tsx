@@ -85,7 +85,18 @@ export default function CarbReportViewer({
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-5 text-sm text-slate-300">
-          <h2 className="text-lg font-bold text-white">Facility and Emissions Summary</h2>
+          <h2 className="text-lg font-bold text-white">Executive Summary</h2>
+          <p className="mt-2">Report quality rating: <span className="font-semibold text-cyan-200">{text(report.reportQualityRating, 'Draft')}</span></p>
+          {report.dataReadiness ? (
+            <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+              <p className="font-semibold text-white">Data Readiness</p>
+              <p className="mt-1 text-xs">Search readiness: {report.dataReadiness.searchReadiness}</p>
+              <p className="text-xs">Dataset: {text(report.dataReadiness.datasetVersion)}</p>
+              <p className="text-xs">Retrieval date: {text(report.dataReadiness.retrievalDate)}</p>
+              <p className="text-xs">Indexed records: {report.dataReadiness.recordsIndexed ?? 'n/a'}</p>
+            </div>
+          ) : null}
+          <h2 className="mt-4 text-lg font-bold text-white">Facility Profile</h2>
           <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
             <p>Facility: {text(report.facilityIdentity.facilityName)}</p>
             <p>Operator: {text(report.facilityIdentity.operatorName)}</p>
@@ -96,6 +107,47 @@ export default function CarbReportViewer({
             <p>Claim result: {text(report.claimVerificationResult)}</p>
             <p>Integrity / Risk: {text(report.integrityScore)} / {text(report.riskLevel)}</p>
           </div>
+          <h3 className="mt-5 text-base font-bold text-white">Company Claim Review</h3>
+          <p className="mt-2">{text(report.claimVerificationResult)}</p>
+          {report.environmentalReadings?.length ? (
+            <>
+              <h3 className="mt-5 text-base font-bold text-white">Automatic NDWI/NDVI/NDMI/NBR Analysis</h3>
+              <div className="mt-2 space-y-2">
+                {report.environmentalReadings.map((reading) => (
+                  <div key={reading.index} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs">
+                    <p className="font-semibold text-white">{reading.index}</p>
+                    <p>Before: {reading.before ?? 'n/a'} | Current: {reading.current ?? 'n/a'} | Change: {reading.change ?? 'n/a'}</p>
+                    <p>Confidence: {reading.confidence}</p>
+                    <p>Source: {reading.source}</p>
+                    <p>{reading.interpretation}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+          {report.investigationFindings?.length ? (
+            <>
+              <h3 className="mt-5 text-base font-bold text-white">Investigation Engine Findings</h3>
+              <div className="mt-2 space-y-2">
+                {report.investigationFindings.map((finding) => (
+                  <div key={finding.title} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs">
+                    <p className="font-semibold text-white">{finding.title}</p>
+                    <p>Finding: {finding.finding}</p>
+                    <p>Why it matters: {finding.whyItMatters}</p>
+                    <p>Next action: {finding.nextAction}</p>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <h3 className="mt-5 text-base font-bold text-white">Evidence Limitations</h3>
+          <ul className="mt-2 list-disc pl-5 text-xs">
+            {report.limitations.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+          <h3 className="mt-5 text-base font-bold text-white">Recommended Next Steps</h3>
+          <ul className="mt-2 list-disc pl-5 text-xs">
+            {report.recommendedNextSteps.map((item) => <li key={item}>{item}</li>)}
+          </ul>
           <h3 className="mt-5 text-base font-bold text-white">Legal disclaimer</h3>
           <p className="mt-2">{report.disclaimer}</p>
         </section>

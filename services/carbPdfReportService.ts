@@ -72,6 +72,24 @@ export async function generateCarbReportPdf(report: CarbSpecializedReport): Prom
     columnStyles: { 0: { cellWidth: 58, fontStyle: 'bold' }, 1: { cellWidth: 122 } },
   });
 
+  if (report.environmentalReadings?.length) {
+    autoTable(doc, {
+      startY: ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 110) + 5,
+      theme: 'grid',
+      head: [['Index', 'Before', 'Current', 'Change', 'Confidence', 'Source']],
+      body: report.environmentalReadings.map((item) => ([
+        item.index,
+        item.before == null ? 'n/a' : String(item.before),
+        item.current == null ? 'n/a' : String(item.current),
+        item.change == null ? 'n/a' : String(item.change),
+        item.confidence,
+        item.source,
+      ])),
+      styles: { fontSize: 8.5, cellPadding: 2.1 },
+      headStyles: { fillColor: [30, 41, 59] },
+    });
+  }
+
   let y = ((doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ?? 150) + 7;
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(15, 23, 42);

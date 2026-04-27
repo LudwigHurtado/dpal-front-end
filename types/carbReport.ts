@@ -34,12 +34,36 @@ export interface CarbSpecializedReport {
     n2o: { baseline: number | null; current: number | null; reductionPct: number | null };
     co2: { baseline: number | null; current: number | null; reductionPct: number | null };
   };
+  environmentalReadings?: Array<{
+    index: 'NDWI' | 'NDVI' | 'NDMI' | 'NBR';
+    before: number | null;
+    current: number | null;
+    change: number | null;
+    interpretation: string;
+    source: string;
+    confidence: 'Low' | 'Medium' | 'High' | 'Unavailable';
+  }>;
   companyClaim: string;
   claimVerificationResult: string;
   claimGapPct: number | null;
   integrityScore: number | null;
   riskLevel: string;
   sourceMode: CarbReportSourceMode;
+  reportQualityRating?: 'Draft' | 'Limited' | 'Review Ready' | 'Regulator Ready';
+  dataReadiness?: {
+    carbDatasetReady: boolean;
+    searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
+    datasetVersion?: string;
+    retrievalDate?: string;
+    recordsIndexed?: number;
+  };
+  investigationFindings?: Array<{
+    title: string;
+    finding: string;
+    whyItMatters: string;
+    nextAction: string;
+  }>;
+  sourceIntegrityWarnings?: string[];
   datasetVersion?: string;
   retrievalDate?: string;
   dataSources: Array<{
@@ -93,12 +117,17 @@ export interface BuildCarbReportInput {
   reportingYears: CarbSpecializedReport['reportingYears'];
   emissionsComparison: CarbSpecializedReport['emissionsComparison'];
   gasBreakdown: CarbSpecializedReport['gasBreakdown'];
+  environmentalReadings?: CarbSpecializedReport['environmentalReadings'];
   companyClaim: string;
   claimVerificationResult: string;
   claimGapPct: number | null;
   integrityScore: number | null;
   riskLevel: string;
   sourceMode: CarbReportSourceMode;
+  reportQualityRating?: 'Draft' | 'Limited' | 'Review Ready' | 'Regulator Ready';
+  dataReadiness?: CarbSpecializedReport['dataReadiness'];
+  investigationFindings?: CarbSpecializedReport['investigationFindings'];
+  sourceIntegrityWarnings?: string[];
   datasetVersion?: string;
   retrievalDate?: string;
   dataSources: CarbSpecializedReport['dataSources'];
