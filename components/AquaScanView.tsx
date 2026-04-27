@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Circle, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, GeoJSON, MapContainer, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
 import type { Hero } from '../types';
@@ -13,9 +13,7 @@ import {
 import {
   communityImpactOptions,
   concernTypes,
-  mockEvidencePackets,
   mockSatelliteLayers,
-  mockWaterProjects,
   suspectedSources,
   waterBodyTypes,
   type AquaScanProject,
@@ -36,6 +34,20 @@ import type {
 import { apiUrl, API_ROUTES } from '../constants';
 import { reverseGeocodeLatLng } from '../services/geocodingService';
 import { lookupNearbyEntities, type NearbyEntity } from '../services/entityLookupService';
+import {
+  fetchFloodWetOverlay,
+  fetchFlowDirection,
+  fetchNdwiOverlay,
+  fetchRiskZones,
+  fetchWaterExtentOverlay,
+  isOverlayLiveDerived,
+} from '../services/aquascan/liveOverlayService';
+import type {
+  AquaScanOverlayRequest,
+  AquaScanOverlayResponse,
+  AquaScanOverlayState,
+  AquaScanOverlayType,
+} from '../services/aquascan/overlayTypes';
 
 interface AquaScanViewProps {
   onReturn: () => void;
@@ -54,6 +66,22 @@ interface FocusLocation {
 }
 
 const DEFAULT_WEST_US_CENTER: [number, number] = [37.25, -119.8];
+
+interface WaterProjectApiRecord {
+  projectId: string;
+  projectName: string;
+  projectType?: string;
+  status?: string;
+  evidenceUrls?: string[];
+  location?: {
+    city?: string;
+    country?: string;
+    gpsCenter?: {
+      lat?: number;
+      lng?: number;
+    };
+  };
+}
 
 const concernWeights: Record<ConcernType, number> = {
   Turbidity: 48,
@@ -123,6 +151,38 @@ function statusLabel(status: WaterIndicator['status']): string {
 }
 
 type BasemapStyle = 'satellite' | 'terrain' | 'dark';
+
+function createOverlayState(overlayType: AquaScanOverlayType): AquaScanOverlayState {
+  return {
+    ok: false,
+    overlayType,
+    source: 'unavailable',
+    sourceName: 'Unavailable',
+    status: 'idle',
+    geometry: null,
+    rasterTileUrl: null,
+    statistics: null,
+    confidence: null,
+    warnings: [],
+  };
+}
+
+function createOverlayStateMap(): Record<AquaScanOverlayType, AquaScanOverlayState> {
+  return {
+    ndwi_water_presence: createOverlayState('ndwi_water_presence'),
+    water_extent: createOverlayState('water_extent'),
+    flood_wet: createOverlayState('flood_wet'),
+    risk_zones: createOverlayState('risk_zones'),
+    flow_direction: createOverlayState('flow_direction'),
+  };
+}
+
+function overlayStatusLabel(overlay: AquaScanOverlayState): string {
+  if (overlay.status === 'loading') return 'Loading live-derived overlay...';
+  if (overlay.status === 'available') return 'Source: Copernicus-derived';
+  if (overlay.status === 'unavailable' || overlay.status === 'error') return 'Live-derived overlay unavailable for this AOI/date.';
+  return 'Live-derived overlay unavailable for this AOI/date.';
+}
 
 const layerToGibsLayer: Record<string, string> = {
   sentinel2: 'VIIRS_SNPP_CorrectedReflectance_TrueColor',
@@ -211,6 +271,59 @@ function focusPointFromProject(project: AquaScanProject): [number, number] {
     return DEFAULT_WEST_US_CENTER;
   }
   return [parsedLat, parsedLng];
+}
+
+async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
+  const response = await fetch(url, {
+    headers: { 'Content-Type': 'application/json', ...(opts?.headers ?? {}) },
+    ...opts,
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(payload?.error ?? `HTTP ${response.status}`);
+  }
+  return payload as T;
+}
+
+function mapProjectTypeToWaterBodyType(projectType?: string): AquaScanProject['waterBodyType'] {
+  const normalized = String(projectType ?? '').toLowerCase();
+  if (normalized.includes('wetland')) return 'Wetland';
+  if (normalized.includes('reservoir')) return 'Reservoir';
+  if (normalized.includes('coast')) return 'Coastal Area';
+  if (normalized.includes('min')) return 'Mining Area';
+  if (normalized.includes('industrial')) return 'Industrial Discharge Zone';
+  if (normalized.includes('farm') || normalized.includes('irrigation')) return 'Farm Runoff Zone';
+  if (normalized.includes('lake')) return 'Lake';
+  return 'River';
+}
+
+function mapLiveProjectToAquaScanProject(project: WaterProjectApiRecord): AquaScanProject {
+  const lat = project.location?.gpsCenter?.lat;
+  const lng = project.location?.gpsCenter?.lng;
+  return {
+    id: project.projectId,
+    projectName: project.projectName || 'Untitled project',
+    waterBodyType: mapProjectTypeToWaterBodyType(project.projectType),
+    locationName: [project.location?.city, project.location?.country].filter(Boolean).join(', ') || 'Unknown location',
+    latitude: typeof lat === 'number' ? String(lat) : '',
+    longitude: typeof lng === 'number' ? String(lng) : '',
+    polygonPlaceholder: '',
+    concernType: 'Turbidity',
+    suspectedSource: 'Unknown',
+    communityImpact: [],
+    evidenceCount: Array.isArray(project.evidenceUrls) ? project.evidenceUrls.length : 0,
+    hasLabResult: false,
+    validatorStatus: project.status === 'approved' ? 'Validated' : project.status === 'monitoring' ? 'Reviewed' : 'Pending',
+  };
+}
+
+function nearbyEntityColor(category: string): string {
+  const normalized = category.toLowerCase();
+  if (normalized.includes('waste') || normalized.includes('sewage') || normalized.includes('landfill')) return '#f97316';
+  if (normalized.includes('fuel') || normalized.includes('petroleum') || normalized.includes('storage')) return '#ef4444';
+  if (normalized.includes('farm') || normalized.includes('agric')) return '#eab308';
+  if (normalized.includes('water') || normalized.includes('utility')) return '#22c55e';
+  return '#38bdf8';
 }
 
 function MapViewSync({ center }: { center: [number, number] }): null {
@@ -324,7 +437,7 @@ function AiSectionHelper({
 }
 
 export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaScanViewProps) {
-  const [projects, setProjects] = useState<AquaScanProject[]>(mockWaterProjects);
+  const [projects, setProjects] = useState<AquaScanProject[]>([]);
   const [helpersExpanded, setHelpersExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('AQ-DRAFT');
   const [selectedLayerIds, setSelectedLayerIds] = useState<string[]>(mockSatelliteLayers.slice(0, 3).map((l) => l.id));
@@ -366,28 +479,15 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const [showRightLayerPanel, setShowRightLayerPanel] = useState(false);
   const [waterHistoryDelta, setWaterHistoryDelta] = useState<string>('Pending history');
   const [layerOpacity, setLayerOpacity] = useState(72);
-  const [actionDraftCounts, setActionDraftCounts] = useState({
-    fieldMission: 0,
-    sampleRequest: 0,
-    labUploads: 0,
-    authorityNotifications: 0,
-    restorationDrafts: 0,
-  });
   const [overlayState, setOverlayState] = useState({
     boundary: true,
-    waterExtent: true,
-    ndwiProxy: true,
-    floodWetness: true,
-    riskZone: true,
-    reportPins: true,
-    samplePoints: true,
-    anomalyHotspots: true,
-    flowDirection: true,
+    nearbyEntities: true,
   });
   const mapViewportRef = useRef<HTMLDivElement | null>(null);
   const waterRequestAbortRef = useRef<AbortController | null>(null);
   const waterDebounceRef = useRef<number | null>(null);
   const entityLookupAbortRef = useRef<AbortController | null>(null);
+  const overlayAbortRefs = useRef<Partial<Record<AquaScanOverlayType, AbortController>>>({});
 
   const [nearbyEntities, setNearbyEntities] = useState<NearbyEntity[]>([]);
   const [entitiesLoading, setEntitiesLoading] = useState(false);
@@ -421,6 +521,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [comparisonResult, setComparisonResult] = useState<CopernicusStatisticsComparisonResponse | null>(null);
   const [validatorGateStatus, setValidatorGateStatus] = useState<CopernicusValidatorStatus>('pending_review');
+  const [overlayDateRange, setOverlayDateRange] = useState({ fromDate: '', toDate: '' });
+  const [overlayThreshold, setOverlayThreshold] = useState(0.2);
+  const [overlayResults, setOverlayResults] = useState<Record<AquaScanOverlayType, AquaScanOverlayState>>(() => createOverlayStateMap());
+  const [selectedMeasurementOverlay, setSelectedMeasurementOverlay] = useState<AquaScanOverlayType>('ndwi_water_presence');
   const [calculationHistory, setCalculationHistory] = useState<Array<{
     calculationId: string;
     projectId: string;
@@ -454,6 +558,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const selectedAnalysisLayer = layerToAnalysisKey[selectedLayerIds[0] ?? 'sentinel2'] ?? 'ndwi';
   const activeAoi = aoiPoints.length >= 3 ? aoiPoints : savedAoiPoints.length >= 3 ? savedAoiPoints : null;
   const aoiAreaSqKm = polygonAreaSqKm(activeAoi ?? []);
+  const aoiAreaHectares = aoiAreaSqKm * 100;
+  const activeAoiGeoJson = useMemo(() => toAoiGeoJson(activeAoi), [activeAoi]);
+  const activeAoiSignature = useMemo(() => JSON.stringify(activeAoi ?? []), [activeAoi]);
+  const overlayBlockReason = !selectedFocusLocation
+    ? 'Select a focus location first.'
+    : !activeAoiGeoJson
+      ? 'Draw and save an AOI before requesting overlays.'
+      : !overlayDateRange.fromDate || !overlayDateRange.toDate
+        ? 'Select an overlay date range first.'
+        : '';
 
   useEffect(() => {
     if (selectedFocusLocation) {
@@ -484,6 +598,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     if (entityLookupAbortRef.current) {
       entityLookupAbortRef.current.abort();
     }
+    Object.values(overlayAbortRefs.current).forEach((controller) => controller?.abort());
   }, []);
 
   useEffect(() => {
@@ -496,6 +611,20 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           configured: false,
           message: 'Copernicus backend not configured',
         }));
+      });
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    apiFetch<{ ok: boolean; projects: WaterProjectApiRecord[] }>(apiUrl(API_ROUTES.WATER_PROJECTS), {
+      signal: controller.signal,
+    })
+      .then((payload) => {
+        setProjects(Array.isArray(payload.projects) ? payload.projects.map(mapLiveProjectToAquaScanProject) : []);
+      })
+      .catch(() => {
+        setProjects([]);
       });
     return () => controller.abort();
   }, []);
@@ -519,6 +648,21 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     const key = `dpal_aquascan_calc_history_${selectedProject.id}`;
     localStorage.setItem(key, JSON.stringify(calculationHistory));
   }, [calculationHistory, selectedProject.id]);
+
+  useEffect(() => {
+    Object.values(overlayAbortRefs.current).forEach((controller) => controller?.abort());
+    overlayAbortRefs.current = {};
+    setOverlayResults(createOverlayStateMap());
+  }, [
+    selectedFocusLocation?.latitude,
+    selectedFocusLocation?.longitude,
+    activeAoiSignature,
+    overlayDateRange.fromDate,
+    overlayDateRange.toDate,
+    comparisonCollection,
+    comparisonIndexType,
+    overlayThreshold,
+  ]);
 
   useEffect(() => {
     const point: [number, number] = inspectedPoint ?? mapCenter;
@@ -698,11 +842,95 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             ? 'Before and after date ranges cannot be identical'
             : '';
   const canCalculateMrv = mrvBlockReason === '' && !comparisonLoading;
+  const overlayDefinitions: Array<{
+    overlayType: AquaScanOverlayType;
+    label: string;
+    sourceLabel: string;
+    pathColor: string;
+    fillOpacity: number;
+    dashArray?: string;
+  }> = [
+    { overlayType: 'ndwi_water_presence', label: 'NDWI overlay', sourceLabel: 'Live-derived NDWI water presence from backend.', pathColor: '#38bdf8', fillOpacity: 0.26 },
+    { overlayType: 'water_extent', label: 'Water extent', sourceLabel: 'Live-derived water classification.', pathColor: '#14b8a6', fillOpacity: 0.22 },
+    { overlayType: 'flood_wet', label: 'Flood/wet', sourceLabel: 'Live-derived flood or wetness layer.', pathColor: '#6366f1', fillOpacity: 0.2 },
+    { overlayType: 'risk_zones', label: 'Risk zones', sourceLabel: 'Backend-calculated risk geometry only.', pathColor: '#f59e0b', fillOpacity: 0.18, dashArray: '4 4' },
+    { overlayType: 'flow_direction', label: 'Flow direction', sourceLabel: 'Backend hydrology or saved flow feature only.', pathColor: '#22c55e', fillOpacity: 0, dashArray: '6 6' },
+  ];
+  const liveOverlayList = overlayDefinitions.map((definition) => ({
+    ...definition,
+    overlay: overlayResults[definition.overlayType],
+  }));
+  const overlayIdleLabel = !selectedFocusLocation
+    ? 'Needs focus location'
+    : !activeAoiGeoJson
+      ? 'Needs AOI'
+      : !overlayDateRange.fromDate || !overlayDateRange.toDate
+        ? 'Needs date range'
+        : 'Ready to request';
+  const measurementOverlay = useMemo(() => {
+    const selected = overlayResults[selectedMeasurementOverlay];
+    if (selected.status !== 'idle') return selected;
+    return Object.values(overlayResults).find((overlay) => overlay.status === 'available')
+      ?? Object.values(overlayResults).find((overlay) => overlay.status === 'unavailable' || overlay.status === 'loading')
+      ?? null;
+  }, [overlayResults, selectedMeasurementOverlay]);
+  const overlayMeasurementRecords = useMemo(
+    () =>
+      liveOverlayList
+        .filter(({ overlay }) => overlay.status === 'available' && overlay.statistics)
+        .map(({ overlayType, label, overlay }) => ({
+          overlayType,
+          label,
+          areaSqKm: Number(aoiAreaSqKm.toFixed(4)),
+          areaHectares: Number(aoiAreaHectares.toFixed(2)),
+          indexType: overlay.indexType ?? comparisonIndexType,
+          collection: overlay.collection ?? comparisonCollection,
+          dateRange: overlay.dateRange ?? overlayDateRange,
+          threshold: overlay.threshold ?? overlayThreshold,
+          mean: overlay.statistics?.mean ?? null,
+          min: overlay.statistics?.min ?? null,
+          max: overlay.statistics?.max ?? null,
+          standardDeviation: overlay.statistics?.standardDeviation ?? null,
+          sampleCount: overlay.statistics?.sampleCount ?? 0,
+          noDataCount: overlay.statistics?.noDataCount ?? 0,
+          cloudCover: overlay.statistics?.cloudCover ?? null,
+          confidence: overlay.confidence ?? overlay.statistics?.confidence ?? null,
+          source: overlay.sourceName,
+          generatedAt: overlay.generatedAt ?? null,
+          resolutionMeters: overlay.statistics?.resolutionMeters ?? null,
+        })),
+    [aoiAreaHectares, aoiAreaSqKm, comparisonCollection, comparisonIndexType, liveOverlayList, overlayDateRange, overlayThreshold],
+  );
+  const overlayPacketRecords = useMemo(
+    () =>
+      liveOverlayList
+        .filter(({ overlay }) => overlay.status !== 'idle')
+        .map(({ overlayType, overlay }) => (
+          overlay.status === 'available'
+            ? {
+                overlayType,
+                source: overlay.source,
+                status: 'available',
+                geometryIncluded: Boolean(overlay.geometry),
+                rasterIncluded: Boolean(overlay.rasterTileUrl),
+                generatedAt: overlay.generatedAt ?? '',
+                disclaimer: 'Live-derived satellite overlays are screening indicators and require validation.',
+              }
+            : {
+                overlayType,
+                status: 'unavailable',
+                reason: overlay.reason || 'No live-derived overlay returned.',
+              }
+        )),
+    [liveOverlayList],
+  );
 
   const packetPreview = useMemo(() => {
-    const template = mockEvidencePackets[0];
     return {
-      ...template,
+      packetId: `PKT-${selectedProject.id || 'DRAFT'}-${selectedDate.replace(/-/g, '')}`,
+      auditId: `AUD-${new Date().toISOString().slice(0, 10)}-${selectedProject.id || 'draft'}`,
+      ledgerHash: 'Pending ledger publication',
+      validatorStatus,
       projectName: selectedProject.projectName || 'Unnamed project',
       location: selectedProject.locationName || 'No location selected',
       scanType: selectedProject.concernType,
@@ -711,7 +939,6 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       riskScore,
       aiSummary,
       uploadedEvidence: selectedProject.evidenceCount,
-      validatorStatus,
       coordinates: { lat: mapCenter[0], lng: mapCenter[1] },
       aoiBoundary: activeAoi ?? [],
       selectedDate,
@@ -720,17 +947,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'Pending live data',
       thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Pending live data',
       confidenceScore: inspectQualityConfidence ?? null,
-      reportPinsCount: overlayState.reportPins ? 2 : 0,
-      samplePointsCount: overlayState.samplePoints ? 2 : 0,
+      nearbyEntitiesCount: overlayState.nearbyEntities ? nearbyEntities.length : 0,
       tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
       legalSafeNote:
-        'DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification.',
+        'DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification. Live-derived satellite measurements are screening indicators and require validator review, field evidence, or laboratory confirmation before official conclusions.',
       recommendedNextAction:
         riskBand(riskScore) === 'High Risk'
           ? 'Escalate with field sampling and notify relevant authority.'
-          : template.recommendedNextAction,
+          : 'Review the AOI comparison, then request sampling or validator review as needed.',
     };
-  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, mapCenter, activeAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.reportPins, overlayState.samplePoints, imageryError, partialFailure, imageryLoading]);
+  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, mapCenter, activeAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.nearbyEntities, nearbyEntities.length, imageryError, partialFailure, imageryLoading]);
   const evidencePacket = useMemo<SatelliteEvidencePacket>(() => {
     const beforeValue = comparisonResult?.before.mean ?? null;
     const afterValue = comparisonResult?.after.mean ?? null;
@@ -738,7 +964,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     return {
       projectId: selectedProject.id,
       projectName: selectedProject.projectName || 'Unnamed project',
-      aoiGeoJson: toAoiGeoJson(activeAoi),
+      aoiGeoJson: activeAoiGeoJson,
       centerLatLng: { lat: mapCenter[0], lng: mapCenter[1] },
       satelliteCollection: comparisonResult?.collection ?? comparisonCollection,
       productId: waterData?.satellite.product ?? 'S2_L2A_PENDING_PRODUCT_ID',
@@ -753,6 +979,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       assumptions: [
         'Satellite index values are indicative and depend on scene quality.',
         'Before/after values are generated from backend-controlled index formulas.',
+        'Live-derived satellite overlays are screening indicators and require validation.',
       ],
       limitations: [
         'Not a certified carbon credit determination.',
@@ -761,9 +988,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       generatedAt: new Date().toISOString(),
       validatorStatus: validatorGateStatus,
       photos: [],
-      notes: `Indicative MRV estimate. ${packetPreview.legalSafeNote}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: local_preview_or_unavailable). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
+      measurements: overlayMeasurementRecords,
+      overlays: overlayPacketRecords,
+      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
     };
-  }, [activeAoi, comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, mapCenter, packetPreview.legalSafeNote, selectedDate, selectedProject.id, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product]);
+  }, [comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, activeAoiGeoJson]);
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -792,15 +1021,35 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       setActionNotice('Add project name and location before saving.');
       return;
     }
-    const next: AquaScanProject = {
-      ...draftProject,
-      id: `AQ-${Date.now().toString().slice(-6)}`,
-      evidenceCount: draftProject.evidenceCount,
-      validatorStatus: draftProject.validatorStatus,
-    };
-    setProjects((prev) => [next, ...prev]);
-    setSelectedProjectId(next.id);
-    setActionNotice('Project intake saved.');
+    const lat = Number.parseFloat(draftProject.latitude || '0');
+    const lng = Number.parseFloat(draftProject.longitude || '0');
+    void apiFetch<{ ok: boolean; project: WaterProjectApiRecord }>(apiUrl(API_ROUTES.WATER_PROJECTS), {
+      method: 'POST',
+      body: JSON.stringify({
+        projectName: draftProject.projectName,
+        projectType: draftProject.waterBodyType,
+        description: `${draftProject.concernType} screening intake created from AquaScan MRV.`,
+        country: selectedFocusLocation?.displayName.split(',').slice(-1)[0]?.trim() || '',
+        region: '',
+        city: draftProject.locationName,
+        lat: Number.isFinite(lat) ? lat : 0,
+        lng: Number.isFinite(lng) ? lng : 0,
+        totalAcres: 0,
+        baselineDate: selectedDate,
+        improvementGoal: `Investigate ${draftProject.concernType.toLowerCase()} signals in selected AOI.`,
+        ownerId: 'aquascan-user',
+        ownerName: 'AquaScan User',
+      }),
+    })
+      .then((payload) => {
+        const next = mapLiveProjectToAquaScanProject(payload.project);
+        setProjects((prev) => [next, ...prev.filter((item) => item.id !== next.id)]);
+        setSelectedProjectId(next.id);
+        setActionNotice('Project intake saved to live water projects.');
+      })
+      .catch((error) => {
+        setActionNotice(error instanceof Error ? `Project save failed: ${error.message}` : 'Project save failed.');
+      });
   }
 
   async function runMrvComparison(): Promise<void> {
@@ -851,30 +1100,25 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
 
   function runAction(actionLabel: string): void {
     if (actionLabel === 'Launch Field Mission') {
-      setActionDraftCounts((prev) => ({ ...prev, fieldMission: prev.fieldMission + 1 }));
-      setActionNotice('Field mission draft created.');
+      setActionNotice('Field mission routing is not connected to a backend endpoint yet.');
       return;
     }
     if (actionLabel === 'Request Water Sample' && selectedProjectId) {
       updateSelectedProject({ evidenceCount: selectedProject.evidenceCount + 1 });
-      setActionDraftCounts((prev) => ({ ...prev, sampleRequest: prev.sampleRequest + 1 }));
-      setActionNotice('Sample request draft created.');
+      setActionNotice('Sample request captured in project state. Backend sample-order routing is not connected yet.');
       return;
     }
     if (actionLabel === 'Upload Lab Result' && selectedProjectId) {
       updateSelectedProject({ hasLabResult: true });
-      setActionDraftCounts((prev) => ({ ...prev, labUploads: prev.labUploads + 1 }));
-      setActionNotice('Lab upload placeholder opened. Attach validated results when available.');
+      setActionNotice('Lab result flag updated. File upload storage is not connected yet.');
       return;
     }
     if (actionLabel === 'Notify Authority') {
-      setActionDraftCounts((prev) => ({ ...prev, authorityNotifications: prev.authorityNotifications + 1 }));
-      setActionNotice('Authority notification draft created.');
+      setActionNotice('Authority notification routing is not connected to a backend endpoint yet.');
       return;
     }
     if (actionLabel === 'Create Restoration Project') {
-      setActionDraftCounts((prev) => ({ ...prev, restorationDrafts: prev.restorationDrafts + 1 }));
-      setActionNotice('Restoration project draft created.');
+      setActionNotice('Restoration project creation is not connected to a backend endpoint yet.');
       return;
     }
     if (actionLabel === 'Add to Public Ledger') {
@@ -899,8 +1143,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Pending live data',
           confidenceScore: inspectQualityConfidence ?? null,
           evidencePointsCount: selectedProject.evidenceCount,
-          reportPinsCount: overlayState.reportPins ? 2 : 0,
-          samplePointsCount: overlayState.samplePoints ? 2 : 0,
+          nearbyEntitiesCount: overlayState.nearbyEntities ? nearbyEntities.length : 0,
           tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
           legalSafeNote:
             'DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification.',
@@ -913,9 +1156,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         link.download = `aquascan-evidence-${selectedProject.id}.json`;
         link.click();
         URL.revokeObjectURL(url);
-        setActionNotice('Evidence packet exported as JSON preview.');
+        setActionNotice('Evidence packet exported as JSON.');
       } catch {
-        setActionNotice('Evidence packet preview generated. Download is ready for wiring.');
+        setActionNotice('Evidence packet export failed.');
       }
       return;
     }
@@ -969,6 +1212,61 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
 
   function toggleOverlay(key: keyof typeof overlayState): void {
     setOverlayState((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function requestLiveOverlay(overlayType: AquaScanOverlayType): Promise<void> {
+    setSelectedMeasurementOverlay(overlayType);
+    if (overlayBlockReason || !activeAoiGeoJson) {
+      setActionNotice(overlayBlockReason || 'Overlay request requires a focus location, saved AOI, and date range.');
+      return;
+    }
+
+    overlayAbortRefs.current[overlayType]?.abort();
+    const controller = new AbortController();
+    overlayAbortRefs.current[overlayType] = controller;
+    const request: AquaScanOverlayRequest = {
+      aoiGeoJson: activeAoiGeoJson,
+      dateRange: overlayDateRange,
+      indexType: overlayType === 'flow_direction' ? 'NDWI' : comparisonIndexType,
+      collection: overlayType === 'flow_direction' ? 'copernicus-dem' : comparisonCollection,
+      threshold: overlayThreshold,
+    };
+
+    setOverlayResults((prev) => ({
+      ...prev,
+      [overlayType]: {
+        ...prev[overlayType],
+        status: 'loading',
+        reason: undefined,
+        warnings: [],
+      },
+    }));
+
+    const fetcher: Record<AquaScanOverlayType, (payload: AquaScanOverlayRequest, signal?: AbortSignal) => Promise<AquaScanOverlayResponse>> = {
+      ndwi_water_presence: fetchNdwiOverlay,
+      water_extent: fetchWaterExtentOverlay,
+      flood_wet: fetchFloodWetOverlay,
+      risk_zones: fetchRiskZones,
+      flow_direction: fetchFlowDirection,
+    };
+
+    const response = await fetcher[overlayType](request, controller.signal);
+    if (controller.signal.aborted) return;
+    const nextState: AquaScanOverlayState = {
+      ...response,
+      status: response.status,
+      reason:
+        response.status === 'available'
+          ? response.reason
+          : overlayType === 'ndwi_water_presence'
+            ? 'Live-derived NDWI overlay unavailable for this AOI/date.'
+            : response.reason || 'Live-derived overlay unavailable.',
+    };
+    setOverlayResults((prev) => ({
+      ...prev,
+      [overlayType]: nextState,
+    }));
+    setActionNotice(nextState.status === 'available' ? `${overlayType.replace(/_/g, ' ')} loaded from live-derived backend output.` : nextState.reason || 'Live-derived overlay unavailable.');
   }
 
   function centerOnProject(): void {
@@ -1677,14 +1975,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               {(
                 [
                   ['boundary', 'Boundary', 'Toggle AOI boundary polygon'],
-                  ['riskZone', 'Risk zone', 'Toggle risk review zone overlay (concern-based, always available)'],
-                  ['reportPins', 'Reports', 'Toggle report / evidence pins'],
-                  ['samplePoints', 'Samples', 'Toggle field sample candidate points'],
-                  ['flowDirection', 'Flow', 'Toggle flow direction guide (indicative only, not a hydrological measurement)'],
-                  ['waterExtent', 'Water extent', 'Toggle water presence zone (requires live satellite data)'],
-                  ['ndwiProxy', 'NDWI proxy', 'NDWI estimates water presence from satellite bands. Requires live satellite data - hidden when unavailable. Not a confirmed measurement.'],
-                  ['floodWetness', 'Flood/wet', 'Toggle flood/wetness indicator (requires live satellite data)'],
-                  ['anomalyHotspots', 'Anomalies', 'Toggle multi-layer anomaly hotspot zones'],
+                  ['nearbyEntities', 'Nearby entities', 'Toggle mapped nearby entities from live OpenStreetMap / Overpass results'],
                 ] as [keyof typeof overlayState, string, string][]
               ).map(([key, label, tooltip]) => (
                 <button
@@ -1697,11 +1988,6 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   {label}
                 </button>
               ))}
-              {overlayState.ndwiProxy && !waterData ? (
-                <span className="rounded border border-amber-500/30 bg-amber-900/15 px-1.5 py-0.5 text-[10px] text-amber-300">
-                  {activeAoi ? 'NDWI proxy - unavailable (no live data)' : 'Draw an AOI to calculate polygon NDWI'}
-                </span>
-              ) : null}
             </div>
           </div>
 
@@ -1726,43 +2012,29 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 {legendOpen ? 'Hide legend' : 'Legend'}
               </button>
               {legendOpen ? (
-                <div className="mt-1 w-56 rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-[10px] text-slate-300">
+                <div className="mt-1 w-72 rounded-lg border border-slate-700 bg-slate-950/95 p-2 text-[10px] text-slate-300">
                   <p className="mb-1.5 font-bold uppercase tracking-wider text-slate-400">Map Legend</p>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#fb7185]" />
-                      <span>Selected focus / project point</span>
+                      <span>Red marker: Selected focus/project point - user selected.</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#22d3ee] bg-transparent" />
-                      <span>AOI boundary (user-drawn)</span>
+                      <span>AOI boundary: User-drawn measurement boundary.</span>
                     </div>
+                    {liveOverlayList.map(({ overlayType, label, pathColor, overlay }) => (
+                      <div key={overlayType} className="flex items-start gap-2">
+                        <span className="mt-0.5 inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: pathColor }} />
+                        <span>{label}: {overlayStatusLabel(overlay)}</span>
+                      </div>
+                    ))}
                     <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#3b82f6] bg-[#3b82f6]/20" />
-                      <span>NDWI proxy (live data only)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#22c55e] bg-[#22c55e]/20" />
-                      <span>Water presence zone (live data only)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border-2 border-[#f97316] bg-[#f97316]/20" />
-                      <span>Risk review zone</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#f59e0b]" />
-                      <span>Report pin (evidence point)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#34d399]" />
-                      <span>Sample point (field candidate)</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="inline-block h-0.5 w-3 shrink-0 border-t-2 border-dashed border-[#38bdf8]" />
-                      <span>Flow direction guide (indicative)</span>
+                      <span className="inline-block h-2.5 w-2.5 shrink-0 rounded-full bg-[#38bdf8]" />
+                      <span>Nearby entities: OpenStreetMap/Overpass context only - not proof of responsibility.</span>
                     </div>
                   </div>
-                  <p className="mt-1.5 text-[9px] text-slate-600">Overlays are screening indicators only.</p>
+                  <p className="mt-1.5 text-[9px] text-slate-600">If a live-derived layer is unavailable, AquaScan leaves it hidden instead of drawing fallback geometry.</p>
                 </div>
               ) : null}
             </div>
@@ -1782,6 +2054,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             {partialFailure && !imageryError ? (
               <div className="absolute inset-x-0 top-7 z-[500] bg-amber-950/80 px-3 py-0.5 text-[10px] text-amber-100">
                 Partial tile failure - base map active
+              </div>
+            ) : null}
+            {liveOverlayList.some(({ overlay }) => overlay.status === 'loading') ? (
+              <div className="absolute inset-x-0 top-12 z-[500] bg-cyan-950/80 px-3 py-1 text-[11px] text-cyan-100">
+                Loading live-derived overlay...
               </div>
             ) : null}
             {/* Right overlay panel */}
@@ -1870,54 +2147,33 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   }}
                 />
               ) : null}
-              {/* Water extent - live data only */}
-              {overlayState.waterExtent && waterData ? (
-                <Circle center={[mapCenter[0] + 0.01, mapCenter[1]]} radius={5400} pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.07 }}>
-                  <Popup>
-                    <div className="space-y-1 text-xs">
-                      <p className="font-semibold">Water Presence Zone</p>
-                      <p>Source: {activeGibsLayer.label} (live)</p>
-                      <p>Confidence: {inspectQualityConfidence != null ? `${inspectQualityConfidence}%` : 'N/A'}</p>
-                      <p className="text-[10px] text-gray-500">Screening indicator only - not a confirmed measurement.</p>
-                    </div>
-                  </Popup>
-                </Circle>
-              ) : null}
-              {/* NDWI proxy - live data only; hidden when unavailable to avoid looking like a real result */}
-              {overlayState.ndwiProxy && waterData ? (
-                <Circle center={[mapCenter[0] - 0.02, mapCenter[1] + 0.03]} radius={3900} pathOptions={{ color: '#3b82f6', fillColor: '#3b82f6', fillOpacity: 0.07, dashArray: '6 4' }}>
-                  <Popup>
-                    <div className="space-y-1 text-xs">
-                      <p className="font-semibold">NDWI Proxy Zone</p>
-                      <p>Source: {activeGibsLayer.label} (live)</p>
-                      <p className="text-[10px]">NDWI estimates water presence from satellite bands. This is a screening indicator and requires live satellite data plus field validation. Not a confirmed satellite measurement.</p>
-                    </div>
-                  </Popup>
-                </Circle>
-              ) : null}
-              {/* Flood/wetness - live data only */}
-              {overlayState.floodWetness && waterData ? (
-                <Circle center={[mapCenter[0] + 0.05, mapCenter[1] - 0.04]} radius={3100} pathOptions={{ color: '#a855f7', fillColor: '#a855f7', fillOpacity: 0.07 }}>
-                  <Popup>
-                    <div className="text-xs space-y-1">
-                      <p className="font-semibold">Flood / Wetness Indicator</p>
-                      <p className="text-[10px] text-gray-500">Screening indicator only - live data required.</p>
-                    </div>
-                  </Popup>
-                </Circle>
-              ) : null}
-              {/* Risk zone - always shown when toggled (derived from concern weights, not raw satellite) */}
-              {overlayState.riskZone ? (
-                <Circle center={[mapCenter[0] + 0.01, mapCenter[1] + 0.05]} radius={2200} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.10 }}>
-                  <Popup>
-                    <div className="space-y-1 text-xs">
-                      <p className="font-semibold">Risk Review Zone</p>
-                      <p>Based on concern type and selected layers.</p>
-                      <p className="text-[10px] text-gray-500">Request sample or compare with lab data. Screening indicator - not a confirmed finding.</p>
-                    </div>
-                  </Popup>
-                </Circle>
-              ) : null}
+              {liveOverlayList.map(({ overlayType, pathColor, fillOpacity, dashArray, overlay }) => {
+                if (!isOverlayLiveDerived(overlay)) return null;
+                return (
+                  <React.Fragment key={`${overlayType}-${overlay.generatedAt ?? 'live'}`}>
+                    {overlay.rasterTileUrl ? (
+                      <TileLayer
+                        key={`${overlayType}-raster-${overlay.generatedAt ?? 'live'}`}
+                        url={overlay.rasterTileUrl}
+                        opacity={0.62}
+                        attribution={`Overlay: ${overlay.sourceName}`}
+                      />
+                    ) : null}
+                    {overlay.geometry ? (
+                      <GeoJSON
+                        data={overlay.geometry as never}
+                        style={() => ({
+                          color: pathColor,
+                          weight: overlayType === 'flow_direction' ? 3 : 2,
+                          fillColor: pathColor,
+                          fillOpacity,
+                          dashArray,
+                        })}
+                      />
+                    ) : null}
+                  </React.Fragment>
+                );
+              })}
               {/* AOI boundary */}
               {overlayState.boundary && boundaryDrawn && aoiPoints.length >= 3 ? (
                 <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }}>
@@ -1929,56 +2185,26 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <Popup><div className="text-xs"><p className="font-semibold">Saved AOI Boundary</p><p>Previously saved area of interest.</p></div></Popup>
                 </Polygon>
               ) : null}
-              {overlayState.boundary && boundaryDrawn && aoiPoints.length < 3 ? (
-                <Circle center={mapCenter} radius={4200} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.06 }}>
-                  <Popup><div className="text-xs"><p>Draft AOI boundary placeholder. Draw at least 3 points to define a polygon.</p></div></Popup>
-                </Circle>
-              ) : null}
-              {/* Flow direction guide */}
-              {overlayState.flowDirection ? (
-                <Polyline
-                  positions={[[mapCenter[0] + 0.05, mapCenter[1] - 0.07], [mapCenter[0] - 0.07, mapCenter[1] + 0.09]]}
-                  pathOptions={{ color: '#38bdf8', dashArray: '8 5', weight: 2 }}
-                >
-                  <Popup>
-                    <div className="text-xs space-y-1">
-                      <p className="font-semibold">Flow direction guide (indicative)</p>
-                      <p className="text-[10px] text-gray-500">Approximate water movement direction for investigation context. Not a confirmed hydrological measurement.</p>
-                    </div>
-                  </Popup>
-                </Polyline>
-              ) : null}
-              {/* Report pins */}
-              {overlayState.reportPins ? (
+              {/* Nearby mapped entities */}
+              {overlayState.nearbyEntities ? (
                 <>
-                  <Circle center={[mapCenter[0] + 0.08, mapCenter[1] - 0.03]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Community or uploaded evidence point. Verify in field before drawing conclusions.</p></div></Popup>
-                  </Circle>
-                  <Circle center={[mapCenter[0] - 0.03, mapCenter[1] + 0.06]} radius={500} pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.45 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Report Pin</p><p>Community or uploaded evidence point. Verify in field before drawing conclusions.</p></div></Popup>
-                  </Circle>
-                </>
-              ) : null}
-              {/* Sample points */}
-              {overlayState.samplePoints ? (
-                <>
-                  <Circle center={[mapCenter[0] + 0.03, mapCenter[1] + 0.02]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Field sample candidate. Requires lab testing for confirmation.</p></div></Popup>
-                  </Circle>
-                  <Circle center={[mapCenter[0] - 0.04, mapCenter[1] - 0.01]} radius={350} pathOptions={{ color: '#34d399', fillColor: '#34d399', fillOpacity: 0.5 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Sample Point</p><p>Field sample candidate. Requires lab testing for confirmation.</p></div></Popup>
-                  </Circle>
-                </>
-              ) : null}
-              {/* Anomaly hotspots */}
-              {overlayState.anomalyHotspots ? (
-                <>
-                  <Circle center={[mapCenter[0] + 0.07, mapCenter[1] + 0.03]} radius={680} pathOptions={{ color: '#ef4444', fillColor: '#ef4444', fillOpacity: 0.40 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Priority review zone</p><p>Multi-layer screening signal. Compare dates/layers and inspect area. Not a confirmed finding.</p></div></Popup>
-                  </Circle>
-                  <Circle center={[mapCenter[0] - 0.06, mapCenter[1] + 0.08]} radius={760} pathOptions={{ color: '#f97316', fillColor: '#f97316', fillOpacity: 0.40 }}>
-                    <Popup><div className="text-xs"><p className="font-semibold">Secondary review zone</p><p>Overlapping screening signals. Add evidence or request sample.</p></div></Popup>
-                  </Circle>
+                  {nearbyEntities.map((entity) => (
+                    <Circle
+                      key={entity.id}
+                      center={[entity.latitude, entity.longitude]}
+                      radius={180}
+                      pathOptions={{ color: nearbyEntityColor(entity.category), fillColor: nearbyEntityColor(entity.category), fillOpacity: 0.45 }}
+                    >
+                      <Popup>
+                        <div className="space-y-1 text-xs">
+                          <p className="font-semibold">{entity.name}</p>
+                          <p>{entity.category}</p>
+                          <p>{entity.distanceKm} km away</p>
+                          <p className="text-[10px] text-gray-500">Context only. Proximity does not prove responsibility.</p>
+                        </div>
+                      </Popup>
+                    </Circle>
+                  ))}
                 </>
               ) : null}
               {/* Selected focus / project point */}
@@ -2036,7 +2262,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 waterData ? 'text-emerald-300' : 'text-rose-300',
               ],
               ['Index', comparisonIndexType, 'text-cyan-200'],
-              ['Confidence', selectedFocusLocation ? (inspectQualityConfidence != null ? `${inspectQualityConfidence}% (live)` : 'Pending live data') : '-', 'text-slate-200'],
+              ['Confidence', selectedFocusLocation ? (inspectQualityConfidence != null ? `${inspectQualityConfidence}%` : 'Pending live data') : '-', 'text-slate-200'],
               [
                 'Validator',
                 selectedProject.validatorStatus,
@@ -2073,6 +2299,42 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             </div>
           ) : null}
+
+          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 p-2.5 text-[10px]">
+            <p className="mb-1 font-semibold uppercase tracking-wider text-slate-300">Measurement Precision</p>
+            {!selectedFocusLocation ? (
+              <p className="text-slate-500">Select a focus location to review measurement precision.</p>
+            ) : !activeAoiGeoJson ? (
+              <p className="text-slate-500">Draw and save an AOI to measure area-based overlays.</p>
+            ) : !overlayDateRange.fromDate || !overlayDateRange.toDate ? (
+              <p className="text-slate-500">Select an overlay date range in Layers before requesting live-derived overlays.</p>
+            ) : measurementOverlay ? (
+              measurementOverlay.status === 'available' && measurementOverlay.statistics ? (
+                <div className="space-y-0.5 text-slate-300">
+                  <p>AOI area: {aoiAreaHectares.toFixed(2)} ha / {aoiAreaSqKm.toFixed(4)} km2</p>
+                  <p>Index: {measurementOverlay.indexType ?? comparisonIndexType}</p>
+                  <p>Collection: {measurementOverlay.collection ?? comparisonCollection}</p>
+                  <p>Date range: {(measurementOverlay.dateRange?.fromDate ?? overlayDateRange.fromDate) || '-'} to {(measurementOverlay.dateRange?.toDate ?? overlayDateRange.toDate) || '-'}</p>
+                  <p>Threshold: {measurementOverlay.threshold ?? overlayThreshold}</p>
+                  <p>Mean: {String(measurementOverlay.statistics.mean ?? 'N/A')}</p>
+                  <p>Min: {String(measurementOverlay.statistics.min ?? 'N/A')}</p>
+                  <p>Max: {String(measurementOverlay.statistics.max ?? 'N/A')}</p>
+                  <p>Std dev: {String(measurementOverlay.statistics.standardDeviation ?? 'N/A')}</p>
+                  <p>Sample count: {measurementOverlay.statistics.sampleCount}</p>
+                  <p>No-data count: {measurementOverlay.statistics.noDataCount}</p>
+                  <p>Cloud cover: {measurementOverlay.statistics.cloudCover ?? 'N/A'}</p>
+                  <p>Confidence: {measurementOverlay.confidence ?? measurementOverlay.statistics.confidence ?? 'N/A'}</p>
+                  <p>Source: {measurementOverlay.sourceName}</p>
+                  <p>Generated: {measurementOverlay.generatedAt ?? 'Pending'}</p>
+                  <p>{measurementOverlay.statistics.resolutionMeters != null ? `Resolution: ${measurementOverlay.statistics.resolutionMeters} m` : 'Resolution unavailable.'}</p>
+                </div>
+              ) : (
+                <p className="text-amber-200">Measurement details unavailable until a live AOI comparison succeeds.</p>
+              )
+            ) : (
+              <p className="text-slate-500">Measurement details unavailable until a live AOI comparison succeeds.</p>
+            )}
+          </div>
 
           {/* Nearby Mapped Entities */}
           <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 p-2.5">
@@ -2193,7 +2455,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   />
                   <input
                     className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 placeholder-slate-500 md:col-span-2"
-                    placeholder="Optional polygon / boundary placeholder"
+                    placeholder="Optional AOI reference notes"
                     value={draftProject.polygonPlaceholder}
                     onChange={(e) => setDraftProject((prev) => ({ ...prev, polygonPlaceholder: e.target.value }))}
                   />
@@ -2313,6 +2575,103 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 </div>
                 <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-2 text-[11px] text-slate-400">
                   NDVI = vegetation health . NDWI = water presence . NDMI = moisture stress . NBR = fire/burn disturbance
+                </div>
+                <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-300">Live-Derived Overlays</p>
+                    <span className="rounded-full border border-cyan-500/40 bg-cyan-900/20 px-2 py-0.5 text-[10px] text-cyan-100">
+                      Backend only - no local fallback geometry
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <label className="flex flex-col gap-1 text-xs text-slate-300">
+                      <span className="text-[10px] text-slate-400">Overlay from</span>
+                      <input
+                        type="date"
+                        value={overlayDateRange.fromDate}
+                        onChange={(e) => setOverlayDateRange((prev) => ({ ...prev, fromDate: e.target.value }))}
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-slate-300">
+                      <span className="text-[10px] text-slate-400">Overlay to</span>
+                      <input
+                        type="date"
+                        value={overlayDateRange.toDate}
+                        onChange={(e) => setOverlayDateRange((prev) => ({ ...prev, toDate: e.target.value }))}
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                      />
+                    </label>
+                    <label className="flex flex-col gap-1 text-xs text-slate-300">
+                      <span className="text-[10px] text-slate-400">Threshold</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={overlayThreshold}
+                        onChange={(e) => setOverlayThreshold(Number(e.target.value))}
+                        className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100"
+                      />
+                    </label>
+                    <div className="flex flex-col justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setOverlayDateRange({ fromDate: selectedDate, toDate: selectedDate })}
+                        className="rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-xs font-semibold text-slate-200"
+                      >
+                        Use map date
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] text-slate-400">
+                    {!selectedFocusLocation
+                      ? 'Select a focus location first.'
+                      : !activeAoiGeoJson
+                        ? 'Focus location set. Draw and save an AOI before requesting overlays.'
+                        : overlayBlockReason || 'Overlay requests will render only backend-returned GeoJSON or raster.'}
+                  </p>
+                  <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+                    {liveOverlayList.map(({ overlayType, label, sourceLabel, overlay }) => (
+                      <div key={overlayType} className="rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-xs">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-slate-100">{label}</p>
+                          <span className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                            overlay.status === 'available'
+                              ? 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200'
+                              : overlay.status === 'loading'
+                                ? 'border-cyan-500/40 bg-cyan-900/20 text-cyan-100'
+                                : overlay.status === 'unavailable' || overlay.status === 'error'
+                                  ? 'border-amber-500/40 bg-amber-900/20 text-amber-200'
+                                  : 'border-slate-700 bg-slate-900/50 text-slate-500'
+                          }`}>
+                            {overlay.status === 'idle' ? overlayIdleLabel : overlay.status}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-[11px] text-slate-400">{sourceLabel}</p>
+                        <p className="mt-1 text-[11px] text-slate-300">
+                          {overlay.status === 'loading'
+                            ? 'Loading live-derived overlay...'
+                            : overlay.status === 'available'
+                              ? 'Source: Copernicus-derived'
+                              : overlayType === 'ndwi_water_presence' && (overlay.status === 'unavailable' || overlay.status === 'error')
+                                ? 'Live-derived NDWI overlay unavailable for this AOI/date.'
+                                : overlay.status === 'unavailable' || overlay.status === 'error'
+                                  ? 'Live-derived overlay unavailable for this AOI/date.'
+                                  : overlayIdleLabel}
+                        </p>
+                        {overlay.reason && overlay.status !== 'available' ? (
+                          <p className="mt-1 text-[11px] text-amber-200">{overlay.reason}</p>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => { void requestLiveOverlay(overlayType); }}
+                          disabled={overlayBlockReason !== '' || overlay.status === 'loading'}
+                          className="mt-2 rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {overlay.status === 'loading' ? 'Loading live-derived overlay...' : `Load ${label}`}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 {/* Risk score breakdown */}
                 <div className="rounded-xl border border-slate-700 bg-slate-900/60 p-4">
@@ -2486,6 +2845,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <span className="text-[11px] text-amber-200">
                     Indicative MRV estimate - not certified carbon credit.
                   </span>
+                  <span className="text-[11px] text-slate-400">
+                    Live-derived satellite measurements are screening indicators and require validator review, field evidence, or laboratory confirmation before official conclusions.
+                  </span>
                 </div>
 
                 {/* Satellite indicators */}
@@ -2526,11 +2888,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   ) : null}
                 </div>
 
-                {/* Packet preview */}
+                {/* Evidence packet */}
                 {showPacket ? (
                   <div className="space-y-1.5 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs text-slate-200">
-                    <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet Preview</p>
-                    <p className="text-[10px] text-slate-500">Export not connected - demo preview only.</p>
+                    <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet</p>
+                    <p className="text-[10px] text-slate-500">Current export payload from the active live workspace state.</p>
                     <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
                       <p><span className="text-slate-400">Generated:</span> {packetPreview.timestamp}</p>
                       <p><span className="text-slate-400">Project ID:</span> {selectedProject.id}</p>
@@ -2550,9 +2912,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
                       <p><span className="text-slate-400">Layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
                       <p><span className="text-slate-400">Selected date:</span> {packetPreview.selectedDate}</p>
-                      <p><span className="text-slate-400">NDWI / water index:</span> {selectedFocusLocation ? (packetPreview.ndwi != null ? `${packetPreview.ndwi} (live)` : 'Pending live data') : 'No location'}</p>
+                      <p><span className="text-slate-400">NDWI / water index:</span> {selectedFocusLocation ? (packetPreview.ndwi != null ? `${packetPreview.ndwi} (measured)` : 'Pending live data') : 'No location'}</p>
                       <p><span className="text-slate-400">Water presence:</span> {selectedFocusLocation ? packetPreview.waterPresence : 'No location'}</p>
-                      <p><span className="text-slate-400">Confidence:</span> {selectedFocusLocation ? (packetPreview.confidenceScore != null ? `${packetPreview.confidenceScore}% (live)` : 'Pending live data') : '-'}</p>
+                      <p><span className="text-slate-400">Confidence:</span> {selectedFocusLocation ? (packetPreview.confidenceScore != null ? `${packetPreview.confidenceScore}%` : 'Pending live data') : '-'}</p>
                       <p><span className="text-slate-400">Risk band:</span> {selectedFocusLocation ? `${packetPreview.riskScore} (${riskBand(packetPreview.riskScore)})` : '-'}</p>
                       <p><span className="text-slate-400">Lab status:</span> {selectedProject.hasLabResult ? 'Uploaded' : 'Pending'}</p>
                       <p><span className="text-slate-400">Validator:</span> {evidencePacket.validatorStatus}</p>
@@ -2561,6 +2923,38 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       <p><span className="text-slate-400">After value:</span> {evidencePacket.afterValue ?? 'N/A'}</p>
                       <p><span className="text-slate-400">Delta %:</span> {evidencePacket.deltaPercent ?? 'N/A'}</p>
                       <p><span className="text-slate-400">Data source:</span> {evidencePacket.dataSourceCitation}</p>
+                    </div>
+                    <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                      <p className="font-semibold text-slate-100">Recorded overlays</p>
+                      {overlayPacketRecords.length === 0 ? (
+                        <p className="mt-1 text-[11px] text-slate-500">No live-derived overlays requested yet.</p>
+                      ) : (
+                        <div className="mt-1 space-y-1 text-[11px] text-slate-300">
+                          {overlayPacketRecords.map((overlay) => (
+                            <p key={String(overlay.overlayType)}>
+                              {String(overlay.overlayType)} . {String(overlay.status)}
+                              {'source' in overlay ? ` . ${String(overlay.source)}` : ''}
+                              {'geometryIncluded' in overlay ? ` . geometryIncluded=${String(overlay.geometryIncluded)}` : ''}
+                              {'rasterIncluded' in overlay ? ` . rasterIncluded=${String(overlay.rasterIncluded)}` : ''}
+                              {'reason' in overlay ? ` . ${String(overlay.reason)}` : ''}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+                      <p className="font-semibold text-slate-100">Measurement records</p>
+                      {overlayMeasurementRecords.length === 0 ? (
+                        <p className="mt-1 text-[11px] text-slate-500">No live-derived measurements recorded yet.</p>
+                      ) : (
+                        <div className="mt-1 space-y-1 text-[11px] text-slate-300">
+                          {overlayMeasurementRecords.map((measurement) => (
+                            <p key={String(measurement.overlayType)}>
+                              {String(measurement.overlayType)} . mean={String(measurement.mean ?? 'N/A')} . samples={String(measurement.sampleCount)} . conf={String(measurement.confidence ?? 'N/A')}
+                            </p>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <p className="mt-2 rounded-md border border-amber-500/40 bg-amber-900/20 px-2 py-1 text-amber-100">
                       {packetPreview.legalSafeNote}
@@ -2613,7 +3007,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <button type="button" onClick={() => selectedProjectId && updateSelectedProject({ validatorStatus: 'Validated' })} className="rounded border border-slate-600 px-2 py-1 text-slate-300">Set Validated</button>
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  Drafts: Field missions {actionDraftCounts.fieldMission} . Samples {actionDraftCounts.sampleRequest} . Lab {actionDraftCounts.labUploads} . Notices {actionDraftCounts.authorityNotifications} . Restoration {actionDraftCounts.restorationDrafts}
+                  Unsupported action routes now report backend availability instead of creating local draft actions.
                 </p>
                 <p className="rounded-lg border border-amber-500/30 bg-amber-900/15 p-3 text-[11px] text-amber-100">
                   DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.

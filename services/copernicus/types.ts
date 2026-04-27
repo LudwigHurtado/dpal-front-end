@@ -72,6 +72,8 @@ export interface SatelliteEvidencePacket {
   generatedAt: string;
   validatorStatus: CopernicusValidatorStatus;
   photos?: string[];
+  measurements?: Array<Record<string, unknown>>;
+  overlays?: Array<Record<string, unknown>>;
   notes: string;
 }
 

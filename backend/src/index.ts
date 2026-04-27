@@ -18,6 +18,7 @@ import carbDataRouter from './routes/carbData';
 import hazardousWasteAuditRouter from './routes/hazardousWasteAudit';
 import rcraDataRouter from './routes/rcraData';
 import copernicusRouter from './routes/copernicus';
+import aquascanRouter from './routes/aquascan';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
 
@@ -105,6 +106,7 @@ app.use('/api/carb-data', carbDataRouter);
 app.use('/api/hazardous-waste-audit', hazardousWasteAuditRouter);
 app.use('/api/rcra-data', rcraDataRouter);
 app.use('/api/copernicus', copernicusRouter);
+app.use('/api/aquascan', aquascanRouter);
 
 // Legacy /api/reports feed (compatibility with existing enterprise dashboard probe)
 app.get('/api/reports', async (_req, res) => {
