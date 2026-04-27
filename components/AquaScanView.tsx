@@ -48,6 +48,11 @@ import type {
   AquaScanOverlayState,
   AquaScanOverlayType,
 } from '../services/aquascan/overlayTypes';
+import AquaScanIntelligenceReader, {
+  buildAquaScanIntelligence,
+  formatCalculationHistoryHeadline,
+  type AquaScanCalculationHistoryEntry,
+} from './aquascan/AquaScanIntelligenceReader';
 
 interface AquaScanViewProps {
   onReturn: () => void;
@@ -297,6 +302,31 @@ function focusPointFromProject(project: AquaScanProject): [number, number] {
   return [parsedLat, parsedLng];
 }
 
+function buildComparisonSetupSignature(args: {
+  focusLocation: FocusLocation | null;
+  aoiSignature: string;
+  aoiAreaSqKm: number;
+  indexType: CopernicusIndexType;
+  collection: 'sentinel-2-l2a' | 'sentinel-1-grd';
+  before: { from: string; to: string };
+  after: { from: string; to: string };
+}): string {
+  return JSON.stringify({
+    focusLocation: args.focusLocation
+      ? {
+        latitude: Number(args.focusLocation.latitude.toFixed(6)),
+        longitude: Number(args.focusLocation.longitude.toFixed(6)),
+      }
+      : null,
+    aoiSignature: args.aoiSignature,
+    aoiAreaSqKm: Number(args.aoiAreaSqKm.toFixed(6)),
+    indexType: args.indexType,
+    collection: args.collection,
+    before: args.before,
+    after: args.after,
+  });
+}
+
 async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...(opts?.headers ?? {}) },
@@ -518,6 +548,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const waterDebounceRef = useRef<number | null>(null);
   const entityLookupAbortRef = useRef<AbortController | null>(null);
   const overlayAbortRefs = useRef<Partial<Record<AquaScanOverlayType, AbortController>>>({});
+  const suppressComparisonResetRef = useRef(false);
 
   const [nearbyEntities, setNearbyEntities] = useState<NearbyEntity[]>([]);
   const [entitiesLoading, setEntitiesLoading] = useState(false);
@@ -550,23 +581,15 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const [comparisonLoading, setComparisonLoading] = useState(false);
   const [comparisonError, setComparisonError] = useState<string | null>(null);
   const [comparisonResult, setComparisonResult] = useState<CopernicusStatisticsComparisonResponse | null>(null);
+  const [loadedComparisonCalculationId, setLoadedComparisonCalculationId] = useState<string | null>(null);
+  const [loadedComparisonSetupSignature, setLoadedComparisonSetupSignature] = useState<string | null>(null);
   const [validatorGateStatus, setValidatorGateStatus] = useState<CopernicusValidatorStatus>('pending_review');
   const [overlayDateRange, setOverlayDateRange] = useState({ fromDate: '', toDate: '' });
   const [overlayThreshold, setOverlayThreshold] = useState(0.2);
   const [overlayResults, setOverlayResults] = useState<Record<AquaScanOverlayType, AquaScanOverlayState>>(() => createOverlayStateMap());
   const [selectedMeasurementOverlay, setSelectedMeasurementOverlay] = useState<AquaScanOverlayType>('ndwi_water_presence');
-  const [calculationHistory, setCalculationHistory] = useState<Array<{
-    calculationId: string;
-    projectId: string;
-    indexType: CopernicusIndexType;
-    before: { from: string; to: string };
-    after: { from: string; to: string };
-    deltaPercent: number | null;
-    confidenceScore: number | null;
-    validatorStatus: CopernicusValidatorStatus;
-    generatedAt: string;
-    summary: string;
-  }>>([]);
+  const [calculationHistory, setCalculationHistory] = useState<AquaScanCalculationHistoryEntry[]>([]);
+  const [intelligenceHistoryCalculationId, setIntelligenceHistoryCalculationId] = useState<string | null>(null);
 
   const selectedProject = useMemo(
     () => projects.find((p) => p.id === selectedProjectId) ?? draftProject,
@@ -594,6 +617,15 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const savedAoiGeoJson = useMemo(() => toAoiGeoJson(savedAoi), [savedAoi]);
   const savedAoiSignature = useMemo(() => JSON.stringify(savedAoi ?? []), [savedAoi]);
   const savedAoiCoordinateCount = savedAoi?.length ?? 0;
+  const currentComparisonSetupSignature = useMemo(() => buildComparisonSetupSignature({
+    focusLocation: selectedFocusLocation,
+    aoiSignature: savedAoiSignature,
+    aoiAreaSqKm: savedAoiAreaSqKm,
+    indexType: comparisonIndexType,
+    collection: comparisonCollection,
+    before: beforeRange,
+    after: afterRange,
+  }), [selectedFocusLocation, savedAoiSignature, savedAoiAreaSqKm, comparisonIndexType, comparisonCollection, beforeRange, afterRange]);
   const aoiStorageKey = useMemo(
     () => buildAoiStorageKey(selectedFocusLocation, selectedProjectId),
     [selectedFocusLocation, selectedProjectId],
@@ -618,6 +650,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
 
   function clearMeasurementOutputs(): void {
     setComparisonResult(null);
+    setLoadedComparisonCalculationId(null);
+    setLoadedComparisonSetupSignature(null);
     setComparisonError(null);
     setShowPacket(false);
     setValidatorGateStatus('pending_review');
@@ -788,21 +822,50 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       const parsed = JSON.parse(raw) as Array<{
         calculationId?: unknown;
         projectId?: unknown;
+        focusLocation?: { latitude?: unknown; longitude?: unknown };
+        aoiSignature?: unknown;
+        setupSignature?: unknown;
+        aoiAreaSqKm?: unknown;
         indexType?: unknown;
+        collection?: unknown;
         before?: { from?: unknown; to?: unknown };
         after?: { from?: unknown; to?: unknown };
         deltaPercent?: unknown;
         confidenceScore?: unknown;
+        sampleCounts?: { before?: unknown; after?: unknown };
+        measurementStatus?: unknown;
         validatorStatus?: unknown;
         generatedAt?: unknown;
         summary?: unknown;
+        resultSnapshot?: unknown;
       }>;
       const normalized = Array.isArray(parsed)
         ? parsed.flatMap((item, index) => {
           if (!item || typeof item !== 'object') return [];
           const indexType = typeof item.indexType === 'string' ? item.indexType as CopernicusIndexType : 'NDWI';
+          const collection: 'sentinel-2-l2a' | 'sentinel-1-grd' =
+            item.collection === 'sentinel-1-grd' ? 'sentinel-1-grd' : 'sentinel-2-l2a';
           const deltaPercent = typeof item.deltaPercent === 'number' ? item.deltaPercent : null;
+          const focusLocation = {
+            latitude: typeof item.focusLocation?.latitude === 'number' ? item.focusLocation.latitude : null,
+            longitude: typeof item.focusLocation?.longitude === 'number' ? item.focusLocation.longitude : null,
+          };
+          const before = {
+            from: typeof item.before?.from === 'string' ? item.before.from : '',
+            to: typeof item.before?.to === 'string' ? item.before.to : '',
+          };
+          const after = {
+            from: typeof item.after?.from === 'string' ? item.after.from : '',
+            to: typeof item.after?.to === 'string' ? item.after.to : '',
+          };
+          const aoiSignature = typeof item.aoiSignature === 'string' ? item.aoiSignature : '';
+          const aoiAreaSqKm = typeof item.aoiAreaSqKm === 'number' ? item.aoiAreaSqKm : 0;
           const rawSummary = typeof item.summary === 'string' ? item.summary.trim() : '';
+          const measurementStatus = typeof item.measurementStatus === 'string'
+            ? item.measurementStatus
+            : deltaPercent == null
+              ? 'No valid samples returned'
+              : 'Valid samples returned';
           const legacyNoValidSamples = deltaPercent == null
             && typeof item.confidenceScore === 'number'
             && Math.round(item.confidenceScore * 100) === 20
@@ -811,39 +874,53 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               || /n\/a%/i.test(rawSummary)
               || /no valid samples/i.test(rawSummary)
             );
-          const summary = legacyNoValidSamples
-            ? `${indexType} - no valid samples`
-            : rawSummary.length > 0
-              ? rawSummary
-              : deltaPercent == null
-              ? `${indexType} - no valid samples`
-              : `${indexType} - ${deltaPercent}%`;
-          return [{
+          const normalizedItem: AquaScanCalculationHistoryEntry = {
             calculationId: typeof item.calculationId === 'string' && item.calculationId ? item.calculationId : `legacy-calc-${selectedProject.id}-${index}`,
             projectId: typeof item.projectId === 'string' && item.projectId ? item.projectId : selectedProject.id,
+            focusLocation,
+            aoiSignature,
+            setupSignature: typeof item.setupSignature === 'string' && item.setupSignature
+              ? item.setupSignature
+              : JSON.stringify({
+                focusLocation,
+                aoiSignature,
+                aoiAreaSqKm: Number(aoiAreaSqKm.toFixed(6)),
+                indexType,
+                collection,
+                before,
+                after,
+              }),
+            aoiAreaSqKm,
             indexType,
-            before: {
-              from: typeof item.before?.from === 'string' ? item.before.from : '',
-              to: typeof item.before?.to === 'string' ? item.before.to : '',
-            },
-            after: {
-              from: typeof item.after?.from === 'string' ? item.after.from : '',
-              to: typeof item.after?.to === 'string' ? item.after.to : '',
-            },
+            collection,
+            before,
+            after,
             deltaPercent,
             confidenceScore: legacyNoValidSamples || deltaPercent == null
               ? null
               : typeof item.confidenceScore === 'number'
                 ? item.confidenceScore
                 : null,
+            sampleCounts: {
+              before: typeof item.sampleCounts?.before === 'number' ? item.sampleCounts.before : 0,
+              after: typeof item.sampleCounts?.after === 'number' ? item.sampleCounts.after : 0,
+            },
+            measurementStatus,
             validatorStatus: typeof item.validatorStatus === 'string'
               ? item.validatorStatus as CopernicusValidatorStatus
               : 'pending_review',
             generatedAt: typeof item.generatedAt === 'string' && item.generatedAt
               ? item.generatedAt
               : new Date(0).toISOString(),
-            summary,
-          }];
+            summary: rawSummary,
+            resultSnapshot: item.resultSnapshot && typeof item.resultSnapshot === 'object'
+              ? item.resultSnapshot as CopernicusStatisticsComparisonResponse
+              : null,
+          };
+          normalizedItem.summary = legacyNoValidSamples || deltaPercent == null || rawSummary.length === 0
+            ? formatCalculationHistoryHeadline(normalizedItem)
+            : rawSummary;
+          return [normalizedItem];
         })
         : [];
       setCalculationHistory(normalized);
@@ -858,6 +935,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }, [calculationHistory, selectedProject.id]);
 
   useEffect(() => {
+    if (suppressComparisonResetRef.current) {
+      suppressComparisonResetRef.current = false;
+      return;
+    }
     if (comparisonLoading) return;
     if (!comparisonResult && !comparisonError && validatorGateStatus === 'pending_review' && !showPacket) return;
     if ((import.meta as any).env?.DEV) {
@@ -870,6 +951,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       });
     }
     setComparisonResult(null);
+    setLoadedComparisonCalculationId(null);
+    setLoadedComparisonSetupSignature(null);
     setComparisonError(null);
     setValidatorGateStatus('pending_review');
     setShowPacket(false);
@@ -887,6 +970,13 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     showPacket,
     validatorGateStatus,
   ]);
+
+  useEffect(() => {
+    if (comparisonResult) return;
+    if (/^MRV comparison completed|^Comparison completed, but no valid samples/i.test(actionNotice)) {
+      setActionNotice(calculationHistory.length > 0 ? 'Previous measurements available in history.' : '');
+    }
+  }, [comparisonResult, actionNotice, calculationHistory.length]);
 
   useEffect(() => {
     clearLiveOverlayState();
@@ -1102,15 +1192,15 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     {
       id: 'compare',
       label: 'Compare',
-      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : comparisonResult ? 'complete' : 'pending',
-      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : comparisonResult ? 'Done' : 'Needed',
+      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'complete' : 'pending',
+      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'Done' : 'Needed',
       tabId: 'mrv',
     },
     {
       id: 'evidence',
       label: 'Evidence',
-      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : showPacket ? 'complete' : 'pending',
-      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : showPacket ? 'Done' : 'Needed',
+      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'complete' : 'pending',
+      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'Ready' : 'Needed',
       tabId: 'evidence',
     },
     {
@@ -1149,6 +1239,55 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     : comparisonHasValidSamples
       ? 'Valid samples returned'
       : 'No valid samples returned';
+  const hasCurrentComparisonResult = Boolean(comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature);
+  const hasPreviousMeasurements = calculationHistory.length > 0;
+  const comparisonResultForPacket = hasCurrentComparisonResult ? comparisonResult : null;
+
+  const selectedIntelligenceHistoryItem = useMemo(
+    () => calculationHistory.find((item) => item.calculationId === intelligenceHistoryCalculationId) ?? null,
+    [calculationHistory, intelligenceHistoryCalculationId],
+  );
+
+  function historySetupLabel(item: AquaScanCalculationHistoryEntry): 'Current setup' | 'Different AOI/date' | 'Previous run' {
+    if (item.setupSignature !== currentComparisonSetupSignature) return 'Different AOI/date';
+    if (loadedComparisonCalculationId === item.calculationId && comparisonResult) return 'Current setup';
+    return 'Previous run';
+  }
+
+  function restoreCalculationHistoryItem(item: AquaScanCalculationHistoryEntry): void {
+    const sameCurrentBoundary = item.aoiSignature === savedAoiSignature
+      && Boolean(selectedFocusLocation)
+      && item.focusLocation.latitude != null
+      && item.focusLocation.longitude != null
+      && Number(item.focusLocation.latitude.toFixed(6)) === Number(selectedFocusLocation!.latitude.toFixed(6))
+      && Number(item.focusLocation.longitude.toFixed(6)) === Number(selectedFocusLocation!.longitude.toFixed(6));
+    suppressComparisonResetRef.current = true;
+    setIntelligenceHistoryCalculationId(item.calculationId);
+    setComparisonIndexType(item.indexType);
+    setComparisonCollection(item.collection);
+    setBeforeRange({ ...item.before });
+    setAfterRange({ ...item.after });
+    setComparisonError(null);
+    setShowPacket(false);
+    clearLiveOverlayState();
+    if (item.resultSnapshot) {
+      setComparisonResult(item.resultSnapshot);
+      setLoadedComparisonCalculationId(item.calculationId);
+      setLoadedComparisonSetupSignature(item.setupSignature);
+      setValidatorGateStatus(item.validatorStatus);
+      setActionNotice(
+        sameCurrentBoundary
+          ? 'Historical MRV comparison restored. Dates and settings were loaded into the current boundary.'
+          : 'Historical MRV comparison restored. It belongs to a different AOI/date setup.'
+      );
+    } else {
+      setComparisonResult(null);
+      setLoadedComparisonCalculationId(null);
+      setLoadedComparisonSetupSignature(null);
+      setValidatorGateStatus('pending_review');
+      setActionNotice('Historical row restored dates/index/collection, but full result details are not available for this legacy entry.');
+    }
+  }
   const overlayDefinitions: Array<{
     overlayType: AquaScanOverlayType;
     label: string;
@@ -1268,10 +1407,50 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           : 'Review the AOI comparison, then request sampling or validator review as needed.',
     };
   }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, selectedFocusLocation, mapCenter, savedAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.nearbyEntities, nearbyEntities.length, imageryError, partialFailure, imageryLoading]);
+  const intelligenceReader = useMemo(() => buildAquaScanIntelligence({
+    selectedFocusLocation: selectedFocusLocation
+      ? {
+          displayName: selectedFocusLocation.displayName,
+          latitude: selectedFocusLocation.latitude,
+          longitude: selectedFocusLocation.longitude,
+        }
+      : null,
+    selectedProject,
+    savedAoiAreaSqKm,
+    comparisonResult: hasCurrentComparisonResult ? comparisonResult : null,
+    comparisonIndexType,
+    comparisonCollection,
+    beforeRange,
+    afterRange,
+    calculationHistory,
+    nearbyEntities,
+    validatorGateStatus,
+    waterData,
+    evidencePacketPayload: null,
+    riskScore,
+    warnings: comparisonResult?.warnings ?? [],
+    selectedHistoryItem: selectedIntelligenceHistoryItem,
+  }), [
+    afterRange,
+    beforeRange,
+    calculationHistory,
+    comparisonCollection,
+    comparisonIndexType,
+    comparisonResult,
+    hasCurrentComparisonResult,
+    nearbyEntities,
+    riskScore,
+    savedAoiAreaSqKm,
+    selectedFocusLocation,
+    selectedIntelligenceHistoryItem,
+    selectedProject,
+    validatorGateStatus,
+    waterData,
+  ]);
   const evidencePacket = useMemo<SatelliteEvidencePacket>(() => {
-    const beforeValue = comparisonResult?.before.mean ?? null;
-    const afterValue = comparisonResult?.after.mean ?? null;
-    const deltaPercent = comparisonResult?.delta.percentChange ?? null;
+    const beforeValue = comparisonResultForPacket?.before.mean ?? null;
+    const afterValue = comparisonResultForPacket?.after.mean ?? null;
+    const deltaPercent = comparisonResultForPacket?.delta.percentChange ?? null;
     return {
       projectId: selectedProject.id,
       projectName: selectedProject.projectName || 'Unnamed project',
@@ -1279,16 +1458,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       centerLatLng: selectedFocusLocation
         ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
         : { lat: mapCenter[0], lng: mapCenter[1] },
-      satelliteCollection: comparisonResult?.collection ?? comparisonCollection,
+      satelliteCollection: comparisonResultForPacket?.collection ?? comparisonCollection,
       productId: waterData?.satellite.product ?? 'S2_L2A_PENDING_PRODUCT_ID',
-      acquisitionDate: comparisonResult?.generatedAt ?? waterData?.satellite.acquisitionDate ?? selectedDate,
+      acquisitionDate: comparisonResultForPacket?.generatedAt ?? waterData?.satellite.acquisitionDate ?? selectedDate,
       cloudCover: waterData?.satellite.cloudCover ?? 'unavailable',
-      indexType: comparisonResult?.indexType ?? comparisonIndexType,
+      indexType: comparisonResultForPacket?.indexType ?? comparisonIndexType,
       beforeValue,
       afterValue,
       deltaPercent,
-      confidenceScore: comparisonHasValidSamples ? (comparisonResult?.confidenceScore ?? ((inspectQualityConfidence ?? 0) / 100)) : 0,
-      dataSourceCitation: comparisonResult?.sourceCitation ?? 'Copernicus Sentinel Hub + DPAL Water Analysis',
+      confidenceScore: comparisonHasValidSamples && comparisonResultForPacket ? (comparisonResultForPacket.confidenceScore ?? ((inspectQualityConfidence ?? 0) / 100)) : 0,
+      dataSourceCitation: comparisonResultForPacket?.sourceCitation ?? 'Copernicus Sentinel Hub + DPAL Water Analysis',
       assumptions: [
         'Satellite index values are indicative and depend on scene quality.',
         'Before/after values are generated from backend-controlled index formulas.',
@@ -1303,9 +1482,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       photos: [],
       measurements: overlayMeasurementRecords,
       overlays: overlayPacketRecords,
-      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResult ? ` Measurement status: ${comparisonMeasurementStatus}.` : ' Measurement not yet completed.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
+      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResultForPacket ? ` Measurement status: ${comparisonMeasurementStatus}.` : ' Measurement not yet completed.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResultForPacket?.warnings.length ? ` Warnings: ${comparisonResultForPacket.warnings.join(' | ')}` : ''}${comparisonResult && !hasCurrentComparisonResult ? ' Restored comparison belongs to a different AOI/date setup and is not used in this packet until the matching setup is active.' : ''}`,
     };
-  }, [comparisonCollection, comparisonHasValidSamples, comparisonIndexType, comparisonMeasurementStatus, comparisonResult, inspectQualityConfidence, selectedFocusLocation, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, selectedProject.projectName, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, savedAoiGeoJson]);
+  }, [comparisonCollection, comparisonHasValidSamples, comparisonIndexType, comparisonMeasurementStatus, comparisonResult, comparisonResultForPacket, hasCurrentComparisonResult, inspectQualityConfidence, selectedFocusLocation, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, selectedProject.projectName, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, savedAoiGeoJson]);
   const canGenerateEvidencePacket = Boolean(selectedFocusLocation && readySavedAoi);
   const evidencePacketPayload = useMemo(() => ({
     ...evidencePacket,
@@ -1324,29 +1503,29 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       before: { ...beforeRange },
       after: { ...afterRange },
     },
-    measurementStatus: comparisonMeasurementStatus,
-    measurementSource: comparisonResult ? 'Copernicus AOI statistics' : 'Measurement unavailable',
-    measurements: comparisonResult
+    measurementStatus: comparisonResultForPacket ? comparisonMeasurementStatus : 'Measurement not yet completed.',
+    measurementSource: comparisonResultForPacket ? 'Copernicus AOI statistics' : 'Measurement unavailable',
+    measurements: comparisonResultForPacket
       ? [{
-          beforeMean: comparisonResult.before.mean,
-          afterMean: comparisonResult.after.mean,
-          absoluteChange: comparisonResult.delta.absoluteChange,
-          percentChange: comparisonResult.delta.percentChange,
+          beforeMean: comparisonResultForPacket.before.mean,
+          afterMean: comparisonResultForPacket.after.mean,
+          absoluteChange: comparisonResultForPacket.delta.absoluteChange,
+          percentChange: comparisonResultForPacket.delta.percentChange,
           sampleCount: {
-            before: comparisonResult.before.sampleCount,
-            after: comparisonResult.after.sampleCount,
+            before: comparisonResultForPacket.before.sampleCount,
+            after: comparisonResultForPacket.after.sampleCount,
           },
           noDataCount: {
-            before: comparisonResult.before.noDataCount,
-            after: comparisonResult.after.noDataCount,
+            before: comparisonResultForPacket.before.noDataCount,
+            after: comparisonResultForPacket.after.noDataCount,
           },
           cloudCover: {
-            before: comparisonResult.before.cloudCoverage,
-            after: comparisonResult.after.cloudCoverage,
+            before: comparisonResultForPacket.before.cloudCoverage,
+            after: comparisonResultForPacket.after.cloudCoverage,
           },
-          confidence: comparisonHasValidSamples ? comparisonResult.confidenceScore : null,
-          interpretation: comparisonResult.delta.interpretation,
-          warnings: comparisonResult.warnings,
+          confidence: comparisonHasValidSamples ? comparisonResultForPacket.confidenceScore : null,
+          interpretation: comparisonResultForPacket.delta.interpretation,
+          warnings: comparisonResultForPacket.warnings,
         }]
       : [],
     overlaysStatus: overlayPacketRecords,
@@ -1355,10 +1534,19 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       entities: nearbyEntities,
       disclaimer: 'Nearby mapped entities are contextual leads only and do not prove responsibility.',
     },
-    warnings: comparisonResult?.warnings ?? [],
+    intelligenceReader: {
+      summary: intelligenceReader.summary,
+      keyFindings: intelligenceReader.keyFindings,
+      confidenceInterpretation: intelligenceReader.confidenceInterpretation,
+      suggestedQuestions: intelligenceReader.suggestedQuestions,
+      recommendedActions: intelligenceReader.recommendedActions,
+      evidenceNeeded: intelligenceReader.evidenceNeeded,
+      limitations: intelligenceReader.limitations,
+    },
+    warnings: comparisonResultForPacket?.warnings ?? [],
     limitations: evidencePacket.limitations,
     disclaimer: packetPreview.legalSafeNote,
-  }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResult, evidencePacket, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
+  }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResultForPacket, evidencePacket, intelligenceReader.confidenceInterpretation, intelligenceReader.evidenceNeeded, intelligenceReader.keyFindings, intelligenceReader.limitations, intelligenceReader.recommendedActions, intelligenceReader.suggestedQuestions, intelligenceReader.summary, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -1452,6 +1640,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         after: afterRange,
       });
       setComparisonResult(result);
+      setLoadedComparisonSetupSignature(currentComparisonSetupSignature);
       setValidatorGateStatus('pending_review');
       const noValidSamples = (result.before.sampleCount ?? 0) === 0 && (result.after.sampleCount ?? 0) === 0;
       if ((import.meta as any).env?.DEV) {
@@ -1465,18 +1654,37 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           sampleCountAfter: result.after.sampleCount ?? 0,
         });
       }
-      const historyItem = {
+      const historyItem: AquaScanCalculationHistoryEntry = {
         calculationId: `calc-${Date.now()}`,
         projectId: selectedProject.id,
+        focusLocation: {
+          latitude: selectedFocusLocation.latitude,
+          longitude: selectedFocusLocation.longitude,
+        },
+        aoiSignature: savedAoiSignature,
+        setupSignature: currentComparisonSetupSignature,
+        aoiAreaSqKm: savedAoiAreaSqKm,
         indexType: comparisonIndexType,
+        collection: comparisonCollection,
         before: { ...beforeRange },
         after: { ...afterRange },
         deltaPercent: result.delta.percentChange,
         confidenceScore: noValidSamples ? null : result.confidenceScore,
+        sampleCounts: {
+          before: result.before.sampleCount ?? 0,
+          after: result.after.sampleCount ?? 0,
+        },
+        measurementStatus: result.measurementStatus === 'no_valid_samples' || noValidSamples
+          ? 'No valid samples returned'
+          : 'Valid samples returned',
         validatorStatus: 'pending_review' as CopernicusValidatorStatus,
         generatedAt: result.generatedAt,
-        summary: noValidSamples ? `${comparisonIndexType} - no valid samples` : `${comparisonIndexType} - ${result.delta.percentChange ?? 'N/A'}%`,
+        summary: '',
+        resultSnapshot: result,
       };
+      historyItem.summary = formatCalculationHistoryHeadline(historyItem);
+      setLoadedComparisonCalculationId(historyItem.calculationId);
+      setIntelligenceHistoryCalculationId(historyItem.calculationId);
       setCalculationHistory((prev) => [historyItem, ...prev].slice(0, 20));
       setActionNotice(noValidSamples ? 'Comparison completed, but no valid samples were returned for the selected windows.' : 'MRV comparison completed. Pending Validator Review.');
     } catch (error) {
@@ -2306,8 +2514,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               ['Save AOI', readySavedAoi, !selectedFocusLocation],
               ['Select NDWI', comparisonIndexType === 'NDWI', !readySavedAoi],
               ['Apply recommended dates', RECOMMENDED_COMPARISON_PRESETS.some((preset) => preset.before.from === beforeRange.from && preset.before.to === beforeRange.to && preset.after.from === afterRange.from && preset.after.to === afterRange.to), !readySavedAoi],
-              ['Calculate Comparison', Boolean(comparisonResult), !readySavedAoi],
-              ['Generate Evidence Packet', showPacket, !canGenerateEvidencePacket],
+              ['Calculate Comparison', hasCurrentComparisonResult, !readySavedAoi],
+              ['Generate Evidence Packet', hasCurrentComparisonResult, !canGenerateEvidencePacket],
               ['Choose Action', showPacket && activeTab === 'actions', !showPacket],
             ].map(([label, done, locked]) => (
               <div key={String(label)} className="flex items-center gap-2 py-1 text-[11px]">
@@ -2318,6 +2526,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 </span>
               </div>
             ))}
+            {!hasCurrentComparisonResult && hasPreviousMeasurements ? (
+              <p className="mt-2 text-[10px] text-amber-200">Previous measurements available in history.</p>
+            ) : null}
           </div>
           <div className="mt-3 border-t border-slate-800 pt-3">
             <p className="text-[10px] text-slate-500">Project</p>
@@ -2776,7 +2987,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           </div>
 
           {/* MRV result */}
-          {comparisonResult ? (
+          {hasCurrentComparisonResult && comparisonResult ? (
             <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-950/20 p-2.5 text-[10px]">
               <p className="mb-1 font-semibold uppercase tracking-wider text-emerald-300">MRV Result</p>
               <div className="space-y-0.5 text-slate-300">
@@ -2787,6 +2998,31 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               </div>
             </div>
           ) : null}
+          <AquaScanIntelligenceReader
+            selectedFocusLocation={selectedFocusLocation
+              ? {
+                  displayName: selectedFocusLocation.displayName,
+                  latitude: selectedFocusLocation.latitude,
+                  longitude: selectedFocusLocation.longitude,
+                }
+              : null}
+            selectedProject={selectedProject}
+            savedAoiAreaSqKm={savedAoiAreaSqKm}
+            comparisonResult={hasCurrentComparisonResult ? comparisonResult : null}
+            comparisonIndexType={comparisonIndexType}
+            comparisonCollection={comparisonCollection}
+            beforeRange={beforeRange}
+            afterRange={afterRange}
+            calculationHistory={calculationHistory}
+            nearbyEntities={nearbyEntities}
+            validatorGateStatus={validatorGateStatus}
+            waterData={waterData}
+            evidencePacketPayload={evidencePacketPayload as Record<string, unknown>}
+            riskScore={riskScore}
+            warnings={comparisonResult?.warnings ?? []}
+            selectedHistoryItem={selectedIntelligenceHistoryItem}
+            variant="compact"
+          />
 
           <div className="mt-2 rounded-lg border border-slate-700 bg-slate-900/60 p-2.5 text-[10px]">
             <p className="mb-1 font-semibold uppercase tracking-wider text-slate-300">Measurement Precision</p>
@@ -3279,6 +3515,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 </div>
                 {comparisonError ? <p className="text-xs text-rose-300">{comparisonError}</p> : null}
                 {!comparisonResult ? <p className="text-xs text-slate-500">Run comparison to see results.</p> : null}
+                {!hasCurrentComparisonResult && hasPreviousMeasurements ? (
+                  <p className="text-xs text-amber-200">Previous measurements are available in history. Restore one to review it.</p>
+                ) : null}
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                   {(
                     [
@@ -3319,6 +3558,30 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 ) : (
                   <p className="text-xs text-slate-500">Run comparison to see interpretation.</p>
                 )}
+                <AquaScanIntelligenceReader
+                  selectedFocusLocation={selectedFocusLocation
+                    ? {
+                        displayName: selectedFocusLocation.displayName,
+                        latitude: selectedFocusLocation.latitude,
+                        longitude: selectedFocusLocation.longitude,
+                      }
+                    : null}
+                  selectedProject={selectedProject}
+                  savedAoiAreaSqKm={savedAoiAreaSqKm}
+                  comparisonResult={hasCurrentComparisonResult ? comparisonResult : null}
+                  comparisonIndexType={comparisonIndexType}
+                  comparisonCollection={comparisonCollection}
+                  beforeRange={beforeRange}
+                  afterRange={afterRange}
+                  calculationHistory={calculationHistory}
+                  nearbyEntities={nearbyEntities}
+                  validatorGateStatus={validatorGateStatus}
+                  waterData={waterData}
+                  evidencePacketPayload={evidencePacketPayload as Record<string, unknown>}
+                  riskScore={riskScore}
+                  warnings={comparisonResult?.warnings ?? []}
+                  selectedHistoryItem={selectedIntelligenceHistoryItem}
+                />
                 <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-xs text-slate-300">
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <p className="font-semibold text-slate-200">Calculation history (local per project)</p>
@@ -3333,14 +3596,54 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   {calculationHistory.length === 0 ? (
                     <p className="text-slate-500">No saved calculations yet.</p>
                   ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       {calculationHistory.slice(0, 5).map((item) => (
-                        <p key={item.calculationId} className="text-[11px]">
-                          {item.generatedAt.slice(0, 10)} . {item.summary}
-                          {item.confidenceScore != null ? ` . ${Math.round(item.confidenceScore * 100)}% conf` : ''}
-                          {' . '}
-                          {item.validatorStatus.replace(/_/g, ' ')}
-                        </p>
+                        <div key={item.calculationId} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-semibold text-slate-100">{formatCalculationHistoryHeadline(item)}</p>
+                            <span className={`rounded-full border px-2 py-0.5 text-[10px] ${
+                              historySetupLabel(item) === 'Current setup'
+                                ? 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200'
+                                : historySetupLabel(item) === 'Previous run'
+                                  ? 'border-cyan-500/40 bg-cyan-900/20 text-cyan-200'
+                                  : 'border-amber-500/40 bg-amber-900/20 text-amber-200'
+                            }`}>
+                              {historySetupLabel(item)}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-[10px] text-slate-400">Before: {item.before.from || '-'} to {item.before.to || '-'}</p>
+                          <p className="text-[10px] text-slate-400">After: {item.after.from || '-'} to {item.after.to || '-'}</p>
+                          <p className="text-[10px] text-slate-400">AOI: {item.aoiAreaSqKm.toFixed(2)} km2</p>
+                          <p className="text-[10px] text-slate-400">Status: {item.measurementStatus}</p>
+                          <p className="text-[10px] text-slate-500">
+                            Samples: {item.sampleCounts.before} / {item.sampleCounts.after}
+                            {' . '}
+                            {item.validatorStatus.replace(/_/g, ' ')}
+                            {' . '}
+                            {item.generatedAt.slice(0, 10)}
+                          </p>
+                          <div className="mt-2 flex items-center justify-between gap-2">
+                            <span className="text-[10px] text-slate-500">
+                              {item.confidenceScore != null ? `${Math.round(item.confidenceScore * 100)}% confidence` : 'Confidence unavailable'}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setIntelligenceHistoryCalculationId(item.calculationId)}
+                                className="rounded border border-violet-500/40 px-2 py-0.5 text-[10px] text-violet-200 hover:border-violet-400 hover:text-violet-100"
+                              >
+                                Explain
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => restoreCalculationHistoryItem(item)}
+                                className="rounded border border-cyan-500/40 px-2 py-0.5 text-[10px] text-cyan-200 hover:border-cyan-400 hover:text-cyan-100"
+                              >
+                                {item.resultSnapshot ? 'Restore result' : 'View setup'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -3354,6 +3657,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 {!canGenerateEvidencePacket ? (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
                     Select a focus location and save an AOI before generating an evidence packet.
+                  </p>
+                ) : null}
+                {comparisonResult && !hasCurrentComparisonResult ? (
+                  <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
+                    Restored comparison belongs to a different AOI/date setup. Recreate that setup or rerun comparison before generating a packet from measurement results.
                   </p>
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
@@ -3428,6 +3736,30 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 </div>
 
                 {/* Evidence packet */}
+                <AquaScanIntelligenceReader
+                  selectedFocusLocation={selectedFocusLocation
+                    ? {
+                        displayName: selectedFocusLocation.displayName,
+                        latitude: selectedFocusLocation.latitude,
+                        longitude: selectedFocusLocation.longitude,
+                      }
+                    : null}
+                  selectedProject={selectedProject}
+                  savedAoiAreaSqKm={savedAoiAreaSqKm}
+                  comparisonResult={hasCurrentComparisonResult ? comparisonResult : null}
+                  comparisonIndexType={comparisonIndexType}
+                  comparisonCollection={comparisonCollection}
+                  beforeRange={beforeRange}
+                  afterRange={afterRange}
+                  calculationHistory={calculationHistory}
+                  nearbyEntities={nearbyEntities}
+                  validatorGateStatus={validatorGateStatus}
+                  waterData={waterData}
+                  evidencePacketPayload={evidencePacketPayload as Record<string, unknown>}
+                  riskScore={riskScore}
+                  warnings={comparisonResult?.warnings ?? []}
+                  selectedHistoryItem={selectedIntelligenceHistoryItem}
+                />
                 {showPacket ? (
                   <div className="space-y-1.5 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs text-slate-200">
                     <p className="text-sm font-bold text-white">DPAL AquaScan Evidence Packet</p>
@@ -3465,6 +3797,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       <p><span className="text-slate-400">Delta %:</span> {evidencePacket.deltaPercent ?? 'N/A'}</p>
                       <p><span className="text-slate-400">Data source:</span> {evidencePacket.dataSourceCitation}</p>
                       <p><span className="text-slate-400">Measurement status:</span> {String(evidencePacketPayload.measurementStatus)}</p>
+                    </div>
+                    <div className="mt-3 rounded-lg border border-violet-500/30 bg-violet-950/15 p-3">
+                      <p className="font-semibold text-violet-100">Intelligence Reader</p>
+                      <p className="mt-1 text-[11px] text-slate-300">{intelligenceReader.summary}</p>
+                      <p className="mt-2 text-[11px] text-slate-400">Confidence: {intelligenceReader.confidenceInterpretation}</p>
                     </div>
                     <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
                       <p className="font-semibold text-slate-100">Recorded overlays</p>
