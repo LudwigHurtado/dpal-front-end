@@ -76,12 +76,199 @@ function asNumber(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
+function debugEnabled(): boolean {
+  return process.env.NODE_ENV !== 'production';
+}
+
 function evalscriptFor(indexType: AllowedIndexType): string {
   if (indexType === 'NDVI') return '(B08-B04)/(B08+B04)';
   if (indexType === 'NDWI') return '(B03-B08)/(B03+B08)';
   if (indexType === 'NDMI') return '(B08-B11)/(B08+B11)';
   return '(B08-B12)/(B08+B12)';
 }
+
+function outputBandNameFor(indexType: AllowedIndexType): string {
+  return indexType;
+}
+
+function evalscriptInputBandsFor(_indexType: AllowedIndexType): string[] {
+  return ['B03', 'B04', 'B08', 'B11', 'B12'];
+}
+
+function evalscriptSourceFor(indexType: AllowedIndexType): string {
+  const expression = evalscriptFor(indexType);
+  const outputId = outputBandNameFor(indexType);
+  const inputBands = evalscriptInputBandsFor(indexType).map((band) => `"${band}"`).join(', ');
+  return `//VERSION=3
+function setup() {
+  return {
+    input: [{ bands: [${inputBands}] }],
+    output: [{ id: "${outputId}", bands: 1, sampleType: "FLOAT32" }]
+  };
+}
+
+function evaluatePixel(sample) {
+  const denominator = ${indexType === 'NDVI'
+    ? '(sample.B08 + sample.B04)'
+    : indexType === 'NDWI'
+      ? '(sample.B03 + sample.B08)'
+      : indexType === 'NDMI'
+        ? '(sample.B08 + sample.B11)'
+        : '(sample.B08 + sample.B12)'};
+  const value = denominator === 0 ? 0 : ${expression.replace(/B(\d{2})/g, 'sample.B$1')};
+  return {
+    ${outputId}: [value]
+  };
+}`;
+}
+
+function summarizeAoi(aoiGeoJson: any) {
+  const ring = Array.isArray(aoiGeoJson?.coordinates?.[0]) ? aoiGeoJson.coordinates[0] : [];
+  const coordinateCount = ring.length;
+  const firstCoordinate = Array.isArray(ring[0]) ? [ring[0][0], ring[0][1]] : null;
+  let minLng = Number.POSITIVE_INFINITY;
+  let minLat = Number.POSITIVE_INFINITY;
+  let maxLng = Number.NEGATIVE_INFINITY;
+  let maxLat = Number.NEGATIVE_INFINITY;
+  for (const point of ring) {
+    if (!Array.isArray(point) || point.length < 2) continue;
+    const lng = Number(point[0]);
+    const lat = Number(point[1]);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+    minLng = Math.min(minLng, lng);
+    minLat = Math.min(minLat, lat);
+    maxLng = Math.max(maxLng, lng);
+    maxLat = Math.max(maxLat, lat);
+  }
+  return {
+    coordinateCount,
+    firstCoordinate,
+    bbox: Number.isFinite(minLng) && Number.isFinite(minLat) && Number.isFinite(maxLng) && Number.isFinite(maxLat)
+      ? { minLng, minLat, maxLng, maxLat }
+      : null,
+    appearsLngLat: firstCoordinate != null
+      ? Math.abs(firstCoordinate[0]) <= 180 && Math.abs(firstCoordinate[1]) <= 90
+      : false,
+  };
+}
+
+function summarizeStatisticsResponseShape(input: any) {
+  const rows = Array.isArray(input?.data) ? input.data : [];
+  const first = rows[0] ?? null;
+  const outputs = first?.outputs && typeof first.outputs === 'object' ? first.outputs : {};
+  const outputKeys = Object.keys(outputs);
+  const outputSummaries = outputKeys.map((key) => {
+    const output = outputs[key];
+    const bandKeys = output?.bands && typeof output.bands === 'object' ? Object.keys(output.bands) : [];
+    const firstBand = bandKeys[0] ? output.bands[bandKeys[0]] : null;
+    const statsKeys = firstBand?.stats && typeof firstBand.stats === 'object'
+      ? Object.keys(firstBand.stats)
+      : output?.stats && typeof output.stats === 'object'
+        ? Object.keys(output.stats)
+        : [];
+    return {
+      outputKey: key,
+      bandKeys,
+      statsKeys,
+    };
+  });
+  return {
+    topLevelKeys: input && typeof input === 'object' ? Object.keys(input) : [],
+    dataLength: rows.length,
+    firstIntervalKeys: first?.interval && typeof first.interval === 'object' ? Object.keys(first.interval) : [],
+    outputKeys,
+    outputSummaries,
+  };
+}
+
+function extractStatsCandidate(outputKey: string, bandKey: string, candidate: any, path: string) {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const mean = asNumber(candidate.mean);
+  const min = asNumber(candidate.min);
+  const max = asNumber(candidate.max);
+  const stDev = asNumber(candidate.stDev ?? candidate.stdDev ?? candidate.standardDeviation);
+  const sampleCount = asNumber(candidate.sampleCount ?? candidate.samples);
+  const noDataCount = asNumber(candidate.noDataCount ?? candidate.noData ?? candidate.noDataPixels);
+  const hasAnyValue = mean != null || min != null || max != null || stDev != null || sampleCount != null || noDataCount != null;
+  if (!hasAnyValue) return null;
+  return {
+    outputKey,
+    bandKey,
+    path,
+    stats: {
+      mean,
+      min,
+      max,
+      stDev,
+      sampleCount,
+      noDataCount,
+    },
+  };
+}
+
+function extractStatisticsFromRow(row: any) {
+  const outputs = row?.outputs;
+  if (!outputs || typeof outputs !== 'object') {
+    return { candidate: null, debug: { outputKeys: [], bandKeys: [], triedPaths: [] as string[] } };
+  }
+  const outputKeys = Object.keys(outputs);
+  const triedPaths: string[] = [];
+  const priorityOutputKeys = ['data', 'index', 'default', 'NDWI', 'NDVI', 'NDMI', 'NBR'];
+  const orderedOutputKeys = [
+    ...priorityOutputKeys.filter((key) => outputKeys.includes(key)),
+    ...outputKeys.filter((key) => !priorityOutputKeys.includes(key)),
+  ];
+
+  for (const outputKey of orderedOutputKeys) {
+    const output = outputs[outputKey];
+    if (output?.bands && typeof output.bands === 'object') {
+      const bandKeys = Object.keys(output.bands);
+      const orderedBandKeys = [
+        ...['B0', 'NDWI', 'NDVI', 'NDMI', 'NBR'].filter((key) => bandKeys.includes(key)),
+        ...bandKeys.filter((key) => !['B0', 'NDWI', 'NDVI', 'NDMI', 'NBR'].includes(key)),
+      ];
+      for (const bandKey of orderedBandKeys) {
+        const band = output.bands[bandKey];
+        triedPaths.push(`outputs.${outputKey}.bands.${bandKey}.stats`);
+        const fromBandStats = extractStatsCandidate(outputKey, bandKey, band?.stats, `outputs.${outputKey}.bands.${bandKey}.stats`);
+        if (fromBandStats) {
+          return {
+            candidate: fromBandStats,
+            debug: { outputKeys, bandKeys, triedPaths },
+          };
+        }
+        triedPaths.push(`outputs.${outputKey}.bands.${bandKey}`);
+        const fromBand = extractStatsCandidate(outputKey, bandKey, band, `outputs.${outputKey}.bands.${bandKey}`);
+        if (fromBand) {
+          return {
+            candidate: fromBand,
+            debug: { outputKeys, bandKeys, triedPaths },
+          };
+        }
+      }
+    }
+    triedPaths.push(`outputs.${outputKey}.stats`);
+    const fromOutputStats = extractStatsCandidate(outputKey, outputKey, output?.stats, `outputs.${outputKey}.stats`);
+    if (fromOutputStats) {
+      return {
+        candidate: fromOutputStats,
+        debug: { outputKeys, bandKeys: [], triedPaths },
+      };
+    }
+  }
+
+  return {
+    candidate: null,
+    debug: { outputKeys, bandKeys: [], triedPaths },
+  };
+}
+
+function normalizeMeasurementStatus(args: { parserMatched: boolean; sampleCount: number; mean: number | null }) {
+  if (!args.parserMatched) return 'parser_failed' as const;
+  if (args.sampleCount <= 0 || args.mean == null) return 'no_valid_samples' as const;
+  return 'ok' as const;
+}
+
 
 function deriveConfidenceScore(args: {
   mean: number | null;
@@ -97,24 +284,6 @@ function deriveConfidenceScore(args: {
 
 function normalizeStatisticsPayload(input: any, requestBody: any) {
   const rows = Array.isArray(input?.data) ? input.data : [];
-  if (!rows.length) {
-    return {
-      indexType: String(requestBody?.indexType ?? 'NDVI'),
-      mean: null,
-      min: null,
-      max: null,
-      stDev: null,
-      sampleCount: 0,
-      noDataCount: 0,
-      cloudCoverage: null,
-      fromDate: String(requestBody?.dateRange?.from ?? ''),
-      toDate: String(requestBody?.dateRange?.to ?? ''),
-      collection: String(requestBody?.collection ?? 'sentinel-2-l2a'),
-      sourceCitation: 'Copernicus Data Space / Sentinel Hub Statistical API',
-      confidenceScore: 0.2,
-    };
-  }
-
   let sumMean = 0;
   let meanCount = 0;
   let minVal: number | null = null;
@@ -123,16 +292,22 @@ function normalizeStatisticsPayload(input: any, requestBody: any) {
   let stDevCount = 0;
   let sampleCount = 0;
   let noDataCount = 0;
+  const parserPathsUsed = new Set<string>();
+  let parserMatched = false;
+  const firstRowDebug = rows[0] ? extractStatisticsFromRow(rows[0]).debug : { outputKeys: [], bandKeys: [], triedPaths: [] as string[] };
 
   for (const row of rows) {
-    const stats = row?.outputs?.default?.bands?.B0?.stats ?? row?.outputs?.default?.stats ?? null;
+    const extracted = extractStatisticsFromRow(row);
+    if (extracted.candidate?.path) parserPathsUsed.add(extracted.candidate.path);
+    const stats = extracted.candidate?.stats;
     if (!stats) continue;
-    const mean = asNumber(stats.mean);
-    const min = asNumber(stats.min);
-    const max = asNumber(stats.max);
-    const stDev = asNumber(stats.stDev);
-    const samples = asNumber(stats.sampleCount);
-    const noData = asNumber(stats.noDataCount);
+    parserMatched = true;
+    const mean = stats.mean;
+    const min = stats.min;
+    const max = stats.max;
+    const stDev = stats.stDev;
+    const samples = stats.sampleCount;
+    const noData = stats.noDataCount;
     if (mean != null) {
       sumMean += mean;
       meanCount += 1;
@@ -150,6 +325,8 @@ function normalizeStatisticsPayload(input: any, requestBody: any) {
   const cloudCoverage = asNumber(requestBody?.cloudCoverage);
   const mean = meanCount > 0 ? Number((sumMean / meanCount).toFixed(6)) : null;
   const stDev = stDevCount > 0 ? Number((sumStDev / stDevCount).toFixed(6)) : null;
+  const measurementStatus = normalizeMeasurementStatus({ parserMatched, sampleCount, mean });
+  const debugShape = summarizeStatisticsResponseShape(input);
 
   return {
     indexType: String(requestBody?.indexType ?? 'NDVI'),
@@ -165,6 +342,18 @@ function normalizeStatisticsPayload(input: any, requestBody: any) {
     collection: String(requestBody?.collection ?? 'sentinel-2-l2a'),
     sourceCitation: 'Copernicus Data Space / Sentinel Hub Statistical API',
     confidenceScore: deriveConfidenceScore({ mean, sampleCount, noDataCount, cloudCoverage }),
+    measurementStatus,
+    reason: measurementStatus === 'parser_failed'
+      ? 'Sentinel Hub response did not match expected statistics shape.'
+      : measurementStatus === 'no_valid_samples'
+        ? 'Copernicus returned zero valid samples for this AOI/date range.'
+        : null,
+    parserMatched,
+    parserPathsUsed: Array.from(parserPathsUsed),
+    debugShape: {
+      ...debugShape,
+      triedPaths: firstRowDebug.triedPaths,
+    },
   };
 }
 
@@ -210,9 +399,7 @@ function buildStatisticsRequest(args: {
         to: `${args.toDate}T23:59:59Z`,
       },
       aggregationInterval: { of: 'P1M' },
-      evalscript: `//VERSION=3
-function setup(){return {input:["B03","B04","B08","B11","B12"], output:{bands:1,sampleType:"FLOAT32"}}}
-function evaluatePixel(sample){return [${evalscriptFor(args.indexType)}];}`,
+      evalscript: evalscriptSourceFor(args.indexType),
     },
     calculations: { default: { statistics: { default: { percentiles: { k: [50] } } } } },
   };
@@ -258,6 +445,43 @@ async function proxyToSentinel(path: string, body: unknown): Promise<{ status: n
   return { status: response.status, payload };
 }
 
+function diagnosticSummary(args: {
+  body: any;
+  request: any;
+  response: any;
+  normalized: any;
+}) {
+  return {
+    payloadSummary: {
+      collection: args.body.collection,
+      indexType: args.body.indexType,
+      before: args.body.before,
+      after: args.body.after,
+      aoi: summarizeAoi(args.body.aoiGeoJson),
+    },
+    sentinelRequestSummary: {
+      collection: args.body.collection,
+      indexType: args.body.indexType,
+      aggregationInterval: args.request?.aggregation?.aggregationInterval?.of ?? null,
+      inputGeometryType: args.request?.input?.bounds?.geometry?.type ?? null,
+      evalscriptOutputName: outputBandNameFor(args.body.indexType),
+      calculations: args.request?.calculations ?? null,
+    },
+    sentinelResponseShape: args.normalized?.debugShape ?? summarizeStatisticsResponseShape(args.response),
+    parserPathUsed: Array.isArray(args.normalized?.parserPathsUsed) ? args.normalized.parserPathsUsed : [],
+    parsedStats: {
+      mean: args.normalized?.mean ?? null,
+      min: args.normalized?.min ?? null,
+      max: args.normalized?.max ?? null,
+      stDev: args.normalized?.stDev ?? null,
+      sampleCount: args.normalized?.sampleCount ?? 0,
+      noDataCount: args.normalized?.noDataCount ?? 0,
+      measurementStatus: args.normalized?.measurementStatus ?? 'parser_failed',
+      reason: args.normalized?.reason ?? null,
+    },
+  };
+}
+
 router.get('/status', (_req, res) => {
   const configured = missingCredentialKeys().length === 0;
   return res.json({
@@ -298,7 +522,7 @@ router.post('/process', async (req, res) => {
 
 router.post('/statistics', async (req, res) => {
   const cfg = requireConfigured();
-  if (!cfg.ok) return res.status(503).json({ ok: false, error: 'Missing Copernicus credentials', missing: cfg.missing });
+  if (!cfg.ok) return res.status(503).json({ ok: false, error: 'Missing Copernicus credentials', measurementStatus: 'credentials_missing', missing: cfg.missing });
   const body = req.body ?? {};
   if (!hasValidPolygonAoi(body.aoiGeoJson)) return res.status(400).json({ ok: false, error: 'valid GeoJSON polygon required' });
   if (!isValidDateWindow(body.before) || !isValidDateWindow(body.after)) return res.status(400).json({ ok: false, error: 'before and after date ranges required' });
@@ -330,6 +554,7 @@ router.post('/statistics', async (req, res) => {
       return res.status(Math.max(beforeResult.status, afterResult.status)).json({
         ok: false,
         error: 'Copernicus statistics error',
+        measurementStatus: 'upstream_error',
         details: { before: beforeResult.payload, after: afterResult.payload },
       });
     }
@@ -345,6 +570,46 @@ router.post('/statistics', async (req, res) => {
       dateRange: { from: body.after.fromDate, to: body.after.toDate },
       cloudCoverage: body.after.cloudCoverage ?? null,
     });
+    if (debugEnabled()) {
+      console.info('[Copernicus statistics] request summary', {
+        collection: body.collection,
+        indexType: body.indexType,
+        before: body.before,
+        after: body.after,
+        aoi: summarizeAoi(body.aoiGeoJson),
+        beforeRequest: {
+          geometryType: beforeReq?.input?.bounds?.geometry?.type ?? null,
+          aggregationInterval: beforeReq?.aggregation?.aggregationInterval?.of ?? null,
+          evalscriptOutputName: outputBandNameFor(body.indexType),
+          calculations: beforeReq?.calculations ?? null,
+        },
+        afterRequest: {
+          geometryType: afterReq?.input?.bounds?.geometry?.type ?? null,
+          aggregationInterval: afterReq?.aggregation?.aggregationInterval?.of ?? null,
+          evalscriptOutputName: outputBandNameFor(body.indexType),
+          calculations: afterReq?.calculations ?? null,
+        },
+        beforeResponseShape: before.debugShape,
+        afterResponseShape: after.debugShape,
+        beforeParserPaths: before.parserPathsUsed,
+        afterParserPaths: after.parserPathsUsed,
+      });
+    }
+    if (before.measurementStatus === 'parser_failed' || after.measurementStatus === 'parser_failed') {
+      return res.status(422).json({
+        ok: false,
+        measurementStatus: 'parser_failed',
+        reason: 'Sentinel Hub response did not match expected statistics shape.',
+        debugShape: {
+          before: before.debugShape,
+          after: after.debugShape,
+          parserPathUsed: {
+            before: before.parserPathsUsed,
+            after: after.parserPathsUsed,
+          },
+        },
+      });
+    }
     const absoluteChange = before.mean != null && after.mean != null ? Number((after.mean - before.mean).toFixed(6)) : null;
     const percentChange = before.mean != null && before.mean !== 0 && after.mean != null
       ? Number((((after.mean - before.mean) / Math.abs(before.mean)) * 100).toFixed(2))
@@ -386,13 +651,82 @@ router.post('/statistics', async (req, res) => {
         interpretation: interpretation(body.indexType, percentChange),
       },
       confidenceScore,
+      measurementStatus: before.measurementStatus === 'no_valid_samples' && after.measurementStatus === 'no_valid_samples'
+        ? 'no_valid_samples'
+        : 'ok',
+      reason: before.measurementStatus === 'no_valid_samples' && after.measurementStatus === 'no_valid_samples'
+        ? 'Copernicus returned zero valid samples for this AOI/date range.'
+        : null,
       warnings,
       sourceCitation: 'Copernicus Data Space / Sentinel Hub Statistical API',
       generatedAt: new Date().toISOString(),
     };
     return res.json({ ok: true, comparison: response });
   } catch (error: unknown) {
-    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Statistics proxy failed' });
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Statistics proxy failed', measurementStatus: 'backend_unavailable' });
+  }
+});
+
+router.post('/statistics/debug', async (req, res) => {
+  const cfg = requireConfigured();
+  if (!cfg.ok) return res.status(503).json({ ok: false, error: 'Missing Copernicus credentials', measurementStatus: 'credentials_missing', missing: cfg.missing });
+  const body = req.body ?? {};
+  if (!hasValidPolygonAoi(body.aoiGeoJson)) return res.status(400).json({ ok: false, error: 'valid GeoJSON polygon required' });
+  if (!isValidDateWindow(body.before) || !isValidDateWindow(body.after)) return res.status(400).json({ ok: false, error: 'before and after date ranges required' });
+  if (!ALLOWED_INDEX_TYPES.includes(body.indexType)) return res.status(400).json({ ok: false, error: 'indexType must be one of NDVI, NDWI, NDMI, NBR' });
+  if (!ALLOWED_COLLECTIONS.includes(body.collection)) return res.status(400).json({ ok: false, error: 'unsupported collection' });
+
+  try {
+    const beforeReq = buildStatisticsRequest({
+      aoiGeoJson: body.aoiGeoJson,
+      indexType: body.indexType,
+      collection: body.collection,
+      fromDate: body.before.fromDate,
+      toDate: body.before.toDate,
+    });
+    const afterReq = buildStatisticsRequest({
+      aoiGeoJson: body.aoiGeoJson,
+      indexType: body.indexType,
+      collection: body.collection,
+      fromDate: body.after.fromDate,
+      toDate: body.after.toDate,
+    });
+    const [beforeResult, afterResult] = await Promise.all([
+      proxyToSentinel('/api/v1/statistics', beforeReq),
+      proxyToSentinel('/api/v1/statistics', afterReq),
+    ]);
+    const before = normalizeStatisticsPayload(beforeResult.payload, {
+      indexType: body.indexType,
+      collection: body.collection,
+      dateRange: { from: body.before.fromDate, to: body.before.toDate },
+      cloudCoverage: body.before.cloudCoverage ?? null,
+    });
+    const after = normalizeStatisticsPayload(afterResult.payload, {
+      indexType: body.indexType,
+      collection: body.collection,
+      dateRange: { from: body.after.fromDate, to: body.after.toDate },
+      cloudCoverage: body.after.cloudCoverage ?? null,
+    });
+    return res.json({
+      ok: beforeResult.status < 400 && afterResult.status < 400,
+      requestPayloadSummary: {
+        collection: body.collection,
+        indexType: body.indexType,
+        before: body.before,
+        after: body.after,
+        aoi: summarizeAoi(body.aoiGeoJson),
+      },
+      diagnostics: {
+        before: diagnosticSummary({ body, request: beforeReq, response: beforeResult.payload, normalized: before }),
+        after: diagnosticSummary({ body, request: afterReq, response: afterResult.payload, normalized: after }),
+      },
+      upstream: {
+        beforeStatus: beforeResult.status,
+        afterStatus: afterResult.status,
+      },
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Statistics debug failed', measurementStatus: 'backend_unavailable' });
   }
 });
 

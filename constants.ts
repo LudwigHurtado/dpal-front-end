@@ -159,6 +159,7 @@ export const API_ROUTES = {
   COPERNICUS_CATALOG_SEARCH: '/api/copernicus/catalog/search',
   COPERNICUS_PROCESS: '/api/copernicus/process',
   COPERNICUS_STATISTICS: '/api/copernicus/statistics',
+  COPERNICUS_STATISTICS_DEBUG: '/api/copernicus/statistics/debug',
   COPERNICUS_EVIDENCE_PACKET: '/api/copernicus/evidence-packet',
   DISASTERS_FEED: '/api/disasters/feed',
   /** DPAL Global Signals Engine */

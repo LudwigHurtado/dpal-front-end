@@ -1481,6 +1481,21 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       setActionNotice(noValidSamples ? 'Comparison completed, but no valid samples were returned for the selected windows.' : 'MRV comparison completed. Pending Validator Review.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Comparison failed';
+      if (/^parser_failed:/i.test(message)) {
+        setComparisonError('parser_failed: Sentinel Hub response did not match the expected AOI statistics shape.');
+      } else if (/^credentials_missing:/i.test(message)) {
+        setComparisonError('credentials_missing: Copernicus credentials are missing or not configured.');
+      } else if (/^backend_unavailable:/i.test(message)) {
+        setComparisonError('backend_unavailable: Copernicus backend is unreachable.');
+      } else if (/^upstream_error:/i.test(message)) {
+        setComparisonError(`upstream_error: ${message.replace(/^upstream_error:\s*/i, '')}`);
+      } else if (/^no_valid_samples:/i.test(message)) {
+        setComparisonError(`no_valid_samples: ${message.replace(/^no_valid_samples:\s*/i, '')}`);
+      } else if (/configured|unavailable|no comparison|no scene|not found|statistics api error/i.test(message)) {
+        setComparisonError('backend_unavailable: Live AOI measurement unavailable for this AOI/date. Try a wider date range or different collection.');
+      } else {
+        setComparisonError(message);
+      }
       if ((import.meta as any).env?.DEV) {
         console.info('[AquaScan] Comparison error', {
           index: comparisonIndexType,
@@ -1492,11 +1507,6 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           sampleCountAfter: comparisonSampleCountAfter,
           error: message,
         });
-      }
-      if (/configured|unavailable|no comparison|no scene|not found|statistics api error/i.test(message)) {
-        setComparisonError('Live AOI measurement unavailable for this AOI/date. Try a wider date range or different collection.');
-      } else {
-        setComparisonError(message);
       }
     } finally {
       setComparisonLoading(false);

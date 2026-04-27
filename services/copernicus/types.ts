@@ -127,6 +127,8 @@ export interface CopernicusStatisticsComparisonResponse {
     interpretation: string;
   };
   confidenceScore: number;
+  measurementStatus?: 'ok' | 'no_valid_samples';
+  reason?: string | null;
   warnings: string[];
   sourceCitation: string;
   generatedAt: string;
