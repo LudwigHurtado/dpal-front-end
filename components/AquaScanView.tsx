@@ -1247,6 +1247,33 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     () => calculationHistory.find((item) => item.calculationId === intelligenceHistoryCalculationId) ?? null,
     [calculationHistory, intelligenceHistoryCalculationId],
   );
+  const displayedHistoryItem = useMemo(
+    () => {
+      if (selectedIntelligenceHistoryItem?.resultSnapshot) return selectedIntelligenceHistoryItem;
+      return calculationHistory.find((item) => item.resultSnapshot) ?? null;
+    },
+    [calculationHistory, selectedIntelligenceHistoryItem],
+  );
+  const displayedComparisonResult = hasCurrentComparisonResult
+    ? comparisonResult
+    : displayedHistoryItem?.resultSnapshot ?? null;
+  const displayedComparisonHasValidSamples = Boolean(
+    displayedComparisonResult
+    && displayedComparisonResult.before.sampleCount > 0
+    && displayedComparisonResult.after.sampleCount > 0
+    && (displayedComparisonResult.before.mean != null || displayedComparisonResult.after.mean != null),
+  );
+  const displayedComparisonMeasurementStatus = hasCurrentComparisonResult
+    ? comparisonMeasurementStatus
+    : displayedHistoryItem?.measurementStatus ?? 'Measurement not yet completed.';
+  const displayedComparisonWarnings = hasCurrentComparisonResult
+    ? (comparisonResult?.warnings ?? [])
+    : (displayedHistoryItem?.resultSnapshot?.warnings ?? []);
+  const displayedComparisonSource = hasCurrentComparisonResult
+    ? 'Copernicus AOI statistics'
+    : displayedHistoryItem
+      ? `Saved comparison history (${displayedHistoryItem.generatedAt.slice(0, 10)})`
+      : 'N/A';
 
   function historySetupLabel(item: AquaScanCalculationHistoryEntry): 'Current setup' | 'Different AOI/date' | 'Previous run' {
     if (item.setupSignature !== currentComparisonSetupSignature) return 'Different AOI/date';
@@ -3514,23 +3541,27 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   ))}
                 </div>
                 {comparisonError ? <p className="text-xs text-rose-300">{comparisonError}</p> : null}
-                {!comparisonResult ? <p className="text-xs text-slate-500">Run comparison to see results.</p> : null}
-                {!hasCurrentComparisonResult && hasPreviousMeasurements ? (
+                {!displayedComparisonResult ? <p className="text-xs text-slate-500">Run comparison to see results.</p> : null}
+                {!hasCurrentComparisonResult && displayedHistoryItem ? (
+                  <p className="text-xs text-amber-200">
+                    Showing saved history result in the summary cards. Restore it to load the matching dates and settings into the current workspace.
+                  </p>
+                ) : !hasCurrentComparisonResult && hasPreviousMeasurements ? (
                   <p className="text-xs text-amber-200">Previous measurements are available in history. Restore one to review it.</p>
                 ) : null}
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                   {(
                     [
-                      ['Before mean', String(comparisonResult?.before.mean ?? 'N/A')],
-                      ['After mean', String(comparisonResult?.after.mean ?? 'N/A')],
-                      ['Absolute change', String(comparisonResult?.delta.absoluteChange ?? 'N/A')],
-                      ['Percent change', comparisonResult?.delta.percentChange != null ? `${comparisonResult.delta.percentChange}%` : 'N/A'],
-                      ['Confidence', comparisonResult ? (comparisonHasValidSamples ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'Not available') : 'N/A'],
-                      ['Sample count', comparisonResult ? `${comparisonResult.before.sampleCount} / ${comparisonResult.after.sampleCount}` : 'N/A'],
-                      ['No-data count', comparisonResult ? `${comparisonResult.before.noDataCount} / ${comparisonResult.after.noDataCount}` : 'N/A'],
-                      ['Cloud cover', comparisonResult ? `${comparisonResult.before.cloudCoverage ?? 'N/A'} / ${comparisonResult.after.cloudCoverage ?? 'N/A'}` : 'N/A'],
-                      ['Source', comparisonResult ? 'Copernicus AOI statistics' : 'N/A'],
-                      ['Measurement status', comparisonMeasurementStatus],
+                      ['Before mean', String(displayedComparisonResult?.before.mean ?? 'N/A')],
+                      ['After mean', String(displayedComparisonResult?.after.mean ?? 'N/A')],
+                      ['Absolute change', String(displayedComparisonResult?.delta.absoluteChange ?? 'N/A')],
+                      ['Percent change', displayedComparisonResult?.delta.percentChange != null ? `${displayedComparisonResult.delta.percentChange}%` : 'N/A'],
+                      ['Confidence', displayedComparisonResult ? (displayedComparisonHasValidSamples ? `${Math.round(displayedComparisonResult.confidenceScore * 100)}%` : 'Not available') : 'N/A'],
+                      ['Sample count', displayedComparisonResult ? `${displayedComparisonResult.before.sampleCount} / ${displayedComparisonResult.after.sampleCount}` : 'N/A'],
+                      ['No-data count', displayedComparisonResult ? `${displayedComparisonResult.before.noDataCount} / ${displayedComparisonResult.after.noDataCount}` : 'N/A'],
+                      ['Cloud cover', displayedComparisonResult ? `${displayedComparisonResult.before.cloudCoverage ?? 'N/A'} / ${displayedComparisonResult.after.cloudCoverage ?? 'N/A'}` : 'N/A'],
+                      ['Source', displayedComparisonSource],
+                      ['Measurement status', displayedComparisonMeasurementStatus],
                     ] as [string, string][]
                   ).map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs">
@@ -3539,19 +3570,19 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     </div>
                   ))}
                 </div>
-                {comparisonResult?.warnings?.length ? (
-                  <p className="text-[11px] text-amber-200">Warnings: {comparisonResult.warnings.join(' | ')}</p>
+                {displayedComparisonWarnings.length ? (
+                  <p className="text-[11px] text-amber-200">Warnings: {displayedComparisonWarnings.join(' | ')}</p>
                 ) : null}
-                {comparisonResult ? (
+                {displayedComparisonResult ? (
                   <div className="space-y-1 text-xs text-slate-300">
-                    <p>{comparisonResult.delta.interpretation}</p>
-                    <p>Measurement source: Copernicus AOI statistics</p>
+                    <p>{displayedComparisonResult.delta.interpretation}</p>
+                    <p>Measurement source: {displayedComparisonSource}</p>
                     {(import.meta as any).env?.DEV ? (
                       <p className="text-[11px] text-slate-400">
-                        Debug: {comparisonIndexType} . {comparisonCollection} . {beforeRange.from || '-'} to {beforeRange.to || '-'} . {afterRange.from || '-'} to {afterRange.to || '-'} . AOI coords {savedAoiCoordinateCount} . Samples {comparisonSampleCountBefore} / {comparisonSampleCountAfter}
+                        Debug: {hasCurrentComparisonResult ? comparisonIndexType : displayedHistoryItem?.indexType ?? comparisonIndexType} . {hasCurrentComparisonResult ? comparisonCollection : displayedHistoryItem?.collection ?? comparisonCollection} . {hasCurrentComparisonResult ? beforeRange.from || '-' : displayedHistoryItem?.before.from || '-'} to {hasCurrentComparisonResult ? beforeRange.to || '-' : displayedHistoryItem?.before.to || '-'} . {hasCurrentComparisonResult ? afterRange.from || '-' : displayedHistoryItem?.after.from || '-'} to {hasCurrentComparisonResult ? afterRange.to || '-' : displayedHistoryItem?.after.to || '-'} . AOI coords {savedAoiCoordinateCount} . Samples {displayedComparisonResult.before.sampleCount} / {displayedComparisonResult.after.sampleCount}
                       </p>
                     ) : null}
-                    {!comparisonHasValidSamples ? (
+                    {!displayedComparisonHasValidSamples ? (
                       <p className="text-amber-200">No valid samples returned for the selected AOI/date ranges.</p>
                     ) : null}
                   </div>
