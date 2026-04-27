@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -17,12 +17,22 @@ import { downloadCarbReportPdf } from '../../../services/carbPdfReportService';
 import { generateQrCodeDataUrl } from '../../../utils/qrUtils';
 import type { CarbSpecializedReport } from '../../../types/carbReport';
 import CarbReportPanel from '../../../components/carb/CarbReportPanel';
+import CarbReportViewer from '../../../components/carb/CarbReportViewer';
+import CarbSituationRoom from '../../../components/carb/CarbSituationRoom';
 
 type Props = {
   onReturn: () => void;
   onOpenCarbReport?: (reportId: string) => void;
   onOpenCarbSituationRoom?: (roomId: string) => void;
 };
+type CarbWorkspaceTab =
+  | 'overview'
+  | 'investigation'
+  | 'report'
+  | 'evidence'
+  | 'situation'
+  | 'sources'
+  | 'tasks';
 type SourceStatus = 'LIVE VERIFIED' | 'CARB PUBLIC DATA' | 'IMPORTED DATASET' | 'DEMO DATA' | 'MISSING' | 'NEEDS REVIEW';
 type ChecklistStatus = 'Complete' | 'Missing' | 'Optional' | 'Needs Review';
 
@@ -235,6 +245,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
   const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<CarbWorkspaceTab>('overview');
+  const [paneWidths, setPaneWidths] = useState({ left: 36, right: 26 });
+  const [activeResizeHandle, setActiveResizeHandle] = useState<'left' | 'right' | null>(null);
+  const workspaceSplitRef = useRef<HTMLDivElement | null>(null);
 
   const updateSearchField = (key: keyof typeof facilitySearch, value: string) => {
     setFacilitySearch((prev) => ({ ...prev, [key]: value }));
@@ -252,10 +266,41 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   }, [selected]);
 
   const mapCenter = selectedCoordinates ?? manualCoordinates ?? CA_CENTER;
+  const centerPaneWidth = Math.max(20, 100 - paneWidths.left - paneWidths.right);
 
   useEffect(() => {
     if (selectedCoordinates) setManualCoordinates(null);
   }, [selectedCoordinates]);
+
+  useEffect(() => {
+    if (!activeResizeHandle) return;
+    const onMouseMove = (event: MouseEvent) => {
+      const container = workspaceSplitRef.current;
+      if (!container) return;
+      const rect = container.getBoundingClientRect();
+      if (rect.width <= 0) return;
+      const x = event.clientX - rect.left;
+      const pct = (x / rect.width) * 100;
+      setPaneWidths((prev) => {
+        if (activeResizeHandle === 'left') {
+          const nextLeft = Math.max(24, Math.min(52, pct));
+          const maxLeft = 100 - prev.right - 20;
+          return { ...prev, left: Math.min(nextLeft, maxLeft) };
+        }
+        const rightWidth = 100 - pct;
+        const nextRight = Math.max(20, Math.min(42, rightWidth));
+        const maxRight = 100 - prev.left - 20;
+        return { ...prev, right: Math.min(nextRight, maxRight) };
+      });
+    };
+    const onMouseUp = () => setActiveResizeHandle(null);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [activeResizeHandle]);
 
   useEffect(() => {
     if (!selected) return;
@@ -790,6 +835,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       baselineEmissions !== '' &&
       currentEmissions !== '',
   );
+  const evidencePacketReady = Boolean(selected && baselineYear && currentYear && baselineEmissions !== '' && currentEmissions !== '');
+  const currentWorkflowStep = !selected
+    ? 'Search and select a facility'
+    : !companyClaim.trim()
+      ? 'Add company climate claim'
+      : !generatedCarbReport
+        ? 'Generate CARB specialized report'
+        : activeWorkspaceTab !== 'situation'
+          ? 'Review report and evidence tabs'
+          : 'Situation room investigation active';
+  const nextRecommendedAction = generatedCarbReport
+    ? 'Continue review in Situation Room and finalize legal task list.'
+    : canGenerateCarbReport
+      ? 'Generate CARB report from current selected facility data.'
+      : 'Select facility and reporting years to enable report generation.';
 
   const handleSave = async () => {
     if (!canSaveOrExport) {
@@ -924,6 +984,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       const logged = await logCarbReportToLedger(draft);
       saveCarbReport(logged);
       setGeneratedCarbReport(logged);
+      setActiveWorkspaceTab('report');
       setCarbReportNotice(
         sourceMode === 'DEMO_FALLBACK'
           ? 'CARB report generated. Demo/Fallback Data - Not suitable for final conclusions.'
@@ -967,7 +1028,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setCarbReportNotice('Generate CARB report before opening verification page.');
       return;
     }
-    onOpenCarbReport?.(generatedCarbReport.reportId);
+    setActiveWorkspaceTab('report');
   };
 
   const handleOpenCarbSituationRoom = () => {
@@ -975,16 +1036,69 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setCarbReportNotice('Generate CARB report before opening Situation Room.');
       return;
     }
+    setActiveWorkspaceTab('situation');
+  };
+
+  const handleOpenShareableVerificationPage = () => {
+    if (!generatedCarbReport) {
+      setCarbReportNotice('Generate CARB report before opening shareable verification page.');
+      return;
+    }
+    onOpenCarbReport?.(generatedCarbReport.reportId);
+  };
+
+  const handleOpenShareableSituationRoomLink = () => {
+    if (!generatedCarbReport) {
+      setCarbReportNotice('Generate CARB report before opening shareable situation room link.');
+      return;
+    }
     onOpenCarbSituationRoom?.(generatedCarbReport.situationRoom.roomId);
+  };
+
+  const handleCopyVerificationLink = async () => {
+    if (!generatedCarbReport?.qr.verificationUrl) return;
+    try {
+      await navigator.clipboard.writeText(generatedCarbReport.qr.verificationUrl);
+      setCarbReportNotice('Verification link copied.');
+    } catch {
+      setCarbReportNotice('Unable to copy verification link.');
+    }
+  };
+
+  const handleCopySituationRoomLink = async () => {
+    if (!generatedCarbReport?.situationRoom.roomUrl) return;
+    try {
+      await navigator.clipboard.writeText(generatedCarbReport.situationRoom.roomUrl);
+      setCarbReportNotice('Situation room link copied.');
+    } catch {
+      setCarbReportNotice('Unable to copy situation room link.');
+    }
   };
 
   return (
     <div className="mx-auto max-w-[1450px] px-4 pb-20">
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="text-2xl font-black text-white">DPAL CARB Emissions Audit</h1>
+        <h1 className="text-2xl font-black text-white">CARB Investigation Workspace</h1>
         <button onClick={onReturn} className="rounded-xl border border-slate-600 px-3 py-2 text-sm text-slate-100">Return</button>
       </div>
-      <p className="mb-4 text-sm text-slate-300">California-focused CARB reporting, reduction review, and discrepancy analysis.</p>
+      <p className="mb-2 text-sm text-slate-300">
+        Search CARB-reported emissions, compare facility trends, test company climate claims, generate a professional report, export a full evidence packet, and manage ongoing review from one workspace.
+      </p>
+      <p className="mb-4 text-xs text-slate-400">
+        Workflow: 1) Search 2) Select Facility 3) Compare Years 4) Run Investigation Engine 5) Generate CARB Report 6) Export Evidence Packet 7) Situation Room Review.
+      </p>
+      <div className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+        <p className="font-semibold text-white">What is happening now</p>
+        <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
+          <p>Selected facility: <span className="text-cyan-200">{selected?.facilityName ?? 'None'}</span></p>
+          <p>Current step: <span className="text-cyan-200">{currentWorkflowStep}</span></p>
+          <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
+          <p>Report generated: <span className="text-cyan-200">{generatedCarbReport ? 'Yes' : 'No'}</span></p>
+          <p>Evidence packet ready: <span className="text-cyan-200">{evidencePacketReady ? 'Yes' : 'No'}</span></p>
+          <p>Situation room open: <span className="text-cyan-200">{activeWorkspaceTab === 'situation' ? 'Yes' : 'No'}</span></p>
+          <p className="md:col-span-2 xl:col-span-2">Next recommended action: <span className="text-cyan-200">{nextRecommendedAction}</span></p>
+        </div>
+      </div>
       {message ? <div className="mb-3 rounded-xl border border-cyan-700 bg-cyan-950/40 px-3 py-2 text-sm text-cyan-200">{message}</div> : null}
       {showAdminImportPanel ? (
         <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
@@ -1079,9 +1193,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         </section>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-          <h2 className="text-lg font-bold text-white">California facility map and search</h2>
+      <div ref={workspaceSplitRef} className="mt-4 flex min-h-[760px] gap-0 rounded-2xl border border-slate-700 bg-slate-900/70">
+        <section style={{ flexBasis: `${paneWidths.left}%` }} className="min-w-[300px] overflow-hidden border-r border-slate-700">
+          <div className="sticky top-0 z-10 border-b border-slate-700 bg-slate-900/95 px-4 py-3">
+            <h2 className="text-lg font-bold text-white">Facility Search / Results</h2>
+            <p className="mt-1 text-[11px] text-slate-400">Search and select facility without leaving this workspace.</p>
+          </div>
+          <div className="p-4">
           <p className="mt-1 text-xs text-slate-300">Search first, then select a facility match. No search, no product.</p>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {Object.entries(facilitySearch).map(([k, v]) => (
@@ -1168,7 +1286,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                     <td className="px-3 py-3">{facility.reportingYear}</td>
                     <td className="px-3 py-3">{facility.sourceStatus}</td>
                     <td className="px-3 py-3">
-                      <button onClick={() => setSelected(facility)} className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white">
+                      <button
+                        onClick={() => {
+                          setSelected(facility);
+                          setActiveWorkspaceTab('investigation');
+                        }}
+                        className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
+                      >
                         Select
                       </button>
                     </td>
@@ -1200,10 +1324,20 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </button>
             </div>
           ) : null}
+          </div>
         </section>
-
-        <section className="rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-          <h2 className="text-lg font-bold text-white">Reported data and claim analyzer</h2>
+        <div
+          role="separator"
+          aria-label="Resize left and center panels"
+          className="w-2 cursor-col-resize bg-slate-800/70 hover:bg-cyan-700/50"
+          onMouseDown={() => setActiveResizeHandle('left')}
+        />
+        <section style={{ flexBasis: `${centerPaneWidth}%` }} className="min-w-[320px] overflow-hidden border-r border-slate-700">
+          <div className="sticky top-0 z-10 border-b border-slate-700 bg-slate-900/95 px-4 py-3">
+            <h2 className="text-lg font-bold text-white">Selected Facility + Map + Year Comparison</h2>
+            <p className="mt-1 text-[11px] text-slate-400">Core facility profile and CARB emissions comparison workspace.</p>
+          </div>
+          <div className="p-4">
           {!hasSearched ? <p className="mt-1 text-xs text-amber-300">Search for a facility first. No search, no product.</p> : null}
           <div className="mt-3 grid grid-cols-2 gap-2">
             <select value={String(baselineYear)} onChange={(e) => setBaselineYear(e.target.value ? Number(e.target.value) : '')} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
@@ -1251,6 +1385,42 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>Carbon Dioxide CO2</p>
               <p>{formatNumber(co2Baseline)}</p>
               <p>{formatNumber(co2Current)}</p>
+            </div>
+          </div>
+          </div>
+        </section>
+        <div
+          role="separator"
+          aria-label="Resize center and right panels"
+          className="w-2 cursor-col-resize bg-slate-800/70 hover:bg-cyan-700/50"
+          onMouseDown={() => setActiveResizeHandle('right')}
+        />
+        <section style={{ flexBasis: `${paneWidths.right}%` }} className="min-w-[280px] overflow-hidden">
+          <div className="sticky top-0 z-10 border-b border-slate-700 bg-slate-900/95 px-4 py-3">
+            <h2 className="text-lg font-bold text-white">DPAL Investigation Engine</h2>
+            <p className="mt-1 text-[11px] text-slate-400">Live discrepancy posture, source quality, and next-action guidance.</p>
+          </div>
+          <div className="space-y-3 p-4">
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3">
+              <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
+              <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
+              <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300">
+              <p className="font-semibold text-white">Investigation Snapshot</p>
+              <p className="mt-2">Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
+              <p>Dataset version: <span className="text-cyan-200">{datasetVersion || 'n/a'}</span></p>
+              <p>Retrieval date: <span className="text-cyan-200">{retrievalDate || 'n/a'}</span></p>
+              <p>Claim result: <span className="text-cyan-200">{claimVerificationClassification.label}</span></p>
+              <p>Claim gap: <span className="text-cyan-200">{claimGap == null ? 'n/a' : `${claimGap.toFixed(2)}%`}</span></p>
+            </div>
+            <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300">
+              <p className="font-semibold text-white">Top Recommended Actions</p>
+              <ul className="mt-2 list-disc space-y-1 pl-4">
+                {recommendedNextSteps.slice(0, 5).map((step) => (
+                  <li key={step}>{step}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>
@@ -1334,6 +1504,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         </div>
       ) : null}
 
+      {(activeWorkspaceTab === 'overview' || activeWorkspaceTab === 'investigation') ? (
       <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
         <h2 className="text-lg font-bold text-white">Verification Summary</h2>
         <p className="mt-1 text-xs text-slate-300">Plain-English DPAL verification summary based on selected CARB facility data and current comparison inputs.</p>
@@ -1411,14 +1582,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </ul>
         </div>
       </section>
+      ) : null}
 
+      {(activeWorkspaceTab === 'overview' || activeWorkspaceTab === 'sources') ? (
       <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
         <h2 className="text-lg font-bold text-white">Legal / Regulatory Context</h2>
         <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-300">
           {legalContext.map((line) => <li key={line}>{line}</li>)}
         </ul>
       </section>
+      ) : null}
 
+      {(activeWorkspaceTab === 'overview' || activeWorkspaceTab === 'tasks' || activeWorkspaceTab === 'investigation') ? (
       <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
         <h2 className="text-lg font-bold text-white">AI Helper Review Categories</h2>
         <p className="mt-1 text-xs text-slate-300">
@@ -1456,7 +1631,36 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           />
         </div>
       </section>
+      ) : null}
 
+      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3">
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['overview', 'Overview'],
+            ['investigation', 'Investigation Engine'],
+            ['report', 'CARB Report'],
+            ['evidence', 'Evidence Packet'],
+            ['situation', 'Situation Room'],
+            ['sources', 'Sources'],
+            ['tasks', 'Tasks / Legal Review'],
+          ] as Array<[CarbWorkspaceTab, string]>).map(([tabId, label]) => (
+            <button
+              key={tabId}
+              type="button"
+              onClick={() => setActiveWorkspaceTab(tabId)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                activeWorkspaceTab === tabId
+                  ? 'border-cyan-500/60 bg-cyan-900/20 text-cyan-100'
+                  : 'border-slate-700 bg-slate-950/40 text-slate-300'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {(activeWorkspaceTab === 'report' || activeWorkspaceTab === 'overview') ? (
       <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
         <CarbReportPanel
           report={generatedCarbReport}
@@ -1468,8 +1672,24 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           onOpenReport={handleOpenCarbReport}
           onOpenSituationRoom={handleOpenCarbSituationRoom}
           onExportEvidencePacket={() => void handleExportCarbEvidencePacket()}
+          onCopyVerificationLink={() => void handleCopyVerificationLink()}
+          onCopySituationRoomLink={() => void handleCopySituationRoomLink()}
+          onOpenShareableReportPage={handleOpenShareableVerificationPage}
+          onOpenShareableSituationRoomPage={handleOpenShareableSituationRoomLink}
         />
+        {generatedCarbReport ? (
+          <CarbReportViewer
+            reportId={generatedCarbReport.reportId}
+            onReturn={() => setActiveWorkspaceTab('overview')}
+            embedded
+            onOpenSituationRoom={() => setActiveWorkspaceTab('situation')}
+          />
+        ) : null}
+      </section>
+      ) : null}
 
+      {(activeWorkspaceTab === 'evidence' || activeWorkspaceTab === 'overview') ? (
+      <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
         <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
           <h2 className="text-lg font-bold text-white">Audit Backend Actions (Existing Service Flow)</h2>
           <p className="mt-1 text-xs text-slate-400">
@@ -1496,6 +1716,17 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
         </div>
       </section>
+      ) : null}
+
+      {activeWorkspaceTab === 'situation' ? (
+      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        <CarbSituationRoom
+          roomId={generatedCarbReport?.situationRoom.roomId ?? null}
+          onReturn={() => setActiveWorkspaceTab('report')}
+          embedded
+        />
+      </section>
+      ) : null}
     </div>
   );
 };

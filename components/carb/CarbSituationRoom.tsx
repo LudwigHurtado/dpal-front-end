@@ -6,6 +6,7 @@ import { parseCarbSituationRoomIdFromPath } from '../../utils/appRoutes';
 interface CarbSituationRoomProps {
   roomId?: string | null;
   onReturn: () => void;
+  embedded?: boolean;
 }
 
 function buildLocalMessage(sender: string, text: string, isSystem = false): ChatMessage {
@@ -19,7 +20,9 @@ function buildLocalMessage(sender: string, text: string, isSystem = false): Chat
   };
 }
 
-export default function CarbSituationRoom({ roomId, onReturn }: CarbSituationRoomProps): React.ReactElement {
+const ROOM_STORAGE_KEY = 'dpal_carb_situation_room_messages_v1';
+
+export default function CarbSituationRoom({ roomId, onReturn, embedded = false }: CarbSituationRoomProps): React.ReactElement {
   const resolvedRoomId = useMemo(() => roomId ?? parseCarbSituationRoomIdFromPath(window.location.pathname), [roomId]);
   const report = useMemo(
     () => (resolvedRoomId ? getCarbReportByRoomId(resolvedRoomId) : null),
@@ -33,21 +36,40 @@ export default function CarbSituationRoom({ roomId, onReturn }: CarbSituationRoo
       setMessages([]);
       return;
     }
-    setMessages([
-      buildLocalMessage(
-        'DPAL System',
-        `Situation room initialized for CARB report ${report.reportId}.`,
-        true,
-      ),
-    ]);
+    try {
+      const raw = localStorage.getItem(ROOM_STORAGE_KEY);
+      const parsed = raw ? (JSON.parse(raw) as Record<string, ChatMessage[]>) : {};
+      const fromStorage = parsed[report.situationRoom.roomId];
+      if (Array.isArray(fromStorage) && fromStorage.length > 0) {
+        setMessages(fromStorage);
+        return;
+      }
+    } catch {
+      // no-op fallback
+    }
+    setMessages([buildLocalMessage('DPAL System', `Situation room initialized for CARB report ${report.reportId}.`, true)]);
   }, [report]);
+
+  useEffect(() => {
+    if (!report) return;
+    try {
+      const raw = localStorage.getItem(ROOM_STORAGE_KEY);
+      const parsed = raw ? (JSON.parse(raw) as Record<string, ChatMessage[]>) : {};
+      parsed[report.situationRoom.roomId] = messages;
+      localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(parsed));
+    } catch {
+      // no-op
+    }
+  }, [messages, report]);
 
   if (!report || !resolvedRoomId) {
     return (
       <div className="mx-auto max-w-6xl rounded-[2rem] border border-slate-800 bg-slate-950/90 p-8 text-slate-200">
-        <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">
-          Back
-        </button>
+        {!embedded ? (
+          <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">
+            Back
+          </button>
+        ) : null}
         <h1 className="mt-4 text-2xl font-black text-white">CARB Situation Room not found</h1>
       </div>
     );

@@ -10,6 +10,7 @@ interface CarbReportViewerProps {
   reportId?: string | null;
   onReturn: () => void;
   onOpenSituationRoom?: (roomId: string) => void;
+  embedded?: boolean;
 }
 
 function text(value: unknown, fallback = 'Not available'): string {
@@ -22,6 +23,7 @@ export default function CarbReportViewer({
   reportId,
   onReturn,
   onOpenSituationRoom,
+  embedded = false,
 }: CarbReportViewerProps): React.ReactElement {
   const resolvedId = useMemo(() => reportId ?? parseCarbReportIdFromPath(window.location.pathname), [reportId]);
   const [report, setReport] = useState<CarbSpecializedReport | null>(null);
@@ -50,9 +52,11 @@ export default function CarbReportViewer({
   if (!report) {
     return (
       <div className="mx-auto max-w-5xl rounded-[2rem] border border-slate-800 bg-slate-950/90 p-8 text-slate-200">
-        <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">
-          Back
-        </button>
+        {!embedded ? (
+          <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">
+            Back
+          </button>
+        ) : null}
         <h1 className="mt-4 text-2xl font-black text-white">CARB specialized report not found</h1>
       </div>
     );
@@ -68,7 +72,7 @@ export default function CarbReportViewer({
             <p className="mt-2 text-sm text-slate-400">Report ID: {report.reportId}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">Back</button>
+            {!embedded ? <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">Back</button> : null}
             <button type="button" onClick={handleDownload} disabled={downloadBusy} className="rounded-xl border border-emerald-500/40 bg-emerald-900/20 px-3 py-2 text-sm font-semibold text-emerald-100 disabled:opacity-50">
               {downloadBusy ? 'Generating PDF...' : 'Download PDF'}
             </button>

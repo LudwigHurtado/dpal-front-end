@@ -12,6 +12,10 @@ interface CarbReportPanelProps {
   onOpenReport: () => void;
   onOpenSituationRoom: () => void;
   onExportEvidencePacket: () => void;
+  onCopyVerificationLink?: () => void;
+  onCopySituationRoomLink?: () => void;
+  onOpenShareableReportPage?: () => void;
+  onOpenShareableSituationRoomPage?: () => void;
 }
 
 function statusChip(label: string, tone: 'ready' | 'pending' | 'review'): string {
@@ -33,6 +37,10 @@ export default function CarbReportPanel({
   onOpenReport,
   onOpenSituationRoom,
   onExportEvidencePacket,
+  onCopyVerificationLink,
+  onCopySituationRoomLink,
+  onOpenShareableReportPage,
+  onOpenShareableSituationRoomPage,
 }: CarbReportPanelProps): React.ReactElement {
   const reportStatus = report ? 'Generated' : canGenerate ? 'Ready' : 'Pending';
   const dataSourceStatus = report?.sourceMode ?? 'Pending';
@@ -89,7 +97,7 @@ export default function CarbReportPanel({
           disabled={!report || busy}
           className="rounded-xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-2 text-sm font-semibold text-cyan-100 disabled:opacity-50"
         >
-          View Verification Page
+          Open CARB Report Tab
         </button>
         <button
           type="button"
@@ -97,7 +105,7 @@ export default function CarbReportPanel({
           disabled={!report || busy}
           className="rounded-xl border border-violet-500/40 bg-violet-900/20 px-4 py-2 text-sm font-semibold text-violet-100 disabled:opacity-50"
         >
-          Open Situation Room
+          Open Situation Room Tab
         </button>
         <button
           type="button"
@@ -105,6 +113,38 @@ export default function CarbReportPanel({
           className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100"
         >
           Export Evidence Packet JSON
+        </button>
+        <button
+          type="button"
+          onClick={onCopyVerificationLink}
+          disabled={!report || busy || !onCopyVerificationLink}
+          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+        >
+          Copy Verification Link
+        </button>
+        <button
+          type="button"
+          onClick={onCopySituationRoomLink}
+          disabled={!report || busy || !onCopySituationRoomLink}
+          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+        >
+          Copy Situation Room Link
+        </button>
+        <button
+          type="button"
+          onClick={onOpenShareableReportPage}
+          disabled={!report || busy || !onOpenShareableReportPage}
+          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+        >
+          Open Shareable Verification Page
+        </button>
+        <button
+          type="button"
+          onClick={onOpenShareableSituationRoomPage}
+          disabled={!report || busy || !onOpenShareableSituationRoomPage}
+          className="rounded-xl border border-slate-600 bg-slate-900/60 px-4 py-2 text-sm font-semibold text-slate-100 disabled:opacity-50"
+        >
+          Open Shareable Situation Room Link
         </button>
       </div>
 
