@@ -11,8 +11,18 @@ import {
   updateCarbAudit,
 } from '../../../services/carbAuditService';
 import { useAuth } from '../../../auth/AuthContext';
+import { buildCarbReport, saveCarbReport } from '../../../services/carbReportService';
+import { logCarbReportToLedger, updateCarbReportPdfHash } from '../../../services/carbReportLedgerService';
+import { downloadCarbReportPdf } from '../../../services/carbPdfReportService';
+import { generateQrCodeDataUrl } from '../../../utils/qrUtils';
+import type { CarbSpecializedReport } from '../../../types/carbReport';
+import CarbReportPanel from '../../../components/carb/CarbReportPanel';
 
-type Props = { onReturn: () => void };
+type Props = {
+  onReturn: () => void;
+  onOpenCarbReport?: (reportId: string) => void;
+  onOpenCarbSituationRoom?: (roomId: string) => void;
+};
 type SourceStatus = 'LIVE VERIFIED' | 'CARB PUBLIC DATA' | 'IMPORTED DATASET' | 'DEMO DATA' | 'MISSING' | 'NEEDS REVIEW';
 type ChecklistStatus = 'Complete' | 'Missing' | 'Optional' | 'Needs Review';
 
@@ -170,7 +180,11 @@ function CarbMapClickCapture({ onMapClick }: { onMapClick: (lat: number, lng: nu
   return null;
 }
 
-const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
+const CarbEmissionsAuditPage: React.FC<Props> = ({
+  onReturn,
+  onOpenCarbReport,
+  onOpenCarbSituationRoom,
+}) => {
   const auth = useAuth();
   const hasRoleSystem = Boolean(auth?.user && typeof auth.user.role === 'string' && auth.user.role.length > 0);
   const isAdmin = (auth?.user?.role ?? '').toLowerCase() === 'admin';
@@ -200,6 +214,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
   const [companyClaim, setCompanyClaim] = useState('');
   const [savedAuditId, setSavedAuditId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [generatedCarbReport, setGeneratedCarbReport] = useState<CarbSpecializedReport | null>(null);
+  const [carbReportBusy, setCarbReportBusy] = useState(false);
+  const [carbReportNotice, setCarbReportNotice] = useState<string | null>(null);
   const [showDevImportOpen, setShowDevImportOpen] = useState(false);
   const [importCsvText, setImportCsvText] = useState('');
   const [importJsonText, setImportJsonText] = useState('');
@@ -766,6 +783,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     linkedReportId: null,
   });
 
+  const canGenerateCarbReport = Boolean(
+    selected &&
+      baselineYear &&
+      currentYear &&
+      baselineEmissions !== '' &&
+      currentEmissions !== '',
+  );
+
   const handleSave = async () => {
     if (!canSaveOrExport) {
       setMessage('Search, select a CARB facility, and choose comparison years before saving an audit.');
@@ -792,6 +817,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     setMessage(`Exported persisted CARB audit ${savedAuditId}.`);
   };
 
+  const handleExportCarbEvidencePacket = async () => {
+    await handleExport();
+  };
+
   const handleExportPdf = async () => {
     if (!canSaveOrExport) {
       setMessage('Search and select a CARB facility with comparison years before exporting evidence.');
@@ -800,6 +829,153 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
     const packet = !savedAuditId ? evidencePacket : (await exportCarbAudit(savedAuditId)).export;
     const opened = openPrintableEvidencePacket(`DPAL CARB Evidence Packet ${savedAuditId ?? evidencePacket.auditId}`, packet);
     setMessage(opened ? 'Opened printable evidence packet. Use Print to save as PDF.' : 'Pop-up blocked. Allow pop-ups to export PDF.');
+  };
+
+  const handleGenerateCarbReport = async () => {
+    if (!canGenerateCarbReport || !selected || !baselineYear || !currentYear) {
+      setCarbReportNotice(
+        'Generate CARB Report requires: selected facility, baseline/current years, baseline emissions, and current emissions.',
+      );
+      return;
+    }
+    setCarbReportBusy(true);
+    setCarbReportNotice(null);
+    try {
+      const toNumberOrNull = (value: number | '' | null | undefined): number | null => {
+        if (value === '' || value == null) return null;
+        const next = Number(value);
+        return Number.isFinite(next) ? next : null;
+      };
+      const calculatedReductionValue =
+        calculatedReduction === 'Needs More Data'
+          ? null
+          : Number.parseFloat(calculatedReduction.replace('%', ''));
+
+      const draft = buildCarbReport({
+        auditId: savedAuditId ?? evidencePacket.auditId,
+        createdBy: auth?.user?.fullName || auth?.user?.username || auth?.user?.email || 'DPAL user',
+        facilityIdentity: {
+          facilityId: selected.facilityId,
+          facilityName: selected.facilityName,
+          operatorName: selected.operatorName,
+          sector: selected.sector,
+        },
+        location: {
+          city: selected.city,
+          county: selected.county,
+          state: 'California',
+          latitude: selected.latitude,
+          longitude: selected.longitude,
+          coordinatesLabel:
+            selected.latitude != null && selected.longitude != null
+              ? `${selected.latitude}, ${selected.longitude}`
+              : 'Coordinates unavailable',
+        },
+        reportingYears: { baselineYear, currentYear },
+        emissionsComparison: {
+          baselineCO2e: Number(baselineEmissions),
+          currentCO2e: Number(currentEmissions),
+          calculatedReductionPct: calculatedReductionValue,
+        },
+        gasBreakdown: {
+          methane: {
+            baseline: toNumberOrNull(methaneBaseline),
+            current: toNumberOrNull(methaneCurrent),
+            reductionPct: methaneReduction === 'Needs More Data' ? null : Number.parseFloat(methaneReduction.replace('%', '')),
+          },
+          n2o: {
+            baseline: toNumberOrNull(n2oBaseline),
+            current: toNumberOrNull(n2oCurrent),
+            reductionPct: n2oReduction === 'Needs More Data' ? null : Number.parseFloat(n2oReduction.replace('%', '')),
+          },
+          co2: {
+            baseline: toNumberOrNull(co2Baseline),
+            current: toNumberOrNull(co2Current),
+            reductionPct: co2Reduction === 'Needs More Data' ? null : Number.parseFloat(co2Reduction.replace('%', '')),
+          },
+        },
+        companyClaim,
+        claimVerificationResult: `${claimVerificationClassification.label} - ${claimVerificationClassification.text}`,
+        claimGapPct: claimGap,
+        integrityScore,
+        riskLevel,
+        sourceMode,
+        datasetVersion:
+          sourceMode === 'DEMO_FALLBACK' ? undefined : (selected.datasetVersion ?? datasetVersion),
+        retrievalDate:
+          sourceMode === 'DEMO_FALLBACK' ? undefined : (selected.retrievalDate ?? retrievalDate ?? undefined),
+        dataSources,
+        legalContext,
+        limitations: [
+          ...evidencePacket.limitations,
+          sourceMode === 'DEMO_FALLBACK'
+            ? 'Demo/Fallback Data - Not suitable for final conclusions.'
+            : 'Live/imported data requires official verification before final findings.',
+        ],
+        verificationChecklist: verificationSummary.checklist.map((entry) => ({
+          item: entry.item,
+          status: entry.status,
+        })),
+        recommendedNextSteps,
+        aiNarrative: aiNarrative.trim() || verificationSummary.discrepancyInterpretation.text,
+      });
+
+      draft.qr.qrCodeDataUrl = await generateQrCodeDataUrl(draft.qr.verificationUrl);
+      const logged = await logCarbReportToLedger(draft);
+      saveCarbReport(logged);
+      setGeneratedCarbReport(logged);
+      setCarbReportNotice(
+        sourceMode === 'DEMO_FALLBACK'
+          ? 'CARB report generated. Demo/Fallback Data - Not suitable for final conclusions.'
+          : `CARB report generated. Dataset version: ${logged.datasetVersion || 'n/a'} | Retrieval date: ${logged.retrievalDate || 'n/a'}.`,
+      );
+    } catch (error) {
+      setCarbReportNotice(
+        error instanceof Error
+          ? `Unable to generate CARB report: ${error.message}`
+          : 'Unable to generate CARB report.',
+      );
+    } finally {
+      setCarbReportBusy(false);
+    }
+  };
+
+  const handleDownloadCarbReportPdf = async () => {
+    if (!generatedCarbReport) {
+      setCarbReportNotice('Generate CARB report before downloading PDF.');
+      return;
+    }
+    setCarbReportBusy(true);
+    try {
+      const result = await downloadCarbReportPdf(generatedCarbReport);
+      const updated = updateCarbReportPdfHash(generatedCarbReport.reportId, result.pdfHash) ?? generatedCarbReport;
+      setGeneratedCarbReport(updated);
+      setCarbReportNotice('CARB PDF report downloaded successfully.');
+    } catch (error) {
+      setCarbReportNotice(
+        error instanceof Error
+          ? `CARB PDF generation failed: ${error.message}`
+          : 'CARB PDF generation failed.',
+      );
+    } finally {
+      setCarbReportBusy(false);
+    }
+  };
+
+  const handleOpenCarbReport = () => {
+    if (!generatedCarbReport) {
+      setCarbReportNotice('Generate CARB report before opening verification page.');
+      return;
+    }
+    onOpenCarbReport?.(generatedCarbReport.reportId);
+  };
+
+  const handleOpenCarbSituationRoom = () => {
+    if (!generatedCarbReport) {
+      setCarbReportNotice('Generate CARB report before opening Situation Room.');
+      return;
+    }
+    onOpenCarbSituationRoom?.(generatedCarbReport.situationRoom.roomId);
   };
 
   return (
@@ -1281,19 +1457,44 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({ onReturn }) => {
         </div>
       </section>
 
-      <section className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
-        <h2 className="text-lg font-bold text-white">Evidence packet preview</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button onClick={() => void handleSave()} disabled={!canSaveOrExport} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save CARB Audit</button>
-          <button onClick={() => void handleExport()} disabled={!canSaveOrExport} className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Export Evidence Packet JSON</button>
-          <button onClick={() => void handleExportPdf()} disabled={!canSaveOrExport} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100 disabled:opacity-50">Export Evidence Packet PDF</button>
-          <button onClick={() => setMessage('Link to DPAL Evidence Vault placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Link to DPAL Evidence Vault</button>
-          <button onClick={() => setMessage('Link to DPAL MRV Project placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Link to DPAL MRV Project</button>
-          <button onClick={() => setMessage('Create Investigation Case placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Create Investigation Case</button>
-          <button onClick={() => void listCarbAudits().then((res) => setMessage(`Loaded ${res.audits.length} saved CARB audits.`)).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Failed to load audits.'))} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Load Saved Audits</button>
+      <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        <CarbReportPanel
+          report={generatedCarbReport}
+          canGenerate={canGenerateCarbReport}
+          busy={carbReportBusy}
+          notice={carbReportNotice}
+          onGenerateReport={() => void handleGenerateCarbReport()}
+          onDownloadPdf={() => void handleDownloadCarbReportPdf()}
+          onOpenReport={handleOpenCarbReport}
+          onOpenSituationRoom={handleOpenCarbSituationRoom}
+          onExportEvidencePacket={() => void handleExportCarbEvidencePacket()}
+        />
+
+        <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
+          <h2 className="text-lg font-bold text-white">Audit Backend Actions (Existing Service Flow)</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Existing create/update/export CARB audit backend actions remain intact here.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button onClick={() => void handleSave()} disabled={!canSaveOrExport} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Save Audit</button>
+            <button onClick={() => void handleSave()} disabled={!canSaveOrExport || !savedAuditId} className="rounded-lg bg-indigo-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Update Audit</button>
+            <button onClick={() => void handleExport()} disabled={!canSaveOrExport} className="rounded-lg bg-sky-700 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">Export Audit JSON</button>
+            <button onClick={() => void handleExportPdf()} disabled={!canSaveOrExport} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100 disabled:opacity-50">Export Audit PDF</button>
+            <button onClick={() => setMessage('Link to DPAL Evidence Vault placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Link to DPAL Evidence Vault</button>
+            <button onClick={() => setMessage('Link to DPAL MRV Project placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Link to DPAL MRV Project</button>
+            <button onClick={() => setMessage('Create Investigation Case placeholder selected.')} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Create Investigation Case</button>
+            <button onClick={() => void listCarbAudits().then((res) => setMessage(`Loaded ${res.audits.length} saved CARB audits.`)).catch((error: unknown) => setMessage(error instanceof Error ? error.message : 'Failed to load audits.'))} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Load Saved Audits</button>
+          </div>
+          {!canSaveOrExport ? <p className="mt-2 text-sm text-amber-300">Search for a facility, select a match, and choose baseline/current years before saving or exporting.</p> : null}
         </div>
-        {!canSaveOrExport ? <p className="mt-2 text-sm text-amber-300">Search for a facility, select a match, and choose baseline/current years before saving or exporting.</p> : null}
-        <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
+
+        <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
+          <h2 className="text-lg font-bold text-white">Level 2: Evidence Packet Preview</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Full JSON/data bundle with sources, calculations, checklist, and limitations.
+          </p>
+          <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
+        </div>
       </section>
     </div>
   );
