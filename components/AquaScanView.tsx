@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, GeoJSON, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
@@ -123,6 +123,94 @@ interface WaterProjectApiRecord {
       lat?: number;
       lng?: number;
     };
+  };
+}
+
+type AquaScanWorkflowStateInput = {
+  draftAoiPoints: [number, number][];
+  savedAoiPoints: [number, number][] | null;
+  hasSavedAoiBoundary: boolean;
+  hasReadySavedAoi: boolean;
+  selectedIndex: CopernicusIndexType | null;
+  beforeDateRange: { from: string; to: string };
+  afterDateRange: { from: string; to: string };
+  currentComparisonResult: CopernicusStatisticsComparisonResponse | null;
+  savedHistory: AquaScanCalculationHistoryEntry[];
+  selectedFocusLocation: FocusLocation | null;
+  mapCenter: [number, number];
+  evidencePacketGenerated: boolean;
+  report: AquaScanEvidenceReport | null;
+};
+
+type AquaScanWorkflowState = {
+  hasDraftAoi: boolean;
+  hasSavedAoi: boolean;
+  hasValidAoi: boolean;
+  hasSelectedIndex: boolean;
+  hasBeforeDates: boolean;
+  hasAfterDates: boolean;
+  hasComparisonSetup: boolean;
+  hasActiveComparison: boolean;
+  hasSavedHistory: boolean;
+  hasAnyComparisonSource: boolean;
+  hasFocusPoint: boolean;
+  canRunComparison: boolean;
+  canGeneratePreliminaryReport: boolean;
+  canGenerateCalculatedReport: boolean;
+  canGenerateHistoryReport: boolean;
+  canGenerateAnyReport: boolean;
+  hasReport: boolean;
+  evidencePacketStatus: 'done' | 'optional';
+  actionStatus: 'locked' | 'ready' | 'done';
+};
+
+function deriveAquaScanWorkflowState(input: AquaScanWorkflowStateInput): AquaScanWorkflowState {
+  const hasDraftAoi = Array.isArray(input.draftAoiPoints) && input.draftAoiPoints.length >= 3;
+  const hasSavedAoi = input.hasSavedAoiBoundary || Boolean(
+    input.savedAoiPoints
+    && Array.isArray(input.savedAoiPoints)
+    && input.savedAoiPoints.length >= 3,
+  );
+  const hasValidAoi = hasSavedAoi || hasDraftAoi;
+  const hasSelectedIndex = Boolean(input.selectedIndex);
+  const hasBeforeDates = Boolean(input.beforeDateRange.from && input.beforeDateRange.to);
+  const hasAfterDates = Boolean(input.afterDateRange.from && input.afterDateRange.to);
+  const hasComparisonSetup = hasValidAoi && hasSelectedIndex && hasBeforeDates && hasAfterDates;
+  const hasActiveComparison = Boolean(input.currentComparisonResult);
+  const hasSavedHistory = input.savedHistory.length > 0;
+  const hasAnyComparisonSource = hasActiveComparison || hasSavedHistory;
+  const hasFocusPoint = Boolean(input.selectedFocusLocation)
+    || (Number.isFinite(input.mapCenter[0]) && Number.isFinite(input.mapCenter[1]));
+  const canRunComparison = input.hasReadySavedAoi && hasSelectedIndex && hasBeforeDates && hasAfterDates;
+  const canGeneratePreliminaryReport = hasValidAoi && hasSelectedIndex;
+  const canGenerateCalculatedReport = hasActiveComparison;
+  const canGenerateHistoryReport = hasSavedHistory;
+  const canGenerateAnyReport =
+    canGeneratePreliminaryReport || canGenerateCalculatedReport || canGenerateHistoryReport;
+  const hasReport = Boolean(input.report);
+  const evidencePacketStatus = input.evidencePacketGenerated ? 'done' : 'optional';
+  const actionStatus = hasReport ? 'done' : (canGenerateAnyReport || hasAnyComparisonSource ? 'ready' : 'locked');
+
+  return {
+    hasDraftAoi,
+    hasSavedAoi,
+    hasValidAoi,
+    hasSelectedIndex,
+    hasBeforeDates,
+    hasAfterDates,
+    hasComparisonSetup,
+    hasActiveComparison,
+    hasSavedHistory,
+    hasAnyComparisonSource,
+    hasFocusPoint,
+    canRunComparison,
+    canGeneratePreliminaryReport,
+    canGenerateCalculatedReport,
+    canGenerateHistoryReport,
+    canGenerateAnyReport,
+    hasReport,
+    evidencePacketStatus,
+    actionStatus,
   };
 }
 
@@ -572,6 +660,7 @@ export default function AquaScanView({
   const entityLookupAbortRef = useRef<AbortController | null>(null);
   const overlayAbortRefs = useRef<Partial<Record<AquaScanOverlayType, AbortController>>>({});
   const suppressComparisonResetRef = useRef(false);
+  const previousComparisonSetupSignatureRef = useRef<string | null>(null);
 
   const [nearbyEntities, setNearbyEntities] = useState<NearbyEntity[]>([]);
   const [entitiesLoading, setEntitiesLoading] = useState(false);
@@ -655,6 +744,39 @@ export default function AquaScanView({
   );
   const hasSavedAoi = Boolean(savedAoiGeoJson);
   const readySavedAoi = hasSavedAoi && !drawingAoi;
+  const generatedReportMatchesProject = generatedReport?.projectId === selectedProject.id;
+  const activeGeneratedReport = generatedReportMatchesProject ? generatedReport : null;
+  const workflowState = useMemo(
+    () => deriveAquaScanWorkflowState({
+      draftAoiPoints: aoiPoints,
+      savedAoiPoints: savedAoi,
+      hasSavedAoiBoundary: hasSavedAoi,
+      hasReadySavedAoi: readySavedAoi,
+      selectedIndex: comparisonIndexType,
+      beforeDateRange: beforeRange,
+      afterDateRange: afterRange,
+      currentComparisonResult: comparisonResult,
+      savedHistory: calculationHistory,
+      selectedFocusLocation,
+      mapCenter,
+      evidencePacketGenerated: showPacket,
+      report: activeGeneratedReport,
+    }),
+    [
+      activeGeneratedReport,
+      aoiPoints,
+      afterRange,
+      beforeRange,
+      calculationHistory,
+      comparisonIndexType,
+      comparisonResult,
+      mapCenter,
+      savedAoi,
+      savedAoiAreaSqKm,
+      selectedFocusLocation,
+      showPacket,
+    ],
+  );
   const overlayBlockReason = !selectedFocusLocation
     ? 'Select a focus location first.'
     : !readySavedAoi
@@ -958,14 +1080,20 @@ export default function AquaScanView({
   }, [calculationHistory, selectedProject.id]);
 
   useEffect(() => {
-    if (suppressComparisonResetRef.current) {
-      suppressComparisonResetRef.current = false;
+    if (previousComparisonSetupSignatureRef.current == null) {
+      previousComparisonSetupSignatureRef.current = currentComparisonSetupSignature;
       return;
     }
-    if (comparisonLoading) return;
+    if (suppressComparisonResetRef.current) {
+      suppressComparisonResetRef.current = false;
+      previousComparisonSetupSignatureRef.current = currentComparisonSetupSignature;
+      return;
+    }
+    if (previousComparisonSetupSignatureRef.current === currentComparisonSetupSignature) return;
+    previousComparisonSetupSignatureRef.current = currentComparisonSetupSignature;
     if (!comparisonResult && !comparisonError && validatorGateStatus === 'pending_review' && !showPacket) return;
     if ((import.meta as any).env?.DEV) {
-      console.info('[AquaScan] Cleared stale MRV result', {
+      console.info('[AquaScan] Cleared stale MRV result after setup change', {
         index: comparisonIndexType,
         collection: comparisonCollection,
         beforeRange: { ...beforeRange },
@@ -981,17 +1109,16 @@ export default function AquaScanView({
     setShowPacket(false);
     clearLiveOverlayState();
   }, [
-    beforeRange.from,
-    beforeRange.to,
-    afterRange.from,
-    afterRange.to,
-    comparisonCollection,
-    comparisonIndexType,
-    comparisonLoading,
-    savedAoiCoordinateCount,
-    savedAoiSignature,
-    showPacket,
+    currentComparisonSetupSignature,
+    comparisonResult,
+    comparisonError,
     validatorGateStatus,
+    showPacket,
+    comparisonIndexType,
+    comparisonCollection,
+    beforeRange,
+    afterRange,
+    savedAoiCoordinateCount,
   ]);
 
   useEffect(() => {
@@ -1185,7 +1312,7 @@ export default function AquaScanView({
 
   const focusAoiStatus = drawingAoi
     ? `Drawing (${aoiPoints.length} pts)`
-    : hasSavedAoi
+    : workflowState.hasSavedAoi
       ? 'Saved'
       : 'Required';
 
@@ -1197,40 +1324,40 @@ export default function AquaScanView({
     statusText: string;
     tabId?: 'intake' | 'layers' | 'mrv' | 'evidence' | 'actions';
   }> = [
-    { id: 'location', label: 'Location', status: selectedFocusLocation ? 'complete' : 'needs_attention', statusText: selectedFocusLocation ? 'Done' : 'Required' },
+    { id: 'location', label: 'Location', status: workflowState.hasFocusPoint ? 'complete' : 'needs_attention', statusText: workflowState.hasFocusPoint ? 'Done' : 'Required' },
     {
       id: 'boundary',
       label: 'Boundary',
-      status: !selectedFocusLocation ? 'locked' : drawingAoi ? 'in_progress' : readySavedAoi ? 'complete' : 'needs_attention',
-      statusText: !selectedFocusLocation ? 'Locked' : drawingAoi ? 'Drawing' : readySavedAoi ? 'Done' : 'Required',
+      status: drawingAoi ? 'in_progress' : workflowState.hasSavedAoi ? 'complete' : workflowState.hasDraftAoi ? 'in_progress' : 'needs_attention',
+      statusText: drawingAoi ? 'Drawing' : workflowState.hasSavedAoi ? 'Done' : workflowState.hasDraftAoi ? 'Draft' : 'Required',
       tabId: 'intake',
     },
     {
       id: 'layers',
       label: 'Layers',
-      status: !selectedFocusLocation ? 'locked' : !readySavedAoi ? 'needs_attention' : selectedLayerIds.length > 0 ? 'complete' : 'pending',
-      statusText: !selectedFocusLocation ? 'Locked' : !readySavedAoi ? 'Needs AOI' : selectedLayerIds.length > 0 ? 'Done' : 'Needed',
+      status: !workflowState.hasSavedAoi ? 'needs_attention' : selectedLayerIds.length > 0 ? 'complete' : 'pending',
+      statusText: !workflowState.hasSavedAoi ? 'Needs AOI' : selectedLayerIds.length > 0 ? 'Done' : 'Needed',
       tabId: 'layers',
     },
     {
       id: 'compare',
       label: 'Compare',
-      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'complete' : 'pending',
-      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'Done' : 'Needed',
+      status: workflowState.hasActiveComparison ? 'complete' : workflowState.hasComparisonSetup ? 'in_progress' : workflowState.hasSavedHistory ? 'pending' : 'needs_attention',
+      statusText: workflowState.hasActiveComparison ? 'Done' : workflowState.hasComparisonSetup ? 'Ready' : workflowState.hasSavedHistory ? 'History Available' : 'Needed',
       tabId: 'mrv',
     },
     {
       id: 'evidence',
       label: 'Evidence',
-      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'complete' : 'pending',
-      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : comparisonResult && loadedComparisonSetupSignature === currentComparisonSetupSignature ? 'Ready' : 'Needed',
+      status: workflowState.evidencePacketStatus === 'done' ? 'complete' : 'pending',
+      statusText: workflowState.evidencePacketStatus === 'done' ? 'Done' : 'Optional',
       tabId: 'evidence',
     },
     {
       id: 'action',
       label: 'Action',
-      status: !showPacket ? 'locked' : 'pending',
-      statusText: !showPacket ? 'Locked' : 'Needed',
+      status: workflowState.actionStatus === 'done' ? 'complete' : workflowState.actionStatus === 'ready' ? 'in_progress' : 'locked',
+      statusText: workflowState.actionStatus === 'done' ? 'Done' : workflowState.actionStatus === 'ready' ? 'Ready' : 'Locked',
       tabId: 'actions',
     },
   ];
@@ -1598,8 +1725,6 @@ export default function AquaScanView({
     disclaimer: packetPreview.legalSafeNote,
   }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResultForPacket, evidencePacket, intelligenceReader.confidenceInterpretation, intelligenceReader.evidenceNeeded, intelligenceReader.keyFindings, intelligenceReader.limitations, intelligenceReader.recommendedActions, intelligenceReader.suggestedQuestions, intelligenceReader.summary, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
 
-  const generatedReportMatchesProject = generatedReport?.projectId === selectedProject.id;
-  const activeGeneratedReport = generatedReportMatchesProject ? generatedReport : null;
   const activeHistoryResult = displayedHistoryItem;
   const hasBasicReportSource = Boolean(
     hasCurrentComparisonResult
@@ -1609,7 +1734,7 @@ export default function AquaScanView({
     || selectedProject.projectName.trim()
     || selectedProject.locationName.trim(),
   );
-  const canGenerateReport = hasBasicReportSource;
+  const canGenerateReport = workflowState.canGenerateAnyReport;
   const comparisonSetupReady = Boolean(readySavedAoi && comparisonIndexType && beforeRange.from && beforeRange.to && afterRange.from && afterRange.to);
   const scanStatusLabel = selectedFocusLocation
     ? waterData
@@ -1641,6 +1766,12 @@ export default function AquaScanView({
       : hasBasicReportSource
         ? 'Report: Ready from preliminary state'
         : 'Report: Waiting for map or project state';
+
+  useEffect(() => {
+    if ((import.meta as any).env?.DEV) {
+      console.debug('AquaScan workflow state', workflowState);
+    }
+  }, [workflowState]);
 
   function buildIndexEntry(beforeValue: number | null, afterValue: number | null, percentChange: number | null) {
     const safeBefore = typeof beforeValue === 'number' && Number.isFinite(beforeValue) ? beforeValue : undefined;
@@ -2849,20 +2980,20 @@ export default function AquaScanView({
           <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">AquaScan Test Flow</p>
             {[
-              ['Select map point', Boolean(selectedFocusLocation), false],
-              ['Draw AOI', aoiPoints.length > 0 || drawingAoi, !selectedFocusLocation],
-              ['Save AOI', readySavedAoi, !selectedFocusLocation],
-              ['Select NDWI', comparisonIndexType === 'NDWI', !readySavedAoi],
-              ['Apply recommended dates', RECOMMENDED_COMPARISON_PRESETS.some((preset) => preset.before.from === beforeRange.from && preset.before.to === beforeRange.to && preset.after.from === afterRange.from && preset.after.to === afterRange.to), !readySavedAoi],
-              ['Calculate Comparison', hasCurrentComparisonResult, !readySavedAoi],
-              ['Generate Evidence Packet', hasCurrentComparisonResult, !canGenerateEvidencePacket],
-              ['Choose Action', showPacket && activeTab === 'actions', !showPacket],
-            ].map(([label, done, locked]) => (
+              ['Select map point', workflowState.hasFocusPoint, false, workflowState.hasFocusPoint ? 'Done' : 'Needed'],
+              ['Draw AOI', workflowState.hasValidAoi, false, workflowState.hasValidAoi ? 'Done' : 'Needed'],
+              ['Save AOI', workflowState.hasSavedAoi, false, workflowState.hasSavedAoi ? 'Done' : workflowState.hasDraftAoi ? 'Needed' : 'Needed'],
+              [workflowState.hasSelectedIndex ? `Selected index: ${comparisonIndexType}` : 'Select NDWI', workflowState.hasSelectedIndex, false, workflowState.hasSelectedIndex ? 'Done' : 'Needed'],
+              ['Apply recommended dates', workflowState.hasBeforeDates && workflowState.hasAfterDates, false, workflowState.hasBeforeDates && workflowState.hasAfterDates ? 'Done' : 'Needed'],
+              ['Calculate Comparison', workflowState.hasActiveComparison, false, workflowState.hasActiveComparison ? 'Done' : workflowState.hasComparisonSetup ? 'Ready' : 'Needed'],
+              ['Generate Evidence Packet', workflowState.evidencePacketStatus === 'done', false, workflowState.evidencePacketStatus === 'done' ? 'Done' : 'Optional'],
+              ['Choose Action', workflowState.actionStatus !== 'locked', workflowState.actionStatus === 'locked', workflowState.actionStatus === 'done' ? 'Done' : workflowState.actionStatus === 'ready' ? 'Ready' : 'Locked'],
+            ].map(([label, done, locked, stateText]) => (
               <div key={String(label)} className="flex items-center gap-2 py-1 text-[11px]">
                 <span className={`h-2 w-2 rounded-full ${locked ? 'bg-slate-700' : done ? 'bg-emerald-400' : 'bg-amber-400'}`} />
                 <span className="flex-1 text-slate-300">{label}</span>
                 <span className={`text-[10px] ${locked ? 'text-slate-600' : done ? 'text-emerald-300' : 'text-amber-200'}`}>
-                  {locked ? 'Locked' : done ? 'Done' : 'Needed'}
+                  {String(stateText)}
                 </span>
               </div>
             ))}
@@ -3266,7 +3397,7 @@ export default function AquaScanView({
               <span>Project: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.id : 'Not started'}</span></span>
               <span>Type: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.waterBodyType : 'Select after focus location'}</span></span>
               <span>Updated: <span className="text-slate-300">{selectedFocusLocation ? lastRefreshTime : '-'}</span></span>
-              <span>Boundary: <span className="text-slate-300">{drawingAoi ? `Drawing (${aoiPoints.length} pts)` : hasSavedAoi ? `Saved ${savedAoiAreaSqKm.toFixed(2)} km2` : 'Required'}</span></span>
+              <span>Boundary: <span className="text-slate-300">{drawingAoi ? `Drawing (${aoiPoints.length} pts)` : workflowState.hasSavedAoi ? `Saved ${savedAoiAreaSqKm.toFixed(2)} km2` : 'Required'}</span></span>
               <span>Evidence: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.evidenceCount : 0}</span></span>
               <span>Layers: <span className="text-slate-300">{selectedLayerIds.length}</span></span>
             </div>
@@ -3829,6 +3960,14 @@ export default function AquaScanView({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => { void generateEvidenceReport({ sourceContext: 'compare' }); }}
+                    disabled={reportBusy || !workflowState.canGeneratePreliminaryReport}
+                    className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {reportBusy ? 'Generating...' : 'Generate Preliminary PDF + QR'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => { void runMrvComparison(); }}
                     disabled={!canCalculateMrv}
                     title={mrvBlockReason || undefined}
@@ -3852,6 +3991,16 @@ export default function AquaScanView({
                       {s.replace(/_/g, ' ')}
                     </button>
                   ))}
+                  {workflowState.hasSavedHistory ? (
+                    <button
+                      type="button"
+                      onClick={() => { void generateEvidenceReport({ historyItem: calculationHistory[0] ?? null, sourceContext: 'compare', openReportAfterCreate: true }); }}
+                      disabled={reportBusy}
+                      className="rounded-lg border border-violet-500/50 bg-violet-900/20 px-3 py-1.5 text-xs font-semibold text-violet-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Create Report from Saved History
+                    </button>
+                  ) : null}
                 </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-6">
                   {([
@@ -3860,7 +4009,9 @@ export default function AquaScanView({
                     ['Index', comparisonIndexType || 'Missing'],
                     ['Before window', beforeRange.from && beforeRange.to ? `${beforeRange.from} to ${beforeRange.to}` : 'Missing'],
                     ['After window', afterRange.from && afterRange.to ? `${afterRange.from} to ${afterRange.to}` : 'Missing'],
-                    ['Calculation', comparisonCalculationState],
+                    ['Compare', workflowState.hasActiveComparison ? 'Done' : workflowState.hasComparisonSetup ? 'Ready' : workflowState.hasSavedHistory ? 'History Available' : 'Needed'],
+                    ['Evidence', workflowState.evidencePacketStatus === 'done' ? 'Done' : 'Optional'],
+                    ['Action', workflowState.actionStatus === 'done' ? 'Done' : workflowState.actionStatus === 'ready' ? 'Ready' : 'Locked'],
                     ['Source', comparisonSourceLabel],
                   ] as [string, string][]).map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs">
@@ -3915,7 +4066,7 @@ export default function AquaScanView({
                 ) : null}
                 {displayedComparisonResult ? (
                   <div className="space-y-1 text-xs text-slate-300">
-                    <p>{hasCurrentComparisonResult ? 'Active calculated comparison loaded.' : 'Reading saved comparison history.'}</p>
+                    <p>{hasCurrentComparisonResult ? 'Reading active calculated AquaScan comparison.' : 'Reading saved comparison history.'}</p>
                     <p>{displayedComparisonResult.delta.interpretation}</p>
                     <p>Measurement source: {displayedComparisonSource}</p>
                     {(import.meta as any).env?.DEV ? (
@@ -3987,6 +4138,7 @@ export default function AquaScanView({
                   riskScore={riskScore}
                   warnings={comparisonResult?.warnings ?? []}
                   selectedHistoryItem={selectedIntelligenceHistoryItem}
+                  workflowState={workflowState}
                 />
                 <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-xs text-slate-300">
                   <div className="mb-1 flex items-center justify-between gap-2">
@@ -4072,13 +4224,7 @@ export default function AquaScanView({
                   sourceContext="evidence"
                   canGenerate={canGenerateReport}
                   readinessLabel={reportReadinessLabel}
-                  generateLabel={
-                    hasCurrentComparisonResult
-                      ? 'Generate Calculated PDF + QR'
-                      : activeHistoryResult
-                        ? 'Generate Saved History PDF + QR'
-                        : 'Generate Preliminary PDF + QR'
-                  }
+                  generateLabel="Generate PDF + QR Report"
                   report={activeGeneratedReport}
                   busy={reportBusy}
                   notice={reportNotice}
@@ -4126,7 +4272,7 @@ export default function AquaScanView({
                     disabled={!canGenerateEvidencePacket}
                     className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {showPacket ? 'Hide Packet Preview' : 'Generate Evidence Packet'}
+                    {showPacket ? 'Hide Packet Preview' : 'Generate Full Evidence Packet'}
                   </button>
                   <button
                     type="button"
@@ -4214,6 +4360,7 @@ export default function AquaScanView({
                   riskScore={riskScore}
                   warnings={comparisonResult?.warnings ?? []}
                   selectedHistoryItem={selectedIntelligenceHistoryItem}
+                  workflowState={workflowState}
                 />
                 {showPacket ? (
                   <div className="space-y-1.5 rounded-xl border border-slate-700 bg-slate-950 p-4 text-xs text-slate-200">

@@ -101,6 +101,12 @@ type AquaScanIntelligenceReaderProps = {
   warnings: string[];
   selectedHistoryItem?: AquaScanCalculationHistoryEntry | null;
   variant?: 'full' | 'compact';
+  workflowState?: {
+    hasValidAoi: boolean;
+    hasComparisonSetup: boolean;
+    hasSavedHistory: boolean;
+    hasActiveComparison: boolean;
+  };
 };
 
 const INDEX_GUIDE: Record<CopernicusIndexType, string> = {
@@ -244,7 +250,7 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
   const historyContext = buildHistoryContext(args.selectedHistoryItem ?? args.calculationHistory[0] ?? null);
   const activeContext = currentContext ?? historyContext;
   const recentHistory = args.calculationHistory.slice(0, 3);
-  const hasSetup = Boolean(
+  const hasSetup = args.workflowState?.hasComparisonSetup ?? Boolean(
     args.savedAoiAreaSqKm > 0
     && args.beforeRange.from
     && args.beforeRange.to
@@ -252,6 +258,7 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
     && args.afterRange.to
     && args.comparisonIndexType,
   );
+  const hasValidAoi = args.workflowState?.hasValidAoi ?? (args.savedAoiAreaSqKm > 0);
   const stateLabel: AquaScanIntelligenceOutput['stateLabel'] = currentContext
     ? 'active calculated result'
     : historyContext
@@ -262,20 +269,24 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
   const currentMeasurementStatus = currentContext
     ? `${currentContext.measurementStatus}. ${describeIndexReading(currentContext.indexType, currentContext.deltaPercent)}`
     : historyContext
-      ? 'Reading saved comparison history.'
+      ? 'Reading saved comparison history. You can restore it or create a report from this saved result.'
       : hasSetup
-        ? 'Dates are selected, but no active calculated comparison has been run yet.'
-        : 'No setup is ready yet. Select an AOI, index, and before/after date windows to prepare the comparison.';
+        ? 'Comparison setup is ready, but the satellite calculation has not been run yet.'
+        : hasValidAoi
+          ? 'AOI is saved. Select before/after dates to set up a comparison.'
+          : 'Select or draw an AOI to begin AquaScan comparison.';
 
   const summary = currentContext
-    ? `Active calculated comparison loaded. ${describeIndexReading(currentContext.indexType, currentContext.deltaPercent)} ${describeStrength(currentContext.deltaPercent)} ${describeConfidence(currentContext.confidenceScore)}`
+    ? `Reading active calculated AquaScan comparison. ${describeIndexReading(currentContext.indexType, currentContext.deltaPercent)} ${describeStrength(currentContext.deltaPercent)} ${describeConfidence(currentContext.confidenceScore)}`
     : historyContext
       ? `Reading saved comparison history. ${describeIndexReading(historyContext.indexType, historyContext.deltaPercent)} ${describeStrength(historyContext.deltaPercent)} ${describeConfidence(historyContext.confidenceScore)}`
       : hasSetup
         ? recentHistory.length > 0
           ? `Comparison setup is ready, but the satellite calculation has not been run yet. Click Calculate Comparison to generate before/after measurement values. Saved comparison results are available. Restore a result or create a report directly from history. Recent rows include ${recentHistory.map((item) => formatCalculationHistoryHeadline(item)).join('; ')}.`
           : 'Comparison setup is ready, but the satellite calculation has not been run yet. Click Calculate Comparison to generate before/after measurement values.'
-        : 'No setup is ready yet. Select an AOI, index, and before/after date windows to prepare the comparison.';
+        : hasValidAoi
+          ? 'AOI is saved. Select before/after dates to set up a comparison.'
+          : 'Select or draw an AOI to begin AquaScan comparison.';
 
   const keyFindings = [
     currentContext
@@ -413,7 +424,13 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] font-black uppercase tracking-[0.2em] text-violet-300">AI Intelligence Reader</p>
         <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
-          {props.comparisonResult ? 'Reading current comparison' : 'Reading saved history'}
+          {intelligence.stateLabel === 'active calculated result'
+            ? 'Reading active calculated AquaScan comparison'
+            : intelligence.stateLabel === 'saved history result'
+              ? 'Reading saved comparison history'
+              : intelligence.stateLabel === 'setup only'
+                ? 'Comparison setup ready'
+                : 'AOI setup required'}
         </span>
       </div>
       <div className="mt-3 space-y-3 text-xs text-slate-200">
