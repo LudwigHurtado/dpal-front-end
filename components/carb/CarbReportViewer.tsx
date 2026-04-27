@@ -37,6 +37,17 @@ export default function CarbReportViewer({
     setReport(getCarbReport(resolvedId));
   }, [resolvedId]);
 
+  const indexIntegrationStatus = useMemo(() => {
+    if (!report?.environmentalReadings?.length) {
+      return { label: 'Index analysis unavailable', tone: 'border-slate-700 bg-slate-900/60 text-slate-300' };
+    }
+    const hasLiveIntegrated = report.environmentalReadings.some((reading) => !reading.source.toLowerCase().includes('auto-screening'));
+    if (hasLiveIntegrated) {
+      return { label: 'Live indices integrated', tone: 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200' };
+    }
+    return { label: 'Fallback screening used', tone: 'border-amber-500/40 bg-amber-900/20 text-amber-200' };
+  }, [report]);
+
   const handleDownload = async (): Promise<void> => {
     if (!report || downloadBusy) return;
     setDownloadBusy(true);
@@ -86,6 +97,9 @@ export default function CarbReportViewer({
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
         <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-5 text-sm text-slate-300">
           <h2 className="text-lg font-bold text-white">Executive Summary</h2>
+          <p className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${indexIntegrationStatus.tone}`}>
+            {indexIntegrationStatus.label}
+          </p>
           <p className="mt-2">Report quality rating: <span className="font-semibold text-cyan-200">{text(report.reportQualityRating, 'Draft')}</span></p>
           {report.dataReadiness ? (
             <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
