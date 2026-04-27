@@ -400,8 +400,8 @@ function buildStatisticsRequest(args: {
         to: `${args.toDate}T23:59:59Z`,
       },
       aggregationInterval: { of: 'P1M' },
-      resx: `${resolutionMeters}m`,
-      resy: `${resolutionMeters}m`,
+      resx: resolutionMeters,
+      resy: resolutionMeters,
       evalscript: evalscriptSourceFor(args.indexType),
     },
   };
