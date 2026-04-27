@@ -18,13 +18,17 @@ interface CarbReportPanelProps {
   onOpenShareableSituationRoomPage?: () => void;
 }
 
-function statusChip(label: string, tone: 'ready' | 'pending' | 'review'): string {
+function StatusChip({ label, tone }: { label: string; tone: 'ready' | 'pending' | 'review' }): React.ReactElement {
   const palette = {
     ready: 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200',
     pending: 'border-amber-500/40 bg-amber-900/20 text-amber-200',
     review: 'border-cyan-500/40 bg-cyan-900/20 text-cyan-200',
   } as const;
-  return `inline-flex rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${palette[tone]}`;
+  return (
+    <span className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${palette[tone]}`}>
+      {label}
+    </span>
+  );
 }
 
 export default function CarbReportPanel({
@@ -151,23 +155,23 @@ export default function CarbReportPanel({
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Report Status</p>
-          <p className="mt-3">{statusChip(reportStatus, report ? 'ready' : 'pending')}</p>
+          <p className="mt-3"><StatusChip label={reportStatus} tone={report ? 'ready' : 'pending'} /></p>
         </article>
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Data Source Status</p>
-          <p className="mt-3">{statusChip(dataSourceStatus, report ? 'review' : 'pending')}</p>
+          <p className="mt-3"><StatusChip label={dataSourceStatus} tone={report ? 'review' : 'pending'} /></p>
         </article>
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">PDF Status</p>
-          <p className="mt-3">{statusChip(pdfReady ? 'Ready' : 'Pending', pdfReady ? 'ready' : 'pending')}</p>
+          <p className="mt-3"><StatusChip label={pdfReady ? 'Ready' : 'Pending'} tone={pdfReady ? 'ready' : 'pending'} /></p>
         </article>
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">QR Verification</p>
-          <p className="mt-3">{statusChip(qrReady ? 'Ready' : 'Pending', qrReady ? 'ready' : 'pending')}</p>
+          <p className="mt-3"><StatusChip label={qrReady ? 'Ready' : 'Pending'} tone={qrReady ? 'ready' : 'pending'} /></p>
         </article>
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Situation Room</p>
-          <p className="mt-3">{statusChip(roomReady ? 'Ready' : 'Pending', roomReady ? 'review' : 'pending')}</p>
+          <p className="mt-3"><StatusChip label={roomReady ? 'Ready' : 'Pending'} tone={roomReady ? 'review' : 'pending'} /></p>
         </article>
       </div>
 
