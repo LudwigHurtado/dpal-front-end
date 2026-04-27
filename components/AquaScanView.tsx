@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Circle, GeoJSON, MapContainer, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { Circle, GeoJSON, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
 import type { Hero } from '../types';
@@ -66,6 +66,30 @@ interface FocusLocation {
 }
 
 const DEFAULT_WEST_US_CENTER: [number, number] = [37.25, -119.8];
+const AQUASCAN_AOI_STORAGE_KEY = 'dpal_aquascan_saved_aoi_v2';
+const RECOMMENDED_COMPARISON_PRESETS = [
+  {
+    id: 'recent-monthly',
+    label: 'Preset A',
+    description: 'Recent monthly comparison',
+    before: { from: '2026-03-01', to: '2026-03-31' },
+    after: { from: '2026-04-01', to: '2026-04-25' },
+  },
+  {
+    id: 'summer-2025',
+    label: 'Preset B',
+    description: 'Wider historical summer comparison',
+    before: { from: '2025-06-01', to: '2025-06-30' },
+    after: { from: '2025-07-01', to: '2025-07-31' },
+  },
+  {
+    id: 'fallback-2024',
+    label: 'Preset C',
+    description: 'Wider fallback test',
+    before: { from: '2024-06-01', to: '2024-06-30' },
+    after: { from: '2024-07-01', to: '2024-07-31' },
+  },
+] as const;
 
 interface WaterProjectApiRecord {
   projectId: string;
@@ -317,6 +341,11 @@ function mapLiveProjectToAquaScanProject(project: WaterProjectApiRecord): AquaSc
   };
 }
 
+function buildAoiStorageKey(location: FocusLocation | null, projectId: string): string | null {
+  if (!location) return null;
+  return `${projectId}:${location.latitude.toFixed(6)}:${location.longitude.toFixed(6)}`;
+}
+
 function nearbyEntityColor(category: string): string {
   const normalized = category.toLowerCase();
   if (normalized.includes('waste') || normalized.includes('sewage') || normalized.includes('landfill')) return '#f97316';
@@ -357,10 +386,11 @@ function MapInteractionCapture({
   useMapEvents({
     click(event) {
       const point: [number, number] = [event.latlng.lat, event.latlng.lng];
-      onInspect(point);
       if (drawingAoi) {
         onAoiPoint(point);
+        return;
       }
+      onInspect(point);
     },
   });
   return null;
@@ -556,18 +586,91 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     [activeGibsLayer, compareDate],
   );
   const selectedAnalysisLayer = layerToAnalysisKey[selectedLayerIds[0] ?? 'sentinel2'] ?? 'ndwi';
-  const activeAoi = aoiPoints.length >= 3 ? aoiPoints : savedAoiPoints.length >= 3 ? savedAoiPoints : null;
-  const aoiAreaSqKm = polygonAreaSqKm(activeAoi ?? []);
-  const aoiAreaHectares = aoiAreaSqKm * 100;
-  const activeAoiGeoJson = useMemo(() => toAoiGeoJson(activeAoi), [activeAoi]);
-  const activeAoiSignature = useMemo(() => JSON.stringify(activeAoi ?? []), [activeAoi]);
+  const draftAoiPreview = aoiPoints.length >= 3 ? aoiPoints : null;
+  const savedAoi = savedAoiPoints.length >= 3 ? savedAoiPoints : null;
+  const savedAoiAreaSqKm = polygonAreaSqKm(savedAoi ?? []);
+  const savedAoiAreaHectares = savedAoiAreaSqKm * 100;
+  const savedAoiGeoJson = useMemo(() => toAoiGeoJson(savedAoi), [savedAoi]);
+  const savedAoiSignature = useMemo(() => JSON.stringify(savedAoi ?? []), [savedAoi]);
+  const aoiStorageKey = useMemo(
+    () => buildAoiStorageKey(selectedFocusLocation, selectedProjectId),
+    [selectedFocusLocation, selectedProjectId],
+  );
+  const hasSavedAoi = Boolean(savedAoiGeoJson);
+  const readySavedAoi = hasSavedAoi && !drawingAoi;
   const overlayBlockReason = !selectedFocusLocation
     ? 'Select a focus location first.'
-    : !activeAoiGeoJson
+    : !readySavedAoi
       ? 'Draw and save an AOI before requesting overlays.'
+      : !comparisonResult
+        ? 'Run a successful AOI comparison first.'
       : !overlayDateRange.fromDate || !overlayDateRange.toDate
         ? 'Select an overlay date range first.'
         : '';
+
+  function clearLiveOverlayState(): void {
+    Object.values(overlayAbortRefs.current).forEach((controller) => controller?.abort());
+    overlayAbortRefs.current = {};
+    setOverlayResults(createOverlayStateMap());
+  }
+
+  function clearMeasurementOutputs(): void {
+    setComparisonResult(null);
+    setComparisonError(null);
+    setShowPacket(false);
+    setValidatorGateStatus('pending_review');
+    clearLiveOverlayState();
+  }
+
+  function clearAoiState(options?: { removePersisted?: boolean; notice?: string }): void {
+    setAoiPoints([]);
+    setSavedAoiPoints([]);
+    setDrawingAoi(false);
+    setBoundaryDrawn(false);
+    setBoundaryRevision((prev) => prev + 1);
+    setSelectedFocusLocation((prev) => (prev ? { ...prev, aoiGeoJson: null } : prev));
+    clearMeasurementOutputs();
+    if (options?.removePersisted && aoiStorageKey) {
+      const raw = localStorage.getItem(AQUASCAN_AOI_STORAGE_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Record<string, [number, number][]>;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            delete parsed[aoiStorageKey];
+            localStorage.setItem(AQUASCAN_AOI_STORAGE_KEY, JSON.stringify(parsed));
+          }
+        } catch {
+          localStorage.removeItem(AQUASCAN_AOI_STORAGE_KEY);
+        }
+      }
+    }
+    if (options?.notice) {
+      setActionNotice(options.notice);
+    }
+  }
+
+  function startAoiDrawing(): void {
+    if (!selectedFocusLocation) {
+      setActionNotice('Select a focus location before drawing an AOI.');
+      return;
+    }
+    if (drawingAoi) {
+      setDrawingAoi(false);
+      setActionNotice('AOI drawing mode paused.');
+      return;
+    }
+    setAoiPoints([]);
+    setDrawingAoi(true);
+    setBoundaryDrawn(true);
+    clearMeasurementOutputs();
+    setActionNotice('AOI drawing mode active. Click points on the map around the area to measure.');
+  }
+
+  function applyComparisonPreset(preset: (typeof RECOMMENDED_COMPARISON_PRESETS)[number]): void {
+    setBeforeRange({ ...preset.before });
+    setAfterRange({ ...preset.after });
+    setActionNotice(`Applied ${preset.label}: ${preset.description}.`);
+  }
 
   useEffect(() => {
     if (selectedFocusLocation) {
@@ -576,17 +679,39 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }, [selectedFocusLocation]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('dpal_aquascan_saved_aoi_v1');
-    if (!stored) return;
-    try {
-      const parsed = JSON.parse(stored) as Array<[number, number]>;
-      if (Array.isArray(parsed)) {
-        setSavedAoiPoints(parsed);
-      }
-    } catch {
-      // Ignore invalid localStorage payload.
+    if (!aoiStorageKey) {
+      setAoiPoints([]);
+      setSavedAoiPoints([]);
+      return;
     }
-  }, []);
+    const stored = localStorage.getItem(AQUASCAN_AOI_STORAGE_KEY);
+    if (!stored) {
+      setAoiPoints([]);
+      setSavedAoiPoints([]);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as Record<string, [number, number][]>;
+      const savedPoints = parsed?.[aoiStorageKey];
+      if (Array.isArray(savedPoints)) {
+        setSavedAoiPoints(savedPoints);
+        setBoundaryDrawn(savedPoints.length >= 3);
+        setSelectedFocusLocation((prev) => (
+          prev && savedPoints.length >= 3
+            ? { ...prev, aoiGeoJson: toAoiGeoJson(savedPoints) }
+            : prev
+        ));
+      } else {
+        setSavedAoiPoints([]);
+        setBoundaryDrawn(false);
+        setSelectedFocusLocation((prev) => (prev ? { ...prev, aoiGeoJson: null } : prev));
+      }
+      setAoiPoints([]);
+    } catch {
+      setSavedAoiPoints([]);
+      setAoiPoints([]);
+    }
+  }, [aoiStorageKey]);
 
   useEffect(() => () => {
     if (waterRequestAbortRef.current) {
@@ -650,13 +775,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }, [calculationHistory, selectedProject.id]);
 
   useEffect(() => {
-    Object.values(overlayAbortRefs.current).forEach((controller) => controller?.abort());
-    overlayAbortRefs.current = {};
-    setOverlayResults(createOverlayStateMap());
+    clearLiveOverlayState();
   }, [
     selectedFocusLocation?.latitude,
     selectedFocusLocation?.longitude,
-    activeAoiSignature,
+    savedAoiSignature,
     overlayDateRange.fromDate,
     overlayDateRange.toDate,
     comparisonCollection,
@@ -665,8 +788,18 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   ]);
 
   useEffect(() => {
-    const point: [number, number] = inspectedPoint ?? mapCenter;
-    const shouldUseAoi = Boolean(activeAoi && activeAoi.length >= 3);
+    if (!selectedFocusLocation) {
+      if (waterDebounceRef.current) {
+        window.clearTimeout(waterDebounceRef.current);
+      }
+      if (waterRequestAbortRef.current) {
+        waterRequestAbortRef.current.abort();
+      }
+      setWaterApiLoading(false);
+      return;
+    }
+    const point: [number, number] = inspectedPoint ?? [selectedFocusLocation.latitude, selectedFocusLocation.longitude];
+    const shouldUseAoi = Boolean(savedAoi && savedAoi.length >= 3);
     if (waterDebounceRef.current) {
       window.clearTimeout(waterDebounceRef.current);
     }
@@ -684,7 +817,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       try {
         const snapshot = shouldUseAoi
           ? await getWaterSnapshotByAOI({
-              polygonCoordinates: activeAoi as [number, number][],
+              polygonCoordinates: savedAoi as [number, number][],
               date: selectedDate,
               layer: selectedAnalysisLayer,
               signal: controller.signal,
@@ -703,7 +836,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         const history = await getWaterHistory({
           lat: shouldUseAoi ? undefined : point[0],
           lng: shouldUseAoi ? undefined : point[1],
-          polygonCoordinates: shouldUseAoi ? (activeAoi as [number, number][]) : undefined,
+          polygonCoordinates: shouldUseAoi ? (savedAoi as [number, number][]) : undefined,
           startDate: compareEnabled ? compareDate : selectedDate,
           endDate: selectedDate,
           layer: selectedAnalysisLayer,
@@ -743,7 +876,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         window.clearTimeout(waterDebounceRef.current);
       }
     };
-  }, [activeAoi, compareDate, compareEnabled, inspectedPoint, liveRetryTick, mapCenter, selectedAnalysisLayer, selectedDate]);
+  }, [compareDate, compareEnabled, inspectedPoint, liveRetryTick, savedAoi, selectedAnalysisLayer, selectedDate, selectedFocusLocation]);
 
   const validatorStatus = selectedProject.validatorStatus;
 
@@ -753,11 +886,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     const base = concernWeights[selectedProject.concernType] ?? 40;
     const evidenceBoost = Math.min(18, selectedProject.evidenceCount * 4);
     const anomalyBoost = anomalyLayerCount >= 5 ? 14 : anomalyLayerCount >= 3 ? 8 : 4;
-    const boundaryBoost = boundaryDrawn ? 6 : 0;
+    const boundaryBoost = readySavedAoi ? 6 : 0;
     const validatorBoost = selectedProject.validatorStatus === 'Validated' ? 8 : selectedProject.validatorStatus === 'Reviewed' ? 4 : 0;
     const labReduction = selectedProject.hasLabResult ? -10 : 0;
     return clampRisk(base + evidenceBoost + anomalyBoost + boundaryBoost + validatorBoost + labReduction);
-  }, [selectedProject, anomalyLayerCount, boundaryDrawn]);
+  }, [selectedProject, anomalyLayerCount, readySavedAoi]);
 
   const indicators = useMemo<WaterIndicator[]>(() => {
     const status = mapBandToStatus(riskScore);
@@ -788,6 +921,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     ? Math.round(waterData.waterAnalysis.confidence * 100)
     : null;
   const recommendedNextStep = useMemo(() => {
+    if (!selectedFocusLocation) return 'Select a focus location to begin.';
+    if (drawingAoi) return 'Continue adding AOI points, then save the AOI.';
+    if (!readySavedAoi) return 'Draw an AOI to begin measurement.';
+    if (!comparisonResult) return 'Select NDWI, apply dates, and calculate comparison.';
     if (riskScore <= 25) return 'Continue monitoring.';
     if (String(waterData?.waterAnalysis.turbidityProxy ?? '').toLowerCase().includes('high') || riskScore > 50) {
       return 'Request water sample.';
@@ -797,7 +934,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     }
     if ((inspectQualityConfidence ?? 0) < 65) return 'Add evidence or change satellite date.';
     return 'Notify authority or launch field mission if indicators remain strong after validation.';
-  }, [inspectQualityConfidence, riskScore, waterData?.waterAnalysis.thermalAnomaly, waterData?.waterAnalysis.turbidityProxy]);
+  }, [comparisonResult, drawingAoi, readySavedAoi, inspectQualityConfidence, riskScore, selectedFocusLocation, waterData?.waterAnalysis.thermalAnomaly, waterData?.waterAnalysis.turbidityProxy]);
 
   const displayAiSummary = useMemo(() => {
     if (!selectedFocusLocation) {
@@ -819,38 +956,71 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           ? 'Running satellite analysis...'
           : null;
 
-  const focusAoiStatus = activeAoi && activeAoi.length >= 3
-    ? `Drawn (${activeAoi.length} pts)`
-    : savedAoiPoints.length >= 3
+  const focusAoiStatus = drawingAoi
+    ? `Drawing (${aoiPoints.length} pts)`
+    : hasSavedAoi
       ? 'Saved'
-      : 'Missing';
+      : 'Required';
 
-  type WorkflowStepStatus = 'complete' | 'needs_attention' | 'locked' | 'pending';
+  type WorkflowStepStatus = 'complete' | 'needs_attention' | 'locked' | 'pending' | 'in_progress';
   const workflowSteps: Array<{
     id: string;
     label: string;
     status: WorkflowStepStatus;
+    statusText: string;
     tabId?: 'intake' | 'layers' | 'mrv' | 'evidence' | 'actions';
   }> = [
-    { id: 'location', label: 'Location', status: selectedFocusLocation ? 'complete' : 'needs_attention' },
-    { id: 'boundary', label: 'Boundary', status: !selectedFocusLocation ? 'locked' : activeAoi && activeAoi.length >= 3 ? 'complete' : 'pending', tabId: 'intake' },
-    { id: 'layers', label: 'Layers', status: selectedLayerIds.length > 0 ? 'complete' : 'pending', tabId: 'layers' },
-    { id: 'compare', label: 'Compare', status: !activeAoi ? 'locked' : comparisonResult ? 'complete' : 'pending', tabId: 'mrv' },
-    { id: 'evidence', label: 'Evidence', status: selectedProject.evidenceCount > 0 ? 'complete' : 'pending', tabId: 'evidence' },
-    { id: 'action', label: 'Action', status: 'pending', tabId: 'actions' },
+    { id: 'location', label: 'Location', status: selectedFocusLocation ? 'complete' : 'needs_attention', statusText: selectedFocusLocation ? 'Done' : 'Required' },
+    {
+      id: 'boundary',
+      label: 'Boundary',
+      status: !selectedFocusLocation ? 'locked' : drawingAoi ? 'in_progress' : readySavedAoi ? 'complete' : 'needs_attention',
+      statusText: !selectedFocusLocation ? 'Locked' : drawingAoi ? 'Drawing' : readySavedAoi ? 'Done' : 'Required',
+      tabId: 'intake',
+    },
+    {
+      id: 'layers',
+      label: 'Layers',
+      status: !selectedFocusLocation ? 'locked' : !readySavedAoi ? 'needs_attention' : selectedLayerIds.length > 0 ? 'complete' : 'pending',
+      statusText: !selectedFocusLocation ? 'Locked' : !readySavedAoi ? 'Needs AOI' : selectedLayerIds.length > 0 ? 'Done' : 'Needed',
+      tabId: 'layers',
+    },
+    {
+      id: 'compare',
+      label: 'Compare',
+      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : comparisonResult ? 'complete' : 'pending',
+      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : comparisonResult ? 'Done' : 'Needed',
+      tabId: 'mrv',
+    },
+    {
+      id: 'evidence',
+      label: 'Evidence',
+      status: !selectedFocusLocation || !readySavedAoi ? 'locked' : showPacket ? 'complete' : 'pending',
+      statusText: !selectedFocusLocation || !readySavedAoi ? 'Locked' : showPacket ? 'Done' : 'Needed',
+      tabId: 'evidence',
+    },
+    {
+      id: 'action',
+      label: 'Action',
+      status: !showPacket ? 'locked' : 'pending',
+      statusText: !showPacket ? 'Locked' : 'Needed',
+      tabId: 'actions',
+    },
   ];
 
   const mrvBlockReason = !selectedFocusLocation
-    ? 'Select a focus location first'
-    : !activeAoi
-      ? 'Draw and save an AOI on the map first'
-      : !beforeRange.from || !beforeRange.to
-        ? 'Enter a complete before date range'
-        : !afterRange.from || !afterRange.to
-          ? 'Enter a complete after date range'
+    ? 'Select a focus location first.'
+    : !readySavedAoi
+      ? 'Draw and save AOI first.'
+      : !comparisonIndexType
+        ? 'Select an index first.'
+        : !beforeRange.from || !beforeRange.to || !afterRange.from || !afterRange.to
+          ? 'Select before and after date ranges.'
           : beforeRange.from === afterRange.from && beforeRange.to === afterRange.to
-            ? 'Before and after date ranges cannot be identical'
-            : '';
+            ? 'Before and after ranges must be different.'
+            : !copernicusSetup.configured
+              ? 'Backend unavailable.'
+              : '';
   const canCalculateMrv = mrvBlockReason === '' && !comparisonLoading;
   const overlayDefinitions: Array<{
     overlayType: AquaScanOverlayType;
@@ -872,8 +1042,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }));
   const overlayIdleLabel = !selectedFocusLocation
     ? 'Needs focus location'
-    : !activeAoiGeoJson
+    : !readySavedAoi
       ? 'Needs AOI'
+      : !comparisonResult
+        ? 'Needs comparison'
       : !overlayDateRange.fromDate || !overlayDateRange.toDate
         ? 'Needs date range'
         : 'Ready to request';
@@ -891,8 +1063,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         .map(({ overlayType, label, overlay }) => ({
           overlayType,
           label,
-          areaSqKm: Number(aoiAreaSqKm.toFixed(4)),
-          areaHectares: Number(aoiAreaHectares.toFixed(2)),
+          areaSqKm: Number(savedAoiAreaSqKm.toFixed(4)),
+          areaHectares: Number(savedAoiAreaHectares.toFixed(2)),
           indexType: overlay.indexType ?? comparisonIndexType,
           collection: overlay.collection ?? comparisonCollection,
           dateRange: overlay.dateRange ?? overlayDateRange,
@@ -909,7 +1081,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           generatedAt: overlay.generatedAt ?? null,
           resolutionMeters: overlay.statistics?.resolutionMeters ?? null,
         })),
-    [aoiAreaHectares, aoiAreaSqKm, comparisonCollection, comparisonIndexType, liveOverlayList, overlayDateRange, overlayThreshold],
+    [savedAoiAreaHectares, savedAoiAreaSqKm, comparisonCollection, comparisonIndexType, liveOverlayList, overlayDateRange, overlayThreshold],
   );
   const overlayPacketRecords = useMemo(
     () =>
@@ -949,8 +1121,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       riskScore,
       aiSummary,
       uploadedEvidence: selectedProject.evidenceCount,
-      coordinates: { lat: mapCenter[0], lng: mapCenter[1] },
-      aoiBoundary: activeAoi ?? [],
+      coordinates: selectedFocusLocation
+        ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
+        : { lat: mapCenter[0], lng: mapCenter[1] },
+      aoiBoundary: savedAoi ?? [],
       selectedDate,
       ndwi: inspectNdwiEstimate != null ? Number(inspectNdwiEstimate.toFixed(2)) : null,
       waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Pending live data',
@@ -966,7 +1140,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           ? 'Escalate with field sampling and notify relevant authority.'
           : 'Review the AOI comparison, then request sampling or validator review as needed.',
     };
-  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, mapCenter, activeAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.nearbyEntities, nearbyEntities.length, imageryError, partialFailure, imageryLoading]);
+  }, [selectedProject, selectedLayerIds, riskScore, aiSummary, validatorStatus, selectedFocusLocation, mapCenter, savedAoi, selectedDate, inspectNdwiEstimate, waterData?.waterAnalysis.waterPresence, waterData?.waterAnalysis.turbidityProxy, waterData?.waterAnalysis.thermalAnomaly, inspectQualityConfidence, overlayState.nearbyEntities, nearbyEntities.length, imageryError, partialFailure, imageryLoading]);
   const evidencePacket = useMemo<SatelliteEvidencePacket>(() => {
     const beforeValue = comparisonResult?.before.mean ?? null;
     const afterValue = comparisonResult?.after.mean ?? null;
@@ -974,8 +1148,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     return {
       projectId: selectedProject.id,
       projectName: selectedProject.projectName || 'Unnamed project',
-      aoiGeoJson: activeAoiGeoJson,
-      centerLatLng: { lat: mapCenter[0], lng: mapCenter[1] },
+      aoiGeoJson: savedAoiGeoJson,
+      centerLatLng: selectedFocusLocation
+        ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
+        : { lat: mapCenter[0], lng: mapCenter[1] },
       satelliteCollection: comparisonResult?.collection ?? comparisonCollection,
       productId: waterData?.satellite.product ?? 'S2_L2A_PENDING_PRODUCT_ID',
       acquisitionDate: comparisonResult?.generatedAt ?? waterData?.satellite.acquisitionDate ?? selectedDate,
@@ -1000,9 +1176,62 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       photos: [],
       measurements: overlayMeasurementRecords,
       overlays: overlayPacketRecords,
-      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
+      notes: `Indicative MRV estimate - not certified carbon credit. ${packetPreview.legalSafeNote}${comparisonResult ? '' : ' Measurement not yet completed.'}${!waterData ? ' NDWI and water index values are pending live satellite data (status: pending_live_data, source: unavailable_for_current_selection). Not confirmed satellite measurements.' : ''}${comparisonResult?.warnings.length ? ` Warnings: ${comparisonResult.warnings.join(' | ')}` : ''}`,
     };
-  }, [comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, activeAoiGeoJson]);
+  }, [comparisonCollection, comparisonIndexType, comparisonResult, inspectQualityConfidence, selectedFocusLocation, mapCenter, overlayMeasurementRecords, overlayPacketRecords, packetPreview.legalSafeNote, selectedDate, selectedProject.id, selectedProject.projectName, validatorGateStatus, waterData?.satellite.acquisitionDate, waterData?.satellite.cloudCover, waterData?.satellite.product, savedAoiGeoJson]);
+  const canGenerateEvidencePacket = Boolean(selectedFocusLocation && readySavedAoi);
+  const evidencePacketPayload = useMemo(() => ({
+    ...evidencePacket,
+    focusLocation: selectedFocusLocation
+      ? {
+          displayName: selectedFocusLocation.displayName,
+          latitude: selectedFocusLocation.latitude,
+          longitude: selectedFocusLocation.longitude,
+        }
+      : null,
+    aoiArea: {
+      hectares: Number(savedAoiAreaHectares.toFixed(2)),
+      squareKilometers: Number(savedAoiAreaSqKm.toFixed(4)),
+    },
+    dateRanges: {
+      before: { ...beforeRange },
+      after: { ...afterRange },
+    },
+    measurementStatus: comparisonResult ? 'completed' : 'Measurement not yet completed.',
+    measurementSource: comparisonResult ? 'Copernicus AOI statistics' : 'Measurement unavailable',
+    measurements: comparisonResult
+      ? [{
+          beforeMean: comparisonResult.before.mean,
+          afterMean: comparisonResult.after.mean,
+          absoluteChange: comparisonResult.delta.absoluteChange,
+          percentChange: comparisonResult.delta.percentChange,
+          sampleCount: {
+            before: comparisonResult.before.sampleCount,
+            after: comparisonResult.after.sampleCount,
+          },
+          noDataCount: {
+            before: comparisonResult.before.noDataCount,
+            after: comparisonResult.after.noDataCount,
+          },
+          cloudCover: {
+            before: comparisonResult.before.cloudCoverage,
+            after: comparisonResult.after.cloudCoverage,
+          },
+          confidence: comparisonResult.confidenceScore,
+          interpretation: comparisonResult.delta.interpretation,
+          warnings: comparisonResult.warnings,
+        }]
+      : [],
+    overlaysStatus: overlayPacketRecords,
+    nearbyContext: {
+      searchRadiusKm: 5,
+      entities: nearbyEntities,
+      disclaimer: 'Nearby mapped entities are contextual leads only and do not prove responsibility.',
+    },
+    warnings: comparisonResult?.warnings ?? [],
+    limitations: evidencePacket.limitations,
+    disclaimer: packetPreview.legalSafeNote,
+  }), [beforeRange, afterRange, comparisonResult, evidencePacket, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -1063,21 +1292,30 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }
 
   async function runMrvComparison(): Promise<void> {
-    const aoi = toAoiGeoJson(activeAoi);
+    if (!selectedFocusLocation) {
+      setComparisonError('Select a focus location first.');
+      return;
+    }
+    const aoi = savedAoiGeoJson;
     if (!aoi) {
-      setComparisonError('AOI required before calculation');
+      setComparisonError('Draw and save AOI first.');
       return;
     }
     if (!beforeRange.from || !beforeRange.to || !afterRange.from || !afterRange.to) {
-      setComparisonError('Before and after date ranges are required.');
+      setComparisonError('Select before and after date ranges.');
       return;
     }
     if (beforeRange.from === afterRange.from && beforeRange.to === afterRange.to) {
-      setComparisonError('Before and after date ranges cannot be identical.');
+      setComparisonError('Before and after ranges must be different.');
+      return;
+    }
+    if (!copernicusSetup.configured) {
+      setComparisonError('Backend unavailable.');
       return;
     }
     setComparisonError(null);
     setComparisonLoading(true);
+    setActionNotice('Calculating live AOI statistics...');
     try {
       const result = await fetchAoiStatisticsComparison({
         aoiGeoJson: aoi,
@@ -1102,7 +1340,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       setCalculationHistory((prev) => [historyItem, ...prev].slice(0, 20));
       setActionNotice('MRV comparison completed. Pending Validator Review.');
     } catch (error) {
-      setComparisonError(error instanceof Error ? error.message : 'Comparison failed');
+      const message = error instanceof Error ? error.message : 'Comparison failed';
+      if (/configured|unavailable|no comparison|no scene|not found|statistics api error/i.test(message)) {
+        setComparisonError('Live AOI measurement unavailable for this AOI/date. Try a wider date range or different collection.');
+      } else {
+        setComparisonError(message);
+      }
     } finally {
       setComparisonLoading(false);
     }
@@ -1136,6 +1379,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       return;
     }
     if (actionLabel === 'Export Evidence Packet') {
+      if (!canGenerateEvidencePacket) {
+        setActionNotice('Select a focus location and save an AOI before generating an evidence packet.');
+        return;
+      }
       setShowPacket(true);
       try {
         const payload = {
@@ -1143,20 +1390,21 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           projectId: selectedProject.id,
           projectName: selectedProject.projectName || 'Unnamed project',
           locationName: selectedProject.locationName || 'No location selected',
-          coordinates: { lat: mapCenter[0], lng: mapCenter[1] },
-          aoiBoundary: activeAoi ?? [],
+          focusLocation: evidencePacketPayload.focusLocation,
+          coordinates: evidencePacketPayload.centerLatLng,
+          aoiGeoJson: evidencePacketPayload.aoiGeoJson,
+          aoiArea: evidencePacketPayload.aoiArea,
           selectedLayers: mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name),
-          selectedDate,
-          turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'Pending live data',
-          ndwi: inspectNdwiEstimate != null ? Number(inspectNdwiEstimate.toFixed(2)) : null,
-          waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Pending live data',
-          thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Pending live data',
-          confidenceScore: inspectQualityConfidence ?? null,
-          evidencePointsCount: selectedProject.evidenceCount,
-          nearbyEntitiesCount: overlayState.nearbyEntities ? nearbyEntities.length : 0,
-          tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
-          legalSafeNote:
-            'DPAL AquaScan identifies potential water-risk indicators using satellite, field, and community evidence. It does not claim confirmed contamination without laboratory testing, field validation, or official verification.',
+          selectedIndex: comparisonIndexType,
+          dateRanges: evidencePacketPayload.dateRanges,
+          measurements: evidencePacketPayload.measurements,
+          measurementStatus: evidencePacketPayload.measurementStatus,
+          overlaysStatus: evidencePacketPayload.overlaysStatus,
+          nearbyContext: evidencePacketPayload.nearbyContext,
+          validatorStatus: evidencePacketPayload.validatorStatus,
+          warnings: evidencePacketPayload.warnings,
+          limitations: evidencePacketPayload.limitations,
+          disclaimer: evidencePacketPayload.disclaimer,
           recommendedNextAction: packetPreview.recommendedNextAction,
         };
         const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1175,24 +1423,21 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }
 
   async function exportEvidencePacketJson(): Promise<void> {
-    const nearbyContext = nearbyEntities.length > 0
-      ? {
-          searchRadiusKm: 5,
-          entities: nearbyEntities,
-          disclaimer: 'Nearby mapped entities are contextual leads only and do not prove responsibility.',
-        }
-      : undefined;
+    if (!canGenerateEvidencePacket) {
+      setActionNotice('Select a focus location and save an AOI before exporting an evidence packet.');
+      return;
+    }
 
     try {
       const response = await fetch(apiUrl(API_ROUTES.COPERNICUS_EVIDENCE_PACKET), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...evidencePacket, nearbyContext }),
+        body: JSON.stringify(evidencePacketPayload),
       });
       const payload = (await response.json().catch(() => ({}))) as { packet?: SatelliteEvidencePacket; error?: string };
       if (!response.ok || !payload.packet) {
         // Fall back to local JSON export with nearby context included
-        const localPayload = { ...evidencePacket, nearbyContext };
+        const localPayload = evidencePacketPayload;
         const blob = new Blob([JSON.stringify(localPayload, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
@@ -1203,7 +1448,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         setActionNotice('Evidence packet exported as JSON (local export - backend unavailable).');
         return;
       }
-      const blob = new Blob([JSON.stringify({ ...payload.packet, nearbyContext }, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify({ ...payload.packet, ...evidencePacketPayload }, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -1226,7 +1471,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
 
   async function requestLiveOverlay(overlayType: AquaScanOverlayType): Promise<void> {
     setSelectedMeasurementOverlay(overlayType);
-    if (overlayBlockReason || !activeAoiGeoJson) {
+    if (overlayBlockReason || !savedAoiGeoJson) {
       setActionNotice(overlayBlockReason || 'Overlay request requires a focus location, saved AOI, and date range.');
       return;
     }
@@ -1235,7 +1480,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     const controller = new AbortController();
     overlayAbortRefs.current[overlayType] = controller;
     const request: AquaScanOverlayRequest = {
-      aoiGeoJson: activeAoiGeoJson,
+      aoiGeoJson: savedAoiGeoJson,
       dateRange: overlayDateRange,
       indexType: overlayType === 'flow_direction' ? 'NDWI' : comparisonIndexType,
       collection: overlayType === 'flow_direction' ? 'copernicus-dem' : comparisonCollection,
@@ -1300,6 +1545,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         const nextCenter: [number, number] = [lat, lng];
+        if (entityLookupAbortRef.current) entityLookupAbortRef.current.abort();
+        const entityController = new AbortController();
+        entityLookupAbortRef.current = entityController;
+        clearAoiState();
         setMapCenter(nextCenter);
         setInspectedPoint(nextCenter);
         setSelectedFocusLocation({
@@ -1319,7 +1568,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
           longitude: String(lng),
         }));
         setSelectedProjectId('AQ-DRAFT');
-        setActionNotice('Focused on current GPS location.');
+        void runEntityLookup(lat, lng, entityController);
+        setActionNotice('Draw an AOI to begin measurement.');
       },
       () => {
         setActionNotice('Could not access GPS location. Check browser permissions.');
@@ -1339,10 +1589,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     const entityController = new AbortController();
     entityLookupAbortRef.current = entityController;
     setSearchBusy(true);
-    setNearbyEntities([]);
-    setEntitiesError(null);
+    clearAoiState();
     setWaterData(null);
-    setComparisonResult(null);
     try {
       const gps = parseGpsCoords(query);
 
@@ -1384,7 +1632,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         }));
         setSelectedProjectId('AQ-DRAFT');
         void runEntityLookup(lat, lng, entityController);
-        setActionNotice(`Focused on ${displayName}.`);
+        setActionNotice('Draw an AOI to begin measurement.');
         return;
       }
 
@@ -1422,7 +1670,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       }));
       setSelectedProjectId('AQ-DRAFT');
       void runEntityLookup(lat, lng, entityController);
-      setActionNotice(`Focused on ${shortName}.`);
+      setActionNotice('Draw an AOI to begin measurement.');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Location search failed.';
       setActionNotice(message);
@@ -1441,12 +1689,35 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       setActionNotice('Draw at least 3 points before saving AOI.');
       return;
     }
+    const nextGeoJson = toAoiGeoJson(aoiPoints);
+    if (!nextGeoJson) {
+      setActionNotice('Unable to save AOI. Add at least 3 valid points.');
+      return;
+    }
     setSavedAoiPoints(aoiPoints);
-    localStorage.setItem('dpal_aquascan_saved_aoi_v1', JSON.stringify(aoiPoints));
-    setSelectedFocusLocation((prev) =>
-      prev ? { ...prev, aoiGeoJson: toAoiGeoJson(aoiPoints) } : prev,
-    );
-    setActionNotice('AOI saved for this browser.');
+    setAoiPoints([]);
+    setDrawingAoi(false);
+    setBoundaryDrawn(true);
+    setBoundaryRevision((prev) => prev + 1);
+    setSelectedFocusLocation((prev) => (prev ? { ...prev, aoiGeoJson: nextGeoJson } : prev));
+    if (aoiStorageKey) {
+      const raw = localStorage.getItem(AQUASCAN_AOI_STORAGE_KEY);
+      let nextStore: Record<string, [number, number][]> = {};
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as Record<string, [number, number][]>;
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            nextStore = parsed;
+          }
+        } catch {
+          nextStore = {};
+        }
+      }
+      nextStore[aoiStorageKey] = aoiPoints;
+      localStorage.setItem(AQUASCAN_AOI_STORAGE_KEY, JSON.stringify(nextStore));
+    }
+    const areaSqKm = polygonAreaSqKm(aoiPoints);
+    setActionNotice(`AOI saved. Area: ${(areaSqKm * 100).toFixed(2)} ha / ${areaSqKm.toFixed(4)} km2.`);
   }
 
   async function runEntityLookup(lat: number, lng: number, controller: AbortController): Promise<void> {
@@ -1476,31 +1747,6 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     const [lat, lng] = point;
     setInspectedPoint(point);
 
-    if (drawingAoi) {
-      // AOI mode: onAoiPoint (called by MapInteractionCapture after onInspect) adds the point.
-      // Here we only handle the first-point focus side-effect when no location is set yet.
-      // We do NOT call setAoiPoints here to avoid double-adding.
-      if (!selectedFocusLocation) {
-        setMapCenter(point);
-        setSelectedFocusLocation({
-          source: 'manual',
-          query: `${lat}, ${lng}`,
-          displayName: `Focus set from first AOI point (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-          latitude: lat,
-          longitude: lng,
-          aoiGeoJson: null,
-          resolvedAt: new Date().toISOString(),
-        });
-        setDraftProject((prev2) => ({
-          ...prev2,
-          latitude: String(lat),
-          longitude: String(lng),
-        }));
-        setSelectedProjectId('AQ-DRAFT');
-      }
-      return;
-    }
-
     // Non-AOI click: become the new focus location
     // Cancel any running entity lookup
     if (entityLookupAbortRef.current) entityLookupAbortRef.current.abort();
@@ -1509,8 +1755,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
 
     // Clear stale data from the previous location
     setWaterData(null);
-    setComparisonResult(null);
-    if (activeAoi) setShowAoiReviewNotice(true);
+    clearAoiState();
+    setShowAoiReviewNotice(false);
     setMapCenter(point);
 
     // Immediately set focus with coordinates before reverse geocode completes
@@ -1524,6 +1770,13 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
       aoiGeoJson: null,
       resolvedAt: new Date().toISOString(),
     });
+    setDraftProject((prev) => ({
+      ...prev,
+      projectName: prev.projectName || `${coordLabel} Water Scan`,
+      locationName: coordLabel,
+      latitude: String(lat),
+      longitude: String(lng),
+    }));
     setSelectedProjectId('AQ-DRAFT');
 
     // Start entity lookup in parallel with reverse geocoding
@@ -1560,6 +1813,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         longitude: String(lng),
       }));
     }
+    setActionNotice('Draw an AOI to begin measurement.');
   }
 
   function retryLiveData(): void {
@@ -1704,12 +1958,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             <button
               type="button"
               onClick={() => {
-                if (!selectedFocusLocation) {
-                  setActionNotice('Select a focus location before drawing an AOI.');
-                  return;
-                }
-                setDrawingAoi((prev) => !prev);
-                setBoundaryDrawn(true);
+                startAoiDrawing();
               }}
               title={selectedFocusLocation ? undefined : 'Select a focus location before drawing an AOI'}
               className={`h-8 rounded-lg border px-3 text-xs font-semibold transition ${
@@ -1730,16 +1979,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 setSearchQuery('');
                 setMapCenter(DEFAULT_WEST_US_CENTER);
                 setInspectedPoint(null);
-                setAoiPoints([]);
-                setSavedAoiPoints([]);
-                setBoundaryDrawn(false);
+                clearAoiState();
                 setNearbyEntities([]);
                 setEntitiesLoading(false);
                 setEntitiesError(null);
                 setShowAoiReviewNotice(false);
                 setWaterData(null);
-                setComparisonResult(null);
-                localStorage.removeItem('dpal_aquascan_saved_aoi_v1');
                 setActionNotice('Focus location cleared.');
               }}
               className="h-8 rounded-lg border border-rose-500/40 bg-rose-900/20 px-3 text-xs font-semibold text-rose-200 hover:bg-rose-900/35"
@@ -1790,7 +2035,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               Fetching satellite data...
             </span>
           ) : null}
-          {activeAoi == null && selectedFocusLocation ? (
+          {!hasSavedAoi && selectedFocusLocation ? (
             <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200">
               AOI: Required for polygon stats
             </span>
@@ -1863,6 +2108,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
                 step.status === 'complete'
                   ? 'text-emerald-300 hover:bg-emerald-900/20'
+                  : step.status === 'in_progress'
+                    ? 'text-cyan-200 hover:bg-cyan-900/20'
                   : step.status === 'needs_attention'
                     ? 'text-amber-200 hover:bg-amber-900/20'
                     : step.status === 'locked'
@@ -1874,6 +2121,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 className={`h-2 w-2 shrink-0 rounded-full ${
                   step.status === 'complete'
                     ? 'bg-emerald-400'
+                    : step.status === 'in_progress'
+                      ? 'bg-cyan-400'
                     : step.status === 'needs_attention'
                       ? 'bg-amber-400'
                       : step.status === 'locked'
@@ -1883,10 +2132,31 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               />
               <span className="font-semibold">{step.label}</span>
               <span className="ml-auto text-[10px] opacity-60">
-                {step.status === 'complete' ? 'Done' : step.status === 'needs_attention' ? 'Required' : step.status === 'locked' ? 'Locked' : 'Pending'}
+                {step.statusText}
               </span>
             </button>
           ))}
+          <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/70 p-3">
+            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">AquaScan Test Flow</p>
+            {[
+              ['Select map point', Boolean(selectedFocusLocation), false],
+              ['Draw AOI', aoiPoints.length > 0 || drawingAoi, !selectedFocusLocation],
+              ['Save AOI', readySavedAoi, !selectedFocusLocation],
+              ['Select NDWI', comparisonIndexType === 'NDWI', !readySavedAoi],
+              ['Apply recommended dates', RECOMMENDED_COMPARISON_PRESETS.some((preset) => preset.before.from === beforeRange.from && preset.before.to === beforeRange.to && preset.after.from === afterRange.from && preset.after.to === afterRange.to), !readySavedAoi],
+              ['Calculate Comparison', Boolean(comparisonResult), !readySavedAoi],
+              ['Generate Evidence Packet', showPacket, !canGenerateEvidencePacket],
+              ['Choose Action', showPacket && activeTab === 'actions', !showPacket],
+            ].map(([label, done, locked]) => (
+              <div key={String(label)} className="flex items-center gap-2 py-1 text-[11px]">
+                <span className={`h-2 w-2 rounded-full ${locked ? 'bg-slate-700' : done ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                <span className="flex-1 text-slate-300">{label}</span>
+                <span className={`text-[10px] ${locked ? 'text-slate-600' : done ? 'text-emerald-300' : 'text-amber-200'}`}>
+                  {locked ? 'Locked' : done ? 'Done' : 'Needed'}
+                </span>
+              </div>
+            ))}
+          </div>
           <div className="mt-3 border-t border-slate-800 pt-3">
             <p className="text-[10px] text-slate-500">Project</p>
             {selectedFocusLocation ? (
@@ -1968,14 +2238,17 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 />
               ) : null}
               <div className="ml-auto flex items-center gap-1">
-                {drawingAoi ? <span className="text-cyan-300">Drawing AOI...</span> : null}
-                {aoiPoints.length > 0 ? (
+                {drawingAoi ? <span className="text-cyan-300">AOI drawing mode active</span> : null}
+                {drawingAoi || aoiPoints.length > 0 || hasSavedAoi ? (
                   <>
-                    <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300">Undo</button>
-                    <button type="button" onClick={saveAoi} className="rounded border border-emerald-500/50 bg-emerald-900/20 px-2 py-0.5 text-emerald-200">Save AOI</button>
+                    <span className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-300">
+                      AOI points: {aoiPoints.length}
+                    </span>
+                    <button type="button" onClick={() => setAoiPoints((prev) => prev.slice(0, -1))} disabled={aoiPoints.length === 0} className="rounded border border-slate-700 px-2 py-0.5 text-slate-300 disabled:cursor-not-allowed disabled:opacity-50">Undo AOI point</button>
+                    <button type="button" onClick={saveAoi} disabled={aoiPoints.length < 3} className="rounded border border-emerald-500/50 bg-emerald-900/20 px-2 py-0.5 text-emerald-200 disabled:cursor-not-allowed disabled:opacity-50">Save AOI</button>
                     <button
                       type="button"
-                      onClick={() => { setAoiPoints([]); setSavedAoiPoints([]); localStorage.removeItem('dpal_aquascan_saved_aoi_v1'); setBoundaryRevision((prev) => prev + 1); }}
+                      onClick={() => { clearAoiState({ removePersisted: true, notice: 'AOI cleared. Draw and save a new measurement area.' }); }}
                       className="rounded border border-slate-700 px-2 py-0.5 text-slate-300"
                     >
                       Clear AOI
@@ -2126,14 +2399,17 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 </div>
               ) : null}
             </div>
-            <MapContainer center={mapCenter} zoom={7} style={{ height: '100%', width: '100%' }}>
+            <MapContainer center={mapCenter} zoom={7} style={{ height: '100%', width: '100%', cursor: drawingAoi ? 'crosshair' : 'grab' }}>
               <MapResizeSync trigger={mapExpanded ? 1 : 0} />
               <MapViewSync center={mapCenter} />
               <MapCommandBridge commandTick={commandTick} command={mapCommand} center={mapCenter} />
               <MapInteractionCapture
                 drawingAoi={drawingAoi}
                 onInspect={(point) => { void handleMapClick(point); }}
-                onAoiPoint={(point) => setAoiPoints((prev) => [...prev, point])}
+                onAoiPoint={(point) => {
+                  setBoundaryDrawn(true);
+                  setAoiPoints((prev) => [...prev, point]);
+                }}
               />
               {mapStyle === 'dark' ? (
                 <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap contributors &copy; CARTO' />
@@ -2201,8 +2477,30 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 );
               })}
               {/* AOI boundary */}
-              {overlayState.boundary && boundaryDrawn && aoiPoints.length >= 3 ? (
-                <Polygon positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }}>
+              {overlayState.boundary && aoiPoints.length > 0 ? (
+                <>
+                  {aoiPoints.map((point, index) => (
+                    <Circle
+                      key={`aoi-point-${index}-${point[0]}-${point[1]}`}
+                      center={point}
+                      radius={45}
+                      pathOptions={{ color: '#22d3ee', fillColor: '#22d3ee', fillOpacity: 0.95 }}
+                    >
+                      <Popup>
+                        <div className="text-xs">
+                          <p className="font-semibold">AOI point {index + 1}</p>
+                          <p>{point[0].toFixed(5)}, {point[1].toFixed(5)}</p>
+                        </div>
+                      </Popup>
+                    </Circle>
+                  ))}
+                  {aoiPoints.length >= 2 ? (
+                    <Polyline positions={aoiPoints} pathOptions={{ color: '#22d3ee', weight: 2.5, opacity: 0.95 }} />
+                  ) : null}
+                </>
+              ) : null}
+              {overlayState.boundary && draftAoiPreview ? (
+                <Polygon positions={draftAoiPreview} pathOptions={{ color: '#22d3ee', weight: 2, fillOpacity: 0.08 }}>
                   <Popup><div className="text-xs"><p className="font-semibold">AOI Boundary</p><p>User-drawn area of interest.</p></div></Popup>
                 </Polygon>
               ) : null}
@@ -2234,16 +2532,18 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                 </>
               ) : null}
               {/* Selected focus / project point */}
-              <Circle center={inspectedPoint ?? mapCenter} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.75 }}>
-                <Popup>
-                  <div className="text-xs space-y-1">
-                    <p className="font-semibold">Selected focus / project point</p>
-                    <p>Lat: {(inspectedPoint ?? mapCenter)[0].toFixed(5)}</p>
-                    <p>Lng: {(inspectedPoint ?? mapCenter)[1].toFixed(5)}</p>
-                    <p className="text-[10px] text-gray-500">This marker shows the current focus or inspection point. Click the map to move it.</p>
-                  </div>
-                </Popup>
-              </Circle>
+              {selectedFocusLocation ? (
+                <Circle center={[selectedFocusLocation.latitude, selectedFocusLocation.longitude]} radius={230} pathOptions={{ color: '#fb7185', fillColor: '#fb7185', fillOpacity: 0.75 }}>
+                  <Popup>
+                    <div className="text-xs space-y-1">
+                      <p className="font-semibold">Selected focus / project point</p>
+                      <p>Lat: {selectedFocusLocation.latitude.toFixed(5)}</p>
+                      <p>Lng: {selectedFocusLocation.longitude.toFixed(5)}</p>
+                      <p className="text-[10px] text-gray-500">This marker shows the current focus point. Draw AOI around it to measure.</p>
+                    </div>
+                  </Popup>
+                </Circle>
+              ) : null}
             </MapContainer>
           </div>
 
@@ -2253,7 +2553,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
               <span>Project: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.id : 'Not started'}</span></span>
               <span>Type: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.waterBodyType : 'Select after focus location'}</span></span>
               <span>Updated: <span className="text-slate-300">{selectedFocusLocation ? lastRefreshTime : '-'}</span></span>
-              <span>Boundary: <span className="text-slate-300">{boundaryDrawn ? `v${boundaryRevision + 1}` : 'Not set'}</span></span>
+              <span>Boundary: <span className="text-slate-300">{drawingAoi ? `Drawing (${aoiPoints.length} pts)` : hasSavedAoi ? `Saved ${savedAoiAreaSqKm.toFixed(2)} km2` : 'Required'}</span></span>
               <span>Evidence: <span className="text-slate-300">{selectedFocusLocation ? selectedProject.evidenceCount : 0}</span></span>
               <span>Layers: <span className="text-slate-300">{selectedLayerIds.length}</span></span>
             </div>
@@ -2330,14 +2630,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             <p className="mb-1 font-semibold uppercase tracking-wider text-slate-300">Measurement Precision</p>
             {!selectedFocusLocation ? (
               <p className="text-slate-500">Select a focus location to review measurement precision.</p>
-            ) : !activeAoiGeoJson ? (
+            ) : !readySavedAoi ? (
               <p className="text-slate-500">Draw and save an AOI to measure area-based overlays.</p>
+            ) : !comparisonResult ? (
+              <p className="text-slate-500">Run AOI comparison first, then request live-derived overlays if available.</p>
             ) : !overlayDateRange.fromDate || !overlayDateRange.toDate ? (
               <p className="text-slate-500">Select an overlay date range in Layers before requesting live-derived overlays.</p>
             ) : measurementOverlay ? (
               measurementOverlay.status === 'available' && measurementOverlay.statistics ? (
                 <div className="space-y-0.5 text-slate-300">
-                  <p>AOI area: {aoiAreaHectares.toFixed(2)} ha / {aoiAreaSqKm.toFixed(4)} km2</p>
+                  <p>AOI area: {savedAoiAreaHectares.toFixed(2)} ha / {savedAoiAreaSqKm.toFixed(4)} km2</p>
                   <p>Index: {measurementOverlay.indexType ?? comparisonIndexType}</p>
                   <p>Collection: {measurementOverlay.collection ?? comparisonCollection}</p>
                   <p>Date range: {(measurementOverlay.dateRange?.fromDate ?? overlayDateRange.fromDate) || '-'} to {(measurementOverlay.dateRange?.toDate ?? overlayDateRange.toDate) || '-'}</p>
@@ -2499,8 +2801,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     <span className="text-slate-400">{selectedProject.evidenceCount} item(s)</span>
                   </div>
                   <div className="flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs">
-                    <input id="boundary-flag" type="checkbox" checked={boundaryDrawn} onChange={(e) => setBoundaryDrawn(e.target.checked)} />
-                    <label htmlFor="boundary-flag" className="text-slate-300">Boundary captured</label>
+                    <input id="boundary-flag" type="checkbox" checked={hasSavedAoi} readOnly />
+                    <label htmlFor="boundary-flag" className="text-slate-300">Boundary saved</label>
                   </div>
                 </div>
                 <div className="rounded-lg border border-slate-700 bg-slate-950 p-3">
@@ -2651,9 +2953,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <p className="mt-2 text-[11px] text-slate-400">
                     {!selectedFocusLocation
                       ? 'Select a focus location first.'
-                      : !activeAoiGeoJson
+                      : !readySavedAoi
                         ? 'Focus location set. Draw and save an AOI before requesting overlays.'
-                        : overlayBlockReason || 'Overlay requests will render only backend-returned GeoJSON or raster.'}
+                      : overlayBlockReason || 'Overlay requests will render only backend-returned GeoJSON or raster.'}
                   </p>
                   <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
                     {liveOverlayList.map(({ overlayType, label, sourceLabel, overlay }) => (
@@ -2729,12 +3031,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     Indicative MRV estimate - not certified carbon credit
                   </span>
                 </div>
+                <div className="rounded-xl border border-cyan-500/20 bg-cyan-950/15 p-3 text-xs text-slate-200">
+                  <p className="font-semibold text-cyan-200">Use NDWI first for water presence and wetness. NDWI is the standard starting point for water-focused satellite screening.</p>
+                  <p className="mt-1 text-slate-400">NDWI = water presence / wetness. NDVI = vegetation health. NDMI = moisture stress. NBR = burn/fire disturbance.</p>
+                </div>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-6">
                   <div className="flex flex-col gap-1">
                     <span className="text-[10px] text-slate-400">Index</span>
                     <select value={comparisonIndexType} onChange={(e) => setComparisonIndexType(e.target.value as CopernicusIndexType)} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100">
-                      <option value="NDVI">NDVI</option>
                       <option value="NDWI">NDWI</option>
+                      <option value="NDVI">NDVI</option>
                       <option value="NDMI">NDMI</option>
                       <option value="NBR">NBR</option>
                     </select>
@@ -2763,8 +3069,24 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     <input type="date" value={afterRange.to} onChange={(e) => setAfterRange((p) => ({ ...p, to: e.target.value }))} className="rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-100" />
                   </div>
                 </div>
+                <div className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-xs">
+                  <p className="font-semibold text-slate-200">Recommended test dates</p>
+                  <p className="mt-1 text-slate-400">If no scene is found, use a wider date range or try a historical month. Optical satellites may be blocked by clouds or unavailable for a narrow window.</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {RECOMMENDED_COMPARISON_PRESETS.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => applyComparisonPreset(preset)}
+                        className="rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-1.5 text-left text-[11px] text-slate-200 hover:border-cyan-500/40"
+                      >
+                        {preset.label}: {preset.description}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 <p className="text-[11px] text-slate-400">
-                  AOI: {activeAoi ? `${activeAoi.length} points, ${aoiAreaSqKm.toFixed(2)} km2` : 'No AOI - draw one on the map then save it'}
+                  AOI: {savedAoi ? `${savedAoi.length} points, ${savedAoiAreaSqKm.toFixed(2)} km2` : drawingAoi ? `Drawing in progress (${aoiPoints.length} points)` : 'No saved AOI - draw one on the map then save it'}
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
@@ -2774,7 +3096,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     title={mrvBlockReason || undefined}
                     className="rounded-lg border border-cyan-500/60 bg-cyan-900/30 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {comparisonLoading ? 'Calculating...' : 'Calculate Comparison'}
+                    {comparisonLoading ? 'Calculating live AOI statistics...' : 'Calculate Comparison'}
                   </button>
                   {mrvBlockReason ? (
                     <span className="rounded-full border border-amber-500/40 bg-amber-900/20 px-2 py-0.5 text-[10px] text-amber-200">
@@ -2802,6 +3124,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       ['Absolute change', String(comparisonResult?.delta.absoluteChange ?? 'N/A')],
                       ['Percent change', comparisonResult?.delta.percentChange != null ? `${comparisonResult.delta.percentChange}%` : 'N/A'],
                       ['Confidence', comparisonResult ? `${Math.round(comparisonResult.confidenceScore * 100)}%` : 'N/A'],
+                      ['Sample count', comparisonResult ? `${comparisonResult.before.sampleCount} / ${comparisonResult.after.sampleCount}` : 'N/A'],
+                      ['No-data count', comparisonResult ? `${comparisonResult.before.noDataCount} / ${comparisonResult.after.noDataCount}` : 'N/A'],
+                      ['Cloud cover', comparisonResult ? `${comparisonResult.before.cloudCoverage ?? 'N/A'} / ${comparisonResult.after.cloudCoverage ?? 'N/A'}` : 'N/A'],
+                      ['Source', comparisonResult ? 'Copernicus AOI statistics' : 'N/A'],
                     ] as [string, string][]
                   ).map(([label, value]) => (
                     <div key={label} className="rounded-lg border border-slate-700 bg-slate-950/80 p-2 text-xs">
@@ -2814,7 +3140,10 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <p className="text-[11px] text-amber-200">Warnings: {comparisonResult.warnings.join(' | ')}</p>
                 ) : null}
                 {comparisonResult ? (
-                  <p className="text-xs text-slate-300">{comparisonResult.delta.interpretation}</p>
+                  <div className="space-y-1 text-xs text-slate-300">
+                    <p>{comparisonResult.delta.interpretation}</p>
+                    <p>Measurement source: Copernicus AOI statistics</p>
+                  </div>
                 ) : (
                   <p className="text-xs text-slate-500">Run comparison to see interpretation.</p>
                 )}
@@ -2838,16 +3167,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             {/* -- Evidence Packet Tab -- */}
             {activeTab === 'evidence' ? (
               <div className="space-y-4">
-                {!selectedFocusLocation ? (
+                {!canGenerateEvidencePacket ? (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
-                    Select a focus location before generating an evidence packet.
+                    Select a focus location and save an AOI before generating an evidence packet.
                   </p>
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     onClick={() => setShowPacket((prev) => !prev)}
-                    disabled={!selectedFocusLocation}
+                    disabled={!canGenerateEvidencePacket}
                     className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {showPacket ? 'Hide Packet Preview' : 'Generate Evidence Packet'}
@@ -2855,7 +3184,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <button
                     type="button"
                     onClick={() => { void exportEvidencePacketJson(); }}
-                    disabled={!selectedFocusLocation}
+                    disabled={!canGenerateEvidencePacket}
                     className="rounded-lg border border-cyan-500/50 bg-cyan-900/25 px-3 py-1.5 text-xs font-semibold text-cyan-100 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Export JSON
@@ -2863,7 +3192,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <button
                     type="button"
                     onClick={exportEvidencePacketPdf}
-                    disabled={!selectedFocusLocation}
+                    disabled={!canGenerateEvidencePacket}
                     className="rounded-lg border border-slate-600 bg-slate-900/30 px-3 py-1.5 text-xs font-semibold text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Export PDF (pending)
@@ -2935,9 +3264,11 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                           : 'N/A'}
                       </p>
                       <p><span className="text-slate-400">AOI boundary points:</span> {packetPreview.aoiBoundary.length}</p>
+                      <p><span className="text-slate-400">AOI area:</span> {evidencePacketPayload.aoiArea.hectares} ha / {evidencePacketPayload.aoiArea.squareKilometers} km2</p>
                       <p><span className="text-slate-400">Concern type:</span> {packetPreview.scanType}</p>
                       <p><span className="text-slate-400">Layers:</span> {packetPreview.selectedLayers.join(', ') || 'None'}</p>
                       <p><span className="text-slate-400">Selected date:</span> {packetPreview.selectedDate}</p>
+                      <p><span className="text-slate-400">Date ranges:</span> {beforeRange.from || '-'} to {beforeRange.to || '-'} / {afterRange.from || '-'} to {afterRange.to || '-'}</p>
                       <p><span className="text-slate-400">NDWI / water index:</span> {selectedFocusLocation ? (packetPreview.ndwi != null ? `${packetPreview.ndwi} (measured)` : 'Pending live data') : 'No location'}</p>
                       <p><span className="text-slate-400">Water presence:</span> {selectedFocusLocation ? packetPreview.waterPresence : 'No location'}</p>
                       <p><span className="text-slate-400">Confidence:</span> {selectedFocusLocation ? (packetPreview.confidenceScore != null ? `${packetPreview.confidenceScore}%` : 'Pending live data') : '-'}</p>
@@ -2949,6 +3280,7 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       <p><span className="text-slate-400">After value:</span> {evidencePacket.afterValue ?? 'N/A'}</p>
                       <p><span className="text-slate-400">Delta %:</span> {evidencePacket.deltaPercent ?? 'N/A'}</p>
                       <p><span className="text-slate-400">Data source:</span> {evidencePacket.dataSourceCitation}</p>
+                      <p><span className="text-slate-400">Measurement status:</span> {String(evidencePacketPayload.measurementStatus)}</p>
                     </div>
                     <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
                       <p className="font-semibold text-slate-100">Recorded overlays</p>
@@ -2970,13 +3302,13 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                     </div>
                     <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/70 p-3">
                       <p className="font-semibold text-slate-100">Measurement records</p>
-                      {overlayMeasurementRecords.length === 0 ? (
-                        <p className="mt-1 text-[11px] text-slate-500">No live-derived measurements recorded yet.</p>
+                      {evidencePacketPayload.measurements.length === 0 ? (
+                        <p className="mt-1 text-[11px] text-slate-500">Measurement not yet completed.</p>
                       ) : (
                         <div className="mt-1 space-y-1 text-[11px] text-slate-300">
-                          {overlayMeasurementRecords.map((measurement) => (
-                            <p key={String(measurement.overlayType)}>
-                              {String(measurement.overlayType)} . mean={String(measurement.mean ?? 'N/A')} . samples={String(measurement.sampleCount)} . conf={String(measurement.confidence ?? 'N/A')}
+                          {evidencePacketPayload.measurements.map((measurement, index) => (
+                            <p key={`${index}-${String(measurement.beforeMean ?? 'na')}`}>
+                              before={String(measurement.beforeMean ?? 'N/A')} . after={String(measurement.afterMean ?? 'N/A')} . delta={String(measurement.percentChange ?? 'N/A')} . confidence={String(measurement.confidence ?? 'N/A')}
                             </p>
                           ))}
                         </div>
@@ -3021,7 +3353,8 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                       key={label}
                       type="button"
                       onClick={() => runAction(label)}
-                      className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2.5 text-left text-xs font-semibold text-slate-100 transition hover:border-cyan-500/50 hover:bg-cyan-900/20"
+                      disabled={!showPacket && label !== 'Export Evidence Packet'}
+                      className="rounded-lg border border-slate-600 bg-slate-950/80 px-3 py-2.5 text-left text-xs font-semibold text-slate-100 transition hover:border-cyan-500/50 hover:bg-cyan-900/20 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {label}
                     </button>
