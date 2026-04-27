@@ -92,7 +92,7 @@ function outputBandNameFor(indexType: AllowedIndexType): string {
 }
 
 function evalscriptInputBandsFor(_indexType: AllowedIndexType): string[] {
-  return ['B03', 'B04', 'B08', 'B11', 'B12'];
+  return ['B03', 'B04', 'B08', 'B11', 'B12', 'dataMask'];
 }
 
 function evalscriptSourceFor(indexType: AllowedIndexType): string {
@@ -103,7 +103,10 @@ function evalscriptSourceFor(indexType: AllowedIndexType): string {
 function setup() {
   return {
     input: [{ bands: [${inputBands}] }],
-    output: [{ id: "${outputId}", bands: 1, sampleType: "FLOAT32" }]
+    output: [
+      { id: "${outputId}", bands: 1, sampleType: "FLOAT32" },
+      { id: "dataMask", bands: 1 }
+    ]
   };
 }
 
@@ -117,7 +120,8 @@ function evaluatePixel(sample) {
         : '(sample.B08 + sample.B12)'};
   const value = denominator === 0 ? 0 : ${expression.replace(/B(\d{2})/g, 'sample.B$1')};
   return {
-    ${outputId}: [value]
+    ${outputId}: [value],
+    dataMask: [sample.dataMask]
   };
 }`;
 }
