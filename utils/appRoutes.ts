@@ -6,6 +6,8 @@
 /** Marketplace listing detail — not in VIEW_PATHS; path includes id (see `marketplaceMissionDetailPath`). */
 export const MARKETPLACE_MISSION_DETAIL_PREFIX = '/missions/m';
 export const EPA_GHG_FACILITY_DETAIL_PREFIX = '/environmental-intelligence/epa-ghg/facility';
+export const AQUASCAN_REPORT_PREFIX = '/aquascan/reports';
+export const AQUASCAN_SITUATION_ROOM_PREFIX = '/aquascan/situation-room';
 
 export function marketplaceMissionDetailPath(listingId: string): string {
   return `${MARKETPLACE_MISSION_DETAIL_PREFIX}/${encodeURIComponent(listingId)}`;
@@ -27,6 +29,26 @@ export function parseEpaFacilityIdFromPath(pathname: string): string | null {
 
 export function epaFacilityDetailPath(facilityId: string): string {
   return `${EPA_GHG_FACILITY_DETAIL_PREFIX}/${encodeURIComponent(facilityId)}`;
+}
+
+export function aquaScanReportPath(reportId: string): string {
+  return `${AQUASCAN_REPORT_PREFIX}/${encodeURIComponent(reportId)}`;
+}
+
+export function parseAquaScanReportIdFromPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  const m = normalized.match(/^\/aquascan\/reports\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+export function aquaScanSituationRoomPath(roomId: string): string {
+  return `${AQUASCAN_SITUATION_ROOM_PREFIX}/${encodeURIComponent(roomId)}`;
+}
+
+export function parseAquaScanSituationRoomIdFromPath(pathname: string): string | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+  const m = normalized.match(/^\/aquascan\/situation-room\/([^/]+)$/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 /** view id → pathname (single segment or nested, no trailing slash except root). */
@@ -92,6 +114,8 @@ export const VIEW_PATHS: Record<string, string> = {
   waterMonitor: '/water',
   /** Explicit AquaScan route for side-by-side testing */
   aquaScanWater: '/water/aquascan',
+  aquascanReportViewer: '/aquascan/reports',
+  aquascanSituationRoom: '/aquascan/situation-room',
   /** Water Operations Engine route for operational workflows */
   waterOperationsEngine: '/water/monitor',
   /** DPAL Global Signals Engine — live feeds from USGS / NASA EONET / OpenAQ */
@@ -128,6 +152,8 @@ export function pathToView(pathname: string): string | null {
   if (normalized === '/aflu' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
   if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
   if (/^\/environmental-intelligence\/epa-ghg\/facility\/[^/]+$/.test(normalized)) return 'epaGhgFacilityDetail';
+  if (/^\/aquascan\/reports\/[^/]+$/.test(normalized)) return 'aquascanReportViewer';
+  if (/^\/aquascan\/situation-room\/[^/]+$/.test(normalized)) return 'aquascanSituationRoom';
   if (/^\/preview\/module-preview\/[^/]+$/.test(normalized)) return 'previewModule';
   const hit = Object.entries(VIEW_PATHS).find(([, p]) => {
     const seg = p.replace(/\/$/, '') || '/';

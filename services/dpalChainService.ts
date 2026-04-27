@@ -216,6 +216,43 @@ export async function addBlockToChain(report: {
 }
 
 /**
+ * Add a block using a caller-supplied SHA-256 payload hash.
+ * This lets specialized modules anchor richer records on the same DPAL chain
+ * without flattening their data into the generic report hash helper.
+ */
+export async function addDataHashBlockToChain(params: {
+  reportId: string;
+  dataHash: string;
+  chainLabel?: string;
+}): Promise<AddBlockResult> {
+  const blocks = await ensureGenesis();
+  const previous = blocks[blocks.length - 1];
+  const index = previous.index + 1;
+  const timestamp = new Date().toISOString();
+  const nonce = 0;
+  const hash = await computeBlockHash(index, timestamp, params.reportId, params.dataHash, previous.hash, nonce);
+
+  const newBlock: DpalBlock = {
+    index,
+    timestamp,
+    reportId: params.reportId,
+    dataHash: params.dataHash,
+    previousHash: previous.hash,
+    hash,
+    nonce,
+    chain: DPAL_CHAIN_ID,
+    chainLabel: params.chainLabel ?? 'DPAL Private Chain v1',
+  };
+
+  const updatedChain = [...blocks, newBlock];
+  saveChain(updatedChain);
+
+  void syncBlockToBackend(newBlock).catch(() => {/* silent - chain is local-first */});
+
+  return { block: newBlock, chainLength: updatedChain.length, integrity: 'VERIFIED' };
+}
+
+/**
  * Verify the entire chain from genesis to tip.
  * Recomputes every block hash and checks that previousHash values are linked correctly.
  * Returns VERIFIED, COMPROMISED, or EMPTY.

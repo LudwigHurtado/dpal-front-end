@@ -49,6 +49,8 @@ import SustainmentCenter from './components/SustainmentCenter';
 import OffsetMarketplaceView from './components/OffsetMarketplaceView';
 import CarbonMRVDashboard from './components/CarbonMRVDashboard';
 import AquaScanView from './components/AquaScanView';
+import AquaScanReportViewer from './components/aquascan/AquaScanReportViewer';
+import AquaScanSituationRoom from './components/aquascan/AquaScanSituationRoom';
 import WaterMonitorView from './components/WaterMonitorView';
 import EcologicalConservationView from './components/EcologicalConservationView';
 import EarthObservationView from './components/EarthObservationView';
@@ -109,11 +111,15 @@ import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLin
 import { useTranslations } from './i18n';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  aquaScanReportPath,
+  aquaScanSituationRoomPath,
+  parseAquaScanReportIdFromPath,
+  parseAquaScanSituationRoomIdFromPath,
   epaFacilityDetailPath,
   marketplaceMissionDetailPath,
+  pathToView,
   parseEpaFacilityIdFromPath,
   parseMarketplaceListingIdFromPath,
-  pathToView,
   viewToPath,
 } from './utils/appRoutes';
 import EmissionsIntegrityAuditPage from './src/features/emissionsIntegrity/EmissionsIntegrityAuditPage';
@@ -131,7 +137,7 @@ import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvi
 import type { EpaFacilityProfile } from './src/types/epa';
 import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -393,6 +399,12 @@ const App: React.FC = () => {
     getInitialEpaFacilityIdFromWindow,
   );
   const [epaFacilitySnapshot, setEpaFacilitySnapshot] = useState<EpaFacilityProfile | null>(null);
+  const [aquaScanViewerReportId, setAquaScanViewerReportId] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? parseAquaScanReportIdFromPath(window.location.pathname) : null),
+  );
+  const [aquaScanSituationRoomId, setAquaScanSituationRoomId] = useState<string | null>(
+    () => (typeof window !== 'undefined' ? parseAquaScanSituationRoomIdFromPath(window.location.pathname) : null),
+  );
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
@@ -505,6 +517,28 @@ const App: React.FC = () => {
       return;
     }
 
+    const aquaScanReportIdFromPath = parseAquaScanReportIdFromPath(normalizedPath);
+    if (aquaScanReportIdFromPath) {
+      setAquaScanViewerReportId(aquaScanReportIdFromPath);
+      setCurrentView((prev) => {
+        if (prev === 'aquascanReportViewer') return prev;
+        backNavRef.current = true;
+        return 'aquascanReportViewer';
+      });
+      return;
+    }
+
+    const aquaScanSituationRoomIdFromPath = parseAquaScanSituationRoomIdFromPath(normalizedPath);
+    if (aquaScanSituationRoomIdFromPath) {
+      setAquaScanSituationRoomId(aquaScanSituationRoomIdFromPath);
+      setCurrentView((prev) => {
+        if (prev === 'aquascanSituationRoom') return prev;
+        backNavRef.current = true;
+        return 'aquascanSituationRoom';
+      });
+      return;
+    }
+
     const v = pathToView(location.pathname);
     if (v == null) {
       if (location.pathname !== '/' && location.pathname !== '/index.html') {
@@ -540,6 +574,20 @@ const App: React.FC = () => {
       navigate(path, { replace: false });
       return;
     }
+    if (currentView === 'aquascanReportViewer' && aquaScanViewerReportId) {
+      const path = aquaScanReportPath(aquaScanViewerReportId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
+    if (currentView === 'aquascanSituationRoom' && aquaScanSituationRoomId) {
+      const path = aquaScanSituationRoomPath(aquaScanSituationRoomId);
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === path) return;
+      navigate(path, { replace: false });
+      return;
+    }
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
@@ -555,7 +603,7 @@ const App: React.FC = () => {
     if (full === cur) return;
     navigate(full, { replace: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync only when view changes; do not re-run on every query/hash change
-  }, [currentView, marketplaceDetailListingId, epaFacilityDetailId, navigate]);
+  }, [currentView, marketplaceDetailListingId, epaFacilityDetailId, aquaScanViewerReportId, aquaScanSituationRoomId, navigate]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {
@@ -597,6 +645,14 @@ const App: React.FC = () => {
       setCurrentView('epaGhgLive');
       return;
     }
+    if (currentView === 'aquascanReportViewer' && !aquaScanViewerReportId) {
+      setCurrentView('aquaScanWater');
+      return;
+    }
+    if (currentView === 'aquascanSituationRoom' && !aquaScanSituationRoomId) {
+      setCurrentView('aquaScanWater');
+      return;
+    }
     if (currentView === 'missionComplete' && !completedMissionSummary) {
       setCurrentView('mainMenu');
       return;
@@ -619,6 +675,8 @@ const App: React.FC = () => {
     selectedMissionForDetail,
     marketplaceDetailListingId,
     epaFacilityDetailId,
+    aquaScanViewerReportId,
+    aquaScanSituationRoomId,
     completedMissionSummary,
     selectedReportForIncidentRoom,
     gatewayCategory,
@@ -1104,6 +1162,18 @@ const App: React.FC = () => {
     },
     [currentView],
   );
+
+  const openAquaScanReportViewer = useCallback((reportId: string) => {
+    setAquaScanViewerReportId(reportId);
+    setPrevView(currentView);
+    setCurrentView('aquascanReportViewer');
+  }, [currentView]);
+
+  const openAquaScanSituationRoom = useCallback((roomId: string) => {
+    setAquaScanSituationRoomId(roomId);
+    setPrevView(currentView);
+    setCurrentView('aquascanSituationRoom');
+  }, [currentView]);
 
   const marketplaceListingDetail = useMemo(() => {
     if (!marketplaceDetailListingId) return null;
@@ -2507,6 +2577,8 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+            onOpenAquaScanReport={openAquaScanReportViewer}
+            onOpenAquaScanSituationRoom={openAquaScanSituationRoom}
           />
         )}
 
@@ -2515,6 +2587,25 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+            onOpenAquaScanReport={openAquaScanReportViewer}
+            onOpenAquaScanSituationRoom={openAquaScanSituationRoom}
+          />
+        )}
+
+        {currentView === 'aquascanReportViewer' && (
+          <AquaScanReportViewer
+            reportId={aquaScanViewerReportId}
+            onBack={() => goBack('aquaScanWater')}
+            onOpenSituationRoom={openAquaScanSituationRoom}
+          />
+        )}
+
+        {currentView === 'aquascanSituationRoom' && (
+          <AquaScanSituationRoom
+            roomId={aquaScanSituationRoomId}
+            currentUserName={hero.name}
+            onBack={() => goBack('aquaScanWater')}
+            onOpenReport={openAquaScanReportViewer}
           />
         )}
 

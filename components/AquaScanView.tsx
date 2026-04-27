@@ -53,11 +53,25 @@ import AquaScanIntelligenceReader, {
   formatCalculationHistoryHeadline,
   type AquaScanCalculationHistoryEntry,
 } from './aquascan/AquaScanIntelligenceReader';
+import AquaScanReportPanel from './aquascan/AquaScanReportPanel';
+import {
+  buildAquaScanEvidenceReport,
+  saveAquaScanEvidenceReport,
+} from '../services/aquascanReportService';
+import {
+  logAquaScanReportToLedger,
+  updateAquaScanReportPdfHash,
+} from '../services/aquascanReportLedgerService';
+import { generateAquaScanEvidencePdf } from '../services/aquascanPdfReportService';
+import { generateQrCodeDataUrl } from '../utils/qrUtils';
+import type { AquaScanEvidenceReport } from '../types/aquascanReport';
 
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
   onOpenWaterOperations?: () => void;
+  onOpenAquaScanReport?: (reportId: string) => void;
+  onOpenAquaScanSituationRoom?: (roomId: string) => void;
 }
 
 interface FocusLocation {
@@ -496,7 +510,13 @@ function AiSectionHelper({
   );
 }
 
-export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaScanViewProps) {
+export default function AquaScanView({
+  onReturn,
+  hero,
+  onOpenWaterOperations,
+  onOpenAquaScanReport,
+  onOpenAquaScanSituationRoom,
+}: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>([]);
   const [helpersExpanded, setHelpersExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('AQ-DRAFT');
@@ -505,6 +525,9 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   const [showPacket, setShowPacket] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
   const [actionNotice, setActionNotice] = useState<string>('');
+  const [reportNotice, setReportNotice] = useState<string | null>(null);
+  const [reportBusy, setReportBusy] = useState(false);
+  const [generatedReport, setGeneratedReport] = useState<AquaScanEvidenceReport | null>(null);
   const [commandTick, setCommandTick] = useState(0);
   const [mapCommand, setMapCommand] = useState<'none' | 'zoomIn' | 'zoomOut' | 'panNorth' | 'panSouth' | 'panEast' | 'panWest' | 'reset'>('none');
   const [mapExpanded, setMapExpanded] = useState(false);
@@ -1574,6 +1597,178 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     limitations: evidencePacket.limitations,
     disclaimer: packetPreview.legalSafeNote,
   }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResultForPacket, evidencePacket, intelligenceReader.confidenceInterpretation, intelligenceReader.evidenceNeeded, intelligenceReader.keyFindings, intelligenceReader.limitations, intelligenceReader.recommendedActions, intelligenceReader.suggestedQuestions, intelligenceReader.summary, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
+
+  const generatedReportMatchesProject = generatedReport?.projectId === selectedProject.id;
+  const activeGeneratedReport = generatedReportMatchesProject ? generatedReport : null;
+
+  function buildIndexEntry(beforeValue: number | null, afterValue: number | null, percentChange: number | null) {
+    const safeBefore = typeof beforeValue === 'number' && Number.isFinite(beforeValue) ? beforeValue : undefined;
+    const safeAfter = typeof afterValue === 'number' && Number.isFinite(afterValue) ? afterValue : undefined;
+    const safePercent = typeof percentChange === 'number' && Number.isFinite(percentChange) ? percentChange : undefined;
+    const change =
+      safeBefore != null && safeAfter != null
+        ? Number((safeAfter - safeBefore).toFixed(6))
+        : undefined;
+    return {
+      before: safeBefore,
+      after: safeAfter,
+      change,
+      percentChange: safePercent,
+    };
+  }
+
+  async function generateEvidenceReport(): Promise<void> {
+    if (!canGenerateEvidencePacket) {
+      setReportNotice('Select a focus location and save an AOI before generating an evidence report.');
+      return;
+    }
+    setReportBusy(true);
+    setReportNotice(null);
+    try {
+      const baseIndices = {
+        ndwi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+        ndvi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+        ndmi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+        nbr: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+      };
+      const selectedIndexEntry = buildIndexEntry(
+        comparisonResultForPacket?.before.mean ?? null,
+        comparisonResultForPacket?.after.mean ?? null,
+        comparisonResultForPacket?.delta.percentChange ?? null,
+      );
+      if (comparisonIndexType === 'NDWI') baseIndices.ndwi = selectedIndexEntry;
+      if (comparisonIndexType === 'NDVI') baseIndices.ndvi = selectedIndexEntry;
+      if (comparisonIndexType === 'NDMI') baseIndices.ndmi = selectedIndexEntry;
+      if (comparisonIndexType === 'NBR') baseIndices.nbr = selectedIndexEntry;
+      if (!baseIndices.ndwi && typeof waterData?.waterAnalysis.ndwi === 'number') {
+        baseIndices.ndwi = {
+          before: undefined,
+          after: Number(waterData.waterAnalysis.ndwi.toFixed(6)),
+          change: undefined,
+          percentChange: undefined,
+        };
+      }
+
+      const cloudCoverText = waterData?.satellite.cloudCover ?? '';
+      const cloudCoverNumber = cloudCoverText
+        ? Number.parseFloat(String(cloudCoverText).replace('%', '').trim())
+        : Number.NaN;
+      const reportDraft = buildAquaScanEvidenceReport({
+        projectId: selectedProject.id,
+        projectName: selectedProject.projectName || 'Unnamed project',
+        createdBy: hero?.name,
+        aquaScanResult: {
+          beforeDate: beforeRange.from || undefined,
+          afterDate: afterRange.to || undefined,
+          comparisonDate: selectedDate,
+          aoiName: selectedFocusLocation?.displayName || selectedProject.locationName || 'Selected AOI',
+          aoiCoordinates: (savedAoi ?? []).map(([lat, lng]) => ({ lat, lng })),
+          centerPoint: selectedFocusLocation
+            ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
+            : { lat: mapCenter[0], lng: mapCenter[1] },
+          areaSqKm: Number(savedAoiAreaSqKm.toFixed(4)),
+          status: comparisonMeasurementStatus,
+          confidence: comparisonHasValidSamples && comparisonResultForPacket
+            ? comparisonResultForPacket.confidenceScore
+            : inspectQualityConfidence != null
+              ? inspectQualityConfidence / 100
+              : undefined,
+          indices: baseIndices,
+        },
+        satelliteMetadata: {
+          source: comparisonResultForPacket?.sourceCitation ?? 'Copernicus Sentinel Hub + DPAL Water Analysis',
+          provider: waterData?.satellite.provider ?? 'Pending connection',
+          product: waterData?.satellite.product ?? 'Not available',
+          layerName: activeGibsLayer.label,
+          acquisitionDate: comparisonResultForPacket?.generatedAt ?? waterData?.satellite.acquisitionDate ?? selectedDate,
+          comparisonWindow: `${beforeRange.from || 'Not available'} to ${afterRange.to || 'Not available'}`,
+          resolution: waterData?.satellite.resolution ?? 'Not available',
+          cloudCover: Number.isFinite(cloudCoverNumber) ? cloudCoverNumber : null,
+          tileUrl,
+          mapSnapshotUrl: undefined,
+          inspectedCoordinates: selectedFocusLocation
+            ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
+            : { lat: mapCenter[0], lng: mapCenter[1] },
+        },
+        aiIntelligence: {
+          summary: intelligenceReader.summary,
+          keyFindings: intelligenceReader.keyFindings,
+          confidenceInterpretation: intelligenceReader.confidenceInterpretation,
+          riskLevel: riskBand(riskScore),
+          missingEvidence: intelligenceReader.evidenceNeeded,
+          suggestedQuestions: intelligenceReader.suggestedQuestions,
+          recommendedActions: intelligenceReader.recommendedActions,
+          disclaimers: [
+            packetPreview.legalSafeNote,
+            ...intelligenceReader.limitations,
+            !waterData ? 'Live satellite values are pending connection for the current selection.' : '',
+          ].filter(Boolean),
+        },
+        evidencePacket: {
+          includedFiles: [],
+          screenshots: [],
+          notes: [
+            `Selected layers: ${mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None selected'}`,
+            `Measurement status: ${evidencePacketPayload.measurementStatus}`,
+            selectedProject.hasLabResult ? 'Lab result flag: uploaded in project state.' : 'Lab result flag: pending connection.',
+            selectedProject.evidenceCount > 0
+              ? `${selectedProject.evidenceCount} evidence item(s) counted in project state. File-level metadata not connected.`
+              : 'No uploaded evidence files connected yet.',
+            comparisonResultForPacket?.warnings?.length
+              ? `Warnings: ${comparisonResultForPacket.warnings.join(' | ')}`
+              : 'Warnings: none returned for the active comparison.',
+          ],
+        },
+      });
+
+      reportDraft.qr.qrCodeDataUrl = await generateQrCodeDataUrl(reportDraft.qr.verificationUrl || reportDraft.qr.reportUrl);
+      saveAquaScanEvidenceReport(reportDraft);
+      const ledgerReport = await logAquaScanReportToLedger(reportDraft);
+      let finalizedReport = ledgerReport;
+      try {
+        const pdfResult = await generateAquaScanEvidencePdf(ledgerReport);
+        finalizedReport = updateAquaScanReportPdfHash(ledgerReport.reportId, pdfResult.pdfHash) ?? ledgerReport;
+      } catch {
+        setReportNotice('Report created and logged, but PDF hashing is still pending. You can retry from the report panel.');
+      }
+      setGeneratedReport(finalizedReport);
+      setReportNotice(
+        finalizedReport.hashes.pdfHash
+          ? 'Evidence report created, logged to the DPAL Evidence Ledger, QR generated, and PDF hash recorded.'
+          : 'Evidence report created, logged, and QR generated. PDF hash is still pending.',
+      );
+    } catch (error) {
+      console.error('AquaScan evidence report generation failed:', error);
+      setReportNotice('Unable to generate the AquaScan evidence report from the current workspace state.');
+    } finally {
+      setReportBusy(false);
+    }
+  }
+
+  async function downloadGeneratedReportPdf(): Promise<void> {
+    if (!activeGeneratedReport) {
+      setReportNotice('Generate an AquaScan evidence report before downloading the PDF.');
+      return;
+    }
+    setReportBusy(true);
+    try {
+      const pdfResult = await generateAquaScanEvidencePdf(activeGeneratedReport);
+      const updated = updateAquaScanReportPdfHash(activeGeneratedReport.reportId, pdfResult.pdfHash) ?? activeGeneratedReport;
+      setGeneratedReport(updated);
+      const url = URL.createObjectURL(pdfResult.blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = pdfResult.fileName;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      setReportNotice('PDF report downloaded successfully.');
+    } catch (error) {
+      console.error('AquaScan PDF download failed:', error);
+      setReportNotice('PDF generation failed for this AquaScan evidence report.');
+    } finally {
+      setReportBusy(false);
+    }
+  }
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -3685,6 +3880,27 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
             {/* -- Evidence Packet Tab -- */}
             {activeTab === 'evidence' ? (
               <div className="space-y-4">
+                <AquaScanReportPanel
+                  report={activeGeneratedReport}
+                  busy={reportBusy}
+                  notice={reportNotice}
+                  onGenerate={() => { void generateEvidenceReport(); }}
+                  onDownloadPdf={() => { void downloadGeneratedReportPdf(); }}
+                  onOpenReport={() => {
+                    if (!activeGeneratedReport) {
+                      setReportNotice('Generate an AquaScan evidence report before opening the verification page.');
+                      return;
+                    }
+                    onOpenAquaScanReport?.(activeGeneratedReport.reportId);
+                  }}
+                  onOpenSituationRoom={() => {
+                    if (!activeGeneratedReport) {
+                      setReportNotice('Generate an AquaScan evidence report before opening the Situation Room.');
+                      return;
+                    }
+                    onOpenAquaScanSituationRoom?.(activeGeneratedReport.situationRoom.roomId);
+                  }}
+                />
                 {!canGenerateEvidencePacket ? (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
                     Select a focus location and save an AOI before generating an evidence packet.

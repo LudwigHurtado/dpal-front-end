@@ -19,6 +19,8 @@
     "ai": "^6.0.42",
     "buffer": "^6.0.3",
     "clsx": "2.1.1",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "phaser": "^4.0.0",
