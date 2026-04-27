@@ -127,6 +127,13 @@ const statusClass: Record<ChecklistStatus, string> = {
   'Needs Review': 'border-amber-600/70 text-amber-200 bg-amber-950/30',
 };
 
+function sourceRibbonTone(mode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'): string {
+  if (mode === 'LIVE') return 'border-emerald-500/50 bg-emerald-900/20 text-emerald-200';
+  if (mode === 'IMPORTED') return 'border-cyan-500/50 bg-cyan-900/20 text-cyan-200';
+  if (mode === 'DEMO_FALLBACK') return 'border-amber-500/50 bg-amber-900/20 text-amber-200';
+  return 'border-violet-500/50 bg-violet-900/20 text-violet-200';
+}
+
 const carbFacilityMarker = L.divIcon({
   className: 'dpal-carb-marker',
   html: '<div style="width:14px;height:14px;border-radius:9999px;background:#22c55e;border:2px solid #ffffff;box-shadow:0 0 0 4px rgba(34,197,94,0.25)"></div>',
@@ -1383,6 +1390,29 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <p className="mt-2 text-xs text-slate-300">
             Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span> {isSearching ? '| Searching...' : ''}
           </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+            <span className="text-slate-400">Source confidence:</span>
+            <span
+              className={`rounded-full border px-2 py-0.5 font-semibold ${sourceRibbonTone(sourceMode)}`}
+              title={
+                sourceMode === 'LIVE'
+                  ? 'Live CARB endpoint result stream. Records shown only if returned by the live dataset.'
+                  : sourceMode === 'IMPORTED'
+                    ? 'Imported CARB spreadsheet results. Verify filename, retrieval date, and official source.'
+                    : sourceMode === 'DEMO_FALLBACK'
+                      ? 'Demo/fallback mode only. Not suitable for final conclusions.'
+                      : 'Manual investigation draft mode. Official CARB source not confirmed.'
+              }
+            >
+              {sourceMode === 'LIVE' ? 'LIVE DATA' : sourceMode === 'IMPORTED' ? 'IMPORTED DATA' : sourceMode === 'DEMO_FALLBACK' ? 'DEMO DATA' : 'MANUAL DRAFT'}
+            </span>
+            <span
+              className="rounded-full border border-slate-600 bg-slate-950/60 px-2 py-0.5 text-slate-300"
+              title="DPAL never creates CARB matches from alias tips. Matches only appear when returned by live/imported CARB records."
+            >
+              Match integrity enforced
+            </span>
+          </div>
           {!hasSearched ? (
             <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/40 p-3 text-sm text-slate-300">
               Run a facility search to unlock facility selection, year comparison, and evidence export.
