@@ -5,7 +5,7 @@ import { paramId } from '../lib/routeParams';
 import { carbAuditExportSchema, carbAuditLinkSchema, carbAuditPayloadSchema, type CarbAuditPayloadInput } from '../schemas/carbAudit';
 import {
   getCarbDataStatus,
-  getCarbImportMeta,
+  getCarbDataSmokeCheck,
   importCarbDataset,
   searchCarbFacilityRecords,
   syncOfficialCarbDataset,
@@ -96,21 +96,27 @@ export async function searchCarbData(req: Request, res: Response): Promise<void>
     limit: Number(req.query.limit || 50) || 50,
     offset: Number(req.query.offset || 0) || 0,
   });
-  const meta = getCarbImportMeta();
   res.json({
     ok: true,
     results: result.results,
     count: result.count,
     sourceMode: result.sourceMode,
     warnings: result.warnings,
-    datasetVersion: meta.datasetVersion,
-    retrievalDate: meta.retrievalDate,
+    datasetVersion: result.datasetVersion,
+    retrievalDate: result.retrievalDate,
+    sourceUrl: result.sourceUrl,
+    quality: result.quality,
   });
 }
 
 export async function getCarbDataStatusHandler(_req: Request, res: Response): Promise<void> {
   const status = await getCarbDataStatus();
   res.json(status);
+}
+
+export async function getCarbDataSmokeHandler(_req: Request, res: Response): Promise<void> {
+  const smoke = await getCarbDataSmokeCheck();
+  res.status(smoke.ok ? 200 : 503).json(smoke);
 }
 
 export async function importCarbData(req: Request, res: Response): Promise<void> {
@@ -145,6 +151,8 @@ export async function syncOfficialCarbData(req: Request, res: Response): Promise
   res.status(201).json({
     ok: true,
     imported: result.imported,
+    datasetVersion: result.datasetVersion,
+    recordCount: result.recordCount,
     warnings: result.warnings,
   });
 }

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import XLSX from 'xlsx';
 
 export type SourceMode = 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK';
 export type CarbSourceStatus = 'LIVE VERIFIED' | 'CARB PUBLIC DATA' | 'IMPORTED DATASET' | 'DEMO DATA' | 'MISSING' | 'NEEDS REVIEW';
@@ -47,6 +48,22 @@ type SearchParams = {
   offset?: number;
 };
 
+type DatasetQuality = {
+  acceptedRows: number;
+  rejectedRows: number;
+  unknownFacilityCount: number;
+  unknownOperatorCount: number;
+  nullEmissionsCount: number;
+  availableFieldCoverage: {
+    facilityName: number;
+    operatorName: number;
+    county: number;
+    sector: number;
+    reportingYear: number;
+    totalCO2e: number;
+  };
+};
+
 type ImportValidationSummary = {
   imported: number;
   warnings: string[];
@@ -54,6 +71,30 @@ type ImportValidationSummary = {
   rejectedRows: number;
   missingRequiredFields: string[];
   rejectedDetails: Array<{ rowNumber: number; reason: string }>;
+};
+
+type DatasetSnapshot = {
+  records: CARBFacilityRecord[];
+  sourceMode: SourceMode;
+  datasetVersion: string;
+  retrievalDate: string;
+  sourceUrl: string;
+  warnings: string[];
+  quality: DatasetQuality;
+  lastImportAt: string | null;
+};
+
+type CarbSmokeResult = {
+  ok: boolean;
+  statusReady: boolean;
+  hasQualityCoverage: boolean;
+  emptySearchHasRealRows: boolean;
+  noBinaryGarbageRows: boolean;
+  shellSearchCount: number;
+  refinerySearchCount: number;
+  year2024SearchCount: number;
+  failures: string[];
+  warnings: string[];
 };
 
 type CarbFieldMap =
@@ -79,41 +120,80 @@ type CarbFieldMap =
   | 'sourceUrl';
 
 const aliasMap: Record<CarbFieldMap, string[]> = {
-  facilityId: ['facility_id', 'facilityid', 'arb id', 'arb_id', 'arbid'],
-  arbId: ['arb id', 'arb_id', 'arbid', 'facility_id'],
-  facilityName: ['facility_name', 'facilityname'],
-  operatorName: ['operator_name', 'operatorname', 'company_name', 'company', 'entity_name'],
-  reportingEntityName: ['reporting_entity_name', 'entity_name', 'entity', 'reporting entity'],
-  city: ['city'],
-  county: ['county'],
+  facilityId: ['facility id', 'facility identifier', 'facility_id', 'facilityid', 'id', 'entity id', 'reporting entity id'],
+  arbId: ['arb id', 'arb_id', 'arbid', 'facility id', 'entity id'],
+  facilityName: ['facility name', 'facility', 'facility/entity name', 'entity name'],
+  operatorName: ['operator name', 'operator', 'company name', 'reporting entity name', 'entity name'],
+  reportingEntityName: ['reporting entity name', 'reporting entity', 'entity name', 'entity'],
+  city: ['city', 'facility city'],
+  county: ['county', 'facility county'],
   latitude: ['latitude', 'lat'],
   longitude: ['longitude', 'lng', 'lon'],
-  sector: ['sector', 'industry'],
-  subSector: ['sub_sector', 'subsector'],
-  reportingYear: ['reporting_year', 'year'],
-  totalCO2e: ['total_co2e', 'emissions_co2e', 'total emissions', 'total_emissions'],
-  methaneCH4: ['ch4', 'methane', 'methane_ch4'],
-  nitrousOxideN2O: ['n2o', 'nitrous_oxide', 'nitrous_oxide_n2o'],
-  carbonDioxideCO2: ['co2', 'carbon_dioxide', 'carbon_dioxide_co2'],
-  coveredEmissions: ['covered_emissions', 'covered emissions'],
-  verificationStatus: ['verification_status', 'verification', 'status'],
-  capAndTradeCovered: ['cap_and_trade', 'covered_entity', 'capandtradecovered'],
-  sourceUrl: ['source_url', 'sourceurl'],
+  sector: ['sector', 'industry sector', 'naics sector', 'industry'],
+  subSector: ['subsector', 'sub-sector', 'sub sector'],
+  reportingYear: ['reporting year', 'report year', 'calendar year', 'year'],
+  totalCO2e: ['total co2e', 'total emissions', 'total ghg emissions', 'co2e', 'mtco2e', 'metric tons co2e', 'total covered emissions'],
+  methaneCH4: ['ch4', 'methane', 'methane ch4'],
+  nitrousOxideN2O: ['n2o', 'nitrous oxide', 'nitrous oxide n2o'],
+  carbonDioxideCO2: ['co2', 'carbon dioxide', 'carbon dioxide co2'],
+  coveredEmissions: ['covered emissions', 'covered emissions co2e', 'cap-and-trade covered emissions'],
+  verificationStatus: ['verification status', 'verification', 'verified'],
+  capAndTradeCovered: ['cap-and-trade', 'cap and trade', 'covered entity', 'cap_and_trade'],
+  sourceUrl: ['source url', 'source_url'],
 };
 
-let importedRecords: CARBFacilityRecord[] = [];
-let importedMeta: { datasetVersion: string; retrievalDate: string; sourceUrl: string; lastImportAt: string | null } = {
+const UNKNOWN_VALUES = new Set(['', 'unknown', 'unknown facility', 'unknown operator', 'unknown entity', 'n/a', 'na', 'null', 'none']);
+const XLSX_HEADER_SIGNATURE = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+
+let importedSnapshot: DatasetSnapshot = {
+  records: [],
+  sourceMode: 'IMPORTED',
   datasetVersion: 'import-not-loaded',
   retrievalDate: new Date().toISOString().slice(0, 10),
   sourceUrl: '',
+  warnings: [],
+  quality: {
+    acceptedRows: 0,
+    rejectedRows: 0,
+    unknownFacilityCount: 0,
+    unknownOperatorCount: 0,
+    nullEmissionsCount: 0,
+    availableFieldCoverage: {
+      facilityName: 0,
+      operatorName: 0,
+      county: 0,
+      sector: 0,
+      reportingYear: 0,
+      totalCO2e: 0,
+    },
+  },
   lastImportAt: null,
 };
+
 let importedBootstrapped = false;
-let liveLastStatus: { connected: boolean; warnings: string[]; sourceUrl: string; datasetVersion: string } = {
-  connected: false,
-  warnings: [],
-  sourceUrl: '',
+let liveSnapshot: DatasetSnapshot = {
+  records: [],
+  sourceMode: 'LIVE',
   datasetVersion: 'import-not-loaded',
+  retrievalDate: new Date().toISOString().slice(0, 10),
+  sourceUrl: '',
+  warnings: ['No official CARB source configured.'],
+  quality: {
+    acceptedRows: 0,
+    rejectedRows: 0,
+    unknownFacilityCount: 0,
+    unknownOperatorCount: 0,
+    nullEmissionsCount: 0,
+    availableFieldCoverage: {
+      facilityName: 0,
+      operatorName: 0,
+      county: 0,
+      sector: 0,
+      reportingYear: 0,
+      totalCO2e: 0,
+    },
+  },
+  lastImportAt: null,
 };
 
 const toNumOrNull = (value: unknown): number | null => {
@@ -130,6 +210,10 @@ const toBoolOrNull = (value: unknown): boolean | null => {
   return null;
 };
 
+function isUnknown(value: unknown): boolean {
+  return UNKNOWN_VALUES.has(String(value ?? '').trim().toLowerCase());
+}
+
 function normalizeKey(value: string): string {
   return value.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
@@ -138,14 +222,20 @@ function normalizeCounty(value: string): string {
   return value.toLowerCase().replace(/\bcounty\b/g, '').replace(/\s+/g, ' ').trim();
 }
 
-function getAliasedValue(row: Record<string, unknown>, aliases: string[]): unknown {
-  const normalized = Object.entries(row).reduce<Record<string, unknown>>((acc, [k, v]) => {
-    acc[normalizeKey(k)] = v;
+function buildNormalizedLookup(row: Record<string, unknown>): Record<string, unknown> {
+  return Object.entries(row).reduce<Record<string, unknown>>((acc, [key, val]) => {
+    acc[normalizeKey(key)] = val;
     return acc;
   }, {});
+}
+
+function getAliasedValueFromLookup(lookup: Record<string, unknown>, aliases: string[]): unknown {
   for (const alias of aliases) {
-    const v = normalized[normalizeKey(alias)];
-    if (v !== undefined) return v;
+    const normalizedAlias = normalizeKey(alias);
+    const direct = lookup[normalizedAlias];
+    if (direct !== undefined) return direct;
+    const fuzzyMatch = Object.entries(lookup).find(([key]) => key.includes(normalizedAlias) || normalizedAlias.includes(key));
+    if (fuzzyMatch && fuzzyMatch[1] !== undefined) return fuzzyMatch[1];
   }
   return undefined;
 }
@@ -190,34 +280,123 @@ function csvToRows(csvText: string): Record<string, unknown>[] {
   });
 }
 
+function scoreHeaderRow(headers: string[]): number {
+  const normalized = headers.map((header) => normalizeKey(header));
+  if (normalized.length < 6) return 0;
+  const hasNameColumn = normalized.some((header) => header.includes('facility') || header.includes('entity') || header.includes('operator'));
+  const hasYearColumn = normalized.some((header) => header.includes('report year') || header.includes('reporting year') || header === 'year');
+  const hasEmissionsColumn = normalized.some((header) => header.includes('total') && header.includes('co2e'));
+  if (!hasNameColumn || !hasYearColumn || !hasEmissionsColumn) return 0;
+  const includeTokens = [
+    'arb id', 'facility', 'entity', 'operator', 'report year', 'reporting year', 'total', 'co2e', 'city', 'county', 'sector',
+  ];
+  let score = 0;
+  for (const token of includeTokens) {
+    if (normalized.some((header) => header.includes(token))) {
+      score += 1;
+    }
+  }
+  return score;
+}
+
+function rowsFromWorksheet(worksheet: XLSX.WorkSheet): { rows: Record<string, unknown>[]; headerScore: number } {
+  const matrix = XLSX.utils.sheet_to_json<(string | number | null)[]>(worksheet, {
+    header: 1,
+    raw: false,
+    blankrows: false,
+    defval: '',
+  });
+  if (!matrix.length) return { rows: [], headerScore: 0 };
+  let bestIndex = -1;
+  let bestScore = -1;
+  const maxInspect = Math.min(25, matrix.length);
+  for (let i = 0; i < maxInspect; i += 1) {
+    const row = matrix[i];
+    if (!Array.isArray(row)) continue;
+    const asStrings = row.map((cell) => String(cell ?? '').trim()).filter(Boolean);
+    if (asStrings.length < 3) continue;
+    const score = scoreHeaderRow(asStrings);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+  if (bestIndex < 0 || bestScore < 3) return { rows: [], headerScore: bestScore };
+  const headerRow = matrix[bestIndex].map((cell) => String(cell ?? '').trim());
+  const rows: Record<string, unknown>[] = [];
+  for (let i = bestIndex + 1; i < matrix.length; i += 1) {
+    const row = matrix[i];
+    const asStrings = row.map((cell) => String(cell ?? '').trim());
+    if (asStrings.every((value) => !value)) continue;
+    const out: Record<string, unknown> = {};
+    headerRow.forEach((header, idx) => {
+      if (!header) return;
+      out[header] = asStrings[idx] ?? '';
+    });
+    if (Object.keys(out).length) rows.push(out);
+  }
+  return { rows, headerScore: bestScore };
+}
+
+function parseXlsxBuffer(buffer: Buffer): Record<string, unknown>[] {
+  const workbook = XLSX.read(buffer, { type: 'buffer' });
+  let bestRows: Record<string, unknown>[] = [];
+  let bestWeight = 0;
+  for (const sheetName of workbook.SheetNames) {
+    const candidate = rowsFromWorksheet(workbook.Sheets[sheetName]);
+    const weight = candidate.headerScore * Math.max(candidate.rows.length, 1);
+    if (weight > bestWeight) {
+      bestWeight = weight;
+      bestRows = candidate.rows;
+    }
+  }
+  return bestRows;
+}
+
+function parseRowsFromBuffer(buffer: Buffer, sourceHint: string, contentType = ''): Record<string, unknown>[] {
+  const looksLikeXlsx = sourceHint.toLowerCase().endsWith('.xlsx')
+    || contentType.toLowerCase().includes('spreadsheet')
+    || contentType.toLowerCase().includes('excel')
+    || contentType.toLowerCase().includes('openxml')
+    || buffer.subarray(0, 4).equals(XLSX_HEADER_SIGNATURE);
+  if (looksLikeXlsx) {
+    return parseXlsxBuffer(buffer);
+  }
+  const text = buffer.toString('utf8');
+  if (contentType.toLowerCase().includes('json') || sourceHint.toLowerCase().endsWith('.json')) {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  }
+  return csvToRows(text);
+}
+
 function normalizeRow(
   row: Record<string, unknown>,
   sourceInfo: { dataSource: string; sourceUrl?: string; datasetVersion: string; retrievalDate: string; baseStatus: CarbSourceStatus },
 ): CARBFacilityRecord {
-  const facilityId = String(getAliasedValue(row, aliasMap.facilityId) ?? '').trim();
-  const arbId = String(getAliasedValue(row, aliasMap.arbId) ?? '').trim();
-  const facilityName = String(getAliasedValue(row, aliasMap.facilityName) ?? '').trim();
-  const operatorName = String(getAliasedValue(row, aliasMap.operatorName) ?? '').trim();
-  const reportingEntityName = String(getAliasedValue(row, aliasMap.reportingEntityName) ?? '').trim();
-  const city = String(getAliasedValue(row, aliasMap.city) ?? '').trim();
-  const county = String(getAliasedValue(row, aliasMap.county) ?? '').trim();
-  const sector = String(getAliasedValue(row, aliasMap.sector) ?? '').trim();
-  const subSector = String(getAliasedValue(row, aliasMap.subSector) ?? '').trim();
-  const reportingYear = Number(getAliasedValue(row, aliasMap.reportingYear) ?? 0) || new Date().getFullYear();
-  const totalCO2e = toNumOrNull(getAliasedValue(row, aliasMap.totalCO2e));
-  const methaneCH4 = toNumOrNull(getAliasedValue(row, aliasMap.methaneCH4));
-  const nitrousOxideN2O = toNumOrNull(getAliasedValue(row, aliasMap.nitrousOxideN2O));
-  const carbonDioxideCO2 = toNumOrNull(getAliasedValue(row, aliasMap.carbonDioxideCO2));
-  const coveredEmissions = toNumOrNull(getAliasedValue(row, aliasMap.coveredEmissions));
-  const latitude = toNumOrNull(getAliasedValue(row, aliasMap.latitude));
-  const longitude = toNumOrNull(getAliasedValue(row, aliasMap.longitude));
-  const verificationRaw = String(getAliasedValue(row, aliasMap.verificationStatus) ?? '').trim();
+  const lookup = buildNormalizedLookup(row);
+  const facilityId = String(getAliasedValueFromLookup(lookup, aliasMap.facilityId) ?? '').trim();
+  const arbId = String(getAliasedValueFromLookup(lookup, aliasMap.arbId) ?? '').trim();
+  const facilityName = String(getAliasedValueFromLookup(lookup, aliasMap.facilityName) ?? '').trim();
+  const operatorName = String(getAliasedValueFromLookup(lookup, aliasMap.operatorName) ?? '').trim();
+  const reportingEntityName = String(getAliasedValueFromLookup(lookup, aliasMap.reportingEntityName) ?? '').trim();
+  const city = String(getAliasedValueFromLookup(lookup, aliasMap.city) ?? '').trim();
+  const county = String(getAliasedValueFromLookup(lookup, aliasMap.county) ?? '').trim();
+  const sector = String(getAliasedValueFromLookup(lookup, aliasMap.sector) ?? '').trim();
+  const subSector = String(getAliasedValueFromLookup(lookup, aliasMap.subSector) ?? '').trim();
+  const reportingYear = Number(getAliasedValueFromLookup(lookup, aliasMap.reportingYear) ?? 0);
+  const totalCO2e = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.totalCO2e));
+  const methaneCH4 = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.methaneCH4));
+  const nitrousOxideN2O = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.nitrousOxideN2O));
+  const carbonDioxideCO2 = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.carbonDioxideCO2));
+  const coveredEmissions = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.coveredEmissions));
+  const latitude = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.latitude));
+  const longitude = toNumOrNull(getAliasedValueFromLookup(lookup, aliasMap.longitude));
+  const verificationRaw = String(getAliasedValueFromLookup(lookup, aliasMap.verificationStatus) ?? '').trim();
   const verificationStatus = verificationRaw || 'NEEDS REVIEW';
-  const capAndTradeCovered = toBoolOrNull(getAliasedValue(row, aliasMap.capAndTradeCovered));
+  const capAndTradeCovered = toBoolOrNull(getAliasedValueFromLookup(lookup, aliasMap.capAndTradeCovered));
 
-  const requiredMissing = !(facilityName || operatorName || reportingEntityName) || totalCO2e == null;
-  const status: CarbSourceStatus = requiredMissing ? 'NEEDS REVIEW' : sourceInfo.baseStatus;
-  const effectiveFacilityId = facilityId || arbId || '';
+  const effectiveFacilityId = facilityId || arbId;
   const normalizedSearchText = [
     facilityName,
     operatorName,
@@ -227,26 +406,26 @@ function normalizeRow(
     city,
     normalizeCounty(county),
     sector,
-    String(reportingYear),
+    Number.isFinite(reportingYear) ? String(reportingYear) : '',
   ]
-    .map((part) => part.toLowerCase().trim())
+    .map((part) => String(part).toLowerCase().trim())
     .filter(Boolean)
     .join(' ');
 
   return {
     facilityId: effectiveFacilityId,
     arbId,
-    facilityName: facilityName || 'Unknown Facility',
-    operatorName: operatorName || 'Unknown Operator',
-    reportingEntityName: reportingEntityName || operatorName || facilityName || 'Unknown Entity',
-    city: city || 'Unknown',
-    county: county || 'Unknown',
+    facilityName: facilityName || '',
+    operatorName: operatorName || '',
+    reportingEntityName: reportingEntityName || '',
+    city: city || '',
+    county: county || '',
     state: 'California',
     latitude,
     longitude,
-    sector: sector || 'Unknown',
+    sector: sector || '',
     subSector,
-    reportingYear,
+    reportingYear: Number.isFinite(reportingYear) ? reportingYear : 0,
     totalCO2e,
     methaneCH4,
     nitrousOxideN2O,
@@ -256,7 +435,7 @@ function normalizeRow(
     capAndTradeCovered,
     dataSource: sourceInfo.dataSource,
     sourceUrl: sourceInfo.sourceUrl,
-    sourceStatus: status,
+    sourceStatus: sourceInfo.baseStatus,
     datasetVersion: sourceInfo.datasetVersion,
     retrievalDate: sourceInfo.retrievalDate,
     rawRow: row,
@@ -264,21 +443,84 @@ function normalizeRow(
   };
 }
 
-function validateImportRow(row: Record<string, unknown>): { missing: string[] } {
-  const missing: string[] = [];
-  const facilityId = String(getAliasedValue(row, aliasMap.facilityId) ?? '').trim();
-  const arbId = String(getAliasedValue(row, aliasMap.arbId) ?? '').trim();
-  const facilityName = String(getAliasedValue(row, aliasMap.facilityName) ?? '').trim();
-  const operatorName = String(getAliasedValue(row, aliasMap.operatorName) ?? '').trim();
-  const reportingYear = Number(getAliasedValue(row, aliasMap.reportingYear) ?? 0);
-  const totalCO2e = toNumOrNull(getAliasedValue(row, aliasMap.totalCO2e));
+function validateNormalizedRecord(record: CARBFacilityRecord): { ok: boolean; reason?: string } {
+  const hasName = !isUnknown(record.facilityName) || !isUnknown(record.operatorName) || !isUnknown(record.reportingEntityName);
+  if (!hasName) return { ok: false, reason: 'Missing usable facility/operator/entity name' };
+  if (!Number.isFinite(record.reportingYear) || record.reportingYear < 1990 || record.reportingYear > 2100) {
+    return { ok: false, reason: 'Missing or invalid reportingYear' };
+  }
+  if (record.totalCO2e == null) return { ok: false, reason: 'Missing totalCO2e' };
+  if (!record.normalizedSearchText || /^\d{4}$/.test(record.normalizedSearchText)) {
+    return { ok: false, reason: 'No meaningful searchable identity' };
+  }
+  const rawSerialized = JSON.stringify(record.rawRow);
+  if (rawSerialized.includes('PK\u0003\u0004')) {
+    return { ok: false, reason: 'Row appears to contain binary XLSX payload, not parsed tabular data' };
+  }
+  return { ok: true };
+}
 
-  if (!(facilityName || operatorName)) missing.push('facilityNameOrOperatorName');
-  if (!Number.isFinite(reportingYear) || reportingYear <= 0) missing.push('reportingYear');
-  if (totalCO2e == null) missing.push('totalCO2e');
-  if (!(facilityId || arbId)) missing.push('identifierPreferred');
+function hasBinaryGarbageRow(record: CARBFacilityRecord): boolean {
+  const rawSerialized = JSON.stringify(record.rawRow);
+  return rawSerialized.includes('PK\u0003\u0004')
+    || rawSerialized.includes('"PK\\u0003\\u0004')
+    || rawSerialized.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+}
 
-  return { missing };
+function isClearlyMalformedRecord(record: CARBFacilityRecord): boolean {
+  if (hasBinaryGarbageRow(record)) return true;
+  const unknownIdentity = isUnknown(record.facilityName) && isUnknown(record.operatorName) && isUnknown(record.reportingEntityName);
+  if (unknownIdentity && record.totalCO2e == null) return true;
+  if (!record.normalizedSearchText || /^\d{4}$/.test(record.normalizedSearchText)) return true;
+  return false;
+}
+
+function computeQuality(records: CARBFacilityRecord[], rejectedRows: number): DatasetQuality {
+  const total = records.length || 1;
+  const withFacility = records.filter((record) => !isUnknown(record.facilityName)).length;
+  const withOperator = records.filter((record) => !isUnknown(record.operatorName)).length;
+  const withCounty = records.filter((record) => !isUnknown(record.county)).length;
+  const withSector = records.filter((record) => !isUnknown(record.sector)).length;
+  const withYear = records.filter((record) => Number.isFinite(record.reportingYear) && record.reportingYear > 0).length;
+  const withEmissions = records.filter((record) => record.totalCO2e != null).length;
+
+  return {
+    acceptedRows: records.length,
+    rejectedRows,
+    unknownFacilityCount: records.filter((record) => isUnknown(record.facilityName)).length,
+    unknownOperatorCount: records.filter((record) => isUnknown(record.operatorName)).length,
+    nullEmissionsCount: records.filter((record) => record.totalCO2e == null).length,
+    availableFieldCoverage: {
+      facilityName: Math.round((withFacility / total) * 100),
+      operatorName: Math.round((withOperator / total) * 100),
+      county: Math.round((withCounty / total) * 100),
+      sector: Math.round((withSector / total) * 100),
+      reportingYear: Math.round((withYear / total) * 100),
+      totalCO2e: Math.round((withEmissions / total) * 100),
+    },
+  };
+}
+
+function buildSnapshot(params: {
+  records: CARBFacilityRecord[];
+  sourceMode: SourceMode;
+  datasetVersion: string;
+  retrievalDate: string;
+  sourceUrl: string;
+  warnings: string[];
+  rejectedRows: number;
+  lastImportAt: string | null;
+}): DatasetSnapshot {
+  return {
+    records: params.records,
+    sourceMode: params.sourceMode,
+    datasetVersion: params.datasetVersion,
+    retrievalDate: params.retrievalDate,
+    sourceUrl: params.sourceUrl,
+    warnings: Array.from(new Set(params.warnings.filter(Boolean))),
+    quality: computeQuality(params.records, params.rejectedRows),
+    lastImportAt: params.lastImportAt,
+  };
 }
 
 function applySearch(records: CARBFacilityRecord[], params: SearchParams): CARBFacilityRecord[] {
@@ -293,19 +535,74 @@ function applySearch(records: CARBFacilityRecord[], params: SearchParams): CARBF
   const limit = Math.min(Math.max(params.limit ?? 50, 1), 500);
   const offset = Math.max(params.offset ?? 0, 0);
   return records
-    .filter((r) => {
-      if (q && !r.normalizedSearchText.includes(q)) return false;
-      if (facilityId && !(r.facilityId.toLowerCase().includes(facilityId) || r.arbId.toLowerCase().includes(facilityId))) return false;
-      if (operatorName && !r.operatorName.toLowerCase().includes(operatorName)) return false;
-      if (facilityName && !r.facilityName.toLowerCase().includes(facilityName)) return false;
-      if (city && !r.city.toLowerCase().includes(city)) return false;
-      if (county && !normalizeCounty(r.county).includes(county)) return false;
-      if (sector && !r.sector.toLowerCase().includes(sector)) return false;
-      if (year && r.reportingYear !== year) return false;
+    .filter((record) => {
+      if (q && !record.normalizedSearchText.includes(q)) return false;
+      if (facilityId && !(record.facilityId.toLowerCase().includes(facilityId) || record.arbId.toLowerCase().includes(facilityId))) return false;
+      if (operatorName && !record.operatorName.toLowerCase().includes(operatorName)) return false;
+      if (facilityName && !record.facilityName.toLowerCase().includes(facilityName)) return false;
+      if (city && !record.city.toLowerCase().includes(city)) return false;
+      if (county && !normalizeCounty(record.county).includes(county)) return false;
+      if (sector && !record.sector.toLowerCase().includes(sector)) return false;
+      if (year && record.reportingYear !== year) return false;
       return true;
     })
     .sort((a, b) => b.reportingYear - a.reportingYear)
     .slice(offset, offset + limit);
+}
+
+function extractAndValidateRows(rows: Record<string, unknown>[], sourceInfo: {
+  sourceMode: SourceMode;
+  dataSource: string;
+  sourceUrl: string;
+  datasetVersion: string;
+  retrievalDate: string;
+  baseStatus: CarbSourceStatus;
+  lastImportAt: string | null;
+}): { snapshot: DatasetSnapshot; rejectedDetails: Array<{ rowNumber: number; reason: string }> } {
+  const accepted: CARBFacilityRecord[] = [];
+  const rejectedDetails: Array<{ rowNumber: number; reason: string }> = [];
+  rows.forEach((row, index) => {
+    const normalized = normalizeRow(row, {
+      dataSource: sourceInfo.dataSource,
+      sourceUrl: sourceInfo.sourceUrl,
+      datasetVersion: sourceInfo.datasetVersion,
+      retrievalDate: sourceInfo.retrievalDate,
+      baseStatus: sourceInfo.baseStatus,
+    });
+    const verdict = validateNormalizedRecord(normalized);
+    if (!verdict.ok) {
+      rejectedDetails.push({
+        rowNumber: index + 2,
+        reason: verdict.reason ?? 'Unknown validation failure',
+      });
+      return;
+    }
+    accepted.push(normalized);
+  });
+
+  const warnings: string[] = [];
+  if (accepted.length > 0) {
+    const quality = computeQuality(accepted, rejectedDetails.length);
+    if (quality.unknownOperatorCount > 0 || quality.availableFieldCoverage.county < 100 || quality.availableFieldCoverage.sector < 100) {
+      warnings.push('CARB dataset loaded, but some rows are missing county/sector/operator fields.');
+    }
+  } else {
+    warnings.push('Official CARB source was reached but could not be parsed as a valid CARB dataset.');
+  }
+
+  return {
+    snapshot: buildSnapshot({
+      records: accepted,
+      sourceMode: sourceInfo.sourceMode,
+      datasetVersion: sourceInfo.datasetVersion,
+      retrievalDate: sourceInfo.retrievalDate,
+      sourceUrl: sourceInfo.sourceUrl,
+      warnings,
+      rejectedRows: rejectedDetails.length,
+      lastImportAt: sourceInfo.lastImportAt,
+    }),
+    rejectedDetails,
+  };
 }
 
 async function loadImportedFromDiskIfAny(): Promise<void> {
@@ -314,119 +611,191 @@ async function loadImportedFromDiskIfAny(): Promise<void> {
   const targetDir = path.resolve(process.cwd(), 'data', 'carb');
   try {
     const files = await fs.readdir(targetDir);
-    const loadable = files.filter((f) => f.toLowerCase().endsWith('.json') || f.toLowerCase().endsWith('.csv'));
+    const loadable = files.filter((file) => {
+      const lower = file.toLowerCase();
+      return lower.endsWith('.json') || lower.endsWith('.csv') || lower.endsWith('.xlsx');
+    });
     if (!loadable.length) return;
-
-    const out: CARBFacilityRecord[] = [];
+    const records: CARBFacilityRecord[] = [];
+    let rejectedRows = 0;
+    const warnings: string[] = [];
     for (const file of loadable) {
       const fullPath = path.join(targetDir, file);
-      const text = await fs.readFile(fullPath, 'utf8');
-      const rows: Record<string, unknown>[] = file.toLowerCase().endsWith('.json')
-        ? (Array.isArray(JSON.parse(text)) ? JSON.parse(text) : [])
-        : csvToRows(text);
-      for (const row of rows) {
-        out.push(normalizeRow(row, {
-          dataSource: `Imported CARB dataset (${file})`,
-          sourceUrl: '',
-          datasetVersion: `import-${file}`,
-          retrievalDate: new Date().toISOString().slice(0, 10),
-          baseStatus: 'IMPORTED DATASET',
-        }));
-      }
-    }
-    if (out.length) {
-      importedRecords = out;
-      importedMeta = {
-        datasetVersion: `import-batch-${Date.now()}`,
-        retrievalDate: new Date().toISOString().slice(0, 10),
+      const buffer = await fs.readFile(fullPath);
+      const rows = parseRowsFromBuffer(buffer, file);
+      const extracted = extractAndValidateRows(rows, {
+        sourceMode: 'IMPORTED',
+        dataSource: `Imported CARB dataset (${file})`,
         sourceUrl: '',
+        datasetVersion: `import-${file}`,
+        retrievalDate: new Date().toISOString().slice(0, 10),
+        baseStatus: 'IMPORTED DATASET',
         lastImportAt: new Date().toISOString(),
+      });
+      records.push(...extracted.snapshot.records);
+      rejectedRows += extracted.rejectedDetails.length;
+      warnings.push(...extracted.snapshot.warnings);
+    }
+    const malformedCount = records.filter(isClearlyMalformedRecord).length;
+    const acceptedAfterMalformedFilter = records.filter((record) => !isClearlyMalformedRecord(record));
+    if (malformedCount > 0) {
+      warnings.push('Cached CARB import was rejected because it contains malformed XLSX/binary rows.');
+    }
+    importedSnapshot = buildSnapshot({
+      records: acceptedAfterMalformedFilter,
+      sourceMode: 'IMPORTED',
+      datasetVersion: acceptedAfterMalformedFilter.length ? `import-batch-${Date.now()}` : 'import-not-loaded',
+      retrievalDate: new Date().toISOString().slice(0, 10),
+      sourceUrl: '',
+      warnings,
+      rejectedRows: rejectedRows + malformedCount,
+      lastImportAt: acceptedAfterMalformedFilter.length ? new Date().toISOString() : null,
+    });
+    if (!acceptedAfterMalformedFilter.length && malformedCount > 0) {
+      importedSnapshot = {
+        ...importedSnapshot,
+        warnings: Array.from(new Set([...importedSnapshot.warnings, 'Cached CARB import was rejected because it contains malformed XLSX/binary rows.'])),
       };
     }
   } catch {
-    // No local import folder yet, keep silent.
+    // no-op
   }
 }
 
-async function fetchLiveDataset(): Promise<{ records: CARBFacilityRecord[]; warnings: string[] }> {
+async function fetchLiveDataset(): Promise<DatasetSnapshot> {
   const liveUrl = process.env.CARB_LIVE_DATA_URL?.trim();
+  const datasetVersion = process.env.CARB_LIVE_DATASET_VERSION?.trim() || 'live-unknown';
+  const retrievalDate = new Date().toISOString().slice(0, 10);
   if (!liveUrl) {
-    liveLastStatus = {
-      connected: false,
-      warnings: ['No live CARB source configured. Set CARB_LIVE_DATA_URL to enable live mode.'],
-      sourceUrl: '',
+    liveSnapshot = buildSnapshot({
+      records: [],
+      sourceMode: 'LIVE',
       datasetVersion: 'import-not-loaded',
-    };
-    return { records: [], warnings: liveLastStatus.warnings };
+      retrievalDate,
+      sourceUrl: '',
+      warnings: ['No official CARB source configured.'],
+      rejectedRows: 0,
+      lastImportAt: null,
+    });
+    return liveSnapshot;
   }
+
   try {
     const response = await fetch(liveUrl);
     if (!response.ok) {
-      liveLastStatus = {
-        connected: false,
-        warnings: [`Live CARB source returned HTTP ${response.status}.`],
+      liveSnapshot = buildSnapshot({
+        records: [],
+        sourceMode: 'LIVE',
+        datasetVersion,
+        retrievalDate,
         sourceUrl: liveUrl,
-        datasetVersion: process.env.CARB_LIVE_DATASET_VERSION || 'live-unknown',
-      };
-      return { records: [], warnings: [`Live CARB source returned HTTP ${response.status}.`] };
+        warnings: [`Live CARB source returned HTTP ${response.status}.`],
+        rejectedRows: 0,
+        lastImportAt: null,
+      });
+      return liveSnapshot;
     }
     const contentType = response.headers.get('content-type') ?? '';
-    const body = await response.text();
-    const rows: Record<string, unknown>[] = contentType.includes('json')
-      ? (Array.isArray(JSON.parse(body)) ? JSON.parse(body) : [])
-      : csvToRows(body);
-    const records = rows.map((row) => normalizeRow(row, {
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+    let rows: Record<string, unknown>[] = [];
+    try {
+      rows = parseRowsFromBuffer(buffer, liveUrl, contentType);
+    } catch (error) {
+      liveSnapshot = buildSnapshot({
+        records: [],
+        sourceMode: 'LIVE',
+        datasetVersion,
+        retrievalDate,
+        sourceUrl: liveUrl,
+        warnings: [`CARB XLSX parser failed. Verify spreadsheet format or use CSV/JSON import. ${error instanceof Error ? error.message : ''}`.trim()],
+        rejectedRows: 0,
+        lastImportAt: null,
+      });
+      return liveSnapshot;
+    }
+    const extracted = extractAndValidateRows(rows, {
+      sourceMode: 'LIVE',
       dataSource: 'CARB live/public dataset',
       sourceUrl: liveUrl,
-      datasetVersion: process.env.CARB_LIVE_DATASET_VERSION || 'live-unknown',
-      retrievalDate: new Date().toISOString().slice(0, 10),
+      datasetVersion,
+      retrievalDate,
       baseStatus: 'CARB PUBLIC DATA',
-    }));
-    liveLastStatus = {
-      connected: true,
-      warnings: [],
-      sourceUrl: liveUrl,
-      datasetVersion: process.env.CARB_LIVE_DATASET_VERSION || 'live-unknown',
-    };
-    return { records, warnings: [] };
-  } catch (error) {
-    liveLastStatus = {
-      connected: false,
-      warnings: [`Live CARB source fetch failed: ${error instanceof Error ? error.message : 'unknown error'}`],
-      sourceUrl: liveUrl,
-      datasetVersion: process.env.CARB_LIVE_DATASET_VERSION || 'live-unknown',
-    };
-    return { records: [], warnings: [`Live CARB source fetch failed: ${error instanceof Error ? error.message : 'unknown error'}`] };
-  }
-}
-
-export async function searchCarbFacilityRecords(params: SearchParams): Promise<{ results: CARBFacilityRecord[]; count: number; sourceMode: SourceMode; warnings: string[] }> {
-  const warnings: string[] = [];
-  const live = await fetchLiveDataset();
-  warnings.push(...live.warnings);
-  let sourceMode: SourceMode = 'LIVE';
-  let selected = live.records;
-
-  if (!selected.length) {
-    await loadImportedFromDiskIfAny();
-    if (importedRecords.length) {
-      sourceMode = 'IMPORTED';
-      selected = importedRecords;
-    } else {
-      sourceMode = 'LIVE';
-      selected = [];
-      warnings.push('No live/imported CARB records are currently loaded.');
+      lastImportAt: new Date().toISOString(),
+    });
+    liveSnapshot = extracted.snapshot;
+    if (!liveSnapshot.records.length && !liveSnapshot.warnings.some((warning) => warning.includes('could not be parsed'))) {
+      liveSnapshot.warnings.push('Official CARB source was reached but could not be parsed as a valid CARB dataset.');
     }
+    return liveSnapshot;
+  } catch (error) {
+    liveSnapshot = buildSnapshot({
+      records: [],
+      sourceMode: 'LIVE',
+      datasetVersion,
+      retrievalDate,
+      sourceUrl: liveUrl,
+      warnings: [`Live CARB source fetch failed: ${error instanceof Error ? error.message : 'unknown error'}`],
+      rejectedRows: 0,
+      lastImportAt: null,
+    });
+    return liveSnapshot;
   }
-
-  const results = applySearch(selected, params);
-  return { results, count: results.length, sourceMode, warnings };
 }
 
-export async function importCarbDataset(input: { records?: unknown[]; csvText?: string; jsonText?: string; datasetVersion?: string; sourceUrl?: string; retrievalDate?: string }): Promise<ImportValidationSummary> {
+async function resolveActiveDataset(): Promise<DatasetSnapshot> {
+  const live = await fetchLiveDataset();
+  if (live.sourceUrl) return live;
+  await loadImportedFromDiskIfAny();
+  if (importedSnapshot.records.length) return importedSnapshot;
+  const mergedWarnings = Array.from(new Set([...live.warnings, ...importedSnapshot.warnings, 'No live/imported CARB records are currently loaded.']));
+  return buildSnapshot({
+    records: [],
+    sourceMode: live.sourceMode,
+    datasetVersion: live.datasetVersion || importedSnapshot.datasetVersion || 'import-not-loaded',
+    retrievalDate: live.retrievalDate || importedSnapshot.retrievalDate || new Date().toISOString().slice(0, 10),
+    sourceUrl: live.sourceUrl || importedSnapshot.sourceUrl || '',
+    warnings: mergedWarnings,
+    rejectedRows: live.quality.rejectedRows + importedSnapshot.quality.rejectedRows,
+    lastImportAt: importedSnapshot.lastImportAt,
+  });
+}
+
+export async function searchCarbFacilityRecords(params: SearchParams): Promise<{
+  results: CARBFacilityRecord[];
+  count: number;
+  sourceMode: SourceMode;
+  datasetVersion: string;
+  retrievalDate: string;
+  sourceUrl: string;
+  warnings: string[];
+  quality: DatasetQuality;
+}> {
+  const active = await resolveActiveDataset();
+  const cleanRecords = active.records.filter((record) => !isClearlyMalformedRecord(record));
+  const results = applySearch(cleanRecords, params);
+  return {
+    results,
+    count: results.length,
+    sourceMode: active.sourceMode,
+    datasetVersion: active.datasetVersion,
+    retrievalDate: active.retrievalDate,
+    sourceUrl: active.sourceUrl,
+    warnings: active.warnings,
+    quality: active.quality,
+  };
+}
+
+export async function importCarbDataset(input: {
+  records?: unknown[];
+  csvText?: string;
+  jsonText?: string;
+  datasetVersion?: string;
+  sourceUrl?: string;
+  retrievalDate?: string;
+}): Promise<ImportValidationSummary> {
   const warnings: string[] = [];
   const rows: Record<string, unknown>[] = [];
-
   if (Array.isArray(input.records)) {
     rows.push(...(input.records as Record<string, unknown>[]));
   }
@@ -436,16 +805,12 @@ export async function importCarbDataset(input: { records?: unknown[]; csvText?: 
   if (input.jsonText) {
     try {
       const parsed = JSON.parse(input.jsonText);
-      if (Array.isArray(parsed)) {
-        rows.push(...(parsed as Record<string, unknown>[]));
-      } else {
-        warnings.push('jsonText parsed but was not an array.');
-      }
+      if (Array.isArray(parsed)) rows.push(...(parsed as Record<string, unknown>[]));
+      else warnings.push('jsonText parsed but was not an array.');
     } catch {
       warnings.push('jsonText could not be parsed.');
     }
   }
-
   if (!rows.length) {
     warnings.push('No rows provided for import.');
     return {
@@ -460,83 +825,103 @@ export async function importCarbDataset(input: { records?: unknown[]; csvText?: 
 
   const datasetVersion = input.datasetVersion ?? `manual-import-${Date.now()}`;
   const retrievalDate = input.retrievalDate ?? new Date().toISOString().slice(0, 10);
-  const accepted: CARBFacilityRecord[] = [];
-  const missingRequiredFields = new Set<string>();
-  const rejectedDetails: Array<{ rowNumber: number; reason: string }> = [];
-  let rejectedRows = 0;
-
-  rows.forEach((row, index) => {
-    const validation = validateImportRow(row);
-    if (validation.missing.length > 0) {
-      rejectedRows += 1;
-      validation.missing.forEach((field) => missingRequiredFields.add(field));
-      warnings.push(`Row ${index + 2} rejected: missing ${validation.missing.join(', ')}.`);
-      rejectedDetails.push({
-        rowNumber: index + 2,
-        reason: `Missing ${validation.missing.join(', ')}`,
-      });
-      return;
-    }
-    accepted.push(normalizeRow(row, {
-      dataSource: 'Imported CARB dataset',
-      sourceUrl: input.sourceUrl ?? '',
-      datasetVersion,
-      retrievalDate,
-      baseStatus: 'IMPORTED DATASET',
-    }));
+  const extracted = extractAndValidateRows(rows, {
+    sourceMode: 'IMPORTED',
+    dataSource: 'Imported CARB dataset',
+    sourceUrl: input.sourceUrl ?? '',
+    datasetVersion,
+    retrievalDate,
+    baseStatus: 'IMPORTED DATASET',
+    lastImportAt: new Date().toISOString(),
   });
-
-  importedRecords = accepted;
-  importedMeta = {
+  importedSnapshot = buildSnapshot({
+    records: extracted.snapshot.records,
+    sourceMode: 'IMPORTED',
     datasetVersion,
     retrievalDate,
     sourceUrl: input.sourceUrl ?? '',
+    warnings: extracted.snapshot.warnings,
+    rejectedRows: extracted.rejectedDetails.length,
     lastImportAt: new Date().toISOString(),
-  };
+  });
   importedBootstrapped = true;
+
+  const missingFieldSet = new Set<string>();
+  extracted.rejectedDetails.forEach((detail) => {
+    if (detail.reason.toLowerCase().includes('name')) missingFieldSet.add('facilityNameOrOperatorName');
+    if (detail.reason.toLowerCase().includes('reportingyear')) missingFieldSet.add('reportingYear');
+    if (detail.reason.toLowerCase().includes('totalco2e')) missingFieldSet.add('totalCO2e');
+  });
   return {
-    imported: importedRecords.length,
-    warnings,
-    acceptedRows: accepted.length,
-    rejectedRows,
-    missingRequiredFields: Array.from(missingRequiredFields),
-    rejectedDetails,
+    imported: importedSnapshot.records.length,
+    warnings: [...warnings, ...importedSnapshot.warnings],
+    acceptedRows: importedSnapshot.records.length,
+    rejectedRows: extracted.rejectedDetails.length,
+    missingRequiredFields: Array.from(missingFieldSet),
+    rejectedDetails: extracted.rejectedDetails,
   };
 }
 
-export async function syncOfficialCarbDataset(): Promise<{ imported: number; warnings: string[] }> {
+export async function syncOfficialCarbDataset(): Promise<{ imported: number; warnings: string[]; datasetVersion: string; recordCount: number }> {
   const url = process.env.CARB_OFFICIAL_DATA_URL?.trim();
   if (!url) {
-    return { imported: 0, warnings: ['CARB_OFFICIAL_DATA_URL is not configured.'] };
+    return { imported: 0, warnings: ['Official sync cannot run until CARB_OFFICIAL_DATA_URL is configured.'], datasetVersion: 'import-not-loaded', recordCount: 0 };
   }
   try {
     const response = await fetch(url);
     if (!response.ok) {
-      return { imported: 0, warnings: [`Official CARB source returned HTTP ${response.status}.`] };
+      return { imported: 0, warnings: [`Official CARB source returned HTTP ${response.status}.`], datasetVersion: 'import-not-loaded', recordCount: 0 };
     }
     const contentType = response.headers.get('content-type') ?? '';
-    const body = await response.text();
-    const importResult = await importCarbDataset({
-      csvText: contentType.includes('json') ? undefined : body,
-      jsonText: contentType.includes('json') ? body : undefined,
-      datasetVersion: process.env.CARB_LIVE_DATASET_VERSION || `official-sync-${Date.now()}`,
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const rows = parseRowsFromBuffer(buffer, url, contentType);
+    const datasetVersion = process.env.CARB_LIVE_DATASET_VERSION || `official-sync-${Date.now()}`;
+    const retrievalDate = new Date().toISOString().slice(0, 10);
+    const extracted = extractAndValidateRows(rows, {
+      sourceMode: 'IMPORTED',
+      dataSource: 'Imported CARB dataset',
       sourceUrl: url,
-      retrievalDate: new Date().toISOString().slice(0, 10),
+      datasetVersion,
+      retrievalDate,
+      baseStatus: 'IMPORTED DATASET',
+      lastImportAt: new Date().toISOString(),
     });
+    importedSnapshot = buildSnapshot({
+      records: extracted.snapshot.records,
+      sourceMode: 'IMPORTED',
+      datasetVersion,
+      retrievalDate,
+      sourceUrl: url,
+      warnings: extracted.snapshot.warnings,
+      rejectedRows: extracted.rejectedDetails.length,
+      lastImportAt: new Date().toISOString(),
+    });
+    importedBootstrapped = true;
     return {
-      imported: importResult.imported,
-      warnings: importResult.warnings,
+      imported: importedSnapshot.records.length,
+      warnings: importedSnapshot.warnings,
+      datasetVersion: importedSnapshot.datasetVersion,
+      recordCount: importedSnapshot.records.length,
     };
   } catch (error) {
     return {
       imported: 0,
-      warnings: [`Failed to sync official CARB dataset: ${error instanceof Error ? error.message : 'unknown error'}`],
+      warnings: [`CARB XLSX parser failed. Verify spreadsheet format or use CSV/JSON import. ${error instanceof Error ? error.message : ''}`.trim()],
+      datasetVersion: 'import-not-loaded',
+      recordCount: 0,
     };
   }
 }
 
 function collectDistinct(records: CARBFacilityRecord[], mapper: (record: CARBFacilityRecord) => string | number): string[] {
-  return Array.from(new Set(records.map(mapper).map((value) => String(value).trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  return Array.from(
+    new Set(
+      records
+        .map(mapper)
+        .map((value) => String(value).trim())
+        .filter((value) => value && !isUnknown(value)),
+    ),
+  ).sort((a, b) => a.localeCompare(b));
 }
 
 export async function getCarbDataStatus(): Promise<{
@@ -554,51 +939,108 @@ export async function getCarbDataStatus(): Promise<{
   lastImportAt: string | null;
   searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
   warnings: string[];
+  quality: DatasetQuality;
 }> {
-  const warnings: string[] = [];
-  const live = await fetchLiveDataset();
-  warnings.push(...live.warnings);
-  await loadImportedFromDiskIfAny();
-
-  const liveRecords = live.records;
-  const hasLive = liveRecords.length > 0;
-  const hasImported = importedRecords.length > 0;
-  const sourceMode: SourceMode = hasLive ? 'LIVE' : hasImported ? 'IMPORTED' : 'LIVE';
-  const active = hasLive ? liveRecords : hasImported ? importedRecords : [];
-  const datasetVersion = hasLive
-    ? (liveLastStatus.datasetVersion || 'live-unknown')
-    : importedMeta.datasetVersion;
-  const sourceUrl = hasLive ? liveLastStatus.sourceUrl : importedMeta.sourceUrl;
-  const retrievalDate = active[0]?.retrievalDate || importedMeta.retrievalDate || new Date().toISOString().slice(0, 10);
-  const recordCount = active.length;
-  const datasetLoaded = recordCount > 0;
+  const active = await resolveActiveDataset();
+  const cleanRecords = active.records.filter((record) => !isClearlyMalformedRecord(record));
+  const availableYears = Array.from(new Set(cleanRecords.map((record) => record.reportingYear))).filter((year) => Number.isFinite(year)).sort((a, b) => a - b);
+  const availableCounties = collectDistinct(cleanRecords, (record) => record.county);
+  const availableSectors = collectDistinct(cleanRecords, (record) => record.sector);
+  const availableOperators = collectDistinct(cleanRecords, (record) => record.operatorName);
+  const datasetLoaded = cleanRecords.length > 0
+    && availableYears.length > 0
+    && (availableCounties.length > 0 || availableSectors.length > 0 || availableOperators.length > 0);
   let searchReadiness: 'Ready' | 'Limited' | 'Not Ready' = 'Not Ready';
-  if (datasetLoaded) searchReadiness = 'Ready';
-  else if (liveLastStatus.connected || importedMeta.datasetVersion !== 'import-not-loaded') searchReadiness = 'Limited';
-
-  if (!datasetLoaded) {
-    warnings.push('No searchable CARB records are currently loaded.');
+  if (datasetLoaded) {
+    searchReadiness = 'Ready';
+  } else if (active.sourceUrl || active.datasetVersion !== 'import-not-loaded') {
+    searchReadiness = 'Limited';
   }
-
+  const warnings = [...active.warnings];
+  if (!datasetLoaded) {
+    warnings.push('Official CARB source was reached but could not be parsed as a valid CARB dataset.');
+  }
+  if (active.records.length > cleanRecords.length) {
+    warnings.push('Cached CARB import was rejected because it contains malformed XLSX/binary rows.');
+  }
   return {
     ok: true,
-    sourceMode,
+    sourceMode: active.sourceMode,
     datasetLoaded,
-    datasetVersion: datasetVersion || 'import-not-loaded',
-    sourceUrl: sourceUrl || '',
-    retrievalDate,
-    recordCount,
-    availableYears: Array.from(new Set(active.map((record) => record.reportingYear))).sort((a, b) => a - b),
-    availableCounties: collectDistinct(active, (record) => record.county),
-    availableSectors: collectDistinct(active, (record) => record.sector),
-    availableOperators: collectDistinct(active, (record) => record.operatorName),
-    lastImportAt: importedMeta.lastImportAt,
+    datasetVersion: active.datasetVersion || 'import-not-loaded',
+    sourceUrl: active.sourceUrl || '',
+    retrievalDate: active.retrievalDate,
+    recordCount: datasetLoaded ? cleanRecords.length : 0,
+    availableYears,
+    availableCounties,
+    availableSectors,
+    availableOperators,
+    lastImportAt: active.lastImportAt,
     searchReadiness,
+    warnings: Array.from(new Set(warnings.filter(Boolean))),
+    quality: active.quality,
+  };
+}
+
+export async function getCarbDataSmokeCheck(): Promise<CarbSmokeResult> {
+  const failures: string[] = [];
+  const warnings: string[] = [];
+  const status = await getCarbDataStatus();
+  const empty = await searchCarbFacilityRecords({ limit: 5 });
+  const shell = await searchCarbFacilityRecords({ q: 'Shell', limit: 10 });
+  const refinery = await searchCarbFacilityRecords({ sector: 'Refinery', limit: 10 });
+  const year2024 = await searchCarbFacilityRecords({ year: 2024, limit: 10 });
+
+  const hasQualityCoverage = Boolean(status.quality && status.quality.availableFieldCoverage);
+  if (!hasQualityCoverage) failures.push('quality.availableFieldCoverage is missing.');
+
+  const emptySearchHasRealRows = empty.results.length > 0
+    && empty.results.some((record) => !isUnknown(record.facilityName) && record.totalCO2e != null);
+  if (!emptySearchHasRealRows) {
+    failures.push('Empty search does not return real CARB rows.');
+  }
+
+  const noBinaryGarbageRows = empty.results.every((record) => !hasBinaryGarbageRow(record));
+  if (!noBinaryGarbageRows) failures.push('Binary XLSX/PK garbage detected in returned rows.');
+
+  if (status.searchReadiness === 'Ready' && !status.datasetLoaded) {
+    failures.push('searchReadiness is Ready while datasetLoaded is false.');
+  }
+
+  if (status.searchReadiness === 'Ready' && status.quality.availableFieldCoverage.totalCO2e === 0) {
+    failures.push('searchReadiness is Ready but totalCO2e coverage is unusable.');
+  }
+
+  if (shell.count === 0) failures.push('Shell search returned zero rows.');
+  if (refinery.count === 0) failures.push('Refinery search returned zero rows.');
+  if (year2024.count === 0) failures.push('Year 2024 search returned zero rows.');
+
+  warnings.push(...status.warnings);
+  warnings.push(...empty.warnings);
+  warnings.push(...shell.warnings);
+  warnings.push(...refinery.warnings);
+  warnings.push(...year2024.warnings);
+
+  return {
+    ok: failures.length === 0,
+    statusReady: status.searchReadiness === 'Ready' && status.datasetLoaded,
+    hasQualityCoverage,
+    emptySearchHasRealRows,
+    noBinaryGarbageRows,
+    shellSearchCount: shell.count,
+    refinerySearchCount: refinery.count,
+    year2024SearchCount: year2024.count,
+    failures: Array.from(new Set(failures)),
     warnings: Array.from(new Set(warnings.filter(Boolean))),
   };
 }
 
 export function getCarbImportMeta() {
-  return importedMeta;
+  return {
+    datasetVersion: importedSnapshot.datasetVersion,
+    retrievalDate: importedSnapshot.retrievalDate,
+    sourceUrl: importedSnapshot.sourceUrl,
+    lastImportAt: importedSnapshot.lastImportAt,
+  };
 }
 
