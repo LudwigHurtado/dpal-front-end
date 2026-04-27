@@ -1,0 +1,44 @@
+{
+  "base": "http://127.0.0.1:4173",
+  "flows": {
+    "flow1": {
+      "focusAfterPoint": "Map point near Madera County, California",
+      "drawPromptVisible": true,
+      "redMarkerCount": 1,
+      "drawingNoticeVisible": true,
+      "workflowBoundaryDrawing": true,
+      "pointCountVisible": true,
+      "focusUnchangedWhileDrawing": true,
+      "saveEnabledAfterFourPoints": true,
+      "saveNoticeVisible": true,
+      "aoiStatusSaved": true,
+      "ndwiDefault": "NDWI",
+      "presetB": {
+        "beforeFrom": "2025-06-01",
+        "beforeTo": "2025-06-30",
+        "afterFrom": "2025-07-01",
+        "afterTo": "2025-07-31"
+      },
+      "calculateEnabled": false,
+      "comparisonBlockedBackend": true,
+      "comparisonLoaded": false,
+      "comparisonUnavailable": false,
+      "packetEnabled": true,
+      "packetIncludesAoi": true,
+      "packetIncludesDateRanges": true
+    },
+    "flow2": {
+      "calculateBlockedWithoutAoi": true,
+      "blockedReasonExact": true
+    },
+    "flow3": {
+      "focusUnchanged": true,
+      "aoiClicksAddedPoints": true
+    },
+    "flow4": {
+      "focusRetainedAfterClear": true,
+      "comparisonBlockedAfterClear": true,
+      "blockedReasonExact": true
+    }
+  }
+}

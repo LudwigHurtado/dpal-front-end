@@ -1,0 +1,10 @@
+{
+  "aoiGeoJson": {
+    "type": "Polygon",
+    "coordinates": [[[-120.0000,39.1000],[-119.9850,39.1000],[-119.9850,39.1100],[-120.0000,39.1100],[-120.0000,39.1000]]]
+  },
+  "indexType": "NDWI",
+  "collection": "sentinel-2-l2a",
+  "before": { "fromDate": "2025-06-01", "toDate": "2025-06-30" },
+  "after": { "fromDate": "2025-07-01", "toDate": "2025-07-31" }
+}
