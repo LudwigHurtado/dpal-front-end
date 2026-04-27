@@ -1789,6 +1789,118 @@ export default function AquaScanView({
     };
   }
 
+  function reportIndexKey(indexType: CopernicusIndexType): 'ndwi' | 'ndvi' | 'ndmi' | 'nbr' {
+    if (indexType === 'NDVI') return 'ndvi';
+    if (indexType === 'NDMI') return 'ndmi';
+    if (indexType === 'NBR') return 'nbr';
+    return 'ndwi';
+  }
+
+  async function buildReportIndices(
+    sourceContext: ReturnType<typeof buildReportSourceContext>,
+    historyItem?: AquaScanCalculationHistoryEntry | null,
+  ): Promise<{
+    indices: {
+      ndwi?: ReturnType<typeof buildIndexEntry>;
+      ndvi?: ReturnType<typeof buildIndexEntry>;
+      ndmi?: ReturnType<typeof buildIndexEntry>;
+      nbr?: ReturnType<typeof buildIndexEntry>;
+    };
+    unavailable: string[];
+    autoFetched: string[];
+  }> {
+    const indices = {
+      ndwi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+      ndvi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+      ndmi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+      nbr: undefined as ReturnType<typeof buildIndexEntry> | undefined,
+    };
+    const unavailable = new Set<string>();
+    const autoFetched = new Set<string>();
+    const requestedIndexes: CopernicusIndexType[] = ['NDWI', 'NDVI', 'NDMI', 'NBR'];
+
+    if (sourceContext.result?.indexType) {
+      indices[reportIndexKey(sourceContext.result.indexType)] = buildIndexEntry(
+        sourceContext.result.before.mean ?? null,
+        sourceContext.result.after.mean ?? null,
+        sourceContext.result.delta.percentChange ?? null,
+      );
+    }
+
+    const canAutoFetchAllIndexes = Boolean(
+      savedAoiGeoJson
+      && readySavedAoi
+      && sourceContext.beforeWindow?.from
+      && sourceContext.beforeWindow?.to
+      && sourceContext.afterWindow?.from
+      && sourceContext.afterWindow?.to
+      && (!historyItem || historyItem.setupSignature === currentComparisonSetupSignature),
+    );
+
+    if (canAutoFetchAllIndexes && savedAoiGeoJson) {
+      const collection = sourceContext.result?.collection ?? comparisonCollection;
+      const settled = await Promise.allSettled(
+        requestedIndexes.map(async (indexType) => {
+          if (sourceContext.result?.indexType === indexType && indices[reportIndexKey(indexType)]) {
+            return { indexType, result: sourceContext.result, fetched: false };
+          }
+          const result = await fetchAoiStatisticsComparison({
+            aoiGeoJson: savedAoiGeoJson,
+            indexType,
+            collection,
+            before: {
+              from: sourceContext.beforeWindow!.from,
+              to: sourceContext.beforeWindow!.to,
+            },
+            after: {
+              from: sourceContext.afterWindow!.from,
+              to: sourceContext.afterWindow!.to,
+            },
+          });
+          return { indexType, result, fetched: true };
+        }),
+      );
+
+      settled.forEach((entry, idx) => {
+        const indexType = requestedIndexes[idx];
+        if (entry.status === 'fulfilled') {
+          indices[reportIndexKey(indexType)] = buildIndexEntry(
+            entry.value.result.before.mean ?? null,
+            entry.value.result.after.mean ?? null,
+            entry.value.result.delta.percentChange ?? null,
+          );
+          if (entry.value.fetched) {
+            autoFetched.add(indexType);
+          }
+        } else {
+          unavailable.add(indexType);
+        }
+      });
+    } else {
+      requestedIndexes.forEach((indexType) => {
+        if (!indices[reportIndexKey(indexType)]) {
+          unavailable.add(indexType);
+        }
+      });
+    }
+
+    if (!indices.ndwi && typeof waterData?.waterAnalysis.ndwi === 'number') {
+      indices.ndwi = {
+        before: undefined,
+        after: Number(waterData.waterAnalysis.ndwi.toFixed(6)),
+        change: undefined,
+        percentChange: undefined,
+      };
+      unavailable.delete('NDWI');
+    }
+
+    return {
+      indices,
+      unavailable: Array.from(unavailable),
+      autoFetched: Array.from(autoFetched),
+    };
+  }
+
   function buildReportSourceContext(historyItem?: AquaScanCalculationHistoryEntry | null): {
     sourceLabel: string;
     result: CopernicusStatisticsComparisonResponse | null;
@@ -1883,29 +1995,7 @@ export default function AquaScanView({
     setReportNotice(null);
     try {
       const sourceContext = buildReportSourceContext(options?.historyItem ?? null);
-      const baseIndices = {
-        ndwi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-        ndvi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-        ndmi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-        nbr: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-      };
-      const selectedIndexEntry = buildIndexEntry(
-        sourceContext.result?.before.mean ?? null,
-        sourceContext.result?.after.mean ?? null,
-        sourceContext.result?.delta.percentChange ?? null,
-      );
-      if (comparisonIndexType === 'NDWI') baseIndices.ndwi = selectedIndexEntry;
-      if (comparisonIndexType === 'NDVI') baseIndices.ndvi = selectedIndexEntry;
-      if (comparisonIndexType === 'NDMI') baseIndices.ndmi = selectedIndexEntry;
-      if (comparisonIndexType === 'NBR') baseIndices.nbr = selectedIndexEntry;
-      if (!baseIndices.ndwi && typeof waterData?.waterAnalysis.ndwi === 'number') {
-        baseIndices.ndwi = {
-          before: undefined,
-          after: Number(waterData.waterAnalysis.ndwi.toFixed(6)),
-          change: undefined,
-          percentChange: undefined,
-        };
-      }
+      const reportIndices = await buildReportIndices(sourceContext, options?.historyItem ?? null);
 
       const cloudCoverText = waterData?.satellite.cloudCover ?? '';
       const cloudCoverNumber = cloudCoverText
@@ -1928,7 +2018,7 @@ export default function AquaScanView({
           areaSqKm: Number(savedAoiAreaSqKm.toFixed(4)),
           status: sourceContext.statusLabel,
           confidence: sourceContext.confidence,
-          indices: baseIndices,
+          indices: reportIndices.indices,
         },
         satelliteMetadata: {
           source: sourceContext.result?.sourceCitation ?? sourceContext.comparisonSource,
@@ -1957,6 +2047,12 @@ export default function AquaScanView({
             packetPreview.legalSafeNote,
             ...intelligenceReader.limitations,
             !waterData ? 'Live satellite values are pending connection for the current selection.' : '',
+            reportIndices.autoFetched.length > 0
+              ? `Auto-analysis added for report generation: ${reportIndices.autoFetched.join(', ')}.`
+              : '',
+            reportIndices.unavailable.length > 0
+              ? `Automatic multi-index comparison was not available for: ${reportIndices.unavailable.join(', ')}. Those rows remain Not available or fallback only.`
+              : '',
             sourceContext.sourceLabel === 'Preliminary / no active comparison loaded'
               ? 'No active calculated result was loaded at report creation time. This report is preliminary and based on current workspace state.'
               : '',
@@ -1978,8 +2074,8 @@ export default function AquaScanView({
       setGeneratedReport(finalizedReport);
       setReportNotice(
         finalizedReport.hashes.pdfHash
-          ? 'Evidence report created, logged to the DPAL Evidence Ledger, QR generated, and PDF hash recorded.'
-          : 'Evidence report created, logged, and QR generated. PDF hash is still pending.',
+          ? `Evidence report created, logged to the DPAL Evidence Ledger, QR generated, and PDF hash recorded.${reportIndices.autoFetched.length > 0 ? ` Auto-analysis added: ${reportIndices.autoFetched.join(', ')}.` : ''}${reportIndices.unavailable.length > 0 ? ` Unavailable: ${reportIndices.unavailable.join(', ')}.` : ''}`
+          : `Evidence report created, logged, and QR generated. PDF hash is still pending.${reportIndices.autoFetched.length > 0 ? ` Auto-analysis added: ${reportIndices.autoFetched.join(', ')}.` : ''}${reportIndices.unavailable.length > 0 ? ` Unavailable: ${reportIndices.unavailable.join(', ')}.` : ''}`,
       );
       if (options?.openReportAfterCreate) {
         onOpenAquaScanReport?.(finalizedReport.reportId);
