@@ -851,38 +851,68 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const executeSearch = async () => {
     setIsSearching(true);
-    const res = await searchCarbFacilities({
-      q: facilitySearch.q,
-      facilityId: facilitySearch.facilityId,
-      city: facilitySearch.city,
-      county: facilitySearch.county,
-      sector: facilitySearch.sector,
-      year: facilitySearch.year,
-      limit: '500',
-    });
-    setFacilities(res.results as CarbFacility[]);
-    setSourceMode(res.sourceMode);
-    setSearchWarnings(res.warnings ?? []);
-    setDatasetVersion(res.datasetVersion ?? 'unavailable');
-    setRetrievalDate(res.retrievalDate ?? '');
-    setCurrentPage(1);
-    setHasSearched(true);
-    setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
-    setIsSearching(false);
-    return res;
+    try {
+      const res = await searchCarbFacilities({
+        q: facilitySearch.q,
+        facilityId: facilitySearch.facilityId,
+        city: facilitySearch.city,
+        county: facilitySearch.county,
+        sector: facilitySearch.sector,
+        year: facilitySearch.year,
+        limit: '500',
+      });
+      setFacilities(res.results as CarbFacility[]);
+      setSourceMode(res.sourceMode);
+      setSearchWarnings(res.warnings ?? []);
+      setDatasetVersion(res.datasetVersion ?? 'unavailable');
+      setRetrievalDate(res.retrievalDate ?? '');
+      setCurrentPage(1);
+      setHasSearched(true);
+      setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
+      return res;
+    } catch (error: unknown) {
+      setFacilities([]);
+      setHasSearched(true);
+      setMessage(error instanceof Error ? `CARB search failed: ${error.message}` : 'CARB search failed. Please retry.');
+      throw error;
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   const handleSearch = async () => {
     const hasAnyFilter = Object.values(facilitySearch).some((value) => value.trim().length > 0);
     if (!hasAnyFilter) {
-      setFacilities([]);
-      setSelected(null);
-      setHasSearched(false);
-      setMessage('Enter at least one search filter before searching CARB facilities.');
+      try {
+        setIsManualInvestigationMode(false);
+        setIsSearching(true);
+        const res = await searchCarbFacilities({ limit: '500' });
+        setFacilities(res.results as CarbFacility[]);
+        setSourceMode(res.sourceMode);
+        setSearchWarnings(res.warnings ?? []);
+        setDatasetVersion(res.datasetVersion ?? 'unavailable');
+        setRetrievalDate(res.retrievalDate ?? '');
+        setCurrentPage(1);
+        setHasSearched(true);
+        setMessage(res.count > 0
+          ? `Loaded ${res.count} CARB facility record(s).`
+          : 'No CARB facilities were returned. Import an official CARB dataset or start a manual investigation.');
+      } catch (error: unknown) {
+        setFacilities([]);
+        setHasSearched(true);
+        setMessage(error instanceof Error ? `Could not load CARB facilities: ${error.message}` : 'Could not load CARB facilities.');
+      } finally {
+        setIsSearching(false);
+      }
       return;
     }
     setIsManualInvestigationMode(false);
-    const res = await executeSearch();
+    let res;
+    try {
+      res = await executeSearch();
+    } catch {
+      return;
+    }
     if (!res.count) {
       const canRunBroadFallback = Boolean(facilitySearch.city.trim() || facilitySearch.county.trim() || facilitySearch.sector.trim() || facilitySearch.year.trim());
       if (canRunBroadFallback) {
