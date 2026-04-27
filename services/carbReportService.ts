@@ -115,6 +115,8 @@ export function buildCarbReport(input: BuildCarbReportInput): CarbSpecializedRep
       status: 'open',
     },
     disclaimer:
-      'DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings. This report is a preliminary review tool.',
+      input.sourceMode === 'NEEDS_SOURCE'
+        ? 'Manual investigation draft - official CARB source not confirmed. DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings.'
+        : 'DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings. This report is a preliminary review tool.',
   };
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { CircleMarker, MapContainer, Marker, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, Marker, Polygon, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import {
@@ -19,6 +19,7 @@ import type { CarbSpecializedReport } from '../../../types/carbReport';
 import CarbReportPanel from '../../../components/carb/CarbReportPanel';
 import CarbReportViewer from '../../../components/carb/CarbReportViewer';
 import CarbSituationRoom from '../../../components/carb/CarbSituationRoom';
+import CarbIntelligenceReader from '../../../components/carb/CarbIntelligenceReader';
 
 type Props = {
   onReturn: () => void;
@@ -33,6 +34,16 @@ type CarbWorkspaceTab =
   | 'situation'
   | 'sources'
   | 'tasks';
+
+type ManualInvestigationDraft = {
+  companyOperatorName: string;
+  suspectedFacilityName: string;
+  city: string;
+  county: string;
+  state: string;
+  sourceUrl: string;
+  notes: string;
+};
 type SourceStatus = 'LIVE VERIFIED' | 'CARB PUBLIC DATA' | 'IMPORTED DATASET' | 'DEMO DATA' | 'MISSING' | 'NEEDS REVIEW';
 type ChecklistStatus = 'Complete' | 'Missing' | 'Optional' | 'Needs Review';
 
@@ -131,6 +142,18 @@ const manualMarker = L.divIcon({
 });
 
 const CA_CENTER: [number, number] = [36.7783, -119.4179];
+const BRAND_SEARCH_HINTS = ['shell', 'chevron', 'exxon', 'bp', 'marathon', 'valero', 'pbf', 'phillips', 'tesoro'];
+const CARB_SEARCH_ASSISTANT_ALIASES: Record<string, string[]> = {
+  shell: ['shell oil', 'shell energy', 'motiva', 'equilon', 'fuel supplier'],
+  chevron: ['chevron usa', 'chevron products', 'chevron refinery', 'fuel supplier'],
+  exxon: ['exxonmobil', 'exxon mobil', 'xom', 'refinery operator'],
+  bp: ['bp west coast', 'bp products', 'arco', 'fuel supplier'],
+  marathon: ['marathon petroleum', 'mpc', 'refinery'],
+  valero: ['valero energy', 'valero refinery', 'fuel supplier'],
+  pbf: ['pbf energy', 'refinery operator'],
+  phillips: ['phillips 66', 'psx', 'fuel supplier'],
+  tesoro: ['andeavor', 'marathon petroleum', 'historical operator name'],
+};
 
 function downloadJsonFile(filename: string, payload: unknown) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -190,6 +213,15 @@ function CarbMapClickCapture({ onMapClick }: { onMapClick: (lat: number, lng: nu
   return null;
 }
 
+function CarbMapInvalidateSize({ watchKey }: { watchKey: string }) {
+  const map = useMap();
+  useEffect(() => {
+    const timer = window.setTimeout(() => map.invalidateSize(), 90);
+    return () => window.clearTimeout(timer);
+  }, [map, watchKey]);
+  return null;
+}
+
 const CarbEmissionsAuditPage: React.FC<Props> = ({
   onReturn,
   onOpenCarbReport,
@@ -206,7 +238,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<CarbFacility | null>(null);
-  const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK'>('DEMO_FALLBACK');
+  const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'>('DEMO_FALLBACK');
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [datasetVersion, setDatasetVersion] = useState('unavailable');
   const [retrievalDate, setRetrievalDate] = useState('');
@@ -244,7 +276,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [companyPickerMode, setCompanyPickerMode] = useState<'operator' | 'facility'>('operator');
   const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
+  const [recentCompanies, setRecentCompanies] = useState<string[]>([]);
   const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
+  const [manualInvestigation, setManualInvestigation] = useState<ManualInvestigationDraft>({
+    companyOperatorName: '',
+    suspectedFacilityName: '',
+    city: '',
+    county: '',
+    state: 'California',
+    sourceUrl: '',
+    notes: '',
+  });
+  const [isManualInvestigationMode, setIsManualInvestigationMode] = useState(false);
+  const [drawingPolygon, setDrawingPolygon] = useState(false);
+  const [polygonDraftPoints, setPolygonDraftPoints] = useState<[number, number][]>([]);
+  const [savedPolygonPoints, setSavedPolygonPoints] = useState<[number, number][]>([]);
   const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<CarbWorkspaceTab>('overview');
   const [paneWidths, setPaneWidths] = useState({ left: 36, right: 26 });
   const [activeResizeHandle, setActiveResizeHandle] = useState<'left' | 'right' | null>(null);
@@ -267,10 +313,42 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const mapCenter = selectedCoordinates ?? manualCoordinates ?? CA_CENTER;
   const centerPaneWidth = Math.max(20, 100 - paneWidths.left - paneWidths.right);
+  const mapRenderWatchKey = `${paneWidths.left}-${paneWidths.right}-${mapCenter[0]}-${mapCenter[1]}-${drawingPolygon}-${savedPolygonPoints.length}-${polygonDraftPoints.length}`;
+  const searchTerm = facilitySearch.q.trim();
+  const importedDatasetLoaded = Boolean(datasetVersion && datasetVersion !== 'import-not-loaded' && datasetVersion !== 'unavailable');
+  const isNoExactMatch = hasSearched && facilities.length === 0;
+  const shouldShowBrandSuggestions = BRAND_SEARCH_HINTS.includes(searchTerm.toLowerCase());
+  const searchAssistantAliases = CARB_SEARCH_ASSISTANT_ALIASES[searchTerm.toLowerCase()] ?? [];
 
   useEffect(() => {
     if (selectedCoordinates) setManualCoordinates(null);
   }, [selectedCoordinates]);
+
+  useEffect(() => {
+    if (!selected) {
+      setDrawingPolygon(false);
+      setPolygonDraftPoints([]);
+      setSavedPolygonPoints([]);
+    }
+  }, [selected]);
+
+  const applyQuickSearch = (patch: Partial<typeof facilitySearch>) => {
+    setFacilitySearch((prev) => ({ ...prev, ...patch }));
+    setMessage('Search filters updated. Run Search CARB Facilities.');
+  };
+
+  const startManualInvestigation = () => {
+    const companyName = searchTerm || manualInvestigation.companyOperatorName || 'Manual investigation subject';
+    setIsManualInvestigationMode(true);
+    setSourceMode('NEEDS_SOURCE');
+    setSelected(null);
+    setManualInvestigation((prev) => ({
+      ...prev,
+      companyOperatorName: prev.companyOperatorName || companyName,
+    }));
+    setActiveWorkspaceTab('investigation');
+    setMessage(`Manual investigation started for "${companyName}". No official CARB source confirmed yet.`);
+  };
 
   useEffect(() => {
     if (!activeResizeHandle) return;
@@ -453,10 +531,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   }, [selected, baselineYear, currentYear, calculatedReductionNumber, baselineEmissions, currentEmissions]);
 
   const sourceModeText = useMemo(() => {
+    if (sourceMode === 'LIVE' && !importedDatasetLoaded) {
+      return 'Live endpoint responded, but no imported CARB dataset is loaded. Search results may be incomplete until an official CARB spreadsheet is imported or the live connector returns indexed records.';
+    }
     if (sourceMode === 'LIVE') return 'This review uses a live CARB-connected dataset.';
     if (sourceMode === 'IMPORTED') return 'This review uses an imported CARB dataset derived from official reporting data.';
+    if (sourceMode === 'NEEDS_SOURCE') return 'Manual investigation mode: official CARB source not confirmed yet.';
     return 'This review uses demo data and is not suitable for real conclusions.';
-  }, [sourceMode]);
+  }, [sourceMode, importedDatasetLoaded]);
 
   const recommendedNextSteps = useMemo(() => {
     const steps: string[] = [];
@@ -629,12 +711,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const evidencePacket = {
     auditId: savedAuditId ?? `CARB-${Date.now()}`,
     module: 'DPAL CARB Emissions Audit',
-    facilityName: selected?.facilityName ?? '',
-    operatorName: selected?.operatorName ?? '',
-    carbFacilityId: selected?.facilityId ?? '',
+    facilityName: selected?.facilityName ?? manualInvestigation.suspectedFacilityName,
+    operatorName: selected?.operatorName ?? manualInvestigation.companyOperatorName,
+    carbFacilityId: selected?.facilityId ?? 'MANUAL-DRAFT',
     location: selected ? { latitude: selected.latitude, longitude: selected.longitude, city: selected.city, county: selected.county, state: 'California' } : null,
-    county: selected?.county ?? '',
-    sector: selected?.sector ?? '',
+    county: selected?.county ?? manualInvestigation.county,
+    sector: selected?.sector ?? 'Manual Investigation',
     baselineYear,
     currentYear,
     baselineEmissions,
@@ -647,13 +729,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     verificationStatus: selected?.verificationStatus ?? 'NEEDS REVIEW',
     dataSources,
     legalContext,
-    limitations: ['CARB data may have reporting lag.', 'Scope boundaries may differ from corporate claim language.'],
+    limitations: [
+      'CARB data may have reporting lag.',
+      'Scope boundaries may differ from corporate claim language.',
+      ...(isManualInvestigationMode ? ['Manual investigation draft - official CARB source not confirmed.'] : []),
+    ],
     recommendedNextSteps: verificationSummary.recommendedNextSteps,
     verificationSummary,
     aiNarrative,
     generatedAt: new Date().toISOString(),
-    dpalLedgerPlaceholder: { status: 'not_connected' },
+    dpalLedgerPlaceholder: { status: 'not_connected', mode: isManualInvestigationMode ? 'manual_draft' : 'standard' },
     checksumPlaceholder: 'pending-checksum',
+    manualInvestigation: isManualInvestigationMode ? manualInvestigation : null,
   };
 
   const executeSearch = async () => {
@@ -688,13 +775,30 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setMessage('Enter at least one search filter before searching CARB facilities.');
       return;
     }
+    setIsManualInvestigationMode(false);
     const res = await executeSearch();
-    if (!res.count && facilitySearch.q.trim()) {
-      setMessage(
-        res.sourceMode === 'DEMO_FALLBACK'
-          ? `No CARB records matched "${facilitySearch.q}". Current source mode is DEMO_FALLBACK. Import CARB CSV/JSON in Developer Import Tools, then search again.`
-          : `No CARB records matched "${facilitySearch.q}". Try a broader query or adjust city/county/year filters.`,
-      );
+    if (!res.count) {
+      const canRunBroadFallback = Boolean(facilitySearch.city.trim() || facilitySearch.county.trim() || facilitySearch.sector.trim() || facilitySearch.year.trim());
+      if (canRunBroadFallback) {
+        const broadRes = await searchCarbFacilities({
+          city: facilitySearch.city,
+          county: facilitySearch.county,
+          sector: facilitySearch.sector,
+          year: facilitySearch.year,
+          limit: '500',
+        });
+        if (broadRes.count > 0) {
+          setFacilities(broadRes.results as CarbFacility[]);
+          setSourceMode(broadRes.sourceMode);
+          setSearchWarnings(broadRes.warnings ?? []);
+          setDatasetVersion(broadRes.datasetVersion ?? 'unavailable');
+          setRetrievalDate(broadRes.retrievalDate ?? '');
+          setCurrentPage(1);
+          setMessage(`No exact match for "${facilitySearch.q}". Loaded ${broadRes.count} broader records using city/county/sector/year filters.`);
+          return;
+        }
+      }
+      setMessage(`No exact CARB match found for "${facilitySearch.q}". Use guided suggestions or start a manual investigation.`);
     }
   };
 
@@ -769,6 +873,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setFacilitySearch((prev) => ({ ...prev, q: value }));
     setShowCompanyPicker(false);
     setCompanyPickerQuery('');
+    setRecentCompanies((prev) => [value, ...prev.filter((item) => item !== value)].slice(0, 6));
     setMessage(`${companyPickerMode === 'operator' ? 'Company' : 'Facility'} selected: ${value}. Search filters updated.`);
   };
 
@@ -828,13 +933,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     linkedReportId: null,
   });
 
-  const canGenerateCarbReport = Boolean(
-    selected &&
-      baselineYear &&
-      currentYear &&
-      baselineEmissions !== '' &&
-      currentEmissions !== '',
+  const hasManualDraftIdentity = Boolean(
+    manualInvestigation.companyOperatorName.trim() || manualInvestigation.suspectedFacilityName.trim(),
   );
+  const canGenerateCarbReport = isManualInvestigationMode
+    ? hasManualDraftIdentity
+    : Boolean(
+      selected &&
+        baselineYear &&
+        currentYear &&
+        baselineEmissions !== '' &&
+        currentEmissions !== '',
+    );
   const evidencePacketReady = Boolean(selected && baselineYear && currentYear && baselineEmissions !== '' && currentEmissions !== '');
   const currentWorkflowStep = !selected
     ? 'Search and select a facility'
@@ -892,9 +1002,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   };
 
   const handleGenerateCarbReport = async () => {
-    if (!canGenerateCarbReport || !selected || !baselineYear || !currentYear) {
+    if (!canGenerateCarbReport) {
       setCarbReportNotice(
-        'Generate CARB Report requires: selected facility, baseline/current years, baseline emissions, and current emissions.',
+        isManualInvestigationMode
+          ? 'Manual report requires at least a company/operator or suspected facility name.'
+          : 'Generate CARB Report requires: selected facility, baseline/current years, baseline emissions, and current emissions.',
       );
       return;
     }
@@ -911,30 +1023,33 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           ? null
           : Number.parseFloat(calculatedReduction.replace('%', ''));
 
+      const effectiveBaselineYear = baselineYear || new Date().getFullYear() - 1;
+      const effectiveCurrentYear = currentYear || new Date().getFullYear();
+      const effectiveSourceMode = isManualInvestigationMode ? 'NEEDS_SOURCE' : sourceMode;
       const draft = buildCarbReport({
         auditId: savedAuditId ?? evidencePacket.auditId,
         createdBy: auth?.user?.fullName || auth?.user?.username || auth?.user?.email || 'DPAL user',
         facilityIdentity: {
-          facilityId: selected.facilityId,
-          facilityName: selected.facilityName,
-          operatorName: selected.operatorName,
-          sector: selected.sector,
+          facilityId: selected?.facilityId ?? 'MANUAL-DRAFT',
+          facilityName: selected?.facilityName ?? (manualInvestigation.suspectedFacilityName || searchTerm || 'Manual facility subject'),
+          operatorName: selected?.operatorName ?? (manualInvestigation.companyOperatorName || 'Manual investigation operator'),
+          sector: selected?.sector ?? 'Manual Investigation',
         },
         location: {
-          city: selected.city,
-          county: selected.county,
-          state: 'California',
-          latitude: selected.latitude,
-          longitude: selected.longitude,
+          city: selected?.city ?? manualInvestigation.city,
+          county: selected?.county ?? manualInvestigation.county,
+          state: manualInvestigation.state || 'California',
+          latitude: selected?.latitude ?? null,
+          longitude: selected?.longitude ?? null,
           coordinatesLabel:
-            selected.latitude != null && selected.longitude != null
+            selected?.latitude != null && selected?.longitude != null
               ? `${selected.latitude}, ${selected.longitude}`
-              : 'Coordinates unavailable',
+              : 'Coordinates unavailable / manual draft',
         },
-        reportingYears: { baselineYear, currentYear },
+        reportingYears: { baselineYear: effectiveBaselineYear, currentYear: effectiveCurrentYear },
         emissionsComparison: {
-          baselineCO2e: Number(baselineEmissions),
-          currentCO2e: Number(currentEmissions),
+          baselineCO2e: Number(baselineEmissions || 0),
+          currentCO2e: Number(currentEmissions || 0),
           calculatedReductionPct: calculatedReductionValue,
         },
         gasBreakdown: {
@@ -959,18 +1074,24 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         claimGapPct: claimGap,
         integrityScore,
         riskLevel,
-        sourceMode,
+        sourceMode: effectiveSourceMode,
         datasetVersion:
-          sourceMode === 'DEMO_FALLBACK' ? undefined : (selected.datasetVersion ?? datasetVersion),
+          effectiveSourceMode === 'DEMO_FALLBACK' || effectiveSourceMode === 'NEEDS_SOURCE'
+            ? undefined
+            : (selected?.datasetVersion ?? datasetVersion),
         retrievalDate:
-          sourceMode === 'DEMO_FALLBACK' ? undefined : (selected.retrievalDate ?? retrievalDate ?? undefined),
+          effectiveSourceMode === 'DEMO_FALLBACK' || effectiveSourceMode === 'NEEDS_SOURCE'
+            ? undefined
+            : (selected?.retrievalDate ?? retrievalDate ?? undefined),
         dataSources,
         legalContext,
         limitations: [
           ...evidencePacket.limitations,
-          sourceMode === 'DEMO_FALLBACK'
+          effectiveSourceMode === 'DEMO_FALLBACK'
             ? 'Demo/Fallback Data - Not suitable for final conclusions.'
-            : 'Live/imported data requires official verification before final findings.',
+            : effectiveSourceMode === 'NEEDS_SOURCE'
+              ? 'Manual investigation draft - official CARB source not confirmed.'
+              : 'Live/imported data requires official verification before final findings.',
         ],
         verificationChecklist: verificationSummary.checklist.map((entry) => ({
           item: entry.item,
@@ -986,9 +1107,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setGeneratedCarbReport(logged);
       setActiveWorkspaceTab('report');
       setCarbReportNotice(
-        sourceMode === 'DEMO_FALLBACK'
+        effectiveSourceMode === 'DEMO_FALLBACK'
           ? 'CARB report generated. Demo/Fallback Data - Not suitable for final conclusions.'
-          : `CARB report generated. Dataset version: ${logged.datasetVersion || 'n/a'} | Retrieval date: ${logged.retrievalDate || 'n/a'}.`,
+          : effectiveSourceMode === 'NEEDS_SOURCE'
+            ? 'CARB report generated as manual investigation draft - official CARB source not confirmed.'
+            : `CARB report generated. Dataset version: ${logged.datasetVersion || 'n/a'} | Retrieval date: ${logged.retrievalDate || 'n/a'}.`,
       );
     } catch (error) {
       setCarbReportNotice(
@@ -1103,7 +1226,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       {showAdminImportPanel ? (
         <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
           <h2 className="text-lg font-bold text-white">Admin CARB Import Panel</h2>
-          <p className="mt-1 text-xs text-slate-300">For file-based import, place .csv or .json files in backend/data/carb/.</p>
+          <p className="mt-1 text-xs text-slate-300">Use official CARB MRR Facility and Entity Emissions spreadsheets. After importing, search by facility name, operator name, ARB/facility ID, county, sector, or reporting year.</p>
           <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
             <textarea
               value={importCsvText}
@@ -1150,7 +1273,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </button>
           {showDevImportOpen ? (
             <div className="mt-3">
-              <p className="mt-1 text-xs text-slate-300">For file-based import, place .csv or .json files in backend/data/carb/.</p>
+              <p className="mt-1 text-xs text-slate-300">Use official CARB MRR Facility and Entity Emissions spreadsheets. After importing, search by facility name, operator name, ARB/facility ID, county, sector, or reporting year.</p>
               <div className="mt-3 grid grid-cols-1 gap-2 xl:grid-cols-2">
                 <textarea
                   value={importCsvText}
@@ -1200,7 +1323,51 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             <p className="mt-1 text-[11px] text-slate-400">Search and select facility without leaving this workspace.</p>
           </div>
           <div className="p-4">
-          <p className="mt-1 text-xs text-slate-300">Search first, then select a facility match. No search, no product.</p>
+          <p className="mt-1 text-xs text-slate-300">Search official/imported CARB records or start a manual investigation. DPAL will not make verified conclusions until a CARB source record is selected or imported.</p>
+          <p className="mt-1 text-[11px] text-slate-400">Try searching by operator, facility, county, sector, or year. Public brand names may not match official reporting names.</p>
+          <div className="mt-3 rounded-xl border border-cyan-500/30 bg-cyan-950/15 p-3 text-xs text-cyan-100">
+            <p className="font-semibold">CARB Search Assistant</p>
+            <p className="mt-1 text-cyan-100/90">
+              CARB records may use legal entity names, facility names, fuel-supplier names, refinery names, or historical operators instead of public-facing brand names.
+              Alias suggestions below are search hints only and never create a CARB match by themselves.
+            </p>
+            {searchTerm ? (
+              <p className="mt-2 text-cyan-100/90">
+                Current search: <span className="font-semibold">{searchTerm}</span> | Matches shown in this table come only from live/imported CARB dataset results.
+              </p>
+            ) : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => applyQuickSearch({ sector: 'Petroleum / Refinery' })} className="rounded border border-cyan-400/60 px-2 py-1">
+                Search sector: Petroleum / Refinery
+              </button>
+              <button type="button" onClick={() => applyQuickSearch({ q: 'fuel supplier' })} className="rounded border border-cyan-400/60 px-2 py-1">
+                Search fuel supplier
+              </button>
+              <button type="button" onClick={() => applyQuickSearch({ q: 'operator' })} className="rounded border border-cyan-400/60 px-2 py-1">
+                Search operator names
+              </button>
+              <button type="button" onClick={() => applyQuickSearch({ q: 'refinery' })} className="rounded border border-cyan-400/60 px-2 py-1">
+                Search refinery names
+              </button>
+            </div>
+            {searchAssistantAliases.length ? (
+              <div className="mt-2">
+                <p className="text-cyan-100/90">Suggested alias searches for "{searchTerm}":</p>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {searchAssistantAliases.map((alias) => (
+                    <button
+                      key={alias}
+                      type="button"
+                      onClick={() => applyQuickSearch({ q: alias })}
+                      className="rounded border border-cyan-300/60 bg-cyan-900/20 px-2 py-1"
+                    >
+                      {alias}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
             {Object.entries(facilitySearch).map(([k, v]) => (
               <input key={k} value={v} placeholder={k} onChange={(e) => updateSearchField(k as keyof typeof facilitySearch, e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
@@ -1221,19 +1388,64 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               Run a facility search to unlock facility selection, year comparison, and evidence export.
             </div>
           ) : null}
+          {isNoExactMatch ? (
+            <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-100">
+              <p className="text-sm font-bold">No exact CARB match found</p>
+              <p className="mt-1">
+                DPAL could not find an exact CARB facility/operator match for this search. CARB records may use legal entity names, facility names, refineries, fuel-supplier names, or historical operator names instead of the public brand name.
+              </p>
+              <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
+                <p>Search term: <span className="text-amber-200">{searchTerm || 'n/a'}</span></p>
+                <p>Source mode: <span className="text-amber-200">{sourceMode}</span></p>
+                <p>Dataset version: <span className="text-amber-200">{datasetVersion || 'n/a'}</span></p>
+                <p>Retrieval date: <span className="text-amber-200">{retrievalDate || 'n/a'}</span></p>
+                <p>Imported dataset loaded: <span className="text-amber-200">{importedDatasetLoaded ? 'Yes' : 'No'}</span></p>
+              </div>
+              <p className="mt-2">Next recommended actions: broaden by facility/operator terms, add county/sector filters, import official CARB MRR spreadsheet, or start manual investigation.</p>
+              <p className="mt-1 text-[11px] text-amber-100/90">
+                Important: alias suggestions are guidance only. DPAL only treats records as CARB matches when returned by the live/imported CARB dataset.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => applyQuickSearch({ q: 'oil' })} className="rounded border border-amber-400/60 px-2 py-1">Broaden to "oil"</button>
+                <button type="button" onClick={() => applyQuickSearch({ q: 'refinery' })} className="rounded border border-amber-400/60 px-2 py-1">Broaden to "refinery"</button>
+                <button type="button" onClick={() => applyQuickSearch({ county: facilitySearch.county || 'Los Angeles' })} className="rounded border border-amber-400/60 px-2 py-1">Search by county</button>
+                <button type="button" onClick={() => applyQuickSearch({ sector: 'Petroleum / Refinery' })} className="rounded border border-amber-400/60 px-2 py-1">Search by sector: Petroleum / Refinery</button>
+                {shouldShowBrandSuggestions ? (
+                  <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-400/60 px-2 py-1 text-violet-200">Start manual {searchTerm} investigation</button>
+                ) : (
+                  <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-400/60 px-2 py-1 text-violet-200">Start manual investigation</button>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                <span className="rounded border border-slate-600 px-2 py-1">Search operator names</span>
+                <span className="rounded border border-slate-600 px-2 py-1">Search facility names</span>
+                <span className="rounded border border-slate-600 px-2 py-1">Search fuel suppliers</span>
+                <span className="rounded border border-slate-600 px-2 py-1">Search refineries</span>
+                <span className="rounded border border-slate-600 px-2 py-1">Search imported CARB data</span>
+                <span className="rounded border border-slate-600 px-2 py-1">Start manual investigation</span>
+              </div>
+            </div>
+          ) : null}
           {visibleSearchWarnings.length ? (
             <div className="mt-2 rounded-lg border border-amber-600 bg-amber-950/30 p-2 text-xs text-amber-200">
               {visibleSearchWarnings.map((warning) => <p key={warning}>{warning}</p>)}
             </div>
           ) : null}
           <div className="mt-3 overflow-hidden rounded-xl border border-slate-700">
-            <MapContainer center={mapCenter} zoom={6} className="h-64 w-full">
+            <MapContainer center={mapCenter} zoom={6} className="h-[340px] w-full">
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
+              <CarbMapInvalidateSize watchKey={mapRenderWatchKey} />
               <CarbMapRecenter center={mapCenter} />
-              <CarbMapClickCapture onMapClick={(lat, lng) => setManualCoordinates([lat, lng])} />
+              <CarbMapClickCapture onMapClick={(lat, lng) => {
+                if (drawingPolygon) {
+                  setPolygonDraftPoints((prev) => [...prev, [lat, lng]]);
+                  return;
+                }
+                setManualCoordinates([lat, lng]);
+              }} />
               {selectedCoordinates ? (
                 <Marker position={selectedCoordinates} icon={carbFacilityMarker} />
               ) : null}
@@ -1247,12 +1459,81 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.12 }}
                 />
               ) : null}
+              {savedPolygonPoints.length >= 3 ? (
+                <Polygon
+                  positions={savedPolygonPoints}
+                  pathOptions={{ color: '#22c55e', fillColor: '#22c55e', fillOpacity: 0.18, weight: 2 }}
+                />
+              ) : null}
+              {polygonDraftPoints.length >= 3 ? (
+                <Polygon
+                  positions={polygonDraftPoints}
+                  pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.15, weight: 2, dashArray: '5 5' }}
+                />
+              ) : null}
             </MapContainer>
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <button
+              type="button"
+              onClick={() => {
+                if (!selected) {
+                  setMessage('Select a facility before drawing an investigation polygon.');
+                  return;
+                }
+                setDrawingPolygon((prev) => !prev);
+              }}
+              className="rounded border border-amber-500/60 bg-amber-900/20 px-2 py-1 text-amber-100"
+            >
+              {drawingPolygon ? 'Stop Polygon Draw' : 'Draw Polygon'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setPolygonDraftPoints((prev) => prev.slice(0, -1))}
+              disabled={polygonDraftPoints.length === 0}
+              className="rounded border border-slate-700 px-2 py-1 text-slate-200 disabled:opacity-50"
+            >
+              Undo Point
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (polygonDraftPoints.length < 3) {
+                  setMessage('Add at least 3 points before saving polygon.');
+                  return;
+                }
+                setSavedPolygonPoints(polygonDraftPoints);
+                setDrawingPolygon(false);
+                setMessage(`Investigation polygon saved with ${polygonDraftPoints.length} points.`);
+              }}
+              disabled={polygonDraftPoints.length < 3}
+              className="rounded border border-emerald-500/60 bg-emerald-900/20 px-2 py-1 text-emerald-100 disabled:opacity-50"
+            >
+              Save Polygon
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setPolygonDraftPoints([]);
+                setSavedPolygonPoints([]);
+                setDrawingPolygon(false);
+                setMessage('Investigation polygon cleared.');
+              }}
+              className="rounded border border-slate-700 px-2 py-1 text-slate-200"
+            >
+              Clear Polygon
+            </button>
+            <span className="text-slate-400">
+              Draft points: {polygonDraftPoints.length} | Saved points: {savedPolygonPoints.length}
+            </span>
           </div>
           <div className="mt-2 rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
             <p>Selected: {selected ? `${selected.facilityName} (${selected.city}, ${selected.county})` : 'None'}</p>
             <p>
               Marker: {selectedCoordinates ? `${selectedCoordinates[0]}, ${selectedCoordinates[1]}` : manualCoordinates ? `${manualCoordinates[0].toFixed(5)}, ${manualCoordinates[1].toFixed(5)} (manual)` : 'No coordinates set'}
+            </p>
+            <p>
+              Investigation polygon: {savedPolygonPoints.length >= 3 ? `Saved (${savedPolygonPoints.length} points)` : drawingPolygon ? `Drawing (${polygonDraftPoints.length} points)` : 'Not saved'}
             </p>
           </div>
           {selected && (selected.latitude == null || selected.longitude == null) ? (
@@ -1360,6 +1641,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <textarea value={companyClaim} onChange={(e) => setCompanyClaim(e.target.value)} placeholder="Paste climate claim text here..." className="mt-3 h-24 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
           <p className="mt-2 text-xs text-slate-400">Parsed claim: reduction {claimParsed.claimReductionPct ?? 'n/a'}% | baseline {claimParsed.baselineYear ?? 'n/a'} | current {claimParsed.currentYear ?? 'n/a'}</p>
           <p className="mt-2 text-sm text-slate-300">{claimComparison}</p>
+          {isManualInvestigationMode ? (
+            <div className="mt-3 rounded-xl border border-violet-500/40 bg-violet-950/15 p-3 text-xs text-violet-100">
+              <p className="font-semibold">Manual Investigation Draft</p>
+              <p className="mt-1">Manual investigation draft - official CARB source not confirmed.</p>
+              <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+                <input value={manualInvestigation.companyOperatorName} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, companyOperatorName: e.target.value }))} placeholder="Company/operator name" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.suspectedFacilityName} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, suspectedFacilityName: e.target.value }))} placeholder="Suspected facility name" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.city} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, city: e.target.value }))} placeholder="City" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.county} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, county: e.target.value }))} placeholder="County" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.state} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, state: e.target.value }))} placeholder="State" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.sourceUrl} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, sourceUrl: e.target.value }))} placeholder="Source URL" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+              </div>
+              <textarea value={manualInvestigation.notes} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Manual investigation notes" className="mt-2 h-20 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+            </div>
+          ) : null}
           <div className="mt-3 rounded-xl border border-slate-700 p-3 text-sm text-slate-200">
             <p>Reported reduction: <span className="font-semibold">{calculatedReduction}</span></p>
             <p>Methane reduction: <span className="font-semibold">{methaneReduction}</span></p>
@@ -1413,6 +1709,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>Retrieval date: <span className="text-cyan-200">{retrievalDate || 'n/a'}</span></p>
               <p>Claim result: <span className="text-cyan-200">{claimVerificationClassification.label}</span></p>
               <p>Claim gap: <span className="text-cyan-200">{claimGap == null ? 'n/a' : `${claimGap.toFixed(2)}%`}</span></p>
+              <p className="mt-2 text-[11px] text-amber-200">{sourceModeText}</p>
             </div>
             <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300">
               <p className="font-semibold text-white">Top Recommended Actions</p>
@@ -1422,6 +1719,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 ))}
               </ul>
             </div>
+            <CarbIntelligenceReader
+              facilityName={selected?.facilityName}
+              facilityId={selected?.facilityId}
+              sourceMode={sourceMode}
+              baselineYear={baselineYear}
+              currentYear={currentYear}
+              claimComparison={claimComparison}
+              integrityScore={integrityScore}
+              riskLevel={riskLevel}
+              categories={aiHelperCategories}
+              recommendedNextSteps={recommendedNextSteps}
+            />
           </div>
         </section>
       </div>
@@ -1440,12 +1749,22 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <p className="text-sm text-slate-300">Source mode: {sourceMode} | Dataset version: {datasetVersion} | Retrieval date: {retrievalDate || 'n/a'}</p>
           {sourceMode === 'IMPORTED' ? (
             <p className="mt-1 text-xs text-emerald-300">
-              Imported CARB dataset is active and being used for this review.
+              Imported CARB dataset loaded. Confirm filename, retrieval date, and official source before final use.
+            </p>
+          ) : null}
+          {sourceMode === 'LIVE' && !importedDatasetLoaded ? (
+            <p className="mt-1 text-xs text-amber-300">
+              Live endpoint responded, but no imported CARB dataset is loaded. Search results may be incomplete until an official CARB spreadsheet is imported or the live connector returns indexed records.
             </p>
           ) : null}
           {sourceMode === 'DEMO_FALLBACK' ? (
             <p className="mt-1 text-xs text-amber-300">
-              Demo fallback data is active. This mode is for testing and not suitable for real conclusions.
+              Demo/fallback data only - not suitable for final conclusions.
+            </p>
+          ) : null}
+          {sourceMode === 'NEEDS_SOURCE' ? (
+            <p className="mt-1 text-xs text-violet-300">
+              Manual investigation mode active - official CARB source not confirmed.
             </p>
           ) : null}
           <div className="mt-2 grid grid-cols-1 gap-1 text-sm text-slate-200">
@@ -1455,13 +1774,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       </section>
 
       {showCompanyPicker ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-slate-700 bg-slate-900 p-4">
+        <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-900/90 p-4">
+          <div className="w-full rounded-2xl border border-slate-700 bg-slate-900 p-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-bold text-white">Select Company or Facility</h3>
+              <h3 className="text-lg font-bold text-white">Pick Company / Facility (Inline Panel)</h3>
               <button onClick={() => setShowCompanyPicker(false)} className="rounded-md border border-slate-600 px-2 py-1 text-xs text-slate-200">Close</button>
             </div>
-            <p className="mt-1 text-xs text-slate-300">Pick an operator or facility name to auto-fill search and quickly review matching records.</p>
+            <p className="mt-1 text-xs text-slate-300">Search company/operator or facility names, review suggested strategies, or start a manual investigation if exact CARB naming is unknown.</p>
             <div className="mt-3 inline-flex rounded-lg border border-slate-700 bg-slate-950/60 p-1 text-xs">
               <button
                 onClick={() => setCompanyPickerMode('operator')}
@@ -1485,6 +1804,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             {companyPickerLoading ? <p className="mt-3 text-sm text-slate-300">Loading company list...</p> : null}
             {companyPickerError ? <p className="mt-3 text-sm text-rose-300">{companyPickerError}</p> : null}
             <div className="mt-3 max-h-80 overflow-auto space-y-2">
+              {recentCompanies.length ? (
+                <div className="rounded-lg border border-slate-700 bg-slate-950/60 p-2">
+                  <p className="text-xs text-slate-400">Recent companies</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {recentCompanies.map((name) => (
+                      <button key={`recent-${name}`} type="button" onClick={() => handlePickCompany(name)} className="rounded border border-slate-600 px-2 py-1 text-xs text-slate-200">
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
               {(companyPickerMode === 'operator' ? filteredCompanyOptions : filteredFacilityOptions).map((name) => (
                 <button
                   key={name}
@@ -1499,6 +1830,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   {companyPickerMode === 'operator' ? 'No company names found for this filter.' : 'No facility names found for this filter.'}
                 </p>
               ) : null}
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300">
+              <p className="font-semibold text-white">Suggested search strategies</p>
+              <p className="mt-1">Try operator legal entity names, facility names, refinery names, county + sector combinations, and reporting year filters.</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => applyQuickSearch({ sector: 'Petroleum / Refinery' })} className="rounded border border-slate-600 px-2 py-1">Search refineries</button>
+                <button type="button" onClick={() => applyQuickSearch({ year: String(new Date().getFullYear() - 1) })} className="rounded border border-slate-600 px-2 py-1">Search by reporting year</button>
+                <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-500/50 px-2 py-1 text-violet-200">Start Manual Investigation</button>
+              </div>
             </div>
           </div>
         </div>
@@ -1662,6 +2002,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
       {(activeWorkspaceTab === 'report' || activeWorkspaceTab === 'overview') ? (
       <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        {isManualInvestigationMode ? (
+          <p className="rounded-lg border border-violet-500/40 bg-violet-950/20 px-3 py-2 text-xs text-violet-100">
+            Manual investigation draft - official CARB source not confirmed.
+          </p>
+        ) : null}
         <CarbReportPanel
           report={generatedCarbReport}
           canGenerate={canGenerateCarbReport}
@@ -1690,6 +2035,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
       {(activeWorkspaceTab === 'evidence' || activeWorkspaceTab === 'overview') ? (
       <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4 text-xs text-slate-300">
+          <h2 className="text-sm font-bold text-white">Evidence Packet Readiness</h2>
+          <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
+            <p>Selected facility: <span className="text-cyan-200">{selected?.facilityName || manualInvestigation.suspectedFacilityName || 'Manual draft subject'}</span></p>
+            <p>Reporting years: <span className="text-cyan-200">{baselineYear || 'n/a'} / {currentYear || 'n/a'}</span></p>
+            <p>Calculated reduction: <span className="text-cyan-200">{calculatedReduction}</span></p>
+            <p>Claim comparison: <span className="text-cyan-200">{claimComparison}</span></p>
+            <p>Risk level: <span className="text-cyan-200">{riskLevel}</span></p>
+            <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
+          </div>
+          <p className="mt-2">Limitations: {evidencePacket.limitations.join(' | ')}</p>
+        </div>
         <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
           <h2 className="text-lg font-bold text-white">Audit Backend Actions (Existing Service Flow)</h2>
           <p className="mt-1 text-xs text-slate-400">

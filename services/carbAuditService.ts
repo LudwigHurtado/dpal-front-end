@@ -81,7 +81,7 @@ export async function searchCarbFacilities(params: Record<string, string>) {
     ok: true;
     results: any[];
     count: number;
-    sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK';
+    sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
     warnings: string[];
     datasetVersion?: string;
     retrievalDate?: string;

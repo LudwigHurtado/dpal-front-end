@@ -1,4 +1,4 @@
-export type CarbReportSourceMode = 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK';
+export type CarbReportSourceMode = 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
 
 export interface CarbSpecializedReport {
   reportId: string;
