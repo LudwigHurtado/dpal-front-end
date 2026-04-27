@@ -100,6 +100,21 @@ type CarbDataStatus = {
   lastImportAt: string | null;
   searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
   warnings: string[];
+  quality: {
+    acceptedRows: number;
+    rejectedRows: number;
+    unknownFacilityCount: number;
+    unknownOperatorCount: number;
+    nullEmissionsCount: number;
+    availableFieldCoverage: {
+      facilityName: number;
+      operatorName: number;
+      county: number;
+      sector: number;
+      reportingYear: number;
+      totalCO2e: number;
+    };
+  };
 };
 
 const legalContext = [
@@ -149,6 +164,20 @@ const statusClass: Record<ChecklistStatus, string> = {
   Optional: 'border-slate-600 text-slate-200 bg-slate-950/40',
   'Needs Review': 'border-amber-600/70 text-amber-200 bg-amber-950/30',
 };
+
+type CoverageLevel = 'Available' | 'Limited' | 'Missing';
+
+function getCoverageLevel(pct: number): CoverageLevel {
+  if (pct >= 70) return 'Available';
+  if (pct > 0) return 'Limited';
+  return 'Missing';
+}
+
+function coverageTone(level: CoverageLevel): string {
+  if (level === 'Available') return 'border-emerald-500/40 bg-emerald-950/25 text-emerald-200';
+  if (level === 'Limited') return 'border-amber-500/40 bg-amber-950/25 text-amber-200';
+  return 'border-rose-500/40 bg-rose-950/25 text-rose-200';
+}
 
 function sourceRibbonTone(mode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'): string {
   if (mode === 'LIVE') return 'border-emerald-500/50 bg-emerald-900/20 text-emerald-200';
@@ -382,6 +411,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     return 'No searchable CARB records are currently loaded.';
   }, [carbDataStatusReadiness]);
   const hasCountyNoMatch = isNoExactMatch && Boolean(facilitySearch.county.trim());
+  const coverage = carbDataStatus?.quality?.availableFieldCoverage;
+  const facilityCoverageLevel = getCoverageLevel(coverage?.facilityName ?? 0);
+  const operatorCoverageLevel = getCoverageLevel(coverage?.operatorName ?? 0);
+  const countyCoverageLevel = getCoverageLevel(coverage?.county ?? 0);
+  const sectorCoverageLevel = getCoverageLevel(coverage?.sector ?? 0);
+  const yearCoverageLevel = getCoverageLevel(coverage?.reportingYear ?? 0);
+  const emissionsCoverageLevel = getCoverageLevel(coverage?.totalCO2e ?? 0);
+  const countyUnavailable = (coverage?.county ?? 0) === 0;
+  const operatorUnavailable = (coverage?.operatorName ?? 0) === 0;
+  const availableSectorPreview = (carbDataStatus?.availableSectors ?? []).slice(0, 8);
   const showImportWizardCta = (carbDataStatus?.recordCount ?? facilities.length) === 0
     && (carbDataStatus?.datasetVersion ?? datasetVersion) === 'import-not-loaded';
 
@@ -984,9 +1023,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setCarbDataStatus((prev) => prev ? {
         ...prev,
         sourceMode: res.sourceMode,
+        sourceUrl: res.sourceUrl ?? prev.sourceUrl,
         datasetVersion: res.datasetVersion ?? prev.datasetVersion,
         retrievalDate: res.retrievalDate ?? prev.retrievalDate,
         recordCount: res.count,
+        quality: res.quality ?? prev.quality,
       } : prev);
       setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
       return res;
@@ -1020,9 +1061,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         setCarbDataStatus((prev) => prev ? {
           ...prev,
           sourceMode: res.sourceMode,
+          sourceUrl: res.sourceUrl ?? prev.sourceUrl,
           datasetVersion: res.datasetVersion ?? prev.datasetVersion,
           retrievalDate: res.retrievalDate ?? prev.retrievalDate,
           recordCount: res.count,
+          quality: res.quality ?? prev.quality,
         } : prev);
         setMessage(res.count > 0
           ? `Loaded ${res.count} CARB facility record(s).`
@@ -1045,6 +1088,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       return;
     }
     if (!res.count) {
+      if (countyUnavailable && facilitySearch.county.trim()) {
+        setMessage('County search is not supported by the current live CARB workbook because county data is not present in indexed rows.');
+        return;
+      }
       const canRunBroadFallback = Boolean(facilitySearch.city.trim() || facilitySearch.county.trim() || facilitySearch.sector.trim() || facilitySearch.year.trim());
       if (canRunBroadFallback) {
         const broadRes = await searchCarbFacilities({
@@ -1084,9 +1131,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setCarbDataStatus((prev) => prev ? {
       ...prev,
       sourceMode: res.sourceMode,
+      sourceUrl: res.sourceUrl ?? prev.sourceUrl,
       datasetVersion: res.datasetVersion ?? prev.datasetVersion,
       retrievalDate: res.retrievalDate ?? prev.retrievalDate,
       recordCount: res.count,
+      quality: res.quality ?? prev.quality,
     } : prev);
     setMessage(`Loaded ${res.count} California-wide records for fallback investigation.`);
   };
@@ -1568,6 +1617,24 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         <p className="mt-2 rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2 text-slate-100">
           {carbDataStatusMessage}
         </p>
+        <div className="mt-3 rounded-lg border border-slate-700/70 bg-slate-900/40 p-3">
+          <p className="text-sm font-semibold text-white">Dataset Coverage</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {[
+              ['Facility/entity field', facilityCoverageLevel, coverage?.facilityName ?? 0],
+              ['Operator field', operatorCoverageLevel, coverage?.operatorName ?? 0],
+              ['County field', countyCoverageLevel, coverage?.county ?? 0],
+              ['Sector field', sectorCoverageLevel, coverage?.sector ?? 0],
+              ['Reporting year', yearCoverageLevel, coverage?.reportingYear ?? 0],
+              ['Total CO2e', emissionsCoverageLevel, coverage?.totalCO2e ?? 0],
+            ].map(([label, level, pct]) => (
+              <div key={String(label)} className={`rounded-lg border px-3 py-2 ${coverageTone(level as CoverageLevel)}`}>
+                <p className="font-semibold">{label}</p>
+                <p>{String(level)} ({pct}%)</p>
+              </div>
+            ))}
+          </div>
+        </div>
         {!carbDatasetReady ? (
           <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-amber-100">
             CARB endpoint responded, but no indexed/imported CARB dataset is loaded. Search results may be incomplete until official CARB MRR data is imported or the live connector returns indexed records.
@@ -1616,6 +1683,19 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>Evidence packet ready: <span className="text-cyan-200">{evidencePacketReady ? 'Yes' : 'No'}</span></p>
               <p>Situation room open: <span className="text-cyan-200">No</span></p>
               <p className="md:col-span-2 xl:col-span-2">Next recommended action: <span className="text-cyan-200">{nextRecommendedAction}</span></p>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+            <p className="text-sm font-semibold text-white">Live Dataset Summary</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
+              <p>Official source URL: <span className="text-cyan-200 break-all">{carbDataStatus?.sourceUrl || 'Not provided'}</span></p>
+              <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || 'n/a'}</span></p>
+              <p>Retrieval date: <span className="text-cyan-200">{carbDataStatus?.retrievalDate || 'n/a'}</span></p>
+              <p>Record count: <span className="text-cyan-200">{carbDataStatus?.recordCount ?? facilities.length}</span></p>
+              <p>Available year(s): <span className="text-cyan-200">{(carbDataStatus?.availableYears ?? []).join(', ') || 'n/a'}</span></p>
+              <p>Available sectors: <span className="text-cyan-200">{availableSectorPreview.join(', ') || 'n/a'}{(carbDataStatus?.availableSectors?.length ?? 0) > 8 ? ' + more' : ''}</span></p>
+              <p>County availability: <span className="text-cyan-200">{countyUnavailable ? 'Not provided by current workbook' : 'Provided'}</span></p>
+              <p>Operator availability: <span className="text-cyan-200">{operatorUnavailable ? 'Not provided as separate field by current workbook' : 'Provided'}</span></p>
             </div>
           </div>
           {showImportWizardCta ? (
@@ -1793,9 +1873,31 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             ) : null}
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">
-            {Object.entries(facilitySearch).map(([k, v]) => (
-              <input key={k} value={v} placeholder={k} onChange={(e) => updateSearchField(k as keyof typeof facilitySearch, e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
-            ))}
+            <input value={facilitySearch.q} placeholder="q" onChange={(e) => updateSearchField('q', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            <input value={facilitySearch.facilityId} placeholder="facilityId" onChange={(e) => updateSearchField('facilityId', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            <input value={facilitySearch.city} placeholder="city" onChange={(e) => updateSearchField('city', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            <input
+              value={facilitySearch.county}
+              placeholder={countyUnavailable ? 'Not available in current dataset.' : 'county'}
+              onChange={(e) => updateSearchField('county', e.target.value)}
+              className={`rounded-lg border px-2 py-2 text-sm text-slate-200 ${countyUnavailable ? 'border-amber-500/60 bg-amber-950/20' : 'border-slate-600 bg-slate-950'}`}
+            />
+            <input value={facilitySearch.sector} placeholder="sector" onChange={(e) => updateSearchField('sector', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+            <input value={facilitySearch.year} placeholder="year" onChange={(e) => updateSearchField('year', e.target.value)} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
+          </div>
+          <div className="mt-2 space-y-1 text-[11px]">
+            {operatorUnavailable ? (
+              <p className="text-amber-200">Separate operator field is not available in the current workbook. Try facility/entity search.</p>
+            ) : null}
+            {countyUnavailable ? (
+              <p className="text-amber-200">County is not available in the current live CARB workbook. Try facility/entity, sector, or year search.</p>
+            ) : null}
+            {sectorCoverageLevel !== 'Missing' ? (
+              <p className="text-emerald-200">Sector search is available for the current CARB workbook.</p>
+            ) : null}
+            {yearCoverageLevel !== 'Missing' ? (
+              <p className="text-emerald-200">Year search is available.</p>
+            ) : null}
           </div>
           <button onClick={() => void handleSearch()} className="mt-3 rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
           <button
@@ -1876,6 +1978,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           {hasCountyNoMatch ? (
             <div className="mt-3 rounded-xl border border-violet-500/40 bg-violet-950/20 p-3 text-xs text-violet-100">
               <p className="text-sm font-bold">No indexed CARB records matched this county.</p>
+              {countyUnavailable ? (
+                <p className="mt-1">
+                  No county-indexed CARB records can be searched from the current live workbook. This does not prove the county has no CARB facilities. It means county is not available in this dataset.
+                </p>
+              ) : null}
               <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-2">
                 <p>County searched: <span className="text-violet-200">{facilitySearch.county}</span></p>
                 <p>Source mode: <span className="text-violet-200">{sourceMode}</span></p>

@@ -85,6 +85,22 @@ export async function searchCarbFacilities(params: Record<string, string>) {
     warnings: string[];
     datasetVersion?: string;
     retrievalDate?: string;
+    sourceUrl?: string;
+    quality?: {
+      acceptedRows: number;
+      rejectedRows: number;
+      unknownFacilityCount: number;
+      unknownOperatorCount: number;
+      nullEmissionsCount: number;
+      availableFieldCoverage: {
+        facilityName: number;
+        operatorName: number;
+        county: number;
+        sector: number;
+        reportingYear: number;
+        totalCO2e: number;
+      };
+    };
   }>(apiUrl(`${API_ROUTES.CARB_DATA_SEARCH}?${qs.toString()}`), { method: 'GET' });
 }
 
@@ -104,6 +120,21 @@ export async function getCarbDataStatus() {
     lastImportAt: string | null;
     searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
     warnings: string[];
+    quality: {
+      acceptedRows: number;
+      rejectedRows: number;
+      unknownFacilityCount: number;
+      unknownOperatorCount: number;
+      nullEmissionsCount: number;
+      availableFieldCoverage: {
+        facilityName: number;
+        operatorName: number;
+        county: number;
+        sector: number;
+        reportingYear: number;
+        totalCO2e: number;
+      };
+    };
   }>(API_ROUTES.CARB_DATA_STATUS, { method: 'GET' });
 }
 
