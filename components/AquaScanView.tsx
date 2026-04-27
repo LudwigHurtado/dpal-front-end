@@ -624,6 +624,13 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
     clearLiveOverlayState();
   }
 
+  function clearLocalCalculationHistory(): void {
+    const key = `dpal_aquascan_calc_history_${selectedProject.id}`;
+    localStorage.removeItem(key);
+    setCalculationHistory([]);
+    setActionNotice('Local AquaScan calculation history cleared for this project.');
+  }
+
   function clearAoiState(options?: { removePersisted?: boolean; notice?: string }): void {
     setAoiPoints([]);
     setSavedAoiPoints([]);
@@ -765,6 +772,12 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
   }, []);
 
   useEffect(() => {
+    if ((import.meta as any).env?.DEV) {
+      console.info('[AquaScan] build includes zero-sample UI fix');
+    }
+  }, []);
+
+  useEffect(() => {
     const key = `dpal_aquascan_calc_history_${selectedProject.id}`;
     try {
       const raw = localStorage.getItem(key);
@@ -772,8 +785,68 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
         setCalculationHistory([]);
         return;
       }
-      const parsed = JSON.parse(raw) as typeof calculationHistory;
-      setCalculationHistory(Array.isArray(parsed) ? parsed : []);
+      const parsed = JSON.parse(raw) as Array<{
+        calculationId?: unknown;
+        projectId?: unknown;
+        indexType?: unknown;
+        before?: { from?: unknown; to?: unknown };
+        after?: { from?: unknown; to?: unknown };
+        deltaPercent?: unknown;
+        confidenceScore?: unknown;
+        validatorStatus?: unknown;
+        generatedAt?: unknown;
+        summary?: unknown;
+      }>;
+      const normalized = Array.isArray(parsed)
+        ? parsed.flatMap((item, index) => {
+          if (!item || typeof item !== 'object') return [];
+          const indexType = typeof item.indexType === 'string' ? item.indexType as CopernicusIndexType : 'NDWI';
+          const deltaPercent = typeof item.deltaPercent === 'number' ? item.deltaPercent : null;
+          const rawSummary = typeof item.summary === 'string' ? item.summary.trim() : '';
+          const legacyNoValidSamples = deltaPercent == null
+            && typeof item.confidenceScore === 'number'
+            && Math.round(item.confidenceScore * 100) === 20
+            && (
+              rawSummary.length === 0
+              || /n\/a%/i.test(rawSummary)
+              || /no valid samples/i.test(rawSummary)
+            );
+          const summary = legacyNoValidSamples
+            ? `${indexType} - no valid samples`
+            : rawSummary.length > 0
+              ? rawSummary
+              : deltaPercent == null
+              ? `${indexType} - no valid samples`
+              : `${indexType} - ${deltaPercent}%`;
+          return [{
+            calculationId: typeof item.calculationId === 'string' && item.calculationId ? item.calculationId : `legacy-calc-${selectedProject.id}-${index}`,
+            projectId: typeof item.projectId === 'string' && item.projectId ? item.projectId : selectedProject.id,
+            indexType,
+            before: {
+              from: typeof item.before?.from === 'string' ? item.before.from : '',
+              to: typeof item.before?.to === 'string' ? item.before.to : '',
+            },
+            after: {
+              from: typeof item.after?.from === 'string' ? item.after.from : '',
+              to: typeof item.after?.to === 'string' ? item.after.to : '',
+            },
+            deltaPercent,
+            confidenceScore: legacyNoValidSamples || deltaPercent == null
+              ? null
+              : typeof item.confidenceScore === 'number'
+                ? item.confidenceScore
+                : null,
+            validatorStatus: typeof item.validatorStatus === 'string'
+              ? item.validatorStatus as CopernicusValidatorStatus
+              : 'pending_review',
+            generatedAt: typeof item.generatedAt === 'string' && item.generatedAt
+              ? item.generatedAt
+              : new Date(0).toISOString(),
+            summary,
+          }];
+        })
+        : [];
+      setCalculationHistory(normalized);
     } catch {
       setCalculationHistory([]);
     }
@@ -3237,7 +3310,16 @@ export default function AquaScanView({ onReturn, onOpenWaterOperations }: AquaSc
                   <p className="text-xs text-slate-500">Run comparison to see interpretation.</p>
                 )}
                 <div className="rounded-lg border border-slate-700 bg-slate-950/70 p-3 text-xs text-slate-300">
-                  <p className="mb-1 font-semibold text-slate-200">Calculation history (local per project)</p>
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <p className="font-semibold text-slate-200">Calculation history (local per project)</p>
+                    <button
+                      type="button"
+                      onClick={clearLocalCalculationHistory}
+                      className="rounded border border-slate-700 px-2 py-0.5 text-[10px] text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    >
+                      Clear local history
+                    </button>
+                  </div>
                   {calculationHistory.length === 0 ? (
                     <p className="text-slate-500">No saved calculations yet.</p>
                   ) : (
