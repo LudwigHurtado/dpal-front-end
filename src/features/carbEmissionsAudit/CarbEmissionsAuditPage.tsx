@@ -1643,7 +1643,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   };
 
   return (
-    <div className="mx-auto max-w-[1450px] px-3 pb-20 sm:px-4 lg:px-5">
+    <div className="mx-auto min-w-0 max-w-[1450px] overflow-x-hidden px-3 pb-20 sm:px-4 lg:px-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-xl font-black text-white sm:text-2xl">CARB Investigation Workspace</h1>
@@ -2963,7 +2963,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <button onClick={() => void handleExportCarbEvidencePacket()} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-sm font-semibold text-cyan-100">Download Evidence JSON</button>
                 <button onClick={() => navigator.clipboard.writeText(JSON.stringify(evidencePacket, null, 2)).then(() => setMessage('Evidence JSON copied.')).catch(() => setMessage('Unable to copy evidence JSON.'))} className="rounded-lg border border-slate-600 px-3 py-2 text-sm text-slate-100">Copy JSON</button>
               </div>
-              <pre className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
+              <pre className="mt-3 max-h-72 min-w-0 max-w-full overflow-auto break-words whitespace-pre-wrap rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-300">{JSON.stringify(evidencePacket, null, 2)}</pre>
             </>
           ) : (
             <p className="mt-3 text-xs text-slate-400">Evidence packet preview becomes available once readiness requirements are met or manual investigation draft is started.</p>
