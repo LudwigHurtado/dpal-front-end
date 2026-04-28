@@ -424,15 +424,16 @@ export const earthObservationService = {
     ]);
     const sources = [nasaHls, copernicus, firms].filter((entry): entry is ScanSource => entry != null);
 
-    if (!sources.length) {
+    const beforeScene = pcScenes.length > 0 ? pcScenes[0] : null;
+    const afterScene = pcScenes.length > 1 ? pcScenes[pcScenes.length - 1] : null;
+
+    if (!sources.length && !beforeScene && !afterScene) {
       return unavailableResponse(
         input,
-        'Earth Observation adapter is live, but no usable products were found for the selected area and date range.',
+        'Earth Observation adapter is live, but no usable products or imagery scenes were found for the selected area and date range.',
       );
     }
 
-    const beforeScene = pcScenes.length > 0 ? pcScenes[0] : null;
-    const afterScene = pcScenes.length > 1 ? pcScenes[pcScenes.length - 1] : null;
     const allSources = [
       ...sources,
       ...(beforeScene ? [{
@@ -484,8 +485,13 @@ export const earthObservationService = {
       usablePixelPercent: null as number | null,
     };
 
-    if (beforeScene && afterScene && beforeScene.id !== afterScene.id) {
+    if (beforeScene || afterScene) {
       processingStage = 'imagery_loaded';
+      primarySignal = 'Imagery was loaded, but DPAL has not completed verified metric computation yet.';
+      summary = 'Imagery was loaded, but DPAL did not compute verified index values yet.';
+    }
+
+    if (beforeScene && afterScene && beforeScene.id !== afterScene.id) {
       const [beforeStats, afterStats] = await Promise.all([
         fetchPcSceneStats(beforeScene),
         fetchPcSceneStats(afterScene),

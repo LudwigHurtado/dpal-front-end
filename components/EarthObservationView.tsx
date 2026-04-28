@@ -352,7 +352,7 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
         setResult({
           ...EMPTY_RESULT(observationType),
           source: selectedUse.satellites,
-          message: 'No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.',
+          message: 'No verified satellite reading available yet for this area and date range.',
         });
         setNotice('Earth Observation scan is temporarily unavailable. The workspace remains active and no verified signal is being claimed.');
         return;
@@ -389,11 +389,11 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
         legalDisclaimer: typeof data?.legalDisclaimer === 'string' ? data.legalDisclaimer : undefined,
         message: typeof data?.summary === 'string'
           ? data.summary
-          : 'No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.',
+          : 'No verified satellite reading available yet for this area and date range.',
         metrics: data?.metrics && typeof data.metrics === 'object' ? data.metrics as Record<string, number | string | null> : {},
       });
       if (data?.sourceMode === 'UNAVAILABLE') {
-        setNotice('No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.');
+        setNotice('No verified satellite reading available yet for this AOI and date range. Try adjusting location, radius, or dates.');
       } else {
         setNotice('');
       }
@@ -401,7 +401,7 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
       setResult({
         ...EMPTY_RESULT(observationType),
         source: selectedUse.satellites,
-        message: 'No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.',
+        message: 'No verified satellite reading available yet for this area and date range.',
       });
       setNotice('Network unavailable for Earth Observation scan. Try again when the backend is reachable.');
     } finally {
