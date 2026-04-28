@@ -7,6 +7,9 @@ type SmokeResponse = {
   shellSearchCount: number;
   refinerySearchCount: number;
   year2024SearchCount: number;
+  historicalReady: boolean;
+  yearsLoadedCount: number;
+  multiYearFacilitiesCount: number;
   failures: string[];
   warnings: string[];
 };
@@ -46,6 +49,7 @@ async function main(): Promise<void> {
       datasetVersion: status.datasetVersion,
       recordCount: status.recordCount,
       searchReadiness: status.searchReadiness,
+      historicalCoverage: status.historicalCoverage ?? null,
     },
     smoke,
   }, null, 2));

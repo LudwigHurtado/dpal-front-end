@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { attachDpalJwtUser } from '../middleware/dpalJwt';
 import { requireDpalAdmin } from '../middleware/requireDpalAdmin';
 import {
+  getCarbFacilityHistoryHandler,
   getCarbDataSmokeHandler,
   getCarbDataStatusHandler,
   importCarbData,
@@ -19,6 +20,7 @@ router.get('/health', (_req, res) => {
 router.get('/status', getCarbDataStatusHandler);
 router.get('/smoke', getCarbDataSmokeHandler);
 router.get('/search', searchCarbData);
+router.get('/facility-history', getCarbFacilityHistoryHandler);
 // Import remains protected for admin users only.
 router.post('/import', attachDpalJwtUser, requireDpalAdmin, importCarbData);
 router.post('/sync-official', attachDpalJwtUser, requireDpalAdmin, syncOfficialCarbData);

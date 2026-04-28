@@ -104,10 +104,45 @@ export async function searchCarbFacilities(params: Record<string, string>) {
   }>(apiUrl(`${API_ROUTES.CARB_DATA_SEARCH}?${qs.toString()}`), { method: 'GET' });
 }
 
+export async function getCarbDataHealth() {
+  return requestJson<{
+    ok: true;
+    module: 'carb-data';
+  }>(API_ROUTES.CARB_DATA_HEALTH, { method: 'GET' });
+}
+
+export async function getCarbFacilityHistory(params: { facilityId?: string; facilityName?: string; entityName?: string }) {
+  const qs = new URLSearchParams();
+  if (params.facilityId) qs.set('facilityId', params.facilityId);
+  if (params.facilityName) qs.set('facilityName', params.facilityName);
+  if (params.entityName) qs.set('entityName', params.entityName);
+  return requestJson<{
+    ok: boolean;
+    facilityKey: string;
+    facilityName: string;
+    facilityId: string;
+    sector: string;
+    history: Array<{
+      reportingYear: number;
+      totalCO2e: number | null;
+      methaneCH4: number | null;
+      nitrousOxideN2O: number | null;
+      carbonDioxideCO2: number | null;
+      datasetVersion: string;
+      sourceUrl?: string;
+      retrievalDate: string;
+      rawRow: Record<string, unknown>;
+    }>;
+    availableYears: number[];
+    trendReady: boolean;
+    warnings: string[];
+  }>(apiUrl(`${API_ROUTES.CARB_DATA_FACILITY_HISTORY}?${qs.toString()}`), { method: 'GET' });
+}
+
 export async function getCarbDataStatus() {
   return requestJson<{
     ok: true;
-    sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK';
+    sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
     datasetLoaded: boolean;
     datasetVersion: string;
     sourceUrl: string;
@@ -120,6 +155,14 @@ export async function getCarbDataStatus() {
     lastImportAt: string | null;
     searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
     warnings: string[];
+    historicalCoverage: {
+      yearsLoaded: number[];
+      yearRecordCounts: Record<string, number>;
+      multiYearFacilitiesCount: number;
+      singleYearFacilitiesCount: number;
+      historicalReady: boolean;
+      warnings: string[];
+    };
     quality: {
       acceptedRows: number;
       rejectedRows: number;
@@ -147,7 +190,7 @@ export async function importCarbFacilities(payload: { records?: unknown[]; csvTe
     missingRequiredFields: string[];
     rejectedDetails?: Array<{ rowNumber: number; reason: string }>;
     warnings: string[];
-    sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' | 'LIVE';
+    sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
   }>(
     API_ROUTES.CARB_DATA_IMPORT,
     { method: 'POST', body: JSON.stringify(payload) },

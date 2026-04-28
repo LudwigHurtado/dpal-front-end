@@ -142,6 +142,8 @@ export const API_ROUTES = {
   ECOLOGY_LANDSAT_SCAN: '/api/ecology/landsat-scan',
   /** LEO satellite Earth Observation */
   EARTH_OBSERVATION_SCAN: '/api/earth-observation/scan',
+  /** Persistent project workflow assistant */
+  DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   WATER_PROJECTS: '/api/water/projects',
   WATER_CREDITS: '/api/water/credits',
@@ -173,8 +175,10 @@ export const API_ROUTES = {
   /** California CARB Emissions Audit */
   CARB_AUDIT_CREATE: '/api/carb-audit/create',
   CARB_AUDIT_LIST: '/api/carb-audit/list',
+  CARB_DATA_HEALTH: '/api/carb-data/health',
   CARB_DATA_STATUS: '/api/carb-data/status',
   CARB_DATA_SEARCH: '/api/carb-data/search',
+  CARB_DATA_FACILITY_HISTORY: '/api/carb-data/facility-history',
   CARB_DATA_IMPORT: '/api/carb-data/import',
   CARB_DATA_SYNC_OFFICIAL: '/api/carb-data/sync-official',
   HAZ_WASTE_AUDIT_CREATE: '/api/hazardous-waste-audit/create',

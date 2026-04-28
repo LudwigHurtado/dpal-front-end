@@ -5,6 +5,8 @@ import L from 'leaflet';
 import {
   createCarbAudit,
   exportCarbAudit,
+  getCarbDataHealth,
+  getCarbFacilityHistory,
   getCarbDataStatus,
   importCarbFacilities,
   listCarbAudits,
@@ -54,6 +56,21 @@ type ManualInvestigationDraft = {
   sourceUrl: string;
   notes: string;
 };
+type MapClickAction = 'inspection_point' | 'anomaly_marker' | 'manual_coordinate';
+type CarbMapMarker = {
+  id: string;
+  kind: 'inspection_point' | 'anomaly_marker';
+  label: string;
+  lat: number;
+  lng: number;
+  createdAt: string;
+};
+type CarbFollowUpTask = {
+  id: string;
+  title: string;
+  status: 'open' | 'done';
+  linkedMarkerId?: string;
+};
 type SourceStatus = 'LIVE VERIFIED' | 'CARB PUBLIC DATA' | 'IMPORTED DATASET' | 'DEMO DATA' | 'MISSING' | 'NEEDS REVIEW';
 type ChecklistStatus = 'Complete' | 'Missing' | 'Optional' | 'Needs Review';
 
@@ -78,6 +95,19 @@ type CarbFacility = {
   sourceStatus: SourceStatus;
   datasetVersion?: string;
   retrievalDate?: string;
+  history?: CarbFacilityHistoryRecord[];
+};
+
+type CarbFacilityHistoryRecord = {
+  reportingYear: number;
+  totalCO2e: number | null;
+  methaneCH4: number | null;
+  nitrousOxideN2O: number | null;
+  carbonDioxideCO2: number | null;
+  datasetVersion: string;
+  sourceUrl?: string;
+  retrievalDate: string;
+  rawRow?: Record<string, unknown>;
 };
 
 type ImportResultSummary = {
@@ -86,8 +116,13 @@ type ImportResultSummary = {
   rejectedRows: number;
   missingRequiredFields: string[];
   warnings: string[];
-  sourceMode: 'IMPORTED' | 'DEMO_FALLBACK' | 'LIVE';
+  sourceMode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
   rejectedDetails?: Array<{ rowNumber: number; reason: string }>;
+};
+
+type CarbDataHealth = {
+  ok: boolean;
+  module?: string;
 };
 
 type InitialLoadStatus = 'Checking' | 'Records Loaded' | 'No Records' | 'Failed';
@@ -106,6 +141,14 @@ type CarbDataStatus = {
   lastImportAt: string | null;
   searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
   warnings: string[];
+  historicalCoverage?: {
+    yearsLoaded: number[];
+    yearRecordCounts: Record<string, number>;
+    multiYearFacilitiesCount: number;
+    singleYearFacilitiesCount: number;
+    historicalReady: boolean;
+    warnings: string[];
+  };
   quality: {
     acceptedRows: number;
     rejectedRows: number;
@@ -318,12 +361,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [hasSearched, setHasSearched] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selected, setSelected] = useState<CarbFacility | null>(null);
-  const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'>('DEMO_FALLBACK');
+  const [selectedFacilityHistory, setSelectedFacilityHistory] = useState<CarbFacilityHistoryRecord[]>([]);
+  const [selectedFacilityHistoryWarnings, setSelectedFacilityHistoryWarnings] = useState<string[]>([]);
+  const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'>('NEEDS_SOURCE');
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [datasetVersion, setDatasetVersion] = useState('unavailable');
   const [retrievalDate, setRetrievalDate] = useState('');
   const [initialLoadStatus, setInitialLoadStatus] = useState<InitialLoadStatus>('Checking');
   const [carbSearchFailed, setCarbSearchFailed] = useState(false);
+  const [carbDataHealth, setCarbDataHealth] = useState<CarbDataHealth | null>(null);
   const [carbDataStatus, setCarbDataStatus] = useState<CarbDataStatus | null>(null);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   const [baselineYear, setBaselineYear] = useState<number | ''>('');
@@ -362,6 +408,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
   const [recentCompanies, setRecentCompanies] = useState<string[]>([]);
   const [manualCoordinates, setManualCoordinates] = useState<[number, number] | null>(null);
+  const [mapMarkers, setMapMarkers] = useState<CarbMapMarker[]>([]);
+  const [mapFollowUpTasks, setMapFollowUpTasks] = useState<CarbFollowUpTask[]>([]);
+  const [pendingMapClick, setPendingMapClick] = useState<[number, number] | null>(null);
+  const [mapClickAction, setMapClickAction] = useState<MapClickAction>('manual_coordinate');
   const [manualInvestigation, setManualInvestigation] = useState<ManualInvestigationDraft>({
     companyOperatorName: '',
     suspectedFacilityName: '',
@@ -399,6 +449,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const clearSelectedFacility = () => {
     setSelected(null);
+    setSelectedFacilityHistory([]);
+    setSelectedFacilityHistoryWarnings([]);
     setAvailableYears([]);
     setBaselineYear('');
     setCurrentYear('');
@@ -411,12 +463,70 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setCo2Baseline('');
     setCo2Current('');
     setCompanyClaim('');
+    setManualCoordinates(null);
+    setMapMarkers([]);
+    setMapFollowUpTasks([]);
+    setPendingMapClick(null);
     setMessage('Selected facility cleared.');
   };
 
-  const facilityYearRecords = useMemo(
-    () => (!selected ? [] : facilities.filter((row) => row.facilityId === selected.facilityId)),
-    [facilities, selected],
+  const addMapMarker = (kind: 'inspection_point' | 'anomaly_marker', lat: number, lng: number) => {
+    const markerId = `map-${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    const markerLabel = kind === 'inspection_point' ? 'Inspection Point' : 'Anomaly Marker';
+    setMapMarkers((prev) => [
+      ...prev,
+      {
+        id: markerId,
+        kind,
+        label: markerLabel,
+        lat,
+        lng,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
+    if (kind === 'anomaly_marker') {
+      setMapFollowUpTasks((prev) => [
+        ...prev,
+        {
+          id: `task-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          title: `Review anomaly marker at ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+          status: 'open',
+          linkedMarkerId: markerId,
+        },
+      ]);
+    }
+  };
+
+  const applyMapClickAction = (lat: number, lng: number) => {
+    if (mapClickAction === 'manual_coordinate') {
+      setManualCoordinates([lat, lng]);
+      setMessage(`Manual coordinates set to ${lat.toFixed(5)}, ${lng.toFixed(5)}.`);
+      return;
+    }
+    addMapMarker(mapClickAction, lat, lng);
+    setMessage(`${mapClickAction === 'inspection_point' ? 'Inspection point' : 'Anomaly marker'} added at ${lat.toFixed(5)}, ${lng.toFixed(5)}.`);
+  };
+
+  const facilityYearRecords = useMemo<CarbFacilityHistoryRecord[]>(
+    () => {
+      if (!selected) return [];
+      if (selectedFacilityHistory.length) return [...selectedFacilityHistory].sort((a, b) => a.reportingYear - b.reportingYear);
+      return facilities
+        .filter((row) => row.facilityId === selected.facilityId)
+        .map((row) => ({
+          reportingYear: row.reportingYear,
+          totalCO2e: row.totalCO2e ?? null,
+          methaneCH4: row.methaneCH4 ?? null,
+          nitrousOxideN2O: row.nitrousOxideN2O ?? null,
+          carbonDioxideCO2: row.carbonDioxideCO2 ?? null,
+          datasetVersion: row.datasetVersion || datasetVersion || 'n/a',
+          sourceUrl: row.sourceUrl,
+          retrievalDate: row.retrievalDate || retrievalDate || 'n/a',
+          rawRow: undefined,
+        }))
+        .sort((a, b) => a.reportingYear - b.reportingYear);
+    },
+    [facilities, selected, selectedFacilityHistory, datasetVersion, retrievalDate],
   );
 
   const selectedCoordinates = useMemo<[number, number] | null>(() => {
@@ -494,13 +604,72 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   }, [selected]);
 
   useEffect(() => {
+    if (!selected) {
+      setSelectedFacilityHistory([]);
+      setSelectedFacilityHistoryWarnings([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const historyRes = await getCarbFacilityHistory({
+          facilityId: selected.facilityId,
+          facilityName: selected.facilityName,
+          entityName: selected.operatorName,
+        });
+        if (cancelled) return;
+        if (historyRes.ok && historyRes.history.length) {
+          setSelectedFacilityHistory(
+            historyRes.history.map((item) => ({
+              reportingYear: item.reportingYear,
+              totalCO2e: item.totalCO2e,
+              methaneCH4: item.methaneCH4,
+              nitrousOxideN2O: item.nitrousOxideN2O,
+              carbonDioxideCO2: item.carbonDioxideCO2,
+              datasetVersion: item.datasetVersion,
+              sourceUrl: item.sourceUrl,
+              retrievalDate: item.retrievalDate,
+              rawRow: item.rawRow,
+            })),
+          );
+          setSelectedFacilityHistoryWarnings(historyRes.warnings ?? []);
+          return;
+        }
+      } catch {
+        // fallback to local grouped history below
+      }
+      if (cancelled) return;
+      const localHistory = facilities
+        .filter((row) => row.facilityId === selected.facilityId)
+        .map((row) => ({
+          reportingYear: row.reportingYear,
+          totalCO2e: row.totalCO2e ?? null,
+          methaneCH4: row.methaneCH4 ?? null,
+          nitrousOxideN2O: row.nitrousOxideN2O ?? null,
+          carbonDioxideCO2: row.carbonDioxideCO2 ?? null,
+          datasetVersion: row.datasetVersion || datasetVersion || 'n/a',
+          sourceUrl: row.sourceUrl,
+          retrievalDate: row.retrievalDate || retrievalDate || 'n/a',
+          rawRow: undefined,
+        }))
+        .sort((a, b) => a.reportingYear - b.reportingYear);
+      setSelectedFacilityHistory(localHistory);
+      setSelectedFacilityHistoryWarnings(localHistory.length >= 2 ? [] : ['Only one reporting year is available for this facility in the active CARB dataset. Year-over-year comparison is limited.']);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, facilities, datasetVersion, retrievalDate]);
+
+  useEffect(() => {
     if (initialLoadAttemptedRef.current) return;
     if (hasSearched || isSearching) return;
     initialLoadAttemptedRef.current = true;
     setInitialLoadStatus('Checking');
     void (async () => {
       try {
-        const status = await getCarbDataStatus();
+        const [health, status] = await Promise.all([getCarbDataHealth(), getCarbDataStatus()]);
+        setCarbDataHealth(health);
         setCarbDataStatus(status);
         if (userInitiatedSearchRef.current) return;
         setSourceMode(status.sourceMode);
@@ -526,6 +695,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         }
       } catch (error: unknown) {
         if (userInitiatedSearchRef.current) return;
+        setCarbDataHealth({ ok: false });
         setFacilities([]);
         setInitialLoadStatus('Failed');
         setCarbSearchFailed(true);
@@ -756,6 +926,104 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const isSameYearComparison = Boolean(baselineYear && currentYear && baselineYear === currentYear);
   const hasSingleReportingYear = availableYears.length === 1;
+  const hasHistoricalRecords = availableYears.length >= 2;
+  const baselineHistoryRecord = useMemo(
+    () => facilityYearRecords.find((row) => row.reportingYear === Number(baselineYear)) ?? null,
+    [facilityYearRecords, baselineYear],
+  );
+  const currentHistoryRecord = useMemo(
+    () => facilityYearRecords.find((row) => row.reportingYear === Number(currentYear)) ?? null,
+    [facilityYearRecords, currentYear],
+  );
+
+  const trendSummary = useMemo(() => {
+    if (!baselineYear || !currentYear || !baselineHistoryRecord || !currentHistoryRecord) {
+      return {
+        label: 'Insufficient historical data',
+        detail: 'Insufficient historical data.',
+        deltaPct: null as number | null,
+        changeValue: null as number | null,
+      };
+    }
+    const baseline = baselineHistoryRecord.totalCO2e;
+    const current = currentHistoryRecord.totalCO2e;
+    if (baseline == null || current == null || baseline <= 0) {
+      return {
+        label: 'Insufficient historical data',
+        detail: 'Insufficient historical data.',
+        deltaPct: null as number | null,
+        changeValue: current != null && baseline != null ? current - baseline : null,
+      };
+    }
+    const deltaPct = Number((((current - baseline) / baseline) * 100).toFixed(2));
+    const changeValue = Number((current - baseline).toFixed(2));
+    if (deltaPct < 0) {
+      return {
+        label: 'Reported emissions decreased',
+        detail: `Reported emissions decreased by ${Math.abs(deltaPct).toFixed(2)}%.`,
+        deltaPct,
+        changeValue,
+      };
+    }
+    if (deltaPct > 0) {
+      return {
+        label: 'Reported emissions increased',
+        detail: `Reported emissions increased by ${deltaPct.toFixed(2)}%.`,
+        deltaPct,
+        changeValue,
+      };
+    }
+    return {
+      label: 'No change detected',
+      detail: 'No change detected.',
+      deltaPct,
+      changeValue,
+    };
+  }, [baselineYear, currentYear, baselineHistoryRecord, currentHistoryRecord]);
+
+  const claimBoundaryWarning = useMemo(() => {
+    if (!companyClaim.trim()) return '';
+    const yearsInClaim = companyClaim.match(/(20\d{2})/g)?.map((value) => Number(value)) ?? [];
+    if (!yearsInClaim.length) return '';
+    const available = new Set(availableYears);
+    const missing = yearsInClaim.filter((year) => !available.has(year));
+    if (!missing.length) return '';
+    return 'Claim references a year not present in the loaded CARB dataset.';
+  }, [companyClaim, availableYears]);
+
+  const historicalCoverageSummary = useMemo(() => {
+    const coverage = carbDataStatus?.historicalCoverage;
+    if (!coverage) {
+      return {
+        yearsLoaded: availableYears,
+        yearRecordCounts: {} as Record<string, number>,
+        multiYearFacilitiesCount: 0,
+        singleYearFacilitiesCount: 0,
+        historicalReady: availableYears.length >= 2,
+        warnings: [],
+      };
+    }
+    return coverage;
+  }, [carbDataStatus?.historicalCoverage, availableYears]);
+
+  const largestYearChange = useMemo(() => {
+    if (facilityYearRecords.length < 2) return 'Insufficient historical data';
+    let bestLabel = 'Insufficient historical data';
+    let bestMagnitude = -1;
+    for (let i = 1; i < facilityYearRecords.length; i += 1) {
+      const prev = facilityYearRecords[i - 1];
+      const curr = facilityYearRecords[i];
+      if (prev.totalCO2e == null || curr.totalCO2e == null || prev.totalCO2e <= 0) continue;
+      const deltaPct = ((curr.totalCO2e - prev.totalCO2e) / prev.totalCO2e) * 100;
+      const magnitude = Math.abs(deltaPct);
+      if (magnitude > bestMagnitude) {
+        bestMagnitude = magnitude;
+        const direction = deltaPct < 0 ? 'decrease' : deltaPct > 0 ? 'increase' : 'no change';
+        bestLabel = `${prev.reportingYear}→${curr.reportingYear}: ${Math.abs(deltaPct).toFixed(2)}% ${direction}`;
+      }
+    }
+    return bestLabel;
+  }, [facilityYearRecords]);
 
   const yearOverYearFinding = useMemo(() => {
     if (isSameYearComparison) {
@@ -764,17 +1032,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     if (hasSingleReportingYear) {
       return 'Only one reporting year is available for this facility in the active CARB dataset. Year-over-year comparison is limited.';
     }
-    if (!selected || !baselineYear || !currentYear || calculatedReductionNumber == null || baselineEmissions === '' || currentEmissions === '') {
-      return 'DPAL needs more data to complete the year-over-year comparison.';
+    if (!selected || !baselineYear || !currentYear || !baselineHistoryRecord || !currentHistoryRecord) {
+      return 'Insufficient historical data.';
     }
-    const trendPhrase =
-      calculatedReductionNumber >= 0
-        ? `resulting in a ${Math.abs(calculatedReductionNumber).toFixed(2)}% reduction.`
-        : `reported emissions increased by ${Math.abs(calculatedReductionNumber).toFixed(2)}%.`;
+    const trendPhrase = trendSummary.detail;
     return `DPAL compared ${baselineYear} and ${currentYear} reported emissions for ${selected.facilityName}. Reported CO2e changed from ${formatNumber(
-      baselineEmissions,
-    )} to ${formatNumber(currentEmissions)}, ${trendPhrase}`;
-  }, [isSameYearComparison, hasSingleReportingYear, selected, baselineYear, currentYear, calculatedReductionNumber, baselineEmissions, currentEmissions]);
+      baselineHistoryRecord.totalCO2e,
+    )} to ${formatNumber(currentHistoryRecord.totalCO2e)}, ${trendPhrase}`;
+  }, [isSameYearComparison, hasSingleReportingYear, selected, baselineYear, currentYear, baselineHistoryRecord, currentHistoryRecord, trendSummary.detail]);
 
   const sourceModeText = useMemo(() => {
     if (sourceMode === 'LIVE' && !carbDatasetReady) {
@@ -804,6 +1069,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     if (!selected || selected.latitude == null || selected.longitude == null) {
       steps.push('Add facility coordinates before satellite comparison.');
     }
+    if (claimBoundaryWarning) {
+      steps.push('Claim references a year not present in loaded CARB records; confirm boundary years before legal conclusions.');
+    }
+    if (hasSingleReportingYear) {
+      steps.push('Only one reporting year is available. Generate a single-year evidence report or load historical CARB years for trend analysis.');
+    } else if (hasHistoricalRecords) {
+      steps.push('Historical CARB records available. Select baseline and current year to calculate trend.');
+    }
     if (riskLevel === 'Low') {
       steps.push('Save audit and export evidence packet for recordkeeping.');
     }
@@ -811,7 +1084,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       steps.push('Continue standard compliance review and archive supporting records.');
     }
     return steps;
-  }, [sourceMode, hasProductionData, hasSatelliteEvidence, claimGap, selected, riskLevel]);
+  }, [sourceMode, hasProductionData, hasSatelliteEvidence, claimGap, selected, riskLevel, claimBoundaryWarning, hasSingleReportingYear, hasHistoricalRecords]);
 
   const verificationSummary = useMemo(() => {
     return {
@@ -969,49 +1242,45 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const investigationExplanationCards = useMemo(
     () => [
       {
-        title: 'Claim Gap',
-        finding: claimGap == null ? 'Not calculated' : `${claimGap.toFixed(2)} percentage points`,
-        whyItMatters: 'Large claim gaps can indicate mismatch between public claim language and reported emissions outcomes.',
-        nextAction: 'Review claim boundary, baseline assumptions, and year selection.',
+        title: 'Historical Trend',
+        finding: baselineYear && currentYear ? `${baselineYear}–${currentYear}: ${trendSummary.detail}` : 'Insufficient historical data',
+        whyItMatters: 'Trend analysis supports or challenges public climate claims.',
+        nextAction: hasHistoricalRecords
+          ? 'Confirm reporting boundary and production/output changes.'
+          : 'Load historical CARB datasets or generate a single-year evidence report.',
       },
       {
-        title: 'Emissions Trend',
-        finding: calculatedReductionNumber == null ? 'Trend unavailable' : `${calculatedReductionNumber.toFixed(2)}%`,
-        whyItMatters: 'Year-over-year emissions trend is the core indicator for CARB discrepancy screening.',
-        nextAction: 'Validate baseline/current records and confirm facility reporting continuity.',
+        title: 'Largest Year Change',
+        finding: largestYearChange,
+        whyItMatters: 'Largest annual shifts often indicate operational or boundary changes that affect claim interpretation.',
+        nextAction: 'Investigate operational events, production changes, and reporting methodology for that year pair.',
       },
       {
-        title: 'Methane Watch',
-        finding: methaneReduction,
-        whyItMatters: 'Methane shifts can materially change discrepancy and risk interpretation.',
-        nextAction: 'Review methane controls and request additional supporting records if trend worsens.',
+        title: 'Data Continuity',
+        finding: availableYears.length ? `Records available for ${availableYears.join(', ')}.` : 'No historical year continuity detected.',
+        whyItMatters: 'Multi-year records improve confidence for trend conclusions.',
+        nextAction: hasHistoricalRecords ? 'Use full trend span in report and evidence packet.' : 'Treat this as single-year evidence and state limitation clearly.',
       },
       {
-        title: 'Verification Signal',
-        finding: selected?.verificationStatus || 'Needs Review',
-        whyItMatters: 'Verification status helps estimate confidence in the reported emissions profile.',
-        nextAction: 'Cross-check verifier context and supporting declarations.',
+        title: 'Historical Coverage',
+        finding: historicalCoverageSummary.historicalReady
+          ? `Historical ready: years loaded ${historicalCoverageSummary.yearsLoaded.join(', ')}`
+          : `Historical readiness limited: ${historicalCoverageSummary.warnings.join(' | ') || 'single-year dataset'}`,
+        whyItMatters: 'Coverage breadth determines whether year-over-year trend findings are defensible.',
+        nextAction: historicalCoverageSummary.historicalReady
+          ? 'Proceed with baseline/current comparison and document coverage.'
+          : 'Load at least two years and verify multi-year facility continuity.',
       },
       {
-        title: 'Source Reliability',
-        finding: `${sourceMode} (${datasetVersion || 'n/a'})`,
-        whyItMatters: 'Search and claim findings depend on dataset quality and indexing state.',
-        nextAction: carbDatasetReady ? 'Proceed with reviewed records.' : 'Import/index official CARB MRR dataset.',
-      },
-      {
-        title: 'Missing Evidence',
-        finding: missingEvidenceItems.slice(0, 4).join(', ') || 'No critical gaps flagged',
-        whyItMatters: 'Missing evidence lowers report confidence and regulatory readiness.',
-        nextAction: 'Complete checklist gaps before finalizing regulator-facing output.',
-      },
-      {
-        title: 'Recommended Next Step',
-        finding: recommendedNextSteps[0] || 'No recommendation available',
-        whyItMatters: 'Prioritized next action keeps investigations focused and auditable.',
-        nextAction: recommendedNextSteps[1] || 'Continue standard review workflow.',
+        title: 'Claim Boundary Check',
+        finding: claimBoundaryWarning || (claimGap == null ? 'Claim boundary not fully established.' : `Claim gap ${claimGap.toFixed(2)} percentage points.`),
+        whyItMatters: 'Claims referencing unavailable years or mismatched boundaries can misstate performance.',
+        nextAction: claimBoundaryWarning
+          ? 'Update claim evidence with years present in CARB dataset.'
+          : 'Validate claim baseline and current boundaries against CARB reporting years.',
       },
     ],
-    [carbDatasetReady, calculatedReductionNumber, claimGap, datasetVersion, methaneReduction, recommendedNextSteps, selected?.verificationStatus, sourceMode, missingEvidenceItems],
+    [baselineYear, currentYear, trendSummary.detail, hasHistoricalRecords, largestYearChange, availableYears, historicalCoverageSummary, claimBoundaryWarning, claimGap],
   );
 
   const reportQualityRating = useMemo<'Draft' | 'Limited' | 'Review Ready' | 'Regulator Ready'>(() => {
@@ -1059,10 +1328,27 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     riskLevel,
     verificationStatus: selected?.verificationStatus ?? 'NEEDS REVIEW',
     dataSources,
+    historicalCoverage: historicalCoverageSummary,
+    historicalRecords: facilityYearRecords,
+    baselineRawRow: baselineHistoryRecord?.rawRow ?? null,
+    currentRawRow: currentHistoryRecord?.rawRow ?? null,
+    trendFinding: trendSummary.detail,
+    dataContinuity: facilityYearRecords.length >= 2
+      ? `Records available for ${availableYears.join(', ')}.`
+      : 'Single-year CARB evidence report. Trend analysis requires historical years.',
+    historicalSourceUrls: Array.from(new Set(facilityYearRecords.map((row) => row.sourceUrl || '').filter(Boolean))),
+    historicalDatasetVersions: Array.from(new Set(facilityYearRecords.map((row) => row.datasetVersion).filter(Boolean))),
+    historicalWarnings: [
+      ...selectedFacilityHistoryWarnings,
+      ...historicalCoverageSummary.warnings,
+      hasSingleReportingYear ? 'Single-year CARB evidence report. Trend analysis requires historical years.' : '',
+      claimBoundaryWarning,
+    ].filter(Boolean),
     legalContext,
     limitations: [
       'CARB data may have reporting lag.',
       'Scope boundaries may differ from corporate claim language.',
+      hasSingleReportingYear ? 'Single-year CARB evidence report. Trend analysis requires historical years.' : '',
       ...(isManualInvestigationMode ? ['Manual investigation draft - official CARB source not confirmed.'] : []),
     ],
     recommendedNextSteps: verificationSummary.recommendedNextSteps,
@@ -1093,6 +1379,42 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       showEmptyDatasetWarning ? 'Dataset readiness is limited. Search results may be incomplete.' : '',
       isManualInvestigationMode ? 'Manual investigation draft - official CARB source not confirmed.' : '',
     ].filter(Boolean),
+    missingEvidenceItems,
+    facilitySearched: searchTerm || selected?.facilityName || manualInvestigation.suspectedFacilityName || '',
+    operatorSearched: selected?.operatorName || manualInvestigation.companyOperatorName || '',
+    sourceMode,
+    datasetVersion,
+    retrievalDate: retrievalDate || null,
+    reportingYearsReviewed: {
+      baselineYear,
+      currentYear,
+      availableYears,
+    },
+    pollutantsReviewed: ['totalCO2e', 'methaneCH4', 'nitrousOxideN2O', 'carbonDioxideCO2'],
+    totalsReviewed: {
+      baselineEmissions,
+      currentEmissions,
+      calculatedReduction,
+      integrityScore,
+      riskLevel,
+    },
+    gasBreakdownReviewed: {
+      methane: { baseline: methaneBaseline, current: methaneCurrent, reduction: methaneReduction },
+      n2o: { baseline: n2oBaseline, current: n2oCurrent, reduction: n2oReduction },
+      co2: { baseline: co2Baseline, current: co2Current, reduction: co2Reduction },
+    },
+    validatorReviewNeeded: riskLevel !== 'Low' || missingEvidenceItems.length > 0,
+    legalDisclaimer:
+      'DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings. This evidence packet is a preliminary review artifact.',
+    mapEvidence: {
+      center: mapCenter,
+      selectedFacilityCoordinates: selectedCoordinates ?? null,
+      manualCoordinates,
+      investigationPolygon: savedPolygonPoints,
+      markers: mapMarkers,
+      followUpTasks: mapFollowUpTasks,
+      activeLayers: ['OpenStreetMap', 'Facility Marker', 'Manual Marker', 'Investigation Polygon'],
+    },
   };
 
   const executeSearch = async () => {
@@ -1258,6 +1580,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   };
 
   const handleSyncOfficialDataset = async () => {
+    if (!isAdmin) {
+      setMessage('Admin access required to sync official source data.');
+      return;
+    }
     try {
       const result = await syncOfficialCarbData();
       setMessage(result.imported > 0
@@ -1526,6 +1852,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               : 'Coordinates unavailable / manual draft',
         },
         reportingYears: { baselineYear: effectiveBaselineYear, currentYear: effectiveCurrentYear },
+        historicalCoverage: historicalCoverageSummary,
+        historicalTrend: {
+          trendFinding: trendSummary.detail,
+          dataContinuity: facilityYearRecords.length >= 2
+            ? `Records available for ${availableYears.join(', ')}.`
+            : 'Single-year CARB evidence report. Trend analysis requires historical years.',
+          largestYearChange,
+          historicalCoverageNote: historicalCoverageSummary.historicalReady
+            ? `Historical trend analysis available across years ${historicalCoverageSummary.yearsLoaded.join(', ')}.`
+            : 'Single-year CARB evidence report. Trend analysis requires historical years.',
+          claimBoundaryCheck: claimBoundaryWarning || 'Claim years align with loaded dataset years.',
+        },
+        historicalRecords: facilityYearRecords,
+        baselineRawRow: baselineHistoryRecord?.rawRow ?? null,
+        currentRawRow: currentHistoryRecord?.rawRow ?? null,
         emissionsComparison: {
           baselineCO2e: Number(baselineEmissions || 0),
           currentCO2e: Number(currentEmissions || 0),
@@ -1548,6 +1889,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             reductionPct: co2Reduction === 'Needs More Data' ? null : Number.parseFloat(co2Reduction.replace('%', '')),
           },
         },
+        mapEvidence: evidencePacket.mapEvidence,
         environmentalReadings,
         companyClaim,
         claimVerificationResult: `${claimVerificationClassification.label} - ${claimVerificationClassification.text}`,
@@ -1572,6 +1914,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         })),
         sourceIntegrityWarnings: [
           showEmptyDatasetWarning ? 'CARB dataset readiness is limited; search results may be incomplete.' : '',
+          hasSingleReportingYear ? 'Single-year CARB evidence report. Trend analysis requires historical years.' : '',
+          claimBoundaryWarning,
           effectiveSourceMode === 'NEEDS_SOURCE' ? 'Manual investigation draft - official CARB source not confirmed.' : '',
         ].filter(Boolean),
         datasetVersion:
@@ -1586,6 +1930,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         legalContext,
         limitations: [
           ...evidencePacket.limitations,
+          hasSingleReportingYear ? 'Single-year CARB evidence report. Trend analysis requires historical years.' : 'Historical trend analysis available.',
           effectiveSourceMode === 'DEMO_FALLBACK'
             ? 'Demo/Fallback Data - Not suitable for final conclusions.'
             : effectiveSourceMode === 'NEEDS_SOURCE'
@@ -1775,10 +2120,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </button>
         </div>
         <div className="mt-2 rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2 sm:hidden">
-          {(carbDataStatus?.sourceMode ?? sourceMode)} · total live {globalLiveRecordCount ?? '—'} · this search {facilities.length} rows · {carbDataStatusReadiness}
+          health {carbDataHealth?.ok ? 'reachable' : 'unreachable'} · {(carbDataStatus?.sourceMode ?? sourceMode)} · total live {globalLiveRecordCount ?? '—'} · this search {facilities.length} rows · {carbDataStatusReadiness}
         </div>
         <div className={`${statusExpanded ? 'mt-2 grid' : 'mt-2 hidden sm:grid'} grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3`}>
-          <p>Live endpoint: <span className="text-cyan-200">{carbSearchFailed ? 'Failed' : 'Connected'}</span></p>
+          <p>CARB module health: <span className="text-cyan-200">{carbDataHealth?.ok ? 'Reachable' : 'Unreachable'}</span></p>
+          <p>Dataset endpoint: <span className="text-cyan-200">{carbSearchFailed ? 'Failed' : 'Connected'}</span></p>
           <p>Source mode: <span className="text-cyan-200">{carbDataStatus?.sourceMode ?? sourceMode}</span></p>
           <p>Total live records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
           <p>Rows displayed (current search): <span className="text-cyan-200">{facilities.length}</span></p>
@@ -1935,9 +2281,23 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button type="button" onClick={() => setShowDevImportOpen(true)} className="rounded-lg bg-amber-700 px-3 py-2 text-xs font-semibold text-white">Open Official CARB Import Wizard</button>
-                <button type="button" onClick={() => void handleSyncOfficialDataset()} className="rounded-lg border border-cyan-500/50 px-3 py-2 text-xs font-semibold text-cyan-100">Sync Official CARB Source</button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAdmin) return;
+                    void handleSyncOfficialDataset();
+                  }}
+                  disabled={!isAdmin}
+                  title={!isAdmin ? 'Admin access required to sync official source data.' : undefined}
+                  className="rounded-lg border border-cyan-500/50 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Sync Official CARB Source
+                </button>
                 <button type="button" onClick={startManualInvestigation} className="rounded-lg border border-violet-400/60 px-3 py-2 text-xs text-violet-200">Start Manual Investigation Draft</button>
               </div>
+              {!isAdmin ? (
+                <p className="mt-2 text-[11px] text-amber-200">Admin access required to sync official source data.</p>
+              ) : null}
             </div>
           ) : null}
         </section>
@@ -2287,7 +2647,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   setPolygonDraftPoints((prev) => [...prev, [lat, lng]]);
                   return;
                 }
-                setManualCoordinates([lat, lng]);
+                setPendingMapClick([lat, lng]);
               }} />
               {selectedCoordinates ? (
                 <Marker position={selectedCoordinates} icon={carbFacilityMarker} />
@@ -2295,6 +2655,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               {!selectedCoordinates && manualCoordinates ? (
                 <Marker position={manualCoordinates} icon={manualMarker} />
               ) : null}
+              {mapMarkers.map((marker) => (
+                <CircleMarker
+                  key={marker.id}
+                  center={[marker.lat, marker.lng]}
+                  radius={marker.kind === 'anomaly_marker' ? 8 : 6}
+                  pathOptions={{
+                    color: marker.kind === 'anomaly_marker' ? '#ef4444' : '#0ea5e9',
+                    fillColor: marker.kind === 'anomaly_marker' ? '#ef4444' : '#0ea5e9',
+                    fillOpacity: 0.75,
+                  }}
+                />
+              ))}
               {selectedCoordinates ? (
                 <CircleMarker
                   center={selectedCoordinates}
@@ -2316,7 +2688,33 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               ) : null}
             </MapContainer>
           </div>
+          {pendingMapClick ? (
+            <div className="mt-2 rounded-lg border border-cyan-500/40 bg-cyan-950/20 p-3 text-xs text-cyan-100">
+              <p className="font-semibold">Map Click Action</p>
+              <p className="mt-1">Clicked: {pendingMapClick[0].toFixed(5)}, {pendingMapClick[1].toFixed(5)}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => setMapClickAction('manual_coordinate')} className={`rounded border px-2 py-1 ${mapClickAction === 'manual_coordinate' ? 'border-cyan-300 bg-cyan-900/40' : 'border-slate-600'}`}>Set Manual Coordinate</button>
+                <button type="button" onClick={() => setMapClickAction('inspection_point')} className={`rounded border px-2 py-1 ${mapClickAction === 'inspection_point' ? 'border-cyan-300 bg-cyan-900/40' : 'border-slate-600'}`}>Add Inspection Point</button>
+                <button type="button" onClick={() => setMapClickAction('anomaly_marker')} className={`rounded border px-2 py-1 ${mapClickAction === 'anomaly_marker' ? 'border-cyan-300 bg-cyan-900/40' : 'border-slate-600'}`}>Add Anomaly Marker</button>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    applyMapClickAction(pendingMapClick[0], pendingMapClick[1]);
+                    setPendingMapClick(null);
+                  }}
+                  className="rounded border border-emerald-500/60 bg-emerald-900/20 px-2 py-1 text-emerald-100"
+                >
+                  Apply Action
+                </button>
+                <button type="button" onClick={() => setPendingMapClick(null)} className="rounded border border-slate-600 px-2 py-1 text-slate-200">Cancel</button>
+              </div>
+            </div>
+          ) : null}
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <button type="button" onClick={() => selectedCoordinates && setManualCoordinates(selectedCoordinates)} disabled={!selectedCoordinates} className="rounded border border-sky-500/60 bg-sky-900/20 px-2 py-1 text-sky-100 disabled:opacity-50">Fit Facility</button>
+            <button type="button" onClick={() => setManualCoordinates(CA_CENTER)} className="rounded border border-sky-500/60 bg-sky-900/20 px-2 py-1 text-sky-100">Fit California</button>
             <button
               type="button"
               onClick={() => {
@@ -2370,11 +2768,38 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               Draft points: {polygonDraftPoints.length} | Saved points: {savedPolygonPoints.length}
             </span>
           </div>
+          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/40 p-2 text-[11px] text-slate-300">
+            <p className="font-semibold text-white">Map Legend</p>
+            <p className="mt-1">Green marker: selected facility | Amber marker: manual coordinate</p>
+            <p>Blue marker: inspection point | Red marker: anomaly marker</p>
+          </div>
+          {mapFollowUpTasks.length ? (
+            <div className="mt-2 rounded-lg border border-rose-500/30 bg-rose-950/20 p-2 text-[11px] text-rose-100">
+              <p className="font-semibold">Follow-up Tasks</p>
+              {mapFollowUpTasks.map((task) => (
+                <div key={task.id} className="mt-1 flex items-center justify-between gap-2 rounded border border-rose-400/20 px-2 py-1">
+                  <span>{task.title}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMapFollowUpTasks((prev) =>
+                        prev.map((item) => (item.id === task.id ? { ...item, status: item.status === 'open' ? 'done' : 'open' } : item)),
+                      )
+                    }
+                    className="rounded border border-rose-300/40 px-2 py-0.5"
+                  >
+                    {task.status === 'open' ? 'Mark Done' : 'Reopen'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
           <div className="mt-2 rounded-xl border border-slate-700 p-3 text-sm text-slate-300">
             <p>Selected: {selected ? `${selected.facilityName} (${selected.city}, ${selected.county})` : 'None'}</p>
             <p>
               Marker: {selectedCoordinates ? `${selectedCoordinates[0]}, ${selectedCoordinates[1]}` : manualCoordinates ? `${manualCoordinates[0].toFixed(5)}, ${manualCoordinates[1].toFixed(5)} (manual)` : 'No coordinates set'}
             </p>
+            <p>Inspection/anomaly markers: {mapMarkers.length} | Open map tasks: {mapFollowUpTasks.filter((task) => task.status === 'open').length}</p>
             <p>
               Investigation polygon: {savedPolygonPoints.length >= 3 ? `Saved (${savedPolygonPoints.length} points)` : drawingPolygon ? `Drawing (${polygonDraftPoints.length} points)` : 'Not saved'}
             </p>
@@ -2541,6 +2966,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               Only one reporting year is available for this facility in the active CARB dataset. Year-over-year comparison is limited.
             </p>
           ) : null}
+          {hasHistoricalRecords ? (
+            <p className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
+              Historical CARB records available. Select baseline and current year to calculate trend.
+            </p>
+          ) : null}
+          {claimBoundaryWarning ? (
+            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+              {claimBoundaryWarning}
+            </p>
+          ) : null}
           <textarea value={companyClaim} onChange={(e) => setCompanyClaim(e.target.value)} placeholder="Paste climate claim text here..." className="mt-3 h-24 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
           <p className="mt-2 text-xs text-slate-400">Parsed claim: reduction {claimParsed.claimReductionPct ?? 'n/a'}% | baseline {claimParsed.baselineYear ?? 'n/a'} | current {claimParsed.currentYear ?? 'n/a'}</p>
           <p className="mt-2 text-sm text-slate-300">{claimComparison}</p>
@@ -2627,6 +3062,16 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               {hasSingleReportingYear ? (
                 <p className="mt-2 rounded-lg border border-sky-500/40 bg-sky-950/20 px-3 py-2 text-xs text-sky-100">
                   Only one reporting year is available for this facility in the active CARB dataset. Year-over-year comparison is limited.
+                </p>
+              ) : null}
+              {hasHistoricalRecords ? (
+                <p className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
+                  Historical CARB records available. Select baseline and current year to calculate trend.
+                </p>
+              ) : null}
+              {claimBoundaryWarning ? (
+                <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+                  {claimBoundaryWarning}
                 </p>
               ) : null}
               <textarea value={companyClaim} onChange={(e) => setCompanyClaim(e.target.value)} placeholder="Paste climate claim text here (optional)..." className="mt-3 h-24 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
@@ -2975,6 +3420,20 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             Manual investigation draft - official CARB source not confirmed.
           </p>
         ) : null}
+        {hasSingleReportingYear ? (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+            Single-year CARB evidence report. Trend analysis requires historical years.
+          </p>
+        ) : (
+          <p className="rounded-lg border border-emerald-500/40 bg-emerald-950/20 px-3 py-2 text-xs text-emerald-100">
+            Historical trend analysis available.
+          </p>
+        )}
+        {claimBoundaryWarning ? (
+          <p className="rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+            {claimBoundaryWarning}
+          </p>
+        ) : null}
         <CarbReportPanel
           report={generatedCarbReport}
           canGenerate={canGenerateCarbReport}
@@ -3019,6 +3478,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
           </div>
           <p className="mt-2">Limitations: {evidencePacket.limitations.join(' | ')}</p>
+          {hasSingleReportingYear ? (
+            <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-amber-100">
+              Single-year CARB evidence report. Trend analysis requires historical years.
+            </p>
+          ) : (
+            <p className="mt-2 rounded-lg border border-emerald-500/40 bg-emerald-950/20 px-3 py-2 text-emerald-100">
+              Historical trend analysis available.
+            </p>
+          )}
         </div>
         <div className="rounded-2xl border border-slate-700 bg-slate-950/50 p-4">
           <h2 className="text-lg font-bold text-white">Audit Backend Actions (Existing Service Flow)</h2>

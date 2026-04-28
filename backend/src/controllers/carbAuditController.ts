@@ -6,6 +6,7 @@ import { carbAuditExportSchema, carbAuditLinkSchema, carbAuditPayloadSchema, typ
 import {
   getCarbDataStatus,
   getCarbDataSmokeCheck,
+  getCarbFacilityHistory,
   importCarbDataset,
   searchCarbFacilityRecords,
   syncOfficialCarbDataset,
@@ -84,6 +85,7 @@ function buildEvidencePacket(auditId: string, payload: CarbAuditPayloadInput) {
 }
 
 export async function searchCarbData(req: Request, res: Response): Promise<void> {
+  const includeHistory = String(req.query.includeHistory ?? '').toLowerCase() === 'true';
   const result = await searchCarbFacilityRecords({
     q: String(req.query.q ?? ''),
     facilityId: String(req.query.facilityId ?? ''),
@@ -95,6 +97,7 @@ export async function searchCarbData(req: Request, res: Response): Promise<void>
     year: Number(req.query.year || 0) || undefined,
     limit: Number(req.query.limit || 50) || 50,
     offset: Number(req.query.offset || 0) || 0,
+    includeHistory,
   });
   res.json({
     ok: true,
@@ -107,6 +110,15 @@ export async function searchCarbData(req: Request, res: Response): Promise<void>
     sourceUrl: result.sourceUrl,
     quality: result.quality,
   });
+}
+
+export async function getCarbFacilityHistoryHandler(req: Request, res: Response): Promise<void> {
+  const history = await getCarbFacilityHistory({
+    facilityId: String(req.query.facilityId ?? ''),
+    facilityName: String(req.query.facilityName ?? ''),
+    entityName: String(req.query.entityName ?? ''),
+  });
+  res.status(history.ok ? 200 : 404).json(history);
 }
 
 export async function getCarbDataStatusHandler(_req: Request, res: Response): Promise<void> {
@@ -138,7 +150,7 @@ export async function importCarbData(req: Request, res: Response): Promise<void>
     missingRequiredFields: imported.missingRequiredFields,
     rejectedDetails: imported.rejectedDetails,
     warnings: imported.warnings,
-    sourceMode: imported.imported > 0 ? 'IMPORTED' : 'LIVE',
+    sourceMode: imported.imported > 0 ? 'IMPORTED' : 'NEEDS_SOURCE',
   });
 }
 

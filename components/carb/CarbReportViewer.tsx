@@ -108,6 +108,16 @@ export default function CarbReportViewer({
               <p className="text-xs">Dataset: {text(report.dataReadiness.datasetVersion)}</p>
               <p className="text-xs">Retrieval date: {text(report.dataReadiness.retrievalDate)}</p>
               <p className="text-xs">Indexed records: {report.dataReadiness.recordsIndexed ?? 'n/a'}</p>
+              <p className="text-xs">Current search rows: {report.dataReadiness.currentSearchRowCount ?? 'n/a'}</p>
+            </div>
+          ) : null}
+          {report.historicalCoverage ? (
+            <div className="mt-3 rounded-lg border border-slate-800 bg-slate-900/60 p-3">
+              <p className="font-semibold text-white">Historical Coverage</p>
+              <p className="mt-1 text-xs">Years loaded: {report.historicalCoverage.yearsLoaded.join(', ') || 'n/a'}</p>
+              <p className="text-xs">Historical ready: {report.historicalCoverage.historicalReady ? 'Yes' : 'No'}</p>
+              <p className="text-xs">Multi-year facilities: {report.historicalCoverage.multiYearFacilitiesCount}</p>
+              <p className="text-xs">Single-year facilities: {report.historicalCoverage.singleYearFacilitiesCount}</p>
             </div>
           ) : null}
           <h2 className="mt-4 text-lg font-bold text-white">Facility Profile</h2>
@@ -151,6 +161,18 @@ export default function CarbReportViewer({
                     <p>Next action: {finding.nextAction}</p>
                   </div>
                 ))}
+              </div>
+            </>
+          ) : null}
+          {report.historicalTrend ? (
+            <>
+              <h3 className="mt-5 text-base font-bold text-white">Historical Trend Summary</h3>
+              <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs">
+                <p><span className="font-semibold text-white">Trend:</span> {report.historicalTrend.trendFinding}</p>
+                <p><span className="font-semibold text-white">Largest year change:</span> {report.historicalTrend.largestYearChange}</p>
+                <p><span className="font-semibold text-white">Data continuity:</span> {report.historicalTrend.dataContinuity}</p>
+                <p><span className="font-semibold text-white">Coverage:</span> {report.historicalTrend.historicalCoverageNote}</p>
+                <p><span className="font-semibold text-white">Claim boundary:</span> {report.historicalTrend.claimBoundaryCheck}</p>
               </div>
             </>
           ) : null}

@@ -24,6 +24,34 @@ export interface CarbSpecializedReport {
     baselineYear: number;
     currentYear: number;
   };
+  historicalCoverage?: {
+    yearsLoaded: number[];
+    yearRecordCounts: Record<string, number>;
+    multiYearFacilitiesCount: number;
+    singleYearFacilitiesCount: number;
+    historicalReady: boolean;
+    warnings: string[];
+  };
+  historicalTrend?: {
+    trendFinding: string;
+    dataContinuity: string;
+    largestYearChange: string;
+    historicalCoverageNote: string;
+    claimBoundaryCheck: string;
+  };
+  historicalRecords?: Array<{
+    reportingYear: number;
+    totalCO2e: number | null;
+    methaneCH4: number | null;
+    nitrousOxideN2O: number | null;
+    carbonDioxideCO2: number | null;
+    datasetVersion: string;
+    sourceUrl?: string;
+    retrievalDate: string;
+    rawRow?: Record<string, unknown>;
+  }>;
+  baselineRawRow?: Record<string, unknown> | null;
+  currentRawRow?: Record<string, unknown> | null;
   emissionsComparison: {
     baselineCO2e: number;
     currentCO2e: number;
@@ -33,6 +61,27 @@ export interface CarbSpecializedReport {
     methane: { baseline: number | null; current: number | null; reductionPct: number | null };
     n2o: { baseline: number | null; current: number | null; reductionPct: number | null };
     co2: { baseline: number | null; current: number | null; reductionPct: number | null };
+  };
+  mapEvidence?: {
+    center: [number, number];
+    selectedFacilityCoordinates?: [number, number] | null;
+    manualCoordinates?: [number, number] | null;
+    investigationPolygon?: [number, number][];
+    markers: Array<{
+      id: string;
+      kind: 'inspection_point' | 'anomaly_marker';
+      label: string;
+      lat: number;
+      lng: number;
+      createdAt: string;
+    }>;
+    followUpTasks: Array<{
+      id: string;
+      title: string;
+      status: 'open' | 'done';
+      linkedMarkerId?: string;
+    }>;
+    activeLayers: string[];
   };
   environmentalReadings?: Array<{
     index: 'NDWI' | 'NDVI' | 'NDMI' | 'NBR';
@@ -118,8 +167,14 @@ export interface BuildCarbReportInput {
   facilityIdentity: CarbSpecializedReport['facilityIdentity'];
   location: CarbSpecializedReport['location'];
   reportingYears: CarbSpecializedReport['reportingYears'];
+  historicalCoverage?: CarbSpecializedReport['historicalCoverage'];
+  historicalTrend?: CarbSpecializedReport['historicalTrend'];
+  historicalRecords?: CarbSpecializedReport['historicalRecords'];
+  baselineRawRow?: CarbSpecializedReport['baselineRawRow'];
+  currentRawRow?: CarbSpecializedReport['currentRawRow'];
   emissionsComparison: CarbSpecializedReport['emissionsComparison'];
   gasBreakdown: CarbSpecializedReport['gasBreakdown'];
+  mapEvidence?: CarbSpecializedReport['mapEvidence'];
   environmentalReadings?: CarbSpecializedReport['environmentalReadings'];
   companyClaim: string;
   claimVerificationResult: string;

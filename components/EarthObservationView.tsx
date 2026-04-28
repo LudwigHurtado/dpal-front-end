@@ -7,6 +7,7 @@ import {
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
+import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
 
 interface GPSPoint { lat: number; lng: number }
 
@@ -30,6 +31,14 @@ interface EarthObservationResult {
   captureDate: string | null;
   source: string;
   message: string;
+  sourceMode?: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'UNAVAILABLE';
+  processingStage?: 'product_found' | 'imagery_loaded' | 'metric_computed' | 'field_verified';
+  beforeScene?: { sceneId: string; acquisitionDate: string | null; cloudCoverage: number | null; source: string } | null;
+  afterScene?: { sceneId: string; acquisitionDate: string | null; cloudCoverage: number | null; source: string } | null;
+  metricMethod?: string;
+  limitations?: string[];
+  recommendedActions?: string[];
+  legalDisclaimer?: string;
   metrics: Record<string, number | string | null>;
 }
 
@@ -301,43 +310,108 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
   const [result, setResult] = useState<EarthObservationResult>(EMPTY_RESULT('deforestation'));
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
+  const [aoiSaved, setAoiSaved] = useState(false);
+  const [scanRequested, setScanRequested] = useState(false);
+  const [evidencePacketCreated, setEvidencePacketCreated] = useState(false);
+  const [verificationMissionCreated, setVerificationMissionCreated] = useState(false);
 
   const selectedUse = USE_CASES.find((item) => item.id === observationType) ?? USE_CASES[0];
 
   const runScan = async () => {
     setLoading(true);
     setNotice('');
+    setScanRequested(true);
     try {
-      const params = new URLSearchParams({
-        lat: String(scanLocation.lat),
-        lng: String(scanLocation.lng),
-        radiusKm: String(scanRadius),
-        type: observationType,
+      const endDate = new Date();
+      const startDate = new Date(endDate);
+      startDate.setDate(startDate.getDate() - 30);
+      const analysisTypeMap: Record<ObservationUse, 'deforestation' | 'agriculture' | 'pollution' | 'carbon' | 'flood_fire' | 'urban' | 'water' | 'heat'> = {
+        deforestation: 'deforestation',
+        agriculture: 'agriculture',
+        pollution: 'pollution',
+        carbon_projects: 'carbon',
+        floods_fires: 'flood_fire',
+        roads_cities: 'urban',
+        water: 'water',
+        heat: 'heat',
+      };
+      const res = await fetch(apiUrl(API_ROUTES.EARTH_OBSERVATION_SCAN), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysisType: analysisTypeMap[observationType],
+          latitude: scanLocation.lat,
+          longitude: scanLocation.lng,
+          radiusKm: scanRadius,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        }),
       });
-      const res = await fetch(apiUrl(API_ROUTES.EARTH_OBSERVATION_SCAN) + `?${params.toString()}`);
-      const body = await res.text();
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
         setResult({
           ...EMPTY_RESULT(observationType),
           source: selectedUse.satellites,
-          message: 'The LEO Earth-observation processing endpoint is not deployed yet. No satellite signal is verified for this area.',
+          message: 'No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.',
         });
-        setNotice(`Earth Observation endpoint unavailable (${res.status}). The workspace is ready, but verified readings require the backend adapter.`);
+        setNotice('Earth Observation scan is temporarily unavailable. The workspace remains active and no verified signal is being claimed.');
         return;
       }
-      const data = body ? JSON.parse(body) : null;
-      setResult({ ...EMPTY_RESULT(observationType), ...data, observationType });
+      const source = Array.isArray(data?.sources)
+        ? data.sources
+          .map((s: { name?: string; product?: string; acquisitionDate?: string }) =>
+            [s?.name, s?.product, s?.acquisitionDate].filter(Boolean).join(' · '))
+          .filter(Boolean)
+          .join(' | ')
+        : selectedUse.satellites;
+      const captureDate = Array.isArray(data?.sources) && data.sources[0]?.acquisitionDate
+        ? String(data.sources[0].acquisitionDate)
+        : null;
+      const confidenceScore = typeof data?.confidence === 'number' ? data.confidence : null;
+      const isVerified = data?.signalStatus === 'verified' || data?.signalStatus === 'partially_verified';
+      setResult({
+        ...EMPTY_RESULT(observationType),
+        observationType,
+        dataAvailable: isVerified,
+        signalStatus: isVerified ? String(data?.signalStatus ?? 'Not verified') : 'Not verified',
+        primarySignal: isVerified ? String(data?.primarySignal ?? '') : null,
+        riskLevel: (data?.riskLevel ?? 'unknown') as EarthObservationResult['riskLevel'],
+        confidenceScore,
+        captureDate,
+        source,
+        sourceMode: data?.sourceMode,
+        processingStage: data?.processingStage,
+        beforeScene: data?.beforeScene ?? null,
+        afterScene: data?.afterScene ?? null,
+        metricMethod: typeof data?.metricMethod === 'string' ? data.metricMethod : undefined,
+        limitations: Array.isArray(data?.limitations) ? data.limitations : [],
+        recommendedActions: Array.isArray(data?.recommendedActions) ? data.recommendedActions : [],
+        legalDisclaimer: typeof data?.legalDisclaimer === 'string' ? data.legalDisclaimer : undefined,
+        message: typeof data?.summary === 'string'
+          ? data.summary
+          : 'No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.',
+        metrics: data?.metrics && typeof data.metrics === 'object' ? data.metrics as Record<string, number | string | null> : {},
+      });
+      if (data?.sourceMode === 'UNAVAILABLE') {
+        setNotice('No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.');
+      } else {
+        setNotice('');
+      }
     } catch {
       setResult({
         ...EMPTY_RESULT(observationType),
         source: selectedUse.satellites,
-        message: 'Unable to reach the Earth Observation processing endpoint. No satellite signal is verified yet.',
+        message: 'No verified satellite reading available yet. Backend adapter connected, but live imagery source is not configured.',
       });
-      setNotice('Network unavailable for Earth Observation scan. Try again after the backend adapter is deployed.');
+      setNotice('Network unavailable for Earth Observation scan. Try again when the backend is reachable.');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    setAoiSaved(false);
+  }, [scanLocation.lat, scanLocation.lng, scanRadius]);
 
   const verified = result.dataAvailable === true;
   const metrics = [
@@ -346,6 +420,30 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
     { label: 'Risk Level', value: verified ? result.riskLevel : 'Unknown', icon: <AlertTriangle className="h-5 w-5 text-amber-300" />, desc: 'Requires verified imagery and context' },
     { label: 'Confidence', value: verified && typeof result.confidenceScore === 'number' ? `${Math.round(result.confidenceScore * 100)}%` : 'Not verified', icon: <ShieldCheck className="h-5 w-5 text-cyan-300" />, desc: 'Based on source quality and usable pixels' },
   ];
+
+  const workflowState = {
+    analysisType: observationType,
+    latitude: scanLocation.lat,
+    longitude: scanLocation.lng,
+    radiusKm: scanRadius,
+    aoiDraft: scanRadius > 0,
+    aoiSaved,
+    scanRequested,
+    scanResult: scanRequested,
+    sourceMode: result.sourceMode ?? null,
+    signalStatus: result.signalStatus ?? null,
+    processingStage: result.processingStage ?? null,
+    beforeScene: result.beforeScene ?? null,
+    afterScene: result.afterScene ?? null,
+    metricMethod: result.metricMethod ?? null,
+    riskLevel: result.riskLevel ?? null,
+    confidence: result.confidenceScore ?? null,
+    metrics: result.metrics,
+    limitations: result.limitations ?? [],
+    recommendedActions: result.recommendedActions ?? [],
+    evidencePacket: evidencePacketCreated,
+    missionCreated: verificationMissionCreated,
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -371,7 +469,9 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl space-y-5 px-4 py-6">
+      <div className="mx-auto max-w-7xl px-4 py-6">
+        <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
+          <div className="space-y-5">
         <div className="grid gap-4 lg:grid-cols-[380px_1fr] lg:items-stretch">
           <div className="rounded-xl border border-slate-700 bg-slate-900 p-5">
             <div className="mb-4 flex items-center gap-3">
@@ -429,6 +529,13 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
                 <p className="mt-1 text-xs text-slate-500">{scanRadius} km around the scan center.</p>
               </div>
               <button
+                type="button"
+                onClick={() => setAoiSaved(true)}
+                className="w-full rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-200 hover:border-sky-500 hover:text-white"
+              >
+                {aoiSaved ? 'AOI saved' : 'Save AOI boundary'}
+              </button>
+              <button
                 onClick={runScan}
                 disabled={loading}
                 className="w-full rounded-lg bg-sky-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-sky-500 disabled:opacity-50"
@@ -445,6 +552,15 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
           <p className="font-bold text-white">Scan status</p>
           <p className="mt-1">{result.message}</p>
           <p className="mt-1 text-xs text-slate-500">{result.source}{result.captureDate ? ` · ${result.captureDate}` : ''}</p>
+          {result.processingStage && <p className="mt-2 text-xs text-sky-300">Processing stage: {result.processingStage.replace('_', ' ')}</p>}
+          {result.beforeScene?.acquisitionDate && <p className="mt-1 text-xs text-slate-400">Before scene date: {result.beforeScene.acquisitionDate}</p>}
+          {result.afterScene?.acquisitionDate && <p className="mt-1 text-xs text-slate-400">After scene date: {result.afterScene.acquisitionDate}</p>}
+          {result.metricMethod && <p className="mt-1 text-xs text-slate-400">Metric method: {result.metricMethod}</p>}
+          {!!result.limitations?.length && <p className="mt-1 text-xs text-amber-300">Limitations: {result.limitations[0]}</p>}
+          {!!result.recommendedActions?.length && (
+            <p className="mt-2 text-xs text-sky-300">Recommended DPAL action: {result.recommendedActions[0]}</p>
+          )}
+          {result.legalDisclaimer && <p className="mt-2 text-[11px] text-slate-500">{result.legalDisclaimer}</p>}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -492,6 +608,16 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
           <p className="text-sm leading-relaxed text-slate-400">
             This area turns LEO satellite signals into practical reports and missions: verify what changed, collect field proof, route help to affected people or projects, and avoid presenting unverified satellite indicators as facts.
           </p>
+        </div>
+          </div>
+          <DpalProjectGuide
+            moduleType="earth_observation"
+            workflowState={workflowState}
+            scanResult={result as unknown as Record<string, unknown>}
+            evidenceState={{ evidencePacket: evidencePacketCreated, missionCreated: verificationMissionCreated }}
+            onCreateEvidencePacket={() => setEvidencePacketCreated(true)}
+            onCreateVerificationMission={() => setVerificationMissionCreated(true)}
+          />
         </div>
       </div>
     </div>
