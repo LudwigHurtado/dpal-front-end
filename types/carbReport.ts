@@ -55,7 +55,10 @@ export interface CarbSpecializedReport {
     searchReadiness: 'Ready' | 'Limited' | 'Not Ready';
     datasetVersion?: string;
     retrievalDate?: string;
+    /** Total records in the live/indexed CARB dataset (global status). */
     recordsIndexed?: number;
+    /** Rows returned for the current search result set (may differ when filters yield zero). */
+    currentSearchRowCount?: number;
   };
   investigationFindings?: Array<{
     title: string;

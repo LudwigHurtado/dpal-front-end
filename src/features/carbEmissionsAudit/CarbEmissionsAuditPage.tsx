@@ -397,6 +397,23 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setHasSearched(false);
   };
 
+  const clearSelectedFacility = () => {
+    setSelected(null);
+    setAvailableYears([]);
+    setBaselineYear('');
+    setCurrentYear('');
+    setBaselineEmissions('');
+    setCurrentEmissions('');
+    setMethaneBaseline('');
+    setMethaneCurrent('');
+    setN2oBaseline('');
+    setN2oCurrent('');
+    setCo2Baseline('');
+    setCo2Current('');
+    setCompanyClaim('');
+    setMessage('Selected facility cleared.');
+  };
+
   const facilityYearRecords = useMemo(
     () => (!selected ? [] : facilities.filter((row) => row.facilityId === selected.facilityId)),
     [facilities, selected],
@@ -412,22 +429,45 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const mapRenderWatchKey = `${paneWidths.left}-${mapCenter[0]}-${mapCenter[1]}-${drawingPolygon}-${savedPolygonPoints.length}-${polygonDraftPoints.length}`;
   const searchTerm = facilitySearch.q.trim();
   const importedDatasetLoaded = Boolean(datasetVersion && datasetVersion !== 'import-not-loaded' && datasetVersion !== 'unavailable');
-  const isNoExactMatch = hasSearched && facilities.length === 0;
+  /** Current search returned zero rows (does not mean the global dataset is empty). */
+  const noResultsForCurrentSearch = hasSearched && facilities.length === 0;
+  const hasActiveSearchCriteria = useMemo(
+    () => Object.values(facilitySearch).some((v) => v.trim().length > 0),
+    [facilitySearch],
+  );
+  /** Strong “no match” banner only when the user actually applied filters and got zero rows. */
+  const showSearchNoResultsBanner = noResultsForCurrentSearch && hasActiveSearchCriteria;
+  const currentSearchLabel = useMemo(() => {
+    const parts: string[] = [];
+    if (facilitySearch.q.trim()) parts.push(`keyword "${facilitySearch.q.trim()}"`);
+    if (facilitySearch.facilityId.trim()) parts.push(`facility ID ${facilitySearch.facilityId.trim()}`);
+    if (facilitySearch.city.trim()) parts.push(`city ${facilitySearch.city.trim()}`);
+    if (facilitySearch.county.trim()) parts.push(`county ${facilitySearch.county.trim()}`);
+    if (facilitySearch.sector.trim()) parts.push(`sector ${facilitySearch.sector.trim()}`);
+    if (facilitySearch.year.trim()) parts.push(`year ${facilitySearch.year.trim()}`);
+    return parts.length ? parts.join(' · ') : 'no filters (broad load)';
+  }, [facilitySearch]);
   const shouldShowBrandSuggestions = BRAND_SEARCH_HINTS.includes(searchTerm.toLowerCase());
   const searchAssistantAliases = CARB_SEARCH_ASSISTANT_ALIASES[searchTerm.toLowerCase()] ?? [];
-  const carbDatasetReady = Boolean(carbDataStatus?.datasetLoaded && (carbDataStatus?.recordCount ?? 0) > 0);
+  const globalLiveRecordCount = carbDataStatus?.recordCount ?? null;
+  const carbDatasetReady = Boolean(carbDataStatus?.datasetLoaded && (globalLiveRecordCount ?? 0) > 0);
   const searchReadiness: 'Ready' | 'Limited' | 'Not Ready' = carbDataStatus?.searchReadiness ?? (carbDatasetReady ? 'Ready' : 'Not Ready');
   const carbDataStatusReadiness: 'Ready' | 'Limited' | 'Not Ready' = useMemo(() => {
     if (carbSearchFailed) return 'Not Ready';
     if (carbDataStatus) return carbDataStatus.searchReadiness;
-    return facilities.length > 0 ? 'Ready' : 'Not Ready';
-  }, [carbSearchFailed, carbDataStatus, facilities.length]);
+    return 'Not Ready';
+  }, [carbSearchFailed, carbDataStatus]);
+  /** Global dataset truly missing or not ready — never infer from current search result count. */
+  const showEmptyDatasetWarning = Boolean(
+    carbDataStatus &&
+      (!carbDataStatus.datasetLoaded || (carbDataStatus.recordCount ?? 0) === 0 || carbDataStatus.searchReadiness !== 'Ready'),
+  );
   const carbDataStatusMessage = useMemo(() => {
     if (carbDataStatusReadiness === 'Ready') return 'CARB records are loaded and searchable.';
     if (carbDataStatusReadiness === 'Limited') return 'The endpoint responded, but the indexed dataset may not be fully loaded.';
     return 'No searchable CARB records are currently loaded.';
   }, [carbDataStatusReadiness]);
-  const hasCountyNoMatch = isNoExactMatch && Boolean(facilitySearch.county.trim());
+  const hasCountyNoMatch = noResultsForCurrentSearch && Boolean(facilitySearch.county.trim());
   const coverage = carbDataStatus?.quality?.availableFieldCoverage;
   const facilityCoverageLevel = getCoverageLevel(coverage?.facilityName ?? 0);
   const operatorCoverageLevel = getCoverageLevel(coverage?.operatorName ?? 0);
@@ -438,7 +478,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const countyUnavailable = (coverage?.county ?? 0) === 0;
   const operatorUnavailable = (coverage?.operatorName ?? 0) === 0;
   const availableSectorPreview = (carbDataStatus?.availableSectors ?? []).slice(0, 8);
-  const showImportWizardCta = (carbDataStatus?.recordCount ?? facilities.length) === 0
+  const showImportWizardCta = (carbDataStatus?.recordCount ?? 0) === 0
     && (carbDataStatus?.datasetVersion ?? datasetVersion) === 'import-not-loaded';
 
   useEffect(() => {
@@ -573,14 +613,20 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   useEffect(() => {
     if (!selected) return;
-    const years = Array.from(new Set(facilityYearRecords.map((row) => row.reportingYear))).sort((a, b) => b - a);
+    const yearsFromRows = Array.from(new Set(facilityYearRecords.map((row) => row.reportingYear))).sort((a, b) => b - a);
+    const years =
+      yearsFromRows.length > 0
+        ? yearsFromRows
+        : Array.from(new Set([selected.reportingYear, ...(carbDataStatus?.availableYears ?? [])]))
+            .filter((y): y is number => typeof y === 'number' && Number.isFinite(y))
+            .sort((a, b) => b - a);
     setAvailableYears(years);
     if (!years.length) return;
     const nextCurrent = years[0];
     const nextBaseline = years[1] ?? years[0];
     setCurrentYear(nextCurrent);
     setBaselineYear(nextBaseline);
-  }, [selected, facilityYearRecords]);
+  }, [selected, facilityYearRecords, carbDataStatus?.availableYears]);
 
   useEffect(() => {
     if (!selected || !baselineYear || !currentYear) return;
@@ -731,14 +777,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   }, [isSameYearComparison, hasSingleReportingYear, selected, baselineYear, currentYear, calculatedReductionNumber, baselineEmissions, currentEmissions]);
 
   const sourceModeText = useMemo(() => {
-    if (sourceMode === 'LIVE' && !importedDatasetLoaded) {
-      return 'Live endpoint responded, but no imported CARB dataset is loaded. Search results may be incomplete until an official CARB spreadsheet is imported or the live connector returns indexed records.';
+    if (sourceMode === 'LIVE' && !carbDatasetReady) {
+      return 'Live CARB endpoint responded, but the indexed dataset is not fully available for search yet.';
     }
     if (sourceMode === 'LIVE') return 'This review uses a live CARB-connected dataset.';
     if (sourceMode === 'IMPORTED') return 'This review uses an imported CARB dataset derived from official reporting data.';
     if (sourceMode === 'NEEDS_SOURCE') return 'Manual investigation mode: official CARB source not confirmed yet.';
     return 'This review uses demo data and is not suitable for real conclusions.';
-  }, [sourceMode, importedDatasetLoaded]);
+  }, [sourceMode, carbDatasetReady]);
 
   const recommendedNextSteps = useMemo(() => {
     const steps: string[] = [];
@@ -1031,7 +1077,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       searchReadiness,
       datasetVersion,
       retrievalDate,
-      recordsIndexed: facilities.length,
+      recordsIndexed: globalLiveRecordCount ?? 0,
+      currentSearchRowCount: facilities.length,
       availableYears,
     },
     reportQuality: reportQualityRating,
@@ -1043,7 +1090,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     },
     manualInvestigationFlag: isManualInvestigationMode,
     sourceIntegrityWarnings: [
-      !carbDatasetReady ? 'Dataset readiness is limited. Search results may be incomplete.' : '',
+      showEmptyDatasetWarning ? 'Dataset readiness is limited. Search results may be incomplete.' : '',
       isManualInvestigationMode ? 'Manual investigation draft - official CARB source not confirmed.' : '',
     ].filter(Boolean),
   };
@@ -1068,15 +1115,6 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setCurrentPage(1);
       setHasSearched(true);
       setCarbSearchFailed(false);
-      setCarbDataStatus((prev) => prev ? {
-        ...prev,
-        sourceMode: res.sourceMode,
-        sourceUrl: res.sourceUrl ?? prev.sourceUrl,
-        datasetVersion: res.datasetVersion ?? prev.datasetVersion,
-        retrievalDate: res.retrievalDate ?? prev.retrievalDate,
-        recordCount: res.count,
-        quality: res.quality ?? prev.quality,
-      } : prev);
       setMessage(`Loaded ${res.count} facility result(s). Source mode: ${res.sourceMode}.`);
       return res;
     } catch (error: unknown) {
@@ -1106,15 +1144,6 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         setCurrentPage(1);
         setHasSearched(true);
         setCarbSearchFailed(false);
-        setCarbDataStatus((prev) => prev ? {
-          ...prev,
-          sourceMode: res.sourceMode,
-          sourceUrl: res.sourceUrl ?? prev.sourceUrl,
-          datasetVersion: res.datasetVersion ?? prev.datasetVersion,
-          retrievalDate: res.retrievalDate ?? prev.retrievalDate,
-          recordCount: res.count,
-          quality: res.quality ?? prev.quality,
-        } : prev);
         setMessage(res.count > 0
           ? `Loaded ${res.count} CARB facility record(s).`
           : 'No CARB facilities were returned. Import an official CARB dataset or start a manual investigation.');
@@ -1161,7 +1190,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           return;
         }
       }
-      setMessage(`No exact CARB match found for "${facilitySearch.q}". Use guided suggestions or start a manual investigation.`);
+      setMessage(
+        selected
+          ? `No rows for the current search filters. Selected facility remains active: ${selected.facilityName}. Try broader terms or clear filters.`
+          : `No exact CARB match found for "${facilitySearch.q}". Use guided suggestions or start a manual investigation.`,
+      );
     }
   };
 
@@ -1176,15 +1209,6 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setCurrentPage(1);
     setHasSearched(true);
     setCarbSearchFailed(false);
-    setCarbDataStatus((prev) => prev ? {
-      ...prev,
-      sourceMode: res.sourceMode,
-      sourceUrl: res.sourceUrl ?? prev.sourceUrl,
-      datasetVersion: res.datasetVersion ?? prev.datasetVersion,
-      retrievalDate: res.retrievalDate ?? prev.retrievalDate,
-      recordCount: res.count,
-      quality: res.quality ?? prev.quality,
-    } : prev);
     setMessage(`Loaded ${res.count} California-wide records for fallback investigation.`);
   };
 
@@ -1370,11 +1394,41 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         : activeWorkspaceTab !== 'situation' && activeWorkspaceTab !== 'findings'
           ? 'Review report and evidence tabs'
           : 'Situation room investigation active';
-  const nextRecommendedAction = generatedCarbReport
-    ? 'Continue review in Situation Room and finalize legal task list.'
-    : canGenerateCarbReport
-      ? 'Generate CARB report from current selected facility data.'
-      : 'Select facility and reporting years to enable report generation.';
+  const nextRecommendedAction = useMemo(() => {
+    if (generatedCarbReport) return 'Continue review in Situation Room and finalize legal task list.';
+    if (!selected && !isManualInvestigationMode) return 'Search and select a CARB facility.';
+    if (isManualInvestigationMode) {
+      return canGenerateCarbReport
+        ? 'Generate CARB report from manual investigation draft.'
+        : 'Complete manual investigation identity fields to enable report generation.';
+    }
+    if (!baselineYear || !currentYear) return 'Choose reporting year values for baseline and current comparison.';
+    if (baselineEmissions === '' || currentEmissions === '') {
+      if (hasSingleReportingYear) {
+        return 'Only one reporting year is available for this facility. Add a company climate claim or prepare a single-year evidence report once emissions fields are complete.';
+      }
+      return 'Ensure emissions values are loaded for the selected baseline and current years.';
+    }
+    if (!companyClaim.trim()) {
+      if (hasSingleReportingYear) {
+        return 'Only one reporting year is available. Add a company climate claim if you want claim verification, or generate a CARB report or evidence packet.';
+      }
+      return 'Paste a company climate claim if you want claim verification.';
+    }
+    if (canGenerateCarbReport) return 'Generate CARB report or export evidence packet.';
+    return 'Review investigation findings and refine comparison inputs.';
+  }, [
+    generatedCarbReport,
+    selected,
+    isManualInvestigationMode,
+    baselineYear,
+    currentYear,
+    baselineEmissions,
+    currentEmissions,
+    companyClaim,
+    hasSingleReportingYear,
+    canGenerateCarbReport,
+  ]);
   const reportGateMessage = 'To generate a CARB report, select a CARB facility or start a manual investigation draft.';
 
   const handleSave = async () => {
@@ -1507,7 +1561,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           searchReadiness,
           datasetVersion,
           retrievalDate,
-          recordsIndexed: facilities.length,
+          recordsIndexed: globalLiveRecordCount ?? 0,
+          currentSearchRowCount: facilities.length,
         },
         investigationFindings: investigationExplanationCards.map((item) => ({
           title: item.title,
@@ -1516,7 +1571,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           nextAction: item.nextAction,
         })),
         sourceIntegrityWarnings: [
-          !carbDatasetReady ? 'CARB dataset readiness is limited; search results may be incomplete.' : '',
+          showEmptyDatasetWarning ? 'CARB dataset readiness is limited; search results may be incomplete.' : '',
           effectiveSourceMode === 'NEEDS_SOURCE' ? 'Manual investigation draft - official CARB source not confirmed.' : '',
         ].filter(Boolean),
         datasetVersion:
@@ -1696,6 +1751,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             <button type="button" onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Generate Report</button>
             <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Export Evidence</button>
             <button type="button" onClick={() => setActiveWorkspaceTab('situation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Open Situation Room</button>
+            <button
+              type="button"
+              onClick={clearSelectedFacility}
+              disabled={!selected}
+              className="rounded-lg border border-rose-500/50 bg-rose-950/30 px-3 py-2 text-xs font-semibold text-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Clear Selected Facility
+            </button>
           </div>
         </section>
       ) : null}
@@ -1712,12 +1775,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </button>
         </div>
         <div className="mt-2 rounded-lg border border-slate-700/70 bg-slate-900/40 px-3 py-2 sm:hidden">
-          {(carbDataStatus?.sourceMode ?? sourceMode)} · {carbDataStatus?.recordCount ?? facilities.length} records · {carbDataStatusReadiness}
+          {(carbDataStatus?.sourceMode ?? sourceMode)} · total live {globalLiveRecordCount ?? '—'} · this search {facilities.length} rows · {carbDataStatusReadiness}
         </div>
         <div className={`${statusExpanded ? 'mt-2 grid' : 'mt-2 hidden sm:grid'} grid-cols-1 gap-1 md:grid-cols-2 xl:grid-cols-3`}>
           <p>Live endpoint: <span className="text-cyan-200">{carbSearchFailed ? 'Failed' : 'Connected'}</span></p>
           <p>Source mode: <span className="text-cyan-200">{carbDataStatus?.sourceMode ?? sourceMode}</span></p>
-          <p>Indexed records: <span className="text-cyan-200">{carbDataStatus?.recordCount ?? facilities.length} / 500</span></p>
+          <p>Total live records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
+          <p>Rows displayed (current search): <span className="text-cyan-200">{facilities.length}</span></p>
           <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || datasetVersion || 'n/a'}</span></p>
           <p>Retrieval date: <span className="text-cyan-200">{carbDataStatus?.retrievalDate || retrievalDate || 'n/a'}</span></p>
           <p>Search quality: <span className="text-cyan-200">{carbDataStatusReadiness}</span></p>
@@ -1744,7 +1808,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             ))}
           </div>
         </div>
-        {!carbDatasetReady ? (
+        {showEmptyDatasetWarning ? (
           <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-amber-100">
             CARB endpoint responded, but no indexed/imported CARB dataset is loaded. Search results may be incomplete until official CARB MRR data is imported or the live connector returns indexed records.
           </p>
@@ -1855,7 +1919,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>Official source URL: <span className="text-cyan-200 break-all">{carbDataStatus?.sourceUrl || 'Not provided'}</span></p>
               <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || 'n/a'}</span></p>
               <p>Retrieval date: <span className="text-cyan-200">{carbDataStatus?.retrievalDate || 'n/a'}</span></p>
-              <p>Record count: <span className="text-cyan-200">{carbDataStatus?.recordCount ?? facilities.length}</span></p>
+              <p>Total live records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
+              <p>Rows displayed (current search): <span className="text-cyan-200">{facilities.length}</span></p>
               <p>Available year(s): <span className="text-cyan-200">{(carbDataStatus?.availableYears ?? []).join(', ') || 'n/a'}</span></p>
               <p>Available sectors: <span className="text-cyan-200">{availableSectorPreview.join(', ') || 'n/a'}{(carbDataStatus?.availableSectors?.length ?? 0) > 8 ? ' + more' : ''}</span></p>
               <p>County availability: <span className="text-cyan-200">{countyUnavailable ? 'Not provided by current workbook' : 'Provided'}</span></p>
@@ -2083,7 +2148,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p className="text-emerald-200">Year search is available.</p>
             ) : null}
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <button onClick={() => void handleSearch()} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
             <button
               onClick={() => void handleOpenCompanyPicker()}
@@ -2091,10 +2156,25 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             >
               Pick Company
             </button>
+            <button
+              type="button"
+              onClick={clearSelectedFacility}
+              disabled={!selected}
+              className="rounded-lg border border-rose-500/50 bg-rose-950/30 px-3 py-2 text-sm font-semibold text-rose-100 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Clear Selected Facility
+            </button>
           </div>
           <p className="mt-2 text-xs text-slate-300">
             Results: {facilities.length} | Source mode: <span className="font-semibold">{sourceMode}</span> {isSearching ? '| Searching...' : ''}
           </p>
+          <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/50 p-3 text-[11px] text-slate-300">
+            <p className="font-semibold text-white">Search state (this tab)</p>
+            <p className="mt-1">Current search: <span className="text-cyan-200">{currentSearchLabel}</span></p>
+            <p>Results for current search: <span className="text-cyan-200">{facilities.length}</span></p>
+            <p>Total live dataset records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
+            <p>Dataset version (global): <span className="text-cyan-200">{carbDataStatus?.datasetVersion ?? datasetVersion ?? 'n/a'}</span></p>
+          </div>
           <div className="mt-2">
             <span className="rounded-full border border-slate-600 bg-slate-950/60 px-2 py-0.5 text-[11px] text-slate-200">
               Initial Load: {initialLoadStatus}
@@ -2128,9 +2208,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               Run a facility search to unlock facility selection, year comparison, and evidence export.
             </div>
           ) : null}
-          {isNoExactMatch ? (
+          {showSearchNoResultsBanner ? (
             <div className="mt-3 rounded-xl border border-amber-500/40 bg-amber-950/20 p-3 text-xs text-amber-100">
               <p className="text-sm font-bold">No exact CARB match found</p>
+              {selected ? (
+                <p className="mt-2 rounded-lg border border-cyan-500/40 bg-cyan-950/25 px-3 py-2 text-cyan-100">
+                  Current search returned no rows, but your selected facility remains active: <span className="font-semibold">{selected.facilityName}</span> ({selected.facilityId}). Clear the search filters or pick a different row to change selection.
+                </p>
+              ) : null}
               <p className="mt-1">
                 DPAL could not find an exact CARB facility/operator match for this search. CARB records may use legal entity names, facility names, refineries, fuel-supplier names, or historical operator names instead of the public brand name.
               </p>
@@ -2616,6 +2701,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} className="w-full rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-sm font-semibold text-cyan-100">Export Evidence</button>
               <button type="button" onClick={() => setActiveWorkspaceTab('situation')} className="w-full rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-sm font-semibold text-cyan-100">Open Situation Room</button>
               <button type="button" onClick={() => setActiveWorkspaceTab('compare')} className="w-full rounded-lg border border-slate-600 bg-slate-900/60 px-3 py-2 text-sm font-semibold text-slate-100">Compare Years</button>
+              <button type="button" onClick={clearSelectedFacility} className="w-full rounded-lg border border-rose-500/50 bg-rose-950/30 px-3 py-2 text-sm font-semibold text-rose-100">Clear Selected Facility</button>
             </div>
           </div>
         )}
