@@ -1,4 +1,5 @@
 import type { PlaceRef, SafetyStatus, SupportCategoryId, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
+import { calculateGoodWheelsFareSplit, fareSplitToPayload } from './utils/fareSplit';
 
 /**
  * Mock/API mapper placeholder.
@@ -50,6 +51,39 @@ export function mapMockTripToTrip(input: unknown): Trip {
   const updatedAtIso = asIso(o.updatedAtIso, createdAtIso);
   const status = asStatus(o.status);
 
+  const estimateBlock = (() => {
+    const est = o.estimate && typeof o.estimate === 'object' ? o.estimate : {};
+    const etaMinutes = typeof est.etaMinutes === 'number' ? est.etaMinutes : 12;
+    const distanceKm = typeof est.distanceKm === 'number' ? est.distanceKm : 4.2;
+    const currency = typeof est.currency === 'string' ? est.currency : 'USD';
+    let totalFareCents: number | undefined =
+      typeof est.totalFareCents === 'number' && Number.isFinite(est.totalFareCents)
+        ? Math.round(est.totalFareCents)
+        : undefined;
+    if ((totalFareCents == null || totalFareCents <= 0) && typeof o.fareUsd === 'number' && o.fareUsd > 0) {
+      totalFareCents = Math.round(o.fareUsd * 100);
+    }
+    const base = { etaMinutes, distanceKm, currency };
+    if (totalFareCents != null && totalFareCents > 0) {
+      const split = calculateGoodWheelsFareSplit(totalFareCents);
+      return {
+        ...base,
+        totalFareCents: split.totalFareCents,
+        fareSplit: fareSplitToPayload(split),
+      };
+    }
+    return base;
+  })();
+
+  const fareUsdResolved =
+    typeof o.fareUsd === 'number' && o.fareUsd > 0
+      ? o.fareUsd
+      : 'totalFareCents' in estimateBlock &&
+          typeof (estimateBlock as { totalFareCents?: number }).totalFareCents === 'number' &&
+          (estimateBlock as { totalFareCents: number }).totalFareCents > 0
+        ? (estimateBlock as { totalFareCents: number }).totalFareCents / 100
+        : undefined;
+
   return {
     id,
     passengerId: typeof o.passengerId === 'string' ? o.passengerId : 'passenger-demo',
@@ -82,6 +116,8 @@ export function mapMockTripToTrip(input: unknown): Trip {
     workerId: typeof o.workerId === 'string' ? o.workerId : undefined,
     pickup: asPlaceRef(o.pickup, 'Pickup'),
     dropoff: asPlaceRef(o.dropoff, 'Dropoff'),
+    pickupCategory: typeof o.pickupCategory === 'string' ? o.pickupCategory : undefined,
+    dropoffCategory: typeof o.dropoffCategory === 'string' ? o.dropoffCategory : undefined,
     purpose: typeof o.purpose === 'string' ? o.purpose : 'normal_ride',
     supportCategoryId: (typeof o.supportCategoryId === 'string' ? (o.supportCategoryId as SupportCategoryId) : undefined) ?? undefined,
     status,
@@ -97,13 +133,8 @@ export function mapMockTripToTrip(input: unknown): Trip {
     cancelReason: typeof o.cancelReason === 'string' ? o.cancelReason : undefined,
     createdAtIso,
     updatedAtIso,
-    estimate:
-      o.estimate && typeof o.estimate === 'object'
-        ? {
-            etaMinutes: typeof o.estimate.etaMinutes === 'number' ? o.estimate.etaMinutes : 12,
-            distanceKm: typeof o.estimate.distanceKm === 'number' ? o.estimate.distanceKm : 4.2,
-          }
-        : { etaMinutes: 12, distanceKm: 4.2 },
+    estimate: estimateBlock,
+    fareUsd: fareUsdResolved,
   } as Trip;
 }
 

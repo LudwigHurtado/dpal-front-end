@@ -51,6 +51,12 @@ export type RideRequestDraft = {
   notes?: string;
   accessibilityNeeds?: string[];
   familySafe?: boolean;
+  /** Location category keys (e.g. `home`, `current_location`) for MRV-style routing context */
+  pickupCategoryKey?: string;
+  dropoffCategoryKey?: string;
+  /** Client route preview — sent to API for broadcast/estimate only */
+  estimatePreview?: { etaMinutes: number; distanceKm: number };
+  routeSummaryPreview?: { distanceKm: number; durationMinutes: number; previewSteps?: string[] };
 };
 
 export type TripTimelineEvent = {
@@ -58,6 +64,17 @@ export type TripTimelineEvent = {
   atIso: string;
   label: string;
   detail?: string;
+};
+
+/** Matches API `estimate.fareSplit` — gross total lives on `estimate.totalFareCents` */
+export type TripEstimateFareSplit = {
+  adminCostCents: number;
+  netFareCents: number;
+  driverPayoutCents: number;
+  platformShareCents: number;
+  adminPercent: 5;
+  driverPercentOfNet: 90;
+  platformPercentOfNet: 10;
 };
 
 export type Trip = {
@@ -83,6 +100,8 @@ export type Trip = {
   workerId?: string;
   pickup: PlaceRef;
   dropoff: PlaceRef;
+  pickupCategory?: string;
+  dropoffCategory?: string;
   purpose: RidePurpose;
   supportCategoryId?: SupportCategoryId;
   status: TripStatus;
@@ -95,6 +114,10 @@ export type Trip = {
   estimate: {
     etaMinutes: number;
     distanceKm: number;
+    /** Gross listed fare in whole cents (passenger total) */
+    totalFareCents?: number;
+    currency?: string;
+    fareSplit?: TripEstimateFareSplit;
   };
   routeSummary?: {
     distanceKm: number;

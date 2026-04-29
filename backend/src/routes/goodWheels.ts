@@ -2,6 +2,11 @@ import { Router, type Request, type Response } from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
 import crypto from 'crypto';
+import {
+  calculateGoodWheelsFareSplit,
+  fareSplitToPayload,
+  type GoodWheelsFareSplitPayload,
+} from '../utils/goodWheelsFareSplit';
 
 type BroadcastAudience = 'all' | 'nearby' | 'mission' | 'emergency' | 'community' | 'surge' | 'charity' | 'hazard';
 type ChatSenderRole = 'driver' | 'passenger' | 'dispatch' | 'system';
@@ -55,6 +60,8 @@ type GoodWheelsTrip = {
   id: string;
   passengerId: string;
   driverId?: string;
+  pickupCategory?: string;
+  dropoffCategory?: string;
   driverSnapshot?: {
     id: string;
     fullName: string;
@@ -80,7 +87,13 @@ type GoodWheelsTrip = {
   safetyStatus?: string;
   createdAtIso: string;
   updatedAtIso: string;
-  estimate: { etaMinutes: number; distanceKm: number };
+  estimate: {
+    etaMinutes: number;
+    distanceKm: number;
+    totalFareCents?: number;
+    currency?: string;
+    fareSplit?: GoodWheelsFareSplitPayload;
+  };
   timeline: Array<{ id: string; atIso: string; label: string; detail?: string }>;
   routeSummary?: { distanceKm: number; durationMinutes: number; previewSteps?: string[] };
   chatThreadId?: string;
@@ -228,6 +241,11 @@ async function seedUsersIfEmpty(): Promise<GoodWheelsUser[]> {
   return seeded;
 }
 
+function publicUser(u: GoodWheelsUser): Omit<GoodWheelsUser, 'password'> {
+  const { password: _omit, ...rest } = u;
+  return rest;
+}
+
 async function seedTripsIfEmpty(): Promise<GoodWheelsTrip[]> {
   const trips = await readJsonArray<GoodWheelsTrip>(TRIPS_FILE);
   if (trips.length > 0) return trips;
@@ -253,6 +271,35 @@ async function seedTripsIfEmpty(): Promise<GoodWheelsTrip[]> {
   return seeded;
 }
 
+function defaultTotalFareCentsFromDistance(distanceKm: number): number {
+  const km = Number.isFinite(distanceKm) && distanceKm > 0 ? distanceKm : 4.8;
+  const usd = Math.max(5.4, km * 2.9 + 4);
+  return Math.round(usd * 100);
+}
+
+function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
+  const dist =
+    typeof trip.estimate?.distanceKm === 'number' && trip.estimate.distanceKm > 0 ? trip.estimate.distanceKm : 4.8;
+  let total =
+    typeof trip.estimate?.totalFareCents === 'number' && Number.isFinite(trip.estimate.totalFareCents)
+      ? Math.round(trip.estimate.totalFareCents)
+      : 0;
+  if (total <= 0) {
+    total = defaultTotalFareCentsFromDistance(dist);
+  }
+  const split = calculateGoodWheelsFareSplit(total);
+  return {
+    ...trip,
+    estimate: {
+      etaMinutes: typeof trip.estimate?.etaMinutes === 'number' ? trip.estimate.etaMinutes : 8,
+      distanceKm: dist,
+      totalFareCents: split.totalFareCents,
+      currency: trip.estimate?.currency || 'USD',
+      fareSplit: fareSplitToPayload(split),
+    },
+  };
+}
+
 router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   await ensureStorage();
   res.json({
@@ -273,11 +320,15 @@ router.post('/auth/signin', async (req: Request, res: Response): Promise<void> =
     else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
     else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
   }
-  if (user?.password && password && user.password !== password) {
+  if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
     return;
   }
-  res.json({ ok: true, user });
+  if (user.password && password && user.password !== password) {
+    res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    return;
+  }
+  res.json({ ok: true, user: publicUser(user) });
 });
 
 router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> => {
@@ -291,18 +342,26 @@ router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> 
     else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
     else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
   }
-  if (user?.password && password && user.password !== password) {
+  if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
     return;
   }
-  res.json({ ok: true, user });
+  if (user.password && password && user.password !== password) {
+    res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    return;
+  }
+  res.json({ ok: true, user: publicUser(user) });
 });
 
 router.post('/auth/switch-role', async (req: Request, res: Response): Promise<void> => {
-  const role = String(req.body?.role || '').trim();
+  const role = String(req.body?.role || '').trim() as GoodWheelsUser['role'];
   const users = await seedUsersIfEmpty();
-  const user = users.find((u) => u.role === role) ?? users[0];
-  res.json({ ok: true, user });
+  const user = users.find((u) => u.role === role);
+  if (!user) {
+    res.status(404).json({ ok: false, error: 'No user found with that role' });
+    return;
+  }
+  res.json({ ok: true, user: publicUser(user) });
 });
 
 router.post('/auth/signout', async (_req: Request, res: Response): Promise<void> => {
@@ -318,7 +377,7 @@ router.get('/trips/active', async (req: Request, res: Response): Promise<void> =
       !['completed', 'cancelled', 'canceled'].includes(t.status),
     )
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso))[0] ?? null;
-  res.json({ ok: true, trip: active });
+  res.json({ ok: true, trip: active ? enrichTripEstimate(active) : null });
 });
 
 router.get('/trips/history', async (req: Request, res: Response): Promise<void> => {
@@ -327,7 +386,7 @@ router.get('/trips/history', async (req: Request, res: Response): Promise<void> 
   const history = trips
     .filter((t) => (t.passengerId === userId || t.driverId === userId || t.workerId === userId) && ['completed', 'cancelled', 'canceled'].includes(t.status))
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
-  res.json({ ok: true, trips: history });
+  res.json({ ok: true, trips: history.map(enrichTripEstimate) });
 });
 
 router.post('/trips/request', async (req: Request, res: Response): Promise<void> => {
@@ -339,18 +398,62 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
   const now = new Date().toISOString();
   const tripId = mkId('trip');
   const chatThreadId = `good-wheels-trip-${tripId}`;
+  const estIn = body.estimate && typeof body.estimate === 'object' ? (body.estimate as { etaMinutes?: unknown; distanceKm?: unknown }) : null;
+  const etaMinutes =
+    typeof estIn?.etaMinutes === 'number' && Number.isFinite(estIn.etaMinutes) ? Math.max(1, Math.round(estIn.etaMinutes)) : 8;
+  const distanceKm =
+    typeof estIn?.distanceKm === 'number' && Number.isFinite(estIn.distanceKm) ? Math.max(0.1, Number(estIn.distanceKm.toFixed(2))) : 4.8;
+  const routeIn = body.routeSummary && typeof body.routeSummary === 'object' ? body.routeSummary : null;
+  const routeSummary =
+    routeIn && typeof (routeIn as { distanceKm?: unknown }).distanceKm === 'number'
+      ? {
+          distanceKm: Number((routeIn as { distanceKm: number }).distanceKm.toFixed?.(2) ?? (routeIn as { distanceKm: number }).distanceKm),
+          durationMinutes:
+            typeof (routeIn as { durationMinutes?: unknown }).durationMinutes === 'number'
+              ? Math.max(1, Math.round((routeIn as { durationMinutes: number }).durationMinutes))
+              : etaMinutes,
+          previewSteps: Array.isArray((routeIn as { previewSteps?: unknown }).previewSteps)
+            ? ((routeIn as { previewSteps: string[] }).previewSteps.filter((x) => typeof x === 'string').slice(0, 12) as string[])
+            : undefined,
+        }
+      : undefined;
+  const estFareIn =
+    body.estimate && typeof body.estimate === 'object'
+      ? (body.estimate as { totalFareCents?: unknown; fareUsd?: unknown })
+      : null;
+  let totalFareCents =
+    typeof estFareIn?.totalFareCents === 'number' && Number.isFinite(estFareIn.totalFareCents) && estFareIn.totalFareCents > 0
+      ? Math.round(Number(estFareIn.totalFareCents))
+      : typeof body.totalFareCents === 'number' && Number.isFinite(body.totalFareCents) && body.totalFareCents > 0
+        ? Math.round(Number(body.totalFareCents))
+        : typeof body.fareUsd === 'number' && body.fareUsd > 0
+          ? Math.round(body.fareUsd * 100)
+          : 0;
+  if (totalFareCents <= 0) {
+    totalFareCents = defaultTotalFareCentsFromDistance(distanceKm);
+  }
+  const initialFareSplit = calculateGoodWheelsFareSplit(totalFareCents);
   const trip: GoodWheelsTrip = {
     id: tripId,
     passengerId: String(body.passengerId || 'usr-passenger-001'),
     pickup: body.pickup,
     dropoff: body.dropoff,
+    pickupCategory: body.pickupCategory ? String(body.pickupCategory) : undefined,
+    dropoffCategory: body.dropoffCategory ? String(body.dropoffCategory) : undefined,
     purpose: String(body.purpose || 'normal_ride'),
     supportCategoryId: body.supportCategoryId ? String(body.supportCategoryId) : undefined,
     status: 'broadcasted',
     safetyStatus: body.familySafe ? 'family_safe' : 'standard',
     createdAtIso: now,
     updatedAtIso: now,
-    estimate: { etaMinutes: 8, distanceKm: 4.8 },
+    estimate: {
+      etaMinutes,
+      distanceKm,
+      totalFareCents: initialFareSplit.totalFareCents,
+      currency: 'USD',
+      fareSplit: fareSplitToPayload(initialFareSplit),
+    },
+    routeSummary,
     timeline: [
       { id: mkId('evt'), atIso: now, label: 'Ride requested', detail: 'Passenger created a new ride request.' },
       { id: mkId('evt'), atIso: now, label: 'Ride broadcasted', detail: 'Dispatch signal posted to driver queue.' },
@@ -362,7 +465,7 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
     id: mkId('gwb'),
     audience: 'nearby',
     tripId: trip.id,
-    text: `New Good Wheels ride request. Pickup: ${trip.pickup.addressLine}. Dropoff: ${trip.dropoff.addressLine}. Category: ${trip.supportCategoryId ?? 'standard'}. Safety status: ${trip.safetyStatus ?? 'standard'}. Estimated distance: ${trip.estimate.distanceKm.toFixed(1)} km.`,
+    text: `New Good Wheels ride request. Pickup: ${trip.pickup.addressLine} (${trip.pickupCategory ?? 'unspecified'}). Dropoff: ${trip.dropoff.addressLine} (${trip.dropoffCategory ?? 'unspecified'}). Support category: ${trip.supportCategoryId ?? 'standard'}. Safety status: ${trip.safetyStatus ?? 'standard'}. Estimated distance: ${trip.estimate.distanceKm.toFixed(1)} km. ETA about ${trip.estimate.etaMinutes} minutes.`,
     status: 'open',
     createdAt: now,
     senderName: 'Dispatch',
@@ -375,13 +478,13 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
   trip.broadcastId = broadcast.id;
   trips.unshift(trip);
   await writeJsonArray(TRIPS_FILE, trips);
-  res.status(201).json({ ok: true, trip });
+  res.status(201).json({ ok: true, trip: enrichTripEstimate(trip) });
 });
 
 router.get('/driver/queue', async (_req: Request, res: Response): Promise<void> => {
   const trips = await seedTripsIfEmpty();
   const queue = trips.filter((t) => ['requested', 'broadcasted', 'matched'].includes(t.status));
-  res.json({ ok: true, queue });
+  res.json({ ok: true, queue: queue.map(enrichTripEstimate) });
 });
 
 router.get('/driver/profile', async (req: Request, res: Response): Promise<void> => {
@@ -410,7 +513,7 @@ router.get('/driver/history', async (req: Request, res: Response): Promise<void>
   const history = trips
     .filter((t) => t.driverId === driverId && ['completed', 'cancelled', 'canceled'].includes(t.status))
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
-  res.json({ ok: true, history });
+  res.json({ ok: true, history: history.map(enrichTripEstimate) });
 });
 
 router.patch('/driver/availability', async (req: Request, res: Response): Promise<void> => {
@@ -480,6 +583,10 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
   }
   const users = await seedUsersIfEmpty();
   const driver = users.find((u) => u.id === driverId && u.role === 'driver');
+  if (!driver) {
+    res.status(404).json({ ok: false, error: 'Driver not found' });
+    return;
+  }
   const trips = await seedTripsIfEmpty();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
@@ -492,8 +599,8 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
     ...prev,
     driverId: prev.driverId || driverId,
     driverSnapshot: {
-      id: driver?.id ?? driverId,
-      fullName: driver?.fullName ?? 'Driver',
+      id: driver.id,
+      fullName: driver.fullName,
       vehicle: {
         makeModel: 'Toyota Corolla',
         plateMasked: 'GW-2026',
@@ -530,7 +637,7 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
       await writeJsonArray(BROADCASTS_FILE, broadcasts);
     }
   }
-  res.json({ ok: true, trip: next });
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
 router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promise<void> => {
@@ -587,7 +694,7 @@ router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promi
       }
     }
   }
-  res.json({ ok: true, trip: next });
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
 router.post('/trips/:tripId/cancel', async (req: Request, res: Response): Promise<void> => {
@@ -627,7 +734,7 @@ router.post('/trips/:tripId/cancel', async (req: Request, res: Response): Promis
       await writeJsonArray(BROADCASTS_FILE, broadcasts);
     }
   }
-  res.json({ ok: true, trip: next });
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
 router.post('/trips/:tripId/complete', async (req: Request, res: Response): Promise<void> => {
@@ -668,7 +775,7 @@ router.post('/trips/:tripId/complete', async (req: Request, res: Response): Prom
       await writeJsonArray(BROADCASTS_FILE, broadcasts);
     }
   }
-  res.json({ ok: true, trip: next });
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
 router.get('/broadcasts', async (req: Request, res: Response): Promise<void> => {

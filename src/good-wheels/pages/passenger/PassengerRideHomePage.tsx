@@ -10,6 +10,8 @@ import type { LatLng } from '../../features/map/mapTypes';
 import type { VehicleMapType } from '../../features/driver/driverTypes';
 import { makeVehicleMarkerUrl } from '../../services/vehicleMapMarker';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
+import FareBreakdownCard from '../../features/trips/components/FareBreakdownCard';
+import { calculateGoodWheelsFareSplit, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 
 /* ─────────────────────────────────────────────
    Types
@@ -61,6 +63,9 @@ const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mu
 ];
 
 const BASE_FARE = 5.40;
+
+const GW_PICKUP_CATEGORY_IDS = ['current_location', 'home', 'work', 'school', 'medical', 'airport', 'shelter', 'custom'] as const;
+const GW_DROPOFF_CATEGORY_IDS = ['home', 'work', 'school', 'medical', 'airport', 'pharmacy', 'grocery', 'shelter', 'custom'] as const;
 
 /* ─────────────────────────────────────────────
    Charities
@@ -241,6 +246,8 @@ const PassengerRideHomePage: React.FC = () => {
   /* UI state */
   const [sheet, setSheet]           = useState<SheetState>('home');
   const [activeField, setActiveField] = useState<ActiveField>(null);
+  const [pickupCategoryKey, setPickupCategoryKey] = useState<string>('current_location');
+  const [dropoffCategoryKey, setDropoffCategoryKey] = useState<string>('home');
   const [vehicleType, setVehicleType] = useState<VehicleType>('car');
   const [maxPrice, setMaxPrice]       = useState('');
   const [pickupText,  setPickupText]  = useState(draft.pickup?.addressLine  ?? '');
@@ -276,7 +283,8 @@ const PassengerRideHomePage: React.FC = () => {
     [charityFeed, selectedCharity],
   );
 
-  const bothSet = pickupText.trim().length > 0 && dropoffText.trim().length > 0;
+  const bothReady = Boolean(pickupLL && dropoffLL);
+  const bothSet = bothReady;
 
   const readLearningFile = useCallback((): LearnedCharityOrg[] => {
     try {
@@ -473,6 +481,14 @@ const PassengerRideHomePage: React.FC = () => {
     if (!maxPrice) setMaxPrice(suggested.toFixed(2));
   }, [bothSet, maxPrice, vehicleType]);
 
+  const listedFareUsd = useMemo(() => {
+    const mult = VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1;
+    const suggested = BASE_FARE * mult;
+    const entered = Number(maxPrice);
+    if (Number.isFinite(entered) && entered > 0) return entered;
+    return suggested;
+  }, [vehicleType, maxPrice]);
+
   /* ── Init map ── */
   useEffect(() => {
     if (!ready || !g || !mapRef.current || mapObjRef.current) return;
@@ -536,14 +552,25 @@ const PassengerRideHomePage: React.FC = () => {
     if (pickupLL) {
       if (!pickupMarkerRef.current) pickupMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, title: 'Pickup', zIndex: 10 });
       pickupMarkerRef.current.setPosition(pickupLL);
-      pickupMarkerRef.current.setIcon({ url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('Pickup', '#DC2626'))}`, scaledSize: new g.maps.Size(38, 50), anchor: new g.maps.Point(19, 50) });
+      const pickupPinTitle = pickupCategoryKey === 'current_location' ? t('yourPickupLabel') : t('pickupLabel');
+      pickupMarkerRef.current.setTitle(pickupPinTitle);
+      pickupMarkerRef.current.setIcon({
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('P', '#16A34A'))}`,
+        scaledSize: new g.maps.Size(38, 50),
+        anchor: new g.maps.Point(19, 50),
+      });
     } else { pickupMarkerRef.current?.setMap(null); pickupMarkerRef.current = null; }
 
     /* ── Dropoff pin ── */
     if (dropoffLL) {
       if (!dropoffMarkerRef.current) dropoffMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, title: 'Dropoff', zIndex: 10 });
       dropoffMarkerRef.current.setPosition(dropoffLL);
-      dropoffMarkerRef.current.setIcon({ url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('Destination', '#16A34A'))}`, scaledSize: new g.maps.Size(38, 50), anchor: new g.maps.Point(19, 50) });
+      dropoffMarkerRef.current.setTitle(t('dropoff'));
+      dropoffMarkerRef.current.setIcon({
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('D', '#DC2626'))}`,
+        scaledSize: new g.maps.Size(38, 50),
+        anchor: new g.maps.Point(19, 50),
+      });
     } else { dropoffMarkerRef.current?.setMap(null); dropoffMarkerRef.current = null; }
 
     if (!pickupLL || !dropoffLL) {
@@ -604,7 +631,16 @@ const PassengerRideHomePage: React.FC = () => {
 
     const showDriverMarker = Boolean(
       activeTrip?.driverId &&
-      ['accepted', 'driver_en_route', 'driver_arrived', 'passenger_onboard', 'in_progress'].includes(activeTrip.status),
+      [
+        'accepted',
+        'driver_en_route',
+        'driver_arriving',
+        'driver_arrived',
+        'arrived',
+        'passenger_onboard',
+        'in_progress',
+        'support_in_progress',
+      ].includes(activeTrip.status),
     );
     if (!showDriverMarker) {
       vehicleMarkerRef.current?.setMap(null);
@@ -629,7 +665,7 @@ const PassengerRideHomePage: React.FC = () => {
       fallbackLineRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [g, pickupLL, dropoffLL, t, activeTrip]);
+  }, [g, pickupLL, dropoffLL, t, activeTrip, pickupCategoryKey]);
 
   /* ── Autocomplete ── */
   const fetchPredictions = useCallback(
@@ -689,6 +725,7 @@ const PassengerRideHomePage: React.FC = () => {
         const pt: LatLng = { lat: coords.latitude, lng: coords.longitude };
         gpsGeocode(pt.lat, pt.lng, (addr) => {
           setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
+          setPickupCategoryKey('current_location');
           setDraft({ pickup: { label: t('yourLocationLabel'), addressLine: addr, point: pt } });
           keepPointVisible(pt);
           setLocatingPickup(false);
@@ -740,6 +777,16 @@ const PassengerRideHomePage: React.FC = () => {
       : '';
     setDraft({
       notes: `${tf('negotiation_yourOffer', { amount: Number(maxPrice || 0).toFixed(2) })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
+      pickupCategoryKey,
+      dropoffCategoryKey,
+      estimatePreview:
+        routeDistanceKm != null
+          ? { distanceKm: routeDistanceKm, etaMinutes: routeDurationMinutes != null ? routeDurationMinutes : 8 }
+          : undefined,
+      routeSummaryPreview:
+        routeDistanceKm != null && routeDurationMinutes != null
+          ? { distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes }
+          : undefined,
     });
     await requestRide();
     setBroadcasting(false);
@@ -989,8 +1036,8 @@ const PassengerRideHomePage: React.FC = () => {
             lineHeight: 1.45,
           }}
         >
-          <div>{t('legendRedPickup')}</div>
-          <div>{t('legendGreenDestination')}</div>
+          <div>{t('legendGreenPickup')}</div>
+          <div>{t('legendRedDropoff')}</div>
           <div>{t('legendDriverAfterAcceptance')}</div>
         </div>
       )}
@@ -1034,23 +1081,23 @@ const PassengerRideHomePage: React.FC = () => {
       </div>
 
       {/* ── MAP SELECTION MODE ── */}
-      <div style={{ ...S.pinHint, borderLeft: `3px solid ${activeField === 'dropoff' ? '#16A34A' : '#DC2626'}` }}>
+      <div style={{ ...S.pinHint, borderLeft: `3px solid ${activeField === 'dropoff' ? '#DC2626' : '#16A34A'}` }}>
         <button
           type="button"
           onClick={() => setActiveField('pickup')}
-          style={{ border: 'none', borderRadius: 999, background: activeField === 'pickup' ? '#FEE2E2' : '#F3F4F6', color: activeField === 'pickup' ? '#B91C1C' : '#374151', padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+          style={{ border: 'none', borderRadius: 999, background: activeField === 'pickup' ? '#DCFCE7' : '#F3F4F6', color: activeField === 'pickup' ? '#166534' : '#374151', padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
         >
           {t('setPickup')}
         </button>
         <button
           type="button"
           onClick={() => setActiveField('dropoff')}
-          style={{ border: 'none', borderRadius: 999, background: activeField === 'dropoff' ? '#DCFCE7' : '#F3F4F6', color: activeField === 'dropoff' ? '#166534' : '#374151', padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+          style={{ border: 'none', borderRadius: 999, background: activeField === 'dropoff' ? '#FEE2E2' : '#F3F4F6', color: activeField === 'dropoff' ? '#B91C1C' : '#374151', padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
         >
           {t('setDestination')}
         </button>
         <span style={{ fontSize: 11, color: '#475569', fontWeight: 700 }}>
-          {reverseGeoLoading ? `${t('readingLocation')}` : t('mapSelectionHelper')}
+          {reverseGeoLoading ? `${t('readingLocation')}` : t('clickMapSetPickupDropoff')}
         </span>
       </div>
 
@@ -1113,7 +1160,7 @@ const PassengerRideHomePage: React.FC = () => {
         {sheet === 'search' && (
           <div style={{ padding: '12px 20px 0', overflowY: 'auto' }}>
             <div style={{ marginBottom: 10, fontSize: 12, fontWeight: 700, color: '#475569' }}>
-              {t('mapSelectionHelper')}
+              {t('clickMapSetPickupDropoff')}
             </div>
             {gpsError && (
               <div style={{ marginBottom: 10, border: '1px solid #FECACA', background: '#FEF2F2', color: '#B91C1C', borderRadius: 10, padding: '8px 10px', fontSize: 11, fontWeight: 700 }}>
@@ -1130,8 +1177,8 @@ const PassengerRideHomePage: React.FC = () => {
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M13 4l-6 6 6 6" stroke="#111827" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
               <div style={{ flex: 1, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {pickupText && <div style={{ fontSize: 11, fontWeight: 700, color: '#B91C1C', background: '#FEF2F2', borderRadius: 999, padding: '5px 10px' }}>{t('pickupLabel')}: {pickupText.split(',')[0]}</div>}
-                {dropoffText && <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: '#DCFCE7', borderRadius: 999, padding: '5px 10px' }}>{t('destinationLabel')}: {dropoffText.split(',')[0]}</div>}
+                {pickupText && <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: '#DCFCE7', borderRadius: 999, padding: '5px 10px' }}>{t('pickupLabel')}: {pickupText.split(',')[0]}</div>}
+                {dropoffText && <div style={{ fontSize: 11, fontWeight: 700, color: '#B91C1C', background: '#FEF2F2', borderRadius: 999, padding: '5px 10px' }}>{t('destinationLabel')}: {dropoffText.split(',')[0]}</div>}
               </div>
             </div>
 
@@ -1144,11 +1191,11 @@ const PassengerRideHomePage: React.FC = () => {
             </button>
 
             {/* Pickup row */}
-            <div style={{ ...S.inputRow, marginBottom: 8, border: activeField === 'pickup' ? '1.5px solid #DC2626' : '1px solid #E5E7EB' }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#DC2626', flexShrink: 0, display: 'inline-block' }} />
+            <div style={{ ...S.inputRow, marginBottom: 8, border: activeField === 'pickup' ? '1.5px solid #16A34A' : '1px solid #E5E7EB' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#16A34A', flexShrink: 0, display: 'inline-block' }} />
               <input
                 style={S.input}
-                placeholder={t('whereAreYouNow')}
+                placeholder={t('placeholderPickup')}
                 value={pickupText}
                 autoFocus={activeField === 'pickup'}
                 onFocus={() => setActiveField('pickup')}
@@ -1162,6 +1209,18 @@ const PassengerRideHomePage: React.FC = () => {
                 {locatingPickup ? <Spinner /> : <GpsIcon size={17} color="#111827" />}
               </button>
             </div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#166534', marginBottom: 4 }}>{t('pickupCategoryLabel')}</label>
+            <select
+              value={pickupCategoryKey}
+              onChange={(e) => setPickupCategoryKey(e.target.value)}
+              style={{ width: '100%', marginBottom: 10, padding: '9px 10px', borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 13, fontWeight: 600, background: '#fff' }}
+            >
+              {GW_PICKUP_CATEGORY_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {t(`locCat_${id}` as any)}
+                </option>
+              ))}
+            </select>
             {pickupPreds.length > 0 && (
               <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
                 {pickupPreds.map((p) => (
@@ -1174,8 +1233,8 @@ const PassengerRideHomePage: React.FC = () => {
             )}
 
             {/* Dropoff row */}
-            <div style={{ ...S.inputRow, marginBottom: 8, border: activeField === 'dropoff' ? '1.5px solid #16A34A' : '1px solid #E5E7EB' }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#16A34A', flexShrink: 0, display: 'inline-block' }} />
+            <div style={{ ...S.inputRow, marginBottom: 8, border: activeField === 'dropoff' ? '1.5px solid #DC2626' : '1px solid #E5E7EB' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#DC2626', flexShrink: 0, display: 'inline-block' }} />
               <input
                 style={S.input}
                 placeholder={t('whereAreYouGoing')}
@@ -1192,6 +1251,18 @@ const PassengerRideHomePage: React.FC = () => {
                 {locatingDropoff ? <Spinner /> : <GpsIcon size={17} color="#0077C8" />}
               </button>
             </div>
+            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#B91C1C', marginBottom: 4 }}>{t('dropoffCategoryLabel')}</label>
+            <select
+              value={dropoffCategoryKey}
+              onChange={(e) => setDropoffCategoryKey(e.target.value)}
+              style={{ width: '100%', marginBottom: 10, padding: '9px 10px', borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 13, fontWeight: 600, background: '#fff' }}
+            >
+              {GW_DROPOFF_CATEGORY_IDS.map((id) => (
+                <option key={id} value={id}>
+                  {t(`locCat_${id}` as any)}
+                </option>
+              ))}
+            </select>
             {dropoffPreds.length > 0 && (
               <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
                 {dropoffPreds.map((p) => (
@@ -1233,15 +1304,25 @@ const PassengerRideHomePage: React.FC = () => {
                   {t('pickupLabel')}: {pickupText.split(',')[0]}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                  <span style={{ fontSize: 9, background: '#DC2626', color: 'white', borderRadius: 3, padding: '1px 5px', fontWeight: 700 }}>P</span>
+                  <span style={{ fontSize: 9, background: '#16A34A', color: 'white', borderRadius: 3, padding: '1px 5px', fontWeight: 700 }}>P</span>
                   <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
-                  <span style={{ fontSize: 9, background: '#16A34A', color: 'white', borderRadius: 3, padding: '1px 5px', fontWeight: 700 }}>D</span>
+                  <span style={{ fontSize: 9, background: '#DC2626', color: 'white', borderRadius: 3, padding: '1px 5px', fontWeight: 700 }}>D</span>
                 </div>
-                <div style={{ fontSize: 13, color: '#16A34A', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div style={{ fontSize: 13, color: '#DC2626', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t('destinationLabel')}: {dropoffText.split(',')[0]}
                 </div>
                 <div style={{ fontSize: 11, color: '#64748B', fontWeight: 700, marginTop: 3 }}>
                   {routeDistanceKm !== null ? `${routeDistanceKm} km` : '--'} · {routeDurationMinutes !== null ? `${routeDurationMinutes} min` : t('routePreview')}
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <FareBreakdownCard
+                    variant="passenger"
+                    totalFareUsd={listedFareUsd}
+                    t={t}
+                    titleKey="rideEstimate"
+                    showTransparentHint
+                    className="text-left"
+                  />
                 </div>
               </div>
               <button
@@ -1314,6 +1395,14 @@ const PassengerRideHomePage: React.FC = () => {
                         <span style={S.vehicleDetailsChip}>ETA {vehicleEta(v.eta)}</span>
                         <span style={S.vehicleDetailsChip}>Fare x{v.mult.toFixed(2)}</span>
                         <span style={S.vehicleDetailsChip}>Donation ~ ${donationEstimate}</span>
+                        {(() => {
+                          const vs = calculateGoodWheelsFareSplit(Math.round(Number(price) * 100));
+                          return (
+                            <span style={S.vehicleDetailsChip}>
+                              {t('driverReceives')}: {formatMoneyFromCents(vs.driverPayoutCents)}
+                            </span>
+                          );
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1520,6 +1609,22 @@ const PassengerRideHomePage: React.FC = () => {
                     </div>
                   )}
                 </>
+              )}
+              {Number(maxPrice) > 0 && Number.isFinite(Number(maxPrice)) && (
+                <div style={{ padding: '0 14px 10px' }}>
+                  <FareBreakdownCard
+                    variant="passenger"
+                    totalFareUsd={Number(maxPrice)}
+                    t={t}
+                    titleKey="offerBreakdown"
+                    showTransparentHint={false}
+                  />
+                </div>
+              )}
+              {negotiationState === 'countered' && driverCounterOffer !== null && driverCounterOffer > 0 && (
+                <div style={{ padding: '0 14px 10px' }}>
+                  <FareBreakdownCard variant="passenger" totalFareUsd={driverCounterOffer} t={t} titleKey="counteroffer" />
+                </div>
               )}
               {negotiationNote && (
                 <p style={{ textAlign: 'center', fontSize: 11, color: '#334155', fontWeight: 700, margin: '8px 0 2px' }}>

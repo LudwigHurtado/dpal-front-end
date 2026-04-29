@@ -3,6 +3,7 @@ import type { Trip } from '../../trips/tripTypes';
 import { useTripStatus } from '../../trips/hooks/useTripStatus';
 import { useDriverTripControls } from '../hooks/useDriverTripControls';
 import { useGwLang } from '../../../i18n/useGwLang';
+import FareBreakdownCard from '../../trips/components/FareBreakdownCard';
 
 const DriverTripControls: React.FC<{ trip: Trip }> = ({ trip }) => {
   const t = useGwLang((s) => s.t);
@@ -23,6 +24,13 @@ const DriverTripControls: React.FC<{ trip: Trip }> = ({ trip }) => {
     }
   };
 
+  const fareUsd =
+    typeof trip.fareUsd === 'number' && trip.fareUsd > 0
+      ? trip.fareUsd
+      : typeof trip.estimate?.totalFareCents === 'number' && trip.estimate.totalFareCents > 0
+        ? trip.estimate.totalFareCents / 100
+        : null;
+
   return (
     <div className="gw-card p-5 space-y-3">
       <div className="flex items-start justify-between gap-3">
@@ -34,6 +42,10 @@ const DriverTripControls: React.FC<{ trip: Trip }> = ({ trip }) => {
         </div>
         <div className="text-sm font-extrabold text-slate-800">{s.progressPercent}%</div>
       </div>
+
+      {fareUsd != null && (
+        <FareBreakdownCard variant="driver" totalFareUsd={fareUsd} t={t} titleKey="ridePrice" showTransparentHint={false} />
+      )}
 
       <div className="flex flex-wrap gap-3">
         {(trip.status === 'driver_assigned' || trip.status === 'accepted' || trip.status === 'driver_en_route') && (
