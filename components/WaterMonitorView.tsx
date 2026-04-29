@@ -2836,7 +2836,9 @@ function SatelliteLiveFeed({ monitoringProject }: {
       {err && !loading && (
         <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg px-4 py-3 text-xs text-rose-300 flex items-center gap-2">
           <AlertTriangle className="w-3 h-3" />
-          {err} — check Railway backend connection
+          {/latitude -90 to 90, longitude -180 to 180/i.test(err)
+            ? err
+            : `${err} — check Railway backend connection`}
         </div>
       )}
       {fallbackNotice && !loading && (
