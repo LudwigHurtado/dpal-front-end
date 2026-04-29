@@ -1381,10 +1381,10 @@ export default function AquaScanView({
   );
   const inspectPoint = inspectedPoint ?? mapCenter;
   // Only surface real live values — never fabricate readings when waterData is absent.
-  const inspectNdwiEstimate: number | null = waterData?.waterAnalysis.ndwi ?? null;
-  const inspectWaterExtentEstimate = waterData?.waterAnalysis.surfaceWaterEstimate ?? 'Pending live data';
+  const inspectNdwiEstimate: number | null = waterData?.waterAnalysis?.ndwi ?? null;
+  const inspectWaterExtentEstimate = waterData?.waterAnalysis?.surfaceWaterEstimate ?? 'Pending live data';
   const inspectFloodWetnessEstimate = waterData?.status.riskLevel ?? 'Pending live data';
-  const inspectQualityConfidence: number | null = waterData?.waterAnalysis.confidence != null
+  const inspectQualityConfidence: number | null = waterData?.waterAnalysis?.confidence != null
     ? Math.round(waterData.waterAnalysis.confidence * 100)
     : null;
   const recommendedNextStep = useMemo(() => {
@@ -1683,9 +1683,9 @@ export default function AquaScanView({
       aoiBoundary: savedAoi ?? [],
       selectedDate,
       ndwi: inspectNdwiEstimate != null ? Number(inspectNdwiEstimate.toFixed(2)) : null,
-      waterPresence: waterData?.waterAnalysis.waterPresence ?? 'Pending live data',
-      turbidityProxy: waterData?.waterAnalysis.turbidityProxy ?? 'Pending live data',
-      thermalAnomaly: waterData?.waterAnalysis.thermalAnomaly ?? 'Pending live data',
+      waterPresence: waterData?.waterAnalysis?.waterPresence ?? 'Pending live data',
+      turbidityProxy: waterData?.waterAnalysis?.turbidityProxy ?? 'Pending live data',
+      thermalAnomaly: waterData?.waterAnalysis?.thermalAnomaly ?? 'Pending live data',
       confidenceScore: inspectQualityConfidence ?? null,
       nearbyEntitiesCount: overlayState.nearbyEntities ? nearbyEntities.length : 0,
       tileStatus: imageryError ? 'Failed' : partialFailure ? 'Partial' : imageryLoading ? 'Loading' : 'Active',
@@ -1997,7 +1997,7 @@ export default function AquaScanView({
       });
     }
 
-    if (!indices.ndwi && typeof waterData?.waterAnalysis.ndwi === 'number') {
+    if (!indices.ndwi && typeof waterData?.waterAnalysis?.ndwi === 'number') {
       indices.ndwi = {
         before: undefined,
         after: Number(waterData.waterAnalysis.ndwi.toFixed(6)),
