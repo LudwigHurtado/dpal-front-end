@@ -152,6 +152,59 @@ function mapPreviewToStandard(input: any, req: { lat: number; lng: number; date:
   };
 }
 
+function mapSnapshotEnvelopeToStandard(input: any, req: { lat: number; lng: number; date: string; layer: string }): WaterAnalysisResponse {
+  const snapshot = input?.snapshot ?? {};
+  const summary = snapshot?.summary ?? {};
+  const adapters = snapshot?.adapters ?? {};
+  const ndwiRaw = Number(
+    adapters?.copernicus?.ndwiMean
+    ?? snapshot?.ndwi
+    ?? summary?.surfaceWaterLevel
+    ?? 0.35,
+  );
+  const ndwi = Math.max(-1, Math.min(1, ndwiRaw));
+  const confidenceRaw = Number(
+    summary?.confidenceScore
+    ?? adapters?.copernicus?.confidenceScore
+    ?? 0.6,
+  );
+  const confidence = Math.max(0, Math.min(1, confidenceRaw));
+  const floodRisk = Number(adapters?.sentinel1?.floodRisk ?? 0.25);
+  const cloudCover = adapters?.copernicus?.ok ? `${Math.round((1 - confidence) * 100)}%` : 'unavailable';
+
+  return {
+    location: {
+      lat: Number(snapshot?.centerLat ?? req.lat),
+      lng: Number(snapshot?.centerLng ?? req.lng),
+      name: snapshot?.areaLabel ?? 'Selected area',
+    },
+    satellite: {
+      provider: 'DPAL Water Snapshot',
+      product: mapLayerToProduct(req.layer),
+      acquisitionDate: snapshot?.capturedAt ?? req.date,
+      resolution: '10m-30m',
+      cloudCover,
+    },
+    waterAnalysis: {
+      ndwi,
+      waterPresence: ndwi > 0.2 ? 'Detected' : 'Review',
+      surfaceWaterEstimate: summary?.surfaceWaterLevel != null
+        ? `${Number(summary.surfaceWaterLevel).toFixed(2)} m`
+        : (ndwi > 0.4 ? 'High' : ndwi > 0.2 ? 'Medium' : 'Low'),
+      turbidityProxy: adapters?.gibs?.ok ? (ndwi < 0.15 ? 'High' : ndwi < 0.35 ? 'Medium' : 'Low') : 'unavailable',
+      thermalAnomaly: adapters?.gibs?.ok ? 'Review' : 'None',
+      shorelineChange: floodRisk > 0.55 ? 'Expanding' : floodRisk < 0.25 ? 'Receding' : 'Stable',
+      confidence,
+    },
+    status: {
+      riskLevel: floodRisk > 0.65 ? 'High' : floodRisk > 0.35 ? 'Moderate' : 'Low',
+      qualityFlag: fallbackQuality(cloudCover),
+      lastUpdated: snapshot?.capturedAt ?? new Date().toISOString(),
+      note: 'Satellite-derived estimates only; field validation required for lab-grade water chemistry.',
+    },
+  };
+}
+
 async function parseOrThrow<T>(res: Response): Promise<T> {
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -175,9 +228,12 @@ export async function getWaterSnapshotByPoint(req: WaterSnapshotRequest): Promis
 
   try {
     const response = await fetch(apiUrl(`${endpoint.snapshot}?${query.toString()}`), { signal: req.signal });
-    const payload = await parseOrThrow<WaterAnalysisResponse>(response);
-    setCache(key, payload);
-    return payload;
+    const payload = await parseOrThrow<any>(response);
+    const normalized = payload?.waterAnalysis
+      ? payload as WaterAnalysisResponse
+      : mapSnapshotEnvelopeToStandard(payload, req);
+    setCache(key, normalized);
+    return normalized;
   } catch {
     // Fallback to currently deployed preview endpoint until snapshot route exists.
     const previewQuery = new URLSearchParams({
@@ -210,9 +266,22 @@ export async function getWaterSnapshotByAOI(req: WaterAoiRequest): Promise<Water
     body: JSON.stringify(body),
     signal: req.signal,
   });
-  const payload = await parseOrThrow<WaterAnalysisResponse>(response);
-  setCache(key, payload);
-  return payload;
+  const payload = await parseOrThrow<any>(response);
+  const centroid = req.polygonCoordinates.reduce(
+    (acc, [lng, lat]) => ({ lng: acc.lng + lng, lat: acc.lat + lat }),
+    { lng: 0, lat: 0 },
+  );
+  const fallbackReq = {
+    lat: req.polygonCoordinates.length ? centroid.lat / req.polygonCoordinates.length : 0,
+    lng: req.polygonCoordinates.length ? centroid.lng / req.polygonCoordinates.length : 0,
+    date: req.date,
+    layer: req.layer,
+  };
+  const normalized = payload?.waterAnalysis
+    ? payload as WaterAnalysisResponse
+    : mapSnapshotEnvelopeToStandard(payload, fallbackReq);
+  setCache(key, normalized);
+  return normalized;
 }
 
 export async function getWaterHistory(req: WaterHistoryRequest): Promise<HistoryResponse> {
