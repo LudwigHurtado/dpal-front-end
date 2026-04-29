@@ -74,6 +74,23 @@ export type TripTimelineEvent = {
   detail?: string;
 };
 
+/** Negotiation state for passenger ↔ driver fare offers (counteroffer flow). */
+export type TripOfferNegotiationStatus =
+  | 'none'
+  | 'passenger_offered'
+  | 'driver_countered'
+  | 'accepted'
+  | 'rejected';
+
+export type TripOfferState = {
+  passengerOfferCents?: number;
+  recommendedFareCents?: number;
+  driverCounterOfferCents?: number;
+  acceptedFareCents?: number;
+  status: TripOfferNegotiationStatus;
+  updatedAtIso: string;
+};
+
 /** Matches API `estimate.fareSplit` — gross total lives on `estimate.totalFareCents` */
 export type TripEstimateFareSplit = {
   adminCostCents: number;
@@ -152,5 +169,7 @@ export type Trip = {
   completedAtIso?: string;
   cancelledAtIso?: string;
   cancelReason?: string;
+  /** Fare negotiation; gross trip fare on `estimate` until a future accept flow applies `acceptedFareCents`. */
+  offerState?: TripOfferState;
 };
 

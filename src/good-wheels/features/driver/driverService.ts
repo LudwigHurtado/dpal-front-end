@@ -20,9 +20,15 @@ function makeQueueTrips(): Trip[] {
       safetyStatus: 'family_safe',
       createdAtIso: nowIso(),
       updatedAtIso: nowIso(),
-      estimate: { etaMinutes: 9, distanceKm: 5.1 },
+      estimate: { etaMinutes: 9, distanceKm: 5.1, totalFareCents: 820, currency: 'USD' },
       timeline: [{ id: 'q1', atIso: nowIso(), label: 'Request available', detail: 'Family-safe pickup requested.' }],
       routeSummary: { distanceKm: 5.1, durationMinutes: 14, previewSteps: ['Head east', 'Arrive at school entrance'] },
+      offerState: {
+        passengerOfferCents: 820,
+        recommendedFareCents: 820,
+        status: 'passenger_offered',
+        updatedAtIso: nowIso(),
+      },
     },
     {
       id: 'trip-q-2002',
@@ -35,9 +41,15 @@ function makeQueueTrips(): Trip[] {
       safetyStatus: 'standard',
       createdAtIso: nowIso(),
       updatedAtIso: nowIso(),
-      estimate: { etaMinutes: 6, distanceKm: 3.0 },
+      estimate: { etaMinutes: 6, distanceKm: 3.0, totalFareCents: 640, currency: 'USD' },
       timeline: [{ id: 'q2', atIso: nowIso(), label: 'Request available', detail: 'Medical transport category selected.' }],
       routeSummary: { distanceKm: 3.0, durationMinutes: 10, previewSteps: ['Merge onto 4th Ave', 'Arrive at pharmacy'] },
+      offerState: {
+        passengerOfferCents: 640,
+        recommendedFareCents: 640,
+        status: 'passenger_offered',
+        updatedAtIso: nowIso(),
+      },
     },
     {
       id: 'trip-q-2003',
@@ -50,9 +62,15 @@ function makeQueueTrips(): Trip[] {
       safetyStatus: 'needs_attention',
       createdAtIso: nowIso(),
       updatedAtIso: nowIso(),
-      estimate: { etaMinutes: 12, distanceKm: 7.2 },
+      estimate: { etaMinutes: 12, distanceKm: 7.2, totalFareCents: 1050, currency: 'USD' },
       timeline: [{ id: 'q3', atIso: nowIso(), label: 'Request available', detail: 'Worker may attach after acceptance.' }],
       routeSummary: { distanceKm: 7.2, durationMinutes: 18, previewSteps: ['Head south', 'Arrive at housing office'] },
+      offerState: {
+        passengerOfferCents: 1050,
+        recommendedFareCents: 1050,
+        status: 'passenger_offered',
+        updatedAtIso: nowIso(),
+      },
     },
   ];
 }

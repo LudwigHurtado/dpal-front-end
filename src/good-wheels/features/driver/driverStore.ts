@@ -29,6 +29,7 @@ type DriverState = {
   setAvailability: (next: DriverAvailabilityStatus) => void;
   setQueueFilter: (id: DriverQueueFilterId) => void;
   acceptQueueTrip: (tripId: string) => Promise<Trip | null>;
+  sendCounteroffer: (tripId: string, amountCents: number, message?: string) => Promise<Trip | null>;
   declineQueueTrip: (tripId: string) => void;
   bindActiveTrip: (trip: Trip) => void;
   clearActiveTrip: () => void;
@@ -55,7 +56,14 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     ]);
     const activeTrip = useTripStore.getState().activeTrip;
     const hasActive = Boolean(activeTrip && ['accepted', 'driver_en_route', 'driver_arrived', 'passenger_onboard', 'in_progress'].includes(activeTrip.status));
-    const availabilityStatus: DriverAvailabilityStatus = hasActive ? 'busy' : (driverProfile.availability === 'offline' ? 'offline' : 'online');
+    const prevAvail = get().availabilityStatus;
+    const availabilityStatus: DriverAvailabilityStatus = hasActive
+      ? 'busy'
+      : prevAvail === 'paused'
+        ? 'paused'
+        : driverProfile.availability === 'offline'
+          ? 'offline'
+          : 'online';
     set({ driverProfile, queueItems, vehicle, performanceSummary, availabilityStatus });
   },
 
@@ -71,7 +79,9 @@ export const useDriverStore = create<DriverState>((set, get) => ({
       return;
     }
     set({ availabilityStatus: next });
-    void driverService.updateDriverAvailability(next, get().driverProfile?.id);
+    const wire: 'online' | 'offline' | 'busy' | 'paused' =
+      next === 'paused' ? 'paused' : next === 'busy' ? 'busy' : next === 'offline' ? 'offline' : 'online';
+    void driverService.updateDriverAvailability(wire, get().driverProfile?.id);
   },
 
   setQueueFilter(id) {
@@ -111,6 +121,48 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     });
     get().bindActiveTrip(next);
     return next;
+  },
+
+  async sendCounteroffer(tripId, amountCents, message) {
+    const { queueItems } = get();
+    const found = queueItems.find((t) => t.id === tripId);
+    if (!found) return null;
+    const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id ?? 'usr-driver-001';
+    const now = new Date().toISOString();
+    let updated: Trip;
+    if (GOOD_WHEELS_DEMO_MODE) {
+      const basePassenger =
+        found.offerState?.passengerOfferCents ??
+        (typeof found.estimate?.totalFareCents === 'number' ? found.estimate.totalFareCents : amountCents);
+      const recommended =
+        found.offerState?.recommendedFareCents ??
+        (typeof found.estimate?.totalFareCents === 'number' ? found.estimate.totalFareCents : amountCents);
+      updated = {
+        ...found,
+        updatedAtIso: now,
+        offerState: {
+          passengerOfferCents: basePassenger,
+          recommendedFareCents: recommended,
+          driverCounterOfferCents: amountCents,
+          acceptedFareCents: found.offerState?.acceptedFareCents,
+          status: 'driver_countered',
+          updatedAtIso: now,
+        },
+        timeline: [
+          ...found.timeline,
+          {
+            id: `co-${Date.now()}`,
+            atIso: now,
+            label: 'Driver sent counteroffer',
+            detail: `Counteroffer $${(amountCents / 100).toFixed(2)}${message ? ` — ${message}` : ''}`,
+          },
+        ],
+      };
+    } else {
+      updated = await goodWheelsRideApi.sendTripCounteroffer(tripId, driverId, amountCents, message);
+    }
+    set({ queueItems: queueItems.map((t) => (t.id === tripId ? updated : t)) });
+    return updated;
   },
 
   declineQueueTrip(tripId) {

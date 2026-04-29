@@ -96,6 +96,17 @@ export const goodWheelsRideApi = {
     return mapMockTripToTrip(data.trip);
   },
 
+  async sendTripCounteroffer(tripId: string, driverId: string, amountCents: number, message?: string): Promise<Trip> {
+    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/counteroffer`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId, amountCents, message }),
+    });
+    if (!res.ok) throw new Error(`Counteroffer failed (${res.status})`);
+    const data = await parseJson<{ trip: unknown }>(res);
+    return mapMockTripToTrip(data.trip);
+  },
+
   async updateTripStatus(tripId: string, status: Trip['status'], timelineLabel?: string, timelineDetail?: string): Promise<Trip> {
     const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/status`), {
       method: 'PATCH',
@@ -163,10 +174,11 @@ export const goodWheelsDriverApi = {
   },
 
   async updateAvailability(driverId: string, status: string): Promise<void> {
+    const wireStatus = status === 'paused' ? 'offline' : status;
     const res = await fetch(buildApiUrl('/api/good-wheels/driver/availability'), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ driverId, status }),
+      body: JSON.stringify({ driverId, status: wireStatus }),
     });
     if (!res.ok) throw new Error(`Driver availability failed (${res.status})`);
   },

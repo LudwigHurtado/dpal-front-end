@@ -1,4 +1,13 @@
-import type { PlaceRef, SafetyStatus, SupportCategoryId, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
+import type {
+  PlaceRef,
+  SafetyStatus,
+  SupportCategoryId,
+  Trip,
+  TripOfferNegotiationStatus,
+  TripOfferState,
+  TripStatus,
+  TripTimelineEvent,
+} from './tripTypes';
 import { calculateGoodWheelsFareSplit, fareSplitToPayload } from './utils/fareSplit';
 
 /**
@@ -24,6 +33,24 @@ function asPlaceRef(v: unknown, fallbackLabel: string): PlaceRef {
     addressLine: typeof o.addressLine === 'string' ? o.addressLine : '—',
     point: o.point && typeof o.point === 'object' ? (o.point as any) : undefined,
   } as PlaceRef;
+}
+
+function asOfferState(v: unknown, updatedFallback: string): TripOfferState | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  const statusRaw = typeof o.status === 'string' ? o.status : 'none';
+  const status = (['none', 'passenger_offered', 'driver_countered', 'accepted', 'rejected'].includes(statusRaw)
+    ? statusRaw
+    : 'none') as TripOfferNegotiationStatus;
+  return {
+    passengerOfferCents: typeof o.passengerOfferCents === 'number' ? Math.round(o.passengerOfferCents) : undefined,
+    recommendedFareCents: typeof o.recommendedFareCents === 'number' ? Math.round(o.recommendedFareCents) : undefined,
+    driverCounterOfferCents:
+      typeof o.driverCounterOfferCents === 'number' ? Math.round(o.driverCounterOfferCents) : undefined,
+    acceptedFareCents: typeof o.acceptedFareCents === 'number' ? Math.round(o.acceptedFareCents) : undefined,
+    status,
+    updatedAtIso: typeof o.updatedAtIso === 'string' ? o.updatedAtIso : updatedFallback,
+  };
 }
 
 function asTimeline(v: unknown): TripTimelineEvent[] {
@@ -145,6 +172,7 @@ export function mapMockTripToTrip(input: unknown): Trip {
             country: typeof o.attachedCause.country === 'string' ? o.attachedCause.country : '',
           }
         : undefined,
+    offerState: asOfferState(o.offerState, updatedAtIso),
   } as Trip;
 }
 

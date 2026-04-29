@@ -40,7 +40,6 @@ const DriverQueuePage: React.FC = () => {
             <DriverRequestCard
               key={trip.id}
               trip={trip}
-              onReview={() => navigate(GW_PATHS.driver.dashboard)}
               onAccept={() => {
                 if (!user?.id) return;
                 void acceptQueueTrip(trip.id).then((next) => {

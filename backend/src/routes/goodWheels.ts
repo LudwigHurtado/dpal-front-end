@@ -56,6 +56,15 @@ type GoodWheelsUser = {
   queueIds?: string[];
 };
 
+type GoodWheelsTripOfferState = {
+  passengerOfferCents?: number;
+  recommendedFareCents?: number;
+  driverCounterOfferCents?: number;
+  acceptedFareCents?: number;
+  status: 'none' | 'passenger_offered' | 'driver_countered' | 'accepted' | 'rejected';
+  updatedAtIso: string;
+};
+
 type GoodWheelsTrip = {
   id: string;
   passengerId: string;
@@ -108,6 +117,7 @@ type GoodWheelsTrip = {
   completedAtIso?: string;
   cancelledAtIso?: string;
   cancelReason?: string;
+  offerState?: GoodWheelsTripOfferState;
 };
 
 const router = Router();
@@ -295,6 +305,22 @@ function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
     total = defaultTotalFareCentsFromDistance(dist);
   }
   const split = calculateGoodWheelsFareSplit(total);
+  const prevOffer = trip.offerState;
+  const mergedOffer: GoodWheelsTripOfferState | undefined =
+    prevOffer && prevOffer.status !== 'none'
+      ? {
+          ...prevOffer,
+          passengerOfferCents: prevOffer.passengerOfferCents ?? split.totalFareCents,
+          recommendedFareCents: prevOffer.recommendedFareCents ?? split.totalFareCents,
+        }
+      : split.totalFareCents > 0
+        ? {
+            passengerOfferCents: split.totalFareCents,
+            recommendedFareCents: split.totalFareCents,
+            status: 'passenger_offered',
+            updatedAtIso: trip.updatedAtIso || trip.createdAtIso || new Date().toISOString(),
+          }
+        : undefined;
   return {
     ...trip,
     estimate: {
@@ -304,6 +330,7 @@ function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
       currency: trip.estimate?.currency || 'USD',
       fareSplit: fareSplitToPayload(split),
     },
+    offerState: mergedOffer,
   };
 }
 
@@ -466,6 +493,12 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
       { id: mkId('evt'), atIso: now, label: 'Ride broadcasted', detail: 'Dispatch signal posted to driver queue.' },
     ],
     chatThreadId,
+    offerState: {
+      passengerOfferCents: initialFareSplit.totalFareCents,
+      recommendedFareCents: initialFareSplit.totalFareCents,
+      status: 'passenger_offered',
+      updatedAtIso: now,
+    },
   };
   const trips = await seedTripsIfEmpty();
   const broadcast: GoodWheelsBroadcast = {
@@ -644,6 +677,72 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
       await writeJsonArray(BROADCASTS_FILE, broadcasts);
     }
   }
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
+});
+
+router.post('/trips/:tripId/counteroffer', async (req: Request, res: Response): Promise<void> => {
+  const tripId = String(req.params.tripId || '').trim();
+  const driverId = String(req.body?.driverId || '').trim();
+  const amountCentsRaw = req.body?.amountCents;
+  const amountCents =
+    typeof amountCentsRaw === 'number' && Number.isFinite(amountCentsRaw) ? Math.round(Number(amountCentsRaw)) : 0;
+  const message = typeof req.body?.message === 'string' ? req.body.message.trim().slice(0, 500) : '';
+  if (!tripId || !driverId || amountCents <= 0) {
+    res.status(400).json({ ok: false, error: 'tripId, driverId, and positive amountCents are required' });
+    return;
+  }
+  const users = await seedUsersIfEmpty();
+  const driver = users.find((u) => u.id === driverId && u.role === 'driver');
+  if (!driver) {
+    res.status(404).json({ ok: false, error: 'Driver not found' });
+    return;
+  }
+  const trips = await seedTripsIfEmpty();
+  const idx = trips.findIndex((t) => t.id === tripId);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'Trip not found' });
+    return;
+  }
+  const prev = trips[idx];
+  if (!['requested', 'broadcasted', 'matched'].includes(prev.status)) {
+    res.status(400).json({ ok: false, error: 'Trip is not open for counteroffers' });
+    return;
+  }
+  const now = new Date().toISOString();
+  const enriched = enrichTripEstimate(prev);
+  const basePassenger =
+    enriched.offerState?.passengerOfferCents ??
+    (typeof enriched.estimate?.totalFareCents === 'number' ? enriched.estimate.totalFareCents : amountCents);
+  const recommended =
+    enriched.offerState?.recommendedFareCents ??
+    (typeof enriched.estimate?.totalFareCents === 'number' ? enriched.estimate.totalFareCents : amountCents);
+  const offerState: GoodWheelsTripOfferState = {
+    passengerOfferCents: basePassenger,
+    recommendedFareCents: recommended,
+    driverCounterOfferCents: amountCents,
+    acceptedFareCents: enriched.offerState?.acceptedFareCents,
+    status: 'driver_countered',
+    updatedAtIso: now,
+  };
+  const detailParts = [`Driver counteroffer: $${(amountCents / 100).toFixed(2)}`];
+  if (message) detailParts.push(message);
+  const next: GoodWheelsTrip = {
+    ...prev,
+    updatedAtIso: now,
+    offerState,
+    chatThreadId: prev.chatThreadId || `good-wheels-trip-${prev.id}`,
+    timeline: [
+      ...prev.timeline,
+      {
+        id: mkId('evt'),
+        atIso: now,
+        label: 'Driver sent counteroffer',
+        detail: detailParts.join(' — '),
+      },
+    ],
+  };
+  trips[idx] = next;
+  await writeJsonArray(TRIPS_FILE, trips);
   res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
