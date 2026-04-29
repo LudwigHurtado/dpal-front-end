@@ -45,11 +45,15 @@ function getPinSvg(label: string, bg: string) {
 /* ─────────────────────────────────────────────
    Vehicle options
 ───────────────────────────────────────────── */
-/** Service tiers vs standard car (1.0). Motorcycle lowest; delivery above car but below XL/comfort premiums. */
+/**
+ * Service tiers vs standard car (1.0).
+ * **Delivery** (goods/courier) is lowest — no passenger duty-of-care like moving a person.
+ * **Moto** (passenger on two wheels) sits above courier, below a closed car.
+ */
 const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mult: number; eta: string }[] = [
+  { id: 'delivery',  label: 'Delivery',  sub: 'Packages & essentials', emoji: '📦', mult: 0.76, eta: '4 min' },
+  { id: 'moto',      label: 'Moto',      sub: 'Motorcycle',            emoji: '🏍', mult: 0.9,  eta: '2 min' },
   { id: 'car',       label: 'Standard',  sub: 'Sedan / Compact',       emoji: '🚗', mult: 1.0,  eta: '3 min' },
-  { id: 'moto',      label: 'Moto',      sub: 'Motorcycle',            emoji: '🏍', mult: 0.78, eta: '2 min' },
-  { id: 'delivery',  label: 'Delivery',  sub: 'Packages & essentials', emoji: '📦', mult: 1.06, eta: '4 min' },
   { id: 'comfort',   label: 'Comfort',   sub: 'Larger Sedan',          emoji: '🚙', mult: 1.16, eta: '5 min' },
   { id: 'large',     label: 'Large',     sub: 'SUV / Van',             emoji: '🚐', mult: 1.42, eta: '6 min' },
 ];
