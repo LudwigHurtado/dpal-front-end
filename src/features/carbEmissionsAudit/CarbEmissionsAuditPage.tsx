@@ -25,6 +25,7 @@ import CarbReportPanel from '../../../components/carb/CarbReportPanel';
 import CarbReportViewer from '../../../components/carb/CarbReportViewer';
 import CarbSituationRoom from '../../../components/carb/CarbSituationRoom';
 import CarbIntelligenceReader from '../../../components/carb/CarbIntelligenceReader';
+import DpalProjectGuide from '../../../components/dpal-assistant/DpalProjectGuide';
 
 type Props = {
   onReturn: () => void;
@@ -50,10 +51,18 @@ type CarbWorkspaceTab =
 type ManualInvestigationDraft = {
   companyOperatorName: string;
   suspectedFacilityName: string;
+  ghgrpId: string;
+  frsId: string;
+  naics: string;
+  address: string;
+  latitude: string;
+  longitude: string;
   city: string;
   county: string;
   state: string;
   sourceUrl: string;
+  selectedYear: string;
+  comparisonYear: string;
   notes: string;
 };
 type MapClickAction = 'inspection_point' | 'anomaly_marker' | 'manual_coordinate';
@@ -415,6 +424,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [companyPickerQuery, setCompanyPickerQuery] = useState('');
   const [companyPickerMode, setCompanyPickerMode] = useState<'operator' | 'facility'>('operator');
   const [statusExpanded, setStatusExpanded] = useState(false);
+  const [searchMapExpanded, setSearchMapExpanded] = useState(false);
   const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [facilityOptions, setFacilityOptions] = useState<string[]>([]);
   const [recentCompanies, setRecentCompanies] = useState<string[]>([]);
@@ -426,10 +436,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [manualInvestigation, setManualInvestigation] = useState<ManualInvestigationDraft>({
     companyOperatorName: '',
     suspectedFacilityName: '',
+    ghgrpId: '',
+    frsId: '',
+    naics: '',
+    address: '',
+    latitude: '',
+    longitude: '',
     city: '',
     county: '',
     state: 'California',
     sourceUrl: '',
+    selectedYear: '',
+    comparisonYear: '',
     notes: '',
   });
   const [isManualInvestigationMode, setIsManualInvestigationMode] = useState(false);
@@ -2064,7 +2082,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const hasFacilitySelected = Boolean(selected);
   const canCompareYearsStep = hasFacilitySelected;
-  const canRunInvestigationStep = hasFacilitySelected;
+  const canRunInvestigationStep = hasFacilitySelected && Boolean(baselineYear && currentYear);
   const canGenerateReportStep = hasFacilitySelected && investigationStarted;
   const canOpenEvidenceStep = Boolean(generatedCarbReport);
   const canOpenRoomStep = Boolean(generatedCarbReport && evidencePacketSynced);
@@ -2127,7 +2145,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <button type="button" onClick={() => setActiveWorkspaceTab('search')} disabled={!canCompareYearsStep} title={!canCompareYearsStep ? 'Locked until facility selected.' : 'Compare years'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Compare Years</button>
-            <button type="button" onClick={openInvestigationTab} disabled={!canRunInvestigationStep} title={!canRunInvestigationStep ? 'Locked until facility selected.' : 'Run investigation'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Run Investigation</button>
+            <button type="button" onClick={openInvestigationTab} disabled={!canRunInvestigationStep} title={!canRunInvestigationStep ? 'Compare years first.' : 'Run investigation'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Run Investigation</button>
             <button type="button" onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }} disabled={!canGenerateReportStep} title={!canGenerateReportStep ? 'Locked until investigation runs.' : 'Generate report'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Generate Report</button>
             <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} disabled={!canOpenEvidenceStep} title={!canOpenEvidenceStep ? 'Locked until report generated.' : 'Export evidence'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Export Evidence</button>
             <button type="button" onClick={() => setActiveWorkspaceTab('situation')} disabled={!canOpenRoomStep} title={!canOpenRoomStep ? 'Locked until evidence packet exists.' : 'Open situation room'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Open Situation Room</button>
@@ -2161,8 +2179,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <p>CARB module health: <span className="text-cyan-200">{carbDataHealth?.ok ? 'Reachable' : 'Unreachable'}</span></p>
           <p>Dataset endpoint: <span className="text-cyan-200">{carbSearchFailed ? 'Failed' : 'Connected'}</span></p>
           <p>Source mode: <span className="text-cyan-200">{carbDataStatus?.sourceMode ?? sourceMode}</span></p>
-          <p>Total live records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
-          <p>Rows displayed (current search): <span className="text-cyan-200">{facilities.length}</span></p>
+          <p>Total dataset records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
+          <p>Current search results: <span className="text-cyan-200">{facilities.length}</span></p>
           <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || datasetVersion || 'n/a'}</span></p>
           <p>Retrieval date: <span className="text-cyan-200">{carbDataStatus?.retrievalDate || retrievalDate || 'n/a'}</span></p>
           <p>Search quality: <span className="text-cyan-200">{carbDataStatusReadiness}</span></p>
@@ -2199,6 +2217,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       {layoutWide ? (
       <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Current Step</p>
+        <p className="mb-2 text-xs text-slate-300">Current step: Search and select a facility.</p>
         <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
           {stepReadiness.map((step) => (
             <span key={step.label} className={`whitespace-nowrap rounded-full border px-3 py-1 ${step.tone}`} title={step.help}>
@@ -2323,7 +2342,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   type="button"
                   onClick={openInvestigationTab}
                   disabled={!canRunInvestigationStep}
-                  title={!canRunInvestigationStep ? 'Locked until facility selected.' : 'Run investigation checks.'}
+                  title={!canRunInvestigationStep ? 'Compare years first.' : 'Run investigation checks.'}
                   className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Run Investigation
@@ -2372,8 +2391,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>Official source URL: <span className="text-cyan-200 break-all">{carbDataStatus?.sourceUrl || 'Not provided'}</span></p>
               <p>Dataset version: <span className="text-cyan-200">{carbDataStatus?.datasetVersion || 'n/a'}</span></p>
               <p>Retrieval date: <span className="text-cyan-200">{carbDataStatus?.retrievalDate || 'n/a'}</span></p>
-              <p>Total live records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
-              <p>Rows displayed (current search): <span className="text-cyan-200">{facilities.length}</span></p>
+              <p>Total dataset records: <span className="text-cyan-200">{globalLiveRecordCount ?? '—'}</span></p>
+              <p>Current search results: <span className="text-cyan-200">{facilities.length}</span></p>
               <p>Available year(s): <span className="text-cyan-200">{(carbDataStatus?.availableYears ?? []).join(', ') || 'n/a'}</span></p>
               <p>Available sectors: <span className="text-cyan-200">{availableSectorPreview.join(', ') || 'n/a'}{(carbDataStatus?.availableSectors?.length ?? 0) > 8 ? ' + more' : ''}</span></p>
               <p>County availability: <span className="text-cyan-200">{countyUnavailable ? 'Not provided by current workbook' : 'Provided'}</span></p>
@@ -2453,10 +2472,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           ) : null}
         </section>
       ) : null}
-      {showDeveloperImportTools ? (
+      {showDeveloperImportTools && activeWorkspaceTab === 'tasks' ? (
         <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
           <button onClick={() => setShowDevImportOpen((v) => !v)} className="w-full text-left text-lg font-bold text-white">
-            Developer Import Tools {showDevImportOpen ? '[-]' : '[+]'}
+            Advanced Developer Import Tools {showDevImportOpen ? '[-]' : '[+]'}
           </button>
           {showDevImportOpen ? (
             <div className="mt-3">
@@ -2527,11 +2546,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           className={`min-w-0 max-w-full overflow-hidden rounded-xl border border-slate-700 lg:col-span-1 xl:min-w-0 xl:rounded-none xl:border-0 xl:border-r ${layoutWide ? '' : 'w-full'}`}
         >
           <div className="sticky top-[64px] z-10 border-b border-slate-700 bg-slate-900/95 px-3 py-3 sm:px-4">
-            <h2 className="text-lg font-bold text-white">Facility Search / Results</h2>
-            <p className="mt-1 text-[11px] text-slate-400">Search and select facility without leaving this workspace.</p>
+            <h2 className="text-lg font-bold text-white">Search CARB / EPA Facility</h2>
+            <p className="mt-1 text-[11px] text-slate-400">Search by facility name, GHGRP ID, FRS ID, city, county, sector, or source record.</p>
           </div>
           <div className="p-3 sm:p-4">
-          <p className="mt-1 text-xs text-slate-300">Search official/imported CARB records or start a manual investigation. DPAL will not make verified conclusions until a CARB source record is selected or imported.</p>
+          <p className="mt-1 text-xs text-slate-300">Search and select a CARB facility to begin.</p>
           <p className="mt-1 text-[11px] text-slate-400">Try searching by operator, facility, county, sector, or year. Public brand names may not match official reporting names.</p>
           <div className="mt-3 rounded-xl border border-cyan-500/30 bg-cyan-950/15 p-3 text-xs text-cyan-100">
             <p className="font-semibold">CARB Search Assistant</p>
@@ -2615,7 +2634,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p className="text-emerald-200">Year search is available.</p>
             ) : null}
           </div>
-          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <button onClick={() => void handleSearch()} className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white">Search CARB Facilities</button>
             <button
               onClick={() => void handleOpenCompanyPicker()}
@@ -2623,6 +2642,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             >
               Pick Company
             </button>
+            <button type="button" onClick={startManualInvestigation} className="rounded-lg border border-violet-500/60 bg-violet-900/20 px-3 py-2 text-sm font-semibold text-violet-100">Start Manual EPA/GHGRP Investigation</button>
             <button
               type="button"
               onClick={clearSelectedFacility}
@@ -2702,7 +2722,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <button type="button" onClick={() => applyQuickSearch({ q: 'refinery' })} className="rounded border border-amber-400/60 px-2 py-1">Broaden to "refinery"</button>
                 <button type="button" onClick={() => applyQuickSearch({ county: facilitySearch.county || 'Los Angeles' })} className="rounded border border-amber-400/60 px-2 py-1">Search by county</button>
                 <button type="button" onClick={() => applyQuickSearch({ sector: 'Petroleum / Refinery' })} className="rounded border border-amber-400/60 px-2 py-1">Search by sector: Petroleum / Refinery</button>
-                <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-400/60 px-2 py-1 text-violet-200">Start Manual Investigation</button>
+                <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-400/60 px-2 py-1 text-violet-200">Start Manual EPA/GHGRP Investigation</button>
               </div>
               <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
                 <span className="rounded border border-slate-600 px-2 py-1">Search operator names</span>
@@ -2732,7 +2752,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <button type="button" onClick={() => applyQuickSearch({ city: 'San Jose' })} className="rounded border border-violet-400/60 px-2 py-1">Search by city</button>
                 <button type="button" onClick={() => applyQuickSearch({ sector: 'Petroleum / Refinery' })} className="rounded border border-violet-400/60 px-2 py-1">Search by sector</button>
                 <button type="button" onClick={() => setShowDevImportOpen(true)} className="rounded border border-violet-400/60 px-2 py-1">Open import wizard</button>
-                <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-400/60 px-2 py-1">Start Manual County Investigation</button>
+                <button type="button" onClick={startManualInvestigation} className="rounded border border-violet-400/60 px-2 py-1">Start Manual EPA/GHGRP Investigation</button>
               </div>
             </div>
           ) : null}
@@ -2741,8 +2761,86 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               {visibleSearchWarnings.map((warning) => <p key={warning}>{warning}</p>)}
             </div>
           ) : null}
-          <div className="mt-3 overflow-hidden rounded-xl border border-slate-700">
-            <MapContainer center={mapCenter} zoom={6} className="h-[320px] w-full sm:h-[360px] lg:h-[420px]">
+          <div className="mt-3 hidden overflow-x-auto rounded-xl border border-slate-700 sm:block">
+            <table className="min-w-full text-left text-sm text-slate-200">
+              <thead className="bg-slate-950/80 text-xs uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-3 py-2">Facility Match</th>
+                  <th className="px-3 py-2">Facility ID</th>
+                  <th className="px-3 py-2">City</th>
+                  <th className="px-3 py-2">Year</th>
+                  <th className="px-3 py-2">Source</th>
+                  <th className="px-3 py-2">Confidence</th>
+                  <th className="px-3 py-2">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {!hasSearched ? (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-400" colSpan={7}>Search required before facility matches can be displayed.</td>
+                  </tr>
+                ) : paginatedFacilities.length ? paginatedFacilities.map((facility) => (
+                  <tr key={`${facility.facilityId}-${facility.reportingYear}`} className="border-t border-slate-800">
+                    <td className="px-3 py-3">
+                      <div className="font-semibold">{facility.facilityName}</div>
+                      <div className="text-xs text-slate-400">{facility.operatorName}</div>
+                    </td>
+                    <td className="px-3 py-3">{facility.facilityId}</td>
+                    <td className="px-3 py-3">{facility.city}</td>
+                    <td className="px-3 py-3">{facility.reportingYear}</td>
+                    <td className="px-3 py-3">{facility.sourceStatus}</td>
+                    <td className="px-3 py-3">
+                      <div className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${sourceRibbonTone(sourceMode)}`}>{sourceMode}</div>
+                    </td>
+                    <td className="px-3 py-3">
+                      <button
+                        onClick={() => {
+                          setSelected(facility);
+                          setActiveWorkspaceTab(layoutWide ? 'investigation' : 'facility');
+                        }}
+                        className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
+                      >
+                        Select
+                      </button>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td className="px-3 py-4 text-slate-300" colSpan={7}>
+                      No exact CARB match found. Try searching by GHGRP ID, FRS ID, city, county, sector, or start a manual EPA/GHGRP investigation.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/40 p-3 sm:hidden">
+            {!hasSearched ? (
+              <p className="text-xs text-slate-400">Search required before facility matches can be displayed.</p>
+            ) : paginatedFacilities.length ? paginatedFacilities.map((facility) => (
+              <article key={`m-${facility.facilityId}-${facility.reportingYear}`} className="mb-2 rounded-lg border border-slate-700 bg-slate-950/60 p-2 text-xs text-slate-200">
+                <p className="font-semibold">{facility.facilityName}</p>
+                <p>{facility.facilityId} · {facility.city} · {facility.reportingYear}</p>
+                <button onClick={() => { setSelected(facility); setActiveWorkspaceTab(layoutWide ? 'investigation' : 'facility'); }} className="mt-2 w-full rounded bg-emerald-700 px-2 py-1 text-white">Select</button>
+              </article>
+            )) : (
+              <div className="text-xs text-slate-300">
+                <p>No exact CARB match found. Try searching by GHGRP ID, FRS ID, city, county, sector, or start a manual EPA/GHGRP investigation.</p>
+              </div>
+            )}
+          </div>
+          <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/40 p-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold text-white">Map / AOI Tools</p>
+              <button type="button" onClick={() => setSearchMapExpanded((v) => !v)} className="rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200">
+                {searchMapExpanded ? 'Collapse' : 'Expand'}
+              </button>
+            </div>
+            {!searchMapExpanded && !selected ? (
+              <p className="mt-2 text-xs text-slate-400">No facility selected yet. Map tools unlock after facility selection or manual coordinate entry.</p>
+            ) : null}
+            {searchMapExpanded ? (
+              <MapContainer center={mapCenter} zoom={6} className="mt-2 h-[220px] w-full sm:h-[260px]">
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -2793,7 +2891,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   pathOptions={{ color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.15, weight: 2, dashArray: '5 5' }}
                 />
               ) : null}
-            </MapContainer>
+              </MapContainer>
+            ) : null}
           </div>
           {pendingMapClick ? (
             <div className="mt-2 rounded-lg border border-cyan-500/40 bg-cyan-950/20 p-3 text-xs text-cyan-100">
@@ -2819,6 +2918,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </div>
             </div>
           ) : null}
+          {(selected || manualCoordinates) ? (
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
             <button type="button" onClick={() => selectedCoordinates && setManualCoordinates(selectedCoordinates)} disabled={!selectedCoordinates} className="rounded border border-sky-500/60 bg-sky-900/20 px-2 py-1 text-sky-100 disabled:opacity-50">Fit Facility</button>
             <button type="button" onClick={() => setManualCoordinates(CA_CENTER)} className="rounded border border-sky-500/60 bg-sky-900/20 px-2 py-1 text-sky-100">Fit California</button>
@@ -2875,6 +2975,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               Draft points: {polygonDraftPoints.length} | Saved points: {savedPolygonPoints.length}
             </span>
           </div>
+          ) : null}
           <div className="mt-2 rounded-lg border border-slate-700 bg-slate-950/40 p-2 text-[11px] text-slate-300">
             <p className="font-semibold text-white">Map Legend</p>
             <p className="mt-1">Green marker: selected facility | Amber marker: manual coordinate</p>
@@ -2914,98 +3015,6 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           {selected && (selected.latitude == null || selected.longitude == null) ? (
             <p className="mt-2 text-xs text-amber-300">Facility location missing from CARB dataset. Click on the map to place a temporary marker before satellite comparison.</p>
           ) : null}
-          <div className="mt-3 hidden overflow-x-auto rounded-xl border border-slate-700 sm:block">
-            <table className="min-w-full text-left text-sm text-slate-200">
-              <thead className="bg-slate-950/80 text-xs uppercase tracking-wider text-slate-400">
-                <tr>
-                  <th className="px-3 py-2">Facility Match Results</th>
-                  <th className="px-3 py-2">Facility ID</th>
-                  <th className="px-3 py-2">City</th>
-                  <th className="px-3 py-2">Year</th>
-                  <th className="px-3 py-2">Source</th>
-                  <th className="px-3 py-2">Confidence</th>
-                  <th className="px-3 py-2">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {!hasSearched ? (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-400" colSpan={7}>Search required before facility matches can be displayed.</td>
-                  </tr>
-                ) : paginatedFacilities.length ? paginatedFacilities.map((facility) => (
-                  <tr key={`${facility.facilityId}-${facility.reportingYear}`} className="border-t border-slate-800">
-                    <td className="px-3 py-3">
-                      <div className="font-semibold">{facility.facilityName}</div>
-                      <div className="text-xs text-slate-400">{facility.operatorName}</div>
-                    </td>
-                    <td className="px-3 py-3">{facility.facilityId}</td>
-                    <td className="px-3 py-3">{facility.city}</td>
-                    <td className="px-3 py-3">{facility.reportingYear}</td>
-                    <td className="px-3 py-3">{facility.sourceStatus}</td>
-                    <td className="px-3 py-3">
-                      <div
-                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                          sourceMode === 'LIVE'
-                            ? 'border-cyan-500/50 bg-cyan-900/20 text-cyan-200'
-                            : sourceMode === 'IMPORTED'
-                              ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-200'
-                              : sourceMode === 'DEMO_FALLBACK'
-                                ? 'border-amber-500/50 bg-amber-900/20 text-amber-200'
-                                : 'border-violet-500/50 bg-violet-900/20 text-violet-200'
-                        }`}
-                        title="Only live/imported dataset rows are treated as CARB matches. Manual drafts and search hints are not official CARB records."
-                      >
-                        {sourceMode}
-                      </div>
-                      <p className="mt-1 text-[10px] text-slate-400">{facility.datasetVersion || datasetVersion || 'n/a'}</p>
-                      <p className="text-[10px] text-slate-500">{facility.retrievalDate || retrievalDate || 'n/a'}</p>
-                    </td>
-                    <td className="px-3 py-3">
-                      <button
-                        onClick={() => {
-                          setSelected(facility);
-                          setActiveWorkspaceTab(layoutWide ? 'investigation' : 'facility');
-                        }}
-                        className="rounded-lg bg-emerald-700 px-3 py-1.5 text-xs font-semibold text-white"
-                      >
-                        Select
-                      </button>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td className="px-3 py-4 text-slate-400" colSpan={7}>No facility matches found for the current search.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="mt-3 space-y-2 sm:hidden">
-            {!hasSearched ? (
-              <p className="rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-3 text-xs text-slate-400">Search required before facility matches can be displayed.</p>
-            ) : paginatedFacilities.length ? paginatedFacilities.map((facility) => (
-              <article key={`m-${facility.facilityId}-${facility.reportingYear}`} className="rounded-xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-200">
-                <p className="text-sm font-semibold text-white">{facility.facilityName}</p>
-                <p className="text-slate-400">{facility.operatorName}</p>
-                <p className="mt-1">Facility ID: {facility.facilityId}</p>
-                <p>City / County: {facility.city || 'n/a'} / {facility.county || 'n/a'}</p>
-                <p>Sector: {facility.sector || 'n/a'}</p>
-                <p>Year: {facility.reportingYear}</p>
-                <p>Source confidence: {sourceMode}</p>
-                <button
-                  onClick={() => {
-                    setSelected(facility);
-                    setActiveWorkspaceTab(layoutWide ? 'investigation' : 'facility');
-                  }}
-                  className="mt-2 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white"
-                >
-                  Select
-                </button>
-              </article>
-            )) : (
-              <p className="rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-3 text-xs text-slate-400">No facility matches found for the current search.</p>
-            )}
-          </div>
           {facilities.length > pageSize ? (
             <div className="mt-3 flex items-center justify-between text-xs text-slate-300">
               <button
@@ -3045,6 +3054,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           </div>
           <div className="p-3 sm:p-4">
           {!hasSearched ? <p className="mt-1 text-xs text-amber-300">Search for a facility first. No search, no product.</p> : null}
+          {!selected ? (
+            <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-xs text-slate-300">
+              <p className="text-sm font-semibold text-white">No facility selected yet.</p>
+              <p className="mt-1">
+                Search and select a CARB/EPA facility to compare reporting years, review emissions, generate an evidence packet, and send the review to the Situation Room.
+              </p>
+              <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+                {['Facility profile', 'Year comparison', 'Map / AOI tools', 'Evidence packet', 'Situation Room'].map((item) => (
+                  <div key={item} className="rounded-lg border border-slate-700 bg-slate-900/40 px-3 py-2 text-slate-400">
+                    {item} · pending
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <select value={String(baselineYear)} onChange={(e) => setBaselineYear(e.target.value ? Number(e.target.value) : '')} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
               <option value="">Baseline year</option>
@@ -3099,9 +3123,17 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
                 <input value={manualInvestigation.companyOperatorName} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, companyOperatorName: e.target.value }))} placeholder="Company/operator name" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
                 <input value={manualInvestigation.suspectedFacilityName} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, suspectedFacilityName: e.target.value }))} placeholder="Suspected facility name" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.ghgrpId} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, ghgrpId: e.target.value }))} placeholder="GHGRP ID" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.frsId} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, frsId: e.target.value }))} placeholder="FRS ID" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.naics} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, naics: e.target.value }))} placeholder="NAICS" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.address} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, address: e.target.value }))} placeholder="Address" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
                 <input value={manualInvestigation.city} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, city: e.target.value }))} placeholder="City" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
                 <input value={manualInvestigation.county} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, county: e.target.value }))} placeholder="County" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
                 <input value={manualInvestigation.state} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, state: e.target.value }))} placeholder="State" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.latitude} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, latitude: e.target.value }))} placeholder="Latitude" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.longitude} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, longitude: e.target.value }))} placeholder="Longitude" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.selectedYear} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, selectedYear: e.target.value }))} placeholder="Selected year" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
+                <input value={manualInvestigation.comparisonYear} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, comparisonYear: e.target.value }))} placeholder="Comparison year" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
                 <input value={manualInvestigation.sourceUrl} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, sourceUrl: e.target.value }))} placeholder="Source URL" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
               </div>
               <textarea value={manualInvestigation.notes} onChange={(e) => setManualInvestigation((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Manual investigation notes" className="mt-2 h-20 w-full rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-200" />
@@ -3112,6 +3144,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             <p>Methane reduction: <span className="font-semibold">{methaneReduction}</span></p>
             <p>CO2 reduction: <span className="font-semibold">{co2Reduction}</span></p>
             <p>N2O reduction: <span className="font-semibold">{n2oReduction}</span></p>
+            <p className="mt-1 text-xs text-amber-200">Reported emissions decreased may reflect reporting changes or operational changes. DPAL has not yet verified whether this reflects an actual operational emissions reduction.</p>
             {!baselineEmissions || !currentEmissions ? <p className="mt-1 text-amber-300">Needs More Data: emissions records missing for one or both selected years.</p> : null}
           </div>
           <div className="mt-3 rounded-xl border border-slate-700 p-3 text-sm text-slate-200">
@@ -3134,6 +3167,24 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>{formatNumber(co2Current)}</p>
             </div>
           </div>
+          </div>
+          <div className="mt-4">
+            <DpalProjectGuide
+              moduleType="carb_air"
+              workflowState={{
+                sourceMode,
+                latitude: selected?.latitude ?? (manualCoordinates?.[0] ?? null),
+                longitude: selected?.longitude ?? (manualCoordinates?.[1] ?? null),
+                aoiSaved: savedPolygonPoints.length >= 3,
+                evidencePacket: evidencePacketSynced,
+                missionCreated: Boolean(generatedCarbReport),
+                riskLevel,
+              }}
+              scanResult={verificationSummary as unknown as Record<string, unknown>}
+              evidenceState={evidencePacket as unknown as Record<string, unknown>}
+              onCreateEvidencePacket={() => void handleExportCarbEvidencePacket()}
+              onCreateVerificationMission={() => setActiveWorkspaceTab('situation')}
+            />
           </div>
         </section>
       </div>
@@ -3201,6 +3252,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <p>Methane reduction: <span className="font-semibold">{methaneReduction}</span></p>
                 <p>CO2 reduction: <span className="font-semibold">{co2Reduction}</span></p>
                 <p>N2O reduction: <span className="font-semibold">{n2oReduction}</span></p>
+                <p className="mt-1 text-xs text-amber-200">Reported emissions decreased may reflect reporting changes or operational changes. DPAL has not yet verified whether this reflects an actual operational emissions reduction.</p>
                 {!baselineEmissions || !currentEmissions ? <p className="mt-1 text-amber-300">Needs More Data: emissions records missing for one or both selected years.</p> : null}
               </div>
               <div className="mt-3 rounded-xl border border-slate-700 p-3 text-sm text-slate-200">
