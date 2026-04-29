@@ -147,6 +147,8 @@ export const GW_TRANSLATIONS = {
     service_delivery: 'Delivery',
     service_delivery_sub: 'Packages & essentials',
     recommended_rate: 'Recommended rate',
+    fareEstimateDisclaimer:
+      'Estimates use your route distance and time (booking + per-mile + per-minute, typical US urban ride-hail bands). Not a live Uber or Lyft quote.',
     accept_recommended_rate: 'Accept recommended rate',
     offer_my_rate: 'Offer my rate',
     ride_vehicle_selected: 'Selected',
@@ -623,6 +625,8 @@ export const GW_TRANSLATIONS = {
     service_delivery: 'Entrega',
     service_delivery_sub: 'Paquetería y apoyo esencial',
     recommended_rate: 'Tarifa recomendada',
+    fareEstimateDisclaimer:
+      'Las estimaciones usan la distancia y el tiempo de tu ruta (reserva + por milla + por minuto, rangos típicos urbanos en EE. UU.). No es una cotización en vivo de Uber o Lyft.',
     accept_recommended_rate: 'Aceptar tarifa recomendada',
     offer_my_rate: 'Ofrecer mi tarifa',
     ride_vehicle_selected: 'Seleccionado',
@@ -1101,6 +1105,8 @@ export const GW_TRANSLATIONS = {
     service_delivery: 'Entrega',
     service_delivery_sub: 'Encomendas e itens essenciais',
     recommended_rate: 'Tarifa recomendada',
+    fareEstimateDisclaimer:
+      'As estimativas usam a distância e o tempo da rota (taxa fixa + por milha + por minuto, faixas típicas de apps de transporte nos EUA). Não é orçamento ao vivo da Uber ou Lyft.',
     accept_recommended_rate: 'Aceitar tarifa recomendada',
     offer_my_rate: 'Oferecer minha tarifa',
     ride_vehicle_selected: 'Selecionado',

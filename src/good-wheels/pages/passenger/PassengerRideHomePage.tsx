@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useGwLang } from '../../i18n/useGwLang';
 import { GW_PATHS } from '../../routes/paths';
 import { useGoogleMaps } from '../../features/map/useGoogleMaps';
@@ -17,6 +17,7 @@ import {
   roleDotColor,
   roleGpsIconColor,
 } from './locationSelectionChrome';
+import { estimateGoodWheelsListedFareUsd } from '../../features/trips/utils/rideHailFareEstimate';
 
 /* ─────────────────────────────────────────────
    Types
@@ -44,15 +45,14 @@ function getPinSvg(label: string, bg: string) {
 /* ─────────────────────────────────────────────
    Vehicle options
 ───────────────────────────────────────────── */
+/** Service tiers vs standard car (1.0). Motorcycle lowest; delivery above car but below XL/comfort premiums. */
 const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mult: number; eta: string }[] = [
   { id: 'car',       label: 'Standard',  sub: 'Sedan / Compact',       emoji: '🚗', mult: 1.0,  eta: '3 min' },
-  { id: 'comfort',   label: 'Comfort',   sub: 'Larger Sedan',          emoji: '🚙', mult: 1.22, eta: '5 min' },
-  { id: 'moto',      label: 'Moto',      sub: 'Motorcycle',            emoji: '🏍', mult: 0.7,  eta: '2 min' },
-  { id: 'delivery',  label: 'Delivery',  sub: 'Packages & essentials', emoji: '📦', mult: 1.05, eta: '4 min' },
-  { id: 'large',     label: 'Large',     sub: 'SUV / Van',             emoji: '🚐', mult: 1.9,  eta: '6 min' },
+  { id: 'moto',      label: 'Moto',      sub: 'Motorcycle',            emoji: '🏍', mult: 0.78, eta: '2 min' },
+  { id: 'delivery',  label: 'Delivery',  sub: 'Packages & essentials', emoji: '📦', mult: 1.06, eta: '4 min' },
+  { id: 'comfort',   label: 'Comfort',   sub: 'Larger Sedan',          emoji: '🚙', mult: 1.16, eta: '5 min' },
+  { id: 'large',     label: 'Large',     sub: 'SUV / Van',             emoji: '🚐', mult: 1.42, eta: '6 min' },
 ];
-
-const BASE_FARE = 5.40;
 
 /* ─────────────────────────────────────────────
    GPS icon (small inline)
@@ -120,7 +120,6 @@ const PassengerRideHomePage: React.FC = () => {
   const [locatingDropoff, setLocatingDropoff] = useState(false);
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
   const [broadcasting, setBroadcasting]   = useState(false);
-  const [rideMenuOpen, setRideMenuOpen]   = useState(false);
   const [selectedCause, setSelectedCause] = useState<CauseOrganization | null>(null);
   const [negotiationState, setNegotiationState] = useState<NegotiationState>('idle');
   const [driverCounterOffer, setDriverCounterOffer] = useState<number | null>(null);
@@ -191,20 +190,20 @@ const PassengerRideHomePage: React.FC = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!bothSet) return;
-    const suggested = BASE_FARE * (VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1);
-    if (!maxPrice) setMaxPrice(suggested.toFixed(2));
-  }, [bothSet, maxPrice, vehicleType]);
+  const estimateFareForVehicle = useCallback(
+    (id: VehicleType) =>
+      estimateGoodWheelsListedFareUsd({
+        distanceKm: routeDistanceKm,
+        durationMinutes: routeDurationMinutes,
+        serviceTierMultiplier: VEHICLES.find((v) => v.id === id)?.mult ?? 1,
+      }),
+    [routeDistanceKm, routeDurationMinutes],
+  );
 
   useEffect(() => {
-    if (!rideMenuOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setRideMenuOpen(false);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [rideMenuOpen]);
+    if (!bothSet) return;
+    setMaxPrice(estimateFareForVehicle(vehicleType).toFixed(2));
+  }, [bothSet, vehicleType, routeDistanceKm, routeDurationMinutes, estimateFareForVehicle]);
 
   /* ── Init map ── */
   useEffect(() => {
@@ -529,7 +528,7 @@ const PassengerRideHomePage: React.FC = () => {
     setNegotiationNote(`${t('negotiation_offerSent')} · ${t('negotiation_driverReviewing')}`);
     window.setTimeout(() => {
       // Driver hears the broadcast first, then either accepts or counters.
-      const requestedFare = BASE_FARE * (VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1);
+      const requestedFare = estimateFareForVehicle(vehicleType);
       if (offer >= requestedFare) {
         setNegotiationState('accepted');
         setNegotiationNote(`${tf('negotiation_youOffered', { amount: offer.toFixed(2) })} · ${t('negotiation_confirmRide')}`);
@@ -616,7 +615,17 @@ const PassengerRideHomePage: React.FC = () => {
      Styles (shared inline)
   ───────────────────────────────────────────── */
   const S = {
-    root: { position: 'relative' as const, width: '100%', height: '100dvh', overflow: 'hidden', background: '#e5e7eb', fontFamily: "'Inter','Helvetica Neue',Arial,sans-serif" },
+    root: {
+      position: 'relative' as const,
+      width: '100%',
+      maxWidth: 1120,
+      margin: '0 auto',
+      height: 'calc(100dvh - var(--gw-appbar-height, 56px))',
+      minHeight: 'calc(100dvh - var(--gw-appbar-height, 56px))',
+      overflow: 'hidden',
+      background: '#e5e7eb',
+      fontFamily: "'Inter','Helvetica Neue',Arial,sans-serif",
+    },
     map:  { position: 'absolute' as const, inset: 0 },
     mapLoading: { position: 'absolute' as const, inset: 0, background: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' as const, gap: 10, zIndex: 5 },
 
@@ -652,8 +661,9 @@ const PassengerRideHomePage: React.FC = () => {
     sheet: {
       position: 'absolute' as const,
       bottom: 0,
-      left: 0,
-      right: 0,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: 'min(100%, 720px)',
       background: 'white',
       borderRadius: '20px 20px 0 0',
       zIndex: 30,
@@ -686,7 +696,20 @@ const PassengerRideHomePage: React.FC = () => {
     input: { flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 15, color: '#111827', fontWeight: 500, fontFamily: 'inherit' },
   };
 
-  const recommendedUsd = BASE_FARE * (VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1);
+  const vehiclesForOptions = useMemo(
+    () =>
+      VEHICLES.map((v) => ({
+        id: v.id,
+        sub: v.sub,
+        emoji: v.emoji,
+        mult: v.mult,
+        eta: v.eta,
+        estimatedUsd: estimateFareForVehicle(v.id),
+      })),
+    [estimateFareForVehicle],
+  );
+
+  const recommendedUsd = estimateFareForVehicle(vehicleType);
 
   const pickupLocActive = activeField === 'pickup';
   const pickupLocHasPlace = Boolean(pickupLL && pickupText.trim());
@@ -774,20 +797,22 @@ const PassengerRideHomePage: React.FC = () => {
 
       {/* ── TOP BAR ── */}
       <div style={S.topBar}>
-        <button
-          type="button"
-          style={S.topBarBtn}
-          title={t('menu')}
-          aria-label={t('menu')}
-          aria-expanded={rideMenuOpen}
-          onClick={() => setRideMenuOpen((o) => !o)}
+        <div
+          style={{
+            pointerEvents: 'auto',
+            padding: '8px 14px',
+            borderRadius: 999,
+            background: 'rgba(255,255,255,0.92)',
+            border: '1px solid rgba(226,232,240,0.95)',
+            boxShadow: '0 2px 12px rgba(0,0,0,0.12)',
+            fontSize: 12,
+            fontWeight: 800,
+            color: '#0f172a',
+            letterSpacing: '0.02em',
+          }}
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
-            <rect y="3" width="20" height="2" rx="1" fill="#111827" />
-            <rect y="9" width="20" height="2" rx="1" fill="#111827" />
-            <rect y="15" width="20" height="2" rx="1" fill="#111827" />
-          </svg>
-        </button>
+          {t('requestRide')}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'auto' }}>
           <button
             type="button"
@@ -816,82 +841,6 @@ const PassengerRideHomePage: React.FC = () => {
           </button>
         </div>
       </div>
-
-      {rideMenuOpen && (
-        <>
-          <button
-            type="button"
-            aria-label={t('donationClose')}
-            onClick={() => setRideMenuOpen(false)}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 44,
-              background: 'rgba(15, 23, 42, 0.42)',
-              border: 'none',
-              cursor: 'pointer',
-            }}
-          />
-          <nav
-            aria-label={t('menu')}
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              bottom: 0,
-              width: 'min(300px, 88vw)',
-              zIndex: 45,
-              background: 'rgba(255,255,255,0.98)',
-              backdropFilter: 'blur(14px)',
-              WebkitBackdropFilter: 'blur(14px)',
-              boxShadow: '12px 0 40px rgba(15,23,42,0.14)',
-              display: 'flex',
-              flexDirection: 'column',
-              paddingTop: 'max(10px, env(safe-area-inset-top, 0px))',
-              borderTopRightRadius: 18,
-              borderBottomRightRadius: 18,
-            }}
-          >
-            <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
-              {user?.fullName ?? t('dashboard')}
-            </div>
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 10px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {(
-                [
-                  { to: GW_PATHS.passenger.dashboard, label: t('dashboard') },
-                  { to: GW_PATHS.passenger.request, label: t('requestRide') },
-                  { to: GW_PATHS.passenger.active, label: t('activeTrip') },
-                  { to: GW_PATHS.passenger.history, label: t('rideHistory') },
-                  { to: GW_PATHS.passenger.places, label: t('savedPlaces') },
-                  { to: GW_PATHS.passenger.support, label: t('support') },
-                  { to: GW_PATHS.passenger.charities, label: t('charities') },
-                  { to: GW_PATHS.passenger.donations, label: t('donations') },
-                  { to: GW_PATHS.auth.profile, label: t('profile') },
-                ] as const
-              ).map(({ to, label }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  onClick={() => setRideMenuOpen(false)}
-                  style={({ isActive }) => ({
-                    display: 'block',
-                    padding: '12px 14px',
-                    borderRadius: 12,
-                    textDecoration: 'none',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    color: isActive ? '#0077C8' : '#334155',
-                    background: isActive ? 'rgba(0, 119, 200, 0.08)' : 'transparent',
-                    border: isActive ? '1px solid rgba(0, 119, 200, 0.18)' : '1px solid transparent',
-                  })}
-                >
-                  {label}
-                </NavLink>
-              ))}
-            </div>
-          </nav>
-        </>
-      )}
 
       {/* ── MAP SELECTION MODE (search only) ── */}
       {sheet === 'search' && (
@@ -1043,8 +992,7 @@ const PassengerRideHomePage: React.FC = () => {
             dropoffSummary={dropoffText.split(',')[0]}
             routeDistanceKm={routeDistanceKm}
             routeDurationMinutes={routeDurationMinutes}
-            vehicles={VEHICLES.map(({ id, sub, emoji, mult, eta }) => ({ id, sub, emoji, mult, eta }))}
-            baseFareUsd={BASE_FARE}
+            vehicles={vehiclesForOptions}
             vehicleType={vehicleType}
             onVehicleType={setVehicleType}
             recommendedUsd={recommendedUsd}

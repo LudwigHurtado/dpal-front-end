@@ -14,6 +14,8 @@ export type VehicleRowDef = {
   emoji: string;
   mult: number;
   eta: string;
+  /** Listed fare for this tier at current route (USD). */
+  estimatedUsd: number;
 };
 
 const spin = (
@@ -40,7 +42,6 @@ type Props = {
   routeDistanceKm: number | null;
   routeDurationMinutes: number | null;
   vehicles: VehicleRowDef[];
-  baseFareUsd: number;
   vehicleType: PassengerRideVehicleId;
   onVehicleType: (id: PassengerRideVehicleId) => void;
   recommendedUsd: number;
@@ -99,7 +100,6 @@ export const PassengerRideOptionsPanel: React.FC<Props> = ({
   routeDistanceKm,
   routeDurationMinutes,
   vehicles,
-  baseFareUsd,
   vehicleType,
   onVehicleType,
   recommendedUsd,
@@ -158,13 +158,16 @@ export const PassengerRideOptionsPanel: React.FC<Props> = ({
       </div>
 
       <div style={{ padding: '4px 12px 8px' }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#64748b', marginBottom: 6 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#64748b', marginBottom: 4 }}>
           {t('choose_service')}
         </div>
+        <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 600, color: '#64748b', lineHeight: 1.45 }}>
+          {t('fareEstimateDisclaimer')}
+        </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {vehicles.map((v) => {
             const sel = v.id === vehicleType;
-            const rowFare = (baseFareUsd * v.mult).toFixed(2);
+            const rowFare = v.estimatedUsd.toFixed(2);
             const etaLine = (() => {
               const m = Number.parseInt(v.eta, 10);
               return Number.isFinite(m) ? tf('eta_min', { minutes: m }) : v.eta;
@@ -197,8 +200,17 @@ export const PassengerRideOptionsPanel: React.FC<Props> = ({
                     <div style={{ fontSize: 10, fontWeight: 700, color: '#94a3b8', marginTop: 1 }}>{etaLine}</div>
                   </div>
                 </div>
-                <div style={{ flexShrink: 0, textAlign: 'right' }}>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: sel ? '#0369a1' : '#0f172a' }}>${rowFare}</div>
+                <div style={{ flexShrink: 0, textAlign: 'right', minWidth: 72 }}>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 900,
+                      color: sel ? '#0369a1' : '#0f172a',
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    ${rowFare}
+                  </div>
                   {sel && (
                     <div style={{ fontSize: 9, fontWeight: 800, color: '#0077c8', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {t('ride_vehicle_selected')}
@@ -224,7 +236,16 @@ export const PassengerRideOptionsPanel: React.FC<Props> = ({
         <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#64748b' }}>
           {t('recommended_rate')}
         </div>
-        <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.02em', marginTop: 2 }}>
+        <div
+          style={{
+            fontSize: 24,
+            fontWeight: 900,
+            color: '#0f172a',
+            letterSpacing: '-0.02em',
+            marginTop: 2,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
           ${recStr} <span style={{ fontSize: 12, fontWeight: 700, color: '#64748b' }}>USD</span>
         </div>
 
@@ -265,6 +286,7 @@ export const PassengerRideOptionsPanel: React.FC<Props> = ({
               fontWeight: 700,
               color: '#0f172a',
               fontFamily: 'inherit',
+              fontVariantNumeric: 'tabular-nums',
             }}
           />
         </div>

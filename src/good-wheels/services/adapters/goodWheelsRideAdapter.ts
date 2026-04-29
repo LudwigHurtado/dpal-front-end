@@ -1,5 +1,6 @@
 import type { RideDraftInput, RideLifecycleStatus, RideRequest, TripEvidence, TripMessage } from '../../types/rideConnection';
 import { calculateGoodWheelsFareSplit, fareSplitToPayload } from '../../features/trips/utils/fareSplit';
+import { estimateGoodWheelsListedFareUsd } from '../../features/trips/utils/rideHailFareEstimate';
 
 type RideAdapter = {
   createRide: (input: { passengerId: string; passengerName: string; draft: RideDraftInput }) => Promise<RideRequest>;
@@ -66,7 +67,13 @@ export const localGoodWheelsRideAdapter: RideAdapter = {
     const lngB = input.draft.destinationLng ?? -122.4094;
     const km = Math.max(1.2, haversineKm(latA, lngA, latB, lngB));
     const duration = Math.max(8, Math.round(km * 2.8));
-    const fare = round(km * 2.9 + 4);
+    const fare = round(
+      estimateGoodWheelsListedFareUsd({
+        distanceKm: km,
+        durationMinutes: duration,
+        serviceTierMultiplier: 1,
+      }),
+    );
     const reward = round(fare * 0.35);
     const fareSplit = fareSplitToPayload(calculateGoodWheelsFareSplit(Math.round(fare * 100)));
 
