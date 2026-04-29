@@ -64,7 +64,7 @@ export const goodWheelsRideApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        passengerId: 'usr-passenger-001',
+        passengerId: draft.passengerId || 'usr-passenger-001',
         pickup: draft.pickup,
         dropoff: draft.dropoff,
         purpose: draft.purpose,

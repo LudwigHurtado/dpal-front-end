@@ -4,6 +4,7 @@ import { GW_PATHS } from '../../routes/paths';
 import { goodWheelsCommsService, type GwBroadcast } from '../../services/goodWheelsCommsService';
 import { useAuthStore } from '../../store/useAuthStore';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
+import { useGwLang } from '../../i18n/useGwLang';
 
 /* ─── Palette ───────────────────────────────────────────────────────────── */
 const C = {
@@ -84,36 +85,36 @@ const MOCK_THREADS: Record<string, ChatMessage[]> = {
 };
 
 type BroadcastType = 'nearby' | 'all' | 'mission' | 'emergency' | 'community' | 'surge' | 'charity' | 'hazard';
-interface BroadcastTemplate { id: BroadcastType; label: string; icon: string; color: string; bg: string }
+interface BroadcastTemplate { id: BroadcastType; labelKey: string; icon: string; color: string; bg: string }
 
 const BROADCAST_TYPES: BroadcastTemplate[] = [
-  { id: 'nearby',    label: 'Nearby Drivers',     icon: '📍', color: C.accent,  bg: C.accentGlow },
-  { id: 'all',       label: 'All Active',          icon: '📡', color: C.green,   bg: 'rgba(34,197,94,0.12)' },
-  { id: 'mission',   label: 'Mission Drivers',     icon: '🎯', color: C.purple,  bg: 'rgba(139,92,246,0.12)' },
-  { id: 'emergency', label: 'Emergency Alert',     icon: '🚨', color: C.red,     bg: 'rgba(239,68,68,0.12)' },
-  { id: 'community', label: 'Community Need',      icon: '🤝', color: C.amber,   bg: 'rgba(245,158,11,0.12)' },
-  { id: 'surge',     label: 'High Demand Zone',    icon: '⚡', color: '#FCD34D', bg: 'rgba(252,211,77,0.1)' },
-  { id: 'charity',   label: 'Charity Transport',   icon: '💚', color: '#4ADE80', bg: 'rgba(74,222,128,0.1)' },
-  { id: 'hazard',    label: 'Road Hazard Alert',   icon: '⚠️', color: C.orange,  bg: 'rgba(249,115,22,0.12)' },
+  { id: 'nearby',    labelKey: 'broadcast_nearbyDrivers',   icon: '📍', color: C.accent,  bg: C.accentGlow },
+  { id: 'all',       labelKey: 'broadcast_allActive',       icon: '📡', color: C.green,   bg: 'rgba(34,197,94,0.12)' },
+  { id: 'mission',   labelKey: 'broadcast_missionDrivers',  icon: '🎯', color: C.purple,  bg: 'rgba(139,92,246,0.12)' },
+  { id: 'emergency', labelKey: 'broadcast_emergencyAlert',  icon: '🚨', color: C.red,     bg: 'rgba(239,68,68,0.12)' },
+  { id: 'community', labelKey: 'broadcast_communityNeed',   icon: '🤝', color: C.amber,   bg: 'rgba(245,158,11,0.12)' },
+  { id: 'surge',     labelKey: 'broadcast_surgeZone',       icon: '⚡', color: '#FCD34D', bg: 'rgba(252,211,77,0.1)' },
+  { id: 'charity',   labelKey: 'broadcast_charityTransport', icon: '💚', color: '#4ADE80', bg: 'rgba(74,222,128,0.1)' },
+  { id: 'hazard',    labelKey: 'broadcast_hazardAlert',     icon: '⚠️', color: C.orange,  bg: 'rgba(249,115,22,0.12)' },
 ];
 
 const QUICK_MESSAGES = [
-  'Ride request in downtown zone',
-  'Volunteer driver needed for elder assistance',
-  'Urgent charity transport — animal shelter',
-  'Surge demand — city center (3x fares)',
-  'Safety alert: road closure on Route 9',
-  'Mission briefing: community food drive transport',
-  'Hospital pickup needed — Priority',
+  'quickMessage_onMyWay',
+  'quickMessage_arrived',
+  'quickMessage_confirmPickup',
+  'quickMessage_moreInfo',
+  'quickMessage_trafficDelay',
+  'quickMessage_rideCompleted',
+  'quickMessage_unavailable',
 ];
 
 type FilterTab = 'all' | 'nearby' | 'on_duty' | 'mission' | 'charity';
-const FILTER_TABS: { id: FilterTab; label: string }[] = [
-  { id: 'all',     label: 'All Drivers' },
-  { id: 'nearby',  label: 'Nearby' },
-  { id: 'on_duty', label: 'On Duty' },
-  { id: 'mission', label: 'Mission' },
-  { id: 'charity', label: 'Charity' },
+const FILTER_TABS: { id: FilterTab; labelKey: string }[] = [
+  { id: 'all',     labelKey: 'filter_all' },
+  { id: 'nearby',  labelKey: 'filter_active' },
+  { id: 'on_duty', labelKey: 'filter_accepted' },
+  { id: 'mission', labelKey: 'filter_acknowledged' },
+  { id: 'charity', labelKey: 'filter_unread' },
 ];
 
 /* ─── Status helpers ─────────────────────────────────────────────────────── */
@@ -124,16 +125,16 @@ function statusColor(s: DriverStatus) {
   if (s === 'returning')  return C.accent;
   return C.muted;
 }
-function statusLabel(s: DriverStatus) {
-  if (s === 'available')  return 'Available';
-  if (s === 'on_trip')    return 'On Trip';
-  if (s === 'mission')    return 'Mission';
-  if (s === 'returning')  return 'Returning';
-  return 'Offline';
+function statusLabel(s: DriverStatus, t: (k: any) => string) {
+  if (s === 'available')  return t('driverStatus_available');
+  if (s === 'on_trip')    return t('driverStatus_onTrip');
+  if (s === 'mission')    return t('onMission');
+  if (s === 'returning')  return t('driverStatus_busy');
+  return t('driverStatus_offline');
 }
 
 /* ─── Tiny SVG map ───────────────────────────────────────────────────────── */
-function MiniMap() {
+function MiniMap({ surgeLabel, availableLabel, onTripLabel, missionLabel }: { surgeLabel: string; availableLabel: string; onTripLabel: string; missionLabel: string }) {
   return (
     <svg viewBox="0 0 300 160" style={{ width: '100%', height: 160 }} xmlns="http://www.w3.org/2000/svg">
       {/* Background */}
@@ -171,20 +172,21 @@ function MiniMap() {
       ))}
       {/* Zone label */}
       <rect x="112" y="67" width="76" height="18" rx="4" fill="rgba(245,158,11,0.2)" />
-      <text x="150" y="80" textAnchor="middle" fill="#F59E0B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">SURGE ZONE</text>
+      <text x="150" y="80" textAnchor="middle" fill="#F59E0B" fontSize="9" fontWeight="bold" fontFamily="sans-serif">{surgeLabel}</text>
       {/* Legend */}
       <circle cx="16" cy="148" r="4" fill={C.green} />
-      <text x="24" y="151" fill={C.mutedLight} fontSize="8" fontFamily="sans-serif">Available</text>
+      <text x="24" y="151" fill={C.mutedLight} fontSize="8" fontFamily="sans-serif">{availableLabel}</text>
       <circle cx="76" cy="148" r="4" fill={C.amber} />
-      <text x="84" y="151" fill={C.mutedLight} fontSize="8" fontFamily="sans-serif">On Trip</text>
+      <text x="84" y="151" fill={C.mutedLight} fontSize="8" fontFamily="sans-serif">{onTripLabel}</text>
       <circle cx="126" cy="148" r="4" fill={C.purple} />
-      <text x="134" y="151" fill={C.mutedLight} fontSize="8" fontFamily="sans-serif">Mission</text>
+      <text x="134" y="151" fill={C.mutedLight} fontSize="8" fontFamily="sans-serif">{missionLabel}</text>
     </svg>
   );
 }
 
 /* ─── Component ─────────────────────────────────────────────────────────── */
 export default function DriverCommsPage() {
+  const t = useGwLang((s) => s.t);
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const [panel, setPanel]               = useState<'chat' | 'broadcast'>('chat');
@@ -319,8 +321,8 @@ export default function DriverCommsPage() {
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ width: 8, height: 8, borderRadius: '50%', background: C.green, boxShadow: `0 0 8px ${C.green}` }} />
-            <span style={{ fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: '-0.02em' }}>Driver Comms</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent, background: C.accentGlow, border: `1px solid rgba(0,198,255,0.2)`, borderRadius: 6, padding: '2px 7px' }}>LIVE</span>
+            <span style={{ fontSize: 15, fontWeight: 900, color: C.text, letterSpacing: '-0.02em' }}>{t('driverComms')}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.accent, background: C.accentGlow, border: `1px solid rgba(0,198,255,0.2)`, borderRadius: 6, padding: '2px 7px' }}>{t('driverStatus_online')}</span>
           </div>
           <p style={{ fontSize: 11, color: C.muted, margin: 0 }}>{totalActive} active · Good Wheels Dispatch</p>
         </div>
@@ -341,8 +343,8 @@ export default function DriverCommsPage() {
         <div style={{ display: 'flex', background: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 3, gap: 3 }}>
           {(['chat', 'broadcast'] as const).map(p => (
             <button key={p} onClick={() => setPanel(p)} style={{ flex: 1, height: 36, borderRadius: 10, border: 'none', background: panel === p ? `linear-gradient(135deg, ${C.primary}, ${C.accent})` : 'transparent', color: panel === p ? 'white' : C.muted, fontSize: 13, fontWeight: 800, cursor: 'pointer', transition: 'all 0.18s', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-              {p === 'chat' ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Chat with Drivers</>
-                           : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>Broadcast</>}
+              {p === 'chat' ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>{t('chatWithDrivers')}</>
+                           : <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>{t('broadcast')}</>}
             </button>
           ))}
         </div>
@@ -356,9 +358,9 @@ export default function DriverCommsPage() {
 
           {/* Filter tabs */}
           <div style={{ padding: '8px 16px', overflowX: 'auto', display: 'flex', gap: 6, scrollbarWidth: 'none' }}>
-            {FILTER_TABS.map(t => (
-              <button key={t.id} onClick={() => setFilterTab(t.id)} style={{ flexShrink: 0, height: 30, borderRadius: 8, border: `1px solid ${filterTab === t.id ? C.accent : C.border}`, background: filterTab === t.id ? C.accentGlow : 'transparent', color: filterTab === t.id ? C.accent : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '0 12px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
-                {t.label}
+            {FILTER_TABS.map((tab) => (
+              <button key={tab.id} onClick={() => setFilterTab(tab.id)} style={{ flexShrink: 0, height: 30, borderRadius: 8, border: `1px solid ${filterTab === tab.id ? C.accent : C.border}`, background: filterTab === tab.id ? C.accentGlow : 'transparent', color: filterTab === tab.id ? C.accent : C.muted, fontSize: 11, fontWeight: 700, cursor: 'pointer', padding: '0 12px', transition: 'all 0.15s', whiteSpace: 'nowrap' }}>
+                {t(tab.labelKey as any)}
               </button>
             ))}
           </div>
@@ -367,7 +369,7 @@ export default function DriverCommsPage() {
           <div style={{ padding: '0 16px 8px' }}>
             <div style={{ position: 'relative' }}>
               <svg style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder="Search drivers…" style={{ width: '100%', height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text, fontSize: 13, paddingLeft: 30, paddingRight: 12, outline: 'none', boxSizing: 'border-box' }} />
+              <input value={searchQ} onChange={e => setSearchQ(e.target.value)} placeholder={t('searchDrivers')} style={{ width: '100%', height: 36, borderRadius: 10, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.text, fontSize: 13, paddingLeft: 30, paddingRight: 12, outline: 'none', boxSizing: 'border-box' }} />
             </div>
           </div>
 
@@ -394,7 +396,7 @@ export default function DriverCommsPage() {
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={pill(statusColor(d.status) + '22', statusColor(d.status))}>{statusLabel(d.status)}</span>
+                        <span style={pill(statusColor(d.status) + '22', statusColor(d.status))}>{statusLabel(d.status, t)}</span>
                         <span style={{ fontSize: 11, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.lastMsg}</span>
                       </div>
                     </div>
@@ -410,7 +412,7 @@ export default function DriverCommsPage() {
                 <div style={{ width: 32, height: 32, borderRadius: '50%', background: `${statusColor(activeDriver.status)}22`, border: `2px solid ${statusColor(activeDriver.status)}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 900, color: statusColor(activeDriver.status) }}>{activeDriver.avatar}</div>
                 <div style={{ flex: 1 }}>
                   <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.text }}>{activeDriver.name}</p>
-                  <p style={{ margin: 0, fontSize: 10, color: statusColor(activeDriver.status) }}>{statusLabel(activeDriver.status)} · {activeDriver.zone} · {activeDriver.vehicle}</p>
+                  <p style={{ margin: 0, fontSize: 10, color: statusColor(activeDriver.status) }}>{statusLabel(activeDriver.status, t)} · {activeDriver.zone} · {activeDriver.vehicle}</p>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {['📞', '📎'].map(icon => (
@@ -422,7 +424,7 @@ export default function DriverCommsPage() {
               {/* Messages */}
               <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 8, scrollbarWidth: 'thin', minHeight: 0 }}>
                 {thread.length === 0
-                  ? <p style={{ textAlign: 'center', color: C.muted, fontSize: 12, margin: 'auto 0' }}>No messages yet. Start the conversation.</p>
+                  ? <p style={{ textAlign: 'center', color: C.muted, fontSize: 12, margin: 'auto 0' }}>{t('noMessagesYet')}</p>
                   : thread.map(msg => {
                     const isDispatch = msg.from === 'dispatch';
                     return (
@@ -460,7 +462,7 @@ export default function DriverCommsPage() {
           <div style={{ padding: '10px 16px 16px' }}>
             <button style={{ width: '100%', height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.04)', border: `1px dashed rgba(0,198,255,0.3)`, color: C.accent, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>
-              Start New Driver Chat
+              {t('startNewDriverChat')}
             </button>
           </div>
         </div>
@@ -477,8 +479,8 @@ export default function DriverCommsPage() {
             <div style={{ margin: '10px 16px 0', padding: '10px 14px', borderRadius: 12, background: 'rgba(34,197,94,0.12)', border: `1px solid rgba(34,197,94,0.25)`, display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 20 }}>📡</span>
               <div>
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.green }}>Broadcast Sent!</p>
-                <p style={{ margin: 0, fontSize: 11, color: C.mutedLight }}>{totalActive} active drivers notified · Awaiting acknowledgement</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 800, color: C.green }}>{t('broadcastSent')}</p>
+                <p style={{ margin: 0, fontSize: 11, color: C.mutedLight }}>{totalActive} {t('activeDrivers').toLowerCase()} · {t('awaitingAcknowledgement')}</p>
               </div>
             </div>
           )}
@@ -486,9 +488,9 @@ export default function DriverCommsPage() {
           {/* Stats row */}
           <div style={{ padding: '12px 16px 8px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {[
-              { label: 'Active Drivers', value: totalActive, color: C.green },
-              { label: 'On Mission',     value: 1,           color: C.purple },
-              { label: 'Nearby (<2mi)',  value: 4,           color: C.accent },
+              { label: t('activeDrivers'), value: totalActive, color: C.green },
+              { label: t('onMission'),     value: 1,           color: C.purple },
+              { label: t('nearbyRange'),   value: 4,           color: C.accent },
             ].map(s => (
               <div key={s.label} style={{ background: C.card, border: `1px solid ${C.border}`, borderRadius: 12, padding: '10px 0', textAlign: 'center' }}>
                 <p style={{ margin: 0, fontSize: 22, fontWeight: 900, color: s.color }}>{s.value}</p>
@@ -500,22 +502,27 @@ export default function DriverCommsPage() {
           {/* Mini map */}
           <div style={{ margin: '0 16px', borderRadius: 14, overflow: 'hidden', border: `1px solid ${C.border}` }}>
             <div style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.03)', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: 11, fontWeight: 800, color: C.mutedLight, textTransform: 'uppercase', letterSpacing: '0.12em' }}>Live Driver Map</span>
-              <span style={{ fontSize: 10, color: C.amber, fontWeight: 700 }}>⚡ Surge Zone Active</span>
+              <span style={{ fontSize: 11, fontWeight: 800, color: C.mutedLight, textTransform: 'uppercase', letterSpacing: '0.12em' }}>{t('liveDriverMap')}</span>
+              <span style={{ fontSize: 10, color: C.amber, fontWeight: 700 }}>⚡ {t('surgeZoneActive')}</span>
             </div>
-            <MiniMap />
+            <MiniMap
+              surgeLabel={t('mapLegend_broadcastArea')}
+              availableLabel={t('driverStatus_available')}
+              onTripLabel={t('driverStatus_onTrip')}
+              missionLabel={t('onMission')}
+            />
           </div>
 
           {/* Broadcast type grid */}
           <div style={{ padding: '14px 16px 8px' }}>
-            <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 800, color: C.mutedLight, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Broadcast Target</p>
+            <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 800, color: C.mutedLight, textTransform: 'uppercase', letterSpacing: '0.15em' }}>{t('broadcastTarget')}</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 7 }}>
               {BROADCAST_TYPES.map(bt => {
                 const sel = broadcastType === bt.id;
                 return (
                   <button key={bt.id} onClick={() => setBroadcastType(bt.id)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, border: `1px solid ${sel ? bt.color + '55' : C.border}`, background: sel ? bt.bg : 'rgba(255,255,255,0.02)', cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s' }}>
                     <span style={{ fontSize: 20, lineHeight: 1, flexShrink: 0 }}>{bt.icon}</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: sel ? bt.color : C.mutedLight, lineHeight: 1.3 }}>{bt.label}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: sel ? bt.color : C.mutedLight, lineHeight: 1.3 }}>{t(bt.labelKey as any)}</span>
                     {sel && <div style={{ marginLeft: 'auto', width: 8, height: 8, borderRadius: '50%', background: bt.color, flexShrink: 0 }} />}
                   </button>
                 );
@@ -525,11 +532,11 @@ export default function DriverCommsPage() {
 
           {/* Quick messages */}
           <div style={{ padding: '0 16px 8px' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 800, color: C.mutedLight, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Quick Messages</p>
+            <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 800, color: C.mutedLight, textTransform: 'uppercase', letterSpacing: '0.15em' }}>{t('quickMessages')}</p>
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none', paddingBottom: 2 }}>
-              {QUICK_MESSAGES.map(qm => (
-                <button key={qm} onClick={() => setBroadcastMsg(qm)} style={{ flexShrink: 0, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: broadcastMsg === qm ? C.accentGlow : 'rgba(255,255,255,0.03)', color: broadcastMsg === qm ? C.accent : C.muted, fontSize: 10, fontWeight: 600, cursor: 'pointer', padding: '0 10px', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
-                  {qm}
+              {QUICK_MESSAGES.map((qmKey) => (
+                <button key={qmKey} onClick={() => setBroadcastMsg(t(qmKey as any))} style={{ flexShrink: 0, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: broadcastMsg === t(qmKey as any) ? C.accentGlow : 'rgba(255,255,255,0.03)', color: broadcastMsg === t(qmKey as any) ? C.accent : C.muted, fontSize: 10, fontWeight: 600, cursor: 'pointer', padding: '0 10px', whiteSpace: 'nowrap', transition: 'all 0.15s' }}>
+                  {t(qmKey as any)}
                 </button>
               ))}
             </div>
@@ -540,14 +547,14 @@ export default function DriverCommsPage() {
             <div style={{ padding: '10px 14px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'center', gap: 10, background: activeBroadcast.bg }}>
               <span style={{ fontSize: 18 }}>{activeBroadcast.icon}</span>
               <div>
-                <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: activeBroadcast.color }}>{activeBroadcast.label}</p>
-                <p style={{ margin: 0, fontSize: 10, color: C.muted }}>Message will reach {broadcastType === 'all' ? totalActive : broadcastType === 'mission' ? 1 : 4} drivers</p>
+                <p style={{ margin: 0, fontSize: 12, fontWeight: 800, color: activeBroadcast.color }}>{t(activeBroadcast.labelKey as any)}</p>
+                <p style={{ margin: 0, fontSize: 10, color: C.muted }}>{t('messageWillReach')} {broadcastType === 'all' ? totalActive : broadcastType === 'mission' ? 1 : 4} {t('drivers')}</p>
               </div>
             </div>
             <textarea
               value={broadcastMsg}
               onChange={e => setBroadcastMsg(e.target.value)}
-              placeholder="Type your broadcast message…"
+              placeholder={t('typeBroadcastMessage')}
               rows={3}
               style={{ width: '100%', background: 'transparent', border: 'none', outline: 'none', color: C.text, fontSize: 13, lineHeight: 1.55, padding: '12px 14px', resize: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
@@ -565,16 +572,16 @@ export default function DriverCommsPage() {
           <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <button onClick={sendBroadcast} disabled={sending || !broadcastMsg.trim()} style={{ width: '100%', height: 50, borderRadius: 14, background: sending ? C.muted : `linear-gradient(135deg, ${activeBroadcast.color}, ${activeBroadcast.color}cc)`, border: 'none', color: 'white', fontSize: 14, fontWeight: 900, cursor: sending || !broadcastMsg.trim() ? 'not-allowed' : 'pointer', opacity: !broadcastMsg.trim() ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, boxShadow: broadcastMsg.trim() ? `0 4px 20px ${activeBroadcast.color}44` : 'none', transition: 'all 0.2s', letterSpacing: '0.02em' }}>
               {sending ? (
-                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>Sending…</>
+                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" style={{ animation: 'spin 0.8s linear infinite' }}><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>{t('sending')}</>
               ) : (
-                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>Send {activeBroadcast.label}</>
+                <><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>{t('sendTo')} {t(activeBroadcast.labelKey as any)}</>
               )}
             </button>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
               {[
-                { label: 'Priority',  icon: '🚨', color: C.red    },
-                { label: 'Schedule',  icon: '🕐', color: C.purple },
-                { label: 'Mission',   icon: '🎯', color: C.amber  },
+                { label: t('priority'),  icon: '🚨', color: C.red    },
+                { label: t('schedule'),  icon: '🕐', color: C.purple },
+                { label: t('onMission'), icon: '🎯', color: C.amber  },
               ].map(btn => (
                 <button key={btn.label} style={{ height: 40, borderRadius: 12, background: btn.color + '15', border: `1px solid ${btn.color}33`, color: btn.color, fontSize: 11, fontWeight: 800, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                   {btn.icon} {btn.label}
@@ -585,18 +592,18 @@ export default function DriverCommsPage() {
 
           {/* Delivery receipts */}
           <div style={{ margin: '0 16px 20px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '12px 14px' }}>
-            <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Last Broadcast Receipt</p>
+            <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em' }}>{t('lastBroadcastReceipt')}</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: C.text }}>{lastBroadcast?.text ?? 'No broadcast sent yet'}</span>
+              <span style={{ fontSize: 12, color: C.text }}>{lastBroadcast?.text ?? t('noBroadcastSentYet')}</span>
               <span style={{ fontSize: 10, color: C.muted }}>
                 {lastBroadcast ? new Date(lastBroadcast.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
               </span>
             </div>
             <div style={{ display: 'flex', gap: 14 }}>
               {[
-                { label: 'Sent', val: lastBroadcast ? 1 : 0, color: C.mutedLight },
-                { label: 'Delivered', val: lastBroadcast ? 1 : 0, color: C.accent },
-                { label: 'Acknowledged', val: lastBroadcast?.acknowledgements?.length ?? 0, color: C.green },
+                { label: t('sent'), val: lastBroadcast ? 1 : 0, color: C.mutedLight },
+                { label: t('delivered'), val: lastBroadcast ? 1 : 0, color: C.accent },
+                { label: t('acknowledged'), val: lastBroadcast?.acknowledgements?.length ?? 0, color: C.green },
               ].map(r => (
                 <div key={r.label} style={{ textAlign: 'center' }}>
                   <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: r.color }}>{r.val}</p>
@@ -607,19 +614,19 @@ export default function DriverCommsPage() {
             {lastBroadcast && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
                 <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.03)', color: C.text, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={() => alert(lastBroadcast.text)}>
-                  Read Details
+                  {t('readDetails')}
                 </button>
                 <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.03)', color: C.text, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={listenLastBroadcast}>
-                  Listen
+                  {t('listen')}
                 </button>
                 <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.03)', color: C.text, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={stopListening}>
-                  Stop
+                  {t('stop')}
                 </button>
                 <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(34,197,94,0.18)', color: C.green, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={() => void acknowledgeLastBroadcast()}>
-                  Acknowledge
+                  {t('acknowledge')}
                 </button>
                 <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(0,198,255,0.18)', color: C.accent, cursor: lastBroadcast?.tripId ? 'pointer' : 'not-allowed', opacity: lastBroadcast?.tripId ? 1 : 0.5, fontSize: 11, fontWeight: 700 }} disabled={!lastBroadcast?.tripId} onClick={() => void acceptLastBroadcastRide()}>
-                  Accept Ride
+                  {t('acceptRide')}
                 </button>
               </div>
             )}

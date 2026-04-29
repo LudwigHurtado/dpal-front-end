@@ -3,6 +3,7 @@ import type { Trip } from '../tripTypes';
 import { useGoogleMaps } from '../../map/useGoogleMaps';
 import { geocodeAddress, midpoint } from '../../map/mapUtils';
 import type { LatLng } from '../../map/mapTypes';
+import { GOOD_WHEELS_DEMO_MODE } from '../../../app/appConfig';
 
 const TripMapPanel: React.FC<{
   trip: Trip;
@@ -143,31 +144,8 @@ const TripMapPanel: React.FC<{
 
     nearbyCarsRef.current.forEach((m) => m.setMap(null));
     nearbyCarsRef.current = [];
-    const shouldShowNearbyCars =
-      variant === 'passenger' &&
-      (trip.status === 'draft' || trip.status === 'requested' || trip.status === 'matched');
-    if (shouldShowNearbyCars && pickupLL) {
-      const offsets = [
-        { lat: 0.003, lng: 0.0025 },
-        { lat: -0.002, lng: 0.0032 },
-        { lat: 0.0015, lng: -0.0028 },
-      ];
-      nearbyCarsRef.current = offsets.map((o, i) =>
-        new g.maps.Marker({
-          map,
-          position: { lat: pickupLL.lat + o.lat, lng: pickupLL.lng + o.lng },
-          title: `Nearby car ${i + 1}`,
-          icon: {
-            path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-            scale: 4.8,
-            fillColor: '#2FB344',
-            fillOpacity: 0.95,
-            strokeColor: '#14532d',
-            strokeWeight: 1,
-          },
-        })
-      );
-    }
+    // Keep passenger map focused on pickup/dropoff clarity.
+    // Do not show synthetic nearby cars before real acceptance.
 
     const dr = directionsRef.current;
     if (!dr || !pickupLL || !dropoffLL) {
@@ -210,11 +188,18 @@ const TripMapPanel: React.FC<{
       driverTickRef.current = null;
     }
 
-    const shouldTrack =
-      trip.status === 'driver_assigned' ||
-      trip.status === 'driver_arriving' ||
-      trip.status === 'arrived' ||
-      trip.status === 'in_progress';
+    const liveStatuses = new Set<Trip['status']>([
+      'accepted',
+      'driver_en_route',
+      'driver_arrived',
+      'passenger_onboard',
+      'in_progress',
+    ]);
+    const demoStatuses = new Set<Trip['status']>(['driver_assigned', 'driver_arriving', 'arrived', 'in_progress']);
+    const shouldTrack = Boolean(
+      trip.driverId &&
+      (liveStatuses.has(trip.status) || (GOOD_WHEELS_DEMO_MODE && demoStatuses.has(trip.status)))
+    );
     if (!shouldTrack) return;
 
     const marker = new g.maps.Marker({
@@ -232,19 +217,8 @@ const TripMapPanel: React.FC<{
     });
     driverMarkerRef.current = marker;
 
-    let step = trip.status === 'in_progress' ? 0.6 : trip.status === 'arrived' ? 0.98 : 0.15;
-    const delta = trip.status === 'driver_assigned' ? 0.02 : trip.status === 'driver_arriving' ? 0.035 : 0.01;
-    const id = window.setInterval(() => {
-      step = Math.min(1, step + delta);
-      const lat = pickupLL.lat + (dropoffLL.lat - pickupLL.lat) * step;
-      const lng = pickupLL.lng + (dropoffLL.lng - pickupLL.lng) * step;
-      marker.setPosition({ lat, lng });
-      if (step >= 1 && driverTickRef.current) {
-        window.clearInterval(driverTickRef.current);
-        driverTickRef.current = null;
-      }
-    }, 1200);
-    driverTickRef.current = id;
+    // No local auto-movement: position updates should come from real status updates.
+    marker.setPosition(pickupLL);
 
     return () => {
       if (driverTickRef.current) {

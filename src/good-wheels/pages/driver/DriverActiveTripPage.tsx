@@ -15,9 +15,11 @@ import { MOCK_USERS } from '../../data/mock/mockUsers';
 import TripChatPanel from '../../features/trips/components/TripChatPanel';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useTripStore } from '../../features/trips/tripStore';
+import { useGwLang } from '../../i18n/useGwLang';
 
 const DriverActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const hydrate = useTripStore((s) => s.hydrate);
   const { activeTrip, loading } = useActiveTrip();
@@ -32,7 +34,7 @@ const DriverActiveTripPage: React.FC = () => {
   if (loading) {
     return (
       <div className="gw-card p-6">
-        <div className="gw-muted">Loading…</div>
+        <div className="gw-muted">{t('loading')}</div>
       </div>
     );
   }
@@ -40,10 +42,10 @@ const DriverActiveTripPage: React.FC = () => {
   if (!activeTrip) {
     return (
       <TripEmptyState
-        title="No active trip"
-        message="Go online and accept a request from your queue."
+        title={t('noActiveTripTitle')}
+        message={t('noActiveTripMsgDriver')}
         ctaHref={GW_PATHS.driver.queue}
-        ctaLabel="Open queue"
+        ctaLabel={t('openQueue')}
       />
     );
   }
@@ -85,7 +87,7 @@ const DriverActiveTripPage: React.FC = () => {
             role="driver"
             userId={user?.id ?? activeTrip.driverId ?? MOCK_USERS.driver.id}
             userName={user?.fullName ?? MOCK_USERS.driver.fullName}
-            title="Passenger chat"
+            title={t('passengerChat')}
           />
         </div>
       </div>

@@ -16,12 +16,14 @@
       "Medical Transport",
       "Family Safe"
     ],
-    "familySafeMode": true
+    "familySafeMode": true,
+    "email": "passenger@goodwheels.test",
+    "password": "GoodWheels123!"
   },
   {
     "id": "usr-driver-001",
     "role": "driver",
-    "fullName": "Jordan K.",
+    "fullName": "Carlos Driver",
     "phoneMasked": "(•••) •••-5220",
     "trust": {
       "trustScore": 95,
@@ -31,7 +33,9 @@
     },
     "vehicleId": "veh-001",
     "isOnline": true,
-    "earningsCents": 18450
+    "earningsCents": 18450,
+    "email": "driver@goodwheels.test",
+    "password": "GoodWheels123!"
   },
   {
     "id": "usr-worker-001",

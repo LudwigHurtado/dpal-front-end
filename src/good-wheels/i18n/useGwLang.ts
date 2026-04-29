@@ -12,15 +12,18 @@ const LS_KEY = 'gw_lang';
 function readLang(): GwLang {
   try {
     const v = localStorage.getItem(LS_KEY);
-    if (v === 'EN' || v === 'ES') return v;
+    if (v === 'en' || v === 'es' || v === 'pt') return v;
+    if (v === 'EN') return 'en';
+    if (v === 'ES') return 'es';
   } catch { /* ignore */ }
-  return 'EN';
+  return 'en';
 }
 
 interface GwLangState {
   lang: GwLang;
   setLang: (l: GwLang) => void;
   t: (key: GwTranslationKey) => string;
+  tf: (key: GwTranslationKey, values: Record<string, string | number>) => string;
 }
 
 export const useGwLang = create<GwLangState>((set, get) => ({
@@ -33,6 +36,14 @@ export const useGwLang = create<GwLangState>((set, get) => ({
 
   t: (key) => {
     const { lang } = get();
-    return GW_TRANSLATIONS[lang][key] ?? GW_TRANSLATIONS.EN[key] ?? key;
+    return GW_TRANSLATIONS[lang][key] ?? GW_TRANSLATIONS.en[key] ?? key;
+  },
+
+  tf: (key, values) => {
+    const { lang } = get();
+    const template = GW_TRANSLATIONS[lang][key] ?? GW_TRANSLATIONS.en[key] ?? key;
+    return Object.entries(values).reduce((acc, [k, v]) => {
+      return acc.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'g'), String(v));
+    }, template);
   },
 }));

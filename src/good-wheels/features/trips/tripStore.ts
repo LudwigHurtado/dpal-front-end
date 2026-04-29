@@ -2,6 +2,8 @@ import { create } from 'zustand';
 import type { RideRequestDraft, SafetyStatus, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
 import { tripService } from './tripService';
 import { TERMINAL_STATUSES } from './tripConstants';
+import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
+import { useAuthStore } from '../../store/useAuthStore';
 
 type TripState = {
   activeTrip: Trip | null;
@@ -56,13 +58,19 @@ const clearActiveTripMarker = () => {
   }
 };
 
-const hasActiveTripMarker = (): boolean => {
+const readActiveTripMarker = (): { id?: string; status?: string; updatedAtIso?: string } | null => {
   try {
-    return Boolean(localStorage.getItem(ACTIVE_TRIP_MARKER_KEY));
+    const raw = localStorage.getItem(ACTIVE_TRIP_MARKER_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { id?: string; status?: string; updatedAtIso?: string };
+    return parsed && typeof parsed === 'object' ? parsed : null;
   } catch {
-    return false;
+    return null;
   }
 };
+
+const isLikelyDemoTripId = (id: string): boolean =>
+  /(^mock|^demo|^local|^trip-q|mock|demo|local)/i.test(id);
 
 export const useTripStore = create<TripState>((set, get) => ({
   activeTrip: null,
@@ -81,10 +89,11 @@ export const useTripStore = create<TripState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const [active, hist] = await Promise.all([tripService.getActiveTrip(userId), tripService.listHistory(userId)]);
-      const keepActive =
-        Boolean(active) &&
-        Boolean(active && !TERMINAL_STATUSES.has(active.status)) &&
-        hasActiveTripMarker();
+      const marker = readActiveTripMarker();
+      if (!GOOD_WHEELS_DEMO_MODE && marker?.id && isLikelyDemoTripId(marker.id)) {
+        clearActiveTripMarker();
+      }
+      const keepActive = Boolean(active && !TERMINAL_STATUSES.has(active.status));
       set({ activeTrip: keepActive ? active : null, history: hist, loading: false });
     } catch {
       set({ loading: false, error: 'Could not load trips.' });
@@ -96,27 +105,32 @@ export const useTripStore = create<TripState>((set, get) => ({
       set({ error: 'Please choose pickup and destination.' });
       return;
     }
-    // Provide immediate UI feedback for the passenger bottom sheet.
-    set({
-      loading: true,
-      error: null,
-      activeTrip: {
-        id: `trip-${Date.now()}`,
-        passengerId: 'usr-passenger-001',
-        pickup: draft.pickup,
-        dropoff: draft.dropoff,
-        purpose: draft.purpose,
-        supportCategoryId: draft.supportCategoryId,
-        status: 'requested',
-        safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
-        createdAtIso: new Date().toISOString(),
-        updatedAtIso: new Date().toISOString(),
-        estimate: { etaMinutes: 8, distanceKm: 4.8 },
-        timeline: [{ id: `evt-${Date.now()}`, atIso: new Date().toISOString(), label: 'Finding a driver…' }],
-      },
-    });
+    // In demo mode we can optimistically render a local requested trip.
+    if (GOOD_WHEELS_DEMO_MODE) {
+      set({
+        loading: true,
+        error: null,
+        activeTrip: {
+          id: `trip-${Date.now()}`,
+          passengerId: 'usr-passenger-001',
+          pickup: draft.pickup,
+          dropoff: draft.dropoff,
+          purpose: draft.purpose,
+          supportCategoryId: draft.supportCategoryId,
+          status: 'requested',
+          safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
+          createdAtIso: new Date().toISOString(),
+          updatedAtIso: new Date().toISOString(),
+          estimate: { etaMinutes: 8, distanceKm: 4.8 },
+          timeline: [{ id: `evt-${Date.now()}`, atIso: new Date().toISOString(), label: 'Finding a driver…' }],
+        },
+      });
+    } else {
+      set({ loading: true, error: null });
+    }
     try {
-      const trip = await tripService.requestTrip(draft);
+      const passengerId = useAuthStore.getState().user?.id || 'usr-passenger-001';
+      const trip = await tripService.requestTrip({ ...draft, passengerId });
       setActiveTripMarker(trip);
       set({
         activeTrip: {

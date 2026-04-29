@@ -7,6 +7,8 @@ import { useDriverStore } from '../features/driver/driverStore';
 import DevicePreview, { readGwPreviewDevice, type GwPreviewDeviceId, GW_PREVIEW_DEVICES, writeGwPreviewDevice } from '../components/dev/DevicePreview';
 import { useGwLang } from '../i18n/useGwLang';
 import type { GwLang } from '../i18n/gwTranslations';
+import { GOOD_WHEELS_DEMO_MODE } from '../app/appConfig';
+import { getDpalApiConfig } from '../../config/api';
 
 const AppLayout: React.FC = () => {
   const navigate = useNavigate();
@@ -15,6 +17,7 @@ const AppLayout: React.FC = () => {
   const role = useAuthStore((s) => s.activeRole);
   const signOut = useAuthStore((s) => s.signOut);
   const hydrate = useTripStore((s) => s.hydrate);
+  const activeTrip = useTripStore((s) => s.activeTrip);
   const hydrateDriver = useDriverStore((s) => s.hydrate);
 
   const lang    = useGwLang((s) => s.lang);
@@ -25,10 +28,34 @@ const AppLayout: React.FC = () => {
   const isDev = Boolean((import.meta as any).env?.DEV);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewDevice, setPreviewDevice] = useState<GwPreviewDeviceId>(() => (typeof window !== 'undefined' ? readGwPreviewDevice() : 'off'));
+  const [backendHealth, setBackendHealth] = useState<'loading' | 'ok' | 'down'>('loading');
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
 
   useEffect(() => {
     if (user?.id) void hydrate(user.id);
+    if (user?.id) setLastSyncAt(new Date().toISOString());
   }, [user?.id, hydrate]);
+
+  useEffect(() => {
+    let mounted = true;
+    const check = async () => {
+      try {
+        const url = `${getDpalApiConfig().apiBaseUrl}/api/good-wheels/health`;
+        const res = await fetch(url);
+        if (!mounted) return;
+        setBackendHealth(res.ok ? 'ok' : 'down');
+      } catch {
+        if (!mounted) return;
+        setBackendHealth('down');
+      }
+    };
+    void check();
+    const tmr = window.setInterval(() => void check(), 20000);
+    return () => {
+      mounted = false;
+      window.clearInterval(tmr);
+    };
+  }, []);
 
   useEffect(() => {
     if (role === 'driver') void hydrateDriver();
@@ -100,7 +127,7 @@ const AppLayout: React.FC = () => {
           {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">{t('settings')}</NavLink>}
           {/* Language toggle */}
           <div style={{ display: 'flex', gap: 2, background: 'rgba(0,0,0,0.15)', borderRadius: 8, padding: 2 }}>
-            {(['EN', 'ES'] as GwLang[]).map((l) => (
+            {(['en', 'es', 'pt'] as GwLang[]).map((l) => (
               <button
                 key={l}
                 type="button"
@@ -118,7 +145,7 @@ const AppLayout: React.FC = () => {
                   transition: 'all 0.15s',
                 }}
               >
-                {l}
+                {l.toUpperCase()}
               </button>
             ))}
           </div>
@@ -208,6 +235,33 @@ const AppLayout: React.FC = () => {
           }}
           onClose={() => setPreviewOpen(false)}
         />
+      )}
+      {isDev && (
+        <div
+          style={{
+            position: 'fixed',
+            right: 12,
+            bottom: 12,
+            zIndex: 1000,
+            borderRadius: 12,
+            border: '1px solid rgba(14,116,144,0.35)',
+            background: 'rgba(2,6,23,0.92)',
+            color: '#e2e8f0',
+            padding: '10px 12px',
+            fontSize: 11,
+            lineHeight: 1.45,
+            minWidth: 260,
+          }}
+        >
+          <div style={{ fontWeight: 800, marginBottom: 6 }}>{t('goodWheelsDebug')}</div>
+          <div>{t('demoMode')}: {String(GOOD_WHEELS_DEMO_MODE)}</div>
+          <div>{t('apiBase')}: {getDpalApiConfig().apiBaseUrl}</div>
+          <div>{t('backendHealth')}: {backendHealth}</div>
+          <div>{t('activeTripId')}: {activeTrip?.id ?? t('no')}</div>
+          <div>{t('tripStatus')}: {activeTrip?.status ?? t('no')}</div>
+          <div>{t('driverAssigned')}: {activeTrip?.driverId ? t('yes') : t('no')}</div>
+          <div>{t('lastSync')}: {lastSyncAt ? new Date(lastSyncAt).toLocaleTimeString() : t('na')}</div>
+        </div>
       )}
     </div>
   );

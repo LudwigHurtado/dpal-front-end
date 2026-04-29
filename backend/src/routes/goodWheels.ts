@@ -30,6 +30,8 @@ type GoodWheelsChatMessage = {
 
 type GoodWheelsUser = {
   id: string;
+  email?: string;
+  password?: string;
   role: 'passenger' | 'driver' | 'worker';
   fullName: string;
   phoneMasked: string;
@@ -159,10 +161,11 @@ function normalizeTerminalStatus(status: string): string {
 
 async function seedUsersIfEmpty(): Promise<GoodWheelsUser[]> {
   const users = await readJsonArray<GoodWheelsUser>(USERS_FILE);
-  if (users.length > 0) return users;
   const seeded: GoodWheelsUser[] = [
     {
       id: 'usr-passenger-001',
+      email: 'passenger@goodwheels.test',
+      password: 'GoodWheels123!',
       role: 'passenger',
       fullName: 'Ariana M.',
       phoneMasked: '(•••) •••-1842',
@@ -173,8 +176,10 @@ async function seedUsersIfEmpty(): Promise<GoodWheelsUser[]> {
     },
     {
       id: 'usr-driver-001',
+      email: 'driver@goodwheels.test',
+      password: 'GoodWheels123!',
       role: 'driver',
-      fullName: 'Jordan K.',
+      fullName: 'Carlos Driver',
       phoneMasked: '(•••) •••-5220',
       trust: { trustScore: 95, verifiedUser: 'verified', verifiedDriver: 'verified', verifiedVehicle: 'verified' },
       vehicleId: 'veh-001',
@@ -191,6 +196,18 @@ async function seedUsersIfEmpty(): Promise<GoodWheelsUser[]> {
       queueIds: ['tsk-001', 'tsk-002'],
     },
   ];
+  if (users.length > 0) {
+    const byId = new Map(users.map((u) => [u.id, u]));
+    const merged = users.map((u) => {
+      const seed = seeded.find((s) => s.id === u.id);
+      return seed ? { ...u, ...seed, trust: { ...u.trust, ...seed.trust } } : u;
+    });
+    for (const seed of seeded) {
+      if (!byId.has(seed.id)) merged.push(seed);
+    }
+    await writeJsonArray(USERS_FILE, merged);
+    return merged;
+  }
   await writeJsonArray(USERS_FILE, seeded);
   return seeded;
 }
@@ -232,22 +249,36 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
 
 router.post('/auth/signin', async (req: Request, res: Response): Promise<void> => {
   const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '').trim();
   const users = await seedUsersIfEmpty();
-  let user = users[0];
-  if (email.includes('driver')) user = users.find((u) => u.role === 'driver') ?? users[0];
-  else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
-  else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
+  let user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
+  if (!user) {
+    if (email.includes('driver')) user = users.find((u) => u.role === 'driver') ?? users[0];
+    else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
+    else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
+  }
+  if (user?.password && password && user.password !== password) {
+    res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    return;
+  }
   res.json({ ok: true, user });
 });
 
 router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> => {
   // Alias for backwards compatibility with old docs/spelling.
   const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '').trim();
   const users = await seedUsersIfEmpty();
-  let user = users[0];
-  if (email.includes('driver')) user = users.find((u) => u.role === 'driver') ?? users[0];
-  else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
-  else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
+  let user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
+  if (!user) {
+    if (email.includes('driver')) user = users.find((u) => u.role === 'driver') ?? users[0];
+    else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
+    else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
+  }
+  if (user?.password && password && user.password !== password) {
+    res.status(401).json({ ok: false, error: 'Invalid credentials' });
+    return;
+  }
   res.json({ ok: true, user });
 });
 
@@ -395,8 +426,8 @@ router.get('/driver/vehicle', async (req: Request, res: Response): Promise<void>
     ok: true,
     vehicle: {
       id: user.vehicleId || 'veh-001',
-      makeModel: 'Toyota Camry (2018)',
-      plateMasked: '•••-1842',
+      makeModel: 'Toyota Corolla',
+      plateMasked: 'GW-2026',
       seats: 4,
       accessibilityReady: false,
       verification: 'verified',

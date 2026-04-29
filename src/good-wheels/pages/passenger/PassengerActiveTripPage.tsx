@@ -10,9 +10,11 @@ import { tripService } from '../../features/trips/tripService';
 import type { DonationConfig } from '../../features/charity/types';
 import TripChatPanel from '../../features/trips/components/TripChatPanel';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useGwLang } from '../../i18n/useGwLang';
 
 const PassengerActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const hydrate = useTripStore((s) => s.hydrate);
   const loading = useTripStore((s) => s.loading);
@@ -107,7 +109,7 @@ const PassengerActiveTripPage: React.FC = () => {
         {tripForUi ? (
           <TripMapPanel trip={tripForUi} variant="passenger" />
         ) : (
-          <div className="gw-map-placeholder">Loading…</div>
+          <div className="gw-map-placeholder">{t('loading')}</div>
         )}
       </div>
 
@@ -121,9 +123,17 @@ const PassengerActiveTripPage: React.FC = () => {
         onDonate={() => actions.appendTimelineEvent('Donation updated', 'Donation settings updated for this trip.')}
         onDone={onDone}
       />
+      {tripForUi && ['requested', 'broadcasted', 'matched'].includes(tripForUi.status) && (
+        <div style={{ position: 'absolute', top: 16, left: 16, right: 16, zIndex: 6 }}>
+          <div className="gw-card p-3">
+            <div className="text-sm font-extrabold text-slate-800">{t('waitingAcceptance')}.</div>
+            <div className="text-xs text-slate-600">{t('lookingDrivers')}. {t('rideSignalSent')}.</div>
+          </div>
+        </div>
+      )}
       <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 5 }} className="gw-card p-2">
         <div className="text-[11px] text-slate-600">
-          {loading ? 'Syncing trip...' : error ? 'Sync issue' : 'Synced'}
+          {loading ? t('syncingTrip') : error ? t('syncIssue') : t('synced')}
           {lastSyncedAt ? ` · ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
         </div>
       </div>
@@ -133,8 +143,8 @@ const PassengerActiveTripPage: React.FC = () => {
             threadId={tripForUi.chatThreadId ?? `good-wheels-trip-${tripForUi.id}`}
             role="passenger"
             userId={user?.id ?? tripForUi.passengerId}
-            userName={user?.fullName ?? 'Passenger'}
-            title="Chat with driver"
+            userName={user?.fullName ?? t('passenger')}
+            title={t('chatWithDriver')}
           />
         </div>
       )}

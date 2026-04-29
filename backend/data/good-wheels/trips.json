@@ -1,5 +1,122 @@
 [
   {
+    "id": "trip-1777469190044-fd30b7",
+    "passengerId": "usr-passenger-001",
+    "pickup": {
+      "label": "Home",
+      "addressLine": "100 Main St"
+    },
+    "dropoff": {
+      "label": "Clinic",
+      "addressLine": "200 Oak Ave"
+    },
+    "purpose": "medical_visit",
+    "supportCategoryId": "medical_transport",
+    "status": "completed",
+    "safetyStatus": "family_safe",
+    "createdAtIso": "2026-04-29T13:26:30.044Z",
+    "updatedAtIso": "2026-04-29T13:26:30.172Z",
+    "estimate": {
+      "etaMinutes": 8,
+      "distanceKm": 4.8
+    },
+    "timeline": [
+      {
+        "id": "evt-1777469190044-5edd92",
+        "atIso": "2026-04-29T13:26:30.044Z",
+        "label": "Ride requested",
+        "detail": "Passenger created a new ride request."
+      },
+      {
+        "id": "evt-1777469190044-39bbfa",
+        "atIso": "2026-04-29T13:26:30.044Z",
+        "label": "Ride broadcasted",
+        "detail": "Dispatch signal posted to driver queue."
+      },
+      {
+        "id": "evt-1777469190077-96c788",
+        "atIso": "2026-04-29T13:26:30.077Z",
+        "label": "Driver accepted ride",
+        "detail": "Carlos Driver accepted this ride."
+      },
+      {
+        "id": "evt-1777469190086-4636f7",
+        "atIso": "2026-04-29T13:26:30.086Z",
+        "label": "Status updated to driver arrived"
+      },
+      {
+        "id": "evt-1777469190093-d98da7",
+        "atIso": "2026-04-29T13:26:30.093Z",
+        "label": "Status updated to passenger onboard"
+      },
+      {
+        "id": "evt-1777469190099-c1a84f",
+        "atIso": "2026-04-29T13:26:30.099Z",
+        "label": "Status updated to in progress"
+      },
+      {
+        "id": "evt-1777469190172-85e560",
+        "atIso": "2026-04-29T13:26:30.172Z",
+        "label": "Ride completed",
+        "detail": "done"
+      }
+    ],
+    "chatThreadId": "good-wheels-trip-trip-1777469190044-fd30b7",
+    "broadcastId": "gwb-1777469190046-9ebcb3",
+    "driverId": "usr-driver-001",
+    "completedAtIso": "2026-04-29T13:26:30.172Z"
+  },
+  {
+    "id": "trip-1777468811582-981238",
+    "passengerId": "usr-passenger-001",
+    "pickup": {
+      "label": "Home",
+      "addressLine": "100 Main St"
+    },
+    "dropoff": {
+      "label": "Clinic",
+      "addressLine": "200 Oak Ave"
+    },
+    "purpose": "medical_visit",
+    "supportCategoryId": "medical_transport",
+    "status": "driver_en_route",
+    "safetyStatus": "family_safe",
+    "createdAtIso": "2026-04-29T13:20:11.582Z",
+    "updatedAtIso": "2026-04-29T13:20:11.664Z",
+    "estimate": {
+      "etaMinutes": 8,
+      "distanceKm": 4.8
+    },
+    "timeline": [
+      {
+        "id": "evt-1777468811583-03d4c7",
+        "atIso": "2026-04-29T13:20:11.582Z",
+        "label": "Ride requested",
+        "detail": "Passenger created a new ride request."
+      },
+      {
+        "id": "evt-1777468811583-3e9a86",
+        "atIso": "2026-04-29T13:20:11.582Z",
+        "label": "Ride broadcasted",
+        "detail": "Dispatch signal posted to driver queue."
+      },
+      {
+        "id": "evt-1777468811642-6d4eb7",
+        "atIso": "2026-04-29T13:20:11.642Z",
+        "label": "Driver accepted ride",
+        "detail": "Jordan K. accepted this ride."
+      },
+      {
+        "id": "evt-1777468811664-d08530",
+        "atIso": "2026-04-29T13:20:11.664Z",
+        "label": "Status updated to driver en route"
+      }
+    ],
+    "chatThreadId": "good-wheels-trip-trip-1777468811582-981238",
+    "broadcastId": "gwb-1777468811591-f8aa3c",
+    "driverId": "usr-driver-001"
+  },
+  {
     "id": "trip-1777466635611-bf09c1",
     "passengerId": "usr-passenger-001",
     "pickup": {

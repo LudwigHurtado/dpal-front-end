@@ -8,14 +8,14 @@ const SignInPage: React.FC = () => {
   const status = useAuthStore((s) => s.status);
   const error = useAuthStore((s) => s.error);
   const signIn = useAuthStore((s) => s.signIn);
-  const [email, setEmail] = useState('demo@goodwheels.app');
-  const [password, setPassword] = useState('demo');
+  const [email, setEmail] = useState('passenger@goodwheels.test');
+  const [password, setPassword] = useState('GoodWheels123!');
 
   return (
     <div className="gw-auth">
       <div className="gw-auth-card">
         <h2 className="gw-h2">Sign in</h2>
-        <p className="gw-muted">Demo-ready foundation. You’ll wire real auth later.</p>
+        <p className="gw-muted">Use test credentials for passenger or driver sign-in.</p>
         <div className="gw-form">
           <label className="gw-label">
             Email
@@ -36,6 +36,9 @@ const SignInPage: React.FC = () => {
           </button>
           <div className="gw-muted text-sm">
             New here? <Link to={GW_PATHS.auth.signUp} className="gw-link">Create an account</Link>
+          </div>
+          <div className="gw-muted text-xs">
+            Passenger: passenger@goodwheels.test · Driver: driver@goodwheels.test · Password: GoodWheels123!
           </div>
         </div>
       </div>

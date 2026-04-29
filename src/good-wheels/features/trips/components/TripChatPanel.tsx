@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type { Role } from '../../../types/role';
 import { goodWheelsCommsService, type GwChatMessage } from '../../../services/goodWheelsCommsService';
+import { useGwLang } from '../../../i18n/useGwLang';
 
 type Props = {
   threadId: string;
@@ -13,6 +14,7 @@ type Props = {
 const POLL_MS = 5000;
 
 const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, title }) => {
+  const t = useGwLang((s) => s.t);
   const [messages, setMessages] = useState<GwChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
@@ -34,7 +36,7 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
           setError(null);
         }
       } catch {
-        if (mounted) setError('Chat sync unavailable right now.');
+        if (mounted) setError(t('syncIssue'));
       }
     };
     void load();
@@ -59,7 +61,7 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
       setDraft('');
       setError(null);
     } catch {
-      setError('Could not send this message.');
+      setError(t('syncIssue'));
     } finally {
       setLoading(false);
     }
@@ -67,12 +69,12 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
 
   return (
     <div className="gw-card p-5 space-y-3">
-      <div className="gw-card-title">{title ?? 'Trip chat'}</div>
-      <div className="text-xs text-slate-500">Driver and passenger can coordinate here in real time.</div>
+      <div className="gw-card-title">{title ?? t('dispatcher')}</div>
+      <div className="text-xs text-slate-500">{t('driver')} / {t('passenger')}</div>
       {error && <div className="gw-error">{error}</div>}
       <div className="max-h-52 overflow-auto space-y-2 rounded-xl border border-slate-200 p-3 bg-white/70">
         {messages.length === 0 ? (
-          <div className="text-sm text-slate-500">No messages yet.</div>
+          <div className="text-sm text-slate-500">{t('noMessagesYet')}</div>
         ) : (
           messages.map((m) => {
             const mine = m.senderId === userId;
@@ -92,7 +94,7 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
       <div className="flex gap-2">
         <input
           className="gw-input"
-          placeholder="Type a message…"
+          placeholder={t('typeMessage')}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
@@ -100,7 +102,7 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
           }}
         />
         <button type="button" className="gw-button gw-button-primary" disabled={loading || !draft.trim()} onClick={() => void send()}>
-          Send
+          {t('send')}
         </button>
       </div>
     </div>

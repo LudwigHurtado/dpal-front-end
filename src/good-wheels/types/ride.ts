@@ -43,6 +43,7 @@ export type PlaceRef = {
 };
 
 export type RideRequestDraft = {
+  passengerId?: string;
   pickup: PlaceRef | null;
   dropoff: PlaceRef | null;
   purpose: RidePurpose;
