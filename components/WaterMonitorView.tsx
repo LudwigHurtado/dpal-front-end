@@ -2368,6 +2368,59 @@ interface SatellitePreview {
   };
 }
 
+function buildSatellitePreviewFallback(point: GPSPoint, label: string): SatellitePreview {
+  const seedRaw = Math.sin(point.lat * 12.9898 + point.lng * 78.233) * 43758.5453;
+  const seed = seedRaw - Math.floor(seedRaw);
+  const sway = Math.sin((point.lat + point.lng) * 0.35);
+  const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+  const soilMoistureIndex = clamp01(0.28 + seed * 0.46);
+  const surfaceWaterLevel = Math.max(0.4, 0.8 + seed * 2.8);
+  const waterStorageTrend = -8 + seed * 16;
+  const vegetationStress = clamp01(0.18 + (1 - seed) * 0.58);
+  const droughtRisk = clamp01(0.2 + (1 - soilMoistureIndex) * 0.55 + Math.max(0, -sway) * 0.15);
+  const confidenceScore = 0.42;
+  const waterFraction = clamp01(0.12 + seed * 0.52);
+  const floodRisk = clamp01(0.12 + waterFraction * 0.58);
+
+  return {
+    capturedAt: new Date().toISOString(),
+    areaLabel: label || 'Custom water scan',
+    centerLat: point.lat,
+    centerLng: point.lng,
+    adapters: {
+      smap: { ok: false, soilMoistureIndex, confidenceScore: 0.4 },
+      swot: { ok: false, surfaceWaterLevel, waterExtentKm2: Math.max(0.2, waterFraction * 5), confidenceScore: 0.4 },
+      grace: { ok: false, waterStorageTrend, confidenceScore: 0.42 },
+      gibs: { ok: false, vegetationStress, ndviIndex: clamp01(0.85 - vegetationStress), confidenceScore: 0.4 },
+      copernicus: {
+        ok: false,
+        droughtRisk,
+        precipAnomalyMm: Math.round((-25 + seed * 60) * 10) / 10,
+        ndviMean: clamp01(0.8 - vegetationStress),
+        source: 'fallback-demo',
+        confidenceScore: 0.38,
+      },
+      sentinel1: {
+        ok: false,
+        waterFraction,
+        vvMeanDb: Math.round((-21 + seed * 9) * 10) / 10,
+        floodRisk,
+        captureDate: new Date().toISOString(),
+        confidenceScore: 0.36,
+      },
+    },
+    summary: {
+      soilMoistureIndex,
+      surfaceWaterLevel,
+      waterStorageTrend,
+      vegetationStress,
+      droughtRisk,
+      confidenceScore,
+    },
+  };
+}
+
 function AdapterBadge({ name, ok, conf }: { name: string; ok: boolean; conf?: number }) {
   return (
     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold border uppercase tracking-wide
@@ -2397,6 +2450,7 @@ function SatelliteLiveFeed({ monitoringProject }: {
   const [data, setData] = useState<SatellitePreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
+  const [fallbackNotice, setFallbackNotice] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [scanLocation, setScanLocation] = useState<GPSPoint>(() => ({
     lat: monitoringProject?.lat ?? 0,
@@ -2413,6 +2467,7 @@ function SatelliteLiveFeed({ monitoringProject }: {
   const load = useCallback(async (point: GPSPoint = scanLocation, label = scanLabel) => {
     setLoading(true);
     setErr('');
+    setFallbackNotice('');
     try {
       const areaLabel = encodeURIComponent(label.trim() || 'Custom water scan');
       const url = `${apiUrl(API_ROUTES.WATER_SATELLITE_PREVIEW)}?lat=${point.lat}&lng=${point.lng}&areaLabel=${areaLabel}`;
@@ -2420,7 +2475,14 @@ function SatelliteLiveFeed({ monitoringProject }: {
       setData(result);
       setLastRefresh(new Date());
     } catch (ex: unknown) {
-      setErr(ex instanceof Error ? ex.message : String(ex));
+      const message = ex instanceof Error ? ex.message : String(ex);
+      if (/not found|404/i.test(message)) {
+        setData(buildSatellitePreviewFallback(point, label));
+        setLastRefresh(new Date());
+        setFallbackNotice('Live water satellite API is unavailable on this backend. Showing deterministic demo readings for now.');
+      } else {
+        setErr(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -2735,6 +2797,12 @@ function SatelliteLiveFeed({ monitoringProject }: {
         <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg px-4 py-3 text-xs text-rose-300 flex items-center gap-2">
           <AlertTriangle className="w-3 h-3" />
           {err} — check Railway backend connection
+        </div>
+      )}
+      {fallbackNotice && !loading && (
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3 text-xs text-amber-300 flex items-center gap-2">
+          <AlertTriangle className="w-3 h-3" />
+          {fallbackNotice}
         </div>
       )}
 
