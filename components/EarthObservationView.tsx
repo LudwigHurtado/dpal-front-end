@@ -304,9 +304,17 @@ function ObservationAidChat({ result, location, radiusKm }: { result: EarthObser
 }
 
 const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) => {
+  const toDateInputValue = (date: Date): string => date.toISOString().slice(0, 10);
+  const initialEnd = new Date();
+  const initialStart = new Date(initialEnd);
+  initialStart.setDate(initialStart.getDate() - 30);
+
   const [scanLocation, setScanLocation] = useState<GPSPoint>({ lat: 39.5, lng: -98.35 });
   const [scanRadius, setScanRadius] = useState(25);
   const [observationType, setObservationType] = useState<ObservationUse>('deforestation');
+  const [startDateInput, setStartDateInput] = useState<string>(toDateInputValue(initialStart));
+  const [endDateInput, setEndDateInput] = useState<string>(toDateInputValue(initialEnd));
+  const [selectedPreset, setSelectedPreset] = useState<string>('30d');
   const [result, setResult] = useState<EarthObservationResult>(EMPTY_RESULT('deforestation'));
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState('');
@@ -317,14 +325,40 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
 
   const selectedUse = USE_CASES.find((item) => item.id === observationType) ?? USE_CASES[0];
 
+  const applyRangePreset = (preset: '7d' | '14d' | '30d' | '3m' | '6m' | '12m') => {
+    const end = new Date();
+    const start = new Date(end);
+    if (preset === '7d') start.setDate(start.getDate() - 7);
+    if (preset === '14d') start.setDate(start.getDate() - 14);
+    if (preset === '30d') start.setDate(start.getDate() - 30);
+    if (preset === '3m') start.setMonth(start.getMonth() - 3);
+    if (preset === '6m') start.setMonth(start.getMonth() - 6);
+    if (preset === '12m') start.setMonth(start.getMonth() - 12);
+    setStartDateInput(toDateInputValue(start));
+    setEndDateInput(toDateInputValue(end));
+    setSelectedPreset(preset);
+  };
+
+  const PRESET_DISPLAY: Record<string, string> = {
+    '7d': '7 days',
+    '14d': '2 weeks',
+    '30d': '1 month',
+    '3m': '3 months',
+    '6m': '6 months',
+    '12m': '12 months',
+  };
+
   const runScan = async () => {
+    const startDate = new Date(`${startDateInput}T00:00:00.000Z`);
+    const endDate = new Date(`${endDateInput}T23:59:59.000Z`);
+    if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || startDate > endDate) {
+      setNotice('Select a valid date range before scanning.');
+      return;
+    }
     setLoading(true);
     setNotice('');
     setScanRequested(true);
     try {
-      const endDate = new Date();
-      const startDate = new Date(endDate);
-      startDate.setDate(startDate.getDate() - 30);
       const analysisTypeMap: Record<ObservationUse, 'deforestation' | 'agriculture' | 'pollution' | 'carbon' | 'flood_fire' | 'urban' | 'water' | 'heat'> = {
         deforestation: 'deforestation',
         agriculture: 'agriculture',
@@ -360,13 +394,11 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
       const source = Array.isArray(data?.sources)
         ? data.sources
           .map((s: { name?: string; product?: string; acquisitionDate?: string }) =>
-            [s?.name, s?.product, s?.acquisitionDate].filter(Boolean).join(' · '))
+            [s?.name, s?.product].filter(Boolean).join(' · '))
           .filter(Boolean)
           .join(' | ')
         : selectedUse.satellites;
-      const captureDate = Array.isArray(data?.sources) && data.sources[0]?.acquisitionDate
-        ? String(data.sources[0].acquisitionDate)
-        : null;
+      const captureDate = null;
       const confidenceScore = typeof data?.confidence === 'number' ? data.confidence : null;
       const isVerified = data?.signalStatus === 'verified' || data?.signalStatus === 'partially_verified';
       setResult({
@@ -528,6 +560,58 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
                 <input type="range" min={1} max={100} value={scanRadius} onChange={(e) => setScanRadius(Number(e.target.value))} className="mt-2 w-full" />
                 <p className="mt-1 text-xs text-slate-500">{scanRadius} km around the scan center.</p>
               </div>
+              <div className="space-y-2 rounded-lg border border-slate-700 bg-slate-950 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Date range</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[11px] text-slate-400">
+                    Start
+                    <input
+                      type="date"
+                      value={startDateInput}
+                      onChange={(e) => {
+                        setStartDateInput(e.target.value);
+                        setSelectedPreset('custom');
+                      }}
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-sky-500"
+                    />
+                  </label>
+                  <label className="text-[11px] text-slate-400">
+                    End
+                    <input
+                      type="date"
+                      value={endDateInput}
+                      onChange={(e) => {
+                        setEndDateInput(e.target.value);
+                        setSelectedPreset('custom');
+                      }}
+                      className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-sky-500"
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { id: '7d', label: '7 days' },
+                    { id: '14d', label: '2 weeks' },
+                    { id: '30d', label: '1 month' },
+                    { id: '3m', label: '3 months' },
+                    { id: '6m', label: '6 months' },
+                    { id: '12m', label: '12 months' },
+                  ].map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => applyRangePreset(preset.id as '7d' | '14d' | '30d' | '3m' | '6m' | '12m')}
+                      className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${
+                        selectedPreset === preset.id
+                          ? 'border-sky-500 bg-sky-500/20 text-sky-200'
+                          : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => setAoiSaved(true)}
@@ -551,6 +635,20 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
         <div className="rounded-xl border border-slate-700 bg-slate-900/80 p-4 text-sm text-slate-300">
           <p className="font-bold text-white">Scan status</p>
           <p className="mt-1">{result.message}</p>
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
+                selectedPreset === 'custom'
+                  ? 'border-slate-600 bg-slate-800 text-slate-300'
+                  : 'border-sky-600/50 bg-sky-900/30 text-sky-200'
+              }`}
+            >
+              {selectedPreset === 'custom' ? 'Custom dates' : `Auto · ${PRESET_DISPLAY[selectedPreset] ?? selectedPreset}`}
+            </span>
+            <span>
+              Comparison basis: first and last available scenes in selected range ({startDateInput} to {endDateInput}).
+            </span>
+          </p>
           <p className="mt-1 text-xs text-slate-500">{result.source}{result.captureDate ? ` · ${result.captureDate}` : ''}</p>
           {result.processingStage && <p className="mt-2 text-xs text-sky-300">Processing stage: {result.processingStage.replace('_', ' ')}</p>}
           {result.beforeScene?.acquisitionDate && <p className="mt-1 text-xs text-slate-400">Before scene date: {result.beforeScene.acquisitionDate}</p>}
