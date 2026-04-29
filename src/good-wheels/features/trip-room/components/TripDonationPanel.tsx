@@ -8,9 +8,9 @@ const TripDonationPanel: React.FC<{ ride: RideRequest; viewerRole?: 'passenger' 
   const fareVariant = viewerRole === 'driver' ? 'driver' : 'passenger';
   return (
     <div className="gw-card p-4 space-y-3">
-      <div className="gw-card-title">{t('donationPanelTitle')}</div>
+      <div className="gw-card-title">{t('causeDiscoveryTitle')}</div>
       <div className="text-sm text-slate-700">Purpose: {ride.ridePurpose.replaceAll('_', ' ')}</div>
-      <div className="text-sm text-slate-700">Charity: {ride.charityName ?? 'Not selected'}</div>
+      <div className="text-sm text-slate-700">Cause: {ride.charityName ?? 'Not selected'}</div>
       <FareBreakdownCard variant={fareVariant} totalFareUsd={ride.estimatedFare} t={t} titleKey="totalFare" showTransparentHint={false} />
       <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] text-slate-700 leading-snug space-y-1">
         <p className="m-0 font-semibold text-slate-800">{t('driverPayoutProtectedDonationCopy')}</p>

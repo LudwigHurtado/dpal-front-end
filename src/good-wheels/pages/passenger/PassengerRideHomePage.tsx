@@ -7,12 +7,12 @@ import { useTripStore } from '../../features/trips/tripStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDriverStore } from '../../features/driver/driverStore';
 import type { LatLng } from '../../features/map/mapTypes';
-import type { VehicleMapType } from '../../features/driver/driverTypes';
-import { makeVehicleMarkerUrl } from '../../services/vehicleMapMarker';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import FareBreakdownCard from '../../features/trips/components/FareBreakdownCard';
 import { calculateDonationAmount } from '../../features/charity/utils';
 import { calculateGoodWheelsFareSplit, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
+import CauseDiscoveryPanel from '../../features/charity/components/CauseDiscoveryPanel';
+import type { CauseOrganization } from '../../features/charity/types';
 
 /* ─────────────────────────────────────────────
    Types
@@ -37,22 +37,6 @@ function getPinSvg(label: string, bg: string) {
   </svg>`;
 }
 
-function toVehicleMapType(vt: VehicleType): VehicleMapType {
-  if (vt === 'moto') return 'moto';
-  if (vt === 'large') return 'truck';
-  return 'car';
-}
-
-function calcBearing(from: { lat: number; lng: number }, to: { lat: number; lng: number }): number {
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const f1 = toRad(from.lat);
-  const f2 = toRad(to.lat);
-  const dl = toRad(to.lng - from.lng);
-  const y = Math.sin(dl) * Math.cos(f2);
-  const x = Math.cos(f1) * Math.sin(f2) - Math.sin(f1) * Math.cos(f2) * Math.cos(dl);
-  return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
-}
-
 /* ─────────────────────────────────────────────
    Vehicle options
 ───────────────────────────────────────────── */
@@ -64,120 +48,6 @@ const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mu
 ];
 
 const BASE_FARE = 5.40;
-
-const GW_PICKUP_CATEGORY_IDS = ['current_location', 'home', 'work', 'school', 'medical', 'airport', 'shelter', 'custom'] as const;
-const GW_DROPOFF_CATEGORY_IDS = ['home', 'work', 'school', 'medical', 'airport', 'pharmacy', 'grocery', 'shelter', 'custom'] as const;
-
-/* ─────────────────────────────────────────────
-   Charities
-───────────────────────────────────────────── */
-interface Charity {
-  id: string;
-  name: string;
-  emoji: string;
-  tagline: string;
-  color: string;
-  bg: string;
-  category: string;
-  mission: string;
-  distanceMiles?: number;
-  videoSeconds: number;
-  source?: 'local_seed' | 'live_search' | 'learning_file';
-  areaLabel?: string;
-  aiReferenceImage: string;
-}
-
-function buildAiReferenceImage(
-  charityName: string,
-  category: string,
-  emoji: string,
-  areaLabel: string,
-  color: string,
-): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 220">
-    <defs>
-      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="${color}" stop-opacity="0.95" />
-        <stop offset="100%" stop-color="#0F172A" stop-opacity="0.95" />
-      </linearGradient>
-    </defs>
-    <rect x="0" y="0" width="420" height="220" fill="url(#bg)" rx="18"/>
-    <text x="24" y="58" font-size="34" fill="#ffffff">${emoji}</text>
-    <text x="24" y="92" font-size="24" font-weight="700" fill="#ffffff">${charityName}</text>
-    <text x="24" y="124" font-size="15" fill="#e2e8f0">AI category match: ${category}</text>
-    <text x="24" y="148" font-size="13" fill="#cbd5e1">Area: ${areaLabel}</text>
-    <text x="24" y="190" font-size="12" fill="#f8fafc">Community impact preview</text>
-  </svg>`;
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
-}
-
-const CHARITY_TEMPLATES = [
-  { category: 'Animals', color: '#EA580C', bg: '#FFF7ED', emoji: '🐾', mission: 'Rescue pets, vet care, and shelter transport.' },
-  { category: 'Seniors', color: '#7C3AED', bg: '#F5F3FF', emoji: '👴', mission: 'Safe mobility for seniors and home visits.' },
-  { category: 'Housing', color: '#0077C8', bg: '#EFF6FF', emoji: '🏠', mission: 'Emergency beds and housing stabilization.' },
-  { category: 'Children', color: '#059669', bg: '#F0FDF4', emoji: '👶', mission: 'Food, school support, and family services.' },
-  { category: 'Medical', color: '#DC2626', bg: '#FEF2F2', emoji: '🏥', mission: 'Community clinic and medicine access.' },
-  { category: 'Environment', color: '#16A34A', bg: '#F0FDF4', emoji: '🌱', mission: 'Urban greening, cleanup, and water care.' },
-];
-
-const CHARITIES: Charity[] = [
-  {
-    id: 'local-hope-shelter',
-    name: 'Hope Shelter',
-    emoji: '🏠',
-    tagline: 'Housing and emergency support',
-    color: '#0077C8',
-    bg: '#EFF6FF',
-    category: 'Housing',
-    mission: 'Emergency beds and housing stabilization.',
-    distanceMiles: 0.8,
-    videoSeconds: 20,
-    source: 'local_seed',
-    areaLabel: 'Local',
-    aiReferenceImage: buildAiReferenceImage('Hope Shelter', 'Housing', '🏠', 'Local', '#0077C8'),
-  },
-  {
-    id: 'local-kids-outreach',
-    name: 'Kids Outreach',
-    emoji: '👶',
-    tagline: 'Youth learning and care support',
-    color: '#059669',
-    bg: '#F0FDF4',
-    category: 'Children',
-    mission: 'Food, school support, and family services.',
-    distanceMiles: 1.1,
-    videoSeconds: 24,
-    source: 'local_seed',
-    areaLabel: 'Local',
-    aiReferenceImage: buildAiReferenceImage('Kids Outreach', 'Children', '👶', 'Local', '#059669'),
-  },
-  {
-    id: 'local-golden-years',
-    name: 'Golden Years',
-    emoji: '👴',
-    tagline: 'Senior rides and wellness access',
-    color: '#7C3AED',
-    bg: '#F5F3FF',
-    category: 'Seniors',
-    mission: 'Safe mobility for seniors and home visits.',
-    distanceMiles: 1.4,
-    videoSeconds: 22,
-    source: 'local_seed',
-    areaLabel: 'Local',
-    aiReferenceImage: buildAiReferenceImage('Golden Years', 'Seniors', '👴', 'Local', '#7C3AED'),
-  },
-];
-
-type LearnedCharityOrg = {
-  id: string;
-  name: string;
-  areaLabel: string;
-  category: string;
-  supportCount: number;
-  lastSeenAtIso: string;
-};
-
-const LEARNING_FILE_KEY = 'gw_charity_learning_v1';
 
 /* ─────────────────────────────────────────────
    Saved places
@@ -221,7 +91,6 @@ const PassengerRideHomePage: React.FC = () => {
   const navigate   = useNavigate();
   const t          = useGwLang((s) => s.t);
   const tf         = useGwLang((s) => s.tf);
-  const signOut    = useAuthStore((s) => s.signOut);
   const user       = useAuthStore((s) => s.user);
   const draft      = useTripStore((s) => s.draft);
   const activeTrip = useTripStore((s) => s.activeTrip);
@@ -262,12 +131,7 @@ const PassengerRideHomePage: React.FC = () => {
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
   const [broadcasting, setBroadcasting]   = useState(false);
   const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
-  const [selectedCharity, setSelectedCharity] = useState<string | null>(null);
-  const [charityAreaText, setCharityAreaText] = useState('');
-  const [charityFeed, setCharityFeed] = useState<Charity[]>(CHARITIES.slice(0, 3));
-  const [charityFeedLoading, setCharityFeedLoading] = useState(false);
-  const [charityFeedError, setCharityFeedError] = useState<string | null>(null);
-  const [learningFileSize, setLearningFileSize] = useState(0);
+  const [selectedCause, setSelectedCause] = useState<CauseOrganization | null>(null);
   const [expandedVehicleId, setExpandedVehicleId] = useState<VehicleType | null>('car');
   const [optionsPanelCollapsed, setOptionsPanelCollapsed] = useState(false);
   const [homePanelCollapsed, setHomePanelCollapsed] = useState(false);
@@ -279,179 +143,15 @@ const PassengerRideHomePage: React.FC = () => {
   const [routeDistanceKm, setRouteDistanceKm] = useState<number | null>(null);
   const [routeDurationMinutes, setRouteDurationMinutes] = useState<number | null>(null);
   const [gpsError, setGpsError] = useState<string | null>(null);
-  const selectedCharityData = useMemo(
-    () => charityFeed.find((c) => c.id === selectedCharity) ?? null,
-    [charityFeed, selectedCharity],
-  );
 
   const bothReady = Boolean(pickupLL && dropoffLL);
   const bothSet = bothReady;
-
-  const readLearningFile = useCallback((): LearnedCharityOrg[] => {
-    try {
-      const raw = localStorage.getItem(LEARNING_FILE_KEY);
-      if (!raw) return [];
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }, []);
-
-  const writeLearningFile = useCallback((rows: LearnedCharityOrg[]) => {
-    try {
-      localStorage.setItem(LEARNING_FILE_KEY, JSON.stringify(rows));
-      setLearningFileSize(rows.length);
-    } catch {
-      // Ignore storage errors.
-    }
-  }, []);
-
-  const upsertLearningOrganizations = useCallback((nextOrgs: Array<Pick<LearnedCharityOrg, 'id' | 'name' | 'areaLabel' | 'category'>>) => {
-    const existing = readLearningFile();
-    const map = new Map(existing.map((r) => [r.id, r]));
-    for (const org of nextOrgs) {
-      if (!map.has(org.id)) {
-        map.set(org.id, {
-          ...org,
-          supportCount: 0,
-          lastSeenAtIso: new Date().toISOString(),
-        });
-      } else {
-        map.set(org.id, {
-          ...map.get(org.id)!,
-          areaLabel: org.areaLabel,
-          category: org.category,
-          lastSeenAtIso: new Date().toISOString(),
-        });
-      }
-    }
-    writeLearningFile(Array.from(map.values()));
-  }, [readLearningFile, writeLearningFile]);
-
-  const trackCharitySupport = useCallback((charity: Charity) => {
-    const existing = readLearningFile();
-    const map = new Map(existing.map((r) => [r.id, r]));
-    const prev = map.get(charity.id);
-    map.set(charity.id, {
-      id: charity.id,
-      name: charity.name,
-      areaLabel: charity.areaLabel ?? 'Local',
-      category: charity.category,
-      supportCount: (prev?.supportCount ?? 0) + 1,
-      lastSeenAtIso: new Date().toISOString(),
-    });
-    writeLearningFile(Array.from(map.values()));
-  }, [readLearningFile, writeLearningFile]);
-
-  const buildCharityFromSearch = useCallback((displayName: string, areaLabel: string, idx: number): Charity => {
-    const template = CHARITY_TEMPLATES[idx % CHARITY_TEMPLATES.length];
-    const label = displayName.split(',')[0]?.trim() || 'Community Charity';
-    const distance = Math.max(0.4, Number((0.6 + idx * 0.45).toFixed(1)));
-    const id = `live-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-    return {
-      id,
-      name: label,
-      emoji: template.emoji,
-      tagline: `${template.category} support near ${areaLabel}`,
-      color: template.color,
-      bg: template.bg,
-      category: template.category,
-      mission: template.mission,
-      distanceMiles: distance,
-      videoSeconds: 20 + (idx % 3) * 4,
-      source: 'live_search',
-      areaLabel,
-      aiReferenceImage: buildAiReferenceImage(label, template.category, template.emoji, areaLabel, template.color),
-    };
-  }, []);
 
   useEffect(() => {
     // Reset compact mode when returning to search/home.
     if (sheet !== 'options') setOptionsPanelCollapsed(false);
   }, [sheet]);
 
-  useEffect(() => {
-    setLearningFileSize(readLearningFile().length);
-  }, [readLearningFile]);
-
-  useEffect(() => {
-    if (!charityAreaText.trim() && pickupText.trim()) {
-      setCharityAreaText(pickupText.trim());
-    }
-  }, [pickupText, charityAreaText]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const run = async () => {
-      const areaLabel = (charityAreaText.trim() || pickupText.trim() || 'your area').slice(0, 80);
-      setCharityFeedLoading(true);
-      setCharityFeedError(null);
-      try {
-        const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=${encodeURIComponent(`charity nonprofit ${areaLabel}`)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`Search failed (${res.status})`);
-        const data = (await res.json()) as Array<{ display_name?: string }>;
-        const live = data
-          .map((row) => String(row.display_name || '').trim())
-          .filter(Boolean)
-          .slice(0, 4)
-          .map((name, idx) => buildCharityFromSearch(name, areaLabel, idx));
-
-        const learned = readLearningFile()
-          .filter((row) => row.areaLabel.toLowerCase().includes(areaLabel.toLowerCase()))
-          .sort((a, b) => b.supportCount - a.supportCount)
-          .slice(0, 2)
-          .map((row, idx) => {
-            const template = CHARITY_TEMPLATES[(idx + 1) % CHARITY_TEMPLATES.length];
-            return {
-              id: row.id,
-              name: row.name,
-              emoji: template.emoji,
-              tagline: `${template.category} support trusted by riders`,
-              color: template.color,
-              bg: template.bg,
-              category: row.category || template.category,
-              mission: template.mission,
-              distanceMiles: 0.7 + idx * 0.4,
-              videoSeconds: 18,
-              source: 'learning_file' as const,
-              areaLabel,
-              aiReferenceImage: buildAiReferenceImage(row.name, row.category || template.category, template.emoji, areaLabel, template.color),
-            };
-          });
-
-        const merged = [...live, ...learned, ...CHARITIES]
-          .reduce<Charity[]>((acc, item) => {
-            if (!acc.find((x) => x.id === item.id)) acc.push(item);
-            return acc;
-          }, [])
-          .slice(0, 3);
-
-        upsertLearningOrganizations(
-          merged.map((item) => ({
-            id: item.id,
-            name: item.name,
-            areaLabel: item.areaLabel ?? areaLabel,
-            category: item.category,
-          })),
-        );
-
-        if (!cancelled) setCharityFeed(merged);
-      } catch {
-        if (!cancelled) {
-          setCharityFeedError('Live charity feed unavailable right now. Showing trusted local options.');
-          setCharityFeed(CHARITIES.slice(0, 3));
-        }
-      } finally {
-        if (!cancelled) setCharityFeedLoading(false);
-      }
-    };
-    void run();
-    return () => {
-      cancelled = true;
-    };
-  }, [buildCharityFromSearch, charityAreaText, pickupText, readLearningFile, upsertLearningOrganizations]);
 
   useEffect(() => {
     // Changing price or vehicle starts a fresh negotiation.
@@ -492,9 +192,9 @@ const PassengerRideHomePage: React.FC = () => {
 
   /** Preview: when a charity is selected, UI shows a 10% add-on on listed fare (passenger-only; does not change driver split). */
   const charityAddonPreviewUsd = useMemo(() => {
-    if (!selectedCharity) return 0;
+    if (!selectedCause) return 0;
     return calculateDonationAmount(listedFareUsd, { type: 'percentage', value: 10 });
-  }, [selectedCharity, listedFareUsd]);
+  }, [selectedCause, listedFareUsd]);
 
   /* ── Init map ── */
   useEffect(() => {
@@ -517,13 +217,22 @@ const PassengerRideHomePage: React.FC = () => {
     directionsRendRef.current.setMap(mapObjRef.current);
   }, [ready, g]);
 
-  /* ── Map click listener for pin mode ── */
+  /* ── Map click listener for pin mode (search sheet only; when both pins exist, toolbar / focus picks pickup vs dropoff, else default dropoff) ── */
   useEffect(() => {
     if (mapClickListenerRef.current) { mapClickListenerRef.current.remove(); mapClickListenerRef.current = null; }
-    const inferredMode: ActiveField = activeField ?? (!pickupLL ? 'pickup' : !dropoffLL ? 'dropoff' : null);
-    if (!g || !mapObjRef.current || !inferredMode) {
+    if (sheet !== 'search' || !g || !mapObjRef.current) {
       mapObjRef.current?.setOptions({ draggableCursor: '' });
       return;
+    }
+    let inferredMode: ActiveField;
+    if (activeField === 'pickup' || activeField === 'dropoff') {
+      inferredMode = activeField;
+    } else if (!pickupLL) {
+      inferredMode = 'pickup';
+    } else if (!dropoffLL) {
+      inferredMode = 'dropoff';
+    } else {
+      inferredMode = 'dropoff';
     }
     mapObjRef.current.setOptions({ draggableCursor: 'crosshair' });
     mapClickListenerRef.current = mapObjRef.current.addListener('click', (e: google.maps.MapMouseEvent) => {
@@ -549,7 +258,7 @@ const PassengerRideHomePage: React.FC = () => {
     });
     return () => { mapClickListenerRef.current?.remove(); mapClickListenerRef.current = null; mapObjRef.current?.setOptions({ draggableCursor: '' }); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [g, activeField, keepPointVisible, setDraft, t, dropoffLL, pickupLL]);
+  }, [g, activeField, keepPointVisible, setDraft, t, dropoffLL, pickupLL, sheet]);
 
   /* ── Markers + route ── */
   useEffect(() => {
@@ -559,8 +268,7 @@ const PassengerRideHomePage: React.FC = () => {
     if (pickupLL) {
       if (!pickupMarkerRef.current) pickupMarkerRef.current = new g.maps.Marker({ map: mapObjRef.current!, title: 'Pickup', zIndex: 10 });
       pickupMarkerRef.current.setPosition(pickupLL);
-      const pickupPinTitle = pickupCategoryKey === 'current_location' ? t('yourPickupLabel') : t('pickupLabel');
-      pickupMarkerRef.current.setTitle(pickupPinTitle);
+      pickupMarkerRef.current.setTitle(t('pickupLabel'));
       pickupMarkerRef.current.setIcon({
         url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(getPinSvg('P', '#16A34A'))}`,
         scaledSize: new g.maps.Size(38, 50),
@@ -672,7 +380,7 @@ const PassengerRideHomePage: React.FC = () => {
       fallbackLineRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [g, pickupLL, dropoffLL, t, activeTrip, pickupCategoryKey]);
+  }, [g, pickupLL, dropoffLL, t, activeTrip]);
 
   /* ── Autocomplete ── */
   const fetchPredictions = useCallback(
@@ -779,8 +487,8 @@ const PassengerRideHomePage: React.FC = () => {
   const handleBroadcast = async () => {
     setActiveField(null);
     setBroadcasting(true);
-    const charityNote = selectedCharityData
-      ? ` | ${t('charities')}: ${selectedCharityData.name} (${charityCategory(selectedCharityData.category)})`
+    const charityNote = selectedCause
+      ? ` | ${t('charities')}: ${selectedCause.name} (${selectedCause.category})`
       : '';
     setDraft({
       notes: `${tf('negotiation_yourOffer', { amount: Number(maxPrice || 0).toFixed(2) })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
@@ -895,23 +603,6 @@ const PassengerRideHomePage: React.FC = () => {
     const minutes = Number.parseInt(eta, 10);
     return Number.isFinite(minutes) ? tf('eta_min', { minutes }) : eta;
   };
-  const charityTagline = (tagline: string) => {
-    if (tagline === 'Housing and emergency support') return t('charity_tagline_hope');
-    if (tagline === 'Youth learning and care support') return t('charity_tagline_children');
-    if (tagline === 'Senior rides and wellness access') return t('charity_tagline_golden');
-    return tagline;
-  };
-  const charityCategory = (category: string) => {
-    if (category === 'Animals') return t('charity_category_animals');
-    if (category === 'Seniors') return t('charity_category_seniors');
-    if (category === 'Children') return t('charity_category_children');
-    if (category === 'Housing') return t('charity_category_housing');
-    if (category === 'Medical') return t('charity_category_medical');
-    if (category === 'Environment') return t('charity_category_environment');
-    return category;
-  };
-  const confirmLabel = `${t('negotiation_confirmRide')} ${vehicleLabel(selVehicle.label)}`;
-
   /* ─────────────────────────────────────────────
      Styles (shared inline)
   ───────────────────────────────────────────── */
@@ -925,7 +616,27 @@ const PassengerRideHomePage: React.FC = () => {
     topBarBtn: { width: 44, height: 44, borderRadius: '50%', background: 'white', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(0,0,0,0.15)', pointerEvents: 'auto' as const },
 
     /* Map pin hint */
-    pinHint: { position: 'absolute' as const, top: 76, left: '50%', transform: 'translateX(-50%)', background: 'white', borderRadius: 24, padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.12)', zIndex: 25, whiteSpace: 'nowrap' as const, fontSize: 13, fontWeight: 600, color: '#111827' },
+    pinHint: {
+      position: 'absolute' as const,
+      top: 76,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      background: 'rgba(255, 255, 255, 0.55)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      borderRadius: 24,
+      padding: '8px 16px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      boxShadow: '0 4px 20px rgba(15, 23, 42, 0.08)',
+      border: '1px solid rgba(255, 255, 255, 0.6)',
+      zIndex: 25,
+      whiteSpace: 'nowrap' as const,
+      fontSize: 13,
+      fontWeight: 600,
+      color: '#111827',
+    },
 
     /* Bottom sheet wrapper */
     sheet: {
@@ -937,15 +648,33 @@ const PassengerRideHomePage: React.FC = () => {
       borderRadius: '20px 20px 0 0',
       zIndex: 30,
       boxShadow: '0 -4px 30px rgba(0,0,0,0.12)',
-      maxHeight: sheet === 'search' ? '36dvh' : (sheet === 'options' ? (optionsPanelCollapsed ? '24dvh' : '50dvh') : '58dvh'),
+      maxHeight: sheet === 'search' ? '42dvh' : (sheet === 'options' ? (optionsPanelCollapsed ? '24dvh' : '50dvh') : '58dvh'),
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column' as const,
     },
+    sheetSearchGlass: {
+      background: 'rgba(248, 250, 252, 0.45)',
+      backdropFilter: 'blur(16px)',
+      WebkitBackdropFilter: 'blur(16px)',
+      boxShadow: '0 -8px 40px rgba(15, 23, 42, 0.08)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.55)',
+    },
     handle: { width: 36, height: 4, background: '#E5E7EB', borderRadius: 2, margin: '10px auto 0' },
+    handleSearch: { width: 36, height: 4, background: 'rgba(148, 163, 184, 0.45)', borderRadius: 2, margin: '10px auto 0' },
 
     /* Search input row */
     inputRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: 12, background: '#F9FAFB', border: '1px solid #E5E7EB' },
+    inputRowGlass: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      padding: '10px 16px',
+      borderRadius: 12,
+      background: 'rgba(255, 255, 255, 0.78)',
+      border: '1px solid rgba(255, 255, 255, 0.9)',
+      boxShadow: '0 1px 8px rgba(15, 23, 42, 0.06)',
+    },
     input: { flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 15, color: '#111827', fontWeight: 500, fontFamily: 'inherit' },
 
     /* Saved place row */
@@ -968,6 +697,13 @@ const PassengerRideHomePage: React.FC = () => {
 
     /* Bottom tabs */
     tabBar: { display: 'flex', borderTop: '1px solid #F3F4F6', background: 'white' },
+    tabBarGlass: {
+      display: 'flex',
+      borderTop: '1px solid rgba(255, 255, 255, 0.45)',
+      background: 'rgba(255, 255, 255, 0.5)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+    },
     tab: (active: boolean) => ({ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 2, padding: '10px 0 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, fontWeight: active ? 700 : 500, color: active ? '#0077C8' : '#9CA3AF' }),
     homeCollapseBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 as const },
   };
@@ -1087,19 +823,38 @@ const PassengerRideHomePage: React.FC = () => {
         </div>
       </div>
 
-      {/* ── MAP SELECTION MODE ── */}
+      {/* ── MAP SELECTION MODE (search only) ── */}
+      {sheet === 'search' && (
       <div style={{ ...S.pinHint, borderLeft: `3px solid ${activeField === 'dropoff' ? '#DC2626' : '#16A34A'}` }}>
         <button
           type="button"
           onClick={() => setActiveField('pickup')}
-          style={{ border: 'none', borderRadius: 999, background: activeField === 'pickup' ? '#DCFCE7' : '#F3F4F6', color: activeField === 'pickup' ? '#166534' : '#374151', padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+          style={{
+            border: '1px solid rgba(255,255,255,0.65)',
+            borderRadius: 999,
+            background: activeField === 'pickup' ? 'rgba(220, 252, 231, 0.92)' : 'rgba(255, 255, 255, 0.45)',
+            color: activeField === 'pickup' ? '#166534' : '#374151',
+            padding: '6px 10px',
+            fontSize: 11,
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
         >
           {t('setPickup')}
         </button>
         <button
           type="button"
           onClick={() => setActiveField('dropoff')}
-          style={{ border: 'none', borderRadius: 999, background: activeField === 'dropoff' ? '#FEE2E2' : '#F3F4F6', color: activeField === 'dropoff' ? '#B91C1C' : '#374151', padding: '6px 10px', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}
+          style={{
+            border: '1px solid rgba(255,255,255,0.65)',
+            borderRadius: 999,
+            background: activeField === 'dropoff' ? 'rgba(254, 226, 226, 0.92)' : 'rgba(255, 255, 255, 0.45)',
+            color: activeField === 'dropoff' ? '#B91C1C' : '#374151',
+            padding: '6px 10px',
+            fontSize: 11,
+            fontWeight: 800,
+            cursor: 'pointer',
+          }}
         >
           {t('setDestination')}
         </button>
@@ -1107,10 +862,11 @@ const PassengerRideHomePage: React.FC = () => {
           {reverseGeoLoading ? `${t('readingLocation')}` : t('clickMapSetPickupDropoff')}
         </span>
       </div>
+      )}
 
       {/* ── BOTTOM SHEET ── */}
-      <div style={S.sheet}>
-        <div style={S.handle} />
+      <div style={{ ...S.sheet, ...(sheet === 'search' ? S.sheetSearchGlass : {}) }}>
+        <div style={sheet === 'search' ? S.handleSearch : S.handle} />
 
         {/* ════ STATE: HOME ════ */}
         {sheet === 'home' && (
@@ -1165,40 +921,58 @@ const PassengerRideHomePage: React.FC = () => {
 
         {/* ════ STATE: SEARCH ════ */}
         {sheet === 'search' && (
-          <div style={{ padding: '12px 20px 0', overflowY: 'auto' }}>
-            <div style={{ marginBottom: 10, fontSize: 12, fontWeight: 700, color: '#475569' }}>
-              {t('clickMapSetPickupDropoff')}
-            </div>
+          <div style={{ padding: '8px 20px 0', overflowY: 'auto' }}>
             {gpsError && (
-              <div style={{ marginBottom: 10, border: '1px solid #FECACA', background: '#FEF2F2', color: '#B91C1C', borderRadius: 10, padding: '8px 10px', fontSize: 11, fontWeight: 700 }}>
+              <div style={{ marginBottom: 8, border: '1px solid rgba(252, 165, 165, 0.6)', background: 'rgba(254, 242, 242, 0.85)', color: '#B91C1C', borderRadius: 10, padding: '8px 10px', fontSize: 11, fontWeight: 700 }}>
                 {gpsError}
               </div>
             )}
-            {/* Back + current location bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <button
                 type="button"
                 onClick={() => { setSheet('home'); setPickupPreds([]); setDropoffPreds([]); }}
-                style={{ width: 36, height: 36, borderRadius: '50%', background: '#F3F4F6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  background: 'rgba(255, 255, 255, 0.55)',
+                  border: '1px solid rgba(255, 255, 255, 0.7)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M13 4l-6 6 6 6" stroke="#111827" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
               </button>
-              <div style={{ flex: 1, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                {pickupText && <div style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: '#DCFCE7', borderRadius: 999, padding: '5px 10px' }}>{t('pickupLabel')}: {pickupText.split(',')[0]}</div>}
-                {dropoffText && <div style={{ fontSize: 11, fontWeight: 700, color: '#B91C1C', background: '#FEF2F2', borderRadius: 999, padding: '5px 10px' }}>{t('destinationLabel')}: {dropoffText.split(',')[0]}</div>}
-              </div>
+              <button
+                type="button"
+                onClick={handleUseCurrentLocation}
+                style={{
+                  flex: 1,
+                  border: '1px solid rgba(255, 255, 255, 0.75)',
+                  background: 'rgba(255, 255, 255, 0.4)',
+                  color: '#1e3a5f',
+                  borderRadius: 10,
+                  padding: '8px 10px',
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                {locatingPickup ? t('readingLocation') : t('useCurrentLocation')}
+              </button>
             </div>
 
-            <button
-              type="button"
-              onClick={handleUseCurrentLocation}
-              style={{ width: '100%', marginBottom: 8, border: '1px solid #BFDBFE', background: '#EFF6FF', color: '#1D4ED8', borderRadius: 10, padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#166534', marginBottom: 4, letterSpacing: '0.02em' }}>{t('mapSheet_pickup')}</div>
+            <div
+              style={{
+                ...S.inputRowGlass,
+                marginBottom: 6,
+                border: activeField === 'pickup' ? '1.5px solid rgba(22, 163, 74, 0.85)' : '1px solid rgba(226, 232, 240, 0.9)',
+              }}
             >
-              {locatingPickup ? t('readingLocation') : t('useCurrentLocation')}
-            </button>
-
-            {/* Pickup row */}
-            <div style={{ ...S.inputRow, marginBottom: 8, border: activeField === 'pickup' ? '1.5px solid #16A34A' : '1px solid #E5E7EB' }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#16A34A', flexShrink: 0, display: 'inline-block' }} />
               <input
                 style={S.input}
@@ -1216,20 +990,8 @@ const PassengerRideHomePage: React.FC = () => {
                 {locatingPickup ? <Spinner /> : <GpsIcon size={17} color="#111827" />}
               </button>
             </div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#166534', marginBottom: 4 }}>{t('pickupCategoryLabel')}</label>
-            <select
-              value={pickupCategoryKey}
-              onChange={(e) => setPickupCategoryKey(e.target.value)}
-              style={{ width: '100%', marginBottom: 10, padding: '9px 10px', borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 13, fontWeight: 600, background: '#fff' }}
-            >
-              {GW_PICKUP_CATEGORY_IDS.map((id) => (
-                <option key={id} value={id}>
-                  {t(`locCat_${id}` as any)}
-                </option>
-              ))}
-            </select>
             {pickupPreds.length > 0 && (
-              <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(8px)', border: '1px solid rgba(226, 232, 240, 0.95)', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
                 {pickupPreds.map((p) => (
                   <button key={p.place_id} type="button" onClick={() => applyPrediction(p, 'pickup')} style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderBottom: '1px solid #F3F4F6', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 14 }}>📍</span>
@@ -1239,8 +1001,14 @@ const PassengerRideHomePage: React.FC = () => {
               </div>
             )}
 
-            {/* Dropoff row */}
-            <div style={{ ...S.inputRow, marginBottom: 8, border: activeField === 'dropoff' ? '1.5px solid #DC2626' : '1px solid #E5E7EB' }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#B91C1C', marginBottom: 4, marginTop: 4, letterSpacing: '0.02em' }}>{t('mapSheet_dropoff')}</div>
+            <div
+              style={{
+                ...S.inputRowGlass,
+                marginBottom: 6,
+                border: activeField === 'dropoff' ? '1.5px solid rgba(220, 38, 38, 0.85)' : '1px solid rgba(226, 232, 240, 0.9)',
+              }}
+            >
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#DC2626', flexShrink: 0, display: 'inline-block' }} />
               <input
                 style={S.input}
@@ -1258,20 +1026,8 @@ const PassengerRideHomePage: React.FC = () => {
                 {locatingDropoff ? <Spinner /> : <GpsIcon size={17} color="#0077C8" />}
               </button>
             </div>
-            <label style={{ display: 'block', fontSize: 11, fontWeight: 800, color: '#B91C1C', marginBottom: 4 }}>{t('dropoffCategoryLabel')}</label>
-            <select
-              value={dropoffCategoryKey}
-              onChange={(e) => setDropoffCategoryKey(e.target.value)}
-              style={{ width: '100%', marginBottom: 10, padding: '9px 10px', borderRadius: 10, border: '1px solid #E5E7EB', fontSize: 13, fontWeight: 600, background: '#fff' }}
-            >
-              {GW_DROPOFF_CATEGORY_IDS.map((id) => (
-                <option key={id} value={id}>
-                  {t(`locCat_${id}` as any)}
-                </option>
-              ))}
-            </select>
             {dropoffPreds.length > 0 && (
-              <div style={{ background: 'white', border: '1px solid #E5E7EB', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
+              <div style={{ background: 'rgba(255, 255, 255, 0.92)', backdropFilter: 'blur(8px)', border: '1px solid rgba(226, 232, 240, 0.95)', borderRadius: 12, marginBottom: 8, overflow: 'hidden' }}>
                 {dropoffPreds.map((p) => (
                   <button key={p.place_id} type="button" onClick={() => applyPrediction(p, 'dropoff')} style={{ width: '100%', padding: '11px 14px', background: 'none', border: 'none', borderBottom: '1px solid #F3F4F6', cursor: 'pointer', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 10 }}>
                     <span style={{ fontSize: 14 }}>📍</span>
@@ -1281,16 +1037,7 @@ const PassengerRideHomePage: React.FC = () => {
               </div>
             )}
 
-            {/* Keep search minimal so map stays visible */}
-            <button
-              type="button"
-              disabled={!bothSet}
-              onClick={() => setSheet('options')}
-              style={{ width: '100%', marginTop: 8, border: 'none', borderRadius: 12, padding: '12px 14px', background: bothSet ? '#0077C8' : '#94A3B8', color: 'white', fontWeight: 800, cursor: bothSet ? 'pointer' : 'not-allowed' }}
-            >
-              {t('requestRideAction')}
-            </button>
-            <div style={{ height: 8 }} />
+            <div style={{ height: 6 }} />
           </div>
         )}
 
@@ -1420,148 +1167,62 @@ const PassengerRideHomePage: React.FC = () => {
             </div>
             )}
 
-            {/* ── Charity selector ── */}
             <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 20px 10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <div>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: '#111827', margin: 0 }}>{t('supportCause')} ❤️</p>
-                  <p style={{ fontSize: 11, color: '#6B7280', margin: '2px 0 0', fontWeight: 500 }}>{t('donateNoExtra')}</p>
-                </div>
-                {selectedCharity && (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCharity(null)}
-                    style={{ fontSize: 10, color: '#9CA3AF', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}
-                  >
-                    {t('clear')}
-                  </button>
-                )}
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <input
-                  value={charityAreaText}
-                  onChange={(e) => setCharityAreaText(e.target.value)}
-                  placeholder={t('searchDestination')}
-                  style={{
-                    flex: 1,
-                    border: '1px solid #CBD5E1',
-                    borderRadius: 10,
-                    padding: '9px 11px',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    color: '#111827',
-                    fontFamily: 'inherit',
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setCharityAreaText((pickupText || charityAreaText).trim())}
-                  style={{
-                    border: '1px solid #CBD5E1',
-                    borderRadius: 10,
-                    background: '#F8FAFC',
-                    padding: '9px 10px',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: '#334155',
-                    cursor: 'pointer',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {t('pickup')}
-                </button>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#0F766E', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                  {charityFeedLoading ? t('loading') : t('charities')}
-                </span>
-                <span style={{ fontSize: 10, fontWeight: 700, color: '#64748B' }}>
-                  {t('history')}: {learningFileSize}
-                </span>
-              </div>
-              {charityFeedError && (
-                <div style={{ marginBottom: 8, fontSize: 11, color: '#B45309', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, padding: '7px 9px', fontWeight: 700 }}>
-                  {charityFeedError}
-                </div>
-              )}
-
-              {/* Horizontal charity scroll (limited options) */}
-              <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
-                {charityFeed.map((c) => {
-                  const sel = selectedCharity === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => {
-                        const nextId = sel ? null : c.id;
-                        setSelectedCharity(nextId);
-                        if (nextId) trackCharitySupport(c);
-                      }}
-                      style={{
-                        flexShrink: 0,
-                        width: 168,
-                        padding: '10px',
-                        borderRadius: 14,
-                        border: sel ? `2px solid ${c.color}` : '2px solid transparent',
-                        background: sel ? c.bg : '#F9FAFB',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        transition: 'all 0.15s',
-                        position: 'relative',
-                      }}
-                    >
-                      {sel && (
-                        <div style={{ position: 'absolute', top: 6, right: 6, width: 16, height: 16, borderRadius: '50%', background: c.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <div style={{ fontSize: 22 }}>{c.emoji}</div>
-                        <div style={{ fontSize: 10, fontWeight: 800, color: '#0F766E' }}>
-                          🎬 {c.videoSeconds}s
-                        </div>
-                      </div>
-                      <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid rgba(15,23,42,0.08)' }}>
-                        <img
-                          src={c.aiReferenceImage}
-                          alt={`${c.name} AI reference`}
-                          style={{ width: '100%', height: 70, objectFit: 'cover', display: 'block' }}
-                        />
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: '#111827', lineHeight: 1.2, marginTop: 6 }}>{c.name}</div>
-                      <div style={{ fontSize: 9, color: '#6B7280', marginTop: 2, fontWeight: 600, lineHeight: 1.35 }}>{charityTagline(c.tagline)}</div>
-                      <div style={{ marginTop: 5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: c.color }}>{charityCategory(c.category)}</span>
-                        <span style={{ fontSize: 9, color: '#64748B', fontWeight: 700 }}>
-                          {typeof c.distanceMiles === 'number' ? `${c.distanceMiles.toFixed(1)} mi` : t('nearbyRange')}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Donation preview when charity selected */}
-              {selectedCharity && (() => {
-                const charity = selectedCharityData;
-                if (!charity) return null;
-                const fare = BASE_FARE * (VEHICLES.find(v => v.id === vehicleType)?.mult ?? 1);
-                const donation = calculateDonationAmount(fare, { type: 'percentage', value: 10 }).toFixed(2);
-                return (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 10, background: charity.bg, border: `1px solid ${charity.color}30` }}>
-                    <span style={{ fontSize: 20 }}>{charity.emoji}</span>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 12, fontWeight: 800, color: '#111827', margin: 0 }}>{charity.name}</p>
-                      <p style={{ fontSize: 11, color: '#6B7280', margin: '1px 0 0', fontWeight: 500 }}>
-                        {tf('donatingWithRide', { amount: `$${donation}` })} · {charity.areaLabel ?? t('home')}.
-                      </p>
-                    </div>
-                    <div style={{ fontSize: 18 }}>✅</div>
-                  </div>
-                );
-              })()}
+              <CauseDiscoveryPanel
+                compact
+                pickupLabel={pickupText}
+                dropoffLabel={dropoffText}
+                routeDistanceKm={routeDistanceKm}
+                routeDurationMinutes={routeDurationMinutes}
+                onAttachToRide={(cause) => {
+                  setSelectedCause(cause);
+                  setDraft({
+                    attachedCause: {
+                      id: cause.id,
+                      name: cause.name,
+                      category: cause.category,
+                      city: cause.city,
+                      country: cause.country,
+                      canDonate: cause.canDonate,
+                    },
+                    notes: `${t('supportCause')}: ${cause.name} (${cause.category})`,
+                  });
+                }}
+                onSupportCause={(cause) => {
+                  setSelectedCause(cause);
+                  setDraft({
+                    attachedCause: {
+                      id: cause.id,
+                      name: cause.name,
+                      category: cause.category,
+                      city: cause.city,
+                      country: cause.country,
+                      canDonate: cause.canDonate,
+                    },
+                  });
+                }}
+                onUseAsLocation={(cause) => {
+                  const confirmed = window.confirm(t('causeUseAsDestinationConfirm'));
+                  if (!confirmed) return;
+                  const causeAddress = `${cause.address}, ${cause.city}, ${cause.country}`;
+                  const nextDropoff = { lat: cause.coordinates.lat, lng: cause.coordinates.lng };
+                  setSelectedCause(cause);
+                  setDropoffText(causeAddress);
+                  setDropoffLL(nextDropoff);
+                  setDraft({
+                    dropoff: { label: t('destinationLabel'), addressLine: causeAddress, point: nextDropoff },
+                    attachedCause: {
+                      id: cause.id,
+                      name: cause.name,
+                      category: cause.category,
+                      city: cause.city,
+                      country: cause.country,
+                      canDonate: cause.canDonate,
+                    },
+                    notes: `${t('supportCause')}: ${cause.name} (${cause.category})`,
+                  });
+                }}
+              />
             </div>
 
             {/* Payment row + max offer */}
@@ -1628,7 +1289,7 @@ const PassengerRideHomePage: React.FC = () => {
                     titleKey="offerBreakdown"
                     showTransparentHint={false}
                     optionalDonationUsd={
-                      selectedCharity && Number(maxPrice) > 0
+                      selectedCause && Number(maxPrice) > 0
                         ? calculateDonationAmount(Number(maxPrice), { type: 'percentage', value: 10 })
                         : null
                     }
@@ -1643,7 +1304,7 @@ const PassengerRideHomePage: React.FC = () => {
                     t={t}
                     titleKey="counteroffer"
                     optionalDonationUsd={
-                      selectedCharity ? calculateDonationAmount(driverCounterOffer, { type: 'percentage', value: 10 }) : null
+                      selectedCause ? calculateDonationAmount(driverCounterOffer, { type: 'percentage', value: 10 }) : null
                     }
                   />
                 </div>
@@ -1653,13 +1314,26 @@ const PassengerRideHomePage: React.FC = () => {
                   {negotiationNote}
                 </p>
               )}
-              {selectedCharity ? (
-                <p style={{ textAlign: 'center', fontSize: 11, color: '#10b981', fontWeight: 700, margin: '8px 0 2px' }}>
-                  {tf('passengerCharityAddonFooter', {
-                    name: selectedCharityData?.name ?? t('charities'),
-                    amount: `$${charityAddonPreviewUsd.toFixed(2)}`,
-                  })}
-                </p>
+              {selectedCause ? (
+                <div
+                  style={{
+                    marginTop: 8,
+                    borderRadius: 10,
+                    border: '1px solid #86efac',
+                    background: '#f0fdf4',
+                    padding: '8px 10px',
+                  }}
+                >
+                  <p style={{ textAlign: 'center', fontSize: 11, color: '#166534', fontWeight: 800, margin: '0 0 2px' }}>
+                    {selectedCause.name} · {selectedCause.category} · {selectedCause.city}
+                  </p>
+                  <p style={{ textAlign: 'center', fontSize: 11, color: '#15803d', fontWeight: 700, margin: 0 }}>
+                    {tf('passengerCharityAddonFooter', {
+                      name: selectedCause?.name ?? t('charities'),
+                      amount: `$${charityAddonPreviewUsd.toFixed(2)}`,
+                    })}
+                  </p>
+                </div>
               ) : (
                 <p style={{ textAlign: 'center', fontSize: 11, color: '#9CA3AF', fontWeight: 500, margin: '8px 0 2px' }}>
                   {t('selectCharityHint')}
@@ -1677,7 +1351,7 @@ const PassengerRideHomePage: React.FC = () => {
 
         {/* ── Bottom tab bar ── */}
         {!(sheet === 'options' && optionsPanelCollapsed) && (
-          <nav style={S.tabBar}>
+          <nav style={sheet === 'search' ? S.tabBarGlass : S.tabBar}>
             {TABS.map((tab) => (
               <button
                 key={tab.id}
@@ -1692,6 +1366,39 @@ const PassengerRideHomePage: React.FC = () => {
           </nav>
         )}
       </div>
+
+      {sheet === 'search' && bothSet && (
+        <button
+          type="button"
+          onClick={() => setSheet('options')}
+          aria-label={t('continueToRideOptions')}
+          title={t('continueToRideOptions')}
+          style={{
+            position: 'absolute',
+            bottom: 96,
+            right: 18,
+            zIndex: 35,
+            width: 52,
+            height: 52,
+            borderRadius: '50%',
+            border: '1px solid rgba(255, 255, 255, 0.75)',
+            background: 'rgba(255, 255, 255, 0.55)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            color: '#0f172a',
+            fontSize: 22,
+            fontWeight: 900,
+            cursor: 'pointer',
+            boxShadow: '0 6px 22px rgba(15, 23, 42, 0.12)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            lineHeight: 1,
+          }}
+        >
+          →
+        </button>
+      )}
 
       <style>{`@keyframes gw-spin { to { transform: rotate(360deg); } }`}</style>
     </div>

@@ -96,6 +96,13 @@ type GoodWheelsTrip = {
   };
   timeline: Array<{ id: string; atIso: string; label: string; detail?: string }>;
   routeSummary?: { distanceKm: number; durationMinutes: number; previewSteps?: string[] };
+  attachedCause?: {
+    id: string;
+    name: string;
+    category: string;
+    city: string;
+    country: string;
+  };
   chatThreadId?: string;
   broadcastId?: string;
   completedAtIso?: string;
@@ -444,6 +451,16 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
       fareSplit: fareSplitToPayload(initialFareSplit),
     },
     routeSummary,
+    attachedCause:
+      body.attachedCause && typeof body.attachedCause === 'object'
+        ? {
+            id: String((body.attachedCause as { id?: unknown }).id || ''),
+            name: String((body.attachedCause as { name?: unknown }).name || ''),
+            category: String((body.attachedCause as { category?: unknown }).category || ''),
+            city: String((body.attachedCause as { city?: unknown }).city || ''),
+            country: String((body.attachedCause as { country?: unknown }).country || ''),
+          }
+        : undefined,
     timeline: [
       { id: mkId('evt'), atIso: now, label: 'Ride requested', detail: 'Passenger created a new ride request.' },
       { id: mkId('evt'), atIso: now, label: 'Ride broadcasted', detail: 'Dispatch signal posted to driver queue.' },

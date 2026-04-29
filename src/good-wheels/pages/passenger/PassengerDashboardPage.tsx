@@ -114,8 +114,8 @@ const PassengerDashboardPage: React.FC = () => {
           </div>
 
           <div className="gw-card p-6">
-            <div className="gw-card-title">Nearby Charities</div>
-            <div className="gw-muted mt-1">A community layer — support help near you.</div>
+            <div className="gw-card-title">{t('causeDiscoveryTitle')}</div>
+            <div className="gw-muted mt-1">{t('causeJourneyLead')}</div>
             <div className="gw-charity-row">
               {nearbyCharities.map((c) => (
                 <div key={c.id} className="gw-charity-card">
@@ -125,8 +125,8 @@ const PassengerDashboardPage: React.FC = () => {
                 </div>
               ))}
             </div>
-            <button type="button" className="gw-button gw-button-donate w-full" onClick={() => navigate(GW_PATHS.shared.settings)}>
-              Donate Now
+            <button type="button" className="gw-button gw-button-secondary w-full" onClick={() => navigate(GW_PATHS.passenger.charities)}>
+              {t('causeView')}
             </button>
           </div>
         </div>

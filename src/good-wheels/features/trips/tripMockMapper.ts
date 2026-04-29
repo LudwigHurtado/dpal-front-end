@@ -135,6 +135,16 @@ export function mapMockTripToTrip(input: unknown): Trip {
     updatedAtIso,
     estimate: estimateBlock,
     fareUsd: fareUsdResolved,
+    attachedCause:
+      o.attachedCause && typeof o.attachedCause === 'object'
+        ? {
+            id: typeof o.attachedCause.id === 'string' ? o.attachedCause.id : '',
+            name: typeof o.attachedCause.name === 'string' ? o.attachedCause.name : '',
+            category: typeof o.attachedCause.category === 'string' ? o.attachedCause.category : '',
+            city: typeof o.attachedCause.city === 'string' ? o.attachedCause.city : '',
+            country: typeof o.attachedCause.country === 'string' ? o.attachedCause.country : '',
+          }
+        : undefined,
   } as Trip;
 }
 

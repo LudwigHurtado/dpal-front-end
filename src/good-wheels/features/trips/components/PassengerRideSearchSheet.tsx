@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GW_PATHS } from '../../../routes/paths';
+import { useGwLang } from '../../../i18n/useGwLang';
 
 export default function PassengerRideSearchSheet({
   onSearchRide,
@@ -10,6 +11,7 @@ export default function PassengerRideSearchSheet({
   onDonate?: () => void;
 }) {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const charities = useMemo(
     () => [
       { id: 'hope', name: 'Hope Shelter', miles: 0.5 },
@@ -53,7 +55,8 @@ export default function PassengerRideSearchSheet({
       </div>
 
       <div className="mt-4">
-        <div className="text-lg font-extrabold text-slate-900">Nearby Charities</div>
+        <div className="text-lg font-extrabold text-slate-900">{t('causeDiscoveryTitle')}</div>
+        <div className="text-xs font-semibold text-slate-600 mt-1">{t('causeJourneyLead')}</div>
         <div className="gw-charity-row">
           {charities.map((c) => (
             <div key={c.id} className="gw-charity-card">
@@ -63,8 +66,8 @@ export default function PassengerRideSearchSheet({
             </div>
           ))}
         </div>
-        <button type="button" className="gw-button gw-button-donate w-full" onClick={onDonate}>
-          Donate Now
+        <button type="button" className="gw-button gw-button-secondary w-full" onClick={onDonate}>
+          {t('causeView')}
         </button>
       </div>
     </>

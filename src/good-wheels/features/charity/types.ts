@@ -5,6 +5,46 @@ export type Charity = {
   distanceMiles?: number;
 };
 
+export type CauseLocationMode = 'my_zone' | 'other_city' | 'other_country';
+export type CauseRouteMode = 'near_pickup' | 'near_dropoff' | 'along_route' | 'manual_area';
+export type CauseSearchRadiusKm = 5 | 10 | 25 | 50;
+
+export type CauseOrganization = {
+  id: string;
+  name: string;
+  category: string;
+  city: string;
+  country: string;
+  address: string;
+  coordinates: { lat: number; lng: number };
+  mission: string;
+  shortDescription: string;
+  verified: boolean;
+  verificationStatus: 'verified' | 'community_verified' | 'pending';
+  distanceKm?: number;
+  etaMinutes?: number;
+  tags: string[];
+  aiReason: string;
+  impactStats: {
+    animalsRescued?: number;
+    mealsServed?: number;
+    childrenSupported?: number;
+    seniorsServed?: number;
+    volunteersActive?: number;
+    reportsVerified?: number;
+  };
+  media: {
+    previewImageUrl?: string;
+    previewVideoUrl?: string;
+    previewGifUrl?: string;
+  };
+  actions: string[];
+  canAttachToRide: boolean;
+  canUseAsDestination: boolean;
+  canDonate: boolean;
+  canSave: boolean;
+};
+
 export type DonationConfig =
   | { type: 'none'; value: 0 }
   | { type: 'fixed'; value: number }

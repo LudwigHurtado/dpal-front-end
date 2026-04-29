@@ -79,6 +79,7 @@ export const goodWheelsRideApi = {
         dropoffCategory: draft.dropoffCategoryKey,
         estimate: draft.estimatePreview,
         routeSummary: draft.routeSummaryPreview,
+        attachedCause: draft.attachedCause,
       }),
     });
     if (!res.ok) throw new Error(`Request trip failed (${res.status})`);

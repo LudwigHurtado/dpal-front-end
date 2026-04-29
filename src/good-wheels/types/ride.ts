@@ -57,6 +57,14 @@ export type RideRequestDraft = {
   /** Client route preview — sent to API for broadcast/estimate only */
   estimatePreview?: { etaMinutes: number; distanceKm: number };
   routeSummaryPreview?: { distanceKm: number; durationMinutes: number; previewSteps?: string[] };
+  attachedCause?: {
+    id: string;
+    name: string;
+    category: string;
+    city: string;
+    country: string;
+    canDonate?: boolean;
+  };
 };
 
 export type TripTimelineEvent = {
@@ -131,6 +139,13 @@ export type Trip = {
   charityName?: string | null;
   donationConfig?: { type: 'none' | 'fixed' | 'percentage' | 'round_up'; value: number } | null;
   donationAmountUsd?: number;
+  attachedCause?: {
+    id: string;
+    name: string;
+    category: string;
+    city: string;
+    country: string;
+  };
   dpalRewardPoints?: number;
   chatThreadId?: string;
   broadcastId?: string;
