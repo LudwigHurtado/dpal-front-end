@@ -47,7 +47,14 @@ export default function PassengerOnTripSheet({
       <div className="gw-muted">ETA: {trip?.estimate ? `${Math.max(3, trip.estimate.etaMinutes)} min` : '—'}</div>
 
       <div className="mt-3">
-        <FareBreakdownCard variant="passenger" totalFareUsd={grossUsd} t={t} titleKey="rideEstimate" showTransparentHint />
+        <FareBreakdownCard
+          variant="passenger"
+          totalFareUsd={grossUsd}
+          t={t}
+          titleKey="rideEstimate"
+          showTransparentHint
+          optionalDonationUsd={donationAmountUsd > 0 ? donationAmountUsd : null}
+        />
       </div>
 
       <div className="gw-action-row mt-4">

@@ -11,6 +11,7 @@ import type { VehicleMapType } from '../../features/driver/driverTypes';
 import { makeVehicleMarkerUrl } from '../../services/vehicleMapMarker';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import FareBreakdownCard from '../../features/trips/components/FareBreakdownCard';
+import { calculateDonationAmount } from '../../features/charity/utils';
 import { calculateGoodWheelsFareSplit, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 
 /* ─────────────────────────────────────────────
@@ -488,6 +489,12 @@ const PassengerRideHomePage: React.FC = () => {
     if (Number.isFinite(entered) && entered > 0) return entered;
     return suggested;
   }, [vehicleType, maxPrice]);
+
+  /** Preview: when a charity is selected, UI shows a 10% add-on on listed fare (passenger-only; does not change driver split). */
+  const charityAddonPreviewUsd = useMemo(() => {
+    if (!selectedCharity) return 0;
+    return calculateDonationAmount(listedFareUsd, { type: 'percentage', value: 10 });
+  }, [selectedCharity, listedFareUsd]);
 
   /* ── Init map ── */
   useEffect(() => {
@@ -1322,6 +1329,7 @@ const PassengerRideHomePage: React.FC = () => {
                     titleKey="rideEstimate"
                     showTransparentHint
                     className="text-left"
+                    optionalDonationUsd={charityAddonPreviewUsd > 0 ? charityAddonPreviewUsd : null}
                   />
                 </div>
               </div>
@@ -1356,7 +1364,8 @@ const PassengerRideHomePage: React.FC = () => {
                 const sel = v.id === vehicleType;
                 const price = (BASE_FARE * v.mult).toFixed(2);
                 const isExpanded = expandedVehicleId === v.id;
-                const donationEstimate = (BASE_FARE * v.mult * 0.1).toFixed(2);
+                const vehicleFareUsd = BASE_FARE * v.mult;
+                const donationEstimate = calculateDonationAmount(vehicleFareUsd, { type: 'percentage', value: 10 }).toFixed(2);
                 return (
                   <div key={v.id}>
                     <div
@@ -1394,7 +1403,7 @@ const PassengerRideHomePage: React.FC = () => {
                       <div style={S.vehicleDetailsWrap}>
                         <span style={S.vehicleDetailsChip}>ETA {vehicleEta(v.eta)}</span>
                         <span style={S.vehicleDetailsChip}>Fare x{v.mult.toFixed(2)}</span>
-                        <span style={S.vehicleDetailsChip}>Donation ~ ${donationEstimate}</span>
+                        <span style={S.vehicleDetailsChip}>{tf('donationAddonExampleChip', { amount: `$${donationEstimate}` })}</span>
                         {(() => {
                           const vs = calculateGoodWheelsFareSplit(Math.round(Number(price) * 100));
                           return (
@@ -1539,14 +1548,14 @@ const PassengerRideHomePage: React.FC = () => {
                 const charity = selectedCharityData;
                 if (!charity) return null;
                 const fare = BASE_FARE * (VEHICLES.find(v => v.id === vehicleType)?.mult ?? 1);
-                const donation = (fare * 0.1).toFixed(2);
+                const donation = calculateDonationAmount(fare, { type: 'percentage', value: 10 }).toFixed(2);
                 return (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10, padding: '10px 12px', borderRadius: 10, background: charity.bg, border: `1px solid ${charity.color}30` }}>
                     <span style={{ fontSize: 20 }}>{charity.emoji}</span>
                     <div style={{ flex: 1 }}>
                       <p style={{ fontSize: 12, fontWeight: 800, color: '#111827', margin: 0 }}>{charity.name}</p>
                       <p style={{ fontSize: 11, color: '#6B7280', margin: '1px 0 0', fontWeight: 500 }}>
-                        {tf('donatingWithRide', { amount: donation })}. {charity.areaLabel ?? t('home')}.
+                        {tf('donatingWithRide', { amount: `$${donation}` })} · {charity.areaLabel ?? t('home')}.
                       </p>
                     </div>
                     <div style={{ fontSize: 18 }}>✅</div>
@@ -1618,12 +1627,25 @@ const PassengerRideHomePage: React.FC = () => {
                     t={t}
                     titleKey="offerBreakdown"
                     showTransparentHint={false}
+                    optionalDonationUsd={
+                      selectedCharity && Number(maxPrice) > 0
+                        ? calculateDonationAmount(Number(maxPrice), { type: 'percentage', value: 10 })
+                        : null
+                    }
                   />
                 </div>
               )}
               {negotiationState === 'countered' && driverCounterOffer !== null && driverCounterOffer > 0 && (
                 <div style={{ padding: '0 14px 10px' }}>
-                  <FareBreakdownCard variant="passenger" totalFareUsd={driverCounterOffer} t={t} titleKey="counteroffer" />
+                  <FareBreakdownCard
+                    variant="passenger"
+                    totalFareUsd={driverCounterOffer}
+                    t={t}
+                    titleKey="counteroffer"
+                    optionalDonationUsd={
+                      selectedCharity ? calculateDonationAmount(driverCounterOffer, { type: 'percentage', value: 10 }) : null
+                    }
+                  />
                 </div>
               )}
               {negotiationNote && (
@@ -1633,7 +1655,10 @@ const PassengerRideHomePage: React.FC = () => {
               )}
               {selectedCharity ? (
                 <p style={{ textAlign: 'center', fontSize: 11, color: '#10b981', fontWeight: 700, margin: '8px 0 2px' }}>
-                  ❤️ {selectedCharityData?.name ?? 'Selected charity'} will receive 10% of your fare
+                  {tf('passengerCharityAddonFooter', {
+                    name: selectedCharityData?.name ?? t('charities'),
+                    amount: `$${charityAddonPreviewUsd.toFixed(2)}`,
+                  })}
                 </p>
               ) : (
                 <p style={{ textAlign: 'center', fontSize: 11, color: '#9CA3AF', fontWeight: 500, margin: '8px 0 2px' }}>

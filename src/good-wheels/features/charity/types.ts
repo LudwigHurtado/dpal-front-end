@@ -11,6 +11,9 @@ export type DonationConfig =
   | { type: 'percentage'; value: number }
   | { type: 'round_up'; value: 0 };
 
+/** Where charity funds come from; driver payout is never reduced in `passenger_addon` mode. */
+export type DonationFundingSource = 'passenger_addon' | 'platform_share';
+
 export type DonationRecord = {
   id: string;
   tripId: string;
@@ -20,6 +23,8 @@ export type DonationRecord = {
   amountUsd: number;
   type: DonationConfig['type'];
   createdAt: string;
+  /** Default `passenger_addon`: donation is paid on top of listed fare. */
+  fundingSource?: DonationFundingSource;
 };
 
 export type RewardLedgerEntry = {

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { GwTranslationKey } from '../../../i18n/gwTranslations';
 import type { FareSplit } from '../utils/fareSplit';
+import { passengerGrandTotalUsd } from '../../charity/utils';
 import { calculateGoodWheelsFareSplit, formatMoneyFromCents } from '../utils/fareSplit';
 
 export type FareBreakdownVariant = 'passenger' | 'driver';
@@ -18,6 +19,8 @@ type Props = {
   showTransparentHint?: boolean;
   defaultExpanded?: boolean;
   className?: string;
+  /** Optional passenger donation (USD); shown only for passenger variant. Does not change driver payout. */
+  optionalDonationUsd?: number | null;
 };
 
 function resolveSplit(props: Props): FareSplit | null {
@@ -42,14 +45,10 @@ const FareBreakdownCard: React.FC<Props> = ({
   showTransparentHint = false,
   defaultExpanded = false,
   className = '',
+  optionalDonationUsd,
 }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const split = resolveSplit({ totalFareUsd, totalFareCents, variant, t, currency } as Props);
-
-  const accent = variant === 'passenger' ? '#059669' : '#CA8A04';
-  const accentBg = variant === 'passenger' ? 'rgba(5,150,105,0.08)' : 'rgba(202,138,4,0.12)';
-  const slate = '#64748B';
-  const platformColor = '#475569';
 
   if (!split) {
     return (
@@ -59,6 +58,15 @@ const FareBreakdownCard: React.FC<Props> = ({
       </div>
     );
   }
+
+  const accent = variant === 'passenger' ? '#059669' : '#CA8A04';
+  const accentBg = variant === 'passenger' ? 'rgba(5,150,105,0.08)' : 'rgba(202,138,4,0.12)';
+  const platformColor = '#475569';
+  const donationUsd = typeof optionalDonationUsd === 'number' && optionalDonationUsd > 0 ? optionalDonationUsd : 0;
+  const showDonation = variant === 'passenger' && donationUsd > 0;
+  const grandCents = showDonation
+    ? Math.round(passengerGrandTotalUsd(split.totalFareCents / 100, donationUsd) * 100)
+    : null;
 
   const driverLabel = variant === 'driver' ? t('youReceive') : t('driverReceives');
 
@@ -87,13 +95,23 @@ const FareBreakdownCard: React.FC<Props> = ({
           <span className="text-slate-500">{t('adminCost')}</span>
           <span className="font-semibold text-slate-600 tabular-nums">{formatMoneyFromCents(split.adminCostCents, currency)}</span>
         </div>
-        {variant === 'driver' && (
-          <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
-            <span style={{ color: platformColor }}>{t('platformCommunityShare')}</span>
-            <span className="font-semibold tabular-nums" style={{ color: platformColor }}>
-              {formatMoneyFromCents(split.platformShareCents, currency)}
-            </span>
-          </div>
+        <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
+          <span style={{ color: platformColor }}>{t('platformCommunityShare')}</span>
+          <span className="font-semibold tabular-nums" style={{ color: platformColor }}>
+            {formatMoneyFromCents(split.platformShareCents, currency)}
+          </span>
+        </div>
+        {showDonation && grandCents != null && (
+          <>
+            <div className="mt-2 flex items-baseline justify-between gap-2 text-xs border-t border-slate-100 pt-2">
+              <span className="text-slate-600">{t('optionalDonation')}</span>
+              <span className="font-semibold text-slate-800 tabular-nums">{formatMoneyFromCents(Math.round(donationUsd * 100), currency)}</span>
+            </div>
+            <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
+              <span className="text-slate-800 font-bold">{t('grandTotalYouPay')}</span>
+              <span className="font-extrabold text-slate-900 tabular-nums">{formatMoneyFromCents(grandCents, currency)}</span>
+            </div>
+          </>
         )}
       </div>
 
@@ -134,8 +152,15 @@ const FareBreakdownCard: React.FC<Props> = ({
       )}
 
       {variant === 'driver' && (
-        <div className="px-3 py-2 bg-amber-50/90 border-t border-amber-100 text-[11px] text-amber-950 leading-snug font-medium">
-          {t('driverPayoutExplainer')}
+        <div className="px-3 py-2 bg-amber-50/90 border-t border-amber-100 text-[11px] text-amber-950 leading-snug font-medium space-y-1">
+          <div>{t('driverPayoutExplainer')}</div>
+          <div>{t('donationDoesNotReduceDriver')}</div>
+        </div>
+      )}
+
+      {variant === 'passenger' && (
+        <div className="px-3 py-2 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-700 leading-snug">
+          {t('driverPayoutProtectedDonationCopy')}
         </div>
       )}
     </div>

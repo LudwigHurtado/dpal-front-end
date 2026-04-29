@@ -1,6 +1,7 @@
 import type { Charity, DonationConfig } from '../types';
 import { formatMoney } from '../utils';
 import { calculateDonationAmount } from '../utils';
+import { useGwLang } from '../../../i18n/useGwLang';
 
 type DonationPanelProps = {
   fare: number;
@@ -21,18 +22,19 @@ function DonationPanelInline({
   onClear,
   onOpenCharities,
 }: DonationPanelProps) {
+  const t = useGwLang((s) => s.t);
   return (
     <div className="gw-card p-5" style={{ background: 'rgba(22,163,74,0.06)' }}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <div className="text-lg font-extrabold text-slate-900">Support a nearby cause</div>
-          <p className="gw-muted mt-1">
-            Add a donation to this ride and help your local community through Good Wheels by DPAL.
-          </p>
+          <div className="text-lg font-extrabold text-slate-900">{t('donationPanelTitle')}</div>
+          <p className="gw-muted mt-1">{t('donationPanelIntro')}</p>
+          <p className="mt-2 text-[11px] text-slate-600 leading-snug font-medium">{t('driverPayoutProtectedDonationCopy')}</p>
+          <p className="mt-1 text-[11px] text-slate-500 leading-snug">{t('donationPercentExplainer')}</p>
         </div>
 
         <button type="button" className="gw-button gw-button-secondary" onClick={onOpenCharities}>
-          {selectedCharity ? 'Change Charity' : 'Choose Charity'}
+          {selectedCharity ? t('donationChangeCharity') : t('donationChooseCharity')}
         </button>
       </div>
 
@@ -45,7 +47,7 @@ function DonationPanelInline({
             </div>
           </>
         ) : (
-          <span className="gw-muted">No charity selected yet.</span>
+          <span className="gw-muted">{t('donationNoCharityYet')}</span>
         )}
       </div>
 
@@ -90,24 +92,24 @@ function DonationPanelInline({
           className={donationConfig.type === 'round_up' ? 'gw-button gw-button-primary' : 'gw-button gw-button-secondary'}
           onClick={() => onChange('round_up', 0)}
         >
-          Round Up
+          {t('donationRoundUpSection')}
         </button>
         <button type="button" className="gw-button" onClick={onClear} style={{ background: 'rgba(15,23,42,0.03)' }}>
-          No Donation
+          {t('donationNoDonation')}
         </button>
       </div>
 
       <div className="mt-4 gw-card p-4 space-y-2" style={{ boxShadow: 'none', background: 'rgba(255,255,255,0.72)' }}>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-600 font-bold">Estimated fare</span>
+          <span className="text-sm text-slate-600 font-bold">{t('donationEstimatedFare')}</span>
           <strong className="text-sm text-slate-900">{formatMoney(fare)}</strong>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-600 font-bold">Donation</span>
+          <span className="text-sm text-slate-600 font-bold">{t('donationOptionalShort')}</span>
           <strong className="text-sm text-slate-900">{formatMoney(donationAmount)}</strong>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-slate-600 font-bold">Total</span>
+          <span className="text-sm text-slate-600 font-bold">{t('donationTotalYouMayPay')}</span>
           <strong className="text-sm text-slate-900">{formatMoney(fare + donationAmount)}</strong>
         </div>
       </div>
@@ -133,6 +135,7 @@ export function DonationPanel({
   onClose: () => void;
   onChange: (config: { enabled: boolean; type: 'fixed' | 'percentage' | 'round_up'; value: number }) => void;
 }) {
+  const t = useGwLang((s) => s.t);
   const previewAmount = value.enabled
     ? calculateDonationAmount(
         fareEstimate,
@@ -151,29 +154,30 @@ export function DonationPanel({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true" aria-label="Donation settings">
+    <div className="fixed inset-0 z-[9999]" role="dialog" aria-modal="true" aria-label={t('donationSettingsTitle')}>
       <button
         type="button"
         className="absolute inset-0"
         style={{ background: 'rgba(2,6,23,0.35)' }}
         onClick={onClose}
-        aria-label="Close"
+        aria-label={t('donationClose')}
       />
       <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-full" style={{ maxWidth: 720 }}>
         <div className="gw-card p-6" style={{ borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="gw-card-title">Donation settings</div>
-              <div className="gw-muted mt-1">{charityName ?? 'No charity selected yet'}</div>
+              <div className="gw-card-title">{t('donationSettingsTitle')}</div>
+              <div className="gw-muted mt-1">{charityName ?? t('donationNoCharityYet')}</div>
+              <p className="mt-2 text-[11px] text-slate-600 leading-snug">{t('driverPayoutProtectedDonationCopy')}</p>
             </div>
             <button type="button" className="gw-button gw-button-secondary" onClick={onClose}>
-              Close
+              {t('donationClose')}
             </button>
           </div>
 
           <div className="mt-4 space-y-4">
             <label className="flex items-center justify-between gw-card p-4" style={{ boxShadow: 'none', background: 'rgba(241,245,249,0.65)' }}>
-              <span className="font-extrabold text-slate-900">Enable donation</span>
+              <span className="font-extrabold text-slate-900">{t('donationEnableLabel')}</span>
               <input
                 type="checkbox"
                 checked={value.enabled}
@@ -182,7 +186,7 @@ export function DonationPanel({
             </label>
 
             <div>
-              <div className="text-sm font-extrabold text-slate-900 mb-2">Fixed donation</div>
+              <div className="text-sm font-extrabold text-slate-900 mb-2">{t('donationFixedSection')}</div>
               <div className="grid grid-cols-3 gap-2">
                 {[1, 2, 5].map((amt) => (
                   <button
@@ -198,7 +202,7 @@ export function DonationPanel({
             </div>
 
             <div>
-              <div className="text-sm font-extrabold text-slate-900 mb-2">Percentage</div>
+              <div className="text-sm font-extrabold text-slate-900 mb-2">{t('donationPercentageSection')}</div>
               <div className="grid grid-cols-3 gap-2">
                 {[5, 10, 15].map((pct) => (
                   <button
@@ -211,26 +215,27 @@ export function DonationPanel({
                   </button>
                 ))}
               </div>
+              <p className="mt-2 text-[11px] text-slate-500">{t('donationPercentExplainer')}</p>
             </div>
 
             <div>
-              <div className="text-sm font-extrabold text-slate-900 mb-2">Round up</div>
+              <div className="text-sm font-extrabold text-slate-900 mb-2">{t('donationRoundUpSection')}</div>
               <button
                 type="button"
                 onClick={() => setType('round_up', 0)}
                 className={value.type === 'round_up' ? 'gw-button gw-button-primary w-full' : 'gw-button gw-button-secondary w-full'}
               >
-                Round fare up to next dollar
+                {t('donationRoundUpCta')}
               </button>
             </div>
 
             <div className="gw-card p-4" style={{ boxShadow: 'none', background: 'rgba(255,255,255,0.75)' }}>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600 font-bold">Fare estimate</span>
+                <span className="text-slate-600 font-bold">{t('donationFareEstimateLabel')}</span>
                 <span className="text-slate-900 font-extrabold">{formatMoney(fareEstimate)}</span>
               </div>
               <div className="mt-2 flex items-center justify-between text-sm">
-                <span className="text-slate-600 font-bold">Donation preview</span>
+                <span className="text-slate-600 font-bold">{t('donationPreviewLabel')}</span>
                 <span className="text-slate-900 font-extrabold">{formatMoney(previewAmount)}</span>
               </div>
             </div>
@@ -240,4 +245,3 @@ export function DonationPanel({
     </div>
   );
 }
-

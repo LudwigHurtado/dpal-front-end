@@ -3,7 +3,7 @@ import { mockRideApi } from '../../services/adapters/mockAdapters';
 import type { RideRequestDraft, Trip } from './tripTypes';
 import { mapMockTripToTrip } from './tripMockMapper';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
-import type { Charity, DonationConfig, DonationRecord } from '../charity/types';
+import type { Charity, DonationConfig, DonationFundingSource, DonationRecord } from '../charity/types';
 import { calculateDonationAmount } from '../charity/utils';
 import { createCharitySupportBonus, createDonationReward, createRideReward, persistRewards } from '../rewards/rewardService';
 
@@ -36,6 +36,10 @@ export const tripService = {
   /**
    * Donation + rewards side effects for a completed trip (client demo persistence).
    * Keeps lifecycle in tripStore; this is an integration boundary.
+   *
+   * `fareUsd` must be the **listed total ride fare** (passenger gross), same basis as fare split.
+   * Donations here are **passenger add-ons**: they do not change `trip.estimate.fareSplit.driverPayoutCents`.
+   * (A future `platform_share` funding mode would need explicit handling and disclosure.)
    */
   async finalizeCompletedTrip(input: {
     trip: Trip;
@@ -54,6 +58,7 @@ export const tripService = {
 
     let donation: DonationRecord | null = null;
     if (input.charity && donationAmountUsd > 0) {
+      const fundingSource: DonationFundingSource = 'passenger_addon';
       donation = {
         id: mkId('donation'),
         tripId: input.trip.id,
@@ -63,6 +68,7 @@ export const tripService = {
         amountUsd: donationAmountUsd,
         type: input.donationConfig.type,
         createdAt: new Date().toISOString(),
+        fundingSource,
       };
       const current: DonationRecord[] = JSON.parse(localStorage.getItem(donationsKey) ?? '[]');
       current.unshift(donation);
