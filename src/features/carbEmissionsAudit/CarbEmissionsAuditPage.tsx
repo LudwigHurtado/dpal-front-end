@@ -228,6 +228,17 @@ function coverageTone(level: CoverageLevel): string {
   return 'border-rose-500/40 bg-rose-950/25 text-rose-200';
 }
 
+function coverageStatusText(label: string, pct: number): string {
+  if (pct === 0) {
+    if (label.toLowerCase().includes('operator')) return 'Not provided by source';
+    if (label.toLowerCase().includes('county')) return 'Not provided by source';
+    if (label.toLowerCase().includes('sector')) return 'Not provided by source';
+    return 'No usable values from source';
+  }
+  if (pct < 100) return `${pct}% available (${100 - pct}% missing)`;
+  return 'Fully available';
+}
+
 function sourceRibbonTone(mode: 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'): string {
   if (mode === 'LIVE') return 'border-emerald-500/50 bg-emerald-900/20 text-emerald-200';
   if (mode === 'IMPORTED') return 'border-cyan-500/50 bg-cyan-900/20 text-cyan-200';
@@ -438,6 +449,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   );
   const [paneWidths, setPaneWidths] = useState({ left: 40 });
   const [activeResizeHandle, setActiveResizeHandle] = useState<'left' | null>(null);
+  const [investigationStarted, setInvestigationStarted] = useState(false);
+  const [evidencePacketSynced, setEvidencePacketSynced] = useState(false);
   const workspaceSplitRef = useRef<HTMLDivElement | null>(null);
   const initialLoadAttemptedRef = useRef(false);
   const userInitiatedSearchRef = useRef(false);
@@ -1771,11 +1784,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     }
     if (!savedAuditId) {
       downloadJsonFile(`${evidencePacket.auditId}.json`, evidencePacket);
+      setEvidencePacketSynced(true);
       setMessage('Exported local CARB evidence packet JSON.');
       return;
     }
     const result = await exportCarbAudit(savedAuditId);
     downloadJsonFile(`${savedAuditId}.json`, result.export);
+    setEvidencePacketSynced(true);
     setMessage(`Exported persisted CARB audit ${savedAuditId}.`);
   };
 
@@ -2002,6 +2017,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     setActiveWorkspaceTab('situation');
   };
 
+  const openInvestigationTab = () => {
+    if (!selected) {
+      setMessage('Select a CARB facility before running investigation.');
+      return;
+    }
+    setInvestigationStarted(true);
+    setActiveWorkspaceTab('investigation');
+  };
+
   const handleOpenShareableVerificationPage = () => {
     if (!generatedCarbReport) {
       setCarbReportNotice('Generate CARB report before opening shareable verification page.');
@@ -2037,6 +2061,21 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       setCarbReportNotice('Unable to copy situation room link.');
     }
   };
+
+  const hasFacilitySelected = Boolean(selected);
+  const canCompareYearsStep = hasFacilitySelected;
+  const canRunInvestigationStep = hasFacilitySelected;
+  const canGenerateReportStep = hasFacilitySelected && investigationStarted;
+  const canOpenEvidenceStep = Boolean(generatedCarbReport);
+  const canOpenRoomStep = Boolean(generatedCarbReport && evidencePacketSynced);
+  const stepReadiness: Array<{ label: 'Search' | 'Select' | 'Compare' | 'Report' | 'Evidence' | 'Room'; status: string; tone: string; help: string }> = [
+    { label: 'Search', status: 'Ready', tone: 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100', help: 'Search can run immediately.' },
+    { label: 'Select', status: hasFacilitySelected ? 'Ready' : 'Pending', tone: hasFacilitySelected ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100' : 'border-amber-500/50 bg-amber-900/20 text-amber-100', help: hasFacilitySelected ? 'Facility selected.' : 'Select a CARB facility first.' },
+    { label: 'Compare', status: canCompareYearsStep ? 'Ready' : 'Locked', tone: canCompareYearsStep ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100' : 'border-slate-600 bg-slate-900/40 text-slate-300', help: canCompareYearsStep ? 'Comparison unlocked.' : 'Locked until facility selected.' },
+    { label: 'Report', status: canGenerateReportStep ? 'Ready' : 'Locked', tone: canGenerateReportStep ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100' : 'border-slate-600 bg-slate-900/40 text-slate-300', help: canGenerateReportStep ? 'Report can be generated.' : 'Locked until investigation runs.' },
+    { label: 'Evidence', status: canOpenEvidenceStep ? 'Ready' : 'Locked', tone: canOpenEvidenceStep ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100' : 'border-slate-600 bg-slate-900/40 text-slate-300', help: canOpenEvidenceStep ? 'Evidence export enabled.' : 'Locked until report generated.' },
+    { label: 'Room', status: canOpenRoomStep ? 'Ready' : 'Locked', tone: canOpenRoomStep ? 'border-emerald-500/50 bg-emerald-900/20 text-emerald-100' : 'border-slate-600 bg-slate-900/40 text-slate-300', help: canOpenRoomStep ? 'Situation room link is ready.' : 'Locked until evidence packet exists.' },
+  ];
 
   return (
     <div className="mx-auto min-w-0 max-w-[1450px] overflow-x-hidden px-3 pb-20 sm:px-4 lg:px-5">
@@ -2087,11 +2126,11 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             </div>
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            <button type="button" onClick={() => setActiveWorkspaceTab('search')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Compare Years</button>
-            <button type="button" onClick={() => setActiveWorkspaceTab('investigation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Run Investigation</button>
-            <button type="button" onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Generate Report</button>
-            <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Export Evidence</button>
-            <button type="button" onClick={() => setActiveWorkspaceTab('situation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Open Situation Room</button>
+            <button type="button" onClick={() => setActiveWorkspaceTab('search')} disabled={!canCompareYearsStep} title={!canCompareYearsStep ? 'Locked until facility selected.' : 'Compare years'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Compare Years</button>
+            <button type="button" onClick={openInvestigationTab} disabled={!canRunInvestigationStep} title={!canRunInvestigationStep ? 'Locked until facility selected.' : 'Run investigation'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Run Investigation</button>
+            <button type="button" onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }} disabled={!canGenerateReportStep} title={!canGenerateReportStep ? 'Locked until investigation runs.' : 'Generate report'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Generate Report</button>
+            <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} disabled={!canOpenEvidenceStep} title={!canOpenEvidenceStep ? 'Locked until report generated.' : 'Export evidence'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Export Evidence</button>
+            <button type="button" onClick={() => setActiveWorkspaceTab('situation')} disabled={!canOpenRoomStep} title={!canOpenRoomStep ? 'Locked until evidence packet exists.' : 'Open situation room'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Open Situation Room</button>
             <button
               type="button"
               onClick={clearSelectedFacility}
@@ -2145,7 +2184,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             ].map(([label, level, pct]) => (
               <div key={String(label)} className={`rounded-lg border px-3 py-2 ${coverageTone(level as CoverageLevel)}`}>
                 <p className="font-semibold">{label}</p>
-                <p>{String(level)} ({pct}%)</p>
+                <p>{coverageStatusText(String(label), Number(pct))}</p>
               </div>
             ))}
           </div>
@@ -2161,16 +2200,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       <section className="mb-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-3">
         <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Current Step</p>
         <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
-          {['Search', 'Select', 'Compare', 'Report', 'Evidence', 'Room'].map((stepLabel) => (
-            <span
-              key={stepLabel}
-              className={`whitespace-nowrap rounded-full border px-3 py-1 ${
-                currentWorkflowStep.toLowerCase().includes(stepLabel.toLowerCase())
-                  ? 'border-cyan-500/70 bg-cyan-900/20 text-cyan-100'
-                  : 'border-slate-700 bg-slate-950/50 text-slate-300'
-              }`}
-            >
-              {stepLabel}
+          {stepReadiness.map((step) => (
+            <span key={step.label} className={`whitespace-nowrap rounded-full border px-3 py-1 ${step.tone}`} title={step.help}>
+              {step.label}: {step.status}
             </span>
           ))}
         </div>
@@ -2232,6 +2264,40 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       </section>
       {activeWorkspaceTab === 'overview' ? (
         <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+          <div className="rounded-xl border border-cyan-500/50 bg-cyan-950/20 p-3">
+            <p className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-200">Start CARB Investigation</p>
+            <p className="mt-1 text-sm text-white">Search and select a CARB facility to begin.</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-[1fr_auto]">
+              <input
+                type="text"
+                value={facilitySearch.q}
+                onChange={(e) => updateSearchField('q', e.target.value)}
+                placeholder="Search facility/entity, sector, reporting year, or emissions keyword"
+                className="rounded-lg border border-slate-600 bg-slate-950 px-3 py-2 text-sm text-slate-100"
+              />
+              <button
+                type="button"
+                onClick={() => setActiveWorkspaceTab('search')}
+                className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-sm font-semibold text-cyan-100"
+              >
+                Open Search
+              </button>
+            </div>
+            <p className="mt-2 text-[11px] text-slate-300">
+              Helper: You can search by facility/entity name, sector, reporting year, and emissions keywords when available in current indexed data.
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+            <p className="font-semibold text-white">Step Readiness</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 md:grid-cols-3">
+              {stepReadiness.map((step) => (
+                <div key={step.label} className={`rounded-lg border px-3 py-2 ${step.tone}`} title={step.help}>
+                  <p className="font-semibold">{step.label}</p>
+                  <p className="text-[11px]">{step.status}</p>
+                </div>
+              ))}
+            </div>
+          </div>
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 lg:col-span-2">
               <p className="font-semibold text-white">Current investigation status</p>
@@ -2244,15 +2310,60 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <p>Next recommended step: <span className="text-cyan-200">{nextRecommendedAction}</span></p>
               </div>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
-                <button type="button" onClick={() => setActiveWorkspaceTab('search')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Compare Years</button>
-                <button type="button" onClick={() => setActiveWorkspaceTab('investigation')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Run Investigation</button>
-                <button type="button" onClick={() => setActiveWorkspaceTab('report')} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100">Generate Report</button>
+                <button
+                  type="button"
+                  onClick={() => setActiveWorkspaceTab('search')}
+                  disabled={!canCompareYearsStep}
+                  title={!canCompareYearsStep ? 'Locked until facility selected.' : 'Compare years for selected facility.'}
+                  className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Compare Years
+                </button>
+                <button
+                  type="button"
+                  onClick={openInvestigationTab}
+                  disabled={!canRunInvestigationStep}
+                  title={!canRunInvestigationStep ? 'Locked until facility selected.' : 'Run investigation checks.'}
+                  className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Run Investigation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }}
+                  disabled={!canGenerateReportStep}
+                  title={!canGenerateReportStep ? 'Locked until investigation runs.' : 'Generate CARB report.'}
+                  className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Generate Report
+                </button>
               </div>
+              {!hasFacilitySelected ? (
+                <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-900/20 p-3 text-amber-100">
+                  <p className="font-semibold">No facility selected yet.</p>
+                  <p className="mt-1">Compare Years, Run Investigation, Generate Report, Evidence Packet, and Situation Room remain locked until you select a CARB facility.</p>
+                </div>
+              ) : null}
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
               <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
               <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
               <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
+              {!hasFacilitySelected ? (
+                <p className="mt-2 text-[11px] text-amber-200">
+                  No facility selected yet. Select a CARB facility to calculate emissions trend, claim risk, and evidence readiness.
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+            <p className="font-semibold text-white">Situation Room Connection Status</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-5">
+              <p>Investigation room status: <span className="text-cyan-200">{generatedCarbReport ? generatedCarbReport.situationRoom.status : 'pending'}</span></p>
+              <p>Evidence packet sync: <span className="text-cyan-200">{evidencePacketSynced ? 'synced' : 'pending'}</span></p>
+              <p>Chat thread status: <span className="text-cyan-200">{generatedCarbReport ? 'ready' : 'pending'}</span></p>
+              <p>Assigned reviewers: <span className="text-cyan-200">{generatedCarbReport ? '1+ suggested' : 'none yet'}</span></p>
+              <p>Ledger/report link status: <span className="text-cyan-200">{generatedCarbReport?.ledger?.verificationStatus ?? 'pending'}</span></p>
             </div>
           </div>
           <details className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
