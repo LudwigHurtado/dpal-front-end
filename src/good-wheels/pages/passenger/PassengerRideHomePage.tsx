@@ -8,18 +8,22 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useDriverStore } from '../../features/driver/driverStore';
 import type { LatLng } from '../../features/map/mapTypes';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
-import FareBreakdownCard from '../../features/trips/components/FareBreakdownCard';
-import { calculateDonationAmount } from '../../features/charity/utils';
-import { calculateGoodWheelsFareSplit, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
-import CauseDiscoveryPanel from '../../features/charity/components/CauseDiscoveryPanel';
+import { PassengerRideOptionsPanel } from './PassengerRideOptionsPanel';
 import type { CauseOrganization } from '../../features/charity/types';
+import {
+  addressRowChrome,
+  modeToggleBox,
+  roleDotColor,
+  roleGpsIconColor,
+  roleLabelStyle,
+} from './locationSelectionChrome';
 
 /* ─────────────────────────────────────────────
    Types
 ───────────────────────────────────────────── */
-type VehicleType = 'car' | 'comfort' | 'moto' | 'large';
+type VehicleType = 'car' | 'comfort' | 'moto' | 'large' | 'delivery';
 type ActiveField = 'pickup' | 'dropoff' | null;
-type SheetState  = 'home' | 'search' | 'options';
+type SheetState  = 'search' | 'options';
 type NegotiationState = 'idle' | 'pending' | 'countered' | 'accepted';
 
 /* ─────────────────────────────────────────────
@@ -41,10 +45,11 @@ function getPinSvg(label: string, bg: string) {
    Vehicle options
 ───────────────────────────────────────────── */
 const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mult: number; eta: string }[] = [
-  { id: 'car',     label: 'Standard',  sub: 'Sedan / Compact',  emoji: '🚗', mult: 1.0,  eta: '3 min' },
-  { id: 'comfort', label: 'Comfort',   sub: 'Larger Sedan',     emoji: '🚙', mult: 1.22, eta: '5 min' },
-  { id: 'moto',    label: 'Moto',      sub: 'Motorcycle',       emoji: '🏍', mult: 0.7,  eta: '2 min' },
-  { id: 'large',   label: 'Large',     sub: 'SUV / Van',        emoji: '🚐', mult: 1.9,  eta: '6 min' },
+  { id: 'car',       label: 'Standard',  sub: 'Sedan / Compact',       emoji: '🚗', mult: 1.0,  eta: '3 min' },
+  { id: 'comfort',   label: 'Comfort',   sub: 'Larger Sedan',          emoji: '🚙', mult: 1.22, eta: '5 min' },
+  { id: 'moto',      label: 'Moto',      sub: 'Motorcycle',            emoji: '🏍', mult: 0.7,  eta: '2 min' },
+  { id: 'delivery',  label: 'Delivery',  sub: 'Packages & essentials', emoji: '📦', mult: 1.05, eta: '4 min' },
+  { id: 'large',     label: 'Large',     sub: 'SUV / Van',             emoji: '🚐', mult: 1.9,  eta: '6 min' },
 ];
 
 const BASE_FARE = 5.40;
@@ -111,8 +116,8 @@ const PassengerRideHomePage: React.FC = () => {
   const mapClickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
 
   /* UI state */
-  const [sheet, setSheet]           = useState<SheetState>('home');
-  const [activeField, setActiveField] = useState<ActiveField>(null);
+  const [sheet, setSheet]           = useState<SheetState>('search');
+  const [activeField, setActiveField] = useState<ActiveField>('pickup');
   const [vehicleType, setVehicleType] = useState<VehicleType>('car');
   const [maxPrice, setMaxPrice]       = useState('');
   const [pickupText,  setPickupText]  = useState(draft.pickup?.addressLine  ?? '');
@@ -125,11 +130,8 @@ const PassengerRideHomePage: React.FC = () => {
   const [locatingDropoff, setLocatingDropoff] = useState(false);
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
   const [broadcasting, setBroadcasting]   = useState(false);
-  const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('ride');
+  const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('profile');
   const [selectedCause, setSelectedCause] = useState<CauseOrganization | null>(null);
-  const [expandedVehicleId, setExpandedVehicleId] = useState<VehicleType | null>('car');
-  const [optionsPanelCollapsed, setOptionsPanelCollapsed] = useState(false);
-  const [homePanelCollapsed, setHomePanelCollapsed] = useState(false);
   const [negotiationState, setNegotiationState] = useState<NegotiationState>('idle');
   const [driverCounterOffer, setDriverCounterOffer] = useState<number | null>(null);
   const [negotiationNote, setNegotiationNote] = useState<string | null>(null);
@@ -141,12 +143,6 @@ const PassengerRideHomePage: React.FC = () => {
 
   const bothReady = Boolean(pickupLL && dropoffLL);
   const bothSet = bothReady;
-
-  useEffect(() => {
-    // Reset compact mode when returning to search/home.
-    if (sheet !== 'options') setOptionsPanelCollapsed(false);
-  }, [sheet]);
-
 
   useEffect(() => {
     // Changing price or vehicle starts a fresh negotiation.
@@ -211,29 +207,19 @@ const PassengerRideHomePage: React.FC = () => {
     if (!maxPrice) setMaxPrice(suggested.toFixed(2));
   }, [bothSet, maxPrice, vehicleType]);
 
-  const listedFareUsd = useMemo(() => {
-    const mult = VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1;
-    const suggested = BASE_FARE * mult;
-    const entered = Number(maxPrice);
-    if (Number.isFinite(entered) && entered > 0) return entered;
-    return suggested;
-  }, [vehicleType, maxPrice]);
-
   /** During pickup/drop-off selection, hide ride / charities / donations — only profile until a ride is in progress. */
   const bottomNavTabs = useMemo(
-    () => (sheet === 'home' || sheet === 'search' ? TABS.filter((tab) => tab.id === 'profile') : TABS),
+    () =>
+      sheet === 'search'
+        ? TABS.filter((tab) => tab.id === 'profile')
+        : TABS.filter((tab) => tab.id === 'ride' || tab.id === 'profile'),
     [sheet],
   );
 
   useEffect(() => {
-    if (sheet === 'home' || sheet === 'search') setActiveTab('profile');
+    if (sheet === 'search') setActiveTab('profile');
+    if (sheet === 'options') setActiveTab('ride');
   }, [sheet]);
-
-  /** Preview: when a charity is selected, UI shows a 10% add-on on listed fare (passenger-only; does not change driver split). */
-  const charityAddonPreviewUsd = useMemo(() => {
-    if (!selectedCause) return 0;
-    return calculateDonationAmount(listedFareUsd, { type: 'percentage', value: 10 });
-  }, [selectedCause, listedFareUsd]);
 
   /* ── Init map ── */
   useEffect(() => {
@@ -550,9 +536,10 @@ const PassengerRideHomePage: React.FC = () => {
     navigate(GW_PATHS.passenger.active);
   };
 
-  const handleSendOffer = () => {
-    const offer = Number(maxPrice);
+  const handleSendOffer = (explicitUsd?: number) => {
+    const offer = explicitUsd ?? Number(maxPrice);
     if (!Number.isFinite(offer) || offer <= 0) return;
+    if (explicitUsd != null) setMaxPrice(offer.toFixed(2));
     setNegotiationState('pending');
     setNegotiationNote(`${t('negotiation_offerSent')} · ${t('negotiation_driverReviewing')}`);
     window.setTimeout(() => {
@@ -594,6 +581,25 @@ const PassengerRideHomePage: React.FC = () => {
     else if (tab === 'profile') navigate(GW_PATHS.auth.profile);
   };
 
+  const clearPickupDropoffLocations = useCallback(() => {
+    setPickupPreds([]);
+    setDropoffPreds([]);
+    setPickupText('');
+    setDropoffText('');
+    setPickupLL(null);
+    setDropoffLL(null);
+    setSelectedCause(null);
+    setActiveField('pickup');
+    setDraft({
+      pickup: null,
+      dropoff: null,
+      attachedCause: undefined,
+      notes: undefined,
+      estimatePreview: undefined,
+      routeSummaryPreview: undefined,
+    });
+  }, [setDraft]);
+
   const handleCancelRideState = () => {
     clearActiveTrip();
     clearDraft();
@@ -603,7 +609,9 @@ const PassengerRideHomePage: React.FC = () => {
     setDropoffLL(null);
     setPickupPreds([]);
     setDropoffPreds([]);
-    setSheet('home');
+    setSelectedCause(null);
+    setSheet('search');
+    setActiveField('pickup');
     setNegotiationState('idle');
     setDriverCounterOffer(null);
     setNegotiationNote(`${t('cancelRideLabel')}. ${t('requestRide')}.`);
@@ -617,33 +625,14 @@ const PassengerRideHomePage: React.FC = () => {
     setDriverCounterOffer(null);
   };
 
-  const greeting = () => {
-    const h = new Date().getHours();
-    if (h < 12) return t('goodMorning');
-    if (h < 18) return t('goodAfternoon');
-    return t('goodEvening');
-  };
-
-  const userName = (user as any)?.displayName ?? (user as any)?.email?.split('@')[0] ?? 'there';
-
   const selVehicle = VEHICLES.find((v) => v.id === vehicleType) ?? VEHICLES[0];
   const vehicleLabel = (label: string) => {
     if (label === 'Standard') return t('vehicle_standard');
     if (label === 'Comfort') return t('vehicle_comfort');
     if (label === 'Moto') return t('vehicle_moto');
     if (label === 'Large') return t('vehicle_large');
+    if (label === 'Delivery') return t('service_delivery');
     return label;
-  };
-  const vehicleSub = (sub: string) => {
-    if (sub === 'Sedan / Compact') return t('vehicle_standard_sub');
-    if (sub === 'Larger Sedan') return t('vehicle_comfort_sub');
-    if (sub === 'Motorcycle') return t('vehicle_moto_sub');
-    if (sub === 'SUV / Van') return t('vehicle_large_sub');
-    return sub;
-  };
-  const vehicleEta = (eta: string) => {
-    const minutes = Number.parseInt(eta, 10);
-    return Number.isFinite(minutes) ? tf('eta_min', { minutes }) : eta;
   };
   /* ─────────────────────────────────────────────
      Styles (shared inline)
@@ -663,18 +652,19 @@ const PassengerRideHomePage: React.FC = () => {
       top: 76,
       left: '50%',
       transform: 'translateX(-50%)',
-      background: 'rgba(255, 255, 255, 0.55)',
+      width: 'min(560px, calc(100vw - 24px))',
+      background: 'rgba(255, 255, 255, 0.58)',
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
-      borderRadius: 24,
-      padding: '8px 16px',
+      borderRadius: 16,
+      padding: '10px 12px',
       display: 'flex',
-      alignItems: 'center',
+      flexDirection: 'column' as const,
+      alignItems: 'stretch',
       gap: 8,
       boxShadow: '0 4px 20px rgba(15, 23, 42, 0.08)',
-      border: '1px solid rgba(255, 255, 255, 0.6)',
+      border: '1px solid rgba(255, 255, 255, 0.65)',
       zIndex: 25,
-      whiteSpace: 'nowrap' as const,
       fontSize: 13,
       fontWeight: 600,
       color: '#111827',
@@ -690,7 +680,7 @@ const PassengerRideHomePage: React.FC = () => {
       borderRadius: '20px 20px 0 0',
       zIndex: 30,
       boxShadow: '0 -4px 30px rgba(0,0,0,0.12)',
-      maxHeight: sheet === 'search' ? '42dvh' : (sheet === 'options' ? (optionsPanelCollapsed ? '24dvh' : '50dvh') : '58dvh'),
+      maxHeight: sheet === 'search' ? '42dvh' : 'min(40dvh, 62vh)',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column' as const,
@@ -702,36 +692,20 @@ const PassengerRideHomePage: React.FC = () => {
       boxShadow: '0 -8px 40px rgba(15, 23, 42, 0.08)',
       borderTop: '1px solid rgba(255, 255, 255, 0.55)',
     },
+    sheetOptionsGlass: {
+      background: 'rgba(255, 255, 255, 0.22)',
+      backdropFilter: 'blur(20px)',
+      WebkitBackdropFilter: 'blur(20px)',
+      boxShadow: '0 -6px 28px rgba(15, 23, 42, 0.06)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.42)',
+    },
     handle: { width: 36, height: 4, background: '#E5E7EB', borderRadius: 2, margin: '10px auto 0' },
     handleSearch: { width: 36, height: 4, background: 'rgba(148, 163, 184, 0.45)', borderRadius: 2, margin: '10px auto 0' },
+    handleOptions: { width: 36, height: 4, background: 'rgba(148, 163, 184, 0.4)', borderRadius: 2, margin: '10px auto 0' },
 
     /* Search input row */
     inputRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: 12, background: '#F9FAFB', border: '1px solid #E5E7EB' },
-    inputRowGlass: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: 10,
-      padding: '10px 16px',
-      borderRadius: 12,
-      background: 'rgba(255, 255, 255, 0.78)',
-      border: '1px solid rgba(255, 255, 255, 0.9)',
-      boxShadow: '0 1px 8px rgba(15, 23, 42, 0.06)',
-    },
     input: { flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 15, color: '#111827', fontWeight: 500, fontFamily: 'inherit' },
-
-    /* Vehicle option row */
-    vehicleRow: (selected: boolean) => ({ display: 'flex', alignItems: 'center', padding: '14px 20px', cursor: 'pointer', background: selected ? '#EFF6FF' : 'white', borderBottom: '1px solid #F3F4F6', transition: 'background 0.12s', gap: 14 }),
-    vehicleEmoji: { fontSize: 28, width: 44, textAlign: 'center' as const },
-    vehicleInfo: { flex: 1 },
-    vehiclePrice: (selected: boolean) => ({ fontSize: 15, fontWeight: 900, color: selected ? '#0077C8' : '#111827' }),
-    vehicleExpandBtn: { width: 26, height: 26, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 as const },
-    vehicleDetailsWrap: { padding: '0 20px 12px 78px', background: '#F8FAFC', borderBottom: '1px solid #F3F4F6' },
-    vehicleDetailsChip: { display: 'inline-flex', alignItems: 'center', borderRadius: 999, padding: '4px 10px', background: '#E0F2FE', color: '#0369A1', fontSize: 10, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase' as const, marginRight: 6 },
-    routeCollapseBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 as const },
-    centerCollapseBtn: { width: 36, height: 24, borderRadius: 999, border: '1px solid #CBD5E1', background: '#FFFFFF', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '6px auto 8px', boxShadow: '0 1px 6px rgba(15,23,42,0.08)' },
-
-    /* Confirm button */
-    confirmBtn: (disabled: boolean) => ({ width: '100%', height: 54, borderRadius: 14, background: disabled ? '#9CA3AF' : '#0077C8', border: 'none', color: 'white', fontSize: 16, fontWeight: 800, cursor: disabled ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'background 0.15s' }),
 
     /* Bottom tabs */
     tabBar: { display: 'flex', borderTop: '1px solid #F3F4F6', background: 'white' },
@@ -742,9 +716,23 @@ const PassengerRideHomePage: React.FC = () => {
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
     },
+    tabBarOptionsGlass: {
+      background: 'rgba(255, 255, 255, 0.28)',
+      borderTop: '1px solid rgba(255, 255, 255, 0.38)',
+      backdropFilter: 'blur(14px)',
+      WebkitBackdropFilter: 'blur(14px)',
+    },
     tab: (active: boolean) => ({ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 2, padding: '10px 0 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, fontWeight: active ? 700 : 500, color: active ? '#0077C8' : '#9CA3AF' }),
-    homeCollapseBtn: { width: 34, height: 34, borderRadius: 8, border: '1px solid #CBD5E1', background: '#F8FAFC', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 as const },
   };
+
+  const recommendedUsd = BASE_FARE * (VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1);
+
+  const pickupLocActive = activeField === 'pickup';
+  const pickupLocHasPlace = Boolean(pickupLL && pickupText.trim());
+  const pickupLocProminent = pickupLocActive || pickupLocHasPlace;
+  const dropoffLocActive = activeField === 'dropoff';
+  const dropoffLocHasPlace = Boolean(dropoffLL && dropoffText.trim());
+  const dropoffLocProminent = dropoffLocActive || dropoffLocHasPlace;
 
   /* ─────────────────────────────────────────────
      Render
@@ -856,106 +844,42 @@ const PassengerRideHomePage: React.FC = () => {
             title={t('useCurrentLocation')}
             onClick={handleUseCurrentLocation}
           >
-            {locatingPickup ? <Spinner /> : <GpsIcon size={20} color="#0077C8" />}
+            {locatingPickup ? <Spinner color={roleGpsIconColor('pickup', true)} /> : <GpsIcon size={20} color={roleGpsIconColor('pickup', true)} />}
           </button>
         </div>
       </div>
 
       {/* ── MAP SELECTION MODE (search only) ── */}
       {sheet === 'search' && (
-      <div style={{ ...S.pinHint, borderLeft: `3px solid ${activeField === 'dropoff' ? '#DC2626' : '#16A34A'}` }}>
-        <button
-          type="button"
-          onClick={() => setActiveField('pickup')}
-          style={{
-            border: '1px solid rgba(255,255,255,0.65)',
-            borderRadius: 999,
-            background: activeField === 'pickup' ? 'rgba(220, 252, 231, 0.92)' : 'rgba(255, 255, 255, 0.45)',
-            color: activeField === 'pickup' ? '#166534' : '#374151',
-            padding: '6px 10px',
-            fontSize: 11,
-            fontWeight: 800,
-            cursor: 'pointer',
-          }}
-        >
-          {t('setPickup')}
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveField('dropoff')}
-          style={{
-            border: '1px solid rgba(255,255,255,0.65)',
-            borderRadius: 999,
-            background: activeField === 'dropoff' ? 'rgba(254, 226, 226, 0.92)' : 'rgba(255, 255, 255, 0.45)',
-            color: activeField === 'dropoff' ? '#B91C1C' : '#374151',
-            padding: '6px 10px',
-            fontSize: 11,
-            fontWeight: 800,
-            cursor: 'pointer',
-          }}
-        >
-          {t('setDestination')}
-        </button>
-        <span style={{ fontSize: 11, color: '#475569', fontWeight: 700 }}>
+      <div style={S.pinHint}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => setActiveField('pickup')} style={modeToggleBox('pickup', pickupLocActive)}>
+            <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 2 }}>
+              {t('pickupLabel')}
+            </span>
+            {t('setPickup')}
+          </button>
+          <button type="button" onClick={() => setActiveField('dropoff')} style={modeToggleBox('dropoff', dropoffLocActive)}>
+            <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 2 }}>
+              {t('dropoff')}
+            </span>
+            {t('setDestination')}
+          </button>
+        </div>
+        <span style={{ fontSize: 11, color: '#475569', fontWeight: 700, textAlign: 'center', lineHeight: 1.35 }}>
           {reverseGeoLoading ? `${t('readingLocation')}` : t('clickMapSetPickupDropoff')}
         </span>
       </div>
       )}
 
       {/* ── BOTTOM SHEET ── */}
-      <div style={{ ...S.sheet, ...(sheet === 'search' ? S.sheetSearchGlass : {}) }}>
-        <div style={sheet === 'search' ? S.handleSearch : S.handle} />
-
-        {/* ════ STATE: HOME ════ */}
-        {sheet === 'home' && (
-          <div style={{ padding: '16px 20px 0' }}>
-            <p style={{ fontSize: 13, color: '#6B7280', margin: '0 0 2px', fontWeight: 500 }}>{greeting()}, {userName}</p>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 16 }}>
-              <div>
-                <h2 style={{ fontSize: 24, fontWeight: 900, color: '#111827', margin: 0, lineHeight: 1.2 }}>{t('planYourRide')}</h2>
-                <p style={{ margin: '4px 0 0', fontSize: 12, color: '#6B7280', fontWeight: 600 }}>{t('choosePickupDestination')}</p>
-              </div>
-              <button
-                type="button"
-                aria-label={homePanelCollapsed ? 'Expand home panel' : 'Collapse home panel'}
-                onClick={() => setHomePanelCollapsed((prev) => !prev)}
-                style={S.homeCollapseBtn}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: homePanelCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-                  <path d="M3 5l4 4 4-4" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Search trigger */}
-            <button
-              type="button"
-              onClick={() => { setSheet('search'); setActiveField('pickup'); }}
-              style={{ ...S.inputRow, width: '100%', textAlign: 'left', cursor: 'text', marginBottom: 16 }}
-            >
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" style={{ flexShrink: 0 }}>
-                <circle cx="9" cy="9" r="7" stroke="#9CA3AF" strokeWidth="2" />
-                <path d="M14 14l4 4" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <span style={{ fontSize: 15, color: '#9CA3AF', fontWeight: 500, fontFamily: 'inherit' }}>{t('startByChoosingWhereYouAre')}</span>
-            </button>
-
-            {!homePanelCollapsed && (
-              <div style={{ marginBottom: 16, borderRadius: 12, background: '#F8FAFC', border: '1px solid #E2E8F0', padding: '10px 12px' }}>
-                <p style={{ margin: 0, fontSize: 11, fontWeight: 700, color: '#334155' }}>
-                  {t('thenChooseWhereGoing')}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => { setSheet('search'); setActiveField('pickup'); }}
-                  style={{ marginTop: 8, width: '100%', border: 'none', borderRadius: 10, padding: '10px 12px', background: '#EFF6FF', color: '#0369A1', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                >
-                  {t('startPlacingAB')}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
+      <div
+        style={{
+          ...S.sheet,
+          ...(sheet === 'search' ? S.sheetSearchGlass : sheet === 'options' ? S.sheetOptionsGlass : {}),
+        }}
+      >
+        <div style={sheet === 'search' ? S.handleSearch : sheet === 'options' ? S.handleOptions : S.handle} />
 
         {/* ════ STATE: SEARCH ════ */}
         {sheet === 'search' && (
@@ -968,7 +892,9 @@ const PassengerRideHomePage: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
               <button
                 type="button"
-                onClick={() => { setSheet('home'); setPickupPreds([]); setDropoffPreds([]); }}
+                onClick={() => clearPickupDropoffLocations()}
+                title={t('clear')}
+                aria-label={t('clear')}
                 style={{
                   width: 36,
                   height: 36,
@@ -982,7 +908,7 @@ const PassengerRideHomePage: React.FC = () => {
                   flexShrink: 0,
                 }}
               >
-                <svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M13 4l-6 6 6 6" stroke="#111827" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                <span style={{ fontSize: 18, fontWeight: 800, color: '#334155', lineHeight: 1 }}>×</span>
               </button>
               <button
                 type="button"
@@ -1003,16 +929,11 @@ const PassengerRideHomePage: React.FC = () => {
               </button>
             </div>
 
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#166534', marginBottom: 4, letterSpacing: '0.02em' }}>{t('mapSheet_pickup')}</div>
-            <div
-              style={{
-                ...S.inputRowGlass,
-                marginBottom: 6,
-                border: activeField === 'pickup' ? '1.5px solid rgba(22, 163, 74, 0.85)' : '1px solid rgba(226, 232, 240, 0.9)',
-              }}
-            >
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#16A34A', flexShrink: 0, display: 'inline-block' }} />
+            <div style={roleLabelStyle('pickup', true)}>{t('mapSheet_pickup')}</div>
+            <div style={{ ...addressRowChrome('pickup', pickupLocActive, pickupLocHasPlace), marginBottom: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: roleDotColor('pickup', pickupLocProminent), flexShrink: 0, display: 'inline-block' }} />
               <input
+                className="gw-loc-ph-pickup"
                 style={S.input}
                 placeholder={t('placeholderPickup')}
                 value={pickupText}
@@ -1025,7 +946,7 @@ const PassengerRideHomePage: React.FC = () => {
                 }}
               />
               <button type="button" onClick={handlePickupGps} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}>
-                {locatingPickup ? <Spinner /> : <GpsIcon size={17} color="#111827" />}
+                {locatingPickup ? <Spinner color={roleGpsIconColor('pickup', pickupLocProminent)} /> : <GpsIcon size={17} color={roleGpsIconColor('pickup', pickupLocProminent)} />}
               </button>
             </div>
             {pickupPreds.length > 0 && (
@@ -1039,16 +960,11 @@ const PassengerRideHomePage: React.FC = () => {
               </div>
             )}
 
-            <div style={{ fontSize: 11, fontWeight: 800, color: '#B91C1C', marginBottom: 4, marginTop: 4, letterSpacing: '0.02em' }}>{t('mapSheet_dropoff')}</div>
-            <div
-              style={{
-                ...S.inputRowGlass,
-                marginBottom: 6,
-                border: activeField === 'dropoff' ? '1.5px solid rgba(220, 38, 38, 0.85)' : '1px solid rgba(226, 232, 240, 0.9)',
-              }}
-            >
-              <span style={{ width: 10, height: 10, borderRadius: '50%', background: '#DC2626', flexShrink: 0, display: 'inline-block' }} />
+            <div style={roleLabelStyle('dropoff', true)}>{t('mapSheet_dropoff')}</div>
+            <div style={{ ...addressRowChrome('dropoff', dropoffLocActive, dropoffLocHasPlace), marginBottom: 6 }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: roleDotColor('dropoff', dropoffLocProminent), flexShrink: 0, display: 'inline-block' }} />
               <input
+                className="gw-loc-ph-dropoff"
                 style={S.input}
                 placeholder={t('whereAreYouGoing')}
                 value={dropoffText}
@@ -1061,7 +977,7 @@ const PassengerRideHomePage: React.FC = () => {
                 }}
               />
               <button type="button" onClick={handleDropoffGps} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexShrink: 0 }}>
-                {locatingDropoff ? <Spinner /> : <GpsIcon size={17} color="#0077C8" />}
+                {locatingDropoff ? <Spinner color={roleGpsIconColor('dropoff', dropoffLocProminent)} /> : <GpsIcon size={17} color={roleGpsIconColor('dropoff', dropoffLocProminent)} />}
               </button>
             </div>
             {dropoffPreds.length > 0 && (
@@ -1081,328 +997,54 @@ const PassengerRideHomePage: React.FC = () => {
 
         {/* ════ STATE: RIDE OPTIONS ════ */}
         {sheet === 'options' && (
-          <div style={{ overflowY: 'auto' }}>
-            {/* Route bar */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid #F3F4F6' }}>
-              <button
-                type="button"
-                onClick={() => setSheet('search')}
-                style={{ width: 34, height: 34, borderRadius: '50%', background: '#F3F4F6', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-              >
-                <svg width="17" height="17" viewBox="0 0 20 20" fill="none"><path d="M13 4l-6 6 6 6" stroke="#111827" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, color: '#374151', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {t('pickupLabel')}: {pickupText.split(',')[0]}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                  <span style={{ fontSize: 9, background: '#16A34A', color: 'white', borderRadius: 3, padding: '1px 5px', fontWeight: 700 }}>P</span>
-                  <div style={{ flex: 1, height: 1, background: '#E5E7EB' }} />
-                  <span style={{ fontSize: 9, background: '#DC2626', color: 'white', borderRadius: 3, padding: '1px 5px', fontWeight: 700 }}>D</span>
-                </div>
-                <div style={{ fontSize: 13, color: '#DC2626', fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {t('destinationLabel')}: {dropoffText.split(',')[0]}
-                </div>
-                <div style={{ fontSize: 11, color: '#64748B', fontWeight: 700, marginTop: 3 }}>
-                  {routeDistanceKm !== null ? `${routeDistanceKm} km` : '--'} · {routeDurationMinutes !== null ? `${routeDurationMinutes} min` : t('routePreview')}
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <FareBreakdownCard
-                    variant="passenger"
-                    totalFareUsd={listedFareUsd}
-                    t={t}
-                    titleKey="rideEstimate"
-                    showTransparentHint
-                    className="text-left"
-                    optionalDonationUsd={charityAddonPreviewUsd > 0 ? charityAddonPreviewUsd : null}
-                  />
-                </div>
-              </div>
-              <button
-                type="button"
-                aria-label={optionsPanelCollapsed ? 'Expand ride options' : 'Collapse ride options'}
-                onClick={() => setOptionsPanelCollapsed((prev) => !prev)}
-                style={S.routeCollapseBtn}
-              >
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: optionsPanelCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-                  <path d="M3 5l4 4 4-4" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Extra center collapse control */}
-            <button
-              type="button"
-              aria-label={optionsPanelCollapsed ? 'Expand options panel' : 'Collapse options panel'}
-              onClick={() => setOptionsPanelCollapsed((prev) => !prev)}
-              style={S.centerCollapseBtn}
-            >
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ transform: optionsPanelCollapsed ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-                <path d="M3 5l4 4 4-4" stroke="#334155" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-
-            {/* Vehicle options */}
-            {!optionsPanelCollapsed && (
-            <div>
-              {VEHICLES.map((v) => {
-                const sel = v.id === vehicleType;
-                const price = (BASE_FARE * v.mult).toFixed(2);
-                const isExpanded = expandedVehicleId === v.id;
-                const vehicleFareUsd = BASE_FARE * v.mult;
-                const donationEstimate = calculateDonationAmount(vehicleFareUsd, { type: 'percentage', value: 10 }).toFixed(2);
-                return (
-                  <div key={v.id}>
-                    <div
-                      style={S.vehicleRow(sel)}
-                      onClick={() => {
-                        setVehicleType(v.id as VehicleType);
-                      }}
-                    >
-                      <div style={S.vehicleEmoji}>{v.emoji}</div>
-                      <div style={S.vehicleInfo}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: '#111827' }}>{vehicleLabel(v.label)}</div>
-                        <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 1 }}>{vehicleSub(v.sub)} · {vehicleEta(v.eta)}</div>
-                      </div>
-                      <div style={S.vehiclePrice(sel)}>${price}</div>
-                      {sel && (
-                        <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#0077C8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        aria-label={isExpanded ? `${t('collapse')} ${vehicleLabel(v.label)} ${t('readDetails').toLowerCase()}` : `${t('expand')} ${vehicleLabel(v.label)} ${t('readDetails').toLowerCase()}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setExpandedVehicleId((prev) => (prev === v.id ? null : v.id));
-                        }}
-                        style={S.vehicleExpandBtn}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-                          <path d="M2 4l4 4 4-4" stroke="#64748B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                    </div>
-                    {isExpanded && (
-                      <div style={S.vehicleDetailsWrap}>
-                        <span style={S.vehicleDetailsChip}>ETA {vehicleEta(v.eta)}</span>
-                        <span style={S.vehicleDetailsChip}>Fare x{v.mult.toFixed(2)}</span>
-                        <span style={S.vehicleDetailsChip}>{tf('donationAddonExampleChip', { amount: `$${donationEstimate}` })}</span>
-                        {(() => {
-                          const vs = calculateGoodWheelsFareSplit(Math.round(Number(price) * 100));
-                          return (
-                            <span style={S.vehicleDetailsChip}>
-                              {t('driverReceives')}: {formatMoneyFromCents(vs.driverPayoutCents)}
-                            </span>
-                          );
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            )}
-
-            <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 20px 10px' }}>
-              <CauseDiscoveryPanel
-                compact
-                pickupLabel={pickupText}
-                dropoffLabel={dropoffText}
-                routeDistanceKm={routeDistanceKm}
-                routeDurationMinutes={routeDurationMinutes}
-                onAttachToRide={(cause) => {
-                  setSelectedCause(cause);
-                  setDraft({
-                    attachedCause: {
-                      id: cause.id,
-                      name: cause.name,
-                      category: cause.category,
-                      city: cause.city,
-                      country: cause.country,
-                      canDonate: cause.canDonate,
-                    },
-                    notes: `${t('supportCause')}: ${cause.name} (${cause.category})`,
-                  });
-                }}
-                onSupportCause={(cause) => {
-                  setSelectedCause(cause);
-                  setDraft({
-                    attachedCause: {
-                      id: cause.id,
-                      name: cause.name,
-                      category: cause.category,
-                      city: cause.city,
-                      country: cause.country,
-                      canDonate: cause.canDonate,
-                    },
-                  });
-                }}
-                onUseAsLocation={(cause) => {
-                  const confirmed = window.confirm(t('causeUseAsDestinationConfirm'));
-                  if (!confirmed) return;
-                  const causeAddress = `${cause.address}, ${cause.city}, ${cause.country}`;
-                  const nextDropoff = { lat: cause.coordinates.lat, lng: cause.coordinates.lng };
-                  setSelectedCause(cause);
-                  setDropoffText(causeAddress);
-                  setDropoffLL(nextDropoff);
-                  setDraft({
-                    dropoff: { label: t('destinationLabel'), addressLine: causeAddress, point: nextDropoff },
-                    attachedCause: {
-                      id: cause.id,
-                      name: cause.name,
-                      category: cause.category,
-                      city: cause.city,
-                      country: cause.country,
-                      canDonate: cause.canDonate,
-                    },
-                    notes: `${t('supportCause')}: ${cause.name} (${cause.category})`,
-                  });
-                }}
-              />
-            </div>
-
-            {/* Payment row + max offer */}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '12px 20px', gap: 12, borderTop: '1px solid #F3F4F6', borderBottom: '1px solid #F3F4F6' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: 1 }}>
-                <span style={{ fontSize: 20 }}>💵</span>
-                <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>{t('cash')}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#F3F4F6', borderRadius: 10, padding: '6px 12px', flex: 1 }}>
-                <span style={{ fontSize: 15, fontWeight: 700, color: '#374151' }}>$</span>
-                <input
-                  type="number"
-                  min="1"
-                  placeholder={t('maxOffer')}
-                  value={maxPrice}
-                  onChange={(e) => setMaxPrice(e.target.value)}
-                  style={{ background: 'none', border: 'none', outline: 'none', fontSize: 13, fontWeight: 600, color: '#111827', width: '100%', fontFamily: 'inherit' }}
-                />
-              </div>
-            </div>
-
-            {/* Confirm CTA */}
-            <div style={{ padding: '14px 20px 6px' }}>
-              {!optionsPanelCollapsed && (
-                <>
-                  <button
-                    type="button"
-                    style={S.confirmBtn(broadcasting || !maxPrice || negotiationState === 'pending')}
-                    disabled={broadcasting || !bothSet || negotiationState === 'pending'}
-                    onClick={handleSendOffer}
-                  >
-                    {negotiationState === 'pending'
-                      ? <><Spinner color="white" /> {t('negotiating')}</>
-                      : (broadcasting
-                        ? <><Spinner color="white" /> {t('broadcasting')}</>
-                        : t('requestRideAction'))}
-                  </button>
-                  {negotiationState === 'countered' && driverCounterOffer !== null && (
-                    <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => void handleAcceptCounter()}
-                        style={{ flex: 1, border: 'none', borderRadius: 10, background: '#0077C8', color: '#fff', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                      >
-                        {t('acceptCounter')} ${driverCounterOffer.toFixed(2)}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleKeepMyOffer()}
-                        style={{ flex: 1, border: '1px solid #CBD5E1', borderRadius: 10, background: '#fff', color: '#111827', padding: '10px 12px', fontSize: 12, fontWeight: 800, cursor: 'pointer' }}
-                      >
-                        {t('keepMyOffer')}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-              {Number(maxPrice) > 0 && Number.isFinite(Number(maxPrice)) && (
-                <div style={{ padding: '0 14px 10px' }}>
-                  <FareBreakdownCard
-                    variant="passenger"
-                    totalFareUsd={Number(maxPrice)}
-                    t={t}
-                    titleKey="offerBreakdown"
-                    showTransparentHint={false}
-                    optionalDonationUsd={
-                      selectedCause && Number(maxPrice) > 0
-                        ? calculateDonationAmount(Number(maxPrice), { type: 'percentage', value: 10 })
-                        : null
-                    }
-                  />
-                </div>
-              )}
-              {negotiationState === 'countered' && driverCounterOffer !== null && driverCounterOffer > 0 && (
-                <div style={{ padding: '0 14px 10px' }}>
-                  <FareBreakdownCard
-                    variant="passenger"
-                    totalFareUsd={driverCounterOffer}
-                    t={t}
-                    titleKey="counteroffer"
-                    optionalDonationUsd={
-                      selectedCause ? calculateDonationAmount(driverCounterOffer, { type: 'percentage', value: 10 }) : null
-                    }
-                  />
-                </div>
-              )}
-              {negotiationNote && (
-                <p style={{ textAlign: 'center', fontSize: 11, color: '#334155', fontWeight: 700, margin: '8px 0 2px' }}>
-                  {negotiationNote}
-                </p>
-              )}
-              {selectedCause ? (
-                <div
-                  style={{
-                    marginTop: 8,
-                    borderRadius: 10,
-                    border: '1px solid #86efac',
-                    background: '#f0fdf4',
-                    padding: '8px 10px',
-                  }}
-                >
-                  <p style={{ textAlign: 'center', fontSize: 11, color: '#166534', fontWeight: 800, margin: '0 0 2px' }}>
-                    {selectedCause.name} · {selectedCause.category} · {selectedCause.city}
-                  </p>
-                  <p style={{ textAlign: 'center', fontSize: 11, color: '#15803d', fontWeight: 700, margin: 0 }}>
-                    {tf('passengerCharityAddonFooter', {
-                      name: selectedCause?.name ?? t('charities'),
-                      amount: `$${charityAddonPreviewUsd.toFixed(2)}`,
-                    })}
-                  </p>
-                </div>
-              ) : (
-                <p style={{ textAlign: 'center', fontSize: 11, color: '#9CA3AF', fontWeight: 500, margin: '8px 0 2px' }}>
-                  {t('selectCharityHint')}
-                </p>
-              )}
-              <p style={{ textAlign: 'center', fontSize: 11, color: '#334155', fontWeight: 700, margin: '8px 0 2px' }}>
-                {t('rideNotActiveUntilAccepted')}
-              </p>
-              <p style={{ textAlign: 'center', fontSize: 11, color: '#64748B', fontWeight: 600, margin: '6px 0 2px' }}>
-                {t('rideSignalSent')} · {t('waitingAcceptance')}
-              </p>
-            </div>
-          </div>
+          <PassengerRideOptionsPanel
+            t={t}
+            tf={tf}
+            onBack={() => setSheet('search')}
+            pickupSummary={pickupText.split(',')[0]}
+            dropoffSummary={dropoffText.split(',')[0]}
+            routeDistanceKm={routeDistanceKm}
+            routeDurationMinutes={routeDurationMinutes}
+            vehicles={VEHICLES.map(({ id, sub, emoji, mult, eta }) => ({ id, sub, emoji, mult, eta }))}
+            baseFareUsd={BASE_FARE}
+            vehicleType={vehicleType}
+            onVehicleType={setVehicleType}
+            recommendedUsd={recommendedUsd}
+            maxPrice={maxPrice}
+            setMaxPrice={setMaxPrice}
+            onSendOffer={handleSendOffer}
+            broadcasting={broadcasting}
+            bothSet={bothSet}
+            negotiationState={negotiationState}
+            driverCounterOffer={driverCounterOffer}
+            onAcceptCounter={handleAcceptCounter}
+            onKeepMyOffer={handleKeepMyOffer}
+            negotiationNote={negotiationNote}
+          />
         )}
 
         {/* ── Bottom tab bar ── */}
-        {!(sheet === 'options' && optionsPanelCollapsed) && (
-          <nav style={sheet === 'search' ? S.tabBarGlass : S.tabBar}>
-            {bottomNavTabs.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                style={S.tab(activeTab === tab.id)}
-                onClick={() => handleTabClick(tab.id)}
-              >
-                <span style={{ fontSize: 22 }}>{tab.icon}</span>
-                <span>{t(tab.key)}</span>
-              </button>
-            ))}
-          </nav>
-        )}
+        <nav
+          style={
+            sheet === 'search'
+              ? S.tabBarGlass
+              : sheet === 'options'
+                ? { ...S.tabBarGlass, ...S.tabBarOptionsGlass, display: 'flex' }
+                : S.tabBar
+          }
+        >
+          {bottomNavTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              style={S.tab(activeTab === tab.id)}
+              onClick={() => handleTabClick(tab.id)}
+            >
+              <span style={{ fontSize: 22 }}>{tab.icon}</span>
+              <span>{t(tab.key)}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
       {sheet === 'search' && bothSet && (
@@ -1438,7 +1080,11 @@ const PassengerRideHomePage: React.FC = () => {
         </button>
       )}
 
-      <style>{`@keyframes gw-spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+@keyframes gw-spin { to { transform: rotate(360deg); } }
+.gw-loc-ph-pickup::placeholder { color: rgba(22, 163, 74, 0.42); }
+.gw-loc-ph-dropoff::placeholder { color: rgba(220, 38, 38, 0.42); }
+`}</style>
     </div>
   );
 };
