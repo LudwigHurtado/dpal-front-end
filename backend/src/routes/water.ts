@@ -11,6 +11,7 @@ let tokenCache: TokenCache = null;
 const TOKEN_REFRESH_BUFFER_MS = 60_000;
 const DEFAULT_TOKEN_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
 const DEFAULT_BASE_URL = 'https://services.sentinel-hub.com';
+const ADAPTER_TIMEOUT_MS = 7000;
 
 function tokenUrl(): string {
   return process.env.COPERNICUS_TOKEN_URL?.trim() || DEFAULT_TOKEN_URL;
@@ -96,11 +97,13 @@ function evalscriptFor(indexType: 'NDVI' | 'NDWI' | 'NDMI' | 'NBR'): string {
 
 function buildStatisticsRequest(args: {
   aoiGeoJson: { type: 'Polygon'; coordinates: number[][][] };
-  indexType: 'NDVI' | 'NDWI' | 'NDMI' | 'NBR';
+  collection: 'sentinel-2-l2a' | 'sentinel-1-grd';
+  outputBand: string;
+  inputBands: string[];
+  expression: string;
   fromDate: string;
   toDate: string;
 }): Record<string, unknown> {
-  const outputBand = args.indexType;
   return {
     input: {
       bounds: {
@@ -109,7 +112,7 @@ function buildStatisticsRequest(args: {
       },
       data: [
         {
-          type: 'sentinel-2-l2a',
+          type: args.collection,
           dataFilter: {
             mosaickingOrder: 'mostRecent',
             timeRange: {
@@ -131,24 +134,17 @@ function buildStatisticsRequest(args: {
       evalscript: `//VERSION=3
 function setup() {
   return {
-    input: [{ bands: ["B03", "B04", "B08", "B11", "B12", "dataMask"] }],
+    input: [{ bands: [${args.inputBands.map((b) => `"${b}"`).join(', ')}] }],
     output: [
-      { id: "${outputBand}", bands: 1, sampleType: "FLOAT32" },
+      { id: "${args.outputBand}", bands: 1, sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1 }
     ]
   };
 }
 function evaluatePixel(sample) {
-  const denominator = ${args.indexType === 'NDVI'
-    ? '(sample.B08 + sample.B04)'
-    : args.indexType === 'NDWI'
-      ? '(sample.B03 + sample.B08)'
-      : args.indexType === 'NDMI'
-        ? '(sample.B08 + sample.B11)'
-        : '(sample.B08 + sample.B12)'};
-  const value = denominator === 0 ? 0 : ${evalscriptFor(args.indexType).replace(/B(\d{2})/g, 'sample.B$1')};
+  const value = ${args.expression};
   return {
-    ${outputBand}: [value],
+    ${args.outputBand}: [value],
     dataMask: [sample.dataMask]
   };
 }`,
@@ -201,9 +197,45 @@ async function fetchIndexMean(args: {
   toDate: string;
 }): Promise<{ mean: number | null; sampleCount: number; noDataCount: number }> {
   const token = await getServerToken();
+  const indexExpression = evalscriptFor(args.indexType).replace(/B(\d{2})/g, 'sample.B$1');
   const requestBody = buildStatisticsRequest({
     aoiGeoJson: pointPolygonAoi(args.lat, args.lng, 2),
-    indexType: args.indexType,
+    collection: 'sentinel-2-l2a',
+    outputBand: args.indexType,
+    inputBands: ['B03', 'B04', 'B08', 'B11', 'B12', 'dataMask'],
+    expression: indexExpression,
+    fromDate: args.fromDate,
+    toDate: args.toDate,
+  });
+  const response = await fetch(`${sentinelBaseUrl()}/api/v1/statistics`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+  if (!response.ok) {
+    return { mean: null, sampleCount: 0, noDataCount: 0 };
+  }
+  const payload = await response.json().catch(() => ({}));
+  return parseStatisticsMean(payload);
+}
+
+async function fetchSentinel1VvDbMean(args: {
+  lat: number;
+  lng: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<{ mean: number | null; sampleCount: number; noDataCount: number }> {
+  const token = await getServerToken();
+  const requestBody = buildStatisticsRequest({
+    aoiGeoJson: pointPolygonAoi(args.lat, args.lng, 2),
+    collection: 'sentinel-1-grd',
+    outputBand: 'VVDB',
+    inputBands: ['VV', 'VH', 'dataMask'],
+    // Convert VV backscatter to dB. Sentinel-1 water is typically very low VV.
+    expression: '(sample.VV > 0 ? 10.0 * (Math.log(sample.VV) / Math.log(10)) : -35)',
     fromDate: args.fromDate,
     toDate: args.toDate,
   });
@@ -234,15 +266,84 @@ function confidenceFromCounts(sampleCount: number, noDataCount: number): number 
   return toFixed(Math.max(0.05, Math.min(0.99, sampleCount / total)));
 }
 
+async function fetchJsonWithTimeout(url: string): Promise<{ ok: boolean; payload: unknown | null; reason?: string }> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ADAPTER_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) return { ok: false, payload: null, reason: `HTTP ${response.status}` };
+    const payload = await response.json().catch(() => null);
+    return { ok: true, payload };
+  } catch (error: unknown) {
+    return { ok: false, payload: null, reason: error instanceof Error ? error.message : 'request_failed' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function dateWindowIso(days: number): { start: string; end: string } {
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(end.getUTCDate() - days);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+async function checkNasaCmrShortNames(shortNames: string[], lat: number, lng: number): Promise<{ ok: boolean; source: string; reason?: string }> {
+  const { start, end } = dateWindowIso(90);
+  for (const shortName of shortNames) {
+    const url = `https://cmr.earthdata.nasa.gov/search/granules.json?short_name=${encodeURIComponent(shortName)}&point=${lng},${lat}&temporal=${encodeURIComponent(`${start},${end}`)}&page_size=1`;
+    const response = await fetchJsonWithTimeout(url);
+    if (!response.ok) continue;
+    const payload = response.payload as { feed?: { entry?: unknown[] } } | null;
+    const entries = payload?.feed?.entry;
+    if (Array.isArray(entries) && entries.length > 0) {
+      return { ok: true, source: `cmr:${shortName}` };
+    }
+  }
+  return { ok: false, source: `cmr:${shortNames[0]}`, reason: 'no_recent_granules' };
+}
+
+async function checkGibsAvailability(): Promise<{ ok: boolean; source: string; reason?: string }> {
+  const url = 'https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/1.0.0/WMTSCapabilities.xml';
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ADAPTER_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) return { ok: false, source: 'nasa-gibs', reason: `HTTP ${response.status}` };
+    const text = await response.text();
+    const hasModisLayer = /MODIS_Terra_CorrectedReflectance_TrueColor/i.test(text);
+    return { ok: hasModisLayer, source: 'nasa-gibs', reason: hasModisLayer ? undefined : 'layer_not_found' };
+  } catch (error: unknown) {
+    return { ok: false, source: 'nasa-gibs', reason: error instanceof Error ? error.message : 'request_failed' };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function getUpstreamAdapterHealth(lat: number, lng: number) {
+  const [smap, swot, grace, gibs] = await Promise.all([
+    checkNasaCmrShortNames(['SPL3SMP_E', 'SPL3SMP'], lat, lng),
+    checkNasaCmrShortNames(['SWOT_L2_HR_Raster_2.0', 'SWOT_L2_HR_RiverSP_2.0'], lat, lng),
+    checkNasaCmrShortNames(['GRACEFO_L3_JPL_MASCON_RL06.3_V4'], lat, lng),
+    checkGibsAvailability(),
+  ]);
+  return { smap, swot, grace, gibs };
+}
+
 async function buildSatellitePreview(lat: number, lng: number, areaLabel: string) {
   const fromDate = dateIsoShift(14);
   const toDate = dateIsoShift(0);
-  const [ndvi, ndwi, ndmi, nbr] = await Promise.all([
+  const [ndvi, ndwi, ndmi, nbr, adapterHealth] = await Promise.all([
     fetchIndexMean({ indexType: 'NDVI', lat, lng, fromDate, toDate }),
     fetchIndexMean({ indexType: 'NDWI', lat, lng, fromDate, toDate }),
     fetchIndexMean({ indexType: 'NDMI', lat, lng, fromDate, toDate }),
     fetchIndexMean({ indexType: 'NBR', lat, lng, fromDate, toDate }),
+    getUpstreamAdapterHealth(lat, lng),
   ]);
+  const sentinel1 = await fetchSentinel1VvDbMean({ lat, lng, fromDate, toDate });
 
   const ndviMean = ndvi.mean ?? 0;
   const ndwiMean = ndwi.mean ?? 0;
@@ -257,8 +358,12 @@ async function buildSatellitePreview(lat: number, lng: number, areaLabel: string
   const avgSampleCount = Math.round((ndvi.sampleCount + ndwi.sampleCount + ndmi.sampleCount + nbr.sampleCount) / 4);
   const avgNoData = Math.round((ndvi.noDataCount + ndwi.noDataCount + ndmi.noDataCount + nbr.noDataCount) / 4);
   const confidenceScore = confidenceFromCounts(avgSampleCount, avgNoData);
-  const sentinelWaterFraction = clamp01((ndwiMean + 1) / 2);
-  const sentinelFloodRisk = clamp01(0.2 + sentinelWaterFraction * 0.65);
+  const sentinelWaterFraction = sentinel1.mean == null
+    ? null
+    : clamp01((-12 - sentinel1.mean) / 15);
+  const sentinelFloodRisk = sentinelWaterFraction == null
+    ? null
+    : clamp01(0.2 + sentinelWaterFraction * 0.65);
 
   return {
     ok: true,
@@ -267,10 +372,28 @@ async function buildSatellitePreview(lat: number, lng: number, areaLabel: string
     centerLat: lat,
     centerLng: lng,
     adapters: {
-      smap: { ok: ndmi.mean != null, soilMoistureIndex, confidenceScore },
-      swot: { ok: ndwi.mean != null, surfaceWaterLevel, waterExtentKm2: toFixed(sentinelWaterFraction * 5.4, 2), confidenceScore },
-      grace: { ok: ndmi.mean != null && nbr.mean != null, waterStorageTrend, confidenceScore },
-      gibs: { ok: ndvi.mean != null, vegetationStress, ndviIndex: toFixed(ndviMean, 3), confidenceScore },
+      smap: {
+        ok: adapterHealth.smap.ok,
+        soilMoistureIndex,
+        confidenceScore: adapterHealth.smap.ok ? 0.99 : 0,
+      },
+      swot: {
+        ok: adapterHealth.swot.ok,
+        surfaceWaterLevel,
+        waterExtentKm2: sentinelWaterFraction == null ? undefined : toFixed(sentinelWaterFraction * 5.4, 2),
+        confidenceScore: adapterHealth.swot.ok ? 0.99 : 0,
+      },
+      grace: {
+        ok: adapterHealth.grace.ok,
+        waterStorageTrend,
+        confidenceScore: adapterHealth.grace.ok ? 0.99 : 0,
+      },
+      gibs: {
+        ok: adapterHealth.gibs.ok,
+        vegetationStress,
+        ndviIndex: toFixed(ndviMean, 3),
+        confidenceScore: adapterHealth.gibs.ok ? 0.99 : 0,
+      },
       copernicus: {
         ok: ndwi.mean != null,
         droughtRisk,
@@ -281,12 +404,12 @@ async function buildSatellitePreview(lat: number, lng: number, areaLabel: string
         confidenceScore,
       },
       sentinel1: {
-        ok: ndwi.mean != null,
-        waterFraction: toFixed(sentinelWaterFraction, 3),
-        vvMeanDb: toFixed(-21 + sentinelWaterFraction * 9, 2),
-        floodRisk: toFixed(sentinelFloodRisk, 3),
+        ok: sentinel1.mean != null,
+        waterFraction: sentinelWaterFraction == null ? undefined : toFixed(sentinelWaterFraction, 3),
+        vvMeanDb: sentinel1.mean == null ? undefined : toFixed(sentinel1.mean, 2),
+        floodRisk: sentinelFloodRisk == null ? undefined : toFixed(sentinelFloodRisk, 3),
         captureDate: toDate,
-        confidenceScore,
+        confidenceScore: confidenceFromCounts(sentinel1.sampleCount, sentinel1.noDataCount),
       },
     },
     summary: {
