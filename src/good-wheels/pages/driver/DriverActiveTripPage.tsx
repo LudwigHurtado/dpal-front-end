@@ -7,9 +7,11 @@ import { GW_PATHS } from '../../routes/paths';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import { useTripStore } from '../../features/trips/tripStore';
 import DriverBackendActiveTripView from '../../features/driver/components/DriverBackendActiveTripView';
+import { useGwLang } from '../../i18n/useGwLang';
 
 const DriverActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const loadForUser = useRideStore((s) => s.loadForUser);
   const activeRide = useRideStore((s) => s.activeRide);
@@ -36,9 +38,9 @@ const DriverActiveTripPage: React.FC = () => {
   if (!activeRide || !activeRide.driverId) {
     return (
       <div className="gw-card p-6">
-        <div className="gw-card-title">No active driver trip</div>
+        <div className="gw-card-title">{t('driverNoActiveTripTitle')}</div>
         <button type="button" className="gw-button gw-button-secondary mt-2" onClick={() => navigate(GW_PATHS.driver.dashboard)}>
-          Back to driver dashboard
+          {t('driverBackToDashboard')}
         </button>
       </div>
     );

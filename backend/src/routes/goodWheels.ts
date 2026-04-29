@@ -65,10 +65,22 @@ type GoodWheelsTripOfferState = {
   updatedAtIso: string;
 };
 
+type GoodWheelsDriverResponseState = {
+  driverId: string;
+  status: 'unseen' | 'seen' | 'acknowledged' | 'countered' | 'accepted' | 'rejected' | 'expired';
+  lastActionAtIso: string;
+};
+
 type GoodWheelsTrip = {
   id: string;
   passengerId: string;
   driverId?: string;
+  /** Driver currently in an exclusive negotiation (e.g. after counteroffer). */
+  negotiationDriverId?: string;
+  /** Drivers who dismissed this open request; filtered per-driver on queue/dashboard. */
+  rejectedDriverIds?: string[];
+  driverResponseState?: GoodWheelsDriverResponseState;
+  acceptedAtIso?: string;
   pickupCategory?: string;
   dropoffCategory?: string;
   driverSnapshot?: {
@@ -294,33 +306,157 @@ function defaultTotalFareCentsFromDistance(distanceKm: number): number {
   return Math.round(usd * 100);
 }
 
+function isTerminalTripStatus(status: string): boolean {
+  return ['completed', 'cancelled', 'canceled'].includes(status);
+}
+
+const ACTIVE_ASSIGNED_STATUSES = new Set([
+  'accepted',
+  'driver_en_route',
+  'driver_arrived',
+  'passenger_onboard',
+  'in_progress',
+  'driver_assigned',
+  'driver_arriving',
+  'arrived',
+]);
+
+function isOpenPoolStatus(status: string): boolean {
+  return ['requested', 'broadcasted', 'matched'].includes(status);
+}
+
+/** Open requests visible to this driver (not another driver's exclusive negotiation, not rejected by this driver). */
+function filterAvailableRequestsForDriver(trips: GoodWheelsTrip[], driverId: string): GoodWheelsTrip[] {
+  if (!driverId) {
+    return trips.filter((t) => isOpenPoolStatus(t.status)).sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
+  }
+  return trips
+    .filter((t) => isOpenPoolStatus(t.status))
+    .filter((t) => !isTerminalTripStatus(t.status))
+    .filter((t) => !(t.driverId && t.driverId !== driverId))
+    .filter((t) => !t.rejectedDriverIds?.includes(driverId))
+    .filter((t) => !(t.negotiationDriverId && t.negotiationDriverId !== driverId))
+    .filter((t) => !(t.negotiationDriverId === driverId && t.offerState?.status === 'driver_countered'))
+    .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
+}
+
+/** Trips where this driver countered and is waiting on the passenger. */
+function filterPendingCounterDealsForDriver(trips: GoodWheelsTrip[], driverId: string): GoodWheelsTrip[] {
+  if (!driverId) return [];
+  return trips
+    .filter((t) => isOpenPoolStatus(t.status) && !isTerminalTripStatus(t.status))
+    .filter((t) => t.negotiationDriverId === driverId && t.offerState?.status === 'driver_countered')
+    .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
+}
+
+function filterActiveTripForDriver(trips: GoodWheelsTrip[], driverId: string): GoodWheelsTrip | null {
+  if (!driverId) return null;
+  const hit =
+    trips
+      .filter((t) => t.driverId === driverId && !isTerminalTripStatus(t.status))
+      .filter((t) => ACTIVE_ASSIGNED_STATUSES.has(t.status))
+      .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso))[0] ?? null;
+  return hit;
+}
+
+function filterRecentCompletedForDriver(trips: GoodWheelsTrip[], driverId: string, limit: number): GoodWheelsTrip[] {
+  if (!driverId) return [];
+  return trips
+    .filter((t) => t.driverId === driverId && t.status === 'completed')
+    .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso))
+    .slice(0, limit);
+}
+
+function buildDriverDashboardPayload(
+  trips: GoodWheelsTrip[],
+  driverId: string,
+  driverProfile: {
+    id: string;
+    fullName: string;
+    isVerifiedDriver: boolean;
+    isVerifiedVehicle: boolean;
+    availability: 'online' | 'offline' | 'busy';
+  },
+) {
+  const activeTrip = filterActiveTripForDriver(trips, driverId);
+  const pendingDeals = filterPendingCounterDealsForDriver(trips, driverId);
+  const counteredDeals = pendingDeals;
+  const availableRequests = filterAvailableRequestsForDriver(trips, driverId);
+  const recentCompletedTrips = filterRecentCompletedForDriver(trips, driverId, 12);
+  const todayPrefix = new Date().toISOString().slice(0, 10);
+  const completedToday = trips.filter(
+    (t) => t.driverId === driverId && t.status === 'completed' && (t.completedAtIso ?? '').startsWith(todayPrefix),
+  ).length;
+  const lifetimeCompleted = trips.filter((t) => t.driverId === driverId && t.status === 'completed').length;
+  return {
+    driver: driverProfile,
+    availability: driverProfile.availability,
+    activeTrip: activeTrip ? enrichTripEstimate(activeTrip) : null,
+    pendingDeals: pendingDeals.map(enrichTripEstimate),
+    counteredDeals: counteredDeals.map(enrichTripEstimate),
+    availableRequests: availableRequests.map(enrichTripEstimate),
+    recentCompletedTrips: recentCompletedTrips.map(enrichTripEstimate),
+    summary: {
+      availableCount: availableRequests.length,
+      pendingDealCount: pendingDeals.length,
+      activeTripStatus: activeTrip?.status ?? null,
+      completedToday,
+      completedTrips: lifetimeCompleted,
+    },
+  };
+}
+
 function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
   const dist =
     typeof trip.estimate?.distanceKm === 'number' && trip.estimate.distanceKm > 0 ? trip.estimate.distanceKm : 4.8;
-  let total =
-    typeof trip.estimate?.totalFareCents === 'number' && Number.isFinite(trip.estimate.totalFareCents)
-      ? Math.round(trip.estimate.totalFareCents)
-      : 0;
-  if (total <= 0) {
-    total = defaultTotalFareCentsFromDistance(dist);
+  const heuristicCents = defaultTotalFareCentsFromDistance(dist);
+  const prev = trip.offerState;
+  const negStatus = prev?.status ?? 'none';
+
+  let passengerCents = 0;
+  if (typeof prev?.passengerOfferCents === 'number' && Number.isFinite(prev.passengerOfferCents) && prev.passengerOfferCents > 0) {
+    passengerCents = Math.round(prev.passengerOfferCents);
   }
-  const split = calculateGoodWheelsFareSplit(total);
-  const prevOffer = trip.offerState;
-  const mergedOffer: GoodWheelsTripOfferState | undefined =
-    prevOffer && prevOffer.status !== 'none'
-      ? {
-          ...prevOffer,
-          passengerOfferCents: prevOffer.passengerOfferCents ?? split.totalFareCents,
-          recommendedFareCents: prevOffer.recommendedFareCents ?? split.totalFareCents,
-        }
-      : split.totalFareCents > 0
-        ? {
-            passengerOfferCents: split.totalFareCents,
-            recommendedFareCents: split.totalFareCents,
-            status: 'passenger_offered',
-            updatedAtIso: trip.updatedAtIso || trip.createdAtIso || new Date().toISOString(),
-          }
-        : undefined;
+  if (passengerCents <= 0) {
+    const est = trip.estimate?.totalFareCents;
+    if (typeof est === 'number' && Number.isFinite(est) && est > 0) {
+      passengerCents = Math.round(est);
+    }
+  }
+
+  let recommendedCents = 0;
+  if (typeof prev?.recommendedFareCents === 'number' && Number.isFinite(prev.recommendedFareCents) && prev.recommendedFareCents > 0) {
+    recommendedCents = Math.round(prev.recommendedFareCents);
+  }
+  if (recommendedCents <= 0) {
+    recommendedCents = heuristicCents;
+  }
+
+  const acceptedCents =
+    typeof prev?.acceptedFareCents === 'number' && Number.isFinite(prev.acceptedFareCents) && prev.acceptedFareCents > 0
+      ? Math.round(prev.acceptedFareCents)
+      : 0;
+
+  const splitBase =
+    negStatus === 'accepted' && acceptedCents > 0 ? acceptedCents : passengerCents > 0 ? passengerCents : heuristicCents;
+
+  const split = calculateGoodWheelsFareSplit(splitBase);
+
+  const mergedPassenger = passengerCents > 0 ? passengerCents : splitBase;
+  const mergedRecommended = recommendedCents > 0 ? recommendedCents : heuristicCents;
+
+  const mergedOffer: GoodWheelsTripOfferState = {
+    passengerOfferCents: mergedPassenger,
+    recommendedFareCents: mergedRecommended,
+    driverCounterOfferCents: prev?.driverCounterOfferCents,
+    acceptedFareCents: acceptedCents > 0 ? acceptedCents : prev?.acceptedFareCents,
+    status: negStatus !== 'none' ? negStatus : splitBase > 0 ? 'passenger_offered' : 'none',
+    updatedAtIso:
+      prev?.updatedAtIso && negStatus !== 'none'
+        ? prev.updatedAtIso
+        : trip.updatedAtIso || trip.createdAtIso || new Date().toISOString(),
+  };
+
   return {
     ...trip,
     estimate: {
@@ -330,7 +466,7 @@ function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
       currency: trip.estimate?.currency || 'USD',
       fareSplit: fareSplitToPayload(split),
     },
-    offerState: mergedOffer,
+    offerState: mergedOffer.status === 'none' && splitBase <= 0 ? undefined : mergedOffer,
   };
 }
 
@@ -445,6 +581,28 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
     body.estimate && typeof body.estimate === 'object'
       ? (body.estimate as { totalFareCents?: unknown; fareUsd?: unknown })
       : null;
+  const offerStateIn = body.offerState && typeof body.offerState === 'object' ? (body.offerState as Record<string, unknown>) : null;
+  const explicitPassenger =
+    (typeof offerStateIn?.passengerOfferCents === 'number' &&
+    Number.isFinite(offerStateIn.passengerOfferCents as number) &&
+    (offerStateIn.passengerOfferCents as number) > 0
+      ? Math.round(Number(offerStateIn.passengerOfferCents))
+      : 0) ||
+    (typeof body.passengerOfferCents === 'number' && Number.isFinite(body.passengerOfferCents) && body.passengerOfferCents > 0
+      ? Math.round(Number(body.passengerOfferCents))
+      : 0);
+  const explicitRecommended =
+    (typeof offerStateIn?.recommendedFareCents === 'number' &&
+    Number.isFinite(offerStateIn.recommendedFareCents as number) &&
+    (offerStateIn.recommendedFareCents as number) > 0
+      ? Math.round(Number(offerStateIn.recommendedFareCents))
+      : 0) ||
+    (typeof body.recommendedFareCents === 'number' && Number.isFinite(body.recommendedFareCents) && body.recommendedFareCents > 0
+      ? Math.round(Number(body.recommendedFareCents))
+      : 0);
+
+  const heuristicCents = defaultTotalFareCentsFromDistance(distanceKm);
+
   let totalFareCents =
     typeof estFareIn?.totalFareCents === 'number' && Number.isFinite(estFareIn.totalFareCents) && estFareIn.totalFareCents > 0
       ? Math.round(Number(estFareIn.totalFareCents))
@@ -453,10 +611,17 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
         : typeof body.fareUsd === 'number' && body.fareUsd > 0
           ? Math.round(body.fareUsd * 100)
           : 0;
-  if (totalFareCents <= 0) {
-    totalFareCents = defaultTotalFareCentsFromDistance(distanceKm);
+
+  if (explicitPassenger > 0) {
+    totalFareCents = explicitPassenger;
+  } else if (totalFareCents <= 0) {
+    totalFareCents = heuristicCents;
   }
-  const initialFareSplit = calculateGoodWheelsFareSplit(totalFareCents);
+
+  const recommendedFareCents = explicitRecommended > 0 ? explicitRecommended : heuristicCents;
+  const passengerOfferCents = explicitPassenger > 0 ? explicitPassenger : totalFareCents;
+
+  const initialFareSplit = calculateGoodWheelsFareSplit(passengerOfferCents);
   const trip: GoodWheelsTrip = {
     id: tripId,
     passengerId: String(body.passengerId || 'usr-passenger-001'),
@@ -473,7 +638,7 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
     estimate: {
       etaMinutes,
       distanceKm,
-      totalFareCents: initialFareSplit.totalFareCents,
+      totalFareCents: passengerOfferCents,
       currency: 'USD',
       fareSplit: fareSplitToPayload(initialFareSplit),
     },
@@ -494,8 +659,8 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
     ],
     chatThreadId,
     offerState: {
-      passengerOfferCents: initialFareSplit.totalFareCents,
-      recommendedFareCents: initialFareSplit.totalFareCents,
+      passengerOfferCents,
+      recommendedFareCents,
       status: 'passenger_offered',
       updatedAtIso: now,
     },
@@ -521,9 +686,33 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
   res.status(201).json({ ok: true, trip: enrichTripEstimate(trip) });
 });
 
-router.get('/driver/queue', async (_req: Request, res: Response): Promise<void> => {
+router.get('/driver/dashboard', async (req: Request, res: Response): Promise<void> => {
+  const driverId = String(req.query.driverId || '').trim();
+  if (!driverId) {
+    res.status(400).json({ ok: false, error: 'driverId is required' });
+    return;
+  }
+  const users = await seedUsersIfEmpty();
+  const user = users.find((u) => u.id === driverId) ?? null;
+  if (!user) {
+    res.status(404).json({ ok: false, error: 'User not found' });
+    return;
+  }
   const trips = await seedTripsIfEmpty();
-  const queue = trips.filter((t) => ['requested', 'broadcasted', 'matched'].includes(t.status));
+  const driverProfile = {
+    id: user.id,
+    fullName: user.fullName,
+    isVerifiedDriver: user.trust.verifiedDriver === 'verified',
+    isVerifiedVehicle: user.trust.verifiedVehicle === 'verified',
+    availability: (user.isOnline ? 'online' : 'offline') as 'online' | 'offline' | 'busy',
+  };
+  res.json({ ok: true, ...buildDriverDashboardPayload(trips, driverId, driverProfile) });
+});
+
+router.get('/driver/queue', async (req: Request, res: Response): Promise<void> => {
+  const trips = await seedTripsIfEmpty();
+  const driverId = String(req.query.driverId || '').trim();
+  const queue = filterAvailableRequestsForDriver(trips, driverId);
   res.json({ ok: true, queue: queue.map(enrichTripEstimate) });
 });
 
@@ -635,9 +824,20 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
   }
   const now = new Date().toISOString();
   const prev = trips[idx];
+  if (prev.driverId && prev.driverId !== driverId) {
+    res.status(409).json({ ok: false, error: 'Trip already assigned to another driver' });
+    return;
+  }
   const next: GoodWheelsTrip = {
     ...prev,
     driverId: prev.driverId || driverId,
+    negotiationDriverId: undefined,
+    acceptedAtIso: now,
+    driverResponseState: {
+      driverId,
+      status: 'accepted',
+      lastActionAtIso: now,
+    },
     driverSnapshot: {
       id: driver.id,
       fullName: driver.fullName,
@@ -708,6 +908,10 @@ router.post('/trips/:tripId/counteroffer', async (req: Request, res: Response): 
     res.status(400).json({ ok: false, error: 'Trip is not open for counteroffers' });
     return;
   }
+  if (prev.negotiationDriverId && prev.negotiationDriverId !== driverId) {
+    res.status(409).json({ ok: false, error: 'Another driver is negotiating this trip' });
+    return;
+  }
   const now = new Date().toISOString();
   const enriched = enrichTripEstimate(prev);
   const basePassenger =
@@ -729,6 +933,8 @@ router.post('/trips/:tripId/counteroffer', async (req: Request, res: Response): 
   const next: GoodWheelsTrip = {
     ...prev,
     updatedAtIso: now,
+    negotiationDriverId: driverId,
+    driverResponseState: { driverId, status: 'countered', lastActionAtIso: now },
     offerState,
     chatThreadId: prev.chatThreadId || `good-wheels-trip-${prev.id}`,
     timeline: [
@@ -738,6 +944,65 @@ router.post('/trips/:tripId/counteroffer', async (req: Request, res: Response): 
         atIso: now,
         label: 'Driver sent counteroffer',
         detail: detailParts.join(' — '),
+      },
+    ],
+  };
+  trips[idx] = next;
+  await writeJsonArray(TRIPS_FILE, trips);
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
+});
+
+router.post('/trips/:tripId/reject-driver', async (req: Request, res: Response): Promise<void> => {
+  const tripId = String(req.params.tripId || '').trim();
+  const driverId = String(req.body?.driverId || '').trim();
+  if (!tripId || !driverId) {
+    res.status(400).json({ ok: false, error: 'tripId and driverId are required' });
+    return;
+  }
+  const trips = await seedTripsIfEmpty();
+  const idx = trips.findIndex((t) => t.id === tripId);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'Trip not found' });
+    return;
+  }
+  const now = new Date().toISOString();
+  const prev = trips[idx];
+  if (!['requested', 'broadcasted', 'matched'].includes(prev.status)) {
+    res.status(400).json({ ok: false, error: 'Trip is not open for driver rejection' });
+    return;
+  }
+  const rejected = [...(prev.rejectedDriverIds ?? [])];
+  if (!rejected.includes(driverId)) rejected.push(driverId);
+
+  let negotiationDriverId = prev.negotiationDriverId;
+  let offerState = prev.offerState;
+  if (prev.negotiationDriverId === driverId && prev.offerState?.status === 'driver_countered') {
+    negotiationDriverId = undefined;
+    offerState = prev.offerState
+      ? {
+          passengerOfferCents: prev.offerState.passengerOfferCents,
+          recommendedFareCents: prev.offerState.recommendedFareCents,
+          acceptedFareCents: prev.offerState.acceptedFareCents,
+          status: 'passenger_offered',
+          updatedAtIso: now,
+        }
+      : undefined;
+  }
+
+  const next: GoodWheelsTrip = {
+    ...prev,
+    updatedAtIso: now,
+    rejectedDriverIds: rejected,
+    negotiationDriverId,
+    offerState,
+    driverResponseState: { driverId, status: 'rejected', lastActionAtIso: now },
+    timeline: [
+      ...prev.timeline,
+      {
+        id: mkId('evt'),
+        atIso: now,
+        label: 'Driver declined request',
+        detail: 'This driver will not be shown this open request again.',
       },
     ],
   };

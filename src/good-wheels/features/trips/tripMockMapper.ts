@@ -173,6 +173,25 @@ export function mapMockTripToTrip(input: unknown): Trip {
           }
         : undefined,
     offerState: asOfferState(o.offerState, updatedAtIso),
+    negotiationDriverId: typeof o.negotiationDriverId === 'string' ? o.negotiationDriverId : undefined,
+    rejectedDriverIds: Array.isArray(o.rejectedDriverIds)
+      ? (o.rejectedDriverIds as unknown[]).filter((x): x is string => typeof x === 'string')
+      : undefined,
+    driverResponseState:
+      o.driverResponseState && typeof o.driverResponseState === 'object'
+        ? {
+            driverId: String((o.driverResponseState as { driverId?: unknown }).driverId || ''),
+            status: (() => {
+              const s = String((o.driverResponseState as { status?: unknown }).status || 'unseen');
+              const allowed = new Set(['unseen', 'seen', 'acknowledged', 'countered', 'accepted', 'rejected', 'expired']);
+              return (allowed.has(s) ? s : 'unseen') as NonNullable<Trip['driverResponseState']>['status'];
+            })(),
+            lastActionAtIso: String(
+              (o.driverResponseState as { lastActionAtIso?: unknown }).lastActionAtIso || updatedAtIso,
+            ),
+          }
+        : undefined,
+    acceptedAtIso: typeof o.acceptedAtIso === 'string' ? o.acceptedAtIso : undefined,
   } as Trip;
 }
 

@@ -65,6 +65,15 @@ export const goodWheelsRideApi = {
   },
 
   async requestRide(draft: RideRequestDraft): Promise<Trip> {
+    const passengerCents =
+      typeof draft.passengerOfferCents === 'number' && draft.passengerOfferCents > 0
+        ? Math.round(draft.passengerOfferCents)
+        : undefined;
+    const recommendedCents =
+      typeof draft.recommendedFareCents === 'number' && draft.recommendedFareCents > 0
+        ? Math.round(draft.recommendedFareCents)
+        : undefined;
+    const nowIso = new Date().toISOString();
     const res = await fetch(buildApiUrl('/api/good-wheels/trips/request'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -75,9 +84,28 @@ export const goodWheelsRideApi = {
         purpose: draft.purpose,
         supportCategoryId: draft.supportCategoryId,
         familySafe: draft.familySafe,
-        estimate: draft.estimatePreview,
+        estimate: draft.estimatePreview
+          ? {
+              ...draft.estimatePreview,
+              ...(passengerCents != null ? { totalFareCents: passengerCents } : {}),
+            }
+          : passengerCents != null
+            ? { totalFareCents: passengerCents }
+            : undefined,
         routeSummary: draft.routeSummaryPreview,
         attachedCause: draft.attachedCause,
+        passengerOfferCents: passengerCents,
+        recommendedFareCents: recommendedCents,
+        totalFareCents: passengerCents,
+        offerState:
+          passengerCents != null
+            ? {
+                passengerOfferCents: passengerCents,
+                recommendedFareCents: recommendedCents ?? passengerCents,
+                status: 'passenger_offered',
+                updatedAtIso: nowIso,
+              }
+            : undefined,
       }),
     });
     if (!res.ok) throw new Error(`Request trip failed (${res.status})`);
@@ -157,11 +185,47 @@ export const goodWheelsDriverApi = {
     return data.profile;
   },
 
-  async fetchQueue(): Promise<Trip[]> {
-    const res = await fetch(buildApiUrl('/api/good-wheels/driver/queue'));
+  async fetchQueue(driverId?: string): Promise<Trip[]> {
+    const url = new URL(buildApiUrl('/api/good-wheels/driver/queue'));
+    if (driverId) url.searchParams.set('driverId', driverId);
+    const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`Driver queue failed (${res.status})`);
     const data = await parseJson<{ queue?: unknown[] }>(res);
     return Array.isArray(data.queue) ? data.queue.map(mapMockTripToTrip) : [];
+  },
+
+  async fetchDriverDashboard(driverId: string): Promise<{
+    driver: { id: string; fullName: string; isVerifiedDriver: boolean; isVerifiedVehicle: boolean; availability?: string };
+    availability: string;
+    activeTrip: unknown | null;
+    pendingDeals: unknown[];
+    counteredDeals: unknown[];
+    availableRequests: unknown[];
+    recentCompletedTrips: unknown[];
+    summary: {
+      availableCount: number;
+      pendingDealCount: number;
+      activeTripStatus: string | null;
+      completedToday: number;
+      completedTrips: number;
+    };
+  }> {
+    const url = new URL(buildApiUrl('/api/good-wheels/driver/dashboard'));
+    url.searchParams.set('driverId', driverId);
+    const res = await fetch(url.toString());
+    if (!res.ok) throw new Error(`Driver dashboard failed (${res.status})`);
+    return parseJson(res);
+  },
+
+  async rejectTripForDriver(tripId: string, driverId: string): Promise<Trip> {
+    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/reject-driver`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ driverId }),
+    });
+    if (!res.ok) throw new Error(`Reject trip failed (${res.status})`);
+    const data = await parseJson<{ trip: unknown }>(res);
+    return mapMockTripToTrip(data.trip);
   },
 
   async fetchHistory(driverId: string): Promise<Trip[]> {

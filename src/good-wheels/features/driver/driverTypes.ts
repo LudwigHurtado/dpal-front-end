@@ -49,6 +49,25 @@ export type DriverProfile = {
   availability?: 'online' | 'offline' | 'busy';
 };
 
+export type DriverDashboardSummary = {
+  availableCount: number;
+  pendingDealCount: number;
+  activeTripStatus: string | null;
+  completedToday: number;
+  completedTrips: number;
+};
+
+export type DriverDashboardPayload = {
+  driver: DriverProfile;
+  availability: 'online' | 'offline' | 'busy' | string;
+  activeTrip: Trip | null;
+  pendingDeals: Trip[];
+  counteredDeals: Trip[];
+  availableRequests: Trip[];
+  recentCompletedTrips: Trip[];
+  summary: DriverDashboardSummary;
+};
+
 export type DriverQueueFilterSpec = {
   id: DriverQueueFilterId;
   label: string;

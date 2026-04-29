@@ -16,9 +16,11 @@ import { useDriverStore } from '../driverStore';
 
 const DriverRequestCard: React.FC<{
   trip: Trip;
-  onAccept: () => void;
+  onAccept?: () => void;
   onDecline: () => void;
-}> = ({ trip, onAccept, onDecline }) => {
+  /** When set, this card is a pending counteroffer the driver already sent (server-restored). */
+  dealVariant?: 'available' | 'pending_counteroffer';
+}> = ({ trip, onAccept, onDecline, dealVariant = 'available' }) => {
   const t = useGwLang((s) => s.t);
   const tf = useGwLang((s) => s.tf);
   const user = useAuthStore((s) => s.user);
@@ -35,16 +37,31 @@ const DriverRequestCard: React.FC<{
     [trip.supportCategoryId],
   );
 
-  const totalFareCents =
+  /** Prefer explicit passenger offer; never treat system/recommended fare as the passenger offer when both differ. */
+  const explicitPassenger =
+    typeof trip.offerState?.passengerOfferCents === 'number' && trip.offerState.passengerOfferCents > 0
+      ? Math.round(trip.offerState.passengerOfferCents)
+      : 0;
+  const estimateFare =
     typeof trip.estimate?.totalFareCents === 'number' && trip.estimate.totalFareCents > 0
-      ? trip.estimate.totalFareCents
-      : typeof trip.offerState?.passengerOfferCents === 'number' && trip.offerState.passengerOfferCents > 0
-        ? trip.offerState.passengerOfferCents
-        : 0;
-
-  const passengerOfferCents = trip.offerState?.passengerOfferCents ?? totalFareCents;
-  const recommendedFareCents = trip.offerState?.recommendedFareCents ?? totalFareCents;
+      ? Math.round(trip.estimate.totalFareCents)
+      : 0;
+  const passengerOfferCents = explicitPassenger > 0 ? explicitPassenger : estimateFare;
+  const recommendedFareCents =
+    typeof trip.offerState?.recommendedFareCents === 'number' && trip.offerState.recommendedFareCents > 0
+      ? Math.round(trip.offerState.recommendedFareCents)
+      : estimateFare > 0
+        ? estimateFare
+        : passengerOfferCents;
+  const showRecommendedRow =
+    recommendedFareCents > 0 && passengerOfferCents > 0 && recommendedFareCents !== passengerOfferCents;
   const offerSplit = useMemo(() => calculateGoodWheelsFareSplit(passengerOfferCents), [passengerOfferCents]);
+  const isPendingCounter = dealVariant === 'pending_counteroffer';
+  const counterCents =
+    typeof trip.offerState?.driverCounterOfferCents === 'number' && trip.offerState.driverCounterOfferCents > 0
+      ? Math.round(trip.offerState.driverCounterOfferCents)
+      : 0;
+  const counterSplit = useMemo(() => calculateGoodWheelsFareSplit(counterCents), [counterCents]);
   const fareUsd = passengerOfferCents > 0 ? passengerOfferCents / 100 : null;
 
   const durationMinutes = trip.routeSummary?.durationMinutes ?? Math.max(6, trip.estimate.etaMinutes);
@@ -98,6 +115,11 @@ const DriverRequestCard: React.FC<{
   return (
     <div className="gw-card overflow-hidden gw-driver-surface border border-slate-200/80 shadow-sm">
       <div className="p-3 sm:p-4">
+        {isPendingCounter ? (
+          <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-950">
+            {t('counterofferSentLabel')} · {t('waitingForPassengerResponseLabel')}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center gap-2">
@@ -116,15 +138,50 @@ const DriverRequestCard: React.FC<{
               {category ? <TripSupportCategoryChip category={category} /> : null}
             </div>
             {passengerOfferCents > 0 ? (
-              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                <div>
-                  <span className="text-slate-600">{t('passengerOffer')}: </span>
-                  <span className="font-bold text-slate-900 tabular-nums">{formatMoneyFromCents(passengerOfferCents)}</span>
+              <div className="flex flex-col gap-1 text-sm">
+                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                  <div>
+                    <span className="text-slate-600">{t('passengerOffer')}: </span>
+                    <span className="font-bold text-slate-900 tabular-nums">{formatMoneyFromCents(passengerOfferCents)}</span>
+                  </div>
+                  {isPendingCounter && counterCents > 0 ? (
+                    <>
+                      <div>
+                        <span className="text-slate-600">{t('yourCounteroffer')}: </span>
+                        <span className="font-bold text-slate-900 tabular-nums">{formatMoneyFromCents(counterCents)}</span>
+                      </div>
+                      <div>
+                        <span className="text-emerald-900 font-semibold">{t('youWouldReceiveIfAccepted')}: </span>
+                        <span className="font-extrabold text-emerald-800 tabular-nums">
+                          {formatMoneyFromCents(counterSplit.driverPayoutCents)}
+                        </span>
+                      </div>
+                    </>
+                  ) : !isPendingCounter ? (
+                    <div>
+                      <span className="text-emerald-900 font-semibold">{t('youReceive')}: </span>
+                      <span className="font-extrabold text-emerald-800 tabular-nums">{formatMoneyFromCents(offerSplit.driverPayoutCents)}</span>
+                    </div>
+                  ) : null}
                 </div>
-                <div>
-                  <span className="text-emerald-900 font-semibold">{t('youReceive')}: </span>
-                  <span className="font-extrabold text-emerald-800 tabular-nums">{formatMoneyFromCents(offerSplit.driverPayoutCents)}</span>
-                </div>
+                {showRecommendedRow ? (
+                  <div className="text-xs text-slate-500">
+                    <span className="font-semibold text-slate-600">{t('recommendedFare')}: </span>
+                    <span className="tabular-nums">{formatMoneyFromCents(recommendedFareCents)}</span>
+                  </div>
+                ) : null}
+                {import.meta.env.DEV ? (
+                  <div className="rounded border border-amber-200/80 bg-amber-50/90 px-2 py-1.5 text-[10px] font-mono text-amber-950 space-y-0.5">
+                    <div>tripId {trip.id}</div>
+                    <div>
+                      pOffer {trip.offerState?.passengerOfferCents ?? '—'} · rec {trip.offerState?.recommendedFareCents ?? '—'} · drvCo{' '}
+                      {trip.offerState?.driverCounterOfferCents ?? '—'} · acc {trip.offerState?.acceptedFareCents ?? '—'}
+                    </div>
+                    <div>
+                      created {trip.createdAtIso} · updated {trip.updatedAtIso}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <div className="text-xs text-amber-800">{t('farePending')}</div>
@@ -138,35 +195,46 @@ const DriverRequestCard: React.FC<{
             <button type="button" className="gw-button gw-button-secondary text-xs px-3 py-1.5" onClick={toggleDetails}>
               {expanded ? t('hideDetails') : t('details')}
             </button>
-            <button
-              type="button"
-              className="gw-button text-xs px-3 py-1.5 border border-amber-500/80 text-amber-900 bg-amber-50 hover:bg-amber-100"
-              onClick={() => {
-                setCounterOpen((c) => !c);
-                setCounterError(null);
-              }}
-            >
-              {t('counteroffer')}
-            </button>
-            <button
-              type="button"
-              className="gw-button text-xs px-3 py-1.5 font-bold bg-emerald-600 text-white hover:bg-emerald-700 border-0 shadow-sm"
-              onClick={onAccept}
-            >
-              {t('acceptRide')}
-            </button>
-            <button type="button" className="gw-button gw-button-secondary text-xs px-3 py-1.5 border border-slate-200" onClick={onDecline}>
-              {t('rejectRide')}
-            </button>
-            {trip.broadcastId ? (
-              <button
-                type="button"
-                className="text-[11px] font-semibold text-slate-500 underline-offset-2 hover:underline disabled:opacity-40"
-                disabled={!trip.broadcastId || ackBusy || ackDone}
-                onClick={() => void acknowledge()}
-              >
-                {ackDone ? t('acknowledged') : t('acknowledge')}
-              </button>
+            {isPendingCounter ? (
+              <Link to={chatHref} className="gw-button gw-button-secondary text-xs px-3 py-1.5 no-underline inline-flex items-center">
+                {t('openTripChat')}
+              </Link>
+            ) : null}
+            {!isPendingCounter ? (
+              <>
+                <button
+                  type="button"
+                  className="gw-button text-xs px-3 py-1.5 border border-amber-500/80 text-amber-900 bg-amber-50 hover:bg-amber-100"
+                  onClick={() => {
+                    setCounterOpen((c) => !c);
+                    setCounterError(null);
+                  }}
+                >
+                  {t('counteroffer')}
+                </button>
+                {onAccept ? (
+                  <button
+                    type="button"
+                    className="gw-button text-xs px-3 py-1.5 font-bold bg-emerald-600 text-white hover:bg-emerald-700 border-0 shadow-sm"
+                    onClick={onAccept}
+                  >
+                    {t('acceptRide')}
+                  </button>
+                ) : null}
+                <button type="button" className="gw-button gw-button-secondary text-xs px-3 py-1.5 border border-slate-200" onClick={onDecline}>
+                  {t('rejectRide')}
+                </button>
+                {trip.broadcastId ? (
+                  <button
+                    type="button"
+                    className="text-[11px] font-semibold text-slate-500 underline-offset-2 hover:underline disabled:opacity-40"
+                    disabled={!trip.broadcastId || ackBusy || ackDone}
+                    onClick={() => void acknowledge()}
+                  >
+                    {ackDone ? t('acknowledged') : t('acknowledge')}
+                  </button>
+                ) : null}
+              </>
             ) : null}
           </div>
         </div>
@@ -174,7 +242,7 @@ const DriverRequestCard: React.FC<{
 
       {(expanded || counterOpen) && (
         <div className="border-t border-slate-100 bg-slate-50/60 px-3 py-3 sm:px-4 space-y-3">
-          {counterOpen && passengerOfferCents > 0 && (
+          {counterOpen && passengerOfferCents > 0 && !isPendingCounter && (
             <DriverCounterOfferPanel
               passengerOfferCents={passengerOfferCents}
               recommendedFareCents={recommendedFareCents}

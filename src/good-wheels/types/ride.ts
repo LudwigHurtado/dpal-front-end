@@ -57,6 +57,10 @@ export type RideRequestDraft = {
   /** Client route preview — sent to API for broadcast/estimate only */
   estimatePreview?: { etaMinutes: number; distanceKm: number };
   routeSummaryPreview?: { distanceKm: number; durationMinutes: number; previewSteps?: string[] };
+  /** Passenger gross offer in whole cents (must match what the passenger typed or accepted). */
+  passengerOfferCents?: number;
+  /** System suggested fare in whole cents (distance/tier heuristic); never replace `passengerOfferCents`. */
+  recommendedFareCents?: number;
   attachedCause?: {
     id: string;
     name: string;
@@ -171,5 +175,15 @@ export type Trip = {
   cancelReason?: string;
   /** Fare negotiation; gross trip fare on `estimate` until a future accept flow applies `acceptedFareCents`. */
   offerState?: TripOfferState;
+  /** Driver in exclusive negotiation (e.g. after sending a counteroffer). */
+  negotiationDriverId?: string;
+  /** Drivers who dismissed this open request (per-driver queue filtering). */
+  rejectedDriverIds?: string[];
+  driverResponseState?: {
+    driverId: string;
+    status: 'unseen' | 'seen' | 'acknowledged' | 'countered' | 'accepted' | 'rejected' | 'expired';
+    lastActionAtIso: string;
+  };
+  acceptedAtIso?: string;
 };
 
