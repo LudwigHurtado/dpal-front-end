@@ -37,16 +37,11 @@ export default function CarbReportViewer({
     setReport(getCarbReport(resolvedId));
   }, [resolvedId]);
 
-  const indexIntegrationStatus = useMemo(() => {
-    if (!report?.environmentalReadings?.length) {
-      return { label: 'Index analysis unavailable', tone: 'border-slate-700 bg-slate-900/60 text-slate-300' };
-    }
-    const hasLiveIntegrated = report.environmentalReadings.some((reading) => !reading.source.toLowerCase().includes('auto-screening'));
-    if (hasLiveIntegrated) {
-      return { label: 'Live indices integrated', tone: 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200' };
-    }
-    return { label: 'Fallback screening used', tone: 'border-amber-500/40 bg-amber-900/20 text-amber-200' };
-  }, [report]);
+  const isDraftVerificationPage = report?.sourceMode === 'NEEDS_SOURCE' && (report?.reportQualityRating ?? 'Draft') === 'Draft';
+  const indexIntegrationStatus = useMemo(
+    () => ({ label: 'Remote sensing screening not available', tone: 'border-slate-700 bg-slate-900/60 text-slate-300' }),
+    [],
+  );
 
   const handleDownload = async (): Promise<void> => {
     if (!report || downloadBusy) return;
@@ -78,8 +73,8 @@ export default function CarbReportViewer({
       <section className="rounded-[2rem] border border-slate-800 bg-slate-950/90 p-4 text-slate-200 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300">DPAL CARB Specialized Emissions Report</p>
-            <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">Verification Viewer</h1>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300">{report.reportLabel ?? 'DPAL CARB Specialized Emissions Report'}</p>
+            <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{isDraftVerificationPage ? 'Draft verification page' : 'Verification Viewer'}</h1>
             <p className="mt-2 text-sm text-slate-400">Report ID: {report.reportId}</p>
           </div>
           <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
@@ -99,6 +94,9 @@ export default function CarbReportViewer({
           <h2 className="text-lg font-bold text-white">Executive Summary</h2>
           <p className={`mt-2 inline-flex rounded-full border px-3 py-1 text-[11px] font-bold uppercase tracking-wide ${indexIntegrationStatus.tone}`}>
             {indexIntegrationStatus.label}
+          </p>
+          <p className="mt-2 text-xs text-slate-400">
+            NDWI, NDVI, NDMI, and NBR require satellite imagery, facility coordinates, and selected observation dates. They are not calculated from CARB emissions records alone.
           </p>
           <p className="mt-2">Report quality rating: <span className="font-semibold text-cyan-200">{text(report.reportQualityRating, 'Draft')}</span></p>
           {report.dataReadiness ? (
@@ -133,22 +131,11 @@ export default function CarbReportViewer({
           </div>
           <h3 className="mt-5 text-base font-bold text-white">Company Claim Review</h3>
           <p className="mt-2">{text(report.claimVerificationResult)}</p>
-          {report.environmentalReadings?.length ? (
-            <>
-              <h3 className="mt-5 text-base font-bold text-white">Automatic NDWI/NDVI/NDMI/NBR Analysis</h3>
-              <div className="mt-2 space-y-2">
-                {report.environmentalReadings.map((reading) => (
-                  <div key={reading.index} className="rounded-lg border border-slate-800 bg-slate-900/60 p-2 text-xs">
-                    <p className="font-semibold text-white">{reading.index}</p>
-                    <p>Before: {reading.before ?? 'n/a'} | Current: {reading.current ?? 'n/a'} | Change: {reading.change ?? 'n/a'}</p>
-                    <p>Confidence: {reading.confidence}</p>
-                    <p>Source: {reading.source}</p>
-                    <p>{reading.interpretation}</p>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : null}
+          <h3 className="mt-5 text-base font-bold text-white">Remote sensing screening</h3>
+          <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
+            <p className="font-semibold text-white">Remote sensing screening not available.</p>
+            <p className="mt-1">NDWI, NDVI, NDMI, and NBR require satellite imagery, facility coordinates, and selected observation dates. They are not calculated from CARB emissions records alone.</p>
+          </div>
           {report.investigationFindings?.length ? (
             <>
               <h3 className="mt-5 text-base font-bold text-white">Investigation Engine Findings</h3>
@@ -173,6 +160,39 @@ export default function CarbReportViewer({
                 <p><span className="font-semibold text-white">Data continuity:</span> {report.historicalTrend.dataContinuity}</p>
                 <p><span className="font-semibold text-white">Coverage:</span> {report.historicalTrend.historicalCoverageNote}</p>
                 <p><span className="font-semibold text-white">Claim boundary:</span> {report.historicalTrend.claimBoundaryCheck}</p>
+              </div>
+            </>
+          ) : null}
+          {report.facilityPollutantReadings?.entries?.length ? (
+            <>
+              <h3 className="mt-5 text-base font-bold text-white">Facility Pollutant Readings</h3>
+              <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
+                <p><span className="font-semibold text-white">Source:</span> {report.facilityPollutantReadings.sourceLabel}</p>
+                <p className="mt-1">{report.facilityPollutantReadings.caveat}</p>
+                {report.sourceReconciliation ? (
+                  <div className="mt-2 rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-2">
+                    <p><span className="font-semibold text-white">Source match confidence:</span> {report.sourceReconciliation.matchConfidenceLabel}</p>
+                    <p className="mt-1">{report.sourceReconciliation.rationale}</p>
+                    <p className="mt-1">{report.sourceReconciliation.sourceAssociationNote}</p>
+                  </div>
+                ) : null}
+                <div className="mt-2 space-y-3">
+                  {report.facilityPollutantReadings.entries.map((entry, index) => (
+                    <div key={`${entry.facilityName}-${entry.reportingYear}-${index}`} className="rounded-lg border border-slate-800 bg-slate-950/70 p-2">
+                      <p className="font-semibold text-white">{entry.facilityName} ({entry.reportingYear})</p>
+                      <p>Facility ID: {text(entry.facilityId, 'n/a')} | Address/location: {text(entry.addressOrLocation, 'n/a')}</p>
+                      <p>CO2: {text(entry.co2, 'n/a')} | CH4: {text(entry.ch4, 'n/a')} | N2O: {text(entry.n2o, 'n/a')}</p>
+                      <p>Biomass CO2: {text(entry.biomassCo2, 'n/a')} | Non-Biomass GHG: {text(entry.nonBiomassGhg, 'n/a')}</p>
+                      <p>Total GHG: {text(entry.totalGhg, 'n/a')} | Covered GHG: {text(entry.coveredGhg, 'n/a')}</p>
+                      <p>VOC: {text(entry.voc, 'n/a')} | NOx: {text(entry.nox, 'n/a')} | SOx: {text(entry.sox, 'n/a')} | Toxics: {text(entry.toxics, 'n/a')}</p>
+                      <p>Coordinates: {text(entry.latitude, 'n/a')}, {text(entry.longitude, 'n/a')}</p>
+                      <p>Source URL: {text(entry.sourceUrl, 'n/a')}</p>
+                      <p>Evidence attachment: {text(entry.screenshotEvidence, 'n/a')}</p>
+                      <p>Date captured: {entry.dateCaptured}</p>
+                      <p>Investigator notes: {text(entry.investigatorNotes, 'n/a')}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </>
           ) : null}

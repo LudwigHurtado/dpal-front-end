@@ -8,6 +8,16 @@ import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
+import type { ChatMessage } from '../types';
+import type { DpalProjectGuideSnapshot } from './dpal-assistant/projectGuideTypes';
+import {
+  createRoomFromScanResult,
+  postInitialScanMessages,
+  saveScanResult,
+  type EarthObservationGuideSnapshot,
+  type EarthObservationScanRecord,
+  type ScanToSituationPackage,
+} from '../services/situationRoomBridge';
 
 interface GPSPoint { lat: number; lng: number }
 
@@ -303,7 +313,13 @@ function ObservationAidChat({ result, location, radiusKm }: { result: EarthObser
   );
 }
 
-const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) => {
+type EarthObservationViewProps = {
+  onReturn: () => void;
+  actorName?: string;
+  onOpenSituationRoomFromScan?: (payload: { pkg: ScanToSituationPackage; initialMessagesPosted: ChatMessage[] }) => void | Promise<void>;
+};
+
+const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, actorName, onOpenSituationRoomFromScan }) => {
   const toDateInputValue = (date: Date): string => date.toISOString().slice(0, 10);
   const initialEnd = new Date();
   const initialStart = new Date(initialEnd);
@@ -322,6 +338,13 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
   const [scanRequested, setScanRequested] = useState(false);
   const [evidencePacketCreated, setEvidencePacketCreated] = useState(false);
   const [verificationMissionCreated, setVerificationMissionCreated] = useState(false);
+  const [scanSavedRecord, setScanSavedRecord] = useState<EarthObservationScanRecord | null>(null);
+  const [scanSources, setScanSources] = useState<Array<Record<string, unknown>>>([]);
+  const [guideSnapshot, setGuideSnapshot] = useState<EarthObservationGuideSnapshot>({});
+  const [sendingToSituationRoom, setSendingToSituationRoom] = useState(false);
+  const [situationRoomSent, setSituationRoomSent] = useState(false);
+  const [situationRoomId, setSituationRoomId] = useState<string | null>(null);
+  const [lastRoomPackage, setLastRoomPackage] = useState<ScanToSituationPackage | null>(null);
 
   const selectedUse = USE_CASES.find((item) => item.id === observationType) ?? USE_CASES[0];
 
@@ -398,6 +421,7 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
           .filter(Boolean)
           .join(' | ')
         : selectedUse.satellites;
+      setScanSources(Array.isArray(data?.sources) ? data.sources as Array<Record<string, unknown>> : []);
       const captureDate = null;
       const confidenceScore = typeof data?.confidence === 'number' ? data.confidence : null;
       const isVerified = data?.signalStatus === 'verified' || data?.signalStatus === 'partially_verified';
@@ -424,11 +448,46 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
           : 'No verified satellite reading available yet for this area and date range.',
         metrics: data?.metrics && typeof data.metrics === 'object' ? data.metrics as Record<string, number | string | null> : {},
       });
+      const autoSaved = saveScanResult({
+        id: scanSavedRecord?.id || `scan-eo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        moduleType: 'earth_observation',
+        analysisType: observationType,
+        latitude: scanLocation.lat,
+        longitude: scanLocation.lng,
+        radiusKm: scanRadius,
+        aoi: {
+          type: 'circle',
+          center: { lat: scanLocation.lat, lng: scanLocation.lng },
+          radiusKm: scanRadius,
+          boundarySaved: aoiSaved,
+        },
+        sourceMode: data?.sourceMode ?? null,
+        signalStatus: data?.signalStatus ?? null,
+        processingStage: data?.processingStage ?? null,
+        primarySignal: data?.primarySignal ?? null,
+        riskLevel: data?.riskLevel ?? null,
+        confidence: confidenceScore,
+        beforeScene: data?.beforeScene ?? null,
+        afterScene: data?.afterScene ?? null,
+        metricMethod: typeof data?.metricMethod === 'string' ? data.metricMethod : null,
+        metrics: data?.metrics && typeof data.metrics === 'object' ? data.metrics as Record<string, number | string | null> : {},
+        sources: Array.isArray(data?.sources) ? data.sources as Array<Record<string, unknown>> : [],
+        limitations: Array.isArray(data?.limitations) ? data.limitations : [],
+        legalDisclaimer: typeof data?.legalDisclaimer === 'string' ? data.legalDisclaimer : undefined,
+        recommendedActions: Array.isArray(data?.recommendedActions) ? data.recommendedActions : [],
+        createdAt: new Date().toISOString(),
+        createdBy: actorName ?? null,
+        guide: guideSnapshot,
+      });
+      setScanSavedRecord(autoSaved);
       if (data?.sourceMode === 'UNAVAILABLE') {
         setNotice('No verified satellite reading available yet for this AOI and date range. Try adjusting location, radius, or dates.');
       } else {
         setNotice('');
       }
+      setSituationRoomSent(false);
+      setSituationRoomId(null);
+      setLastRoomPackage(null);
     } catch {
       setResult({
         ...EMPTY_RESULT(observationType),
@@ -444,6 +503,106 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
   useEffect(() => {
     setAoiSaved(false);
   }, [scanLocation.lat, scanLocation.lng, scanRadius]);
+
+  const toGuideSnapshot = (snapshot: DpalProjectGuideSnapshot): EarthObservationGuideSnapshot => ({
+    guideCurrentStep: snapshot.currentStep,
+    guideNextStep: snapshot.nextStep,
+    plainEnglishExplanation: snapshot.plainEnglishExplanation,
+    missingItems: snapshot.missingItems ?? [],
+    warnings: snapshot.warnings ?? [],
+    recommendedActions: snapshot.recommendedActions ?? [],
+    claimSafety: snapshot.claimSafety,
+    lastUserQuestion: snapshot.lastUserQuestion,
+    lastGuideResponse: snapshot.lastGuideResponse,
+  });
+
+  const persistScanRecord = (): EarthObservationScanRecord => {
+    const scanRecord: EarthObservationScanRecord = {
+      id: scanSavedRecord?.id || `scan-eo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      moduleType: 'earth_observation',
+      analysisType: observationType,
+      latitude: scanLocation.lat,
+      longitude: scanLocation.lng,
+      radiusKm: scanRadius,
+      aoi: {
+        type: 'circle',
+        center: { lat: scanLocation.lat, lng: scanLocation.lng },
+        radiusKm: scanRadius,
+        boundarySaved: aoiSaved,
+      },
+      sourceMode: result.sourceMode ?? null,
+      signalStatus: result.signalStatus ?? null,
+      processingStage: result.processingStage ?? null,
+      primarySignal: result.primarySignal ?? null,
+      riskLevel: result.riskLevel ?? null,
+      confidence: result.confidenceScore ?? null,
+      beforeScene: result.beforeScene ?? null,
+      afterScene: result.afterScene ?? null,
+      metricMethod: result.metricMethod ?? null,
+      metrics: result.metrics,
+      sources: scanSources,
+      limitations: result.limitations ?? [],
+      legalDisclaimer: result.legalDisclaimer,
+      recommendedActions: result.recommendedActions ?? [],
+      createdAt: new Date().toISOString(),
+      createdBy: actorName ?? null,
+      guide: guideSnapshot,
+    };
+    const saved = saveScanResult(scanRecord);
+    setScanSavedRecord(saved);
+    return saved;
+  };
+
+  const canSendToSituationRoom = Boolean(scanRequested && result.sourceMode && result.processingStage);
+
+  const handleSendToSituationRoom = async () => {
+    if (sendingToSituationRoom || !canSendToSituationRoom) return;
+    setSendingToSituationRoom(true);
+    try {
+      const savedScan = persistScanRecord();
+      const pkg = createRoomFromScanResult({
+        analysisType: savedScan.analysisType,
+        latitude: savedScan.latitude,
+        longitude: savedScan.longitude,
+        radiusKm: savedScan.radiusKm,
+        aoi: savedScan.aoi,
+        sourceMode: savedScan.sourceMode,
+        signalStatus: savedScan.signalStatus,
+        processingStage: savedScan.processingStage,
+        primarySignal: savedScan.primarySignal,
+        riskLevel: savedScan.riskLevel,
+        confidence: savedScan.confidence,
+        beforeScene: savedScan.beforeScene,
+        afterScene: savedScan.afterScene,
+        metricMethod: savedScan.metricMethod,
+        metrics: savedScan.metrics,
+        sources: savedScan.sources,
+        limitations: savedScan.limitations,
+        legalDisclaimer: savedScan.legalDisclaimer,
+        recommendedActions: savedScan.recommendedActions,
+        summaryText: result.message,
+        createdBy: savedScan.createdBy,
+        guide: savedScan.guide,
+      });
+      const initialMessagesPosted = await postInitialScanMessages(pkg.situationRoom.roomId, pkg.initialMessages);
+      setSituationRoomSent(true);
+      setSituationRoomId(pkg.situationRoom.roomId);
+      setLastRoomPackage(pkg);
+      setEvidencePacketCreated(true);
+      if (onOpenSituationRoomFromScan) {
+        await onOpenSituationRoomFromScan({ pkg, initialMessagesPosted });
+      }
+    } catch {
+      setNotice('Could not send this scan to Situation Room yet. Try again.');
+    } finally {
+      setSendingToSituationRoom(false);
+    }
+  };
+
+  const handleOpenSituationRoom = async () => {
+    if (!lastRoomPackage || !onOpenSituationRoomFromScan) return;
+    await onOpenSituationRoomFromScan({ pkg: lastRoomPackage, initialMessagesPosted: [] });
+  };
 
   const verified = result.dataAvailable === true;
   const metrics = [
@@ -475,6 +634,7 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
     recommendedActions: result.recommendedActions ?? [],
     evidencePacket: evidencePacketCreated,
     missionCreated: verificationMissionCreated,
+    situationRoomSent,
   };
 
   return (
@@ -661,6 +821,54 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
           {result.legalDisclaimer && <p className="mt-2 text-[11px] text-slate-500">{result.legalDisclaimer}</p>}
         </div>
 
+        <div className="rounded-xl border border-violet-600/30 bg-violet-950/15 p-4 text-sm text-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="font-bold text-white">Situation Room Routing</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Save this scan package and route it into the existing DPAL Situation Room for team + validator review.
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Scan saved: {scanSavedRecord ? 'yes' : 'no'}{situationRoomId ? ` · room ${situationRoomId}` : ''}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  persistScanRecord();
+                  setNotice('Scan package saved.');
+                }}
+                disabled={!canSendToSituationRoom}
+                className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-200 disabled:opacity-50"
+              >
+                {scanSavedRecord ? 'Scan saved' : 'Save scan'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleSendToSituationRoom()}
+                disabled={!canSendToSituationRoom || sendingToSituationRoom}
+                className="rounded-lg border border-violet-500/50 bg-violet-900/30 px-3 py-2 text-xs font-bold text-violet-100 disabled:opacity-50"
+              >
+                {sendingToSituationRoom
+                  ? 'Sending...'
+                  : situationRoomSent
+                    ? 'Already sent to Situation Room'
+                    : 'Send to Situation Room'}
+              </button>
+              {(situationRoomSent || situationRoomId) && onOpenSituationRoomFromScan && (
+                <button
+                  type="button"
+                  onClick={() => void handleOpenSituationRoom()}
+                  className="rounded-lg border border-sky-500/50 bg-sky-900/25 px-3 py-2 text-xs font-bold text-sky-100"
+                >
+                  Open Situation Room
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => (
             <div key={metric.label} className="rounded-xl border border-white/10 bg-black/30 p-4">
@@ -715,6 +923,8 @@ const EarthObservationView: React.FC<{ onReturn: () => void }> = ({ onReturn }) 
             evidenceState={{ evidencePacket: evidencePacketCreated, missionCreated: verificationMissionCreated }}
             onCreateEvidencePacket={() => setEvidencePacketCreated(true)}
             onCreateVerificationMission={() => setVerificationMissionCreated(true)}
+            onSendToSituationRoom={() => void handleSendToSituationRoom()}
+            onGuideStateChange={(snapshot) => setGuideSnapshot(toGuideSnapshot(snapshot))}
           />
         </div>
       </div>

@@ -6,11 +6,14 @@ interface CarbReportQRCodeProps {
 }
 
 export default function CarbReportQRCode({ report }: CarbReportQRCodeProps): React.ReactElement {
+  const isDraftVerificationPage = report.sourceMode === 'NEEDS_SOURCE' && (report.reportQualityRating ?? 'Draft') === 'Draft';
   return (
     <div className="rounded-2xl border border-slate-700 bg-slate-950/80 p-4">
-      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-300">QR Verification</p>
+      <p className="text-[11px] font-black uppercase tracking-[0.24em] text-cyan-300">{isDraftVerificationPage ? 'Draft verification page' : 'QR Verification'}</p>
       <p className="mt-1 text-xs text-slate-400">
-        Scan to verify this CARB specialized report.
+        {isDraftVerificationPage
+          ? 'Scan to verify the existence of this DPAL draft report. Official CARB source verification is still pending.'
+          : 'Scan to verify this CARB specialized report.'}
       </p>
       <div className="mt-3 flex items-center gap-4">
         <div className="flex h-28 w-28 items-center justify-center rounded-xl bg-white p-2">

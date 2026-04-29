@@ -1,9 +1,11 @@
 export type CarbReportSourceMode = 'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE';
+export type SourceMatchConfidence = 'CONFIRMED_MATCH' | 'LIKELY_MATCH' | 'MANUAL_ASSOCIATION' | 'UNMATCHED';
 
 export interface CarbSpecializedReport {
   reportId: string;
   auditId: string;
   module: 'DPAL CARB Specialized Emissions Report';
+  reportLabel?: string;
   createdAt: string;
   createdBy?: string;
   facilityIdentity: {
@@ -82,6 +84,40 @@ export interface CarbSpecializedReport {
       linkedMarkerId?: string;
     }>;
     activeLayers: string[];
+  };
+  facilityPollutantReadings?: {
+    sourceType: 'CARB_POLLUTION_MAPPING_TOOL';
+    sourceLabel: string;
+    caveat: string;
+    entries: Array<{
+      facilityName: string;
+      facilityId?: string;
+      reportingYear: number;
+      addressOrLocation?: string;
+      latitude?: number | null;
+      longitude?: number | null;
+      co2?: number | null;
+      ch4?: number | null;
+      n2o?: number | null;
+      biomassCo2?: number | null;
+      nonBiomassGhg?: number | null;
+      totalGhg?: number | null;
+      coveredGhg?: number | null;
+      voc?: number | null;
+      nox?: number | null;
+      sox?: number | null;
+      toxics?: string;
+      sourceUrl?: string;
+      screenshotEvidence?: string;
+      dateCaptured: string;
+      investigatorNotes?: string;
+    }>;
+  };
+  sourceReconciliation?: {
+    matchConfidence: SourceMatchConfidence;
+    matchConfidenceLabel: string;
+    rationale: string;
+    sourceAssociationNote: string;
   };
   environmentalReadings?: Array<{
     index: 'NDWI' | 'NDVI' | 'NDMI' | 'NBR';
@@ -163,6 +199,7 @@ export interface CarbSpecializedReport {
 
 export interface BuildCarbReportInput {
   auditId?: string;
+  reportLabel?: string;
   createdBy?: string;
   facilityIdentity: CarbSpecializedReport['facilityIdentity'];
   location: CarbSpecializedReport['location'];
@@ -175,6 +212,8 @@ export interface BuildCarbReportInput {
   emissionsComparison: CarbSpecializedReport['emissionsComparison'];
   gasBreakdown: CarbSpecializedReport['gasBreakdown'];
   mapEvidence?: CarbSpecializedReport['mapEvidence'];
+  facilityPollutantReadings?: CarbSpecializedReport['facilityPollutantReadings'];
+  sourceReconciliation?: CarbSpecializedReport['sourceReconciliation'];
   environmentalReadings?: CarbSpecializedReport['environmentalReadings'];
   companyClaim: string;
   claimVerificationResult: string;

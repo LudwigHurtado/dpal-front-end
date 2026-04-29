@@ -73,6 +73,7 @@ export function buildCarbReport(input: BuildCarbReportInput): CarbSpecializedRep
     reportId,
     auditId: input.auditId || `CARB-${Date.now()}`,
     module: REPORT_MODULE,
+    reportLabel: input.reportLabel ?? REPORT_MODULE,
     createdAt,
     createdBy: input.createdBy,
     facilityIdentity: input.facilityIdentity,
@@ -86,6 +87,8 @@ export function buildCarbReport(input: BuildCarbReportInput): CarbSpecializedRep
     emissionsComparison: input.emissionsComparison,
     gasBreakdown: input.gasBreakdown,
     mapEvidence: input.mapEvidence,
+    facilityPollutantReadings: input.facilityPollutantReadings,
+    sourceReconciliation: input.sourceReconciliation,
     environmentalReadings: input.environmentalReadings ?? [],
     companyClaim: input.companyClaim,
     claimVerificationResult: input.claimVerificationResult,
@@ -127,7 +130,7 @@ export function buildCarbReport(input: BuildCarbReportInput): CarbSpecializedRep
     },
     disclaimer:
       input.sourceMode === 'NEEDS_SOURCE'
-        ? 'Manual investigation draft - official CARB source not confirmed. DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings.'
+        ? 'Manual investigation draft — official CARB facility source not confirmed. DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings.'
         : 'DPAL does not replace CARB, EPA, legal counsel, or official regulatory findings. This report is a preliminary review tool.',
   };
 }

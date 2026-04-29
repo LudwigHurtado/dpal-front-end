@@ -46,7 +46,9 @@ export default function CarbReportPanel({
   onOpenShareableReportPage,
   onOpenShareableSituationRoomPage,
 }: CarbReportPanelProps): React.ReactElement {
-  const reportStatus = report ? 'Generated' : canGenerate ? 'Ready' : 'Pending';
+  const isDraftReport = Boolean(report && report.sourceMode === 'NEEDS_SOURCE' && (report.reportQualityRating ?? 'Draft') === 'Draft');
+  const reportStatus = report ? (isDraftReport ? 'Draft' : 'Generated') : canGenerate ? 'Ready' : 'Pending';
+  const reportDisplayTitle = report?.reportLabel ?? 'DPAL CARB Specialized Report';
   const dataSourceStatus = report?.sourceMode ?? 'Pending';
   const pdfReady = Boolean(report?.hashes.pdfHash);
   const qrReady = Boolean(report?.qr.qrCodeDataUrl);
@@ -57,7 +59,7 @@ export default function CarbReportPanel({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-cyan-300">CARB Specialized Report</p>
-          <h3 className="mt-1 text-xl font-black text-white">DPAL CARB Specialized Report</h3>
+          <h3 className="mt-1 text-xl font-black text-white">{reportDisplayTitle}</h3>
           <p className="mt-1 max-w-3xl text-sm text-slate-400">
             Level 1: Generate a readable, professional investor/legal/regulatory report. Level 2: Export the full evidence packet JSON with calculations and limitations. Level 3: Open the CARB Situation Room for ongoing regulator-ready investigation.
           </p>
@@ -175,7 +177,7 @@ export default function CarbReportPanel({
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Report Status</p>
-          <p className="mt-3"><StatusChip label={reportStatus} tone={report ? 'ready' : 'pending'} /></p>
+          <p className="mt-3"><StatusChip label={reportStatus} tone={report ? (isDraftReport ? 'review' : 'ready') : 'pending'} /></p>
         </article>
         <article className="rounded-2xl border border-slate-800 bg-slate-900/70 p-3">
           <p className="text-[11px] font-black uppercase tracking-[0.22em] text-slate-400">Data Source Status</p>

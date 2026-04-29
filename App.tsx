@@ -95,6 +95,7 @@ import { mintNftRequest } from './services/nftMintApi';
 import { archetypeToNftTheme, buildHeroMintPrompt, HERO_MINT_BASE_CREDITS, HERO_MINT_CATEGORY } from './utils/heroMintHelpers';
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
+import type { ScanToSituationPackage } from './services/situationRoomBridge';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { persistReportForPublicLookup } from './services/reportPersistenceService';
 import {
@@ -1847,6 +1848,56 @@ const App: React.FC = () => {
     }
   };
 
+  const handleOpenSituationRoomFromScan = useCallback(async (payload: { pkg: ScanToSituationPackage; initialMessagesPosted: ChatMessage[] }) => {
+    const { pkg, initialMessagesPosted } = payload;
+    const createdAt = new Date(pkg.scan.createdAt);
+    const scanSummary = pkg.evidencePacket.scanSummary || pkg.scan.primarySignal || 'Earth Observation screening signal captured.';
+    const reportFromScan: Report = {
+      id: pkg.situationRoom.reportId,
+      title: `Earth Observation Review · ${pkg.scan.analysisType.replace('_', ' ')}`,
+      description: `${scanSummary}\n\nSafety: This is a remote-sensing screening signal and requires verification.`,
+      category: Category.EarthObservation,
+      location: `${pkg.scan.latitude.toFixed(5)}, ${pkg.scan.longitude.toFixed(5)} · ${pkg.scan.radiusKm} km`,
+      timestamp: createdAt,
+      hash: `scan-${pkg.scan.id}`,
+      blockchainRef: pkg.situationRoom.sourceType,
+      status: 'In Review',
+      trustScore: typeof pkg.scan.confidence === 'number' ? Math.max(1, Math.min(100, Math.round(pkg.scan.confidence * 100))) : 50,
+      severity:
+        pkg.scan.riskLevel === 'high'
+          ? 'Critical'
+          : pkg.scan.riskLevel === 'moderate'
+            ? 'Standard'
+            : 'Informational',
+      isActionable: true,
+      structuredData: {
+        sourceType: 'earth_observation_scan',
+        sourceId: pkg.scan.id,
+        moduleType: pkg.scan.moduleType,
+        scan: pkg.scan,
+        evidencePacket: pkg.evidencePacket,
+        situationRoom: pkg.situationRoom,
+      },
+      filingImageHistory: [],
+      imageUrls: [],
+    };
+
+    setReports((prev) => {
+      const filtered = prev.filter((entry) => entry.id !== reportFromScan.id);
+      return [reportFromScan, ...filtered];
+    });
+    setSelectedReportForIncidentRoom(reportFromScan);
+    if (initialMessagesPosted.length) {
+      saveLocalSituationMessages(reportFromScan.id, initialMessagesPosted);
+      setSituationMessages(initialMessagesPosted);
+    } else {
+      const local = loadLocalSituationMessages(reportFromScan.id);
+      setSituationMessages(local);
+    }
+    setSituationError(null);
+    setCurrentView('incidentRoom');
+  }, []);
+
   const handleCompleteDirective = (directive: AiDirective): Report => {
     // Calculate total compensation from phases
     const totalHc = directive.phases?.reduce((sum, phase) => sum + phase.compensation.hc, 0) || directive.rewardHc;
@@ -2600,6 +2651,8 @@ const App: React.FC = () => {
         {currentView === 'earthObservation' && (
           <EarthObservationView
             onReturn={() => goBack('mainMenu')}
+            actorName={heroWithRank.name}
+            onOpenSituationRoomFromScan={handleOpenSituationRoomFromScan}
           />
         )}
 

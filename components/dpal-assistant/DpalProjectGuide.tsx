@@ -1,5 +1,5 @@
-import React, { useMemo, useState } from 'react';
-import type { DpalProjectModuleType, DpalProjectWorkflowState } from './projectGuideTypes';
+import React, { useEffect, useMemo, useState } from 'react';
+import type { DpalProjectGuideSnapshot, DpalProjectModuleType, DpalProjectWorkflowState } from './projectGuideTypes';
 import { useDpalProjectGuide } from './useDpalProjectGuide';
 
 type Props = {
@@ -9,6 +9,8 @@ type Props = {
   evidenceState?: Record<string, unknown>;
   onCreateEvidencePacket?: () => void;
   onCreateVerificationMission?: () => void;
+  onSendToSituationRoom?: () => void;
+  onGuideStateChange?: (snapshot: DpalProjectGuideSnapshot) => void;
 };
 
 const GUIDE_ACTIONS = [
@@ -21,14 +23,40 @@ const GUIDE_ACTIONS = [
 ];
 
 export default function DpalProjectGuide(props: Props) {
-  const { moduleType, workflowState, scanResult, evidenceState, onCreateEvidencePacket, onCreateVerificationMission } = props;
+  const { moduleType, workflowState, scanResult, evidenceState, onCreateEvidencePacket, onCreateVerificationMission, onSendToSituationRoom, onGuideStateChange } = props;
   const [expandedMobile, setExpandedMobile] = useState(false);
-  const { guide, loading, completedStepIds, currentStep, lastResponse, requestGuide } = useDpalProjectGuide(moduleType, workflowState);
+  const { guide, loading, completedStepIds, currentStep, lastResponse, lastQuestion, requestGuide } = useDpalProjectGuide(moduleType, workflowState);
+  const shouldSuggestSituationRoom = Boolean(
+    moduleType === 'earth_observation'
+      && (workflowState.processingStage === 'metric_computed' || workflowState.processingStage === 'field_verified')
+      && !workflowState.situationRoomSent,
+  );
 
   const progress = useMemo(() => {
     if (!guide.steps.length) return 0;
     return Math.round((completedStepIds.length / guide.steps.length) * 100);
   }, [completedStepIds.length, guide.steps.length]);
+
+  useEffect(() => {
+    if (!onGuideStateChange) return;
+    onGuideStateChange({
+      currentStep: currentStep?.id,
+      nextStep: lastResponse?.nextStep,
+      plainEnglishExplanation: lastResponse?.plainEnglishExplanation,
+      missingItems: lastResponse?.missingItems ?? [],
+      warnings: lastResponse?.warnings ?? [],
+      recommendedActions: lastResponse?.recommendedActions ?? [],
+      claimSafety: lastResponse?.claimSafety,
+      lastUserQuestion: lastQuestion || undefined,
+      lastGuideResponse: lastResponse?.plainEnglishExplanation,
+    });
+  }, [currentStep?.id, lastQuestion, lastResponse, onGuideStateChange]);
+
+  const situationRoomPrompt =
+    'If the result needs review, send it to the Situation Room so team members, validators, and AI guidance can discuss the evidence and next action.';
+
+  const askSituationRoomGuidance = () =>
+    void requestGuide(situationRoomPrompt, scanResult, evidenceState);
 
   const panel = (
     <div className="rounded-xl border border-sky-700/30 bg-slate-950/90 p-4 text-slate-200 shadow-2xl">
@@ -81,7 +109,29 @@ export default function DpalProjectGuide(props: Props) {
         <button type="button" onClick={onCreateVerificationMission} className="rounded-lg border border-sky-500/50 px-3 py-2 text-xs font-bold text-sky-200 hover:bg-sky-900/30">
           Create verification mission
         </button>
+        {onSendToSituationRoom && (
+          <button type="button" onClick={onSendToSituationRoom} className="rounded-lg border border-violet-500/50 px-3 py-2 text-xs font-bold text-violet-200 hover:bg-violet-900/30">
+            Send to Situation Room
+          </button>
+        )}
       </div>
+
+      {shouldSuggestSituationRoom && (
+        <div className="mt-3 rounded-lg border border-violet-500/40 bg-violet-950/20 p-3 text-xs text-violet-100">
+          <p className="font-semibold">Recommended next route</p>
+          <p className="mt-1">
+            {situationRoomPrompt}
+          </p>
+          <button
+            type="button"
+            onClick={askSituationRoomGuidance}
+            disabled={loading}
+            className="mt-2 rounded-lg border border-violet-500/40 bg-violet-900/20 px-3 py-1.5 text-[11px] font-bold text-violet-100 disabled:opacity-50"
+          >
+            Explain why in guide
+          </button>
+        </div>
+      )}
 
       <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/70 p-3 text-[11px] text-slate-400">
         <p>AOI = Area of Interest, the exact boundary DPAL analyzes.</p>

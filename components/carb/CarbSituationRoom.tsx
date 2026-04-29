@@ -94,6 +94,41 @@ export default function CarbSituationRoom({ roomId, onReturn, embedded = false }
       </section>
 
       <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-3 sm:p-5">
+        <h2 className="text-lg font-bold text-white">Evidence Timeline Sources</h2>
+        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <article className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-200">
+            <p className="font-semibold text-white">CARB MRR GHG record</p>
+            <p className="mt-1">Facility: {report.facilityIdentity.facilityName}</p>
+            <p>Years: {report.reportingYears.baselineYear} / {report.reportingYears.currentYear}</p>
+            <p>Source mode: {report.sourceMode}</p>
+          </article>
+          <article className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-200">
+            <p className="font-semibold text-white">CARB Pollution Mapping Tool pollutant readings</p>
+            {report.facilityPollutantReadings?.entries?.length ? (
+              <>
+                <p className="mt-1">Source: {report.facilityPollutantReadings.sourceLabel}</p>
+                <p>Entries: {report.facilityPollutantReadings.entries.length}</p>
+                {report.sourceReconciliation ? (
+                  <p>Source match confidence: {report.sourceReconciliation.matchConfidenceLabel}</p>
+                ) : null}
+                <p className="mt-1 text-slate-300">{report.facilityPollutantReadings.caveat}</p>
+              </>
+            ) : (
+              <p className="mt-1 text-slate-300">No pollutant readings attached to this report yet.</p>
+            )}
+          </article>
+          <article className="rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-white">EPA GHGRP / FLIGHT (future)</p>
+            <p className="mt-1">No EPA GHGRP / FLIGHT source card attached yet.</p>
+          </article>
+          <article className="rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-white">Satellite / remote sensing (future)</p>
+            <p className="mt-1">No satellite/imagery source card attached yet.</p>
+          </article>
+        </div>
+      </section>
+
+      <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-3 sm:p-5">
         <h2 className="text-lg font-bold text-white">Discussion</h2>
         <div className="mt-4 h-[380px] space-y-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
           {messages.map((message) => (
