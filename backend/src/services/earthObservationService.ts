@@ -522,7 +522,6 @@ export const earthObservationService = {
 
         if (computedCount > 0) {
           processingStage = 'metric_computed';
-          signalStatus = computedCount >= 3 ? 'verified' : 'partially_verified';
           const cloudValues = [beforeScene.cloud, afterScene.cloud]
             .filter((value): value is number => typeof value === 'number' && Number.isFinite(value));
           metrics.cloudCoverage = cloudValues.length
@@ -534,6 +533,7 @@ export const earthObservationService = {
           confidence = metrics.usablePixelPercent == null
             ? Number((0.4 + 0.15 * computedCount).toFixed(2))
             : Number(Math.max(0.25, Math.min(0.92, (metrics.usablePixelPercent / 100) * (0.7 + computedCount * 0.07))).toFixed(2));
+          signalStatus = (computedCount >= 3 && (confidence ?? 0) >= 0.6) ? 'verified' : 'partially_verified';
           const risk = deriveRisk({
             analysisType: input.analysisType,
             ndviChange: metrics.ndviChange,

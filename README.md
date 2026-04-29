@@ -64,8 +64,14 @@ Backend-only satellite credentials live on Railway, not in Vercel:
 |------------------|---------|
 | `COPERNICUS_CLIENT_ID` | Sentinel Hub / Copernicus OAuth client id |
 | `COPERNICUS_CLIENT_SECRET` | Sentinel Hub / Copernicus OAuth client secret |
+| `EARTH_OBSERVATION_LIVE_ENABLED` | When `true`, enables live Earth Observation adapter paths on the API host (see `backend/.env.example`) |
+| `NASA_EARTHDATA_TOKEN` | Optional Earthdata token for NASA catalog flows used by EO adapters |
+| `NASA_FIRMS_MAP_KEY` | Optional NASA FIRMS map key where FIRMS integration is used |
+| `GEMINI_API_KEY` | Used by `POST /api/dpal-assistant/project-guide` for optional AI-enriched project guidance (same key pattern as other server Gemini routes) |
 
 After changing Railway variables, redeploy or restart the backend service.
+
+**API routes this SPA expects on `VITE_API_BASE`:** Among others, **`POST /api/earth-observation/scan`** and **`POST /api/dpal-assistant/project-guide`** are implemented in this repo under **`backend/src/routes/`** and must be deployed on whatever backend you point the front-end at (often the same Railway service as `dpal-ai-server`), or proxied there.
 
 ---
 
@@ -93,8 +99,9 @@ Use this checklist when you want local behavior to match production as closely a
 | `/politician` | Public Accountability Engine |
 | `/offsets` | Carbon Credit Market - buy, retire, register land |
 | `/carbon` | Carbon MRV Engine - satellite NDVI, score, validator |
-| `/water` | DPAL AquaScan - intake, layers, map/GPS workspace, AI summary, evidence packet (demo mode) |
+| `/water`, `/water/aquascan`, `/water/monitor` | **DPAL Water Command Center:** AquaScan MRV (`AquaScanView`) at `/water` and `/water/aquascan`; **Water Operations Engine** (`WaterMonitorView`) at `/water/monitor` — see **DPAL AquaScan MRV & Water Command Center** below |
 | `/ecology` | Ecological Conservation - Landsat foliage scan, NDVI, habitat risk |
+| `/earth-observation` | Earth Observation — map + AOI, date range and presets, `POST /api/earth-observation/scan`, scan status (Auto vs Custom dates), DPAL Project Guide (`/api/dpal-assistant/project-guide`) |
 | `/afolu` | AFOLU Carbon & Proof Engine |
 | `/games` | Play & Learn hub with the embedded DPAL Mission Ops Phaser game |
 | `/missions` | Missions Hub V2 |
@@ -105,6 +112,48 @@ Use this checklist when you want local behavior to match production as closely a
 | `/help` | Help Center |
 | `/login` `/signup` | Auth (MongoDB users on `dpal-ai-server`) |
 | `/emissions-integrity-audit` | **EIAS** — emissions integrity audit (facility intake, scope, ADI, production unit for intensity); carbon adapter reads use Railway; server save needs `/api/emissions-audit/*` (see `CLAUDE.md`); workspace also **auto-saves in the browser** (`dpal_eias_workspace_v1`) |
+
+---
+
+## DPAL AquaScan MRV & Water Command Center
+
+**Goal:** A premium **location-first map command center** for satellite water intelligence, AOI-based MRV comparison, evidence packets, and operational follow-up — without removing legacy operational tooling.
+
+### Routes (`utils/appRoutes.ts`)
+
+| Path | View ID | UI |
+|------|---------|-----|
+| `/water` | `waterMonitor` | `components/AquaScanView.tsx` (primary entry) |
+| `/water/aquascan` | `aquaScanWater` | Same AquaScan MRV surface (explicit URL) |
+| `/water/monitor` | `waterOperationsEngine` | `components/WaterMonitorView.tsx` (projects, snapshots, Water Impact Score, validator queue, credits, WaterGlobe) |
+
+`App.tsx` wires cross-navigation: AquaScan → **Open Water Operations Engine**; Water Operations Engine → **Open AquaScan MRV**. Environmental Intelligence Hub and DPAL Carbon HQ link both destinations under the umbrella **DPAL Water Command Center**.
+
+### AquaScan layout & state (frontend only)
+
+- **Header:** Title, breadcrumb (**Environmental Intelligence / DPAL Water Command Center / AquaScan MRV**), subtitle, status chips (live-only mode, Copernicus configured/missing, validator), link to Water Operations Engine.
+- **Focus Location command bar:** Address/GPS search, **Locate on Map**, **Use My GPS**, **Draw AOI**, **Clear**. **`selectedFocusLocation`** drives map center, marker, synced intake location/GPS fields, MRV/evidence context, AI summary context, and avoids stale demo location labels when the user focuses a new place.
+- **Main workspace (desktop):** Three columns — **workflow rail** (Location → Boundary → Layers → Compare → Evidence → Action with step status), **large map** (above the fold), **intelligence panel** (compact cards: risk, AOI, live data, index, confidence, validator, next step).
+- **Bottom tabs:** Intake, Layers, MRV Compare, Evidence Packet, Actions — preserves intake, layer selector, Copernicus MRV comparison + history, evidence packet + validator gate, and action center flows.
+- **Status cleanup:** Alerts rendered as compact chips/banners with single primary actions (configure backend, draw AOI, change dates, retry live data).
+- **Data labeling:** When live water APIs are unavailable, UI avoids presenting synthetic metrics as “live” — prefers labels such as **Live API**, **Saved project data**, **Local draft**, **Pending live data**.
+- **Legal copy:** Retains **Indicative MRV estimate - not certified carbon credit** and field/validator verification disclaimers.
+
+### Copernicus / Sentinel (backend proxy)
+
+- The browser calls **`{VITE_API_BASE}/api/copernicus/*`** (see `constants.ts` → `API_ROUTES.COPERNICUS_*`).
+- Server-side OAuth and Sentinel Hub calls live in **`backend/src/routes/copernicus.ts`** (token cache, statistics comparison, catalog/process proxies). **Secrets stay on the server** (`COPERNICUS_CLIENT_ID`, `COPERNICUS_CLIENT_SECRET`, etc. on Railway when this backend is deployed).
+- Frontend services: **`services/copernicus/`** (`processService.ts`, `catalogService.ts`, `statisticsService.ts`, `types.ts`). Clients send **`indexType`** (and AOI/date windows); evalscripts are **not** composed in the browser for statistics comparison.
+
+### Related backend (repo `backend/`)
+
+Help-center and auth paths may require **`SUPABASE_URL`** and **`SUPABASE_SERVICE_ROLE_KEY`** so the Node process can boot; this is separate from MongoDB on `dpal-ai-server`. Point **`VITE_API_BASE`** at whichever host actually exposes **`/api/copernicus/*`** and **`/api/water/*`** for your deployment.
+
+### Files (anchors)
+
+- **`components/AquaScanView.tsx`** — command center UI, Focus Location, tabs, MRV, evidence packet, expandable section helpers.
+- **`components/WaterMonitorView.tsx`** — operational water engine (unchanged feature set; separate route).
+- **`services/copernicus/*`**, **`services/waterAnalysisService.ts`** — API clients.
 
 ---
 
@@ -145,34 +194,48 @@ State is in-session only for now. There is no backend persistence yet.
 
 ## Recent monitoring updates
 
+- **2026-04-28 — Earth Observation & DPAL Project Guide:** `POST /api/earth-observation/scan` and `POST /api/dpal-assistant/project-guide` documented above; `EarthObservationView` date presets + Auto/Custom badge on comparison basis; repo `backend/` ships Express routes + `earthObservationService` / `dpalAssistant` (deploy on `VITE_API_BASE` host). Details in **Earth Observation & DPAL Project Guide** and **`CLAUDE.md`**.
 - Main page monitoring imagery now uses dedicated assets in `public/main-screen/`
 - Category card imagery for Earth Observation, Ecological Conservation, and Water Violations points at those same assets through `categoryCardAssets.ts`
 - Mineral detector readings now separate verified bedrock/mineral indicators from EMIT dust-source availability
 - Water Monitor Sentinel-1 SAR now shows a clearly labeled fallback estimate card when the backend returns `sentinel1.ok: false`
 - Git author identity for this repo is set to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>`
 
-## Recent UX updates (2026-04-25)
+## Recent UX updates (water / AquaScan)
 
-- **Private user area separated from main menu categories**
-  - New dedicated route and view: `/private-hub` via `privateHubMenu`
-  - Main menu now uses one entry tile: `Private Hero Space`
-  - Top header shortcuts for wallet/collection/profile were consolidated into one `Private Space` shortcut
-  - Added `Bypass Login (Demo)` button in `components/PrivateHubMenuView.tsx`
-- **AquaScan replaced legacy WaterMonitor view at `/water`**
-  - `App.tsx` now renders `components/AquaScanView.tsx` for `waterMonitor`
-  - Added clear top notice: `Demo Mode: satellite layers, AI summary, evidence packet, and actions use mock data.`
-  - Added guided `How to Use DPAL AquaScan` help section with can/cannot-do expectations
-  - Added full-width `AquaScan Map & GPS` section below satellite/risk row:
-    - toolbar for location/GPS/concern/layer count
-    - interactive demo controls (zoom, pan/drag, center project, center GPS, expand map, style switcher)
-    - overlay toggles (boundary, risk zone, report pins, sample points, flow direction)
-    - editable boundary simulation and concern-sensitive overlay emphasis
-    - bottom status strip (Project ID, water body type, last updated, boundary status, evidence points, selected layers)
-  - Evidence packet preview now reads like a proof document and includes explicit demo export disclaimer
-  - Added one-click `Run Demo Scenario` for live walkthroughs
-- **Environmental Intelligence Hub entry image converted to one-time popup**
-  - The top image is now shown as an entry modal only once per browser
-  - Dismiss state stored in localStorage (`dpal-environmental-hub-entry-seen`)
+- **DPAL Water Command Center (dual routes + AquaScan redesign)** — See **DPAL AquaScan MRV & Water Command Center** above. Summary:
+  - `/water` and `/water/aquascan` → **`AquaScanView`** (location-first command center, Focus Location, workflow rail, intelligence panel, bottom tabs for Intake / Layers / MRV / Evidence / Actions).
+  - `/water/monitor` → **`WaterMonitorView`** (operations dashboard, validator queue, credits) — both water UIs preserved.
+  - Copernicus MRV comparison and evidence flows call **`/api/copernicus/*`** on **`VITE_API_BASE`**; backend implementation in **`backend/src/routes/copernicus.ts`** when that host is this repo’s backend.
+- **Earlier (2026-04-25) — Private hub & Environmental Intelligence Hub**
+  - `/private-hub`, consolidated **Private Hero Space** tile, one-time Environmental Hub entry modal (`dpal-environmental-hub-entry-seen`)
+
+---
+
+## Earth Observation & DPAL Project Guide (2026-04-28)
+
+### Earth Observation (`/earth-observation`)
+
+- **UI:** `components/EarthObservationView.tsx` — observation type, radius slider, map (`ObservationMap`), **start/end date inputs**, quick **range presets** (7 days through 12 months), save AOI, run scan, metric cards, evidence/mission demo toggles, Earth Observation helper chat, and **`DpalProjectGuide`**.
+- **Client API:** `POST {VITE_API_BASE}/api/earth-observation/scan` via `API_ROUTES.EARTH_OBSERVATION_SCAN` in `constants.ts`.
+- **JSON body:** `analysisType` (`deforestation` \| `agriculture` \| `pollution` \| `carbon` \| `flood_fire` \| `urban` \| `water` \| `heat`), `latitude`, `longitude`, `radiusKm` (1–250), `startDate`, `endDate` (ISO strings).
+- **Scan status:** Explains comparison basis (first/last usable scenes in range). Shows a small badge: **Custom dates** after manual date edits, or **Auto · …** (preset label) when a preset is active.
+- **Honesty:** Responses describe **scene-level** screening metrics from Planetary Computer item statistics where computed — not parcel-clipped zonal averages unless extended later. **`verified`** / **`partially_verified`** follow backend confidence rules.
+
+### Server implementation in this repo
+
+- **Route:** `backend/src/routes/earthObservation.ts` → `POST /scan`.
+- **Logic:** `backend/src/services/earthObservationService.ts` — STAC search, before/after scene selection, statistics-derived indices and deltas, risk and limitations arrays.
+
+### DPAL Project Guide
+
+- **Route:** `POST /api/dpal-assistant/project-guide` — `backend/src/routes/dpalAssistant.ts`.
+- **Client:** `API_ROUTES.DPAL_ASSISTANT_PROJECT_GUIDE`; React pieces under `components/dpal-assistant/` (`DpalProjectGuide.tsx`, `projectGuides.ts`, `claimSafety.ts`, hooks/types as applicable).
+- **Behavior:** Primarily **rule-based** workflow steps, **`claimSafety`** (safe vs unsafe claim language). If **`GEMINI_API_KEY`** is set on the server, responses may merge Gemini JSON output with the baseline rule payload.
+
+### Local backend dev
+
+- From repo root: `cd backend && npm install && npm run dev` (default port **3001**). Set **`VITE_API_BASE=http://localhost:3001`** in `.env.local` to exercise EO + assistant against the Prisma backend.
 
 ---
 
@@ -181,13 +244,16 @@ State is in-session only for now. There is no backend persistence yet.
 ```text
 dpal-front-end  (this repo - Vite SPA on Vercel)
        |
-       +-- VITE_API_BASE --> dpal-ai-server  (Express + MongoDB on Railway)
+       +-- VITE_API_BASE --> API host on Railway (often dpal-ai-server)
                               |-- /api/auth/*
-                              |-- /api/offsets/*      carbon credit market
-                              |-- /api/carbon/*       carbon MRV
-                              |-- /api/water/*        water monitor
-                              |-- /api/ecology/*      Landsat foliage scan
-                              |-- /api/ai/*           Gemini proxy
+                              |-- /api/offsets/*           carbon credit market
+                              |-- /api/carbon/*            carbon MRV
+                              |-- /api/water/*             water monitor
+                              |-- /api/copernicus/*        Sentinel Hub proxy (repo backend/)
+                              |-- /api/ecology/*           Landsat foliage scan
+                              |-- /api/earth-observation/* Earth Observation scan (also in repo backend/)
+                              |-- /api/dpal-assistant/*    project workflow guide
+                              |-- /api/ai/*                Gemini proxy
                               +-- /api/reports/*
 ```
 

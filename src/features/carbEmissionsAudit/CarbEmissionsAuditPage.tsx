@@ -783,37 +783,27 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   useEffect(() => {
     if (!selected) return;
-    const yearsFromRows = Array.from(new Set(facilityYearRecords.map((row) => row.reportingYear))).sort((a, b) => b - a);
-    const years =
-      yearsFromRows.length > 0
-        ? yearsFromRows
-        : Array.from(new Set([selected.reportingYear, ...(carbDataStatus?.availableYears ?? [])]))
-            .filter((y): y is number => typeof y === 'number' && Number.isFinite(y))
-            .sort((a, b) => b - a);
+    const years = Array.from(new Set(facilityYearRecords.map((row) => row.reportingYear))).sort((a, b) => b - a);
     setAvailableYears(years);
     if (!years.length) return;
     const nextCurrent = years[0];
     const nextBaseline = years[1] ?? years[0];
     setCurrentYear(nextCurrent);
     setBaselineYear(nextBaseline);
-  }, [selected, facilityYearRecords, carbDataStatus?.availableYears]);
+  }, [selected, facilityYearRecords]);
 
   useEffect(() => {
     if (!selected || !baselineYear || !currentYear) return;
     const baselineRecord = facilityYearRecords.find((row) => row.reportingYear === baselineYear);
     const currentRecord = facilityYearRecords.find((row) => row.reportingYear === currentYear);
-    if (baselineRecord) {
-      setBaselineEmissions(baselineRecord.totalCO2e ?? '');
-      setMethaneBaseline(baselineRecord.methaneCH4 ?? '');
-      setN2oBaseline(baselineRecord.nitrousOxideN2O ?? '');
-      setCo2Baseline(baselineRecord.carbonDioxideCO2 ?? '');
-    }
-    if (currentRecord) {
-      setCurrentEmissions(currentRecord.totalCO2e ?? '');
-      setMethaneCurrent(currentRecord.methaneCH4 ?? '');
-      setN2oCurrent(currentRecord.nitrousOxideN2O ?? '');
-      setCo2Current(currentRecord.carbonDioxideCO2 ?? '');
-    }
+    setBaselineEmissions(baselineRecord?.totalCO2e ?? '');
+    setMethaneBaseline(baselineRecord?.methaneCH4 ?? '');
+    setN2oBaseline(baselineRecord?.nitrousOxideN2O ?? '');
+    setCo2Baseline(baselineRecord?.carbonDioxideCO2 ?? '');
+    setCurrentEmissions(currentRecord?.totalCO2e ?? '');
+    setMethaneCurrent(currentRecord?.methaneCH4 ?? '');
+    setN2oCurrent(currentRecord?.nitrousOxideN2O ?? '');
+    setCo2Current(currentRecord?.carbonDioxideCO2 ?? '');
   }, [baselineYear, currentYear, selected, facilityYearRecords]);
 
   const claimParsed = useMemo(() => parseClaim(companyClaim), [companyClaim]);
@@ -935,6 +925,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     () => facilityYearRecords.find((row) => row.reportingYear === Number(currentYear)) ?? null,
     [facilityYearRecords, currentYear],
   );
+  const baselineYearDataStatus = baselineYear
+    ? (baselineHistoryRecord ? 'available' : 'missing')
+    : 'not_selected';
+  const currentYearDataStatus = currentYear
+    ? (currentHistoryRecord ? 'available' : 'missing')
+    : 'not_selected';
 
   const trendSummary = useMemo(() => {
     if (!baselineYear || !currentYear || !baselineHistoryRecord || !currentHistoryRecord) {
@@ -2947,6 +2943,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <option value="">Current year</option>
               {availableYears.map((year) => <option key={`c-${year}`} value={year}>{year}</option>)}
             </select>
+            <p className={`text-xs ${baselineYearDataStatus === 'available' ? 'text-emerald-300' : baselineYearDataStatus === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
+              Baseline year data: {baselineYearDataStatus === 'available' ? 'available' : baselineYearDataStatus === 'missing' ? 'missing' : 'not selected'}
+            </p>
+            <p className={`text-xs ${currentYearDataStatus === 'available' ? 'text-emerald-300' : currentYearDataStatus === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
+              Current year data: {currentYearDataStatus === 'available' ? 'available' : currentYearDataStatus === 'missing' ? 'missing' : 'not selected'}
+            </p>
             <input value={String(baselineEmissions)} onChange={(e) => setBaselineEmissions(e.target.value ? Number(e.target.value) : '')} placeholder="Baseline CO2e" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
             <input value={String(currentEmissions)} onChange={(e) => setCurrentEmissions(e.target.value ? Number(e.target.value) : '')} placeholder="Current CO2e" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
             <input value={String(methaneBaseline)} onChange={(e) => setMethaneBaseline(e.target.value ? Number(e.target.value) : '')} placeholder="Methane baseline" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
@@ -3045,6 +3047,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   <option value="">Current year</option>
                   {availableYears.map((year) => <option key={`cc-${year}`} value={year}>{year}</option>)}
                 </select>
+                <p className={`text-xs ${baselineYearDataStatus === 'available' ? 'text-emerald-300' : baselineYearDataStatus === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
+                  Baseline year data: {baselineYearDataStatus === 'available' ? 'available' : baselineYearDataStatus === 'missing' ? 'missing' : 'not selected'}
+                </p>
+                <p className={`text-xs ${currentYearDataStatus === 'available' ? 'text-emerald-300' : currentYearDataStatus === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
+                  Current year data: {currentYearDataStatus === 'available' ? 'available' : currentYearDataStatus === 'missing' ? 'missing' : 'not selected'}
+                </p>
                 <input value={String(baselineEmissions)} onChange={(e) => setBaselineEmissions(e.target.value ? Number(e.target.value) : '')} placeholder="Baseline CO2e" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
                 <input value={String(currentEmissions)} onChange={(e) => setCurrentEmissions(e.target.value ? Number(e.target.value) : '')} placeholder="Current CO2e" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
                 <input value={String(methaneBaseline)} onChange={(e) => setMethaneBaseline(e.target.value ? Number(e.target.value) : '')} placeholder="Methane baseline" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200" />
