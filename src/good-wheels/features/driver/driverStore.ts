@@ -13,6 +13,7 @@ import { DEFAULT_DRIVER_FILTER_ID } from './driverConstants';
 import { driverService } from './driverService';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
+import { useAuthStore } from '../../store/useAuthStore';
 
 type DriverState = {
   driverProfile: DriverProfile | null;
@@ -45,13 +46,17 @@ export const useDriverStore = create<DriverState>((set, get) => ({
   completedTripIds: [],
 
   async hydrate() {
+    const authDriverId = useAuthStore.getState().user?.id;
     const [driverProfile, queueItems, vehicle, performanceSummary] = await Promise.all([
-      driverService.fetchDriverProfile(),
+      driverService.fetchDriverProfile(authDriverId),
       driverService.fetchDriverQueue(),
-      driverService.fetchVehicleInfo(),
-      driverService.fetchPerformanceSummary(),
+      driverService.fetchVehicleInfo(authDriverId),
+      driverService.fetchPerformanceSummary(authDriverId),
     ]);
-    set({ driverProfile, queueItems, vehicle, performanceSummary });
+    const activeTrip = useTripStore.getState().activeTrip;
+    const hasActive = Boolean(activeTrip && ['accepted', 'driver_en_route', 'driver_arrived', 'passenger_onboard', 'in_progress'].includes(activeTrip.status));
+    const availabilityStatus: DriverAvailabilityStatus = hasActive ? 'busy' : (driverProfile.availability === 'offline' ? 'offline' : 'online');
+    set({ driverProfile, queueItems, vehicle, performanceSummary, availabilityStatus });
   },
 
   setAvailability(next) {
@@ -66,7 +71,7 @@ export const useDriverStore = create<DriverState>((set, get) => ({
       return;
     }
     set({ availabilityStatus: next });
-    void driverService.updateDriverAvailability(next);
+    void driverService.updateDriverAvailability(next, get().driverProfile?.id);
   },
 
   setQueueFilter(id) {
@@ -87,7 +92,7 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     const { queueItems } = get();
     const found = queueItems.find((t) => t.id === tripId);
     if (!found) return null;
-    const driverId = get().driverProfile?.id ?? 'usr-driver-001';
+    const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id ?? 'usr-driver-001';
     let next: Trip = {
       ...found,
       driverId,

@@ -25,6 +25,7 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
     if (role === 'passenger') return 'passenger' as const;
     return 'dispatch' as const;
   }, [role]);
+  const latestMessage = messages[messages.length - 1] ?? null;
 
   useEffect(() => {
     let mounted = true;
@@ -67,10 +68,29 @@ const TripChatPanel: React.FC<Props> = ({ threadId, role, userId, userName, titl
     }
   };
 
+  const listenLatestMessage = () => {
+    if (!latestMessage?.text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const speech = new SpeechSynthesisUtterance(`${latestMessage.senderName} says: ${latestMessage.text}`);
+    window.speechSynthesis.speak(speech);
+  };
+
+  const stopListening = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+  };
+
   return (
     <div className="gw-card p-5 space-y-3">
       <div className="gw-card-title">{title ?? t('dispatcher')}</div>
       <div className="text-xs text-slate-500">{t('driver')} / {t('passenger')}</div>
+      <div className="flex gap-2">
+        <button type="button" className="gw-button gw-button-secondary" onClick={listenLatestMessage} disabled={!latestMessage}>
+          Listen latest
+        </button>
+        <button type="button" className="gw-button gw-button-secondary" onClick={stopListening}>
+          Stop audio
+        </button>
+      </div>
       {error && <div className="gw-error">{error}</div>}
       <div className="max-h-52 overflow-auto space-y-2 rounded-xl border border-slate-200 p-3 bg-white/70">
         {messages.length === 0 ? (

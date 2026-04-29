@@ -64,6 +64,22 @@ export type Trip = {
   id: string;
   passengerId: string;
   driverId?: string;
+  driverSnapshot?: {
+    id: string;
+    fullName: string;
+    vehicle?: {
+      makeModel?: string;
+      plateMasked?: string;
+      colorName?: string;
+      seats?: number;
+      verification?: string;
+      vehicleType?: string;
+    };
+    trust?: {
+      verifiedDriver?: string;
+      verifiedVehicle?: string;
+    };
+  };
   workerId?: string;
   pickup: PlaceRef;
   dropoff: PlaceRef;

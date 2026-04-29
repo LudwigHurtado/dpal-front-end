@@ -5,6 +5,7 @@ import { MOCK_USERS } from '../../data/mock/mockUsers';
 import { goodWheelsDriverApi } from '../../services/adapters/goodWheelsApi';
 
 const nowIso = () => new Date().toISOString();
+const isLikelyDemoQueueTrip = (trip: Trip) => /(^trip-q-|^mock|^demo|^local)/i.test(trip.id);
 
 function makeQueueTrips(): Trip[] {
   return [
@@ -57,8 +58,8 @@ function makeQueueTrips(): Trip[] {
 }
 
 export const driverService = {
-  async fetchDriverProfile(): Promise<DriverProfile> {
-    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchProfile(MOCK_USERS.driver.id);
+  async fetchDriverProfile(driverId?: string): Promise<DriverProfile> {
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchProfile(driverId || MOCK_USERS.driver.id);
     const u = MOCK_USERS.driver;
     return {
       id: u.id,
@@ -69,19 +70,20 @@ export const driverService = {
   },
   async fetchDriverQueue(): Promise<DriverQueueItem[]> {
     if (GOOD_WHEELS_DEMO_MODE) return makeQueueTrips();
-    return goodWheelsDriverApi.fetchQueue();
+    const queue = await goodWheelsDriverApi.fetchQueue();
+    return queue.filter((trip) => !isLikelyDemoQueueTrip(trip));
   },
-  async fetchDriverHistory(): Promise<DriverQueueItem[]> {
-    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchHistory(MOCK_USERS.driver.id);
+  async fetchDriverHistory(driverId?: string): Promise<DriverQueueItem[]> {
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchHistory(driverId || MOCK_USERS.driver.id);
     return [];
   },
-  async updateDriverAvailability(status: 'online' | 'paused' | 'offline' | 'busy' = 'online'): Promise<void> {
+  async updateDriverAvailability(status: 'online' | 'paused' | 'offline' | 'busy' = 'online', driverId?: string): Promise<void> {
     if (!GOOD_WHEELS_DEMO_MODE) {
-      await goodWheelsDriverApi.updateAvailability(MOCK_USERS.driver.id, status);
+      await goodWheelsDriverApi.updateAvailability(driverId || MOCK_USERS.driver.id, status);
     }
   },
-  async fetchVehicleInfo(): Promise<DriverVehicleInfo> {
-    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchVehicle(MOCK_USERS.driver.id);
+  async fetchVehicleInfo(driverId?: string): Promise<DriverVehicleInfo> {
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchVehicle(driverId || MOCK_USERS.driver.id);
     return {
       id: 'veh-001',
       makeModel: 'Toyota Camry (2018)',
@@ -94,8 +96,8 @@ export const driverService = {
       vehicleType: 'car',
     };
   },
-  async fetchPerformanceSummary(): Promise<DriverPerformanceSummary> {
-    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchPerformance(MOCK_USERS.driver.id);
+  async fetchPerformanceSummary(driverId?: string): Promise<DriverPerformanceSummary> {
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchPerformance(driverId || MOCK_USERS.driver.id);
     return {
       rating: 4.9,
       completedTrips: 18,

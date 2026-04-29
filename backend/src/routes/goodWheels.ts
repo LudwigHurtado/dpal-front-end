@@ -55,6 +55,22 @@ type GoodWheelsTrip = {
   id: string;
   passengerId: string;
   driverId?: string;
+  driverSnapshot?: {
+    id: string;
+    fullName: string;
+    vehicle?: {
+      makeModel?: string;
+      plateMasked?: string;
+      colorName?: string;
+      seats?: number;
+      verification?: string;
+      vehicleType?: string;
+    };
+    trust?: {
+      verifiedDriver?: 'unverified' | 'pending' | 'verified';
+      verifiedVehicle?: 'unverified' | 'pending' | 'verified';
+    };
+  };
   workerId?: string;
   pickup: { label: string; addressLine: string; point?: { lat: number; lng: number } };
   dropoff: { label: string; addressLine: string; point?: { lat: number; lng: number } };
@@ -383,6 +399,7 @@ router.get('/driver/profile', async (req: Request, res: Response): Promise<void>
       fullName: user.fullName,
       isVerifiedDriver: user.trust.verifiedDriver === 'verified',
       isVerifiedVehicle: user.trust.verifiedVehicle === 'verified',
+      availability: user.isOnline ? 'online' : 'offline',
     },
   });
 });
@@ -474,6 +491,22 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
   const next: GoodWheelsTrip = {
     ...prev,
     driverId: prev.driverId || driverId,
+    driverSnapshot: {
+      id: driver?.id ?? driverId,
+      fullName: driver?.fullName ?? 'Driver',
+      vehicle: {
+        makeModel: 'Toyota Corolla',
+        plateMasked: 'GW-2026',
+        colorName: 'Yellow',
+        seats: 4,
+        verification: 'verified',
+        vehicleType: 'car',
+      },
+      trust: {
+        verifiedDriver: driver?.trust?.verifiedDriver ?? 'verified',
+        verifiedVehicle: driver?.trust?.verifiedVehicle ?? 'verified',
+      },
+    },
     status: 'accepted',
     updatedAtIso: now,
     chatThreadId: prev.chatThreadId || `good-wheels-trip-${prev.id}`,

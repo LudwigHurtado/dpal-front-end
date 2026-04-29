@@ -54,6 +54,31 @@ export function mapMockTripToTrip(input: unknown): Trip {
     id,
     passengerId: typeof o.passengerId === 'string' ? o.passengerId : 'passenger-demo',
     driverId: typeof o.driverId === 'string' ? o.driverId : undefined,
+    driverSnapshot:
+      o.driverSnapshot && typeof o.driverSnapshot === 'object'
+        ? {
+            id: typeof o.driverSnapshot.id === 'string' ? o.driverSnapshot.id : (typeof o.driverId === 'string' ? o.driverId : 'driver'),
+            fullName: typeof o.driverSnapshot.fullName === 'string' ? o.driverSnapshot.fullName : 'Driver',
+            vehicle:
+              o.driverSnapshot.vehicle && typeof o.driverSnapshot.vehicle === 'object'
+                ? {
+                    makeModel: typeof o.driverSnapshot.vehicle.makeModel === 'string' ? o.driverSnapshot.vehicle.makeModel : undefined,
+                    plateMasked: typeof o.driverSnapshot.vehicle.plateMasked === 'string' ? o.driverSnapshot.vehicle.plateMasked : undefined,
+                    colorName: typeof o.driverSnapshot.vehicle.colorName === 'string' ? o.driverSnapshot.vehicle.colorName : undefined,
+                    seats: typeof o.driverSnapshot.vehicle.seats === 'number' ? o.driverSnapshot.vehicle.seats : undefined,
+                    verification: typeof o.driverSnapshot.vehicle.verification === 'string' ? o.driverSnapshot.vehicle.verification : undefined,
+                    vehicleType: typeof o.driverSnapshot.vehicle.vehicleType === 'string' ? o.driverSnapshot.vehicle.vehicleType : undefined,
+                  }
+                : undefined,
+            trust:
+              o.driverSnapshot.trust && typeof o.driverSnapshot.trust === 'object'
+                ? {
+                    verifiedDriver: typeof o.driverSnapshot.trust.verifiedDriver === 'string' ? o.driverSnapshot.trust.verifiedDriver : undefined,
+                    verifiedVehicle: typeof o.driverSnapshot.trust.verifiedVehicle === 'string' ? o.driverSnapshot.trust.verifiedVehicle : undefined,
+                  }
+                : undefined,
+          }
+        : undefined,
     workerId: typeof o.workerId === 'string' ? o.workerId : undefined,
     pickup: asPlaceRef(o.pickup, 'Pickup'),
     dropoff: asPlaceRef(o.dropoff, 'Dropoff'),

@@ -30,7 +30,13 @@ const SignInPage: React.FC = () => {
             type="button"
             className="gw-button gw-button-primary w-full"
             disabled={status === 'loading'}
-            onClick={() => void signIn(email, password).then(() => navigate(GW_PATHS.auth.roleSelect))}
+            onClick={() =>
+              void signIn(email, password).then(() => {
+                if (useAuthStore.getState().status === 'signed_in') {
+                  navigate(GW_PATHS.auth.roleSelect);
+                }
+              })
+            }
           >
             Continue
           </button>

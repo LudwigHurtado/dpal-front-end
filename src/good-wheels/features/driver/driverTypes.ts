@@ -46,6 +46,7 @@ export type DriverProfile = {
   fullName: string;
   isVerifiedDriver: boolean;
   isVerifiedVehicle: boolean;
+  availability?: 'online' | 'offline' | 'busy';
 };
 
 export type DriverQueueFilterSpec = {

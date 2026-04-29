@@ -128,12 +128,13 @@ export const goodWheelsDriverApi = {
     fullName: string;
     isVerifiedDriver: boolean;
     isVerifiedVehicle: boolean;
+    availability?: 'online' | 'offline' | 'busy';
   }> {
     const url = new URL(buildApiUrl('/api/good-wheels/driver/profile'));
     url.searchParams.set('driverId', driverId);
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`Driver profile failed (${res.status})`);
-    const data = await parseJson<{ profile: { id: string; fullName: string; isVerifiedDriver: boolean; isVerifiedVehicle: boolean } }>(res);
+    const data = await parseJson<{ profile: { id: string; fullName: string; isVerifiedDriver: boolean; isVerifiedVehicle: boolean; availability?: 'online' | 'offline' | 'busy' } }>(res);
     return data.profile;
   },
 

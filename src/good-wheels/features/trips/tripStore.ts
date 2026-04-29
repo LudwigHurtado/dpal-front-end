@@ -93,6 +93,9 @@ export const useTripStore = create<TripState>((set, get) => ({
       if (!GOOD_WHEELS_DEMO_MODE && marker?.id && isLikelyDemoTripId(marker.id)) {
         clearActiveTripMarker();
       }
+      if (!GOOD_WHEELS_DEMO_MODE && !active) {
+        clearActiveTripMarker();
+      }
       const keepActive = Boolean(active && !TERMINAL_STATUSES.has(active.status));
       set({ activeTrip: keepActive ? active : null, history: hist, loading: false });
     } catch {

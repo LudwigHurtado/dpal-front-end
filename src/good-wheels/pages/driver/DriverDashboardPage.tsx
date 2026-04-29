@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { GW_PATHS } from '../../routes/paths';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -10,16 +10,51 @@ import DriverStatusBanner from '../../features/driver/components/DriverStatusBan
 import DriverPerformanceCard from '../../features/driver/components/DriverPerformanceCard';
 import DriverVehicleSummary from '../../features/driver/components/DriverVehicleSummary';
 import { useDriverStore } from '../../features/driver/driverStore';
+import { useDriverAvailability } from '../../features/driver/hooks/useDriverAvailability';
+import { goodWheelsCommsService, type GwBroadcast } from '../../services/goodWheelsCommsService';
+import { useGwLang } from '../../i18n/useGwLang';
 
 const DriverDashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const user = useAuthStore((s) => s.user);
   const { activeTrip } = useActiveTrip();
-  const availability = useDriverStore((s) => s.availabilityStatus);
+  const { availability } = useDriverAvailability();
   const queueItems = useDriverStore((s) => s.queueItems);
   const history = useDriverStore((s) => s.completedTripIds);
+  const [broadcasts, setBroadcasts] = useState<GwBroadcast[]>([]);
 
-  const queuePreview = useMemo(() => queueItems.slice(0, 3), [queueItems]);
+  const queuePreview = useMemo(() => (activeTrip ? [] : queueItems.slice(0, 3)), [queueItems, activeTrip]);
+  const latestBroadcast = broadcasts[0] ?? null;
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const next = await goodWheelsCommsService.listBroadcasts({ limit: 4 });
+        if (mounted) setBroadcasts(next);
+      } catch {
+        if (mounted) setBroadcasts([]);
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 6000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  const listenLatestBroadcast = () => {
+    if (!latestBroadcast?.text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const speech = new SpeechSynthesisUtterance(latestBroadcast.text);
+    window.speechSynthesis.speak(speech);
+  };
+
+  const stopListening = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+  };
 
   return (
     <div className="space-y-8">
@@ -71,7 +106,7 @@ const DriverDashboardPage: React.FC = () => {
           </div>
 
           {queuePreview.length === 0 ? (
-            <div className="gw-muted">No requests right now.</div>
+            <div className="gw-muted">{t('noAvailableRideRequests')}</div>
           ) : (
             <div className="space-y-3">
               {queuePreview.map((t) => (
@@ -97,6 +132,25 @@ const DriverDashboardPage: React.FC = () => {
         <div className="space-y-4">
           <DriverPerformanceCard />
           <DriverVehicleSummary />
+          <div className="gw-card p-5 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="gw-card-title">Driver comms</div>
+              <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.comms)}>
+                Open comms
+              </button>
+            </div>
+            <div className="text-sm text-slate-600">
+              {latestBroadcast ? latestBroadcast.text : 'No broadcasts yet.'}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className="gw-button gw-button-secondary" onClick={listenLatestBroadcast} disabled={!latestBroadcast}>
+                Listen broadcast
+              </button>
+              <button type="button" className="gw-button gw-button-secondary" onClick={stopListening}>
+                Stop audio
+              </button>
+            </div>
+          </div>
           <div className="gw-card p-5">
             <div className="gw-card-title">Today</div>
             <div className="mt-2 grid grid-cols-2 gap-4">
