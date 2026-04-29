@@ -75,8 +75,6 @@ export const goodWheelsRideApi = {
         purpose: draft.purpose,
         supportCategoryId: draft.supportCategoryId,
         familySafe: draft.familySafe,
-        pickupCategory: draft.pickupCategoryKey,
-        dropoffCategory: draft.dropoffCategoryKey,
         estimate: draft.estimatePreview,
         routeSummary: draft.routeSummaryPreview,
         attachedCause: draft.attachedCause,

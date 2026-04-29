@@ -39,21 +39,6 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           <span className="mx-2 text-slate-400">→</span>
           <span className="font-bold text-red-800">{t('dropoff')}:</span> {trip.dropoff.addressLine}
         </div>
-        {(trip.pickupCategory || trip.dropoffCategory) && (
-          <div className="text-xs text-slate-600">
-            {trip.pickupCategory && (
-              <span>
-                {t('pickupCategoryLabel')}: <strong>{trip.pickupCategory}</strong>
-              </span>
-            )}
-            {trip.pickupCategory && trip.dropoffCategory ? ' · ' : null}
-            {trip.dropoffCategory && (
-              <span>
-                {t('dropoffCategoryLabel')}: <strong>{trip.dropoffCategory}</strong>
-              </span>
-            )}
-          </div>
-        )}
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-800">
           <div className="font-extrabold text-slate-900">{driverName}</div>
           {trip.driverSnapshot?.fullName && v && (

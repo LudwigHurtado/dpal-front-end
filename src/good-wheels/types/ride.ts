@@ -51,7 +51,7 @@ export type RideRequestDraft = {
   notes?: string;
   accessibilityNeeds?: string[];
   familySafe?: boolean;
-  /** Location category keys (e.g. `home`, `current_location`) for MRV-style routing context */
+  /** @deprecated Optional legacy fields; new requests use addresses only. */
   pickupCategoryKey?: string;
   dropoffCategoryKey?: string;
   /** Client route preview — sent to API for broadcast/estimate only */

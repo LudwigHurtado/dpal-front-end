@@ -39,9 +39,7 @@ const DriverRequestCard: React.FC<{
     const text = [
       t('newRideBroadcast'),
       `${t('pickupLabel')}: ${trip.pickup.addressLine}`,
-      trip.pickupCategory ? `${t('pickupCategoryLabel')}: ${trip.pickupCategory}` : '',
       `${t('dropoff')}: ${trip.dropoff.addressLine}`,
-      trip.dropoffCategory ? `${t('dropoffCategoryLabel')}: ${trip.dropoffCategory}` : '',
       `${t('safetyStatusLabel')}: ${(trip.safetyStatus ?? 'standard').replace(/_/g, ' ')}`,
       `${t('estimatedDistance')}: ${trip.estimate.distanceKm.toFixed(1)} km`,
     ]
@@ -73,21 +71,6 @@ const DriverRequestCard: React.FC<{
           <div className="text-sm text-slate-600 truncate">
             {trip.pickup.addressLine} → {trip.dropoff.addressLine}
           </div>
-          {(trip.pickupCategory || trip.dropoffCategory) && (
-            <div className="text-xs text-slate-500 mt-1">
-              {trip.pickupCategory && (
-                <span>
-                  {t('pickupCategoryLabel')}: <strong>{trip.pickupCategory}</strong>
-                </span>
-              )}
-              {trip.pickupCategory && trip.dropoffCategory ? ' · ' : null}
-              {trip.dropoffCategory && (
-                <span>
-                  {t('dropoffCategoryLabel')}: <strong>{trip.dropoffCategory}</strong>
-                </span>
-              )}
-            </div>
-          )}
           <div className="mt-3 flex flex-wrap gap-2 items-center">
             <TripStatusBadge status={trip.status} />
             {category && <TripSupportCategoryChip category={category} />}

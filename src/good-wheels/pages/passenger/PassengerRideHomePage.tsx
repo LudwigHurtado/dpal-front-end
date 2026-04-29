@@ -50,9 +50,6 @@ const VEHICLES: { id: VehicleType; label: string; sub: string; emoji: string; mu
 const BASE_FARE = 5.40;
 
 /* ─────────────────────────────────────────────
-   Saved places
-───────────────────────────────────────────── */
-/* ─────────────────────────────────────────────
    GPS icon (small inline)
 ───────────────────────────────────────────── */
 const GpsIcon = ({ size = 17, color = '#0077C8' }: { size?: number; color?: string }) => (
@@ -116,8 +113,6 @@ const PassengerRideHomePage: React.FC = () => {
   /* UI state */
   const [sheet, setSheet]           = useState<SheetState>('home');
   const [activeField, setActiveField] = useState<ActiveField>(null);
-  const [pickupCategoryKey, setPickupCategoryKey] = useState<string>('current_location');
-  const [dropoffCategoryKey, setDropoffCategoryKey] = useState<string>('home');
   const [vehicleType, setVehicleType] = useState<VehicleType>('car');
   const [maxPrice, setMaxPrice]       = useState('');
   const [pickupText,  setPickupText]  = useState(draft.pickup?.addressLine  ?? '');
@@ -160,6 +155,40 @@ const PassengerRideHomePage: React.FC = () => {
     setNegotiationNote(null);
   }, [maxPrice, vehicleType]);
 
+  const pickupDraftKey =
+    draft.pickup == null
+      ? '__empty__'
+      : `${draft.pickup.addressLine ?? ''}\t${draft.pickup.point?.lat ?? ''}\t${draft.pickup.point?.lng ?? ''}`;
+  const dropoffDraftKey =
+    draft.dropoff == null
+      ? '__empty__'
+      : `${draft.dropoff.addressLine ?? ''}\t${draft.dropoff.point?.lat ?? ''}\t${draft.dropoff.point?.lng ?? ''}`;
+
+  /* Keep address inputs + pins aligned with trip draft (store updates, refresh, other flows). */
+  useEffect(() => {
+    if (draft.pickup) {
+      setPickupText(draft.pickup.addressLine ?? '');
+      setPickupLL(draft.pickup.point ?? null);
+    } else {
+      setPickupText('');
+      setPickupLL(null);
+    }
+    if (draft.dropoff) {
+      setDropoffText(draft.dropoff.addressLine ?? '');
+      setDropoffLL(draft.dropoff.point ?? null);
+    } else {
+      setDropoffText('');
+      setDropoffLL(null);
+    }
+  }, [pickupDraftKey, dropoffDraftKey, draft.pickup, draft.dropoff]);
+
+  /* When both stops exist on the map, default map taps to drop-off unless the user chose pickup mode. */
+  useEffect(() => {
+    if (sheet === 'search' && pickupLL && dropoffLL && activeField === null) {
+      setActiveField('dropoff');
+    }
+  }, [sheet, pickupLL, dropoffLL, activeField]);
+
   const keepPointVisible = useCallback((pt: LatLng) => {
     if (!mapObjRef.current || !g) return;
     mapObjRef.current.panTo(pt);
@@ -189,6 +218,16 @@ const PassengerRideHomePage: React.FC = () => {
     if (Number.isFinite(entered) && entered > 0) return entered;
     return suggested;
   }, [vehicleType, maxPrice]);
+
+  /** During pickup/drop-off selection, hide ride / charities / donations — only profile until a ride is in progress. */
+  const bottomNavTabs = useMemo(
+    () => (sheet === 'home' || sheet === 'search' ? TABS.filter((tab) => tab.id === 'profile') : TABS),
+    [sheet],
+  );
+
+  useEffect(() => {
+    if (sheet === 'home' || sheet === 'search') setActiveTab('profile');
+  }, [sheet]);
 
   /** Preview: when a charity is selected, UI shows a 10% add-on on listed fare (passenger-only; does not change driver split). */
   const charityAddonPreviewUsd = useMemo(() => {
@@ -245,11 +284,13 @@ const PassengerRideHomePage: React.FC = () => {
           ? results[0].formatted_address : `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
         setReverseGeoLoading(false);
         if (inferredMode === 'pickup') {
+          setActiveField('pickup');
           setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
           setDraft({ pickup: { label: t('pickupLabel'), addressLine: addr, point: pt } });
           keepPointVisible(pt);
           if (!dropoffLL) setActiveField('dropoff');
         } else {
+          setActiveField('dropoff');
           setDropoffText(addr); setDropoffLL(pt); setDropoffPreds([]);
           setDraft({ dropoff: { label: t('destinationLabel'), addressLine: addr, point: pt } });
           keepPointVisible(pt);
@@ -405,11 +446,13 @@ const PassengerRideHomePage: React.FC = () => {
           const addr = place.formatted_address ?? pred.description;
           const point: LatLng | undefined = typeof lat === 'number' && typeof lng === 'number' ? { lat, lng } : undefined;
           if (mode === 'pickup') {
+            setActiveField('pickup');
             setPickupText(addr); if (point) setPickupLL(point); setPickupPreds([]);
             setDraft({ pickup: { label: t('pickupLabel'), addressLine: addr, point } });
             if (point) keepPointVisible(point);
             if (!dropoffLL) setActiveField('dropoff');
           } else {
+            setActiveField('dropoff');
             setDropoffText(addr); if (point) setDropoffLL(point); setDropoffPreds([]);
             setDraft({ dropoff: { label: t('destinationLabel'), addressLine: addr, point } });
             if (point) keepPointVisible(point);
@@ -439,8 +482,8 @@ const PassengerRideHomePage: React.FC = () => {
       ({ coords }) => {
         const pt: LatLng = { lat: coords.latitude, lng: coords.longitude };
         gpsGeocode(pt.lat, pt.lng, (addr) => {
+          setActiveField('pickup');
           setPickupText(addr); setPickupLL(pt); setPickupPreds([]);
-          setPickupCategoryKey('current_location');
           setDraft({ pickup: { label: t('yourLocationLabel'), addressLine: addr, point: pt } });
           keepPointVisible(pt);
           setLocatingPickup(false);
@@ -464,6 +507,7 @@ const PassengerRideHomePage: React.FC = () => {
       setGpsError(t('browserNoGeolocation'));
       return;
     }
+    setActiveField('dropoff');
     setLocatingDropoff(true);
     setGpsError(null);
     navigator.geolocation.getCurrentPosition(
@@ -492,8 +536,6 @@ const PassengerRideHomePage: React.FC = () => {
       : '';
     setDraft({
       notes: `${tf('negotiation_yourOffer', { amount: Number(maxPrice || 0).toFixed(2) })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
-      pickupCategoryKey,
-      dropoffCategoryKey,
       estimatePreview:
         routeDistanceKm != null
           ? { distanceKm: routeDistanceKm, etaMinutes: routeDurationMinutes != null ? routeDurationMinutes : 8 }
@@ -676,10 +718,6 @@ const PassengerRideHomePage: React.FC = () => {
       boxShadow: '0 1px 8px rgba(15, 23, 42, 0.06)',
     },
     input: { flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 15, color: '#111827', fontWeight: 500, fontFamily: 'inherit' },
-
-    /* Saved place row */
-    placeRow: { display: 'flex', alignItems: 'center', gap: 14, padding: '12px 0', cursor: 'pointer', borderBottom: '1px solid #F3F4F6' },
-    placeIcon: (color: string) => ({ width: 42, height: 42, borderRadius: '50%', background: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }),
 
     /* Vehicle option row */
     vehicleRow: (selected: boolean) => ({ display: 'flex', alignItems: 'center', padding: '14px 20px', cursor: 'pointer', background: selected ? '#EFF6FF' : 'white', borderBottom: '1px solid #F3F4F6', transition: 'background 0.12s', gap: 14 }),
@@ -1352,7 +1390,7 @@ const PassengerRideHomePage: React.FC = () => {
         {/* ── Bottom tab bar ── */}
         {!(sheet === 'options' && optionsPanelCollapsed) && (
           <nav style={sheet === 'search' ? S.tabBarGlass : S.tabBar}>
-            {TABS.map((tab) => (
+            {bottomNavTabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
