@@ -36,12 +36,14 @@ export const useGwLang = create<GwLangState>((set, get) => ({
 
   t: (key) => {
     const { lang } = get();
-    return GW_TRANSLATIONS[lang][key] ?? GW_TRANSLATIONS.en[key] ?? key;
+    const row = GW_TRANSLATIONS[lang] as Record<GwTranslationKey, string>;
+    return row[key] ?? GW_TRANSLATIONS.en[key] ?? key;
   },
 
   tf: (key, values) => {
     const { lang } = get();
-    const template = GW_TRANSLATIONS[lang][key] ?? GW_TRANSLATIONS.en[key] ?? key;
+    const row = GW_TRANSLATIONS[lang] as Record<GwTranslationKey, string>;
+    const template = row[key] ?? GW_TRANSLATIONS.en[key] ?? key;
     return Object.entries(values).reduce((acc, [k, v]) => {
       return acc.replace(new RegExp(`\\{\\{\\s*${k}\\s*\\}\\}`, 'g'), String(v));
     }, template);

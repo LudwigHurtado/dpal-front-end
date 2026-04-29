@@ -3,8 +3,6 @@ import type { Trip } from '../tripTypes';
 import { useGoogleMaps } from '../../map/useGoogleMaps';
 import { geocodeAddress, midpoint } from '../../map/mapUtils';
 import type { LatLng } from '../../map/mapTypes';
-import { GOOD_WHEELS_DEMO_MODE } from '../../../app/appConfig';
-
 const TripMapPanel: React.FC<{
   trip: Trip;
   variant?: 'passenger' | 'driver' | 'worker';
@@ -18,8 +16,6 @@ const TripMapPanel: React.FC<{
   const directionsRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
-  const driverTickRef = useRef<number | null>(null);
-  const driverProgressRef = useRef<number>(0);
   const nearbyCarsRef = useRef<google.maps.Marker[]>([]);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
@@ -51,10 +47,6 @@ const TripMapPanel: React.FC<{
     if (pickupLL && dropoffLL) return midpoint(pickupLL, dropoffLL);
     return pickupLL ?? dropoffLL ?? fallbackCenter;
   }, [pickupLL, dropoffLL, fallbackCenter]);
-
-  useEffect(() => {
-    driverProgressRef.current = 0;
-  }, [trip.id]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -119,9 +111,9 @@ const TripMapPanel: React.FC<{
           icon: {
             path: g.maps.SymbolPath.CIRCLE,
             scale: 8,
-            fillColor: '#ef4444',
-            fillOpacity: 0.85,
-            strokeColor: '#7f1d1d',
+            fillColor: '#22c55e',
+            fillOpacity: 0.9,
+            strokeColor: '#14532d',
             strokeWeight: 2,
           },
         })
@@ -136,9 +128,9 @@ const TripMapPanel: React.FC<{
           icon: {
             path: g.maps.SymbolPath.CIRCLE,
             scale: 8,
-            fillColor: '#22c55e',
-            fillOpacity: 0.9,
-            strokeColor: '#14532d',
+            fillColor: '#ef4444',
+            fillOpacity: 0.85,
+            strokeColor: '#7f1d1d',
             strokeWeight: 2,
           },
         })
@@ -188,88 +180,59 @@ const TripMapPanel: React.FC<{
       driverMarkerRef.current.setMap(null);
       driverMarkerRef.current = null;
     }
-    if (driverTickRef.current) {
-      window.clearInterval(driverTickRef.current);
-      driverTickRef.current = null;
-    }
-
-    const liveStatuses = new Set<Trip['status']>([
+    // Driver vehicle marker only after acceptance (not during matching / assigned-only states).
+    const driverVisibleAfterAccept = new Set<Trip['status']>([
       'accepted',
       'driver_en_route',
+      'driver_arriving',
       'driver_arrived',
+      'arrived',
       'passenger_onboard',
       'in_progress',
+      'support_in_progress',
     ]);
-    const demoStatuses = new Set<Trip['status']>(['driver_assigned', 'driver_arriving', 'arrived', 'in_progress']);
-    const shouldTrack = Boolean(
-      trip.driverId &&
-      (liveStatuses.has(trip.status) || (GOOD_WHEELS_DEMO_MODE && demoStatuses.has(trip.status)))
-    );
+    const shouldTrack = Boolean(trip.driverId && driverVisibleAfterAccept.has(trip.status));
     if (!shouldTrack) return;
+
+    const enRouteToPickup =
+      trip.status === 'accepted' || trip.status === 'driver_en_route' || trip.status === 'driver_arriving';
+    const atPickup = trip.status === 'driver_arrived' || trip.status === 'arrived';
+    const onRide =
+      trip.status === 'passenger_onboard' || trip.status === 'in_progress' || trip.status === 'support_in_progress';
+
+    let pos: LatLng;
+    if (enRouteToPickup) {
+      const approachStart = { lat: pickupLL.lat - 0.008, lng: pickupLL.lng - 0.01 };
+      pos = {
+        lat: approachStart.lat + (pickupLL.lat - approachStart.lat) * 0.22,
+        lng: approachStart.lng + (pickupLL.lng - approachStart.lng) * 0.22,
+      };
+    } else if (atPickup) {
+      pos = { ...pickupLL };
+    } else if (onRide) {
+      pos = {
+        lat: pickupLL.lat + (dropoffLL.lat - pickupLL.lat) * 0.45,
+        lng: pickupLL.lng + (dropoffLL.lng - pickupLL.lng) * 0.45,
+      };
+    } else {
+      pos = { ...pickupLL };
+    }
 
     const marker = new g.maps.Marker({
       map,
-      position: pickupLL,
+      position: pos,
       icon: {
         path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
         scale: 5,
-        fillColor: '#0077C8',
+        fillColor: '#CA8A04',
         fillOpacity: 1,
-        strokeColor: '#0D3B66',
+        strokeColor: '#422006',
         strokeWeight: 1,
       },
       title: 'Driver',
     });
     driverMarkerRef.current = marker;
-
-    const runTick = () => {
-      const enRouteToPickup = trip.status === 'accepted' || trip.status === 'driver_en_route' || trip.status === 'driver_arriving';
-      const onRide = trip.status === 'driver_arrived' || trip.status === 'arrived' || trip.status === 'passenger_onboard' || trip.status === 'in_progress';
-
-      let nextProgress = driverProgressRef.current;
-      if (enRouteToPickup) {
-        nextProgress = Math.min(nextProgress + 0.012, 0.35);
-      } else if (onRide) {
-        nextProgress = Math.min(Math.max(nextProgress, 0.35) + 0.015, 1);
-      } else {
-        nextProgress = 0;
-      }
-
-      driverProgressRef.current = nextProgress;
-
-      // Segment 1: approach pickup. Segment 2: pickup to dropoff.
-      const approachStart = {
-        lat: pickupLL.lat - 0.01,
-        lng: pickupLL.lng - 0.012,
-      };
-
-      let pos: LatLng;
-      if (nextProgress <= 0.35) {
-        const t = nextProgress / 0.35;
-        pos = {
-          lat: approachStart.lat + (pickupLL.lat - approachStart.lat) * t,
-          lng: approachStart.lng + (pickupLL.lng - approachStart.lng) * t,
-        };
-      } else {
-        const t = (nextProgress - 0.35) / 0.65;
-        pos = {
-          lat: pickupLL.lat + (dropoffLL.lat - pickupLL.lat) * t,
-          lng: pickupLL.lng + (dropoffLL.lng - pickupLL.lng) * t,
-        };
-      }
-      marker.setPosition(pos);
-    };
-
-    runTick();
-    driverTickRef.current = window.setInterval(runTick, 1200);
-
-    return () => {
-      if (driverTickRef.current) {
-        window.clearInterval(driverTickRef.current);
-        driverTickRef.current = null;
-      }
-    };
-  }, [ready, g, pickupLL, dropoffLL, trip.status]);
+  }, [ready, g, pickupLL, dropoffLL, trip.status, trip.driverId]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -322,8 +285,8 @@ const TripMapPanel: React.FC<{
       )}
       {!pinMode && (
         <div className="text-xs font-bold text-slate-600">
-          Marker legend: <span style={{ color: '#ef4444' }}>Red = Pickup</span> ·{' '}
-          <span style={{ color: '#22c55e' }}>Green = Dropoff</span> ·{' '}
+          Marker legend: <span style={{ color: '#22c55e' }}>Green = Pickup</span> ·{' '}
+          <span style={{ color: '#ef4444' }}>Red = Drop-off</span> ·{' '}
           <span style={{ color: '#d97706' }}>Yellow = Route</span> (Maps Directions API)
         </div>
       )}

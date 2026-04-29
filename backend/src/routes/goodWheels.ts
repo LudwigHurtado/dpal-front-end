@@ -314,12 +314,7 @@ router.post('/auth/signin', async (req: Request, res: Response): Promise<void> =
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
   const users = await seedUsersIfEmpty();
-  let user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
-  if (!user) {
-    if (email.includes('driver')) user = users.find((u) => u.role === 'driver') ?? users[0];
-    else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
-    else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
-  }
+  const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
   if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
     return;
@@ -336,12 +331,7 @@ router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> 
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
   const users = await seedUsersIfEmpty();
-  let user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
-  if (!user) {
-    if (email.includes('driver')) user = users.find((u) => u.role === 'driver') ?? users[0];
-    else if (email.includes('worker')) user = users.find((u) => u.role === 'worker') ?? users[0];
-    else if (email.includes('passenger')) user = users.find((u) => u.role === 'passenger') ?? users[0];
-  }
+  const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
   if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
     return;

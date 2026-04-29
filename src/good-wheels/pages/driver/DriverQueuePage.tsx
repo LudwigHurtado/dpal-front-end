@@ -1,45 +1,53 @@
-import React, { useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GW_PATHS } from '../../routes/paths';
-import { useDriverQueue } from '../../features/driver/hooks/useDriverQueue';
-import DriverQueueFilters from '../../features/driver/components/DriverQueueFilters';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useDriverStore } from '../../features/driver/driverStore';
 import DriverRequestCard from '../../features/driver/components/DriverRequestCard';
-import DriverEmptyQueue from '../../features/driver/components/DriverEmptyQueue';
 import { useGwLang } from '../../i18n/useGwLang';
 
 const DriverQueuePage: React.FC = () => {
   const navigate = useNavigate();
   const t = useGwLang((s) => s.t);
-  const { filteredQueue, queueCount, filterId, setQueueFilter, acceptRequest, declineRequest } = useDriverQueue();
+  const user = useAuthStore((s) => s.user);
+  const hydrate = useDriverStore((s) => s.hydrate);
+  const queueItems = useDriverStore((s) => s.queueItems);
+  const acceptQueueTrip = useDriverStore((s) => s.acceptQueueTrip);
 
-  const title = useMemo(() => `${t('queueTitle')} (${queueCount})`, [queueCount, t]);
+  useEffect(() => {
+    void hydrate();
+    const timer = window.setInterval(() => void hydrate(), 5000);
+    return () => window.clearInterval(timer);
+  }, [hydrate]);
+
+  const queue = queueItems.filter((trip) => ['requested', 'broadcasted', 'matched'].includes(trip.status));
 
   return (
     <div className="space-y-6">
       <div className="gw-pagehead">
         <div>
-          <h1 className="gw-h2">{title}</h1>
+          <h1 className="gw-h2">
+            {t('queueTitle')} ({queue.length})
+          </h1>
           <p className="gw-muted">{t('reviewRequests')}</p>
         </div>
       </div>
-
-      <DriverQueueFilters value={filterId} onChange={setQueueFilter} />
-
-      {filteredQueue.length === 0 ? (
-        <DriverEmptyQueue />
+      {queue.length === 0 ? (
+        <div className="gw-card p-4 text-sm text-slate-600">{t('noAvailableRideRequests')}</div>
       ) : (
         <div className="space-y-4">
-          {filteredQueue.map((t) => (
+          {queue.map((trip) => (
             <DriverRequestCard
-              key={t.id}
-              trip={t}
-              onReview={() => navigate(GW_PATHS.driver.active)}
+              key={trip.id}
+              trip={trip}
+              onReview={() => navigate(GW_PATHS.driver.dashboard)}
               onAccept={() => {
-                void acceptRequest(t.id).then((trip) => {
-                  if (trip) navigate(GW_PATHS.driver.active);
+                if (!user?.id) return;
+                void acceptQueueTrip(trip.id).then((next) => {
+                  if (next) navigate(GW_PATHS.driver.active);
                 });
               }}
-              onDecline={() => declineRequest(t.id)}
+              onDecline={() => useDriverStore.getState().declineQueueTrip(trip.id)}
             />
           ))}
         </div>
@@ -49,4 +57,3 @@ const DriverQueuePage: React.FC = () => {
 };
 
 export default DriverQueuePage;
-

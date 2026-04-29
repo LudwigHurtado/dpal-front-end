@@ -63,6 +63,10 @@ const DriverEarningsPage: React.FC = () => {
             {completedTrips === 0 && totalDriverCents === 0 ? '—' : formatMoneyFromCents(totalDriverCents)}
           </div>
           <div className="gw-muted text-sm">{tf('earningsCompletedTrips', { count: completedTrips })}</div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 leading-snug">
+            <div className="font-bold">{t('youReceive')} = 90% {t('netAfterAdmin')}</div>
+            <div>{t('donationDoesNotReduceDriver')}</div>
+          </div>
         </div>
         <DriverPerformanceCard />
       </div>

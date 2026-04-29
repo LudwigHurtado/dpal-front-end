@@ -28,8 +28,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : goodWheelsAuthApi;
       const { user } = await api.signIn(email, password);
       set({ status: 'signed_in', user, activeRole: user.role });
-    } catch {
-      set({ status: 'signed_out', error: 'Could not sign in. Please try again.' });
+    } catch (e) {
+      const msg = e instanceof Error && e.message ? e.message : 'Could not sign in. Please try again.';
+      set({ status: 'signed_out', error: msg });
     }
   },
   async signOut() {

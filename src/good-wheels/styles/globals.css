@@ -14,6 +14,33 @@
   --gw-radius-lg: 18px;
   --gw-radius-xl: 24px;
   --gw-shadow: 0 16px 40px rgba(2, 6, 23, 0.08);
+
+  --gw-passenger-accent: #16a34a;
+  --gw-driver-accent: #ca8a04;
+  --gw-worker-accent: #2563eb;
+  --gw-dropoff-accent: #dc2626;
+}
+
+.gw-theme-passenger {
+  --gw-accent: var(--gw-passenger-accent);
+}
+.gw-theme-passenger .gw-appbar {
+  background: linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(14, 165, 233, 0.08)), rgba(15, 23, 42, 0.92);
+}
+.gw-theme-driver {
+  --gw-accent: var(--gw-driver-accent);
+}
+.gw-theme-driver .gw-appbar {
+  background: linear-gradient(90deg, rgba(202, 138, 4, 0.18), rgba(15, 23, 42, 0.92)), rgba(15, 23, 42, 0.95);
+}
+.gw-theme-driver .gw-driver-surface {
+  border-color: rgba(202, 138, 4, 0.35);
+}
+.gw-theme-worker {
+  --gw-accent: var(--gw-worker-accent);
+}
+.gw-theme-worker .gw-appbar {
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.2), rgba(15, 23, 42, 0.92)), rgba(15, 23, 42, 0.95);
 }
 
 .gw-root {
@@ -403,12 +430,12 @@
   to   { transform: translate(-50%,-50%) scale(1);    opacity: 1; }
 }
 .gw-map-pin-hint--pickup {
-  background: rgba(239,68,68,0.96);
+  background: rgba(34,197,94,0.96);
   color: white;
   border: 1.5px solid rgba(255,255,255,0.30);
 }
 .gw-map-pin-hint--dropoff {
-  background: rgba(34,197,94,0.96);
+  background: rgba(239,68,68,0.96);
   color: white;
   border: 1.5px solid rgba(255,255,255,0.30);
 }
@@ -449,14 +476,14 @@
   transition: background 0.12s;
 }
 .gw-addr-field--pickup-active {
-  background: rgba(239,68,68,0.04);
-  outline: 2px solid #ef4444;
+  background: rgba(34,197,94,0.06);
+  outline: 2px solid #22c55e;
   outline-offset: -2px;
   border-radius: 18px 18px 0 0;
 }
 .gw-addr-field--dropoff-active {
-  background: rgba(34,197,94,0.04);
-  outline: 2px solid #22c55e;
+  background: rgba(239,68,68,0.05);
+  outline: 2px solid #ef4444;
   outline-offset: -2px;
   border-radius: 0 0 18px 18px;
 }
@@ -466,8 +493,8 @@
   height: 2px;
   margin: 0 14px;
 }
-.gw-addr-active-bar--pickup { background: linear-gradient(90deg, #ef4444, rgba(239,68,68,0.3)); }
-.gw-addr-active-bar--dropoff { background: linear-gradient(90deg, #22c55e, rgba(34,197,94,0.3)); }
+.gw-addr-active-bar--pickup { background: linear-gradient(90deg, #22c55e, rgba(34,197,94,0.3)); }
+.gw-addr-active-bar--dropoff { background: linear-gradient(90deg, #ef4444, rgba(239,68,68,0.3)); }
 
 /* Connector between the two field rows */
 .gw-addr-connector {
@@ -577,14 +604,14 @@
   white-space: nowrap;
 }
 .gw-addr-map-hint-btn--pickup {
-  background: rgba(239,68,68,0.08);
-  color: #dc2626;
-  border: 1px solid rgba(239,68,68,0.20);
+  background: rgba(34,197,94,0.10);
+  color: #15803d;
+  border: 1px solid rgba(34,197,94,0.28);
 }
 .gw-addr-map-hint-btn--dropoff {
-  background: rgba(34,197,94,0.08);
-  color: #16a34a;
-  border: 1px solid rgba(34,197,94,0.20);
+  background: rgba(239,68,68,0.08);
+  color: #b91c1c;
+  border: 1px solid rgba(239,68,68,0.22);
 }
 
 /* ── Bid / broadcast card — slides up once both addresses are set ── */
@@ -669,8 +696,8 @@
   flex-shrink: 0;
   color: white;
 }
-.gw-bid-pin--a { background: #ef4444; }
-.gw-bid-pin--b { background: #22c55e; }
+.gw-bid-pin--a { background: #22c55e; }
+.gw-bid-pin--b { background: #ef4444; }
 .gw-bid-route-addr {
   font-size: 11.5px;
   font-weight: 700;

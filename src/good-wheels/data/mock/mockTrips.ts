@@ -7,6 +7,18 @@ export const MOCK_TRIPS: { active: Trip; history: Trip[] } = {
     id: 'trip-1001',
     passengerId: 'usr-passenger-001',
     driverId: 'usr-driver-001',
+    driverSnapshot: {
+      id: 'usr-driver-001',
+      fullName: 'Carlos Driver',
+      vehicle: {
+        makeModel: 'Toyota Corolla',
+        plateMasked: 'GW-2026',
+        colorName: 'Yellow',
+        seats: 4,
+        verification: 'verified',
+      },
+      trust: { verifiedDriver: 'verified', verifiedVehicle: 'verified' },
+    },
     pickup: { label: 'Home', addressLine: '123 Oak St' },
     dropoff: { label: 'Clinic', addressLine: 'Central Park Medical, 4th Ave' },
     purpose: 'medical_visit',
@@ -23,7 +35,7 @@ export const MOCK_TRIPS: { active: Trip; history: Trip[] } = {
     },
     timeline: [
       { id: 'e1', atIso: nowIso(), label: 'Ride requested', detail: 'Looking for a verified driver' },
-      { id: 'e2', atIso: nowIso(), label: 'Driver matched', detail: 'Jordan is on the way' },
+      { id: 'e2', atIso: nowIso(), label: 'Driver matched', detail: 'Carlos Driver is on the way' },
     ],
   },
   history: [

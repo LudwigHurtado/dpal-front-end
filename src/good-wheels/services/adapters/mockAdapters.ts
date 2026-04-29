@@ -6,8 +6,10 @@ import type { UserProfile } from '../../types/user';
 import type { RideRequestDraft, Trip } from '../../types/ride';
 
 export const mockAuthApi = {
-  async signIn(_email: string, _password: string): Promise<{ user: UserProfile }> {
+  async signIn(email: string, _password: string): Promise<{ user: UserProfile }> {
     await mockDelay(450);
+    const e = email.trim().toLowerCase();
+    if (e === 'driver@goodwheels.test' || e.startsWith('driver')) return { user: MOCK_USERS.driver };
     return { user: MOCK_USERS.passenger };
   },
   async signOut(): Promise<void> {

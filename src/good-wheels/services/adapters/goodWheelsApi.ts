@@ -3,6 +3,7 @@ import type { Role } from '../../types/role';
 import type { RideRequestDraft, Trip } from '../../types/ride';
 import type { UserProfile } from '../../types/user';
 import { mapMockTripToTrip } from '../../features/trips/tripMockMapper';
+import { mapGoodWheelsApiUser } from './goodWheelsUserMapper';
 
 async function parseJson<T>(res: Response): Promise<T> {
   return (await res.json()) as T;
@@ -15,9 +16,11 @@ export const goodWheelsAuthApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    if (!res.ok) throw new Error(`Sign in failed (${res.status})`);
-    const data = await parseJson<{ user: UserProfile }>(res);
-    return { user: data.user };
+    const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
+    if (!res.ok || data.ok === false || data.user == null) {
+      throw new Error(data.error || `Sign in failed (${res.status})`);
+    }
+    return { user: mapGoodWheelsApiUser(data.user) };
   },
 
   async signOut(): Promise<void> {
@@ -34,9 +37,11 @@ export const goodWheelsAuthApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ role }),
     });
-    if (!res.ok) throw new Error(`Role switch failed (${res.status})`);
-    const data = await parseJson<{ user: UserProfile }>(res);
-    return { user: data.user };
+    const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
+    if (!res.ok || data.ok === false || data.user == null) {
+      throw new Error(data.error || `Role switch failed (${res.status})`);
+    }
+    return { user: mapGoodWheelsApiUser(data.user) };
   },
 };
 
@@ -70,6 +75,10 @@ export const goodWheelsRideApi = {
         purpose: draft.purpose,
         supportCategoryId: draft.supportCategoryId,
         familySafe: draft.familySafe,
+        pickupCategory: draft.pickupCategoryKey,
+        dropoffCategory: draft.dropoffCategoryKey,
+        estimate: draft.estimatePreview,
+        routeSummary: draft.routeSummaryPreview,
       }),
     });
     if (!res.ok) throw new Error(`Request trip failed (${res.status})`);

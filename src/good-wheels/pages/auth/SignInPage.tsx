@@ -2,29 +2,56 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import { GW_PATHS } from '../../routes/paths';
+import { useGwLang } from '../../i18n/useGwLang';
+
+const TEST_PASSENGER_EMAIL = 'passenger@goodwheels.test';
+const TEST_PASSENGER_PASSWORD = 'GoodWheels123!';
+const TEST_DRIVER_EMAIL = 'driver@goodwheels.test';
+const TEST_DRIVER_PASSWORD = 'GoodWheels123!';
 
 const SignInPage: React.FC = () => {
   const navigate = useNavigate();
+  const t = useGwLang((s) => s.t);
   const status = useAuthStore((s) => s.status);
   const error = useAuthStore((s) => s.error);
   const signIn = useAuthStore((s) => s.signIn);
-  const [email, setEmail] = useState('passenger@goodwheels.test');
-  const [password, setPassword] = useState('GoodWheels123!');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const showTestHelpers = Boolean(import.meta.env.DEV);
+
+  const afterSignInNavigate = () => {
+    const u = useAuthStore.getState().user;
+    if (useAuthStore.getState().status !== 'signed_in' || !u) return;
+    if (u.role === 'driver') navigate(GW_PATHS.driver.dashboard);
+    else if (u.role === 'worker') navigate(GW_PATHS.worker.dashboard);
+    else navigate(GW_PATHS.passenger.dashboard);
+  };
 
   return (
-    <div className="gw-auth">
-      <div className="gw-auth-card">
-        <h2 className="gw-h2">Sign in</h2>
-        <p className="gw-muted">Use test credentials for passenger or driver sign-in.</p>
+    <div className="gw-auth" style={{ background: 'linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #14532d 100%)', minHeight: '100dvh' }}>
+      <div className="gw-auth-card" style={{ maxWidth: 420, border: '1px solid rgba(148,163,184,0.25)', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}>
+        <h1 className="gw-h2" style={{ marginBottom: 4 }}>
+          {t('loginTitle')}
+        </h1>
+        <p className="gw-muted" style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.45 }}>
+          {t('goodWheelsSubtitle')}
+        </p>
         <div className="gw-form">
+          <p className="gw-muted" style={{ fontSize: 12, marginBottom: 10 }}>
+            {t('passengerLoginHint')} · {t('driverLoginHint')}
+          </p>
           <label className="gw-label">
-            Email
-            <input className="gw-input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            {t('emailLabel')}
+            <input className="gw-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
           </label>
           <label className="gw-label">
-            Password
-            <input className="gw-input" value={password} onChange={(e) => setPassword(e.target.value)} type="password" />
+            {t('passwordLabel')}
+            <input className="gw-input" value={password} onChange={(e) => setPassword(e.target.value)} type="password" autoComplete="current-password" />
           </label>
+          <p className="gw-muted" style={{ fontSize: 11, marginTop: -4, marginBottom: 8 }}>
+            {t('roleHintAfterFields')}
+          </p>
           {error && <div className="gw-error">{error}</div>}
           <button
             type="button"
@@ -32,19 +59,40 @@ const SignInPage: React.FC = () => {
             disabled={status === 'loading'}
             onClick={() =>
               void signIn(email, password).then(() => {
-                if (useAuthStore.getState().status === 'signed_in') {
-                  navigate(GW_PATHS.auth.roleSelect);
-                }
+                afterSignInNavigate();
               })
             }
           >
-            Continue
+            {t('signInCta')}
           </button>
-          <div className="gw-muted text-sm">
+          {showTestHelpers && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
+              <button
+                type="button"
+                className="gw-button gw-button-secondary w-full"
+                disabled={status === 'loading'}
+                onClick={() => {
+                  setEmail(TEST_PASSENGER_EMAIL);
+                  setPassword(TEST_PASSENGER_PASSWORD);
+                }}
+              >
+                {t('usePassengerTestLogin')}
+              </button>
+              <button
+                type="button"
+                className="gw-button gw-button-secondary w-full"
+                disabled={status === 'loading'}
+                onClick={() => {
+                  setEmail(TEST_DRIVER_EMAIL);
+                  setPassword(TEST_DRIVER_PASSWORD);
+                }}
+              >
+                {t('useDriverTestLogin')}
+              </button>
+            </div>
+          )}
+          <div className="gw-muted text-sm" style={{ marginTop: 14 }}>
             New here? <Link to={GW_PATHS.auth.signUp} className="gw-link">Create an account</Link>
-          </div>
-          <div className="gw-muted text-xs">
-            Passenger: passenger@goodwheels.test · Driver: driver@goodwheels.test · Password: GoodWheels123!
           </div>
         </div>
       </div>
@@ -53,4 +101,3 @@ const SignInPage: React.FC = () => {
 };
 
 export default SignInPage;
-

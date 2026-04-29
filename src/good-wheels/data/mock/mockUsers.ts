@@ -14,7 +14,7 @@ export const MOCK_USERS: { passenger: UserProfile; driver: UserProfile; worker: 
   driver: {
     id: 'usr-driver-001',
     role: 'driver',
-    fullName: 'Jordan K.',
+    fullName: 'Carlos Driver',
     phoneMasked: '(•••) •••-5220',
     trust: { trustScore: 95, verifiedUser: 'verified', verifiedDriver: 'verified', verifiedVehicle: 'verified' },
     vehicleId: 'veh-001',

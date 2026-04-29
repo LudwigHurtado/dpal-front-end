@@ -63,30 +63,30 @@ const FareBreakdownCard: React.FC<Props> = ({
   const accentBg = variant === 'passenger' ? 'rgba(5,150,105,0.08)' : 'rgba(202,138,4,0.12)';
   const platformColor = '#475569';
   const donationUsd = typeof optionalDonationUsd === 'number' && optionalDonationUsd > 0 ? optionalDonationUsd : 0;
-  const showDonation = variant === 'passenger' && donationUsd > 0;
-  const grandCents = showDonation
-    ? Math.round(passengerGrandTotalUsd(split.totalFareCents / 100, donationUsd) * 100)
-    : null;
-
   const driverLabel = variant === 'driver' ? t('youReceive') : t('driverReceives');
+  const fareLabel = variant === 'driver' ? t('ridePrice') : t('rideFare');
+  const grandCentsResolved =
+    variant === 'passenger'
+      ? Math.round(passengerGrandTotalUsd(split.totalFareCents / 100, donationUsd) * 100)
+      : null;
 
   return (
     <div className={`rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden ${className}`}>
       <div className="px-3 py-2.5 border-b border-slate-100">
         <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{t(titleKey)}</div>
         <div className="mt-1 flex items-baseline justify-between gap-2">
-          <span className="text-xs text-slate-600">{t('totalFare')}</span>
+          <span className="text-xs text-slate-600">{fareLabel}</span>
           <span className="text-base font-extrabold text-slate-900 tabular-nums">{formatMoneyFromCents(split.totalFareCents, currency)}</span>
         </div>
         <div
-          className="mt-2 rounded-lg px-2.5 py-2"
+          className="mt-2 rounded-lg px-2.5 py-2.5"
           style={{ background: accentBg, borderLeft: `3px solid ${accent}` }}
         >
           <div className="flex items-baseline justify-between gap-2">
             <span className="text-xs font-bold" style={{ color: accent }}>
               {driverLabel}
             </span>
-            <span className="text-sm font-extrabold tabular-nums" style={{ color: accent }}>
+            <span className="text-base font-extrabold tabular-nums" style={{ color: accent }}>
               {formatMoneyFromCents(split.driverPayoutCents, currency)}
             </span>
           </div>
@@ -101,17 +101,17 @@ const FareBreakdownCard: React.FC<Props> = ({
             {formatMoneyFromCents(split.platformShareCents, currency)}
           </span>
         </div>
-        {showDonation && grandCents != null && (
-          <>
-            <div className="mt-2 flex items-baseline justify-between gap-2 text-xs border-t border-slate-100 pt-2">
-              <span className="text-slate-600">{t('optionalDonation')}</span>
-              <span className="font-semibold text-slate-800 tabular-nums">{formatMoneyFromCents(Math.round(donationUsd * 100), currency)}</span>
+        {variant === 'passenger' && grandCentsResolved != null && (
+          <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/70 px-2.5 py-2 space-y-1.5">
+            <div className="flex items-baseline justify-between gap-2 text-xs">
+              <span className="text-slate-700">{t('optionalDonation')}</span>
+              <span className="font-semibold text-slate-900 tabular-nums">{formatMoneyFromCents(Math.round(donationUsd * 100), currency)}</span>
             </div>
-            <div className="mt-1 flex items-baseline justify-between gap-2 text-xs">
-              <span className="text-slate-800 font-bold">{t('grandTotalYouPay')}</span>
-              <span className="font-extrabold text-slate-900 tabular-nums">{formatMoneyFromCents(grandCents, currency)}</span>
+            <div className="flex items-baseline justify-between gap-2 text-xs border-t border-emerald-200 pt-1.5">
+              <span className="text-emerald-900 font-bold">{t('grandTotalYouPay')}</span>
+              <span className="font-extrabold text-emerald-950 tabular-nums">{formatMoneyFromCents(grandCentsResolved, currency)}</span>
             </div>
-          </>
+          </div>
         )}
       </div>
 

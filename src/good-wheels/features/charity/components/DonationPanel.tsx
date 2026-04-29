@@ -24,7 +24,7 @@ function DonationPanelInline({
 }: DonationPanelProps) {
   const t = useGwLang((s) => s.t);
   return (
-    <div className="gw-card p-5" style={{ background: 'rgba(22,163,74,0.06)' }}>
+    <div className="gw-card p-4" style={{ background: 'rgba(22,163,74,0.06)' }}>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <div className="text-lg font-extrabold text-slate-900">{t('donationPanelTitle')}</div>
@@ -99,7 +99,7 @@ function DonationPanelInline({
         </button>
       </div>
 
-      <div className="mt-4 gw-card p-4 space-y-2" style={{ boxShadow: 'none', background: 'rgba(255,255,255,0.72)' }}>
+      <div className="mt-3 gw-card p-3.5 space-y-1.5" style={{ boxShadow: 'none', background: 'rgba(255,255,255,0.72)' }}>
         <div className="flex items-center justify-between">
           <span className="text-sm text-slate-600 font-bold">{t('donationEstimatedFare')}</span>
           <strong className="text-sm text-slate-900">{formatMoney(fare)}</strong>
@@ -108,7 +108,7 @@ function DonationPanelInline({
           <span className="text-sm text-slate-600 font-bold">{t('donationOptionalShort')}</span>
           <strong className="text-sm text-slate-900">{formatMoney(donationAmount)}</strong>
         </div>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between border-t border-emerald-200 pt-1.5">
           <span className="text-sm text-slate-600 font-bold">{t('donationTotalYouMayPay')}</span>
           <strong className="text-sm text-slate-900">{formatMoney(fare + donationAmount)}</strong>
         </div>

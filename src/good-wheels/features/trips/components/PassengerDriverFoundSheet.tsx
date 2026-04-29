@@ -12,7 +12,7 @@ export default function PassengerDriverFoundSheet({
   onCancel?: () => void;
 }) {
   const t = useGwLang((s) => s.t);
-  const driverName = trip?.driverSnapshot?.fullName ?? (trip?.driverId ? t('driverAssigned') : t('waitingForDriver'));
+  const driverName = trip?.driverSnapshot?.fullName ?? t('waitingForDriver');
   const vehicle = trip?.driverSnapshot?.vehicle;
   const verification = trip?.driverSnapshot?.trust?.verifiedVehicle ?? vehicle?.verification;
   return (

@@ -99,8 +99,11 @@ const AppLayout: React.FC = () => {
     return [];
   }, [role, lang]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const themeClass =
+    role === 'driver' ? 'gw-theme-driver' : role === 'worker' ? 'gw-theme-worker' : role === 'passenger' ? 'gw-theme-passenger' : 'gw-theme-guest';
+
   return (
-    <div className={previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'}>
+    <div className={`${previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'} ${themeClass}`}>
       <div
         className={previewing ? 'gw-preview-app' : undefined}
         style={
