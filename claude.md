@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-28 (Earth Observation `POST /api/earth-observation/scan` + DPAL Project Guide; AquaScan MRV / Water Command Center dual routes; README + this file aligned)
+Last updated: 2026-04-28 (CARB source-mode + health hardening, investigation workspace UX overhaul; Earth Observation + DPAL Project Guide; AquaScan MRV / Water Command Center dual routes)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -225,6 +225,54 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-28 — CARB workspace hardening + investigation UX overhaul
+
+#### Data/source contract hardening (frontend + backend)
+- Added CARB module health endpoint usage in the CARB UI:
+  - frontend route constant: `API_ROUTES.CARB_DATA_HEALTH`
+  - client call: `getCarbDataHealth()` in `services/carbAuditService.ts`
+  - workspace now displays **module reachability** separately from dataset readiness.
+- Aligned CARB source modes across client/server to one contract:
+  - `LIVE`, `IMPORTED`, `DEMO_FALLBACK`, `NEEDS_SOURCE`
+- Backend behavior now avoids implying official data when none is loaded:
+  - `backend/src/services/carbDataService.ts` returns `NEEDS_SOURCE` when no live/imported rows are available.
+- Admin guard UX for sync:
+  - non-admin users no longer trigger confusing sync attempts from the CARB page;
+  - UI shows helper text: `Admin access required to sync official source data.`
+
+#### Evidence/report payload improvements
+- CARB evidence export now includes explicit missing/readiness context:
+  - `missingEvidenceItems`, `sourceMode`, `datasetVersion`, `retrievalDate`
+  - searched facility/operator text, reporting-year context, pollutant/totals/gas breakdown summaries
+  - `validatorReviewNeeded`, legal disclaimer, investigation warnings/findings.
+- Added map evidence metadata into generated CARB report payload:
+  - center, selected/manual coordinates, polygon, map markers, follow-up tasks, active layers.
+
+#### CARB Investigation Workspace UX (Search/Overview)
+- Reworked Search workflow for a clearer investigation-first flow:
+  - top search header: **Search CARB / EPA Facility**
+  - search inputs + actions are shown first, results remain visible above map/AOI tools.
+- Added explicit readiness and lock states across workflow actions:
+  - Search / Select / Compare / Report / Evidence / Room with prerequisite helper tooltips.
+- Improved no-selection and no-results states:
+  - right panel now shows a structured `No facility selected yet` placeholder with pending cards
+  - no-match message now includes EPA/GHGRP fallback guidance.
+- Added manual EPA/GHGRP fallback fields to manual investigation draft:
+  - `ghgrpId`, `frsId`, `naics`, `address`, `latitude`, `longitude`, `selectedYear`, `comparisonYear`.
+- Map behavior is less dominant in Search:
+  - map/AOI section can stay collapsed and no longer blocks search/results flow.
+- Developer tools moved out of primary flow:
+  - renamed to **Advanced Developer Import Tools**
+  - only surfaced in Tasks context, collapsed by default.
+- Added `DpalProjectGuide` to CARB workspace with `moduleType="carb_air"` for guided project steps.
+
+#### Verification
+- `npm run lint` (root) ✅
+- `npm run build` (root) ✅
+- `cd backend && npm run build` ✅
+
+---
 
 ### 2026-04-28 — Earth Observation API wiring, DPAL Project Guide, date-range UX
 

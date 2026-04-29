@@ -21,6 +21,8 @@ interface CarbIntelligenceReaderProps {
   riskLevel: string;
   categories: CarbReaderCategory[];
   recommendedNextSteps: string[];
+  hasClimateClaim: boolean;
+  isSingleYearEvidence: boolean;
 }
 
 type ReaderQuestion = {
@@ -40,13 +42,16 @@ export default function CarbIntelligenceReader({
   riskLevel,
   categories,
   recommendedNextSteps,
+  hasClimateClaim,
+  isSingleYearEvidence,
 }: CarbIntelligenceReaderProps): React.ReactElement {
   const stateLabel = useMemo(() => {
     if (!facilityName) return 'Awaiting facility selection';
+    if (isSingleYearEvidence) return 'Preliminary single-year review';
     if (riskLevel === 'High') return 'High-priority discrepancy review';
     if (riskLevel === 'Medium') return 'Watchlist discrepancy review';
     return 'Baseline consistency review';
-  }, [facilityName, riskLevel]);
+  }, [facilityName, isSingleYearEvidence, riskLevel]);
 
   const summary = useMemo(() => {
     if (!facilityName) {
@@ -55,41 +60,76 @@ export default function CarbIntelligenceReader({
     return [
       `Analyzing ${facilityName} (${facilityId || 'no facility id'}) using ${sourceMode} data.`,
       `Comparison period: ${baselineYear || 'n/a'} to ${currentYear || 'n/a'}.`,
-      `Claim interpretation: ${claimComparison}.`,
+      hasClimateClaim
+        ? `Claim interpretation: ${claimComparison}.`
+        : 'No climate claim entered. Current review is limited to CARB-reported facility data.',
       `Integrity score: ${integrityScore ?? 'Needs More Data'} (${riskLevel}).`,
+      isSingleYearEvidence
+        ? 'Only one reporting year is available, so year-over-year discrepancy interpretation remains preliminary.'
+        : '',
     ].join(' ');
-  }, [facilityName, facilityId, sourceMode, baselineYear, currentYear, claimComparison, integrityScore, riskLevel]);
+  }, [facilityName, facilityId, sourceMode, baselineYear, currentYear, hasClimateClaim, claimComparison, integrityScore, riskLevel, isSingleYearEvidence]);
 
   const keyFindings = useMemo(() => {
     if (!categories.length) return ['No priority categories available yet.'];
     return categories.slice(0, 3).map((category) => `${category.title}: ${category.rationale}`);
   }, [categories]);
 
-  const questions = useMemo<ReaderQuestion[]>(() => ([
-    {
-      id: 'claim',
-      label: 'Why was this claim flagged?',
-      answer: claimComparison || 'No claim analysis is available yet.',
-    },
-    {
-      id: 'risk',
-      label: 'What does this risk level mean?',
-      answer: riskLevel === 'High'
-        ? 'High risk means claim and emissions signals show strong mismatch or missing verification context.'
-        : riskLevel === 'Medium'
-          ? 'Medium risk means the discrepancy signal is meaningful and should be reviewed with additional evidence.'
-          : riskLevel === 'Low'
-            ? 'Low risk means current records look directionally consistent, but verification is still required.'
-            : 'Risk cannot be interpreted until core emissions and claim data are available.',
-    },
-    {
-      id: 'next',
-      label: 'What should investigators do next?',
-      answer: recommendedNextSteps.length
-        ? recommendedNextSteps.slice(0, 3).join(' ')
-        : 'No recommended actions are available yet.',
-    },
-  ]), [claimComparison, riskLevel, recommendedNextSteps]);
+  const questions = useMemo<ReaderQuestion[]>(() => {
+    if (!hasClimateClaim) {
+      return [
+        {
+          id: 'preliminary',
+          label: 'Why is this preliminary?',
+          answer: isSingleYearEvidence
+            ? 'Only one reporting year is available, so trend and discrepancy findings cannot be confirmed yet.'
+            : 'The review remains preliminary until a climate claim or additional corroborating evidence is provided.',
+        },
+        {
+          id: 'single-year',
+          label: 'What does single-year data prove?',
+          answer: 'Single-year CARB data confirms what was officially reported for that year, but it does not prove year-over-year performance trends.',
+        },
+        {
+          id: 'missing',
+          label: 'What evidence is missing?',
+          answer: 'Historical CARB records, climate claim context (if one exists), and external corroboration such as EPA references or production/activity data are still needed.',
+        },
+        {
+          id: 'next',
+          label: 'What should investigators add next?',
+          answer: recommendedNextSteps.length
+            ? recommendedNextSteps.slice(0, 4).join(' ')
+            : 'Load historical CARB data, add facility coordinates, and attach corroborating evidence.',
+        },
+      ];
+    }
+    return [
+      {
+        id: 'claim',
+        label: 'Why was this claim flagged?',
+        answer: claimComparison || 'No claim analysis is available yet.',
+      },
+      {
+        id: 'risk',
+        label: 'What does this risk level mean?',
+        answer: riskLevel === 'High'
+          ? 'High risk means claim and emissions signals show strong mismatch or missing verification context.'
+          : riskLevel === 'Medium'
+            ? 'Medium risk means the discrepancy signal is meaningful and should be reviewed with additional evidence.'
+            : riskLevel === 'Low'
+              ? 'Low risk means current records look directionally consistent, but verification is still required.'
+              : 'Risk cannot be interpreted until core emissions and claim data are available.',
+      },
+      {
+        id: 'next',
+        label: 'What should investigators do next?',
+        answer: recommendedNextSteps.length
+          ? recommendedNextSteps.slice(0, 3).join(' ')
+          : 'No recommended actions are available yet.',
+      },
+    ];
+  }, [hasClimateClaim, isSingleYearEvidence, claimComparison, riskLevel, recommendedNextSteps]);
 
   const [activeQuestion, setActiveQuestion] = useState<string>(questions[0]?.id ?? 'claim');
   const activeAnswer = questions.find((item) => item.id === activeQuestion) ?? questions[0];

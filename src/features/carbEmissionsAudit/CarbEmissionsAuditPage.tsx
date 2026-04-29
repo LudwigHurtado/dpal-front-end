@@ -838,6 +838,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   }, [baselineYear, currentYear, selected, facilityYearRecords]);
 
   const claimParsed = useMemo(() => parseClaim(companyClaim), [companyClaim]);
+  const hasClimateClaim = Boolean(companyClaim.trim());
+  const isSameYearComparison = Boolean(baselineYear && currentYear && baselineYear === currentYear);
+  const hasSingleReportingYear = availableYears.length === 1;
+  const hasHistoricalRecords = availableYears.length >= 2;
+  const isSingleYearEvidence = isSameYearComparison || hasSingleReportingYear;
+  const coordinatesAvailable = Boolean(selected && selected.latitude != null && selected.longitude != null);
   const calculatedReduction = toPct(Number(baselineEmissions), Number(currentEmissions));
   const methaneReduction = toPct(Number(methaneBaseline), Number(methaneCurrent));
   const n2oReduction = toPct(Number(n2oBaseline), Number(n2oCurrent));
@@ -845,6 +851,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const integrityScore = useMemo(() => {
     if (!selected || !baselineEmissions || !currentEmissions) return null;
+    if (isSingleYearEvidence && !hasClimateClaim) return null;
     const reported = Number(((Number(baselineEmissions) - Number(currentEmissions)) / Number(baselineEmissions)) * 100);
     const claimGapWeight = claimParsed.claimReductionPct == null ? 10 : Math.min(35, Math.abs(claimParsed.claimReductionPct - reported) * 1.2);
     const emissionsTrendWeight = reported < 0 ? 20 : Math.min(20, Math.abs(reported) * 0.4);
@@ -853,12 +860,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     const missingPenalty = methaneReduction === 'Needs More Data' || n2oReduction === 'Needs More Data' || co2Reduction === 'Needs More Data' ? 15 : 0;
     const satelliteEvidenceWeight = 8;
     return Math.max(0, Math.min(100, Math.round(claimGapWeight + emissionsTrendWeight + methaneTrend + verificationWeight + missingPenalty + satelliteEvidenceWeight)));
-  }, [selected, baselineEmissions, currentEmissions, claimParsed.claimReductionPct, methaneReduction, n2oReduction, co2Reduction]);
+  }, [selected, baselineEmissions, currentEmissions, isSingleYearEvidence, hasClimateClaim, claimParsed.claimReductionPct, methaneReduction, n2oReduction, co2Reduction]);
 
-  const riskLevel = integrityScore == null ? 'Needs More Data' : integrityScore <= 25 ? 'Low' : integrityScore <= 60 ? 'Medium' : 'High';
+  const riskLevel = integrityScore == null
+    ? 'Preliminary / Needs More Data'
+    : integrityScore <= 25
+      ? 'Low'
+      : integrityScore <= 60
+        ? 'Medium'
+        : 'High';
 
   const claimComparison = useMemo(() => {
-    if (!companyClaim.trim()) return 'Claim requires more data';
+    if (!companyClaim.trim()) return 'No climate claim entered';
     if (integrityScore == null) return 'Claim requires more data';
     if (integrityScore <= 20) return 'Claim appears consistent';
     if (integrityScore <= 45) return 'Claim appears partially supported';
@@ -879,8 +892,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const claimVerificationClassification = useMemo(() => {
     if (!companyClaim.trim()) {
       return {
-        label: 'Requires More Data',
-        text: 'Enter a company climate claim to compare it against CARB-reported emissions.',
+        label: isSingleYearEvidence ? 'Preliminary' : 'Requires More Data',
+        text: isSingleYearEvidence
+          ? 'No climate claim entered. Current review is limited to CARB-reported facility data.'
+          : 'Enter a company climate claim to compare it against CARB-reported emissions.',
       };
     }
     if (claimParsed.claimReductionPct == null || calculatedReductionNumber == null || !baselineYear || !currentYear) {
@@ -913,9 +928,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       label: 'Potentially Inconsistent',
       text: `The claim appears potentially inconsistent with available CARB data because reported reduction trends differ from the claimed value by ${absGap.toFixed(2)} percentage points.`,
     };
-  }, [companyClaim, claimParsed.claimReductionPct, calculatedReductionNumber, baselineYear, currentYear, claimGap]);
+  }, [companyClaim, isSingleYearEvidence, claimParsed.claimReductionPct, calculatedReductionNumber, baselineYear, currentYear, claimGap]);
 
   const discrepancyInterpretation = useMemo(() => {
+    if (isSingleYearEvidence && !hasClimateClaim) {
+      return 'Single-year evidence only. DPAL marks this as preliminary and does not classify a discrepancy trend until additional years, claim context, or external corroboration are added.';
+    }
     if (riskLevel === 'Low') {
       return 'Available data does not show a major discrepancy, but the review should still be cross-checked with production data and permits.';
     }
@@ -926,12 +944,13 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       return 'Available data suggests a significant discrepancy requiring further review.';
     }
     return 'DPAL cannot classify this audit until required emissions or source data is available.';
-  }, [riskLevel]);
+  }, [isSingleYearEvidence, hasClimateClaim, riskLevel]);
 
   const verificationChecklist = useMemo(() => {
     const carbDataAvailable = baselineEmissions !== '' && currentEmissions !== '';
-    const coordinatesAvailable = Boolean(selected && selected.latitude != null && selected.longitude != null);
     const evidencePacketReady = Boolean(selected && baselineYear && currentYear && carbDataAvailable);
+    const evidencePacketLabel = isSingleYearEvidence ? 'Single-year evidence packet available' : 'Evidence packet ready';
+    const evidencePacketStatus: ChecklistStatus = !evidencePacketReady ? 'Missing' : isSingleYearEvidence ? 'Needs Review' : 'Complete';
     return [
       { item: 'Facility selected', status: selected ? 'Complete' : 'Missing' },
       { item: 'Baseline year selected', status: baselineYear ? 'Complete' : 'Missing' },
@@ -941,13 +960,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       { item: 'Climate claim entered', status: companyClaim.trim() ? 'Complete' : 'Optional' },
       { item: 'Production/output data available', status: hasProductionData ? 'Complete' : 'Needs Review' },
       { item: 'Satellite/activity evidence attached', status: hasSatelliteEvidence ? 'Complete' : 'Needs Review' },
-      { item: 'Evidence packet ready', status: evidencePacketReady ? 'Complete' : 'Missing' },
+      { item: evidencePacketLabel, status: evidencePacketStatus },
     ] as Array<{ item: string; status: ChecklistStatus }>;
-  }, [selected, baselineYear, currentYear, baselineEmissions, currentEmissions, companyClaim, hasProductionData, hasSatelliteEvidence]);
-
-  const isSameYearComparison = Boolean(baselineYear && currentYear && baselineYear === currentYear);
-  const hasSingleReportingYear = availableYears.length === 1;
-  const hasHistoricalRecords = availableYears.length >= 2;
+  }, [selected, baselineYear, currentYear, baselineEmissions, currentEmissions, coordinatesAvailable, companyClaim, hasProductionData, hasSatelliteEvidence, isSingleYearEvidence]);
   const baselineHistoryRecord = useMemo(
     () => facilityYearRecords.find((row) => row.reportingYear === Number(baselineYear)) ?? null,
     [facilityYearRecords, baselineYear],
@@ -964,6 +979,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     : 'not_selected';
 
   const trendSummary = useMemo(() => {
+    if (isSameYearComparison || hasSingleReportingYear) {
+      return {
+        label: 'Single-year record only',
+        detail: 'Only one reporting year is available, so year-over-year change cannot be calculated.',
+        deltaPct: null as number | null,
+        changeValue: null as number | null,
+      };
+    }
     if (!baselineYear || !currentYear || !baselineHistoryRecord || !currentHistoryRecord) {
       return {
         label: 'Insufficient historical data',
@@ -1006,7 +1029,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       deltaPct,
       changeValue,
     };
-  }, [baselineYear, currentYear, baselineHistoryRecord, currentHistoryRecord]);
+  }, [isSameYearComparison, hasSingleReportingYear, baselineYear, currentYear, baselineHistoryRecord, currentHistoryRecord]);
 
   const claimBoundaryWarning = useMemo(() => {
     if (!companyClaim.trim()) return '';
@@ -1053,11 +1076,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   }, [facilityYearRecords]);
 
   const yearOverYearFinding = useMemo(() => {
-    if (isSameYearComparison) {
-      return 'You are comparing the same reporting year to itself. This does not show year-over-year change.';
-    }
-    if (hasSingleReportingYear) {
-      return 'Only one reporting year is available for this facility in the active CARB dataset. Year-over-year comparison is limited.';
+    if (isSingleYearEvidence) {
+      return 'Only one reporting year is available, so year-over-year change cannot be calculated.';
     }
     if (!selected || !baselineYear || !currentYear || !baselineHistoryRecord || !currentHistoryRecord) {
       return 'Insufficient historical data.';
@@ -1066,7 +1086,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     return `DPAL compared ${baselineYear} and ${currentYear} reported emissions for ${selected.facilityName}. Reported CO2e changed from ${formatNumber(
       baselineHistoryRecord.totalCO2e,
     )} to ${formatNumber(currentHistoryRecord.totalCO2e)}, ${trendPhrase}`;
-  }, [isSameYearComparison, hasSingleReportingYear, selected, baselineYear, currentYear, baselineHistoryRecord, currentHistoryRecord, trendSummary.detail]);
+  }, [isSingleYearEvidence, selected, baselineYear, currentYear, baselineHistoryRecord, currentHistoryRecord, trendSummary.detail]);
 
   const sourceModeText = useMemo(() => {
     if (sourceMode === 'LIVE' && !carbDatasetReady) {
@@ -1084,6 +1104,10 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       steps.push('Confirm imported dataset matches official CARB download.');
       steps.push('Record dataset filename and retrieval date.');
     }
+    if (isSingleYearEvidence) {
+      steps.push('Load historical CARB datasets to enable year-over-year trend verification.');
+      steps.push('Generate a single-year evidence packet with limitations clearly stated.');
+    }
     if (!hasProductionData) {
       steps.push('Add production/output data to calculate emissions intensity.');
     }
@@ -1093,14 +1117,18 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     if (claimGap != null && Math.abs(claimGap) > 10) {
       steps.push('Review company public claim against CARB-reported emissions.');
     }
-    if (!selected || selected.latitude == null || selected.longitude == null) {
-      steps.push('Add facility coordinates before satellite comparison.');
+    if (!coordinatesAvailable) {
+      steps.push('Add facility coordinates before satellite and map-based comparison.');
+    }
+    steps.push('Cross-check with EPA GHGRP/FRS if available.');
+    if (!hasClimateClaim) {
+      steps.push('Enter a company climate claim only if one exists.');
     }
     if (claimBoundaryWarning) {
       steps.push('Claim references a year not present in loaded CARB records; confirm boundary years before legal conclusions.');
     }
     if (hasSingleReportingYear) {
-      steps.push('Only one reporting year is available. Generate a single-year evidence report or load historical CARB years for trend analysis.');
+      steps.push('Only one reporting year is available. Keep findings preliminary until additional records are loaded.');
     } else if (hasHistoricalRecords) {
       steps.push('Historical CARB records available. Select baseline and current year to calculate trend.');
     }
@@ -1111,7 +1139,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       steps.push('Continue standard compliance review and archive supporting records.');
     }
     return steps;
-  }, [sourceMode, hasProductionData, hasSatelliteEvidence, claimGap, selected, riskLevel, claimBoundaryWarning, hasSingleReportingYear, hasHistoricalRecords]);
+  }, [sourceMode, isSingleYearEvidence, hasProductionData, hasSatelliteEvidence, claimGap, coordinatesAvailable, hasClimateClaim, selected, riskLevel, claimBoundaryWarning, hasSingleReportingYear, hasHistoricalRecords]);
 
   const verificationSummary = useMemo(() => {
     return {
@@ -1122,7 +1150,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         city: selected?.city ?? 'n/a',
         county: selected?.county ?? 'n/a',
         sector: selected?.sector ?? 'n/a',
-        coordinates: selected && selected.latitude != null && selected.longitude != null ? `${selected.latitude}, ${selected.longitude}` : 'Coordinates unavailable',
+        coordinates: selected && selected.latitude != null && selected.longitude != null ? `${selected.latitude}, ${selected.longitude}` : 'Coordinates missing',
       },
       dataBasis: {
         sourceMode,
@@ -1138,7 +1166,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
         claimGapPct: claimGap,
       },
       discrepancyInterpretation: {
-        integrityScore: integrityScore ?? 'Needs More Data',
+        integrityScore: integrityScore ?? 'Not rated',
         riskLevel,
         text: discrepancyInterpretation,
       },
@@ -1176,7 +1204,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       return categories;
     }
 
-    if (claimComparison.includes('inconsistent') || (integrityScore ?? 0) > 60) {
+    if (hasClimateClaim && (claimComparison.includes('inconsistent') || (integrityScore ?? 0) > 60)) {
       categories.push({
         id: 'claim-inconsistency',
         title: 'Potential Claim Discrepancy - Requires Review',
@@ -1216,6 +1244,20 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       });
     }
 
+    if (isSingleYearEvidence && !hasClimateClaim) {
+      categories.push({
+        id: 'single-year-preliminary',
+        title: 'Single-year evidence only',
+        severity: 'Info',
+        rationale: 'Only one reporting year is available and no company climate claim has been entered, so discrepancy classification remains preliminary.',
+        suggestedActions: [
+          'Load historical CARB records for at least one additional year.',
+          'Add claim context only if a real company claim exists.',
+          'Mark current packet as draft/single-year evidence.',
+        ],
+      });
+    }
+
     if (!baselineEmissions || !currentEmissions || methaneReduction === 'Needs More Data' || co2Reduction === 'Needs More Data' || n2oReduction === 'Needs More Data') {
       categories.push({
         id: 'data-gaps',
@@ -1240,7 +1282,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     }
 
     return categories;
-  }, [selected, claimComparison, integrityScore, methaneReduction, baselineEmissions, currentEmissions, co2Reduction, n2oReduction]);
+  }, [selected, hasClimateClaim, isSingleYearEvidence, claimComparison, integrityScore, methaneReduction, baselineEmissions, currentEmissions, co2Reduction, n2oReduction]);
 
   const missingEvidenceItems = useMemo(
     () => [
@@ -1271,7 +1313,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       {
         title: 'Historical Trend',
         finding: baselineYear && currentYear ? `${baselineYear}–${currentYear}: ${trendSummary.detail}` : 'Insufficient historical data',
-        whyItMatters: 'Trend analysis supports or challenges public climate claims.',
+        whyItMatters: isSingleYearEvidence ? 'Single-year records confirm reported values but cannot establish a trend.' : 'Trend analysis supports or challenges public climate claims.',
         nextAction: hasHistoricalRecords
           ? 'Confirm reporting boundary and production/output changes.'
           : 'Load historical CARB datasets or generate a single-year evidence report.',
@@ -1307,7 +1349,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           : 'Validate claim baseline and current boundaries against CARB reporting years.',
       },
     ],
-    [baselineYear, currentYear, trendSummary.detail, hasHistoricalRecords, largestYearChange, availableYears, historicalCoverageSummary, claimBoundaryWarning, claimGap],
+    [baselineYear, currentYear, trendSummary.detail, isSingleYearEvidence, hasHistoricalRecords, largestYearChange, availableYears, historicalCoverageSummary, claimBoundaryWarning, claimGap],
   );
 
   const reportQualityRating = useMemo<'Draft' | 'Limited' | 'Review Ready' | 'Regulator Ready'>(() => {
@@ -1738,6 +1780,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     );
   const evidencePacketReady = Boolean(selected && baselineYear && currentYear && baselineEmissions !== '' && currentEmissions !== '');
   const canExportEvidencePacket = evidencePacketReady || isManualInvestigationMode;
+  const evidencePacketStatusLabel = !evidencePacketReady
+    ? 'Not ready'
+    : isSingleYearEvidence
+      ? 'Single-year evidence packet available'
+      : 'Complete';
+  const integrityScoreDisplay = integrityScore == null ? 'Not rated' : String(integrityScore);
   const currentWorkflowStep = !selected && !isManualInvestigationMode
     ? 'Search and select a facility'
     : !companyClaim.trim()
@@ -2142,6 +2190,41 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p>CO2e: <span className="text-cyan-200">{formatNumber(selected.totalCO2e)}</span></p>
               <p className="sm:col-span-2 lg:col-span-1">Coordinates: <span className="text-cyan-200">{selected.latitude != null && selected.longitude != null ? 'Available' : 'Missing'}</span></p>
             </div>
+            {!coordinatesAvailable ? (
+              <div className="mt-2 rounded-lg border border-amber-500/40 bg-amber-950/20 p-3 text-amber-100">
+                <p className="font-semibold">Coordinates missing. Satellite and map-based comparison cannot run yet.</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveWorkspaceTab('tasks')}
+                    className="rounded border border-amber-300/60 px-2 py-1 text-[11px]"
+                  >
+                    Add coordinates manually
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessage('Search official external source for facility coordinates before satellite comparison.')}
+                    className="rounded border border-amber-300/60 px-2 py-1 text-[11px]"
+                  >
+                    Search official external source for coordinates
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessage(`Search EPA GHGRP/FRS for coordinates by facility name or ID: ${selected.facilityName} (${selected.facilityId}).`)}
+                    className="rounded border border-amber-300/60 px-2 py-1 text-[11px]"
+                  >
+                    Search EPA GHGRP / FRS by facility name or ID
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMessage('Continuing without coordinates. Map and satellite comparison stays unavailable until coordinates are added.')}
+                    className="rounded border border-amber-300/60 px-2 py-1 text-[11px]"
+                  >
+                    Continue without coordinates
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <button type="button" onClick={() => setActiveWorkspaceTab('search')} disabled={!canCompareYearsStep} title={!canCompareYearsStep ? 'Locked until facility selected.' : 'Compare years'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Compare Years</button>
@@ -2325,7 +2408,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <p>Current step: <span className="text-cyan-200">{currentWorkflowStep}</span></p>
                 <p>Source mode: <span className="text-cyan-200">{sourceMode}</span></p>
                 <p>Report generated: <span className="text-cyan-200">{generatedCarbReport ? 'Yes' : 'No'}</span></p>
-                <p>Evidence packet ready: <span className="text-cyan-200">{evidencePacketReady ? 'Yes' : 'No'}</span></p>
+                <p>Evidence packet status: <span className="text-cyan-200">{evidencePacketStatusLabel}</span></p>
                 <p>Next recommended step: <span className="text-cyan-200">{nextRecommendedAction}</span></p>
               </div>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
@@ -2366,7 +2449,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             </div>
             <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
               <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
-              <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
+              <p className="text-3xl font-black text-white">{integrityScoreDisplay}</p>
               <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
               {!hasFacilitySelected ? (
                 <p className="mt-2 text-[11px] text-amber-200">
@@ -3399,6 +3482,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       <section className="mt-4 w-full min-w-0 max-w-full overflow-x-hidden rounded-2xl border border-slate-700 bg-slate-900/80 p-3 sm:p-4">
         <h2 className="text-lg font-bold text-white">Findings Summary</h2>
         <p className="mt-1 text-xs text-slate-300">Plain-English DPAL verification summary based on selected CARB facility data and current comparison inputs.</p>
+        <p className="mt-2 rounded-lg border border-slate-700 bg-slate-950/60 px-3 py-2 text-[11px] text-slate-300">
+          Official reported data is shown from CARB sources. DPAL analysis is advisory. Missing evidence is listed explicitly. Findings remain preliminary unless corroborated by multi-year records, claim context, or external verification.
+        </p>
 
         <div className="mt-3 grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-sm text-slate-200">
@@ -3479,7 +3565,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <div className="mt-3 space-y-3">
             <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3">
               <p className="text-xs uppercase tracking-widest text-slate-400">Integrity Score</p>
-              <p className="text-3xl font-black text-white">{integrityScore ?? 'Needs More Data'}</p>
+              <p className="text-3xl font-black text-white">{integrityScoreDisplay}</p>
               <p className="mt-1 text-sm text-slate-300">Risk level: {riskLevel}</p>
             </div>
             <div className="rounded-2xl border border-slate-700 bg-slate-950/60 p-3 text-xs text-slate-300">
@@ -3509,6 +3595,12 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               <p className="mt-1">
                 Future cross-check panel for comparing CARB-reported facility emissions against federal GHGRP records where overlap exists. No federal match is asserted until a real EPA connector or imported EPA dataset returns records.
               </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => setMessage('Open EPA GHGRP search and document results in evidence notes.')} className="rounded border border-slate-600 px-2 py-1">Search EPA GHGRP</button>
+                <button type="button" onClick={() => setMessage('Enter EPA GHGRP record manually from official source in the manual investigation fields.')} className="rounded border border-slate-600 px-2 py-1">Enter EPA GHGRP record manually</button>
+                <button type="button" onClick={() => setMessage('Add EPA source URL in manual investigation Source URL field for citation provenance.')} className="rounded border border-slate-600 px-2 py-1">Add EPA source URL</button>
+                <button type="button" onClick={() => setMessage('Attach EPA screenshot/evidence to the evidence workflow before asserting cross-source consistency.')} className="rounded border border-slate-600 px-2 py-1">Attach EPA screenshot/evidence</button>
+              </div>
             </div>
             <CarbIntelligenceReader
               facilityName={selected?.facilityName}
@@ -3521,6 +3613,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               riskLevel={riskLevel}
               categories={aiHelperCategories}
               recommendedNextSteps={recommendedNextSteps}
+              hasClimateClaim={hasClimateClaim}
+              isSingleYearEvidence={isSingleYearEvidence}
             />
           </div>
         </div>

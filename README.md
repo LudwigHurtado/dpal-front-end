@@ -203,6 +203,19 @@ State is in-session only for now. There is no backend persistence yet.
 
 ## Recent UX updates (water / AquaScan)
 
+- **2026-04-28 — CARB Investigation Workspace hardening and layout refactor**
+  - Source/data contract hardening:
+    - CARB UI now checks `GET /api/carb-data/health` and shows module reachability separate from dataset readiness.
+    - Source-mode contract aligned across frontend/backend: `LIVE`, `IMPORTED`, `DEMO_FALLBACK`, `NEEDS_SOURCE`.
+  - Investigation workspace UX improvements (`src/features/carbEmissionsAudit/CarbEmissionsAuditPage.tsx`):
+    - search-first workflow with clearer investigation guidance and locked-step prerequisites
+    - improved no-facility / no-result states and safer step messaging
+    - map/AOI section no longer dominates early search flow; advanced tools are de-emphasized
+    - manual EPA/GHGRP fallback fields added for cases where CARB-name matching fails.
+  - Export/report readiness improvements:
+    - CARB evidence payload includes explicit missing evidence and source/readiness metadata
+    - report payload includes map evidence metadata (markers/polygon/tasks/layers) for audit traceability.
+
 - **DPAL Water Command Center (dual routes + AquaScan redesign)** — See **DPAL AquaScan MRV & Water Command Center** above. Summary:
   - `/water` and `/water/aquascan` → **`AquaScanView`** (location-first command center, Focus Location, workflow rail, intelligence panel, bottom tabs for Intake / Layers / MRV / Evidence / Actions).
   - `/water/monitor` → **`WaterMonitorView`** (operations dashboard, validator queue, credits) — both water UIs preserved.

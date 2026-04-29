@@ -39,6 +39,18 @@ export type DpalProjectGuideResponse = {
   claimSafety: DpalProjectClaimSafety;
 };
 
+export type DpalProjectGuideSnapshot = {
+  currentStep?: string;
+  nextStep?: string;
+  plainEnglishExplanation?: string;
+  missingItems?: string[];
+  warnings?: string[];
+  recommendedActions?: string[];
+  claimSafety?: DpalProjectClaimSafety;
+  lastUserQuestion?: string;
+  lastGuideResponse?: string;
+};
+
 export type DpalProjectWorkflowState = {
   analysisType?: string;
   latitude?: number | null;
@@ -61,5 +73,6 @@ export type DpalProjectWorkflowState = {
   recommendedActions?: string[];
   evidencePacket?: boolean;
   missionCreated?: boolean;
+  situationRoomSent?: boolean;
 };
 

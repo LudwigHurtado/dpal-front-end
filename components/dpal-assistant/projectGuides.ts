@@ -52,6 +52,12 @@ export const earthObservationGuide: DpalProjectGuideDefinition = {
       description: 'Send the issue to field verification or validator review.',
       requiredState: ['missionCreated'],
     },
+    {
+      id: 'send_to_situation_room',
+      title: 'Send to Situation Room',
+      description: 'If the signal needs team review, open the existing DPAL Situation Room thread.',
+      requiredState: ['situationRoomSent'],
+    },
   ],
 };
 
