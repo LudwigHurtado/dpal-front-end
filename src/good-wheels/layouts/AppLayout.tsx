@@ -102,6 +102,12 @@ const AppLayout: React.FC = () => {
   const themeClass =
     role === 'driver' ? 'gw-theme-driver' : role === 'worker' ? 'gw-theme-worker' : role === 'passenger' ? 'gw-theme-passenger' : 'gw-theme-guest';
 
+  /** Passenger map ride home is full-viewport; bottom tabs duplicate in-sheet controls and steal vertical space — see `PassengerRideHomePage` ride menu. */
+  const hideMobileBottomNav =
+    role === 'passenger' && location.pathname === GW_PATHS.passenger.dashboard;
+  const showMobileBottomNav = effectiveIsMobile && mobileTabs.length > 0 && !hideMobileBottomNav;
+  const mobileContentPaddingBottom = effectiveIsMobile && showMobileBottomNav ? 84 : undefined;
+
   return (
     <div className={`${previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'} ${themeClass}`}>
       <div
@@ -200,12 +206,12 @@ const AppLayout: React.FC = () => {
         </aside>
         )}
 
-        <main className="gw-content" style={effectiveIsMobile ? { paddingBottom: 84 } : undefined}>
+        <main className="gw-content" style={mobileContentPaddingBottom != null ? { paddingBottom: mobileContentPaddingBottom } : undefined}>
           <Outlet />
         </main>
       </div>
 
-      {effectiveIsMobile && mobileTabs.length > 0 && (
+      {showMobileBottomNav && (
         <nav
           className="gw-bottomnav"
           aria-label="Bottom navigation"

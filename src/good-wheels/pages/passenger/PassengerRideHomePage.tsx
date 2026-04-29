@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import { useGwLang } from '../../i18n/useGwLang';
 import { GW_PATHS } from '../../routes/paths';
 import { useGoogleMaps } from '../../features/map/useGoogleMaps';
@@ -77,16 +77,6 @@ const Spinner = ({ color = '#0077C8' }: { color?: string }) => (
 );
 
 /* ─────────────────────────────────────────────
-   Bottom tab bar config
-───────────────────────────────────────────── */
-const TABS = [
-  { id: 'ride'      as const, key: 'ride' as const, icon: '🚗' },
-  { id: 'charities' as const, key: 'charities' as const, icon: '❤️' },
-  { id: 'donations' as const, key: 'donations' as const, icon: '🤝' },
-  { id: 'profile'   as const, key: 'profile' as const, icon: '👤' },
-];
-
-/* ─────────────────────────────────────────────
    Component
 ───────────────────────────────────────────── */
 const PassengerRideHomePage: React.FC = () => {
@@ -130,7 +120,7 @@ const PassengerRideHomePage: React.FC = () => {
   const [locatingDropoff, setLocatingDropoff] = useState(false);
   const [reverseGeoLoading, setReverseGeoLoading] = useState(false);
   const [broadcasting, setBroadcasting]   = useState(false);
-  const [activeTab, setActiveTab]         = useState<'ride' | 'charities' | 'donations' | 'profile'>('profile');
+  const [rideMenuOpen, setRideMenuOpen]   = useState(false);
   const [selectedCause, setSelectedCause] = useState<CauseOrganization | null>(null);
   const [negotiationState, setNegotiationState] = useState<NegotiationState>('idle');
   const [driverCounterOffer, setDriverCounterOffer] = useState<number | null>(null);
@@ -207,19 +197,14 @@ const PassengerRideHomePage: React.FC = () => {
     if (!maxPrice) setMaxPrice(suggested.toFixed(2));
   }, [bothSet, maxPrice, vehicleType]);
 
-  /** During pickup/drop-off selection, hide ride / charities / donations — only profile until a ride is in progress. */
-  const bottomNavTabs = useMemo(
-    () =>
-      sheet === 'search'
-        ? TABS.filter((tab) => tab.id === 'profile')
-        : TABS.filter((tab) => tab.id === 'ride' || tab.id === 'profile'),
-    [sheet],
-  );
-
   useEffect(() => {
-    if (sheet === 'search') setActiveTab('profile');
-    if (sheet === 'options') setActiveTab('ride');
-  }, [sheet]);
+    if (!rideMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setRideMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [rideMenuOpen]);
 
   /* ── Init map ── */
   useEffect(() => {
@@ -349,7 +334,7 @@ const PassengerRideHomePage: React.FC = () => {
 
             const bounds = new g.maps.LatLngBounds();
             bounds.extend(pickupLL); bounds.extend(dropoffLL);
-            mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 340, left: 32, right: 32 });
+            mapObjRef.current?.fitBounds(bounds, { top: 80, bottom: 280, left: 32, right: 32 });
           } else {
             const msg = `${t('routePreview')} — ${t('finalRouteAfterAccept')}`;
             console.warn('[PassengerRideHomePage]', msg);
@@ -574,13 +559,6 @@ const PassengerRideHomePage: React.FC = () => {
     await handleBroadcast();
   };
 
-  const handleTabClick = (tab: typeof activeTab) => {
-    setActiveTab(tab);
-    if (tab === 'charities') navigate(GW_PATHS.passenger.charities);
-    else if (tab === 'donations') navigate(GW_PATHS.passenger.donations);
-    else if (tab === 'profile') navigate(GW_PATHS.auth.profile);
-  };
-
   const clearPickupDropoffLocations = useCallback(() => {
     setPickupPreds([]);
     setDropoffPreds([]);
@@ -680,7 +658,7 @@ const PassengerRideHomePage: React.FC = () => {
       borderRadius: '20px 20px 0 0',
       zIndex: 30,
       boxShadow: '0 -4px 30px rgba(0,0,0,0.12)',
-      maxHeight: sheet === 'search' ? '42dvh' : 'min(40dvh, 62vh)',
+      maxHeight: sheet === 'search' ? '48dvh' : 'min(48dvh, 70vh)',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column' as const,
@@ -706,23 +684,6 @@ const PassengerRideHomePage: React.FC = () => {
     /* Search input row */
     inputRow: { display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderRadius: 12, background: '#F9FAFB', border: '1px solid #E5E7EB' },
     input: { flex: 1, background: 'none', border: 'none', outline: 'none', fontSize: 15, color: '#111827', fontWeight: 500, fontFamily: 'inherit' },
-
-    /* Bottom tabs */
-    tabBar: { display: 'flex', borderTop: '1px solid #F3F4F6', background: 'white' },
-    tabBarGlass: {
-      display: 'flex',
-      borderTop: '1px solid rgba(255, 255, 255, 0.45)',
-      background: 'rgba(255, 255, 255, 0.5)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-    },
-    tabBarOptionsGlass: {
-      background: 'rgba(255, 255, 255, 0.28)',
-      borderTop: '1px solid rgba(255, 255, 255, 0.38)',
-      backdropFilter: 'blur(14px)',
-      WebkitBackdropFilter: 'blur(14px)',
-    },
-    tab: (active: boolean) => ({ flex: 1, display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 2, padding: '10px 0 12px', border: 'none', background: 'none', cursor: 'pointer', fontSize: 10, fontWeight: active ? 700 : 500, color: active ? '#0077C8' : '#9CA3AF' }),
   };
 
   const recommendedUsd = BASE_FARE * (VEHICLES.find((v) => v.id === vehicleType)?.mult ?? 1);
@@ -751,7 +712,7 @@ const PassengerRideHomePage: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            bottom: 120,
+            bottom: 92,
             left: 14,
             right: 14,
             zIndex: 18,
@@ -772,7 +733,7 @@ const PassengerRideHomePage: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            bottom: 84,
+            bottom: 52,
             left: 14,
             zIndex: 18,
             background: 'rgba(14,116,144,0.92)',
@@ -791,7 +752,7 @@ const PassengerRideHomePage: React.FC = () => {
         <div
           style={{
             position: 'absolute',
-            bottom: 84,
+            bottom: 52,
             right: 14,
             zIndex: 18,
             background: 'rgba(255,255,255,0.95)',
@@ -813,8 +774,15 @@ const PassengerRideHomePage: React.FC = () => {
 
       {/* ── TOP BAR ── */}
       <div style={S.topBar}>
-        <button style={S.topBarBtn} title={t('menu')}>
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+        <button
+          type="button"
+          style={S.topBarBtn}
+          title={t('menu')}
+          aria-label={t('menu')}
+          aria-expanded={rideMenuOpen}
+          onClick={() => setRideMenuOpen((o) => !o)}
+        >
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
             <rect y="3" width="20" height="2" rx="1" fill="#111827" />
             <rect y="9" width="20" height="2" rx="1" fill="#111827" />
             <rect y="15" width="20" height="2" rx="1" fill="#111827" />
@@ -849,6 +817,82 @@ const PassengerRideHomePage: React.FC = () => {
         </div>
       </div>
 
+      {rideMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label={t('donationClose')}
+            onClick={() => setRideMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 44,
+              background: 'rgba(15, 23, 42, 0.42)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          />
+          <nav
+            aria-label={t('menu')}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 'min(300px, 88vw)',
+              zIndex: 45,
+              background: 'rgba(255,255,255,0.98)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              boxShadow: '12px 0 40px rgba(15,23,42,0.14)',
+              display: 'flex',
+              flexDirection: 'column',
+              paddingTop: 'max(10px, env(safe-area-inset-top, 0px))',
+              borderTopRightRadius: 18,
+              borderBottomRightRadius: 18,
+            }}
+          >
+            <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+              {user?.fullName ?? t('dashboard')}
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 10px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(
+                [
+                  { to: GW_PATHS.passenger.dashboard, label: t('dashboard') },
+                  { to: GW_PATHS.passenger.request, label: t('requestRide') },
+                  { to: GW_PATHS.passenger.active, label: t('activeTrip') },
+                  { to: GW_PATHS.passenger.history, label: t('rideHistory') },
+                  { to: GW_PATHS.passenger.places, label: t('savedPlaces') },
+                  { to: GW_PATHS.passenger.support, label: t('support') },
+                  { to: GW_PATHS.passenger.charities, label: t('charities') },
+                  { to: GW_PATHS.passenger.donations, label: t('donations') },
+                  { to: GW_PATHS.auth.profile, label: t('profile') },
+                ] as const
+              ).map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setRideMenuOpen(false)}
+                  style={({ isActive }) => ({
+                    display: 'block',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: isActive ? '#0077C8' : '#334155',
+                    background: isActive ? 'rgba(0, 119, 200, 0.08)' : 'transparent',
+                    border: isActive ? '1px solid rgba(0, 119, 200, 0.18)' : '1px solid transparent',
+                  })}
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          </nav>
+        </>
+      )}
+
       {/* ── MAP SELECTION MODE (search only) ── */}
       {sheet === 'search' && (
       <div style={S.pinHint}>
@@ -875,9 +919,10 @@ const PassengerRideHomePage: React.FC = () => {
       >
         <div style={sheet === 'search' ? S.handleSearch : sheet === 'options' ? S.handleOptions : S.handle} />
 
+        <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {/* ════ STATE: SEARCH ════ */}
         {sheet === 'search' && (
-          <div style={{ padding: '8px 20px 0', overflowY: 'auto' }}>
+          <div style={{ padding: '8px 20px 12px', overflowY: 'auto', flex: 1, minHeight: 0 }}>
             {gpsError && (
               <div style={{ marginBottom: 8, border: '1px solid rgba(252, 165, 165, 0.6)', background: 'rgba(254, 242, 242, 0.85)', color: '#B91C1C', borderRadius: 10, padding: '8px 10px', fontSize: 11, fontWeight: 700 }}>
                 {gpsError}
@@ -989,6 +1034,7 @@ const PassengerRideHomePage: React.FC = () => {
 
         {/* ════ STATE: RIDE OPTIONS ════ */}
         {sheet === 'options' && (
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
           <PassengerRideOptionsPanel
             t={t}
             tf={tf}
@@ -1013,30 +1059,9 @@ const PassengerRideHomePage: React.FC = () => {
             onKeepMyOffer={handleKeepMyOffer}
             negotiationNote={negotiationNote}
           />
+          </div>
         )}
-
-        {/* ── Bottom tab bar ── */}
-        <nav
-          style={
-            sheet === 'search'
-              ? S.tabBarGlass
-              : sheet === 'options'
-                ? { ...S.tabBarGlass, ...S.tabBarOptionsGlass, display: 'flex' }
-                : S.tabBar
-          }
-        >
-          {bottomNavTabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              style={S.tab(activeTab === tab.id)}
-              onClick={() => handleTabClick(tab.id)}
-            >
-              <span style={{ fontSize: 22 }}>{tab.icon}</span>
-              <span>{t(tab.key)}</span>
-            </button>
-          ))}
-        </nav>
+        </div>
       </div>
 
       {sheet === 'search' && bothSet && (
@@ -1047,7 +1072,7 @@ const PassengerRideHomePage: React.FC = () => {
           title={t('continueToRideOptions')}
           style={{
             position: 'absolute',
-            bottom: 96,
+            bottom: 48,
             right: 18,
             zIndex: 35,
             width: 52,
