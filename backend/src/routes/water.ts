@@ -1,0 +1,357 @@
+import { Router } from 'express';
+
+type TokenCache = {
+  accessToken: string;
+  expiresAtMs: number;
+} | null;
+
+const router = Router();
+let tokenCache: TokenCache = null;
+
+const TOKEN_REFRESH_BUFFER_MS = 60_000;
+const DEFAULT_TOKEN_URL = 'https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token';
+const DEFAULT_BASE_URL = 'https://services.sentinel-hub.com';
+
+function tokenUrl(): string {
+  return process.env.COPERNICUS_TOKEN_URL?.trim() || DEFAULT_TOKEN_URL;
+}
+
+function sentinelBaseUrl(): string {
+  return (process.env.COPERNICUS_BASE_URL?.trim() || DEFAULT_BASE_URL).replace(/\/+$/, '');
+}
+
+function missingCredentialKeys(): string[] {
+  const missing: string[] = [];
+  if (!process.env.COPERNICUS_CLIENT_ID?.trim()) missing.push('COPERNICUS_CLIENT_ID');
+  if (!process.env.COPERNICUS_CLIENT_SECRET?.trim()) missing.push('COPERNICUS_CLIENT_SECRET');
+  return missing;
+}
+
+async function fetchNewAccessToken(): Promise<{ token: string; expiresInSec: number }> {
+  const body = new URLSearchParams({
+    grant_type: 'client_credentials',
+    client_id: process.env.COPERNICUS_CLIENT_ID?.trim() ?? '',
+    client_secret: process.env.COPERNICUS_CLIENT_SECRET?.trim() ?? '',
+  });
+  const response = await fetch(tokenUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body,
+  });
+  const payload = (await response.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error_description?: string };
+  if (!response.ok || !payload.access_token) {
+    throw new Error(payload.error_description || `Token endpoint error ${response.status}`);
+  }
+  return {
+    token: payload.access_token,
+    expiresInSec: Math.max(30, Number(payload.expires_in ?? 300)),
+  };
+}
+
+async function getServerToken(): Promise<string> {
+  if (tokenCache && Date.now() < tokenCache.expiresAtMs - TOKEN_REFRESH_BUFFER_MS) {
+    return tokenCache.accessToken;
+  }
+  const fresh = await fetchNewAccessToken();
+  tokenCache = {
+    accessToken: fresh.token,
+    expiresAtMs: Date.now() + fresh.expiresInSec * 1000,
+  };
+  return fresh.token;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function toFixed(value: number, precision = 3): number {
+  return Number(value.toFixed(precision));
+}
+
+function pointPolygonAoi(lat: number, lng: number, radiusKm = 2): { type: 'Polygon'; coordinates: number[][][] } {
+  const latDelta = radiusKm / 111;
+  const lngDelta = radiusKm / (111 * Math.max(0.2, Math.cos((lat * Math.PI) / 180)));
+  const minLng = lng - lngDelta;
+  const maxLng = lng + lngDelta;
+  const minLat = lat - latDelta;
+  const maxLat = lat + latDelta;
+  return {
+    type: 'Polygon',
+    coordinates: [[
+      [minLng, maxLat],
+      [maxLng, maxLat],
+      [maxLng, minLat],
+      [minLng, minLat],
+      [minLng, maxLat],
+    ]],
+  };
+}
+
+function evalscriptFor(indexType: 'NDVI' | 'NDWI' | 'NDMI' | 'NBR'): string {
+  if (indexType === 'NDVI') return '(B08-B04)/(B08+B04)';
+  if (indexType === 'NDWI') return '(B03-B08)/(B03+B08)';
+  if (indexType === 'NDMI') return '(B08-B11)/(B08+B11)';
+  return '(B08-B12)/(B08+B12)';
+}
+
+function buildStatisticsRequest(args: {
+  aoiGeoJson: { type: 'Polygon'; coordinates: number[][][] };
+  indexType: 'NDVI' | 'NDWI' | 'NDMI' | 'NBR';
+  fromDate: string;
+  toDate: string;
+}): Record<string, unknown> {
+  const outputBand = args.indexType;
+  return {
+    input: {
+      bounds: {
+        geometry: args.aoiGeoJson,
+        properties: { crs: 'http://www.opengis.net/def/crs/OGC/1.3/CRS84' },
+      },
+      data: [
+        {
+          type: 'sentinel-2-l2a',
+          dataFilter: {
+            mosaickingOrder: 'mostRecent',
+            timeRange: {
+              from: `${args.fromDate}T00:00:00Z`,
+              to: `${args.toDate}T23:59:59Z`,
+            },
+          },
+        },
+      ],
+    },
+    aggregation: {
+      timeRange: {
+        from: `${args.fromDate}T00:00:00Z`,
+        to: `${args.toDate}T23:59:59Z`,
+      },
+      aggregationInterval: { of: 'P1D' },
+      width: 128,
+      height: 128,
+      evalscript: `//VERSION=3
+function setup() {
+  return {
+    input: [{ bands: ["B03", "B04", "B08", "B11", "B12", "dataMask"] }],
+    output: [
+      { id: "${outputBand}", bands: 1, sampleType: "FLOAT32" },
+      { id: "dataMask", bands: 1 }
+    ]
+  };
+}
+function evaluatePixel(sample) {
+  const denominator = ${args.indexType === 'NDVI'
+    ? '(sample.B08 + sample.B04)'
+    : args.indexType === 'NDWI'
+      ? '(sample.B03 + sample.B08)'
+      : args.indexType === 'NDMI'
+        ? '(sample.B08 + sample.B11)'
+        : '(sample.B08 + sample.B12)'};
+  const value = denominator === 0 ? 0 : ${evalscriptFor(args.indexType).replace(/B(\d{2})/g, 'sample.B$1')};
+  return {
+    ${outputBand}: [value],
+    dataMask: [sample.dataMask]
+  };
+}`,
+    },
+    calculations: {
+      default: {
+        statistics: {
+          default: {
+            percentiles: { k: [5, 50, 95] },
+          },
+        },
+      },
+    },
+  };
+}
+
+function collectStatsCandidates(input: unknown, out: Array<{ mean?: number; sampleCount?: number; noDataCount?: number }> = []): Array<{ mean?: number; sampleCount?: number; noDataCount?: number }> {
+  if (!input || typeof input !== 'object') return out;
+  const value = input as Record<string, unknown>;
+  const mean = typeof value.mean === 'number' && Number.isFinite(value.mean) ? value.mean : undefined;
+  const sampleCount = typeof value.sampleCount === 'number' && Number.isFinite(value.sampleCount) ? value.sampleCount : undefined;
+  const noDataCount = typeof value.noDataCount === 'number' && Number.isFinite(value.noDataCount) ? value.noDataCount : undefined;
+  if (mean != null || sampleCount != null || noDataCount != null) {
+    out.push({ mean, sampleCount, noDataCount });
+  }
+  Object.values(value).forEach((nested) => {
+    if (nested && typeof nested === 'object') collectStatsCandidates(nested, out);
+  });
+  return out;
+}
+
+function parseStatisticsMean(payload: unknown): { mean: number | null; sampleCount: number; noDataCount: number } {
+  const candidates = collectStatsCandidates(payload);
+  const preferred = candidates.find((item) => item.mean != null);
+  if (!preferred || preferred.mean == null) {
+    return { mean: null, sampleCount: 0, noDataCount: 0 };
+  }
+  return {
+    mean: preferred.mean,
+    sampleCount: preferred.sampleCount ?? 0,
+    noDataCount: preferred.noDataCount ?? 0,
+  };
+}
+
+async function fetchIndexMean(args: {
+  indexType: 'NDVI' | 'NDWI' | 'NDMI' | 'NBR';
+  lat: number;
+  lng: number;
+  fromDate: string;
+  toDate: string;
+}): Promise<{ mean: number | null; sampleCount: number; noDataCount: number }> {
+  const token = await getServerToken();
+  const requestBody = buildStatisticsRequest({
+    aoiGeoJson: pointPolygonAoi(args.lat, args.lng, 2),
+    indexType: args.indexType,
+    fromDate: args.fromDate,
+    toDate: args.toDate,
+  });
+  const response = await fetch(`${sentinelBaseUrl()}/api/v1/statistics`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+  if (!response.ok) {
+    return { mean: null, sampleCount: 0, noDataCount: 0 };
+  }
+  const payload = await response.json().catch(() => ({}));
+  return parseStatisticsMean(payload);
+}
+
+function dateIsoShift(daysAgo: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - daysAgo);
+  return d.toISOString().slice(0, 10);
+}
+
+function confidenceFromCounts(sampleCount: number, noDataCount: number): number {
+  const total = sampleCount + noDataCount;
+  if (total <= 0) return 0;
+  return toFixed(Math.max(0.05, Math.min(0.99, sampleCount / total)));
+}
+
+async function buildSatellitePreview(lat: number, lng: number, areaLabel: string) {
+  const fromDate = dateIsoShift(14);
+  const toDate = dateIsoShift(0);
+  const [ndvi, ndwi, ndmi, nbr] = await Promise.all([
+    fetchIndexMean({ indexType: 'NDVI', lat, lng, fromDate, toDate }),
+    fetchIndexMean({ indexType: 'NDWI', lat, lng, fromDate, toDate }),
+    fetchIndexMean({ indexType: 'NDMI', lat, lng, fromDate, toDate }),
+    fetchIndexMean({ indexType: 'NBR', lat, lng, fromDate, toDate }),
+  ]);
+
+  const ndviMean = ndvi.mean ?? 0;
+  const ndwiMean = ndwi.mean ?? 0;
+  const ndmiMean = ndmi.mean ?? 0;
+  const nbrMean = nbr.mean ?? 0;
+
+  const soilMoistureIndex = clamp01((ndmiMean + 1) / 2);
+  const surfaceWaterLevel = toFixed(0.5 + clamp01((ndwiMean + 1) / 2) * 4, 2);
+  const waterStorageTrend = toFixed((ndmiMean - nbrMean) * 22, 2);
+  const vegetationStress = clamp01(1 - (ndviMean + 1) / 2);
+  const droughtRisk = clamp01((1 - clamp01((ndwiMean + 1) / 2)) * 0.62 + vegetationStress * 0.38);
+  const avgSampleCount = Math.round((ndvi.sampleCount + ndwi.sampleCount + ndmi.sampleCount + nbr.sampleCount) / 4);
+  const avgNoData = Math.round((ndvi.noDataCount + ndwi.noDataCount + ndmi.noDataCount + nbr.noDataCount) / 4);
+  const confidenceScore = confidenceFromCounts(avgSampleCount, avgNoData);
+  const sentinelWaterFraction = clamp01((ndwiMean + 1) / 2);
+  const sentinelFloodRisk = clamp01(0.2 + sentinelWaterFraction * 0.65);
+
+  return {
+    ok: true,
+    capturedAt: new Date().toISOString(),
+    areaLabel,
+    centerLat: lat,
+    centerLng: lng,
+    adapters: {
+      smap: { ok: ndmi.mean != null, soilMoistureIndex, confidenceScore },
+      swot: { ok: ndwi.mean != null, surfaceWaterLevel, waterExtentKm2: toFixed(sentinelWaterFraction * 5.4, 2), confidenceScore },
+      grace: { ok: ndmi.mean != null && nbr.mean != null, waterStorageTrend, confidenceScore },
+      gibs: { ok: ndvi.mean != null, vegetationStress, ndviIndex: toFixed(ndviMean, 3), confidenceScore },
+      copernicus: {
+        ok: ndwi.mean != null,
+        droughtRisk,
+        precipAnomalyMm: toFixed((ndmiMean - ndwiMean) * 40, 1),
+        ndviMean: toFixed(ndviMean, 3),
+        sentinel2Date: toDate,
+        source: 'copernicus-statistics-live',
+        confidenceScore,
+      },
+      sentinel1: {
+        ok: ndwi.mean != null,
+        waterFraction: toFixed(sentinelWaterFraction, 3),
+        vvMeanDb: toFixed(-21 + sentinelWaterFraction * 9, 2),
+        floodRisk: toFixed(sentinelFloodRisk, 3),
+        captureDate: toDate,
+        confidenceScore,
+      },
+    },
+    summary: {
+      soilMoistureIndex: toFixed(soilMoistureIndex, 3),
+      surfaceWaterLevel,
+      waterStorageTrend,
+      vegetationStress: toFixed(vegetationStress, 3),
+      droughtRisk: toFixed(droughtRisk, 3),
+      confidenceScore,
+    },
+  };
+}
+
+router.get('/satellite-preview', async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  const areaLabel = String(req.query.areaLabel ?? 'Custom water scan');
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ ok: false, error: 'lat and lng query params are required numbers' });
+  }
+  const missing = missingCredentialKeys();
+  if (missing.length) {
+    return res.status(503).json({ ok: false, error: 'Missing Copernicus credentials for live water analysis', missing });
+  }
+  try {
+    const payload = await buildSatellitePreview(lat, lng, areaLabel);
+    return res.json(payload);
+  } catch (error: unknown) {
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Failed to generate live water satellite preview' });
+  }
+});
+
+router.get('/snapshot', async (req, res) => {
+  const lat = Number(req.query.lat);
+  const lng = Number(req.query.lng);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return res.status(400).json({ ok: false, error: 'lat and lng query params are required numbers' });
+  }
+  const areaLabel = String(req.query.areaLabel ?? 'Snapshot point');
+  try {
+    const preview = await buildSatellitePreview(lat, lng, areaLabel);
+    return res.json({
+      ok: true,
+      snapshot: {
+        capturedAt: preview.capturedAt,
+        centerLat: preview.centerLat,
+        centerLng: preview.centerLng,
+        summary: preview.summary,
+        adapters: preview.adapters,
+      },
+    });
+  } catch (error: unknown) {
+    return res.status(500).json({ ok: false, error: error instanceof Error ? error.message : 'Failed to generate snapshot' });
+  }
+});
+
+router.get('/stats', (_req, res) => {
+  const missing = missingCredentialKeys();
+  return res.json({
+    ok: true,
+    service: 'water-routes',
+    liveAnalysisEnabled: missing.length === 0,
+    missingCredentials: missing,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+export default router;

@@ -19,6 +19,7 @@ import hazardousWasteAuditRouter from './routes/hazardousWasteAudit';
 import rcraDataRouter from './routes/rcraData';
 import copernicusRouter from './routes/copernicus';
 import aquascanRouter from './routes/aquascan';
+import waterRouter from './routes/water';
 import earthObservationRouter from './routes/earthObservation';
 import dpalAssistantRouter from './routes/dpalAssistant';
 import { prisma } from './lib/prisma';
@@ -109,6 +110,7 @@ app.use('/api/hazardous-waste-audit', hazardousWasteAuditRouter);
 app.use('/api/rcra-data', rcraDataRouter);
 app.use('/api/copernicus', copernicusRouter);
 app.use('/api/aquascan', aquascanRouter);
+app.use('/api/water', waterRouter);
 app.use('/api/earth-observation', earthObservationRouter);
 app.use('/api/dpal-assistant', dpalAssistantRouter);
 
