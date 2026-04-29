@@ -294,13 +294,24 @@ function dateWindowIso(days: number): { start: string; end: string } {
 async function checkNasaCmrShortNames(shortNames: string[], lat: number, lng: number): Promise<{ ok: boolean; source: string; reason?: string }> {
   const { start, end } = dateWindowIso(90);
   for (const shortName of shortNames) {
-    const url = `https://cmr.earthdata.nasa.gov/search/granules.json?short_name=${encodeURIComponent(shortName)}&point=${lng},${lat}&temporal=${encodeURIComponent(`${start},${end}`)}&page_size=1`;
-    const response = await fetchJsonWithTimeout(url);
-    if (!response.ok) continue;
-    const payload = response.payload as { feed?: { entry?: unknown[] } } | null;
-    const entries = payload?.feed?.entry;
-    if (Array.isArray(entries) && entries.length > 0) {
-      return { ok: true, source: `cmr:${shortName}` };
+    const scopedUrl = `https://cmr.earthdata.nasa.gov/search/granules.json?short_name=${encodeURIComponent(shortName)}&point=${lng},${lat}&temporal=${encodeURIComponent(`${start},${end}`)}&page_size=1`;
+    const scopedResponse = await fetchJsonWithTimeout(scopedUrl);
+    if (scopedResponse.ok) {
+      const scopedPayload = scopedResponse.payload as { feed?: { entry?: unknown[] } } | null;
+      const scopedEntries = scopedPayload?.feed?.entry;
+      if (Array.isArray(scopedEntries) && scopedEntries.length > 0) {
+        return { ok: true, source: `cmr:${shortName}:regional` };
+      }
+    }
+
+    // Fallback to global product availability so adapter health doesn't fail only due to sparse local granules.
+    const globalUrl = `https://cmr.earthdata.nasa.gov/search/granules.json?short_name=${encodeURIComponent(shortName)}&temporal=${encodeURIComponent(`${start},${end}`)}&page_size=1`;
+    const globalResponse = await fetchJsonWithTimeout(globalUrl);
+    if (!globalResponse.ok) continue;
+    const globalPayload = globalResponse.payload as { feed?: { entry?: unknown[] } } | null;
+    const globalEntries = globalPayload?.feed?.entry;
+    if (Array.isArray(globalEntries) && globalEntries.length > 0) {
+      return { ok: true, source: `cmr:${shortName}:global` };
     }
   }
   return { ok: false, source: `cmr:${shortNames[0]}`, reason: 'no_recent_granules' };

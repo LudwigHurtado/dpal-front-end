@@ -17,7 +17,6 @@ import { MapContainer, TileLayer, Marker, Circle, Popup, useMapEvents } from 're
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
-import { WaterGlobe, type WaterProjectPin, type WaterAlertPin, type WaterAlertType } from './WaterGlobe';
 import { GibsTileViewer } from './GibsTileViewer';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
@@ -3100,44 +3099,6 @@ const DEMO_WATER_PROJECTS: WaterProject[] = [
   },
 ];
 
-// Map Global Signals API category strings → WaterAlertType icons
-function signalCategoryToType(category: string): WaterAlertType {
-  if (category === 'fire_smoke' || category === 'wildfire') return 'fire';
-  if (category === 'flood' || category === 'storm_surge')   return 'flood';
-  if (category === 'drought' || category === 'heat_wave')   return 'drought';
-  if (category === 'pollution' || category === 'air_quality') return 'pollution';
-  if (category === 'climate_risk' || category === 'extreme_weather') return 'climate_risk';
-  if (category === 'earthquake' || category === 'seismic')  return 'earthquake';
-  if (category === 'water_scarcity' || category === 'water_stress') return 'water_scarcity';
-  if (category === 'infrastructure')                         return 'infrastructure';
-  return 'hazard';
-}
-
-// soilMoisture values for demo globe pins (separate from full project data)
-const DEMO_GLOBE_SOIL_MOISTURE: Record<string, number> = {
-  'demo-wp-001': 0.42,
-  'demo-wp-002': 0.19, // drought stress → pulsing ring
-  'demo-wp-003': 0.12, // drought stress → pulsing ring
-  'demo-wp-004': 0.55,
-  'demo-wp-005': 0.68,
-  'demo-wp-006': 0.33,
-  'demo-wp-007': 0.57,
-  'demo-wp-008': 0.14, // drought stress → pulsing ring
-};
-
-const REFERENCE_STATIONS: WaterAlertPin[] = [
-  { id: 'ref-colorado',   title: 'Colorado River Basin — Chronic over-allocation drought stress',       description: 'Lake Mead & Lake Powell at historic lows. Critical water supply for 40M people.',    lat: 36.0,   lng: -114.7,  severity: 'critical', source: 'USGS Reference', isReference: true, type: 'drought'        },
-  { id: 'ref-lakeChad',   title: 'Lake Chad Basin — 90% shrinkage since 1960',                          description: 'Severe desertification affecting Nigeria, Niger, Chad and Cameroon.',               lat: 13.3,   lng: 14.0,    severity: 'critical', source: 'FAO Reference',  isReference: true, type: 'water_scarcity' },
-  { id: 'ref-aral',       title: 'Aral Sea Region — Near-total desiccation',                            description: 'Once the 4th largest lake; now 10% of original volume. Central Asia crisis.',       lat: 44.5,   lng: 59.5,    severity: 'high',     source: 'NASA Reference', isReference: true, type: 'drought'        },
-  { id: 'ref-ganges',     title: 'Ganges-Brahmaputra Delta — Seasonal flood & drought cycle',           description: 'Groundwater depletion + monsoon flooding affects 500M people in South Asia.',       lat: 24.0,   lng: 88.0,    severity: 'high',     source: 'FAO Reference',  isReference: true, type: 'flood'          },
-  { id: 'ref-mekong',     title: 'Mekong River Delta — Upstream dam impacts + saltwater intrusion',     description: 'Vietnam delta facing salinization; 20M farmers dependent on water flow.',           lat: 10.5,   lng: 105.5,   severity: 'high',     source: 'EONET Reference',isReference: true, type: 'pollution'      },
-  { id: 'ref-murray',     title: 'Murray-Darling Basin — Australia drought & over-extraction',          description: 'Prolonged drought; river flow reduced >50%. Threatens agricultural output.',         lat: -34.0,  lng: 142.0,   severity: 'moderate', source: 'BOM Reference',  isReference: true, type: 'drought'        },
-  { id: 'ref-nile',       title: 'Nile Delta — Freshwater scarcity & GERD dam dispute',                 description: 'Egypt, Ethiopia and Sudan in dispute over Grand Ethiopian Renaissance Dam.',         lat: 30.5,   lng: 31.2,    severity: 'moderate', source: 'FAO Reference',  isReference: true, type: 'water_scarcity' },
-  { id: 'ref-indus',      title: 'Indus Basin — Glacial melt acceleration + political tension',         description: 'Pakistan & India share the Indus; 270M depend on glacially-fed rivers.',            lat: 30.0,   lng: 71.0,    severity: 'moderate', source: 'FAO Reference',  isReference: true, type: 'climate_risk'   },
-  { id: 'ref-amazon',     title: 'Amazon River — Record 2023-2024 drought + fire season',               description: 'Drought cut off river communities; 50M+ people and global carbon sink at risk.',    lat: -3.5,   lng: -62.0,   severity: 'high',     source: 'INPE Reference', isReference: true, type: 'fire'           },
-  { id: 'ref-yellowRiver',title: 'Yellow River — Seasonal dry-out reaching sea stopped 200+ days/yr',  description: 'Heavy extraction and climate shifts; drying episodes increasing in northern China.',  lat: 35.5,   lng: 109.0,   severity: 'moderate', source: 'CWR Reference',  isReference: true, type: 'drought'        },
-];
-
 // ── Dashboard (main view) ──────────────────────────────────────────────────────
 
 function Dashboard({
@@ -3156,39 +3117,7 @@ function Dashboard({
   const [feed, setFeed]               = useState<TxRecord[]>([]);
   const [loading, setLoading]         = useState(true);
   const [err, setErr]                 = useState('');
-  const [showGlobe, setShowGlobe]     = useState(true);
-  const [hazardSignals, setHazardSignals] = useState<WaterAlertPin[]>([]);
   const [isDemoMode, setIsDemoMode]   = useState(false);
-
-  // Fix: exclude 0,0 default coords — only include projects with real GPS
-  const globePins = useMemo<WaterProjectPin[]>(() =>
-    projects
-      .filter((p) => {
-        const lat = p.location?.gpsCenter?.lat;
-        const lng = p.location?.gpsCenter?.lng;
-        return lat != null && lng != null && (lat !== 0 || lng !== 0);
-      })
-      .sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime())
-      .map((p) => ({
-        projectId:    p.projectId,
-        projectName:  p.projectName,
-        projectType:  p.projectType,
-        status:       p.status,
-        country:      p.location.country,
-        city:         p.location.city,
-        totalAcres:   p.totalAcres,
-        lat:          p.location.gpsCenter.lat,
-        lng:          p.location.gpsCenter.lng,
-        soilMoisture: DEMO_GLOBE_SOIL_MOISTURE[p.projectId],
-      })),
-    [projects]
-  );
-
-  // Alert pins = hazard signals from GlobalSignals API + reference stations when no user projects
-  const alertPins = useMemo<WaterAlertPin[]>(() => {
-    const base = globePins.length === 0 ? REFERENCE_STATIONS : [];
-    return [...base, ...hazardSignals];
-  }, [globePins.length, hazardSignals]);
 
   useEffect(() => {
     async function load() {
@@ -3219,32 +3148,6 @@ function Dashboard({
       }
     }
     load();
-
-    // Pull environmental hazard + pollution signals to show on map
-    async function loadSignals() {
-      try {
-        const url = apiUrl('/api/signals') + '?riskLevel=high&limit=30';
-        const data = await apiFetch<{ ok: boolean; signals: Array<{ signalId: string; title: string; description: string; category: string; riskLevel: string; latitude?: number; longitude?: number; sourceName: string }> }>(url);
-        const pins: WaterAlertPin[] = (data.signals ?? [])
-          .filter((s) => s.latitude != null && s.longitude != null && s.latitude !== 0 && s.longitude !== 0)
-          .filter((s) => ['environmental_hazard', 'pollution', 'climate_risk', 'fire_smoke'].includes(s.category))
-          .map((s) => ({
-            id: s.signalId,
-            title: s.title,
-            description: s.description,
-            lat: s.latitude!,
-            lng: s.longitude!,
-            severity: s.riskLevel as WaterAlertPin['severity'],
-            source: s.sourceName,
-            isReference: false,
-            type: signalCategoryToType(s.category),
-          }));
-        setHazardSignals(pins);
-      } catch {
-        // signals not critical — fail silently
-      }
-    }
-    loadSignals();
   }, []);
 
   return (
@@ -3307,49 +3210,6 @@ function Dashboard({
           ))}
         </div>
       )}
-
-      {/* World Map */}
-      <div className="bg-slate-900 border border-slate-700 rounded-xl overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Globe className="w-[15px] h-[15px] text-teal-400" />
-            <span className="text-sm font-semibold text-slate-200">Project World Map</span>
-            {globePins.length > 0 && (
-              <span className="text-[10px] bg-teal-500/15 text-teal-300 border border-teal-500/30 px-2 py-0.5 rounded-full">
-                {globePins.length} project{globePins.length !== 1 ? 's' : ''}{isDemoMode ? ' · showcase' : ''}
-              </span>
-            )}
-            {alertPins.length > 0 && (
-              <span className="text-[10px] bg-orange-500/15 text-orange-300 border border-orange-500/30 px-2 py-0.5 rounded-full">
-                {alertPins.filter(a => !a.isReference).length > 0
-                  ? `${alertPins.filter(a => !a.isReference).length} hazard signal${alertPins.filter(a => !a.isReference).length !== 1 ? 's' : ''}`
-                  : `${alertPins.length} reference station${alertPins.length !== 1 ? 's' : ''}`}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => setShowGlobe((v) => !v)}
-            className="text-xs text-slate-500 hover:text-slate-300 transition px-2 py-1 rounded hover:bg-slate-800"
-          >
-            {showGlobe ? 'Hide' : 'Show'}
-          </button>
-        </div>
-        {showGlobe && (
-          <WaterGlobe
-            projects={globePins}
-            alertPins={alertPins}
-            onSelectProject={onViewProject}
-            height="h-[440px]"
-          />
-        )}
-        {showGlobe && (
-          <p className="px-4 py-2 text-[10px] text-slate-600 border-t border-slate-800">
-            {isDemoMode
-              ? '8 showcase projects · 10 global water stress reference stations · Register a project to add live monitoring pins'
-              : 'Showing your registered projects · Reference water stress stations shown when no projects are registered'}
-          </p>
-        )}
-      </div>
 
       {/* Quick nav */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
