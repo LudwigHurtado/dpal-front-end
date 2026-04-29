@@ -136,6 +136,8 @@ export const VIEW_PATHS: Record<string, string> = {
   waterMonitor: '/water',
   /** Explicit AquaScan route for side-by-side testing */
   aquaScanWater: '/water/aquascan',
+  /** Aqualand Well alias for upgraded AquaScan workspace */
+  aqualandWell: '/water/aqualand',
   aquascanReportViewer: '/aquascan/reports',
   aquascanSituationRoom: '/aquascan/situation-room',
   carbReportViewer: '/carb/reports',

@@ -237,6 +237,13 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             >
               Open Water Operations Engine
             </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('aqualandWell')}
+              className="rounded-md border border-cyan-400/60 bg-cyan-950/35 px-2.5 py-1 text-[10px] font-semibold text-cyan-100"
+            >
+              Open Aqualand Well
+            </button>
           </HubCard>
           <HubCard icon={<Activity className="w-8 h-8" />} label="Air Quality Control" subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings." status="Monitoring" colorClass="sky" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('airQualityMonitor')} />
           <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Forest Integrity" subLabel="AFOLU projects, monitoring, mission evidence, and buyer-grade reports." status="Monitoring" colorClass="emerald" bgImageUrl="/environmental-intelligence/forest-integrity-main.png" onClick={() => onNavigate('afoluEngine')} />
