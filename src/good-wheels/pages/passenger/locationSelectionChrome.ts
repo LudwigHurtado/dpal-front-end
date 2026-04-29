@@ -26,6 +26,41 @@ const P = {
   },
 } as const;
 
+/** Compact single-row mode switch: Pick up (green) | Drop off (red). */
+export function locationModeSegmentBar(): CSSProperties {
+  return {
+    display: 'flex',
+    alignItems: 'stretch',
+    borderRadius: 12,
+    overflow: 'hidden',
+    border: `1px solid ${P.neutral.border}`,
+    boxShadow: '0 1px 4px rgba(15, 23, 42, 0.06)',
+    background: 'rgba(255, 255, 255, 0.72)',
+  };
+}
+
+export function locationModeSegment(role: 'pickup' | 'dropoff', active: boolean): CSSProperties {
+  const c = role === 'pickup' ? P.green : P.red;
+  return {
+    flex: 1,
+    minWidth: 0,
+    padding: '7px 8px',
+    fontSize: 12,
+    fontWeight: 800,
+    letterSpacing: '0.02em',
+    border: 'none',
+    borderRight: role === 'pickup' ? `1px solid ${P.neutral.border}` : 'none',
+    cursor: 'pointer',
+    fontFamily: 'inherit',
+    textAlign: 'center',
+    lineHeight: 1.2,
+    background: active ? c.fill : 'transparent',
+    color: active ? c.textStrong : P.neutral.text,
+    boxShadow: active ? `inset 0 -2px 0 0 ${c.solid}` : 'none',
+    transition: 'background 0.15s, color 0.15s, box-shadow 0.15s',
+  };
+}
+
 export function modeToggleBox(role: 'pickup' | 'dropoff', active: boolean): CSSProperties {
   const c = role === 'pickup' ? P.green : P.red;
   return {

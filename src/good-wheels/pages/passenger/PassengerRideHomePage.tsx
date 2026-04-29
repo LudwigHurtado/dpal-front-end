@@ -12,10 +12,10 @@ import { PassengerRideOptionsPanel } from './PassengerRideOptionsPanel';
 import type { CauseOrganization } from '../../features/charity/types';
 import {
   addressRowChrome,
-  modeToggleBox,
+  locationModeSegment,
+  locationModeSegmentBar,
   roleDotColor,
   roleGpsIconColor,
-  roleLabelStyle,
 } from './locationSelectionChrome';
 
 /* ─────────────────────────────────────────────
@@ -652,20 +652,20 @@ const PassengerRideHomePage: React.FC = () => {
       top: 76,
       left: '50%',
       transform: 'translateX(-50%)',
-      width: 'min(560px, calc(100vw - 24px))',
+      width: 'min(420px, calc(100vw - 24px))',
       background: 'rgba(255, 255, 255, 0.58)',
       backdropFilter: 'blur(12px)',
       WebkitBackdropFilter: 'blur(12px)',
-      borderRadius: 16,
-      padding: '10px 12px',
+      borderRadius: 14,
+      padding: '8px 10px',
       display: 'flex',
       flexDirection: 'column' as const,
       alignItems: 'stretch',
-      gap: 8,
+      gap: 6,
       boxShadow: '0 4px 20px rgba(15, 23, 42, 0.08)',
       border: '1px solid rgba(255, 255, 255, 0.65)',
       zIndex: 25,
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 600,
       color: '#111827',
     },
@@ -852,22 +852,16 @@ const PassengerRideHomePage: React.FC = () => {
       {/* ── MAP SELECTION MODE (search only) ── */}
       {sheet === 'search' && (
       <div style={S.pinHint}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'stretch', flexWrap: 'wrap' }}>
-          <button type="button" onClick={() => setActiveField('pickup')} style={modeToggleBox('pickup', pickupLocActive)}>
-            <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 2 }}>
-              {t('pickupLabel')}
-            </span>
-            {t('setPickup')}
+        <div style={locationModeSegmentBar()}>
+          <button type="button" onClick={() => setActiveField('pickup')} style={locationModeSegment('pickup', pickupLocActive)}>
+            {t('mapSheet_pickup')}
           </button>
-          <button type="button" onClick={() => setActiveField('dropoff')} style={modeToggleBox('dropoff', dropoffLocActive)}>
-            <span style={{ display: 'block', fontSize: 10, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', opacity: 0.85, marginBottom: 2 }}>
-              {t('dropoff')}
-            </span>
-            {t('setDestination')}
+          <button type="button" onClick={() => setActiveField('dropoff')} style={locationModeSegment('dropoff', dropoffLocActive)}>
+            {t('mapSheet_dropoff')}
           </button>
         </div>
-        <span style={{ fontSize: 11, color: '#475569', fontWeight: 700, textAlign: 'center', lineHeight: 1.35 }}>
-          {reverseGeoLoading ? `${t('readingLocation')}` : t('clickMapSetPickupDropoff')}
+        <span style={{ fontSize: 10, color: '#64748b', fontWeight: 600, textAlign: 'center', lineHeight: 1.3 }}>
+          {reverseGeoLoading ? t('readingLocation') : t('clickMapSetPickupDropoff')}
         </span>
       </div>
       )}
@@ -929,7 +923,6 @@ const PassengerRideHomePage: React.FC = () => {
               </button>
             </div>
 
-            <div style={roleLabelStyle('pickup', true)}>{t('mapSheet_pickup')}</div>
             <div style={{ ...addressRowChrome('pickup', pickupLocActive, pickupLocHasPlace), marginBottom: 6 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: roleDotColor('pickup', pickupLocProminent), flexShrink: 0, display: 'inline-block' }} />
               <input
@@ -960,8 +953,7 @@ const PassengerRideHomePage: React.FC = () => {
               </div>
             )}
 
-            <div style={roleLabelStyle('dropoff', true)}>{t('mapSheet_dropoff')}</div>
-            <div style={{ ...addressRowChrome('dropoff', dropoffLocActive, dropoffLocHasPlace), marginBottom: 6 }}>
+            <div style={{ ...addressRowChrome('dropoff', dropoffLocActive, dropoffLocHasPlace), marginTop: 8, marginBottom: 6 }}>
               <span style={{ width: 10, height: 10, borderRadius: '50%', background: roleDotColor('dropoff', dropoffLocProminent), flexShrink: 0, display: 'inline-block' }} />
               <input
                 className="gw-loc-ph-dropoff"
