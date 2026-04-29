@@ -11,6 +11,8 @@ import type {
 } from './driverTypes';
 import { DEFAULT_DRIVER_FILTER_ID } from './driverConstants';
 import { driverService } from './driverService';
+import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
+import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 
 type DriverState = {
   driverProfile: DriverProfile | null;
@@ -25,7 +27,7 @@ type DriverState = {
   hydrate: () => Promise<void>;
   setAvailability: (next: DriverAvailabilityStatus) => void;
   setQueueFilter: (id: DriverQueueFilterId) => void;
-  acceptQueueTrip: (tripId: string) => void;
+  acceptQueueTrip: (tripId: string) => Promise<Trip | null>;
   declineQueueTrip: (tripId: string) => void;
   bindActiveTrip: (trip: Trip) => void;
   clearActiveTrip: () => void;
@@ -64,7 +66,7 @@ export const useDriverStore = create<DriverState>((set, get) => ({
       return;
     }
     set({ availabilityStatus: next });
-    void driverService.updateDriverAvailability();
+    void driverService.updateDriverAvailability(next);
   },
 
   setQueueFilter(id) {
@@ -81,25 +83,29 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     set({ activeTripId: null, availabilityStatus: 'online' });
   },
 
-  acceptQueueTrip(tripId) {
+  async acceptQueueTrip(tripId) {
     const { queueItems } = get();
     const found = queueItems.find((t) => t.id === tripId);
-    if (!found) return;
+    if (!found) return null;
     const driverId = get().driverProfile?.id ?? 'usr-driver-001';
-    const next: Trip = {
+    let next: Trip = {
       ...found,
       driverId,
-      status: 'driver_assigned',
+      status: 'accepted',
       updatedAtIso: new Date().toISOString(),
       timeline: [
         ...found.timeline,
         { id: `acc-${Date.now()}`, atIso: new Date().toISOString(), label: 'Accepted by driver', detail: 'Driver is on the way.' },
       ],
     };
+    if (!GOOD_WHEELS_DEMO_MODE) {
+      next = await goodWheelsRideApi.acceptTrip(tripId, driverId);
+    }
     set({
       queueItems: queueItems.filter((t) => t.id !== tripId),
     });
     get().bindActiveTrip(next);
+    return next;
   },
 
   declineQueueTrip(tripId) {

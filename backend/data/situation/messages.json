@@ -1,0 +1,104 @@
+[
+  {
+    "id": "sys-1777462412509-10d3d220",
+    "roomId": "rep-1774711058674",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:33:32.509Z"
+  },
+  {
+    "id": "sys-1777462412621-91187928",
+    "roomId": "rep-1774711058674",
+    "text": "Report attached: rep-1774711058674.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:33:32.621Z"
+  },
+  {
+    "id": "sys-1777462412845-05b0b9bd",
+    "roomId": "rep-1774711058674",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:33:32.845Z"
+  },
+  {
+    "id": "sys-1777462412965-b22f4d0d",
+    "roomId": "rep-1774711058674",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:33:32.965Z"
+  },
+  {
+    "id": "msg-1777462413174-89fcf851",
+    "roomId": "rep-1774711058674",
+    "text": "Validator requested review.",
+    "senderName": "DPAL Operative",
+    "senderRole": "analyst",
+    "type": "validator",
+    "metadata": {
+      "stage": "verification"
+    },
+    "createdAt": "2026-04-29T11:33:33.174Z"
+  },
+  {
+    "id": "sys-1777462415124-e9c59d67",
+    "roomId": "rep-1774711058674",
+    "text": "Media uploaded to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:33:35.124Z"
+  },
+  {
+    "id": "sys-1777462415127-e5ec1db5",
+    "roomId": "rep-1774711058674",
+    "text": "Main image updated for this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:33:35.127Z"
+  },
+  {
+    "id": "sys-1777462552601-9fbccadc",
+    "roomId": "room-water_scan-1777462552598-4ffe38b6",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:35:52.601Z"
+  },
+  {
+    "id": "sys-1777462552603-8b19a5db",
+    "roomId": "room-water_scan-1777462552598-4ffe38b6",
+    "text": "Project evidence attached (water_scan) for project-water-001.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:35:52.603Z"
+  },
+  {
+    "id": "sys-1777462552606-9074e648",
+    "roomId": "room-water_scan-1777462552598-4ffe38b6",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:35:52.606Z"
+  },
+  {
+    "id": "sys-1777462552609-fcfbfb97",
+    "roomId": "room-water_scan-1777462552598-4ffe38b6",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-04-29T11:35:52.609Z"
+  }
+]

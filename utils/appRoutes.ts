@@ -97,6 +97,7 @@ export const VIEW_PATHS: Record<string, string> = {
   transparencyDatabase: '/transparency-db',
   aiRegulationHub: '/ai-regulation',
   incidentRoom: '/incident',
+  situationRoom: '/situation-room',
   threatMap: '/threat-map',
   teamOps: '/team-ops',
   medicalOutpost: '/medical',

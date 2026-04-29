@@ -89,6 +89,55 @@ Use this checklist when you want local behavior to match production as closely a
 
 ---
 
+## Good Wheels (publish readiness)
+
+Route: `/good-wheels` (embedded module under `src/good-wheels/`).
+
+Current review findings:
+
+- Non-demo auth/trip flows now use server adapters (`/api/good-wheels/*`) while demo mode remains available.
+- Trip lifecycle is server-backed for accept/status/cancel/complete in non-demo mode.
+- Driver broadcast/chat server contract is now defined under `/api/good-wheels/*` in the repo backend (`backend/src/routes/goodWheels.ts`) and consumed by `src/good-wheels/services/goodWheelsCommsService.ts`.
+
+Expected backend endpoints for production:
+
+- `GET /api/good-wheels/health`
+- `POST /api/good-wheels/auth/signin` (canonical)
+- `POST /api/good-wheels/auth/sign-in` (alias)
+- `POST /api/good-wheels/trips/request`
+- `GET /api/good-wheels/driver/queue`
+- `POST /api/good-wheels/trips/:tripId/accept`
+- `PATCH /api/good-wheels/trips/:tripId/status`
+- `POST /api/good-wheels/trips/:tripId/cancel`
+- `POST /api/good-wheels/trips/:tripId/complete`
+- `GET/POST /api/good-wheels/broadcasts`
+- `POST /api/good-wheels/broadcasts/:broadcastId/ack`
+- `GET/POST /api/good-wheels/chat/:threadId/messages`
+
+Before publishing Good Wheels:
+
+1. Deploy this repo backend (`backend/src/routes/goodWheels.ts`, mounted by `backend/src/index.ts`) and keep `/api/good-wheels/*` reachable there.
+2. Set frontend env to:
+   - `VITE_API_BASE=<deployed dpal-front-end backend URL>`
+   - `VITE_GW_DEMO_MODE=false`
+   - `VITE_DEMO_MODE=false`
+3. Connect trips/broadcasts/chat to durable persistent storage.
+4. Verify passenger-driver shared trip chat and lifecycle end-to-end on server data.
+5. Run `npm run lint`, `npm run build`, and `cd backend && npm run build`.
+
+Publish warning:
+
+Good Wheels is server-backed through the dpal-front-end backend. If the route currently uses runtime file-backed or in-memory storage, it is suitable for integration testing but should be connected to durable database persistence before full public launch.
+
+Production host alignment today:
+
+- Active Good Wheels backend is this repo backend (`backend/src/routes/goodWheels.ts`) mounted at `app.use('/api/good-wheels', goodWheelsRouter)`.
+- The frontend must point `VITE_API_BASE` to that deployed backend host.
+
+Good Wheels module docs live at `src/good-wheels/README.md`.
+
+---
+
 ## Key product areas
 
 | Route | Feature |
@@ -194,6 +243,23 @@ State is in-session only for now. There is no backend persistence yet.
 
 ## Recent monitoring updates
 
+- **2026-04-29 — AquaScan live-only hardening + map clarity updates**
+  - `/water` no longer presents generated fallback report values when live `/api/water/*` requests fail.
+  - Water analysis service now requires live responses for AOI snapshot/history (`services/waterAnalysisService.ts`) and surfaces data-unavailable states instead of synthetic trend values.
+  - AquaScan map UX now includes:
+    - **What am I seeing?** guidance panel
+    - **Map Legend** with overlay meanings
+    - overlay click popups (type, meaning, source layer, confidence, coordinates, recommended next action, legal-safe note)
+    - stronger tile failure guidance with retry/base-only/date/layer reset actions
+    - image/tile status panel and failing-layer visibility
+  - Coordinate parsing hardening:
+    - malformed coordinate input (e.g. trailing commas) no longer yields `NaN` map jumps
+    - invalid coordinates now fall back to **US West** (`[37.25, -119.8]`) with user guidance instead of global default behavior.
+  - Envirofacts Geo Intelligence updates stabilized:
+    - results table is now full-width and no longer squeezed by right-side panels
+    - evidence packet moved to collapsible section below table
+    - facility drawer actions/tabs wired with meaningful feedback and non-dead buttons.
+
 - **2026-04-28 — Earth Observation & DPAL Project Guide:** `POST /api/earth-observation/scan` and `POST /api/dpal-assistant/project-guide` documented above; `EarthObservationView` date presets + Auto/Custom badge on comparison basis; repo `backend/` ships Express routes + `earthObservationService` / `dpalAssistant` (deploy on `VITE_API_BASE` host). Details in **Earth Observation & DPAL Project Guide** and **`CLAUDE.md`**.
 - Main page monitoring imagery now uses dedicated assets in `public/main-screen/`
 - Category card imagery for Earth Observation, Ecological Conservation, and Water Violations points at those same assets through `categoryCardAssets.ts`
@@ -202,6 +268,24 @@ State is in-session only for now. There is no backend persistence yet.
 - Git author identity for this repo is set to `LudwigHurtado <49735409+LudwigHurtado@users.noreply.github.com>`
 
 ## Recent UX updates (water / AquaScan)
+
+- **2026-04-29 — CARB Investigation Workspace three-workflow split**
+  - `src/features/carbEmissionsAudit/CarbEmissionsAuditPage.tsx` now presents three clearly separated workflows:
+    1. CARB MRR record review
+    2. CARB Pollution Mapping Tool readings
+    3. Satellite / map scan via a dedicated **`Satellite / Map Scan Center`** tab
+  - Scan Center now includes:
+    - locked state text when coordinates are missing: `Satellite scan unavailable — coordinates required.`
+    - required coordinate-discovery actions (manual, official source, EPA FRS/GHGRP, pollution-map location, continue without scan)
+    - unlocked scan form/actions (lat/lng, radius/AOI, baseline/current dates, NDVI/NDWI/NDMI/NBR, notes, run/save/send)
+  - Selected-facility flow now includes:
+    - **Historical Data Loader** panel with `Only 2024 CARB records are currently loaded.` + import/config actions
+    - year-dropdown helper text clarifying CARB historical years exist but are not loaded yet
+    - visible **CARB Pollution Mapping Tool Readings** panel in the overview/report path
+    - source reconciliation message near summary: `Source reconciliation needed — different source product and/or reporting year.`
+  - `Run Investigation` now provides fallback explanation when coordinates/historical years are missing:
+    - `Investigation ran as single-year CARB record review. Satellite scan and trend analysis require coordinates and historical years.`
+  - Remote-sensing wording was hardened in `services/carbEnvironmentalReadingsService.ts` to avoid implying NDVI/NDWI/NDMI/NBR are computed from CARB emissions alone.
 
 - **2026-04-28 — CARB Investigation Workspace hardening and layout refactor**
   - Source/data contract hardening:
@@ -399,3 +483,12 @@ git push
   - supported credits
   - modeled carbon status
 - The review screen includes an explicit provenance note that the AFOLU Proof Engine flow still uses curated review inputs and does not yet attach a live satellite adapter payload inside this review path
+
+## 2026-04-29 Earth Observation hardening notes
+
+- `components/EarthObservationView.tsx` now uses a single saved AOI state model (`exists`, `isSaved`, center/radius, optional GeoJSON boundary, area, savedAt, source) to drive all AOI/save/readiness behavior.
+- Earth Observation scan lifecycle and diagnostics are explicit (`adapter_ready` through `routed_to_situation_room`, plus `no_usable_scenes` and `metric_failed`), with no-usable-imagery explanation and recommended next action.
+- Added an in-page **Earth Observation Assistant** (scan summary card, evidence/review panel, and Situation Room handoff summary) with safe claim language and local context-aware Q&A chips.
+- Evidence packet draft includes `assistantInterpretation`, AOI/date/provider metadata, scene-search result, limitations, confidence, and recommended action.
+- Situation Room routing continues through existing DPAL bridge (`services/situationRoomBridge.ts`) and now includes assistant summary, missing evidence, validator-focus questions, and mission task suggestions.
+- `DpalProjectGuide` progress is clamped to `0-100`, and completed guide steps are filtered to active module steps to prevent overflow.

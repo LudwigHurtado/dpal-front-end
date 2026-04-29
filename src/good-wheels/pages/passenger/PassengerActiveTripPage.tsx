@@ -8,9 +8,15 @@ import { usePassengerTripUi } from '../../features/trips/hooks/usePassengerTripU
 import { useTripActions } from '../../features/trips/hooks/useTripActions';
 import { tripService } from '../../features/trips/tripService';
 import type { DonationConfig } from '../../features/charity/types';
+import TripChatPanel from '../../features/trips/components/TripChatPanel';
+import { useAuthStore } from '../../store/useAuthStore';
 
 const PassengerActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const hydrate = useTripStore((s) => s.hydrate);
+  const loading = useTripStore((s) => s.loading);
+  const error = useTripStore((s) => s.error);
   const activeTrip = useTripStore((s) => s.activeTrip);
   const lastTerminalTrip = useTripStore((s) => s.lastTerminalTrip);
   const clearLastTerminalTrip = useTripStore((s) => s.clearLastTerminalTrip);
@@ -20,6 +26,7 @@ const PassengerActiveTripPage: React.FC = () => {
   const tripForUi = activeTrip ?? lastTerminalTrip;
   const { uiState, sheetMode } = usePassengerTripUi(tripForUi);
   const actions = useTripActions('passenger', tripForUi ?? ({} as any));
+  const [lastSyncedAt, setLastSyncedAt] = React.useState<string | null>(null);
 
   const canFinalize = useMemo(() => {
     return Boolean(
@@ -28,6 +35,21 @@ const PassengerActiveTripPage: React.FC = () => {
         typeof tripForUi.dpalRewardPoints !== 'number'
     );
   }, [tripForUi]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let mounted = true;
+    const sync = async () => {
+      await hydrate(user.id);
+      if (mounted) setLastSyncedAt(new Date().toISOString());
+    };
+    void sync();
+    const timer = window.setInterval(() => void sync(), 7000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, [hydrate, user?.id]);
 
   useEffect(() => {
     if (!canFinalize || !tripForUi) return;
@@ -71,7 +93,7 @@ const PassengerActiveTripPage: React.FC = () => {
   const onCancel = () => {
     // Uses shared trip action; store will move to terminal and capture receipt.
     if (!tripForUi) return;
-    actions.cancelTrip();
+    void actions.cancelTrip();
   };
 
   const onDone = () => {
@@ -99,6 +121,23 @@ const PassengerActiveTripPage: React.FC = () => {
         onDonate={() => actions.appendTimelineEvent('Donation updated', 'Donation settings updated for this trip.')}
         onDone={onDone}
       />
+      <div style={{ position: 'absolute', left: 16, bottom: 16, zIndex: 5 }} className="gw-card p-2">
+        <div className="text-[11px] text-slate-600">
+          {loading ? 'Syncing trip...' : error ? 'Sync issue' : 'Synced'}
+          {lastSyncedAt ? ` · ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+        </div>
+      </div>
+      {tripForUi && (
+        <div style={{ position: 'absolute', right: 16, bottom: 16, width: 'min(420px, calc(100vw - 32px))' }}>
+          <TripChatPanel
+            threadId={tripForUi.chatThreadId ?? `good-wheels-trip-${tripForUi.id}`}
+            role="passenger"
+            userId={user?.id ?? tripForUi.passengerId}
+            userName={user?.fullName ?? 'Passenger'}
+            title="Chat with driver"
+          />
+        </div>
+      )}
     </div>
   );
 };

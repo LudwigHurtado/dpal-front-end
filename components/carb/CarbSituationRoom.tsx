@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import type { ChatMessage } from '../../types';
+import React, { useMemo } from 'react';
 import { getCarbReportByRoomId } from '../../services/carbReportService';
 import { parseCarbSituationRoomIdFromPath } from '../../utils/appRoutes';
+import SituationRoomShell from '../situation-room/SituationRoomShell';
 
 interface CarbSituationRoomProps {
   roomId?: string | null;
@@ -9,58 +9,13 @@ interface CarbSituationRoomProps {
   embedded?: boolean;
 }
 
-function buildLocalMessage(sender: string, text: string, isSystem = false): ChatMessage {
-  return {
-    id: `carb-room-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    sender,
-    text,
-    timestamp: Date.now(),
-    isSystem,
-    ledgerProof: 'local-carb-room-message',
-  };
-}
-
-const ROOM_STORAGE_KEY = 'dpal_carb_situation_room_messages_v1';
-
 export default function CarbSituationRoom({ roomId, onReturn, embedded = false }: CarbSituationRoomProps): React.ReactElement {
+  // Compatibility route wrapper: CARB uses the shared SituationRoomShell engine.
   const resolvedRoomId = useMemo(() => roomId ?? parseCarbSituationRoomIdFromPath(window.location.pathname), [roomId]);
   const report = useMemo(
     () => (resolvedRoomId ? getCarbReportByRoomId(resolvedRoomId) : null),
     [resolvedRoomId],
   );
-  const [draft, setDraft] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-
-  useEffect(() => {
-    if (!report) {
-      setMessages([]);
-      return;
-    }
-    try {
-      const raw = localStorage.getItem(ROOM_STORAGE_KEY);
-      const parsed = raw ? (JSON.parse(raw) as Record<string, ChatMessage[]>) : {};
-      const fromStorage = parsed[report.situationRoom.roomId];
-      if (Array.isArray(fromStorage) && fromStorage.length > 0) {
-        setMessages(fromStorage);
-        return;
-      }
-    } catch {
-      // no-op fallback
-    }
-    setMessages([buildLocalMessage('DPAL System', `Situation room initialized for CARB report ${report.reportId}.`, true)]);
-  }, [report]);
-
-  useEffect(() => {
-    if (!report) return;
-    try {
-      const raw = localStorage.getItem(ROOM_STORAGE_KEY);
-      const parsed = raw ? (JSON.parse(raw) as Record<string, ChatMessage[]>) : {};
-      parsed[report.situationRoom.roomId] = messages;
-      localStorage.setItem(ROOM_STORAGE_KEY, JSON.stringify(parsed));
-    } catch {
-      // no-op
-    }
-  }, [messages, report]);
 
   if (!report || !resolvedRoomId) {
     return (
@@ -76,92 +31,37 @@ export default function CarbSituationRoom({ roomId, onReturn, embedded = false }
   }
 
   return (
-    <div className="mx-auto max-w-7xl space-y-4">
-      <section className="rounded-[2rem] border border-slate-800 bg-slate-950/90 p-4 text-slate-200 sm:p-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-violet-300">CARB Situation Room</p>
-            <h1 className="mt-1 text-2xl font-black text-white sm:text-3xl">{report.facilityIdentity.facilityName}</h1>
-            <p className="mt-2 text-sm text-slate-400">Room ID: {report.situationRoom.roomId}</p>
-            <p className="mt-1 text-xs text-slate-400">
-              Level 3: Ongoing review space for notes, documents, satellite evidence, legal review, and regulator-ready investigation.
-            </p>
-          </div>
-          <button type="button" onClick={onReturn} className="rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-300">
-            Back
-          </button>
-        </div>
-      </section>
-
-      <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-3 sm:p-5">
-        <h2 className="text-lg font-bold text-white">Evidence Timeline Sources</h2>
-        <div className="mt-3 grid grid-cols-1 gap-2 md:grid-cols-2">
-          <article className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-200">
-            <p className="font-semibold text-white">CARB MRR GHG record</p>
-            <p className="mt-1">Facility: {report.facilityIdentity.facilityName}</p>
-            <p>Years: {report.reportingYears.baselineYear} / {report.reportingYears.currentYear}</p>
-            <p>Source mode: {report.sourceMode}</p>
-          </article>
-          <article className="rounded-xl border border-slate-700 bg-slate-900/60 p-3 text-xs text-slate-200">
-            <p className="font-semibold text-white">CARB Pollution Mapping Tool pollutant readings</p>
-            {report.facilityPollutantReadings?.entries?.length ? (
-              <>
-                <p className="mt-1">Source: {report.facilityPollutantReadings.sourceLabel}</p>
-                <p>Entries: {report.facilityPollutantReadings.entries.length}</p>
-                {report.sourceReconciliation ? (
-                  <p>Source match confidence: {report.sourceReconciliation.matchConfidenceLabel}</p>
-                ) : null}
-                <p className="mt-1 text-slate-300">{report.facilityPollutantReadings.caveat}</p>
-              </>
-            ) : (
-              <p className="mt-1 text-slate-300">No pollutant readings attached to this report yet.</p>
-            )}
-          </article>
-          <article className="rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-xs text-slate-300">
-            <p className="font-semibold text-white">EPA GHGRP / FLIGHT (future)</p>
-            <p className="mt-1">No EPA GHGRP / FLIGHT source card attached yet.</p>
-          </article>
-          <article className="rounded-xl border border-slate-700 bg-slate-900/40 p-3 text-xs text-slate-300">
-            <p className="font-semibold text-white">Satellite / remote sensing (future)</p>
-            <p className="mt-1">No satellite/imagery source card attached yet.</p>
-          </article>
-        </div>
-      </section>
-
-      <section className="rounded-[1.75rem] border border-slate-800 bg-slate-950/85 p-3 sm:p-5">
-        <h2 className="text-lg font-bold text-white">Discussion</h2>
-        <div className="mt-4 h-[380px] space-y-3 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
-          {messages.map((message) => (
-            <article key={message.id} className={`rounded-xl border px-3 py-2 text-sm ${message.isSystem ? 'border-amber-500/30 bg-amber-900/10 text-amber-100' : 'border-slate-800 bg-slate-950/70 text-slate-200'}`}>
-              <div className="flex items-center justify-between gap-3">
-                <p className="font-semibold">{message.sender}</p>
-                <span className="text-[11px] text-slate-500">{new Date(message.timestamp).toLocaleString()}</span>
-              </div>
-              <p className="mt-2 whitespace-pre-wrap leading-relaxed">{message.text}</p>
-            </article>
-          ))}
-        </div>
-        <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-          <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            rows={3}
-            placeholder="Add CARB investigation notes..."
-            className="min-h-[88px] w-full flex-1 rounded-2xl border border-slate-700 bg-slate-900/70 px-3 py-2 text-sm text-white outline-none placeholder:text-slate-500"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              if (!draft.trim()) return;
-              setMessages((prev) => [...prev, buildLocalMessage('DPAL Operative', draft)]);
-              setDraft('');
-            }}
-            className="w-full rounded-2xl border border-cyan-500/40 bg-cyan-900/20 px-4 py-3 text-sm font-semibold text-cyan-100 sm:w-auto"
-          >
-            Send
-          </button>
-        </div>
-      </section>
-    </div>
+    <SituationRoomShell
+      sourceType="carb_audit"
+      roomId={report.situationRoom.roomId}
+      reportId={report.reportId}
+      projectId={report.auditId}
+      title={report.facilityIdentity.facilityName}
+      category="CARB Emissions Audit"
+      evidencePacket={{
+        dataSources: report.dataSources,
+        findings: report.investigationFindings,
+        emissionsComparison: report.emissionsComparison,
+      }}
+      aiSummary={{ narrative: report.aiNarrative }}
+      location={{
+        label: report.location.coordinatesLabel || report.facilityIdentity.facilityName,
+        lat: report.location.latitude ?? undefined,
+        lng: report.location.longitude ?? undefined,
+        address: [report.location.city, report.location.county, report.location.state].filter(Boolean).join(', ') || undefined,
+      }}
+      ledger={{
+        verificationStatus:
+          report.ledger.verificationStatus === 'logged'
+            ? 'verified'
+            : report.ledger.verificationStatus,
+        hash: report.ledger.currentHash,
+        chain: report.ledger.chainName,
+        blockNumber: report.ledger.blockId,
+        transactionId: report.ledger.transactionId,
+        timestamp: report.ledger.blockTimestamp,
+      }}
+      onBack={onReturn}
+    />
   );
 }

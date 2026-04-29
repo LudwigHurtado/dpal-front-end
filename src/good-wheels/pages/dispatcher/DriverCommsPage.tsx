@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { GW_PATHS } from '../../routes/paths';
+import { goodWheelsCommsService, type GwBroadcast } from '../../services/goodWheelsCommsService';
+import { useAuthStore } from '../../store/useAuthStore';
+import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 
 /* ─── Palette ───────────────────────────────────────────────────────────── */
 const C = {
@@ -183,6 +186,7 @@ function MiniMap() {
 /* ─── Component ─────────────────────────────────────────────────────────── */
 export default function DriverCommsPage() {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
   const [panel, setPanel]               = useState<'chat' | 'broadcast'>('chat');
   const [filterTab, setFilterTab]       = useState<FilterTab>('all');
   const [searchQ, setSearchQ]           = useState('');
@@ -191,6 +195,7 @@ export default function DriverCommsPage() {
   const [threads, setThreads]           = useState(MOCK_THREADS);
   const [broadcastType, setBroadcastType] = useState<BroadcastType>('nearby');
   const [broadcastMsg, setBroadcastMsg] = useState('');
+  const [recentBroadcasts, setRecentBroadcasts] = useState<GwBroadcast[]>([]);
   const [sending, setSending]           = useState(false);
   const [sentBanner, setSentBanner]     = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
@@ -198,6 +203,24 @@ export default function DriverCommsPage() {
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeDriverId, threads]);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        const next = await goodWheelsCommsService.listBroadcasts({ limit: 20 });
+        if (mounted) setRecentBroadcasts(next);
+      } catch {
+        // keep UI functional if backend is unavailable
+      }
+    };
+    void load();
+    const timer = window.setInterval(() => void load(), 5000);
+    return () => {
+      mounted = false;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   const activeDriver = MOCK_DRIVERS.find(d => d.id === activeDriverId)!;
   const thread = threads[activeDriverId] ?? [];
@@ -218,19 +241,64 @@ export default function DriverCommsPage() {
     setMsgInput('');
   }
 
-  function sendBroadcast() {
+  async function sendBroadcast() {
     if (!broadcastMsg.trim()) return;
     setSending(true);
-    setTimeout(() => {
+    try {
+      await goodWheelsCommsService.createBroadcast({
+        audience: broadcastType,
+        text: broadcastMsg.trim(),
+        senderName: user?.fullName ?? 'Dispatch',
+        senderRole: 'dispatch',
+      });
+      const next = await goodWheelsCommsService.listBroadcasts({ limit: 20 });
+      setRecentBroadcasts(next);
       setSending(false);
       setSentBanner(true);
       setBroadcastMsg('');
       setTimeout(() => setSentBanner(false), 4000);
-    }, 1800);
+    } catch {
+      setSending(false);
+      setSentBanner(false);
+    }
   }
+
+  const acknowledgeLastBroadcast = async () => {
+    if (!lastBroadcast) return;
+    try {
+      await goodWheelsCommsService.acknowledgeBroadcast(lastBroadcast.id, user?.id ?? 'usr-driver-001');
+      const next = await goodWheelsCommsService.listBroadcasts({ limit: 20 });
+      setRecentBroadcasts(next);
+    } catch {
+      // no-op
+    }
+  };
+
+  const acceptLastBroadcastRide = async () => {
+    if (!lastBroadcast?.tripId) return;
+    try {
+      await goodWheelsRideApi.acceptTrip(lastBroadcast.tripId, user?.id ?? 'usr-driver-001');
+      const next = await goodWheelsCommsService.listBroadcasts({ limit: 20 });
+      setRecentBroadcasts(next);
+    } catch {
+      // no-op
+    }
+  };
+
+  const listenLastBroadcast = () => {
+    if (!lastBroadcast?.text || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(lastBroadcast.text);
+    window.speechSynthesis.speak(u);
+  };
+
+  const stopListening = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+  };
 
   const activeBroadcast = BROADCAST_TYPES.find(b => b.id === broadcastType)!;
   const totalActive = MOCK_DRIVERS.filter(d => d.status !== 'offline').length;
+  const lastBroadcast = recentBroadcasts[0] ?? null;
 
   /* ── shared styles ── */
   const pill = (bg: string, color: string, extra?: React.CSSProperties): React.CSSProperties => ({
@@ -519,17 +587,42 @@ export default function DriverCommsPage() {
           <div style={{ margin: '0 16px 20px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '12px 14px' }}>
             <p style={{ margin: '0 0 8px', fontSize: 10, fontWeight: 800, color: C.muted, textTransform: 'uppercase', letterSpacing: '0.15em' }}>Last Broadcast Receipt</p>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 12, color: C.text }}>Surge demand — city center</span>
-              <span style={{ fontSize: 10, color: C.muted }}>10:04 AM</span>
+              <span style={{ fontSize: 12, color: C.text }}>{lastBroadcast?.text ?? 'No broadcast sent yet'}</span>
+              <span style={{ fontSize: 10, color: C.muted }}>
+                {lastBroadcast ? new Date(lastBroadcast.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
+              </span>
             </div>
             <div style={{ display: 'flex', gap: 14 }}>
-              {[{ label: 'Sent', val: 6, color: C.mutedLight }, { label: 'Delivered', val: 6, color: C.accent }, { label: 'Acknowledged', val: 4, color: C.green }].map(r => (
+              {[
+                { label: 'Sent', val: lastBroadcast ? 1 : 0, color: C.mutedLight },
+                { label: 'Delivered', val: lastBroadcast ? 1 : 0, color: C.accent },
+                { label: 'Acknowledged', val: lastBroadcast?.acknowledgements?.length ?? 0, color: C.green },
+              ].map(r => (
                 <div key={r.label} style={{ textAlign: 'center' }}>
                   <p style={{ margin: 0, fontSize: 18, fontWeight: 900, color: r.color }}>{r.val}</p>
                   <p style={{ margin: 0, fontSize: 9, color: C.muted }}>{r.label}</p>
                 </div>
               ))}
             </div>
+            {lastBroadcast && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginTop: 10 }}>
+                <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.03)', color: C.text, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={() => alert(lastBroadcast.text)}>
+                  Read Details
+                </button>
+                <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.03)', color: C.text, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={listenLastBroadcast}>
+                  Listen
+                </button>
+                <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(255,255,255,0.03)', color: C.text, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={stopListening}>
+                  Stop
+                </button>
+                <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(34,197,94,0.18)', color: C.green, cursor: 'pointer', fontSize: 11, fontWeight: 700 }} onClick={() => void acknowledgeLastBroadcast()}>
+                  Acknowledge
+                </button>
+                <button style={{ height: 34, borderRadius: 10, border: `1px solid ${C.border}`, background: 'rgba(0,198,255,0.18)', color: C.accent, cursor: lastBroadcast?.tripId ? 'pointer' : 'not-allowed', opacity: lastBroadcast?.tripId ? 1 : 0.5, fontSize: 11, fontWeight: 700 }} disabled={!lastBroadcast?.tripId} onClick={() => void acceptLastBroadcastRide()}>
+                  Accept Ride
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

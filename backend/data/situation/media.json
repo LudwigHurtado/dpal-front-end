@@ -1,0 +1,13 @@
+[
+  {
+    "id": "media-1777462415121-26d97668",
+    "roomId": "rep-1774711058674",
+    "url": "http://localhost:3001/uploads/situation/1777462415110-dpal-situation-test.png",
+    "filename": "1777462415110-dpal-situation-test.png",
+    "mimeType": "image/png",
+    "size": 68,
+    "caption": "smoke",
+    "isMain": true,
+    "createdAt": "2026-04-29T11:33:35.121Z"
+  }
+]

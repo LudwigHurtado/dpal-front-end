@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { GOOD_WHEELS_DEMO_MODE } from '../app/appConfig';
 import { mockRideApi } from '../services/adapters/mockAdapters';
+import { goodWheelsRideApi } from '../services/adapters/goodWheelsApi';
 import type { RideRequestDraft, Trip } from '../types/ride';
 
 type RideState = {
@@ -34,7 +35,7 @@ export const useRideStore = create<RideState>((set, get) => ({
   async loadForUser(userId) {
     set({ loading: true, error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
+      const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : goodWheelsRideApi;
       const [active, hist] = await Promise.all([api.getActiveTrip(userId), api.listHistory(userId)]);
       set({ activeTrip: active, history: hist, loading: false });
     } catch {
@@ -49,7 +50,7 @@ export const useRideStore = create<RideState>((set, get) => ({
     }
     set({ loading: true, error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
+      const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : goodWheelsRideApi;
       const trip = await api.requestRide(draft);
       set({ activeTrip: trip, loading: false });
     } catch {

@@ -35,6 +35,7 @@ import TacticalVault from './components/TacticalVault';
 import TransparencyDatabaseView from './components/TransparencyDatabaseView';
 import AiRegulationHub from './components/AiRegulationHub';
 import IncidentRoomView from './components/IncidentRoomView';
+import SituationRoomShell from './components/situation-room/SituationRoomShell';
 import TacticalHeatmap from './components/TacticalHeatmap';
 import TeamOpsView from './components/TeamOpsView';
 import MedicalOutpostView from './components/MedicalOutpostView';
@@ -53,6 +54,7 @@ import AquaScanReportViewer from './components/aquascan/AquaScanReportViewer';
 import AquaScanSituationRoom from './components/aquascan/AquaScanSituationRoom';
 import CarbReportViewer from './components/carb/CarbReportViewer';
 import CarbSituationRoom from './components/carb/CarbSituationRoom';
+import { createSituationRecordFromReport } from './services/situationRoomService';
 import WaterMonitorView from './components/WaterMonitorView';
 import EcologicalConservationView from './components/EcologicalConservationView';
 import EarthObservationView from './components/EarthObservationView';
@@ -144,7 +146,7 @@ import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvi
 import type { EpaFacilityProfile } from './src/types/epa';
 import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -421,6 +423,15 @@ const App: React.FC = () => {
   const [situationMessages, setSituationMessages] = useState<ChatMessage[]>([]);
   const [situationRooms, setSituationRooms] = useState<SituationRoomSummary[]>([]);
   const [situationError, setSituationError] = useState<string | null>(null);
+  const genericSituationQuery = useMemo(() => {
+    const p = new URLSearchParams(location.search);
+    return {
+      roomId: p.get('roomId') || undefined,
+      projectId: p.get('projectId') || undefined,
+      reportId: p.get('reportId') || undefined,
+      type: p.get('type') || undefined,
+    };
+  }, [location.search]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
   const [directives, setDirectives] = useState<AiDirective[]>(() => {
@@ -859,6 +870,11 @@ const App: React.FC = () => {
   // ?blockNumber=<n> or ?block=<n> → same via ledger index; &situationRoom=1 → incident room when record exists.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (window.location.pathname === '/situation-room') {
+      setReportDeepLinkError(null);
+      setReportDeepLinkLoading(false);
+      return;
+    }
     const params = new URLSearchParams(window.location.search);
     const reportId = params.get('reportId') ?? params.get('roomId');
     if (reportId) {
@@ -2556,6 +2572,31 @@ const App: React.FC = () => {
           />
         )}
 
+        {currentView === 'situationRoom' && (
+          (() => {
+            const roomId = genericSituationQuery.roomId || genericSituationQuery.reportId || genericSituationQuery.projectId || 'room-unknown';
+            const reportFromState = genericSituationQuery.reportId
+              ? reports.find((r) => r.id === genericSituationQuery.reportId)
+              : null;
+            const fallbackRecord = reportFromState ? createSituationRecordFromReport(reportFromState) : null;
+            return (
+              <SituationRoomShell
+                sourceType={(genericSituationQuery.type as any) || fallbackRecord?.sourceType || 'manual'}
+                roomId={roomId}
+                reportId={genericSituationQuery.reportId || fallbackRecord?.reportId}
+                projectId={genericSituationQuery.projectId}
+                title={fallbackRecord?.title || 'DPAL Project Situation Room'}
+                category={fallbackRecord?.category || String(genericSituationQuery.type || 'Project')}
+                evidencePacket={fallbackRecord?.evidencePacket}
+                aiSummary={fallbackRecord?.aiSummary}
+                location={fallbackRecord?.location}
+                ledger={fallbackRecord?.ledger}
+                onBack={() => goBack('mainMenu')}
+              />
+            );
+          })()
+        )}
+
         {currentView === 'reputationAndCurrency' && (
           <ReputationAndCurrencyView onReturn={() => goBack('mainMenu')} />
         )}
@@ -2751,9 +2792,7 @@ const App: React.FC = () => {
         {currentView === 'aquascanSituationRoom' && (
           <AquaScanSituationRoom
             roomId={aquaScanSituationRoomId}
-            currentUserName={hero.name}
             onBack={() => goBack('aquaScanWater')}
-            onOpenReport={openAquaScanReportViewer}
           />
         )}
 

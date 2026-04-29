@@ -13,13 +13,19 @@ export type RidePurpose =
 export type TripStatus =
   | 'draft'
   | 'requested'
+  | 'broadcasted'
   | 'matched'
+  | 'accepted'
+  | 'driver_en_route'
+  | 'driver_arrived'
+  | 'passenger_onboard'
   | 'driver_assigned'
   | 'driver_arriving'
   | 'arrived'
   | 'in_progress'
   | 'support_in_progress'
   | 'completed'
+  | 'cancelled'
   | 'canceled'
   | 'escalated';
 
@@ -86,5 +92,10 @@ export type Trip = {
   donationConfig?: { type: 'none' | 'fixed' | 'percentage' | 'round_up'; value: number } | null;
   donationAmountUsd?: number;
   dpalRewardPoints?: number;
+  chatThreadId?: string;
+  broadcastId?: string;
+  completedAtIso?: string;
+  cancelledAtIso?: string;
+  cancelReason?: string;
 };
 

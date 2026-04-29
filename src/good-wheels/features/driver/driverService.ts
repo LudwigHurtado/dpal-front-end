@@ -2,6 +2,7 @@ import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import type { DriverPerformanceSummary, DriverProfile, DriverQueueItem, DriverVehicleInfo } from './driverTypes';
 import type { Trip } from '../trips/tripTypes';
 import { MOCK_USERS } from '../../data/mock/mockUsers';
+import { goodWheelsDriverApi } from '../../services/adapters/goodWheelsApi';
 
 const nowIso = () => new Date().toISOString();
 
@@ -57,8 +58,7 @@ function makeQueueTrips(): Trip[] {
 
 export const driverService = {
   async fetchDriverProfile(): Promise<DriverProfile> {
-    // demo-only for now
-    void GOOD_WHEELS_DEMO_MODE;
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchProfile(MOCK_USERS.driver.id);
     const u = MOCK_USERS.driver;
     return {
       id: u.id,
@@ -68,18 +68,20 @@ export const driverService = {
     };
   },
   async fetchDriverQueue(): Promise<DriverQueueItem[]> {
-    void GOOD_WHEELS_DEMO_MODE;
-    return makeQueueTrips();
+    if (GOOD_WHEELS_DEMO_MODE) return makeQueueTrips();
+    return goodWheelsDriverApi.fetchQueue();
   },
   async fetchDriverHistory(): Promise<DriverQueueItem[]> {
-    void GOOD_WHEELS_DEMO_MODE;
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchHistory(MOCK_USERS.driver.id);
     return [];
   },
-  async updateDriverAvailability(): Promise<void> {
-    void GOOD_WHEELS_DEMO_MODE;
+  async updateDriverAvailability(status: 'online' | 'paused' | 'offline' | 'busy' = 'online'): Promise<void> {
+    if (!GOOD_WHEELS_DEMO_MODE) {
+      await goodWheelsDriverApi.updateAvailability(MOCK_USERS.driver.id, status);
+    }
   },
   async fetchVehicleInfo(): Promise<DriverVehicleInfo> {
-    void GOOD_WHEELS_DEMO_MODE;
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchVehicle(MOCK_USERS.driver.id);
     return {
       id: 'veh-001',
       makeModel: 'Toyota Camry (2018)',
@@ -93,7 +95,7 @@ export const driverService = {
     };
   },
   async fetchPerformanceSummary(): Promise<DriverPerformanceSummary> {
-    void GOOD_WHEELS_DEMO_MODE;
+    if (!GOOD_WHEELS_DEMO_MODE) return goodWheelsDriverApi.fetchPerformance(MOCK_USERS.driver.id);
     return {
       rating: 4.9,
       completedTrips: 18,

@@ -1,0 +1,29 @@
+[
+  {
+    "id": "gwm-1777463368296-132031",
+    "threadId": "trip-1777463368283-d9e634",
+    "text": "test message",
+    "senderId": "usr-passenger-001",
+    "senderName": "Ariana",
+    "senderRole": "passenger",
+    "createdAt": "2026-04-29T11:49:28.296Z"
+  },
+  {
+    "id": "gwm-1777464195633-7259c6",
+    "threadId": "good-wheels-trip-trip-1777464195269-2a7833",
+    "text": "hello",
+    "senderId": "usr-passenger-001",
+    "senderName": "Ariana",
+    "senderRole": "passenger",
+    "createdAt": "2026-04-29T12:03:15.633Z"
+  },
+  {
+    "id": "gwm-1777466635685-699357",
+    "threadId": "good-wheels-trip-trip-1777466635611-bf09c1",
+    "text": "Driver arrived",
+    "senderId": "usr-driver-001",
+    "senderName": "Jordan K.",
+    "senderRole": "driver",
+    "createdAt": "2026-04-29T12:43:55.685Z"
+  }
+]

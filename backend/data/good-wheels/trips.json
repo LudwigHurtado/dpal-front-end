@@ -1,0 +1,192 @@
+[
+  {
+    "id": "trip-1777466635611-bf09c1",
+    "passengerId": "usr-passenger-001",
+    "pickup": {
+      "label": "Home",
+      "addressLine": "100 Main St"
+    },
+    "dropoff": {
+      "label": "Clinic",
+      "addressLine": "200 Oak Ave"
+    },
+    "purpose": "medical_visit",
+    "supportCategoryId": "medical_transport",
+    "status": "completed",
+    "safetyStatus": "family_safe",
+    "createdAtIso": "2026-04-29T12:43:55.611Z",
+    "updatedAtIso": "2026-04-29T12:43:55.716Z",
+    "estimate": {
+      "etaMinutes": 8,
+      "distanceKm": 4.8
+    },
+    "timeline": [
+      {
+        "id": "evt-1777466635611-0f32b7",
+        "atIso": "2026-04-29T12:43:55.611Z",
+        "label": "Ride requested",
+        "detail": "Passenger created a new ride request."
+      },
+      {
+        "id": "evt-1777466635611-c0d218",
+        "atIso": "2026-04-29T12:43:55.611Z",
+        "label": "Ride broadcasted",
+        "detail": "Dispatch signal posted to driver queue."
+      },
+      {
+        "id": "evt-1777466635668-c9d1d0",
+        "atIso": "2026-04-29T12:43:55.668Z",
+        "label": "Driver accepted ride",
+        "detail": "Jordan K. accepted this ride."
+      },
+      {
+        "id": "evt-1777466635681-5db1e3",
+        "atIso": "2026-04-29T12:43:55.681Z",
+        "label": "Driver arrived",
+        "detail": "Driver reached pickup"
+      },
+      {
+        "id": "evt-1777466635716-da7a00",
+        "atIso": "2026-04-29T12:43:55.716Z",
+        "label": "Ride completed",
+        "detail": "Ride complete"
+      }
+    ],
+    "chatThreadId": "good-wheels-trip-trip-1777466635611-bf09c1",
+    "broadcastId": "gwb-1777466635613-bb6afd",
+    "driverId": "usr-driver-001",
+    "completedAtIso": "2026-04-29T12:43:55.716Z"
+  },
+  {
+    "id": "trip-1777464195269-2a7833",
+    "passengerId": "usr-passenger-001",
+    "pickup": {
+      "label": "Home",
+      "addressLine": "1 A"
+    },
+    "dropoff": {
+      "label": "Clinic",
+      "addressLine": "2 B"
+    },
+    "purpose": "medical_visit",
+    "status": "completed",
+    "safetyStatus": "family_safe",
+    "createdAtIso": "2026-04-29T12:03:15.269Z",
+    "updatedAtIso": "2026-04-29T12:03:15.643Z",
+    "estimate": {
+      "etaMinutes": 8,
+      "distanceKm": 4.8
+    },
+    "timeline": [
+      {
+        "id": "evt-1777464195270-16e753",
+        "atIso": "2026-04-29T12:03:15.269Z",
+        "label": "Ride requested",
+        "detail": "Passenger created a new ride request."
+      },
+      {
+        "id": "evt-1777464195270-4b6de1",
+        "atIso": "2026-04-29T12:03:15.269Z",
+        "label": "Ride broadcasted",
+        "detail": "Dispatch signal posted to driver queue."
+      },
+      {
+        "id": "evt-1777464195599-de82b6",
+        "atIso": "2026-04-29T12:03:15.599Z",
+        "label": "Driver accepted ride",
+        "detail": "Jordan K. accepted this ride."
+      },
+      {
+        "id": "evt-1777464195610-6ca6d1",
+        "atIso": "2026-04-29T12:03:15.610Z",
+        "label": "Driver arrived"
+      },
+      {
+        "id": "evt-1777464195618-ac7320",
+        "atIso": "2026-04-29T12:03:15.618Z",
+        "label": "Status updated to passenger onboard"
+      },
+      {
+        "id": "evt-1777464195627-46bc57",
+        "atIso": "2026-04-29T12:03:15.627Z",
+        "label": "Status updated to in progress"
+      },
+      {
+        "id": "evt-1777464195643-5fd35c",
+        "atIso": "2026-04-29T12:03:15.643Z",
+        "label": "Ride completed",
+        "detail": "done"
+      }
+    ],
+    "chatThreadId": "good-wheels-trip-trip-1777464195269-2a7833",
+    "broadcastId": "gwb-1777464195384-663033",
+    "driverId": "usr-driver-001"
+  },
+  {
+    "id": "trip-1777463368283-d9e634",
+    "passengerId": "usr-passenger-001",
+    "pickup": {
+      "label": "A",
+      "addressLine": "1 Main"
+    },
+    "dropoff": {
+      "label": "B",
+      "addressLine": "2 Main"
+    },
+    "purpose": "normal_ride",
+    "status": "requested",
+    "safetyStatus": "family_safe",
+    "createdAtIso": "2026-04-29T11:49:28.282Z",
+    "updatedAtIso": "2026-04-29T11:49:28.282Z",
+    "estimate": {
+      "etaMinutes": 8,
+      "distanceKm": 4.8
+    },
+    "timeline": [
+      {
+        "id": "evt-1777463368283-8f2fea",
+        "atIso": "2026-04-29T11:49:28.282Z",
+        "label": "Ride requested",
+        "detail": "Looking for an available driver."
+      }
+    ]
+  },
+  {
+    "id": "trip-q-2001",
+    "passengerId": "usr-passenger-001",
+    "pickup": {
+      "label": "Home",
+      "addressLine": "88 Willow Ln"
+    },
+    "dropoff": {
+      "label": "School",
+      "addressLine": "Ridgeview Elementary"
+    },
+    "purpose": "school_transport",
+    "supportCategoryId": "school_ride",
+    "status": "matched",
+    "safetyStatus": "family_safe",
+    "createdAtIso": "2026-04-29T11:49:28.285Z",
+    "updatedAtIso": "2026-04-29T11:49:28.285Z",
+    "estimate": {
+      "etaMinutes": 9,
+      "distanceKm": 5.1
+    },
+    "timeline": [
+      {
+        "id": "q1",
+        "atIso": "2026-04-29T11:49:28.285Z",
+        "label": "Request available",
+        "detail": "Family-safe pickup requested."
+      }
+    ],
+    "routeSummary": {
+      "distanceKm": 5.1,
+      "durationMinutes": 14,
+      "previewSteps": [
+        "Head east",
+        "Arrive at school entrance"
+      ]
+    }
+  }
+]

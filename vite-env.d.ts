@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   /** Default: gpt-4o-mini */
   readonly VITE_OPENAI_MODEL?: string;
   readonly VITE_API_BASE?: string;
+  readonly VITE_DPAL_API_BASE_URL?: string;
+  readonly VITE_DPAL_AI_SERVER_URL?: string;
+  readonly VITE_DPAL_MEDIA_BASE_URL?: string;
+  readonly VITE_DPAL_PUBLIC_FRONTEND_URL?: string;
   readonly VITE_ADSENSE_CLIENT?: string;
   readonly VITE_ADSENSE_SLOT_SUPPORT_NODE?: string;
   readonly VITE_ADSENSE_SLOT_HOME?: string;

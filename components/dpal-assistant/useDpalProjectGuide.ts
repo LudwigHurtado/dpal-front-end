@@ -54,10 +54,11 @@ export function useDpalProjectGuide(moduleType: DpalProjectModuleType, workflowS
   const [loading, setLoading] = useState(false);
   const guide = projectGuides[moduleType] ?? projectGuides.generic_project;
 
-  const completedStepIds = useMemo(
-    () => Array.from(new Set([...persisted.completedStepIds, ...computeCompleted(moduleType, workflowState)])),
-    [moduleType, persisted.completedStepIds, workflowState],
-  );
+  const completedStepIds = useMemo(() => {
+    const validStepIds = new Set(guide.steps.map((step) => step.id));
+    return Array.from(new Set([...persisted.completedStepIds, ...computeCompleted(moduleType, workflowState)]))
+      .filter((stepId) => validStepIds.has(stepId));
+  }, [guide.steps, moduleType, persisted.completedStepIds, workflowState]);
 
   const currentStep = useMemo(() => {
     return guide.steps.find((step) => !completedStepIds.includes(step.id)) ?? guide.steps[guide.steps.length - 1];

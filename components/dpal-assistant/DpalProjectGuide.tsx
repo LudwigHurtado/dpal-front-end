@@ -34,8 +34,10 @@ export default function DpalProjectGuide(props: Props) {
 
   const progress = useMemo(() => {
     if (!guide.steps.length) return 0;
-    return Math.round((completedStepIds.length / guide.steps.length) * 100);
-  }, [completedStepIds.length, guide.steps.length]);
+    const validCompleted = completedStepIds.filter((stepId) => guide.steps.some((step) => step.id === stepId)).length;
+    const calculatedProgress = Math.round((validCompleted / guide.steps.length) * 100);
+    return Math.min(100, Math.max(0, calculatedProgress));
+  }, [completedStepIds, guide.steps]);
 
   useEffect(() => {
     if (!onGuideStateChange) return;

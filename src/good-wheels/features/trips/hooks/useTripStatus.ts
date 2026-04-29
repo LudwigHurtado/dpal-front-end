@@ -12,8 +12,8 @@ export function useTripStatus(status: TripStatus) {
     badgeVariant: TRIP_BADGE_TONE[status],
     canCancel: canPassengerCancel(status),
     // Driver/worker flags are conservative defaults; refined per role in useTripActions.
-    canStart: status === 'arrived',
-    canComplete: status === 'in_progress' || status === 'support_in_progress',
+    canStart: status === 'arrived' || status === 'driver_arrived' || status === 'passenger_onboard',
+    canComplete: status === 'in_progress' || status === 'support_in_progress' || status === 'passenger_onboard',
   };
 }
 

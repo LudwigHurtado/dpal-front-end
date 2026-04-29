@@ -33,8 +33,9 @@ const DriverQueuePage: React.FC = () => {
               trip={t}
               onReview={() => navigate(GW_PATHS.driver.active)}
               onAccept={() => {
-                acceptRequest(t.id);
-                navigate(GW_PATHS.driver.active);
+                void acceptRequest(t.id).then((trip) => {
+                  if (trip) navigate(GW_PATHS.driver.active);
+                });
               }}
               onDecline={() => declineRequest(t.id)}
             />

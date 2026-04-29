@@ -3,6 +3,7 @@ import type { Role } from '../types/role';
 import type { UserProfile } from '../types/user';
 import { GOOD_WHEELS_DEMO_MODE } from '../app/appConfig';
 import { mockAuthApi } from '../services/adapters/mockAdapters';
+import { goodWheelsAuthApi } from '../services/adapters/goodWheelsApi';
 
 type AuthStatus = 'signed_out' | 'signed_in' | 'loading';
 
@@ -24,7 +25,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   async signIn(email, password) {
     set({ status: 'loading', error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : mockAuthApi;
+      const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : goodWheelsAuthApi;
       const { user } = await api.signIn(email, password);
       set({ status: 'signed_in', user, activeRole: user.role });
     } catch {
@@ -34,7 +35,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   async signOut() {
     set({ status: 'loading', error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : mockAuthApi;
+      const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : goodWheelsAuthApi;
       await api.signOut();
     } finally {
       set({ status: 'signed_out', user: null, activeRole: null });
@@ -45,7 +46,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (status !== 'signed_in') return;
     set({ status: 'loading', error: null });
     try {
-      const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : mockAuthApi;
+      const api = GOOD_WHEELS_DEMO_MODE ? mockAuthApi : goodWheelsAuthApi;
       const { user } = await api.switchRole(role);
       set({ status: 'signed_in', user, activeRole: user.role });
     } catch {

@@ -2,54 +2,26 @@
 /** FIX: Added NftTheme to imports */
 import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, TrainingModule, EducationRole, Mission, HeroPath, NftTheme, SubscriptionTier } from "./types";
 import { getCategoryReportImage } from "./utils/reportImages";
+import { buildApiUrl, getDpalApiConfig } from "./src/config/api";
 
 /**
  * Standardized API base URL for backend services (Railway).
  * Backend should connect to MongoDB (Railway MongoDB or Atlas) and implement the routes in API_ROUTES.
  * Set VITE_API_BASE in .env.local or deployment env to your Railway backend URL.
  */
-const DEFAULT_API_BASE = 'https://web-production-a27b.up.railway.app';
-const LOCAL_DEV_API_BASE = 'http://localhost:3001';
 export const DEFAULT_MAP_LOCATION = 'Los Angeles, CA';
-let hasWarnedMissingApiBase = false;
-
-const normalizeApiBase = (value: unknown): string => {
-  if (typeof value !== 'string') return '';
-  return value.trim().replace(/\/+$/, '');
-};
 
 export const isApiBaseConfigured = (): boolean => {
-  const configured = normalizeApiBase((import.meta as any).env?.VITE_API_BASE);
-  return configured.length > 0;
+  return getDpalApiConfig().hasExplicitApiConfig;
 };
 
 export const getApiBase = (): string => {
-  const env = (import.meta as any).env ?? {};
-  const configured = normalizeApiBase(env.VITE_API_BASE);
-  if (configured) return configured;
-
-  if (!hasWarnedMissingApiBase) {
-    hasWarnedMissingApiBase = true;
-    if (env.DEV) {
-      console.warn(
-        '[DPAL] Missing VITE_API_BASE in development. Falling back to local backend at http://localhost:3001. ' +
-          'Create/update .env.local and restart dev server for explicit config.'
-      );
-    } else {
-      console.warn(
-        '[DPAL] Missing VITE_API_BASE. Falling back to default Railway endpoint. ' +
-          'Create/update environment config for explicit backend routing.'
-      );
-    }
-  }
-  return env.DEV ? LOCAL_DEV_API_BASE : DEFAULT_API_BASE;
+  return getDpalApiConfig().apiBaseUrl;
 };
 
 /** Build full URL for an API route so all requests go to the same Railway backend. */
 export const apiUrl = (path: string): string => {
-  const base = getApiBase().replace(/\/$/, '');
-  const p = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${p}`;
+  return buildApiUrl(path);
 };
 
 /**

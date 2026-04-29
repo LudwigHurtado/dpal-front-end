@@ -1,7 +1,6 @@
 import type { ChatMessage } from '../types';
-import { getApiBase } from '../constants';
-
-const apiBase = getApiBase();
+import { buildApiUrl } from '../src/config/api';
+import { emitSituationDiagnostics } from './situationRoomService';
 
 export interface SituationRoomSummary {
   roomId: string;
@@ -25,7 +24,8 @@ const normalizeMessage = (m: any): ChatMessage => ({
 });
 
 export async function fetchSituationMessages(roomId: string): Promise<ChatMessage[]> {
-  const res = await fetch(`${apiBase}/api/situation/${encodeURIComponent(roomId)}/messages?limit=200`);
+  emitSituationDiagnostics({ roomId });
+  const res = await fetch(buildApiUrl(`/api/situation/${encodeURIComponent(roomId)}/messages?limit=200`));
   if (!res.ok) throw new Error(`Failed to fetch messages (${res.status})`);
   const data = await res.json();
   const list = Array.isArray(data?.messages) ? data.messages : [];
@@ -37,7 +37,8 @@ export async function uploadSituationMedia(
   type: 'image' | 'audio',
   dataUrl: string
 ): Promise<{ url: string; path: string; sizeBytes: number; mimeType: string; storage?: string; persistent?: boolean }> {
-  const res = await fetch(`${apiBase}/api/situation/media`, {
+  emitSituationDiagnostics({ roomId });
+  const res = await fetch(buildApiUrl('/api/situation/media'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roomId, type, dataUrl }),
@@ -55,7 +56,7 @@ export async function uploadSituationMedia(
 }
 
 export async function fetchSituationRooms(): Promise<SituationRoomSummary[]> {
-  const res = await fetch(`${apiBase}/api/situation/rooms`);
+  const res = await fetch(buildApiUrl('/api/situation/rooms'));
   if (!res.ok) throw new Error(`Failed to fetch rooms (${res.status})`);
   const data = await res.json();
   const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
@@ -74,7 +75,8 @@ export async function sendSituationMessage(
   roomId: string,
   payload: { sender: string; text?: string; imageUrl?: string; audioUrl?: string; isSystem?: boolean }
 ): Promise<ChatMessage> {
-  const res = await fetch(`${apiBase}/api/situation/${encodeURIComponent(roomId)}/messages`, {
+  emitSituationDiagnostics({ roomId });
+  const res = await fetch(buildApiUrl(`/api/situation/${encodeURIComponent(roomId)}/messages`), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

@@ -28,6 +28,38 @@ export type EarthObservationGuideSnapshot = {
   lastGuideResponse?: string;
 };
 
+export type EarthObservationSavedAoi = {
+  exists: boolean;
+  isSaved: boolean;
+  center: { lat: number; lng: number } | null;
+  radiusKm: number | null;
+  boundaryGeoJson?: Record<string, unknown> | null;
+  areaKm2?: number | null;
+  savedAt?: string | null;
+  source: 'radius' | 'drawn_polygon' | 'imported_geojson' | null;
+};
+
+export type EarthObservationMissionSuggestion = {
+  missionType: 'field_verification';
+  sourceModule: 'earth_observation';
+  sourceScanId: string;
+  title: string;
+  tasks: string[];
+  safetyNotes: string[];
+};
+
+export type EarthObservationAssistantInterpretation = {
+  summary: string;
+  whatDpalFound: string[];
+  whatDpalDidNotProve: string[];
+  missingEvidence: string[];
+  recommendedQuestions: string[];
+  recommendedActions: string[];
+  safeClaimLanguage: string;
+  missionSuggestion: EarthObservationMissionSuggestion;
+  generatedAt: string;
+};
+
 export type EarthObservationScanRecord = {
   id: string;
   moduleType: EarthObservationModuleType;
@@ -35,7 +67,7 @@ export type EarthObservationScanRecord = {
   latitude: number;
   longitude: number;
   radiusKm: number;
-  aoi?: Record<string, unknown> | null;
+  aoi?: EarthObservationSavedAoi | null;
   sourceMode?: string | null;
   signalStatus?: string | null;
   processingStage?: string | null;
@@ -53,6 +85,8 @@ export type EarthObservationScanRecord = {
   createdAt: string;
   createdBy?: string | null;
   guide: EarthObservationGuideSnapshot;
+  evidencePacketReady?: boolean;
+  routedToSituationRoom?: boolean;
 };
 
 export type EvidencePacketDraft = {
@@ -63,7 +97,17 @@ export type EvidencePacketDraft = {
   projectName: string;
   scanSummary: string;
   location: { latitude: number; longitude: number; radiusKm: number };
-  aoi?: Record<string, unknown> | null;
+  aoi?: EarthObservationSavedAoi | null;
+  analysisType?: string;
+  dateRange?: { startDate: string; endDate: string };
+  providerMetadata?: Array<Record<string, unknown>>;
+  sceneSearchResult?: {
+    lifecycleStatus?: string;
+    scenesFound?: number;
+    usableScenesFound?: number;
+    reasonCode?: string | null;
+    reasonText?: string | null;
+  };
   beforeSceneDate?: string | null;
   afterSceneDate?: string | null;
   metricValues: Record<string, number | string | null>;
@@ -73,6 +117,7 @@ export type EvidencePacketDraft = {
   claimSafetyStatement: string;
   recommendedDpalAction: string;
   verificationNeeds: string[];
+  assistantInterpretation?: EarthObservationAssistantInterpretation;
   situationRoomId?: string;
   scanResultId: string;
   createdAt: string;
@@ -204,6 +249,7 @@ export function postInitialScanMessagesPayload(pkg: ScanToSituationPackage): Arr
       isSystem: true,
       text:
         `Scan summary: ${evidencePacket.scanSummary}\n` +
+        `Routing status: needs_review.\n` +
         `What was scanned: ${scan.analysisType} at ${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)} (radius ${scan.radiusKm} km).\n` +
         `What changed: ${scan.primarySignal || 'screening signal not yet clear'}.\n` +
         `Processing stage: ${scan.processingStage || 'unknown'}.\n` +
@@ -213,6 +259,18 @@ export function postInitialScanMessagesPayload(pkg: ScanToSituationPackage): Arr
         `${missingEvidence}\n` +
         `Recommended next action: ${scan.recommendedActions?.[0] || 'Create evidence packet, assign validator, and request field verification proof.'}`,
     },
+    ...(evidencePacket.assistantInterpretation
+      ? [{
+        sender: 'Earth Observation Assistant',
+        isSystem: true,
+        text:
+          `Assistant summary: ${evidencePacket.assistantInterpretation.summary}\n` +
+          `Missing evidence: ${evidencePacket.assistantInterpretation.missingEvidence.join(', ') || 'None listed'}\n` +
+          `Validator focus questions: ${evidencePacket.assistantInterpretation.recommendedQuestions.join(' | ')}\n` +
+          `Recommended mission tasks: ${evidencePacket.assistantInterpretation.missionSuggestion.tasks.join(' | ')}\n` +
+          `Safe claim language: ${evidencePacket.assistantInterpretation.safeClaimLanguage}`,
+      }]
+      : []),
     {
       sender: 'DPAL Safety',
       isSystem: true,
@@ -259,7 +317,7 @@ export function createRoomFromScanResult(input: {
   latitude: number;
   longitude: number;
   radiusKm: number;
-  aoi?: Record<string, unknown> | null;
+  aoi?: EarthObservationSavedAoi | null;
   sourceMode?: string | null;
   signalStatus?: string | null;
   processingStage?: string | null;
@@ -277,6 +335,11 @@ export function createRoomFromScanResult(input: {
   summaryText?: string;
   createdBy?: string | null;
   guide?: EarthObservationGuideSnapshot;
+  analysisTypeLabel?: string;
+  lifecycleStatus?: string;
+  sceneSearchResult?: EvidencePacketDraft['sceneSearchResult'];
+  assistantInterpretation?: EarthObservationAssistantInterpretation;
+  dateRange?: { startDate: string; endDate: string };
 }): ScanToSituationPackage {
   const scan: EarthObservationScanRecord = saveScanResult({
     id: createStableId('scan-eo'),
@@ -303,6 +366,8 @@ export function createRoomFromScanResult(input: {
     createdAt: new Date().toISOString(),
     createdBy: input.createdBy ?? null,
     guide: input.guide ?? {},
+    evidencePacketReady: Boolean(input.assistantInterpretation),
+    routedToSituationRoom: false,
   });
 
   const evidenceDraft = saveEvidencePacketDraft({
@@ -315,6 +380,10 @@ export function createRoomFromScanResult(input: {
     scanSummary: input.summaryText || 'Earth Observation scan screening package generated for team review.',
     location: { latitude: scan.latitude, longitude: scan.longitude, radiusKm: scan.radiusKm },
     aoi: scan.aoi ?? null,
+    analysisType: input.analysisTypeLabel ?? scan.analysisType,
+    dateRange: input.dateRange,
+    providerMetadata: scan.sources,
+    sceneSearchResult: input.sceneSearchResult ?? { lifecycleStatus: input.lifecycleStatus },
     beforeSceneDate: typeof scan.beforeScene?.acquisitionDate === 'string' ? scan.beforeScene.acquisitionDate : null,
     afterSceneDate: typeof scan.afterScene?.acquisitionDate === 'string' ? scan.afterScene.acquisitionDate : null,
     metricValues: scan.metrics,
@@ -329,6 +398,7 @@ export function createRoomFromScanResult(input: {
       'GPS verification proof',
       'Mission verification notes',
     ],
+    assistantInterpretation: input.assistantInterpretation,
     createdAt: scan.createdAt,
   });
 

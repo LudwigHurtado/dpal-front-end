@@ -1,0 +1,64 @@
+[
+  {
+    "id": "room-1777462552598-5761cbba",
+    "roomId": "room-water_scan-1777462552598-4ffe38b6",
+    "projectId": "project-water-001",
+    "sourceType": "water_scan",
+    "title": "Water Project Evidence",
+    "category": "Water Scan",
+    "status": "active",
+    "createdAt": "2026-04-29T11:35:52.596Z",
+    "updatedAt": "2026-04-29T11:35:52.596Z",
+    "evidencePacket": {
+      "risk": "medium",
+      "ndwi": -0.12
+    },
+    "aiSummary": {
+      "summary": "water scan summary"
+    },
+    "location": {
+      "label": "Delta",
+      "lng": -121.5,
+      "lat": 37.8
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0x972946f332a905dfa35b6942b54c884a6aa610cdc1f1f2e0e69901a6d494b57b"
+    },
+    "sourceSnapshot": {
+      "provider": "Copernicus",
+      "before": "2026-03-01",
+      "after": "2026-04-01"
+    }
+  },
+  {
+    "id": "room-1777462412349-9264ab8e",
+    "roomId": "rep-1774711058674",
+    "reportId": "rep-1774711058674",
+    "sourceType": "public_report",
+    "title": "Education Public Report",
+    "category": "Education",
+    "status": "active",
+    "createdAt": "2026-04-29T11:33:32.345Z",
+    "updatedAt": "2026-04-29T11:33:33.170Z",
+    "evidencePacket": {
+      "id": "pkt-1",
+      "findings": [
+        "doc",
+        "photo"
+      ]
+    },
+    "aiSummary": {
+      "summary": "initial summary"
+    },
+    "location": {
+      "label": "Los Angeles",
+      "lng": -118.24,
+      "lat": 34.05
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0x2243478cc9c686d8a82655413adf2d3458574ee811f99589cc62301ec84a68c8"
+    }
+  }
+]

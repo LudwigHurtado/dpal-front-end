@@ -2,6 +2,7 @@ import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import { mockRideApi } from '../../services/adapters/mockAdapters';
 import type { RideRequestDraft, Trip } from './tripTypes';
 import { mapMockTripToTrip } from './tripMockMapper';
+import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 import type { Charity, DonationConfig, DonationRecord } from '../charity/types';
 import { calculateDonationAmount } from '../charity/utils';
 import { createCharitySupportBonus, createDonationReward, createRideReward, persistRewards } from '../rewards/rewardService';
@@ -12,19 +13,25 @@ import { createCharitySupportBonus, createDonationReward, createRideReward, pers
  */
 export const tripService = {
   async getActiveTrip(userId: string): Promise<Trip | null> {
-    const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
-    const raw = await api.getActiveTrip(userId);
-    return raw ? mapMockTripToTrip(raw) : null;
+    if (GOOD_WHEELS_DEMO_MODE) {
+      const raw = await mockRideApi.getActiveTrip(userId);
+      return raw ? mapMockTripToTrip(raw) : null;
+    }
+    return goodWheelsRideApi.getActiveTrip(userId);
   },
   async listHistory(userId: string): Promise<Trip[]> {
-    const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
-    const raw = await api.listHistory(userId);
-    return raw.map((t) => mapMockTripToTrip(t));
+    if (GOOD_WHEELS_DEMO_MODE) {
+      const raw = await mockRideApi.listHistory(userId);
+      return raw.map((t) => mapMockTripToTrip(t));
+    }
+    return goodWheelsRideApi.listHistory(userId);
   },
   async requestTrip(draft: RideRequestDraft): Promise<Trip> {
-    const api = GOOD_WHEELS_DEMO_MODE ? mockRideApi : mockRideApi;
-    const raw = await api.requestRide(draft);
-    return mapMockTripToTrip(raw);
+    if (GOOD_WHEELS_DEMO_MODE) {
+      const raw = await mockRideApi.requestRide(draft);
+      return mapMockTripToTrip(raw);
+    }
+    return goodWheelsRideApi.requestRide(draft);
   },
   /**
    * Donation + rewards side effects for a completed trip (client demo persistence).

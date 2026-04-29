@@ -22,8 +22,11 @@ import aquascanRouter from './routes/aquascan';
 import waterRouter from './routes/water';
 import earthObservationRouter from './routes/earthObservation';
 import dpalAssistantRouter from './routes/dpalAssistant';
+import situationRouter from './routes/situation';
+import goodWheelsRouter from './routes/goodWheels';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
+import path from 'path';
 
 const app  = express();
 const PORT = parseInt(process.env.PORT ?? '3001', 10);
@@ -71,6 +74,7 @@ app.use(cors({
 // ── Body parsing ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
 const limiter = rateLimit({
@@ -113,6 +117,8 @@ app.use('/api/aquascan', aquascanRouter);
 app.use('/api/water', waterRouter);
 app.use('/api/earth-observation', earthObservationRouter);
 app.use('/api/dpal-assistant', dpalAssistantRouter);
+app.use('/api/situation', situationRouter);
+app.use('/api/good-wheels', goodWheelsRouter);
 
 // Legacy /api/reports feed (compatibility with existing enterprise dashboard probe)
 app.get('/api/reports', async (_req, res) => {

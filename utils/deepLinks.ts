@@ -2,36 +2,29 @@
  * Canonical URLs for sharing — same query shape as certificate / PDF QRs.
  * Situation room chat uses report id as the API room id (`/api/situation/:reportId/...`).
  */
+import { getDpalApiConfig } from '../src/config/api';
 
 /** Same URL encoded in the “Ledger verification” QR on the printable certificate / PDF. */
 export function buildReportVerifyUrl(reportId: string): string {
-  if (typeof window === 'undefined') return '';
+  const base = getDpalApiConfig().publicFrontendBaseUrl;
   try {
-    const u = new URL(window.location.href);
-    u.hash = '';
-    const q = new URLSearchParams();
-    q.set('reportId', reportId);
-    u.search = q.toString();
+    const u = new URL('/transparency-db', base);
+    u.searchParams.set('reportId', reportId);
     return u.toString();
   } catch {
-    const origin = window.location.origin;
-    return `${origin}/?reportId=${encodeURIComponent(reportId)}`;
+    return `${base}/transparency-db?reportId=${encodeURIComponent(reportId)}`;
   }
 }
 
 export function buildSituationRoomUrl(reportId: string): string {
-  if (typeof window === 'undefined') return '';
+  const base = getDpalApiConfig().publicFrontendBaseUrl;
   try {
-    const u = new URL(window.location.href);
-    u.hash = '';
-    const q = new URLSearchParams();
-    q.set('reportId', reportId);
-    q.set('situationRoom', '1');
-    u.search = q.toString();
+    const u = new URL('/incident', base);
+    u.searchParams.set('reportId', reportId);
+    u.searchParams.set('situationRoom', '1');
     return u.toString();
   } catch {
-    const origin = window.location.origin;
-    return `${origin}/?reportId=${encodeURIComponent(reportId)}&situationRoom=1`;
+    return `${base}/incident?reportId=${encodeURIComponent(reportId)}&situationRoom=1`;
   }
 }
 

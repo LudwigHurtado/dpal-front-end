@@ -10,7 +10,9 @@ function asIso(v: unknown, fallback: string): string {
 }
 
 function asStatus(v: unknown): TripStatus {
-  const s = typeof v === 'string' ? (v as TripStatus) : 'requested';
+  const raw = typeof v === 'string' ? v : 'requested';
+  const normalized = raw === 'canceled' ? 'cancelled' : raw;
+  const s = normalized as TripStatus;
   return s;
 }
 
@@ -63,6 +65,11 @@ export function mapMockTripToTrip(input: unknown): Trip {
     notes: typeof o.notes === 'string' ? o.notes : undefined,
     trustMarkers: Array.isArray(o.trustMarkers) ? o.trustMarkers.filter((x: any) => typeof x === 'string') : undefined,
     routeSummary: o.routeSummary && typeof o.routeSummary === 'object' ? o.routeSummary : undefined,
+    chatThreadId: typeof o.chatThreadId === 'string' ? o.chatThreadId : undefined,
+    broadcastId: typeof o.broadcastId === 'string' ? o.broadcastId : undefined,
+    completedAtIso: typeof o.completedAtIso === 'string' ? o.completedAtIso : undefined,
+    cancelledAtIso: typeof o.cancelledAtIso === 'string' ? o.cancelledAtIso : undefined,
+    cancelReason: typeof o.cancelReason === 'string' ? o.cancelReason : undefined,
     createdAtIso,
     updatedAtIso,
     estimate:

@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-28 (CARB source-mode + health hardening, investigation workspace UX overhaul; Earth Observation + DPAL Project Guide; AquaScan MRV / Water Command Center dual routes)
+Last updated: 2026-04-29 (Earth Observation AOI-source-of-truth hardening + assistant handoff/evidence integration; AquaScan live-only hardening + map clarity; Envirofacts layout/drawer fixes; CARB three-workflow split: MRR + Pollution Map + Satellite Scan Center; historical-loader guidance; run-investigation fallback messaging; Good Wheels backend contract and publish-readiness review)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -219,12 +219,145 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 | **Ecological Conservation** | `components/EcologicalConservationView.tsx` — Landsat 9 OLI-2 foliage/habitat scan at `/ecology`. API: `GET /api/ecology/landsat-scan?lat=&lng=&radiusKm=` → Microsoft Planetary Computer STAC. Demo fallback: `buildDemoScan()` computes deterministic NDVI/risk from coordinates when API is unavailable. Map uses Esri satellite + labels tiles. AI chat via Gemini. |
 | **Earth Observation (LEO)** | `components/EarthObservationView.tsx` — `/earth-observation`; **`POST /api/earth-observation/scan`** with `analysisType`, `latitude`, `longitude`, `radiusKm`, `startDate`, `endDate` (ISO). UI: observation type, radius, Leaflet map, **date inputs + presets** (7d–12m), AOI save, scan status (processing stage, before/after scene dates, limitations). Embedded **`DpalProjectGuide`** + Earth Observation helper chat. Intentionally cautious copy when the backend is unreachable or cannot verify a signal. |
 | **DPAL Project Guide** | `components/dpal-assistant/DpalProjectGuide.tsx`, `projectGuides.ts`, `useDpalProjectGuide`, `claimSafety.ts` — persistent workflow guidance; server hook **`POST /api/dpal-assistant/project-guide`** (rule-based + optional Gemini). |
+| **Good Wheels (DPAL Lifts)** | `src/good-wheels/*` — embedded ride app (`/good-wheels`) with passenger + driver + dispatch surfaces. Non-demo mode now uses `/api/good-wheels/*` adapters for auth/trips/queue/comms while demo mode remains available. Lifecycle endpoints include accept/status/cancel/complete; chat uses stable `chatThreadId`; broadcasts can be acknowledged and tied to `tripId`. Local implementation: `backend/src/routes/goodWheels.ts`; clients: `src/good-wheels/services/adapters/goodWheelsApi.ts` and `src/good-wheels/services/goodWheelsCommsService.ts`. |
 | **DPAL Mission Ops Phaser game** | `features/mission-game/*`, `features/mission-game/MissionGameView.tsx`, `components/DpalGameHubView.tsx`, `features/mission-game/game/config/worldMapLayout.ts`, `public/games/172e7fa5-6b48-43b2-ba01-6beaa662bc16.png` — embedded mission game with world map, mission detail, action checklist, reward flow, persistent UI overlay, session player state. |
 | **EIAS (Emissions Integrity Audit)** | `src/features/emissionsIntegrity/EmissionsIntegrityAuditPage.tsx`, `services/emissionsAuditService.ts`, `utils/eiasWorkspacePersistence.ts` (`dpal_eias_workspace_v1`), `backend/src/controllers/emissionsAuditController.ts` — facility / jurisdiction intake, periods, reported vs satellite vs production signals (including **production `outputUnit`** for intensity), ADI, evidence packet, optional links to reports/missions/MRV. **Live adapter pull:** `GET` **`/api/carbon/air-quality`** + **`/api/carbon/minerals`** (debounced on map center). **Browser draft:** full workspace auto-saves locally when the API is missing or save fails. **Server persistence:** Prisma **`/api/emissions-audit/*`** + **`DpalUser`** JWT (not default Mongo Railway) unless ported. |
 
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-04-29 — Earth Observation workspace hardening + in-page assistant
+
+#### Earth Observation (`components/EarthObservationView.tsx`)
+- Replaced split AOI booleans with a single `savedAoi` model (`exists`, `isSaved`, center/radius, optional geojson, area, source, savedAt) and wired all readiness checks to this source of truth.
+- Unified readiness across scan, guide workflow state, evidence packet creation, Situation Room routing, and status summaries.
+- Added explicit lifecycle statuses:
+  - `adapter_ready`, `metadata_found`, `scenes_found`, `usable_scenes_found`, `metrics_computed`, `screening_result_ready`, `evidence_packet_ready`, `routed_to_situation_room`, `no_usable_scenes`, `metric_failed`.
+- Added diagnostics for no-usable-imagery outcomes: no scenes, too cloudy, required bands missing, imagery assets missing, metric failure, short range, AOI/product mismatch.
+- Updated no-imagery copy to:
+  - `No usable satellite comparison was completed. DPAL found that the Earth Observation adapter is available, but no usable imagery pair was processed for this AOI and date range.`
+- Added **Earth Observation Assistant** in three placements:
+  - compact summary near scan result
+  - full assistant panel in Evidence Packet/Review
+  - Situation Room handoff summary before send.
+- Assistant outputs: summary, what DPAL found, what not proven, missing evidence, recommended questions/actions, safe claim language, and mission suggestion.
+
+#### Situation Room + guide hardening
+- `services/situationRoomBridge.ts`
+  - Added typed AOI model and assistant interpretation payload support in Earth Observation scan/evidence packet flow.
+  - Extended initial Situation Room system messages to include assistant summary, missing evidence, validator-focus questions, and mission-task context.
+- `components/dpal-assistant/useDpalProjectGuide.ts`
+  - Filters completed step IDs to the active guide steps (prevents stale step carryover from other modules).
+- `components/dpal-assistant/DpalProjectGuide.tsx`
+  - Progress is clamped to `0-100` with validated completion count.
+
+### 2026-04-29 — Good Wheels production hardening
+
+#### API alignment + endpoint naming
+- Canonical auth sign-in endpoint is now **`POST /api/good-wheels/auth/signin`**.
+- Backward-compatible alias also exists: **`POST /api/good-wheels/auth/sign-in`**.
+- Non-demo adapters point to `/api/good-wheels/*` endpoints:
+  - `src/good-wheels/services/adapters/goodWheelsApi.ts`
+
+#### Server-backed lifecycle
+- Backend route now supports:
+  - `POST /api/good-wheels/trips/:tripId/accept`
+  - `PATCH /api/good-wheels/trips/:tripId/status`
+  - `POST /api/good-wheels/trips/:tripId/cancel`
+  - `POST /api/good-wheels/trips/:tripId/complete`
+- Lifecycle updates now:
+  - persist server-side trip changes
+  - update `updatedAtIso`
+  - append timeline events
+  - preserve `passengerId`, `driverId` (after accept), `chatThreadId`, and `broadcastId`
+
+#### Driver/passenger sync behavior
+- Driver queue accept now calls server accept endpoint (no client-only acceptance).
+- Passenger active trip page polls server state every ~7s while mounted and surfaces sync state.
+- Driver active trip page also polls server state while mounted.
+- Driver trip controls now use server lifecycle updates with loading/error handling.
+
+#### Broadcast + chat integration
+- Ride request now creates a trip and a broadcast tied to `tripId`.
+- Broadcast records carry `status` and move to accepted/closed through lifecycle transitions.
+- Active trip chat uses stable `chatThreadId` (`good-wheels-trip-{tripId}` fallback).
+
+#### Persistence and launch warning
+- Current local backend persistence is runtime file storage (`backend/data/good-wheels/*`) for integration testing.
+- **Launch warning:**  
+  `Good Wheels is server-backed through the dpal-front-end backend. If the route currently uses runtime file-backed or in-memory storage, it is suitable for integration testing but should be connected to durable database persistence before full public launch.`
+- Production host alignment status in this repo:
+  - Active Good Wheels backend route is in this repo: `backend/src/routes/goodWheels.ts`.
+  - Mounted by `backend/src/index.ts` at `app.use('/api/good-wheels', goodWheelsRouter)`.
+  - Public launch requires deploying this backend and pointing `VITE_API_BASE` to that deployed backend URL.
+
+### 2026-04-29 — AquaScan live-only mode + map clarity + Envirofacts table/drawer usability
+
+#### AquaScan (`/water`) live-only hardening
+- Removed generated fallback report behavior in water analysis service:
+  - `services/waterAnalysisService.ts`
+  - `getWaterSnapshotByAOI()` now requires live endpoint response (no synthetic nearest-point patching)
+  - `getWaterHistory()` now requires live endpoint response (no hardcoded history points)
+- UI now surfaces unavailable states instead of synthetic metric substitutes when live `/api/water/*` data is missing.
+- Coordinate parsing robustness in `components/AquaScanView.tsx`:
+  - handles malformed user input like trailing commas/spaces
+  - prevents `NaN` map drift
+  - invalid inputs fall back to **US West** center `[37.25, -119.8]` with explicit validation notice.
+
+#### AquaScan map understanding improvements
+- Added prominent explanatory panels and labels near map:
+  - **What am I seeing?**
+  - **Map Legend**
+  - **Selected Layers Explained**
+  - **Image / Tile Status**
+  - map overlay label: **Satellite / base map imagery · Overlays: DPAL water indicators**
+- Added overlay popups for circles/points with:
+  - overlay type, meaning, source layer, confidence, coordinates, recommended next action, legal-safe note.
+- Expanded tile-error handling:
+  - clearer failure text
+  - action buttons for retry/base-map-only/date-reset/layer-reset
+  - failing-layer visibility when detected.
+
+#### Envirofacts Geo Intelligence usability
+- Results table promoted to full-width primary section (`EnvirofactsResultsTable.tsx`), with horizontal scroll and row-level **More** details.
+- Evidence packet moved from right squeeze column to collapsible panel below results (`EnvirofactsEvidenceImportPanel.tsx`).
+- Drawer (`EnvirofactsFacilityDrawer.tsx`) stabilized as overlay slide-over (`min(520px,95vw)`), ESC/backdrop close, actionable tabs/buttons with feedback.
+- Dashboard wiring (`EnvirofactsGeoDashboard.tsx`, `EnvirofactsMap.tsx`) now supports map-centering from drawer and non-dead satellite/investigation workflow actions.
+
+### 2026-04-29 — CARB workspace three-workflow clarity pass
+
+#### CARB Investigation Workspace (`src/features/carbEmissionsAudit/CarbEmissionsAuditPage.tsx`)
+- Added explicit third workflow tab: **`Satellite / Map Scan Center`** so CARB MRR review, CARB Pollution Mapping readings, and satellite/map scan are visually separated.
+- Locked scan state now renders when coordinates are unavailable:
+  - `Satellite scan unavailable — coordinates required.`
+  - actions: add coordinates manually, search official external source, search EPA FRS/GHGRP, use CARB Pollution Mapping location, continue without scan.
+- Unlocked scan state now renders when coordinates exist:
+  - `Run Satellite Scan` fields: latitude, longitude, radius/AOI, baseline/current dates, NDVI/NDWI/NDMI/NBR selector, notes
+  - actions: run scan, save scan to evidence packet, send scan to situation room.
+- Added **Historical Data Loader** panel in selected-facility flow:
+  - `Only 2024 CARB records are currently loaded.`
+  - actions for importing 2023/2022/historical datasets and checking historical configuration.
+- Added year-selector helper text when only 2024 is loaded:
+  - `Only 2024 is available because historical CARB datasets are not loaded yet.`
+- Added visible selected-facility panel:
+  - **`CARB Pollution Mapping Tool Readings`** with saved linked entries (including Luz Solar test-case values when loaded).
+- Source reconciliation status remains explicit near selected-facility summary:
+  - `Source reconciliation needed — different source product and/or reporting year.`
+- Run Investigation now explains fallback mode when required context is missing:
+  - `Investigation ran as single-year CARB record review. Satellite scan and trend analysis require coordinates and historical years.`
+
+#### Remote-sensing wording hardening (`services/carbEnvironmentalReadingsService.ts`)
+- Replaced legacy fallback line:
+  - ~~Add baseline/current emissions and gas values to generate index trend screening.~~
+  - with: `Remote sensing requires coordinates, satellite imagery, and selected observation dates. It is not calculated from CARB emissions records alone.`
+- Adjusted NDVI/NDWI/NDMI/NBR fallback interpretations to clearly state placeholder/proxy context and avoid implying automatic emissions-only derivation.
+
+#### Verification
+- `npm run lint` (root) ✅
+- `npm run build` (root) ✅
+
+---
 
 ### 2026-04-28 — CARB workspace hardening + investigation UX overhaul
 

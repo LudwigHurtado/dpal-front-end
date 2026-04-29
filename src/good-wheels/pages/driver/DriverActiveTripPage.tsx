@@ -12,10 +12,22 @@ import { GW_PATHS } from '../../routes/paths';
 import DriverActiveTripHeader from '../../features/driver/components/DriverActiveTripHeader';
 import DriverTripControls from '../../features/driver/components/DriverTripControls';
 import { MOCK_USERS } from '../../data/mock/mockUsers';
+import TripChatPanel from '../../features/trips/components/TripChatPanel';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useTripStore } from '../../features/trips/tripStore';
 
 const DriverActiveTripPage: React.FC = () => {
   const navigate = useNavigate();
+  const user = useAuthStore((s) => s.user);
+  const hydrate = useTripStore((s) => s.hydrate);
   const { activeTrip, loading } = useActiveTrip();
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    void hydrate(user.id);
+    const timer = window.setInterval(() => void hydrate(user.id), 7000);
+    return () => window.clearInterval(timer);
+  }, [hydrate, user?.id]);
 
   if (loading) {
     return (
@@ -68,6 +80,13 @@ const DriverActiveTripPage: React.FC = () => {
             />
           )}
           <DriverTripControls trip={activeTrip} />
+          <TripChatPanel
+            threadId={activeTrip.chatThreadId ?? `good-wheels-trip-${activeTrip.id}`}
+            role="driver"
+            userId={user?.id ?? activeTrip.driverId ?? MOCK_USERS.driver.id}
+            userName={user?.fullName ?? MOCK_USERS.driver.fullName}
+            title="Passenger chat"
+          />
         </div>
       </div>
     </div>
