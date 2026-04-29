@@ -46,7 +46,7 @@ export function buildAutoCarbEnvironmentalReadings(args: {
         before: null,
         current: null,
         change: null,
-        interpretation: 'Auto-screening unavailable. Add baseline/current emissions and gas values to generate index trend screening.',
+        interpretation: 'Remote sensing requires coordinates, satellite imagery, and selected observation dates. It is not calculated from CARB emissions records alone.',
         source: 'DPAL CARB auto-screening (non-certified)',
         confidence: 'Unavailable',
       };
@@ -66,10 +66,10 @@ export function buildAutoCarbEnvironmentalReadings(args: {
   };
 
   return [
-    buildOne('NDWI', 0.18, (trend / 220) + (methaneFactor / 300), 'NDWI auto-screening for relative wetness/water-signal trend (proxy, not direct satellite retrieval).'),
-    buildOne('NDVI', 0.42, (co2Factor / 320) - (methaneFactor / 420), 'NDVI auto-screening for vegetation-signal trend (proxy).'),
-    buildOne('NDMI', 0.27, (trend / 280) + (n2oFactor / 360), 'NDMI auto-screening for moisture-stress trend (proxy).'),
-    buildOne('NBR', 0.12, (-trend / 310) + (methaneFactor / 390), 'NBR auto-screening for disturbance/burn-signal trend (proxy).'),
+    buildOne('NDWI', 0.18, (trend / 220) + (methaneFactor / 300), 'NDWI placeholder estimate only. Use satellite scan inputs for investigation-grade remote sensing.'),
+    buildOne('NDVI', 0.42, (co2Factor / 320) - (methaneFactor / 420), 'NDVI placeholder estimate only. Use satellite scan inputs for investigation-grade remote sensing.'),
+    buildOne('NDMI', 0.27, (trend / 280) + (n2oFactor / 360), 'NDMI placeholder estimate only. Use satellite scan inputs for investigation-grade remote sensing.'),
+    buildOne('NBR', 0.12, (-trend / 310) + (methaneFactor / 390), 'NBR placeholder estimate only. Use satellite scan inputs for investigation-grade remote sensing.'),
   ];
 }
 

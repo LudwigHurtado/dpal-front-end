@@ -19,6 +19,11 @@ function text(value: unknown, fallback = 'Not available'): string {
   return parsed || fallback;
 }
 
+function numeric(value: number | null | undefined, digits = 3): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'n/a';
+  return value.toFixed(digits);
+}
+
 export default function CarbReportViewer({
   reportId,
   onReturn,
@@ -38,10 +43,33 @@ export default function CarbReportViewer({
   }, [resolvedId]);
 
   const isDraftVerificationPage = report?.sourceMode === 'NEEDS_SOURCE' && (report?.reportQualityRating ?? 'Draft') === 'Draft';
-  const indexIntegrationStatus = useMemo(
-    () => ({ label: 'Remote sensing screening not available', tone: 'border-slate-700 bg-slate-900/60 text-slate-300' }),
-    [],
-  );
+  const indexIntegrationStatus = useMemo(() => {
+    const hasEnvironmentalReadings = Boolean(report?.environmentalReadings?.length);
+    return hasEnvironmentalReadings
+      ? { label: 'Remote sensing readings included', tone: 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200' }
+      : { label: 'Remote sensing screening not available', tone: 'border-slate-700 bg-slate-900/60 text-slate-300' };
+  }, [report?.environmentalReadings]);
+  const pollutantSummary = useMemo(() => {
+    const entries = report?.facilityPollutantReadings?.entries ?? [];
+    if (!entries.length) return null;
+    const years = Array.from(new Set(entries.map((entry) => entry.reportingYear))).sort((a, b) => a - b);
+    const first = entries.find((entry) => entry.reportingYear === years[0]) ?? entries[0];
+    const last = entries.find((entry) => entry.reportingYear === years[years.length - 1]) ?? entries[entries.length - 1];
+    const trend = (start?: number | null, end?: number | null): string => {
+      if (typeof start !== 'number' || typeof end !== 'number' || !Number.isFinite(start) || !Number.isFinite(end)) return 'n/a';
+      const delta = Number((end - start).toFixed(3));
+      return `${start} -> ${end} (${delta >= 0 ? '+' : ''}${delta})`;
+    };
+    return {
+      years,
+      totalGhg: trend(first.totalGhg, last.totalGhg),
+      co2: trend(first.co2, last.co2),
+      voc: trend(first.voc, last.voc),
+      nox: trend(first.nox, last.nox),
+      sox: trend(first.sox, last.sox),
+      toxics: `${first.toxics || 'n/a'} -> ${last.toxics || 'n/a'}`,
+    };
+  }, [report?.facilityPollutantReadings?.entries]);
 
   const handleDownload = async (): Promise<void> => {
     if (!report || downloadBusy) return;
@@ -131,11 +159,39 @@ export default function CarbReportViewer({
           </div>
           <h3 className="mt-5 text-base font-bold text-white">Company Claim Review</h3>
           <p className="mt-2">{text(report.claimVerificationResult)}</p>
-          <h3 className="mt-5 text-base font-bold text-white">Remote sensing screening</h3>
+          <h3 className="mt-5 text-base font-bold text-white">Core Readings</h3>
           <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
-            <p className="font-semibold text-white">Remote sensing screening not available.</p>
-            <p className="mt-1">NDWI, NDVI, NDMI, and NBR require satellite imagery, facility coordinates, and selected observation dates. They are not calculated from CARB emissions records alone.</p>
+            <p className="font-semibold text-white">Emissions and gas breakdown</p>
+            <p className="mt-1">CO2e baseline/current: {numeric(report.emissionsComparison.baselineCO2e, 2)} / {numeric(report.emissionsComparison.currentCO2e, 2)}</p>
+            <p>Calculated reduction: {report.emissionsComparison.calculatedReductionPct == null ? 'n/a' : `${report.emissionsComparison.calculatedReductionPct.toFixed(2)}%`}</p>
+            <div className="mt-2 grid grid-cols-1 gap-1 md:grid-cols-3">
+              <p>CH4: {numeric(report.gasBreakdown.methane.baseline, 2)} {'->'} {numeric(report.gasBreakdown.methane.current, 2)} ({report.gasBreakdown.methane.reductionPct == null ? 'n/a' : `${report.gasBreakdown.methane.reductionPct.toFixed(2)}%`})</p>
+              <p>N2O: {numeric(report.gasBreakdown.n2o.baseline, 2)} {'->'} {numeric(report.gasBreakdown.n2o.current, 2)} ({report.gasBreakdown.n2o.reductionPct == null ? 'n/a' : `${report.gasBreakdown.n2o.reductionPct.toFixed(2)}%`})</p>
+              <p>CO2: {numeric(report.gasBreakdown.co2.baseline, 2)} {'->'} {numeric(report.gasBreakdown.co2.current, 2)} ({report.gasBreakdown.co2.reductionPct == null ? 'n/a' : `${report.gasBreakdown.co2.reductionPct.toFixed(2)}%`})</p>
+            </div>
           </div>
+          <h3 className="mt-5 text-base font-bold text-white">Remote sensing screening</h3>
+          {report.environmentalReadings?.length ? (
+            <div className="mt-2 rounded-lg border border-emerald-500/30 bg-emerald-950/15 p-3 text-xs">
+              <p className="font-semibold text-white">Environmental index readings (NDWI/NDVI/NDMI/NBR)</p>
+              <div className="mt-2 space-y-2">
+                {report.environmentalReadings.map((reading) => (
+                  <div key={reading.index} className="rounded-lg border border-slate-800 bg-slate-950/60 p-2">
+                    <p className="font-semibold text-cyan-200">{reading.index}</p>
+                    <p>Before/current/change: {numeric(reading.before)} / {numeric(reading.current)} / {numeric(reading.change)}</p>
+                    <p>Confidence: {reading.confidence}</p>
+                    <p>Source: {reading.source}</p>
+                    <p className="mt-1">{reading.interpretation}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 rounded-lg border border-slate-800 bg-slate-900/60 p-3 text-xs">
+              <p className="font-semibold text-white">Remote sensing screening not available.</p>
+              <p className="mt-1">NDWI, NDVI, NDMI, and NBR require satellite imagery, facility coordinates, and selected observation dates. They are not calculated from CARB emissions records alone.</p>
+            </div>
+          )}
           {report.investigationFindings?.length ? (
             <>
               <h3 className="mt-5 text-base font-bold text-white">Investigation Engine Findings</h3>
@@ -193,6 +249,18 @@ export default function CarbReportViewer({
                     </div>
                   ))}
                 </div>
+                {pollutantSummary ? (
+                  <div className="mt-3 rounded-lg border border-cyan-500/30 bg-cyan-950/20 p-2">
+                    <p className="font-semibold text-white">Pollutant trend summary</p>
+                    <p className="mt-1">Years: {pollutantSummary.years.join(', ')}</p>
+                    <p>Total GHG: {pollutantSummary.totalGhg}</p>
+                    <p>CO2: {pollutantSummary.co2}</p>
+                    <p>VOC: {pollutantSummary.voc}</p>
+                    <p>NOx: {pollutantSummary.nox}</p>
+                    <p>SOx: {pollutantSummary.sox}</p>
+                    <p>Toxics: {pollutantSummary.toxics}</p>
+                  </div>
+                ) : null}
               </div>
             </>
           ) : null}

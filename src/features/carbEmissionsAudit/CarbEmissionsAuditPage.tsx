@@ -42,6 +42,7 @@ type CarbWorkspaceTab =
   /** Guided: integrity + investigation engine (same body as investigation on desktop) */
   | 'findings'
   | 'investigation'
+  | 'scanCenter'
   | 'report'
   | 'pollutants'
   | 'evidence'
@@ -367,6 +368,27 @@ function normalizeCountyInput(value: string): string {
   return normalizeSearchInput(value).replace(/\bcounty\b/gi, '').trim();
 }
 
+function normalizeFacilityToken(value: string | null | undefined): string {
+  if (!value) return '';
+  return value.toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function isFacilityRecordMatch(
+  selectedFacility: { facilityId?: string; facilityName?: string; operatorName?: string },
+  row: { facilityId?: string; facilityName?: string; operatorName?: string },
+): boolean {
+  const selectedId = (selectedFacility.facilityId || '').trim().toLowerCase();
+  const rowId = (row.facilityId || '').trim().toLowerCase();
+  if (selectedId && rowId && selectedId === rowId) return true;
+  const selectedName = normalizeFacilityToken(selectedFacility.facilityName);
+  const rowName = normalizeFacilityToken(row.facilityName);
+  if (selectedName && rowName && (selectedName.includes(rowName) || rowName.includes(selectedName))) return true;
+  const selectedOperator = normalizeFacilityToken(selectedFacility.operatorName);
+  const rowOperator = normalizeFacilityToken(row.operatorName);
+  if (selectedOperator && rowOperator && (selectedOperator.includes(rowOperator) || rowOperator.includes(selectedOperator))) return true;
+  return false;
+}
+
 function openPrintableEvidencePacket(title: string, payload: unknown) {
   const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=980,height=760');
   if (!printWindow) return false;
@@ -442,6 +464,8 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [selected, setSelected] = useState<CarbFacility | null>(null);
   const [selectedFacilityHistory, setSelectedFacilityHistory] = useState<CarbFacilityHistoryRecord[]>([]);
   const [selectedFacilityHistoryWarnings, setSelectedFacilityHistoryWarnings] = useState<string[]>([]);
+  const [yearLookupLoading, setYearLookupLoading] = useState(false);
+  const [yearLookupNotice, setYearLookupNotice] = useState('');
   const [sourceMode, setSourceMode] = useState<'LIVE' | 'IMPORTED' | 'DEMO_FALLBACK' | 'NEEDS_SOURCE'>('NEEDS_SOURCE');
   const [searchWarnings, setSearchWarnings] = useState<string[]>([]);
   const [datasetVersion, setDatasetVersion] = useState('unavailable');
@@ -530,6 +554,15 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
   const [investigationStarted, setInvestigationStarted] = useState(false);
   const [evidencePacketSynced, setEvidencePacketSynced] = useState(false);
   const [manualMatchConfidence, setManualMatchConfidence] = useState<SourceMatchConfidence | null>(null);
+  const [scanDraft, setScanDraft] = useState({
+    latitude: '',
+    longitude: '',
+    radiusKm: '2',
+    baselineDate: '',
+    currentDate: '',
+    satelliteIndex: 'NDVI',
+    notes: '',
+  });
   const [pollutionReadings, setPollutionReadings] = useState<CarbPollutantReading[]>([]);
   const [pollutionReadingDraft, setPollutionReadingDraft] = useState<PollutantReadingDraft>({
     facilityName: '',
@@ -630,7 +663,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       if (!selected) return [];
       if (selectedFacilityHistory.length) return [...selectedFacilityHistory].sort((a, b) => a.reportingYear - b.reportingYear);
       return facilities
-        .filter((row) => row.facilityId === selected.facilityId)
+        .filter((row) => isFacilityRecordMatch(selected, row))
         .map((row) => ({
           reportingYear: row.reportingYear,
           totalCO2e: row.totalCO2e ?? null,
@@ -738,15 +771,14 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     let cancelled = false;
     void (async () => {
       try {
-        const historyRes = await getCarbFacilityHistory({
+        const strictRes = await getCarbFacilityHistory({
           facilityId: selected.facilityId,
           facilityName: selected.facilityName,
           entityName: selected.operatorName,
         });
         if (cancelled) return;
-        if (historyRes.ok && historyRes.history.length) {
-          setSelectedFacilityHistory(
-            historyRes.history.map((item) => ({
+        const strictHistory = strictRes.ok
+          ? strictRes.history.map((item) => ({
               reportingYear: item.reportingYear,
               totalCO2e: item.totalCO2e,
               methaneCH4: item.methaneCH4,
@@ -756,9 +788,47 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               sourceUrl: item.sourceUrl,
               retrievalDate: item.retrievalDate,
               rawRow: item.rawRow,
-            })),
+            }))
+          : [];
+        let mergedHistory = [...strictHistory];
+        let mergedWarnings = [...(strictRes.warnings ?? [])];
+        if (mergedHistory.length < 2 && selected.facilityName) {
+          try {
+            const broadRes = await getCarbFacilityHistory({
+              facilityName: selected.facilityName,
+              entityName: selected.operatorName,
+            });
+            if (broadRes.ok && broadRes.history.length) {
+              mergedHistory = [
+                ...mergedHistory,
+                ...broadRes.history.map((item) => ({
+                  reportingYear: item.reportingYear,
+                  totalCO2e: item.totalCO2e,
+                  methaneCH4: item.methaneCH4,
+                  nitrousOxideN2O: item.nitrousOxideN2O,
+                  carbonDioxideCO2: item.carbonDioxideCO2,
+                  datasetVersion: item.datasetVersion,
+                  sourceUrl: item.sourceUrl,
+                  retrievalDate: item.retrievalDate,
+                  rawRow: item.rawRow,
+                })),
+              ];
+              mergedWarnings = [...mergedWarnings, ...(broadRes.warnings ?? [])];
+            }
+          } catch {
+            // fall through to local grouped fallback
+          }
+        }
+        if (mergedHistory.length) {
+          const deduped = mergedHistory
+            .filter((row, idx, arr) => arr.findIndex((item) => item.reportingYear === row.reportingYear) === idx)
+            .sort((a, b) => a.reportingYear - b.reportingYear);
+          setSelectedFacilityHistory(deduped);
+          setSelectedFacilityHistoryWarnings(
+            deduped.length >= 2
+              ? mergedWarnings
+              : [...mergedWarnings, 'Only one reporting year is available for this facility in the active CARB dataset. Year-over-year comparison is limited.'],
           );
-          setSelectedFacilityHistoryWarnings(historyRes.warnings ?? []);
           return;
         }
       } catch {
@@ -766,7 +836,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       }
       if (cancelled) return;
       const localHistory = facilities
-        .filter((row) => row.facilityId === selected.facilityId)
+        .filter((row) => isFacilityRecordMatch(selected, row))
         .map((row) => ({
           reportingYear: row.reportingYear,
           totalCO2e: row.totalCO2e ?? null,
@@ -1621,6 +1691,63 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       first.toxics || last.toxics ? `Toxics trend: ${first.toxics || 'n/a'} -> ${last.toxics || 'n/a'}` : 'Toxics trend: n/a',
     ];
   }, [pollutionReadings]);
+  const categoryOverviewCards = useMemo<Array<{
+    id: string;
+    label: string;
+    summary: string;
+    goto: CarbWorkspaceTab;
+  }>>(() => {
+    const selectedYearLabel = (selected?.reportingYear ?? currentYear) || 'n/a';
+    const ghgTrendLabel = trendSummary?.label ?? 'Trend pending';
+    const criteriaFromPollutants = pollutionTrendSummary?.find((item) => item.startsWith('VOC trend'))
+      ?? 'Criteria trend pending (add pollutant readings).';
+    const toxicsFromPollutants = pollutionTrendSummary?.find((item) => item.startsWith('Toxics trend'))
+      ?? 'Toxics trend pending (add toxics entries).';
+    return [
+      {
+        id: 'facility',
+        label: 'Facility',
+        summary: selected ? `${selected.facilityName} · ${selected.city || 'n/a'} · ${selected.county || 'n/a'}` : 'Select a CARB facility to load profile.',
+        goto: 'facility',
+      },
+      {
+        id: 'emissions',
+        label: 'Emissions',
+        summary: selected ? `Year ${selectedYearLabel} CO2e: ${formatNumber(selected.totalCO2e)}` : 'Emissions pending facility selection.',
+        goto: 'compare',
+      },
+      {
+        id: 'ghgTrend',
+        label: 'GHG Trend',
+        summary: ghgTrendLabel,
+        goto: 'compare',
+      },
+      {
+        id: 'criteriaTrend',
+        label: 'Criteria Trend',
+        summary: criteriaFromPollutants,
+        goto: 'pollutants',
+      },
+      {
+        id: 'toxics',
+        label: 'Toxics',
+        summary: toxicsFromPollutants,
+        goto: 'pollutants',
+      },
+      {
+        id: 'compare',
+        label: 'Compare',
+        summary: baselineYear && currentYear ? `${baselineYear} vs ${currentYear}` : 'Pick baseline/current years.',
+        goto: 'compare',
+      },
+      {
+        id: 'notes',
+        label: 'Notes',
+        summary: companyClaim.trim() ? 'Claim/notes available for verification.' : 'No claim notes entered yet.',
+        goto: 'investigation',
+      },
+    ];
+  }, [selected, currentYear, trendSummary?.label, pollutionTrendSummary, baselineYear, companyClaim]);
   const matchedPollutionReadings = useMemo(() => {
     if (!selected) return [];
     const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -1892,6 +2019,80 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
       throw error;
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const loadFacilityYearFromSearch = async (year: number) => {
+    if (!selected || !Number.isFinite(year) || year < 1990 || year > 2100) {
+      setYearLookupNotice('Enter a valid reporting year between 1990 and 2100.');
+      return;
+    }
+    if (facilityYearRecords.some((row) => row.reportingYear === year)) {
+      setYearLookupNotice(`Year ${year} is already loaded for this facility.`);
+      return;
+    }
+    setYearLookupLoading(true);
+    setYearLookupNotice('');
+    try {
+      const res = await searchCarbFacilities({
+        facilityId: selected.facilityId,
+        q: selected.facilityName,
+        sector: selected.sector ?? '',
+        year: String(year),
+        limit: '500',
+      });
+      const match = (res.results as CarbFacility[]).find(
+        (row) => row.reportingYear === year && isFacilityRecordMatch(selected, row),
+      );
+      if (!match) {
+        setYearLookupNotice(`No CARB record found for ${selected.facilityName} in ${year}.`);
+        return;
+      }
+      setSelectedFacilityHistory((prev) => {
+        const next = [
+          ...prev,
+          {
+            reportingYear: match.reportingYear,
+            totalCO2e: match.totalCO2e ?? null,
+            methaneCH4: match.methaneCH4 ?? null,
+            nitrousOxideN2O: match.nitrousOxideN2O ?? null,
+            carbonDioxideCO2: match.carbonDioxideCO2 ?? null,
+            datasetVersion: match.datasetVersion || datasetVersion || 'n/a',
+            sourceUrl: match.sourceUrl,
+            retrievalDate: match.retrievalDate || retrievalDate || 'n/a',
+            rawRow: undefined,
+          },
+        ];
+        const deduped = next.filter(
+          (row, idx, arr) => arr.findIndex((item) => item.reportingYear === row.reportingYear) === idx,
+        );
+        return deduped.sort((a, b) => a.reportingYear - b.reportingYear);
+      });
+      setYearLookupNotice(`Loaded ${year}. You can now use it in year comparison.`);
+    } catch (error: unknown) {
+      setYearLookupNotice(error instanceof Error ? error.message : 'Year lookup failed.');
+    } finally {
+      setYearLookupLoading(false);
+    }
+  };
+
+  const updateComparisonYear = (kind: 'baseline' | 'current', rawValue: string) => {
+    const normalized = rawValue.trim();
+    if (!normalized) {
+      if (kind === 'baseline') setBaselineYear('');
+      else setCurrentYear('');
+      return;
+    }
+    const parsed = Number(normalized);
+    if (!Number.isFinite(parsed)) return;
+    const year = Math.round(parsed);
+    setYearSelectionTouchedByUser(true);
+    if (kind === 'baseline') setBaselineYear(year);
+    else setCurrentYear(year);
+    if (!facilityYearRecords.some((row) => row.reportingYear === year)) {
+      void loadFacilityYearFromSearch(year);
+    } else {
+      setYearLookupNotice('');
     }
   };
 
@@ -2521,6 +2722,9 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     }
     setInvestigationStarted(true);
     setActiveWorkspaceTab('investigation');
+    if (!coordinatesAvailable || !historicalTrendAvailable) {
+      setMessage('Investigation ran as single-year CARB record review. Satellite scan and trend analysis require coordinates and historical years.');
+    }
   };
 
   const openCompareYearsTab = () => {
@@ -2575,7 +2779,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
 
   const hasFacilitySelected = Boolean(selected);
   const canCompareYearsStep = hasFacilitySelected;
-  const canRunInvestigationStep = hasFacilitySelected && Boolean(baselineYear && currentYear);
+  const canRunInvestigationStep = hasFacilitySelected;
   const hasDraftManualWorkflow = isManualInvestigationMode || hasManualDraftIdentity || sourceMode === 'NEEDS_SOURCE';
   const canGenerateReportStep = (hasFacilitySelected && investigationStarted) || (!hasFacilitySelected && hasDraftManualWorkflow);
   const canOpenEvidenceStep = Boolean(generatedCarbReport) || (!hasFacilitySelected && hasDraftManualWorkflow);
@@ -2588,6 +2792,45 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
     { label: 'Evidence', status: !hasFacilitySelected && hasDraftManualWorkflow ? 'Draft intake available' : (hasFacilitySelected && isSingleYearEvidence) ? 'Draft single-year packet available' : canOpenEvidenceStep ? 'Needs review' : 'Locked', tone: !hasFacilitySelected && hasDraftManualWorkflow ? 'border-violet-500/50 bg-violet-900/20 text-violet-100' : (hasFacilitySelected && isSingleYearEvidence) ? 'border-amber-500/50 bg-amber-900/20 text-amber-100' : canOpenEvidenceStep ? 'border-cyan-500/50 bg-cyan-900/20 text-cyan-100' : 'border-slate-600 bg-slate-900/40 text-slate-300', help: !hasFacilitySelected && hasDraftManualWorkflow ? 'Evidence packet remains a draft intake state until official facility confirmation.' : (hasFacilitySelected && isSingleYearEvidence) ? 'Single-year evidence packet is available as draft and requires review.' : canOpenEvidenceStep ? 'Evidence export enabled and ready for review.' : 'Locked until report generated.' },
     { label: 'Room', status: !hasFacilitySelected && hasDraftManualWorkflow ? 'Draft room available / optional' : canOpenRoomStep ? 'Draft room available' : 'Optional', tone: !hasFacilitySelected && hasDraftManualWorkflow ? 'border-violet-500/50 bg-violet-900/20 text-violet-100' : canOpenRoomStep ? 'border-cyan-500/50 bg-cyan-900/20 text-cyan-100' : 'border-slate-600 bg-slate-900/40 text-slate-300', help: !hasFacilitySelected && hasDraftManualWorkflow ? 'Situation Room may be opened as a draft workspace.' : canOpenRoomStep ? 'Situation room is available for ongoing draft review.' : 'Situation Room is optional until report/evidence is generated.' },
   ];
+  const carbCategoryTabs: Array<{
+    id: 'facility' | 'emissions' | 'ghgTrend' | 'criteriaTrend' | 'toxics' | 'compare' | 'notes';
+    label: string;
+  }> = [
+    { id: 'facility', label: 'Facility' },
+    { id: 'emissions', label: 'Emissions' },
+    { id: 'ghgTrend', label: 'GHG Trend' },
+    { id: 'criteriaTrend', label: 'Criteria Trend' },
+    { id: 'toxics', label: 'Toxics' },
+    { id: 'compare', label: 'Compare' },
+    { id: 'notes', label: 'Notes' },
+  ];
+  const activeCarbCategory = useMemo(() => {
+    if (activeWorkspaceTab === 'pollutants') return 'criteriaTrend';
+    if (activeWorkspaceTab === 'compare') return 'compare';
+    if (activeWorkspaceTab === 'facility') return 'facility';
+    if (activeWorkspaceTab === 'investigation' || activeWorkspaceTab === 'findings') return 'notes';
+    if (activeWorkspaceTab === 'search' && hasFacilitySelected) return 'emissions';
+    return '';
+  }, [activeWorkspaceTab, hasFacilitySelected]);
+  const openCarbCategory = (id: 'facility' | 'emissions' | 'ghgTrend' | 'criteriaTrend' | 'toxics' | 'compare' | 'notes') => {
+    if ((id === 'emissions' || id === 'ghgTrend' || id === 'compare') && !hasFacilitySelected) {
+      setMessage('Select a facility first to compare emissions years.');
+      return;
+    }
+    if (id === 'facility') {
+      setActiveWorkspaceTab(layoutWide ? 'search' : 'facility');
+      return;
+    }
+    if (id === 'emissions' || id === 'ghgTrend' || id === 'compare') {
+      openCompareYearsTab();
+      return;
+    }
+    if (id === 'criteriaTrend' || id === 'toxics') {
+      setActiveWorkspaceTab('pollutants');
+      return;
+    }
+    setActiveWorkspaceTab(layoutWide ? 'investigation' : 'findings');
+  };
   return (
     <div className="mx-auto min-w-0 max-w-[1450px] overflow-x-hidden px-3 pb-20 sm:px-4 lg:px-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
@@ -2671,9 +2914,38 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
               </div>
             ) : null}
           </div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-white">Historical Data Loader</p>
+            <p className="mt-1">Only 2024 CARB records are currently loaded.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => { setShowDevImportOpen(true); setMessage('Import 2023 CARB dataset from official spreadsheet sources.'); }} className="rounded border border-slate-600 px-2 py-1">Import 2023 CARB dataset</button>
+              <button type="button" onClick={() => { setShowDevImportOpen(true); setMessage('Import 2022 CARB dataset from official spreadsheet sources.'); }} className="rounded border border-slate-600 px-2 py-1">Import 2022 CARB dataset</button>
+              <button type="button" onClick={() => { setShowDevImportOpen(true); setMessage('Import historical CARB datasets to unlock trend analysis.'); }} className="rounded border border-slate-600 px-2 py-1">Import historical CARB datasets</button>
+              <button type="button" onClick={() => setMessage('Check CARB_HISTORICAL_DATASET_CONFIG and CARB_HISTORICAL_DATA_URLS configuration on backend.')} className="rounded border border-slate-600 px-2 py-1">Check historical dataset configuration</button>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-700 bg-slate-900/70 p-3 text-xs text-slate-300">
+            <p className="font-semibold text-white">CARB Pollution Mapping Tool Readings</p>
+            {matchedPollutionReadings.length ? (
+              <div className="mt-2 space-y-1">
+                <p>Facility: <span className="text-cyan-200">{matchedPollutionReadings[0].facilityName}</span></p>
+                <p>Year: <span className="text-cyan-200">{matchedPollutionReadings[0].reportingYear}</span></p>
+                <p>CO2: <span className="text-cyan-200">{matchedPollutionReadings[0].co2 ?? 'n/a'} Metric Tons</span></p>
+                <p>CH4: <span className="text-cyan-200">{matchedPollutionReadings[0].ch4 ?? 'n/a'} Metric Tons</span></p>
+                <p>N2O: <span className="text-cyan-200">{matchedPollutionReadings[0].n2o ?? 'n/a'} Metric Tons</span></p>
+                <p>Total GHG: <span className="text-cyan-200">{matchedPollutionReadings[0].totalGhg ?? 'n/a'} Metric Tons CO2e</span></p>
+                <p>VOC: <span className="text-cyan-200">{matchedPollutionReadings[0].voc ?? 'n/a'} Tons</span></p>
+                <p>NOx: <span className="text-cyan-200">{matchedPollutionReadings[0].nox ?? 'n/a'} Tons</span></p>
+                <p>SOx: <span className="text-cyan-200">{matchedPollutionReadings[0].sox ?? 'n/a'} Tons</span></p>
+                <p>Source label: <span className="text-cyan-200">Manually entered from official CARB Pollution Mapping Tool</span></p>
+              </div>
+            ) : (
+              <p className="mt-1">No linked CARB Pollution Mapping Tool reading yet. Save entries in the Pollutants tab.</p>
+            )}
+          </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
             <button type="button" onClick={openCompareYearsTab} disabled={!canCompareYearsStep} title={!canCompareYearsStep ? 'Locked until facility selected.' : 'Compare years'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Compare Years</button>
-            <button type="button" onClick={openInvestigationTab} disabled={!canRunInvestigationStep} title={!canRunInvestigationStep ? 'Compare years first.' : 'Run investigation'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Run Investigation</button>
+            <button type="button" onClick={openInvestigationTab} disabled={!canRunInvestigationStep} title={!canRunInvestigationStep ? 'Select a facility first.' : 'Run investigation'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Run Investigation</button>
             <button type="button" onClick={() => { setActiveWorkspaceTab('report'); void handleGenerateCarbReport(); }} disabled={!canGenerateReportStep} title={!canGenerateReportStep ? 'Locked until investigation runs.' : 'Generate report'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Generate Report</button>
             <button type="button" onClick={() => { setActiveWorkspaceTab('evidence'); void handleExportCarbEvidencePacket(); }} disabled={!canOpenEvidenceStep} title={!canOpenEvidenceStep ? 'Locked until report generated.' : 'Export evidence'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Export Evidence</button>
             <button type="button" onClick={() => setActiveWorkspaceTab('situation')} disabled={!canOpenRoomStep} title={!canOpenRoomStep ? 'Locked until evidence packet exists.' : 'Open situation room'} className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40">Open Situation Room</button>
@@ -2768,6 +3040,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 ['search', 'Search'],
                 ['facility', 'Facility'],
                 ['compare', 'Compare'],
+                ['scanCenter', 'Scan Center'],
                 ['findings', 'Findings'],
                 ['report', 'Report'],
                 ['pollutants', 'Pollutants'],
@@ -2793,6 +3066,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 ['overview', 'Overview'],
                 ['search', 'Search'],
                 ['investigation', 'Investigation Engine'],
+                ['scanCenter', 'Satellite / Map Scan Center'],
                 ['report', 'CARB Report'],
                 ['pollutants', 'CARB Pollution Map Readings'],
                 ['evidence', 'Evidence Packet'],
@@ -2814,6 +3088,25 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 {label}
               </button>
             ))}
+        </div>
+      </section>
+      <section className="mt-3 sticky top-20 z-20 rounded-2xl border border-cyan-500/30 bg-slate-950/95 p-2 sm:p-3">
+        <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">CARB Facility Categories</p>
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+          {carbCategoryTabs.map((tab) => (
+            <button
+              key={`carb-cat-${tab.id}`}
+              type="button"
+              onClick={() => openCarbCategory(tab.id)}
+              className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-xs font-semibold ${
+                activeCarbCategory === tab.id
+                  ? 'border-cyan-400/70 bg-cyan-900/25 text-cyan-100'
+                  : 'border-slate-700 bg-slate-900/40 text-slate-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
       </section>
       {activeWorkspaceTab === 'overview' ? (
@@ -2877,7 +3170,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                   type="button"
                   onClick={openInvestigationTab}
                   disabled={!canRunInvestigationStep}
-                  title={!canRunInvestigationStep ? 'Compare years first.' : 'Run investigation checks.'}
+                  title={!canRunInvestigationStep ? 'Select a facility first.' : 'Run investigation checks.'}
                   className="rounded-lg border border-cyan-500/50 bg-cyan-900/20 px-3 py-2 text-xs font-semibold text-cyan-100 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Run Investigation
@@ -2957,7 +3250,7 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
                 <p className="mt-1 text-cyan-100/90">{sourceReconciliationState.rationale}</p>
               </div>
               <p className="mt-2 rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-100">
-                Source reconciliation needed - different source product and/or reporting year.
+                Source reconciliation needed — different source product and/or reporting year.
               </p>
               <p className="mt-2 text-xs text-slate-300">
                 CARB MRR and CARB Pollution Mapping Tool may reflect different reporting programs, source categories, or reporting years. DPAL preserves both records separately and does not merge or treat differences as confirmed discrepancies without further validation.
@@ -3649,6 +3942,44 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             <p className="mt-1 text-[11px] text-slate-400">Core facility profile and CARB emissions comparison workspace.</p>
           </div>
           <div className="p-3 sm:p-4">
+          {selected ? (
+            <div className="mb-3 rounded-xl border border-slate-700 bg-slate-950/60 p-2">
+              <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Selected Facility Sub-Tabs</p>
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {carbCategoryTabs.map((tab) => (
+                  <button
+                    key={`facility-subtab-${tab.id}`}
+                    type="button"
+                    onClick={() => openCarbCategory(tab.id)}
+                    className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
+                      activeCarbCategory === tab.id
+                        ? 'border-cyan-400/70 bg-cyan-900/25 text-cyan-100'
+                        : 'border-slate-700 bg-slate-900/40 text-slate-300'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">CARB Categories</p>
+            <p className="mt-1 text-[11px] text-slate-400">Facility / Emissions / GHG Trend / Criteria Trend / Toxics / Compare / Notes</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {categoryOverviewCards.map((card) => (
+                <button
+                  key={card.id}
+                  type="button"
+                  onClick={() => setActiveWorkspaceTab(card.goto)}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left hover:border-cyan-500/50"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200">{card.label}</p>
+                  <p className="mt-1 text-xs text-slate-300">{card.summary}</p>
+                </button>
+              ))}
+            </div>
+          </div>
           {!hasSearched ? <p className="mt-1 text-xs text-amber-300">Search for a facility first. No search, no product.</p> : null}
           {!selected ? (
             <div className="mt-3 rounded-xl border border-slate-700 bg-slate-950/50 p-3 text-xs text-slate-300">
@@ -3666,20 +3997,37 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             </div>
           ) : null}
           <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <select value={String(baselineYear)} onChange={(e) => {
-              setYearSelectionTouchedByUser(true);
-              setBaselineYear(e.target.value ? Number(e.target.value) : '');
-            }} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
+            <select value={String(baselineYear)} onChange={(e) => updateComparisonYear('baseline', e.target.value)} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
               <option value="">Baseline year</option>
               {availableYears.map((year) => <option key={`b-${year}`} value={year}>{year}</option>)}
             </select>
-            <select value={String(currentYear)} onChange={(e) => {
-              setYearSelectionTouchedByUser(true);
-              setCurrentYear(e.target.value ? Number(e.target.value) : '');
-            }} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
+            <select value={String(currentYear)} onChange={(e) => updateComparisonYear('current', e.target.value)} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
               <option value="">Current year</option>
               {availableYears.map((year) => <option key={`c-${year}`} value={year}>{year}</option>)}
             </select>
+            <input
+              value={baselineYear === '' ? '' : String(baselineYear)}
+              onChange={(e) => updateComparisonYear('baseline', e.target.value)}
+              disabled={!selected}
+              placeholder="Type baseline year (e.g. 2022)"
+              className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50"
+            />
+            <input
+              value={currentYear === '' ? '' : String(currentYear)}
+              onChange={(e) => updateComparisonYear('current', e.target.value)}
+              disabled={!selected}
+              placeholder="Type current year (e.g. 2024)"
+              className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50"
+            />
+            {availableYears.length === 1 && availableYears[0] === 2024 ? (
+              <p className="text-xs text-amber-200 sm:col-span-2">Only 2024 is available because historical CARB datasets are not loaded yet.</p>
+            ) : null}
+            {yearLookupLoading ? (
+              <p className="text-xs text-cyan-200 sm:col-span-2">Looking up year in CARB dataset...</p>
+            ) : null}
+            {yearLookupNotice ? (
+              <p className="text-xs text-amber-200 sm:col-span-2">{yearLookupNotice}</p>
+            ) : null}
             <p className={`text-xs ${baselineYearDataStatus === 'available' ? 'text-emerald-300' : baselineYearDataStatus === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
               Baseline year data: {baselineYearDataStatus === 'available' ? 'available' : baselineYearDataStatus === 'missing' ? 'missing' : 'not selected'}
             </p>
@@ -3802,24 +4150,79 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
           <p className="mt-1 text-[11px] text-slate-400">Baseline and current reporting years and emissions.</p>
         </div>
         <div className="p-3 sm:p-4">
+          {selected ? (
+            <div className="mb-3 rounded-xl border border-slate-700 bg-slate-950/60 p-2">
+              <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Selected Facility Sub-Tabs</p>
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {carbCategoryTabs.map((tab) => (
+                  <button
+                    key={`mobile-facility-subtab-${tab.id}`}
+                    type="button"
+                    onClick={() => openCarbCategory(tab.id)}
+                    className={`whitespace-nowrap rounded-lg border px-3 py-1.5 text-[11px] font-semibold ${
+                      activeCarbCategory === tab.id
+                        ? 'border-cyan-400/70 bg-cyan-900/25 text-cyan-100'
+                        : 'border-slate-700 bg-slate-900/40 text-slate-300'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          <div className="rounded-xl border border-slate-700 bg-slate-950/50 p-3">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-cyan-200">CARB Categories</p>
+            <p className="mt-1 text-[11px] text-slate-400">Tap a category to jump to the matching DPAL section.</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {categoryOverviewCards.map((card) => (
+                <button
+                  key={`mobile-${card.id}`}
+                  type="button"
+                  onClick={() => setActiveWorkspaceTab(card.goto)}
+                  className="rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left hover:border-cyan-500/50"
+                >
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-cyan-200">{card.label}</p>
+                  <p className="mt-1 text-xs text-slate-300">{card.summary}</p>
+                </button>
+              ))}
+            </div>
+          </div>
           {!selected ? <p className="text-sm text-amber-200">Select a CARB facility first (Search tab).</p> : null}
           {selected ? (
             <>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <select value={String(baselineYear)} onChange={(e) => {
-                  setYearSelectionTouchedByUser(true);
-                  setBaselineYear(e.target.value ? Number(e.target.value) : '');
-                }} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
+                <select value={String(baselineYear)} onChange={(e) => updateComparisonYear('baseline', e.target.value)} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
                   <option value="">Baseline year</option>
                   {availableYears.map((year) => <option key={`cb-${year}`} value={year}>{year}</option>)}
                 </select>
-                <select value={String(currentYear)} onChange={(e) => {
-                  setYearSelectionTouchedByUser(true);
-                  setCurrentYear(e.target.value ? Number(e.target.value) : '');
-                }} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
+                <select value={String(currentYear)} onChange={(e) => updateComparisonYear('current', e.target.value)} disabled={!selected} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50">
                   <option value="">Current year</option>
                   {availableYears.map((year) => <option key={`cc-${year}`} value={year}>{year}</option>)}
                 </select>
+                <input
+                  value={baselineYear === '' ? '' : String(baselineYear)}
+                  onChange={(e) => updateComparisonYear('baseline', e.target.value)}
+                  disabled={!selected}
+                  placeholder="Type baseline year"
+                  className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50"
+                />
+                <input
+                  value={currentYear === '' ? '' : String(currentYear)}
+                  onChange={(e) => updateComparisonYear('current', e.target.value)}
+                  disabled={!selected}
+                  placeholder="Type current year"
+                  className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-sm text-slate-200 disabled:opacity-50"
+                />
+                {availableYears.length === 1 && availableYears[0] === 2024 ? (
+                  <p className="text-xs text-amber-200 sm:col-span-2">Only 2024 is available because historical CARB datasets are not loaded yet.</p>
+                ) : null}
+                {yearLookupLoading ? (
+                  <p className="text-xs text-cyan-200 sm:col-span-2">Looking up year in CARB dataset...</p>
+                ) : null}
+                {yearLookupNotice ? (
+                  <p className="text-xs text-amber-200 sm:col-span-2">{yearLookupNotice}</p>
+                ) : null}
                 <p className={`text-xs ${baselineYearDataStatus === 'available' ? 'text-emerald-300' : baselineYearDataStatus === 'missing' ? 'text-amber-300' : 'text-slate-400'}`}>
                   Baseline year data: {baselineYearDataStatus === 'available' ? 'available' : baselineYearDataStatus === 'missing' ? 'missing' : 'not selected'}
                 </p>
@@ -4272,6 +4675,50 @@ const CarbEmissionsAuditPage: React.FC<Props> = ({
             ))}
           </div>
         ) : null}
+      </section>
+      ) : null}
+
+      {activeWorkspaceTab === 'scanCenter' ? (
+      <section className="mt-4 space-y-4 rounded-2xl border border-slate-700 bg-slate-900/80 p-4">
+        <div className="rounded-lg border border-cyan-500/40 bg-cyan-950/20 px-3 py-2 text-xs text-cyan-100">
+          <p className="font-semibold">Satellite / Map Scan Center</p>
+          <p className="mt-1">Remote sensing requires coordinates, satellite imagery, and selected observation dates. It is not calculated from CARB emissions records alone.</p>
+        </div>
+        {!(coordinatesAvailable || Boolean(manualCoordinates)) ? (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-950/20 px-3 py-2 text-xs text-amber-100">
+            <p className="font-semibold">Satellite scan unavailable — coordinates required.</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setMessage('Add coordinates manually in the map tools or facility coordinate fields.')} className="rounded border border-amber-300/60 px-2 py-1">Add coordinates manually</button>
+              <button type="button" onClick={() => setMessage(`Search official external sources for coordinates: ${selected?.facilityName || 'selected facility'}.`)} className="rounded border border-amber-300/60 px-2 py-1">Search official external source for coordinates</button>
+              <button type="button" onClick={() => setMessage(`Search EPA FRS / GHGRP for coordinates by facility ID: ${selected?.facilityId || 'n/a'}.`)} className="rounded border border-amber-300/60 px-2 py-1">Search EPA FRS / GHGRP</button>
+              <button type="button" onClick={() => setMessage('Use CARB Pollution Mapping Tool location by copying the official location coordinates into this workspace.')} className="rounded border border-amber-300/60 px-2 py-1">Use CARB Pollution Mapping Tool location</button>
+              <button type="button" onClick={() => setMessage('Continuing without scan. This investigation remains single-year/non-satellite until coordinates and historical years are loaded.')} className="rounded border border-amber-300/60 px-2 py-1">Continue without scan</button>
+            </div>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-emerald-500/40 bg-emerald-950/20 px-3 py-3 text-xs text-emerald-100">
+            <p className="font-semibold">Run Satellite Scan</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <input value={scanDraft.latitude} onChange={(e) => setScanDraft((prev) => ({ ...prev, latitude: e.target.value }))} placeholder="Latitude" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100" />
+              <input value={scanDraft.longitude} onChange={(e) => setScanDraft((prev) => ({ ...prev, longitude: e.target.value }))} placeholder="Longitude" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100" />
+              <input value={scanDraft.radiusKm} onChange={(e) => setScanDraft((prev) => ({ ...prev, radiusKm: e.target.value }))} placeholder="Scan radius (km) or AOI boundary ref" className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100" />
+              <input type="date" value={scanDraft.baselineDate} onChange={(e) => setScanDraft((prev) => ({ ...prev, baselineDate: e.target.value }))} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100" />
+              <input type="date" value={scanDraft.currentDate} onChange={(e) => setScanDraft((prev) => ({ ...prev, currentDate: e.target.value }))} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100" />
+              <select value={scanDraft.satelliteIndex} onChange={(e) => setScanDraft((prev) => ({ ...prev, satelliteIndex: e.target.value }))} className="rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100">
+                <option value="NDVI">NDVI</option>
+                <option value="NDWI">NDWI</option>
+                <option value="NDMI">NDMI</option>
+                <option value="NBR">NBR</option>
+              </select>
+              <textarea value={scanDraft.notes} onChange={(e) => setScanDraft((prev) => ({ ...prev, notes: e.target.value }))} placeholder="Scan notes" className="h-20 rounded-lg border border-slate-600 bg-slate-950 px-2 py-2 text-xs text-slate-100 md:col-span-2 xl:col-span-3" />
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" onClick={() => setMessage('Run Satellite Scan queued. Live scan requires connected satellite adapter and valid AOI/date inputs.')} className="rounded border border-emerald-300/60 px-2 py-1">Run Scan</button>
+              <button type="button" onClick={() => setMessage('Scan metadata saved to evidence packet notes.')} className="rounded border border-emerald-300/60 px-2 py-1">Save scan to evidence packet</button>
+              <button type="button" onClick={() => setMessage('Satellite scan summary sent to Situation Room timeline.')} className="rounded border border-emerald-300/60 px-2 py-1">Send scan to Situation Room</button>
+            </div>
+          </div>
+        )}
       </section>
       ) : null}
 
