@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import type { Trip } from '../../trips/tripTypes';
-import { useGoogleMaps } from '../../map/useGoogleMaps';
-import { geocodeAddress, midpoint } from '../../map/mapUtils';
 import type { LatLng } from '../../map/mapTypes';
+import { nominatimForwardGeocode } from '../../map/nominatimForwardGeocode';
 import { useGwLang } from '../../../i18n/useGwLang';
 
 function routeSvgFallback(tripId: string) {
@@ -23,21 +25,34 @@ function routeSvgFallback(tripId: string) {
   );
 }
 
+function FitTripBounds({ positions }: { positions: [number, number][] }) {
+  const map = useMap();
+  useEffect(() => {
+    if (positions.length === 0) return;
+    if (positions.length === 1) {
+      map.setView(positions[0], 13);
+      return;
+    }
+    const b = L.latLngBounds(positions);
+    if (b.isValid()) map.fitBounds(b, { padding: [10, 10], maxZoom: 15 });
+  }, [map, positions]);
+  return null;
+}
+
+const NOMINATIM_GAP_MS = 1100;
+
 /**
- * Compact pickup → drop-off preview for driver queue/dashboard cards.
- * Lazy-loads Google Maps when scrolled into view; falls back to SVG if the key is missing or geocoding fails.
+ * Compact pickup → drop-off preview for driver cards (Leaflet + OSM; no Google).
+ * Geocodes via Nominatim when coordinates are missing; lazy-mounts the map when near the viewport.
  */
 const DriverTripRouteMiniMap: React.FC<{ trip: Trip; className?: string }> = ({ trip, className = '' }) => {
   const t = useGwLang((s) => s.t);
-  const { google: g, ready, error: mapsError } = useGoogleMaps();
   const rootRef = useRef<HTMLDivElement>(null);
-  const mapElRef = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(() => (trip.pickup.point as LatLng | undefined) ?? null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(() => (trip.dropoff.point as LatLng | undefined) ?? null);
   const [geoDone, setGeoDone] = useState(() => Boolean(trip.pickup.point && trip.dropoff.point));
   const [geoFailed, setGeoFailed] = useState(false);
-  const [mapTilesReady, setMapTilesReady] = useState(false);
 
   useEffect(() => {
     const root = rootRef.current;
@@ -64,16 +79,29 @@ const DriverTripRouteMiniMap: React.FC<{ trip: Trip; className?: string }> = ({ 
       setGeoDone(true);
       return;
     }
-    if (!ready || !g) return;
+
+    const ac = new AbortController();
     let cancelled = false;
     setGeoDone(false);
     setGeoFailed(false);
+
     (async () => {
       try {
-        const [p, d] = await Promise.all([
-          trip.pickup.point ? Promise.resolve(trip.pickup.point as LatLng) : pickupAddress ? geocodeAddress(g, pickupAddress) : Promise.resolve(null),
-          trip.dropoff.point ? Promise.resolve(trip.dropoff.point as LatLng) : dropoffAddress ? geocodeAddress(g, dropoffAddress) : Promise.resolve(null),
-        ]);
+        let p: LatLng | null = trip.pickup.point ? (trip.pickup.point as LatLng) : null;
+        let d: LatLng | null = trip.dropoff.point ? (trip.dropoff.point as LatLng) : null;
+        let usedNominatim = false;
+
+        if (!p && pickupAddress) {
+          p = await nominatimForwardGeocode(pickupAddress, ac.signal);
+          if (cancelled) return;
+          usedNominatim = true;
+        }
+        if (!d && dropoffAddress) {
+          if (usedNominatim) await new Promise((r) => setTimeout(r, NOMINATIM_GAP_MS));
+          if (cancelled) return;
+          d = await nominatimForwardGeocode(dropoffAddress, ac.signal);
+        }
+
         if (cancelled) return;
         setPickupLL(p);
         setDropoffLL(d);
@@ -84,124 +112,31 @@ const DriverTripRouteMiniMap: React.FC<{ trip: Trip; className?: string }> = ({ 
         if (!cancelled) setGeoDone(true);
       }
     })();
+
     return () => {
       cancelled = true;
+      ac.abort();
     };
-  }, [inView, ready, g, trip.id, trip.pickup.point, trip.dropoff.point, pickupAddress, dropoffAddress]);
+  }, [inView, trip.id, trip.pickup.point, trip.dropoff.point, pickupAddress, dropoffAddress]);
 
   const missingCoords = !pickupLL || !dropoffLL;
-  const showLiveMap = inView && ready && !mapsError && !missingCoords && !geoFailed;
-  const showSvgError = Boolean(mapsError) || (geoDone && (geoFailed || missingCoords));
-  /** Geocoding / waiting for Maps JS */
-  const showPulse = inView && !mapsError && !geoDone;
-  /** Resolved coords but card not intersecting yet — schematic route strip */
-  const showSchematicOnly = geoDone && !missingCoords && !geoFailed && !mapsError && !inView;
-  const showLoadingOverlay = inView && !showLiveMap && !showSvgError && (!ready || !geoDone);
+  const showLeaflet = inView && geoDone && !geoFailed && !missingCoords;
+  const showSvgError = geoDone && (geoFailed || missingCoords);
+  const showSchematicOnly = geoDone && !missingCoords && !geoFailed && !inView;
+  const showPulse = inView && !geoDone;
 
-  const mapCenter = useMemo(() => {
-    if (pickupLL && dropoffLL) return midpoint(pickupLL, dropoffLL);
-    return pickupLL ?? dropoffLL ?? { lat: 40.7128, lng: -74.006 };
+  const linePositions = useMemo((): [number, number][] => {
+    if (!pickupLL || !dropoffLL) return [];
+    return [
+      [pickupLL.lat, pickupLL.lng],
+      [dropoffLL.lat, dropoffLL.lng],
+    ];
   }, [pickupLL, dropoffLL]);
 
-  useEffect(() => {
-    if (!showLiveMap) {
-      setMapTilesReady(false);
-      return;
-    }
-    if (!mapElRef.current || !g || !pickupLL || !dropoffLL) return;
-
-    const el = mapElRef.current;
-    setMapTilesReady(false);
-    const map = new g.maps.Map(el, {
-      center: mapCenter,
-      zoom: 11,
-      disableDefaultUI: true,
-      gestureHandling: 'none',
-      draggable: false,
-      scrollwheel: false,
-      keyboardShortcuts: false,
-      clickableIcons: false,
-      mapTypeControl: false,
-      streetViewControl: false,
-      fullscreenControl: false,
-    });
-
-    const pickupMarker = new g.maps.Marker({
-      map,
-      position: pickupLL,
-      zIndex: 3,
-      icon: {
-        path: g.maps.SymbolPath.CIRCLE,
-        scale: 7,
-        fillColor: '#16a34a',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-      },
-    });
-    const dropMarker = new g.maps.Marker({
-      map,
-      position: dropoffLL,
-      zIndex: 3,
-      icon: {
-        path: g.maps.SymbolPath.CIRCLE,
-        scale: 7,
-        fillColor: '#dc2626',
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-      },
-    });
-
-    const dr = new g.maps.DirectionsRenderer({
-      map,
-      suppressMarkers: true,
-      polylineOptions: { strokeColor: '#1a73e8', strokeOpacity: 0.95, strokeWeight: 4 },
-    });
-
-    let fallbackLine: google.maps.Polyline | null = null;
-    const svc = new g.maps.DirectionsService();
-    svc.route(
-      {
-        origin: pickupLL,
-        destination: dropoffLL,
-        travelMode: g.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === 'OK' && result?.routes?.[0]) {
-          dr.setMap(map);
-          dr.setDirections(result);
-        } else {
-          dr.setMap(null);
-          fallbackLine = new g.maps.Polyline({
-            map,
-            path: [pickupLL, dropoffLL],
-            strokeColor: '#1a73e8',
-            strokeOpacity: 0.9,
-            strokeWeight: 4,
-            geodesic: true,
-          });
-        }
-        const b = new g.maps.LatLngBounds();
-        b.extend(pickupLL);
-        b.extend(dropoffLL);
-        map.fitBounds(b, 20);
-      },
-    );
-
-    const idleListener = g.maps.event.addListenerOnce(map, 'idle', () => {
-      setMapTilesReady(true);
-    });
-
-    return () => {
-      g.maps.event.removeListener(idleListener);
-      pickupMarker.setMap(null);
-      dropMarker.setMap(null);
-      fallbackLine?.setMap(null);
-      dr.setMap(null);
-      setMapTilesReady(false);
-    };
-  }, [showLiveMap, g, pickupLL, dropoffLL, mapCenter, trip.id]);
+  const fitPositions = useMemo((): [number, number][] => {
+    if (!pickupLL || !dropoffLL) return pickupLL ? [[pickupLL.lat, pickupLL.lng]] : [];
+    return linePositions;
+  }, [pickupLL, dropoffLL, linePositions]);
 
   return (
     <div
@@ -210,16 +145,14 @@ const DriverTripRouteMiniMap: React.FC<{ trip: Trip; className?: string }> = ({ 
       role="img"
       aria-label={t('routePreview')}
     >
-      {!showLiveMap ? (
+      {!showLeaflet ? (
         <div className="absolute inset-0 z-0">
           {showSvgError ? (
             <div className="relative h-full w-full">
               {routeSvgFallback(trip.id)}
-              {mapsError ? (
-                <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-white/90 px-1 py-0.5 text-center text-[9px] font-semibold leading-tight text-slate-600">
-                  {t('mapPreviewUnavailable')}
-                </div>
-              ) : null}
+              <div className="pointer-events-none absolute bottom-0 left-0 right-0 bg-white/90 px-1 py-0.5 text-center text-[9px] font-semibold leading-tight text-slate-600">
+                {t('mapPreviewUnavailable')}
+              </div>
             </div>
           ) : showSchematicOnly ? (
             routeSvgFallback(trip.id)
@@ -231,21 +164,40 @@ const DriverTripRouteMiniMap: React.FC<{ trip: Trip; className?: string }> = ({ 
         </div>
       ) : null}
 
-      {showLoadingOverlay ? (
-        <div className="absolute inset-0 z-[2] flex items-center justify-center bg-slate-100/85">
-          <span className="text-[10px] font-semibold text-slate-500">{t('loading')}</span>
+      {showLeaflet && pickupLL && dropoffLL ? (
+        <div className="gw-driver-leaflet-mini relative z-[1] h-full min-h-[96px] w-full">
+          <MapContainer
+            key={`gw-mini-${trip.id}`}
+            center={[pickupLL.lat, pickupLL.lng]}
+            zoom={12}
+            style={{ height: '96px', width: '100%', minHeight: '96px' }}
+            className="z-0 rounded-xl"
+            zoomControl={false}
+            dragging={false}
+            scrollWheelZoom={false}
+            doubleClickZoom={false}
+            boxZoom={false}
+            keyboard={false}
+            attributionControl
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <Polyline positions={linePositions} pathOptions={{ color: '#1a73e8', weight: 4, opacity: 0.9 }} />
+            <CircleMarker
+              center={[pickupLL.lat, pickupLL.lng]}
+              radius={7}
+              pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#16a34a', fillOpacity: 1 }}
+            />
+            <CircleMarker
+              center={[dropoffLL.lat, dropoffLL.lng]}
+              radius={7}
+              pathOptions={{ color: '#ffffff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }}
+            />
+            <FitTripBounds positions={fitPositions} />
+          </MapContainer>
         </div>
-      ) : null}
-
-      {showLiveMap ? (
-        <>
-          <div ref={mapElRef} className="relative z-[1] h-full min-h-[96px] w-full" />
-          {!mapTilesReady ? (
-            <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center bg-slate-100/80">
-              <span className="text-[10px] font-semibold text-slate-500">{t('loading')}</span>
-            </div>
-          ) : null}
-        </>
       ) : null}
     </div>
   );
