@@ -19,6 +19,9 @@ import {
 } from './locationSelectionChrome';
 import { estimateGoodWheelsListedFareUsd } from '../../features/trips/utils/rideHailFareEstimate';
 import { parseUsdInputToCents } from '../../features/trips/utils/moneyInput';
+import PassengerDriverCounterofferBlock, {
+  passengerHasPendingDriverCounter,
+} from '../../features/passenger/components/PassengerDriverCounterofferBlock';
 
 /* ─────────────────────────────────────────────
    Types
@@ -194,6 +197,14 @@ const PassengerRideHomePage: React.FC = () => {
     if (!driverVehicle) void hydrateDriver();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || GOOD_WHEELS_DEMO_MODE) return;
+    const uid = user.id;
+    void hydrateTrips(uid);
+    const id = window.setInterval(() => void hydrateTrips(uid), 6000);
+    return () => window.clearInterval(id);
+  }, [user?.id, hydrateTrips]);
 
   const estimateFareForVehicle = useCallback(
     (id: VehicleType) =>
@@ -619,8 +630,13 @@ const PassengerRideHomePage: React.FC = () => {
     if (!user?.id) return;
     setNegotiationNote(`${t('refreshRide')}...`);
     await hydrateTrips(user.id);
-    setNegotiationState('idle');
-    setDriverCounterOffer(null);
+    const at = useTripStore.getState().activeTrip;
+    if (!passengerHasPendingDriverCounter(at)) {
+      setNegotiationState('idle');
+      setDriverCounterOffer(null);
+    } else {
+      setNegotiationNote(t('passengerCounterofferSynced'));
+    }
   };
 
   const selVehicle = VEHICLES.find((v) => v.id === vehicleType) ?? VEHICLES[0];
@@ -815,6 +831,23 @@ const PassengerRideHomePage: React.FC = () => {
           <div>{t('legendDriverAfterAcceptance')}</div>
         </div>
       )}
+
+      {!GOOD_WHEELS_DEMO_MODE && activeTrip && passengerHasPendingDriverCounter(activeTrip) ? (
+        <div
+          style={{
+            position: 'absolute',
+            top: 'max(56px, calc(var(--gw-appbar-height, 56px) + 4px))',
+            left: 12,
+            right: 12,
+            zIndex: 45,
+            maxHeight: 'min(46dvh, 380px)',
+            overflowY: 'auto',
+            pointerEvents: 'auto',
+          }}
+        >
+          <PassengerDriverCounterofferBlock trip={activeTrip} variant="hero" showActiveTripLink />
+        </div>
+      ) : null}
 
       {/* ── TOP BAR ── */}
       <div style={S.topBar}>

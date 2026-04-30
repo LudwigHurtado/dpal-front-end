@@ -10,6 +10,9 @@ import TripMapPanel from '../../features/trips/components/TripMapPanel';
 import TripActionBar from '../../features/trips/components/TripActionBar';
 import TripRoutePreview from '../../features/trips/components/TripRoutePreview';
 import { MOCK_SUPPORT_CATEGORIES } from '../../data/mock/mockSupportCategories';
+import PassengerDriverCounterofferBlock, {
+  passengerHasPendingDriverCounter,
+} from '../../features/passenger/components/PassengerDriverCounterofferBlock';
 
 const PassengerDashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -27,11 +30,12 @@ const PassengerDashboardPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!user?.id || !activeTrip) return;
+    if (!user?.id) return;
     const uid = user.id;
-    const id = window.setInterval(() => void hydrateTrips(uid), 8000);
+    void hydrateTrips(uid);
+    const id = window.setInterval(() => void hydrateTrips(uid), 6000);
     return () => window.clearInterval(id);
-  }, [user?.id, activeTrip?.id, hydrateTrips]);
+  }, [user?.id, hydrateTrips]);
 
   const nearbyCharities = useMemo(
     () => [
@@ -73,6 +77,9 @@ const PassengerDashboardPage: React.FC = () => {
         </div>
       ) : activeTrip ? (
         <div className="space-y-6">
+          {passengerHasPendingDriverCounter(activeTrip) ? (
+            <PassengerDriverCounterofferBlock trip={activeTrip} variant="hero" />
+          ) : null}
           <RideStatusCard
             role="passenger"
             trip={activeTrip}

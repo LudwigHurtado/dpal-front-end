@@ -37,6 +37,13 @@ const AppLayout: React.FC = () => {
   }, [user?.id, hydrate]);
 
   useEffect(() => {
+    if (!user?.id || role !== 'passenger') return;
+    const uid = user.id;
+    const id = window.setInterval(() => void hydrate(uid), 7000);
+    return () => window.clearInterval(id);
+  }, [user?.id, role, hydrate]);
+
+  useEffect(() => {
     let mounted = true;
     const check = async () => {
       try {

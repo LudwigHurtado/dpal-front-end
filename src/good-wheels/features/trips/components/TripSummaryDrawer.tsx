@@ -1,6 +1,11 @@
 import React, { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import type { Trip } from '../tripTypes';
 import TripStatusBadge from './TripStatusBadge';
+import { useGwLang } from '../../../i18n/useGwLang';
+import { GW_PATHS } from '../../../routes/paths';
+import { formatMoneyFromCents } from '../utils/fareSplit';
+import { passengerHasPendingDriverCounter } from '../../passenger/components/PassengerDriverCounterofferBlock';
 
 const TripSummaryDrawer: React.FC<{
   open: boolean;
@@ -8,6 +13,7 @@ const TripSummaryDrawer: React.FC<{
   trip: Trip;
   title?: string;
 }> = ({ open, onClose, trip, title = 'Trip summary' }) => {
+  const t = useGwLang((s) => s.t);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -56,6 +62,23 @@ const TripSummaryDrawer: React.FC<{
               <div className="text-lg font-extrabold text-slate-800">{trip.estimate.distanceKm.toFixed(1)} km</div>
             </div>
           </div>
+
+          {passengerHasPendingDriverCounter(trip) && typeof trip.offerState?.driverCounterOfferCents === 'number' ? (
+            <div className="mt-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 space-y-2">
+              <div className="text-xs font-black uppercase tracking-wide text-amber-950">{t('passengerDriverCounterTitle')}</div>
+              <div className="text-sm font-bold text-amber-950">
+                {t('passengerDriverAsksLabel')}:{' '}
+                <span className="tabular-nums text-lg">{formatMoneyFromCents(Math.round(trip.offerState.driverCounterOfferCents))}</span>
+              </div>
+              <Link
+                to={GW_PATHS.passenger.active}
+                className="inline-flex text-sm font-extrabold text-amber-900 underline underline-offset-2"
+                onClick={onClose}
+              >
+                {t('passengerCounterofferOpenActiveTrip')}
+              </Link>
+            </div>
+          ) : null}
 
           {trip.notes && (
             <div className="mt-4 text-sm text-slate-700">

@@ -12,7 +12,7 @@ import ShelterRideStoryOverlay from '../../trips/components/ShelterRideStoryOver
 import { getShelterStoryPayload, isShelterStoryStatus } from '../../../data/shelterStoryVideos';
 import { formatMoneyFromCents } from '../../trips/utils/fareSplit';
 import { TERMINAL_STATUSES } from '../../trips/tripConstants';
-import { goodWheelsRideApi } from '../../../services/adapters/goodWheelsApi';
+import PassengerDriverCounterofferBlock, { passengerHasPendingDriverCounter } from './PassengerDriverCounterofferBlock';
 
 const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
@@ -20,9 +20,6 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const tf = useGwLang((s) => s.tf);
   const user = useAuthStore((s) => s.user);
   const hydrate = useTripStore((s) => s.hydrate);
-  const setActiveTrip = useTripStore((s) => s.setActiveTrip);
-  const [offerBusy, setOfferBusy] = useState(false);
-  const [offerError, setOfferError] = useState<string | null>(null);
 
   const storyPayload = useMemo(() => getShelterStoryPayload(trip), [trip]);
   const ridePhaseOk = isShelterStoryStatus(trip.status) && !TERMINAL_STATUSES.has(trip.status);
@@ -51,25 +48,16 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
         ? Math.round(trip.estimate.totalFareCents)
         : undefined;
 
-  const driverCounterCents =
-    typeof trip.offerState?.driverCounterOfferCents === 'number' &&
-    Number.isFinite(trip.offerState.driverCounterOfferCents) &&
-    trip.offerState.driverCounterOfferCents > 0
-      ? Math.round(trip.offerState.driverCounterOfferCents)
-      : null;
-
-  const showDriverCounterPanel =
-    trip.offerState?.status === 'driver_countered' && driverCounterCents != null && trip.negotiationDriverId;
-
-  const driverCounterDetail = useMemo(() => {
-    const ev = [...(trip.timeline ?? [])].reverse().find((e) => e.label === 'Driver sent counteroffer');
-    return ev?.detail?.trim() || null;
-  }, [trip.timeline]);
-
   const showShelterOverlay = ridePhaseOk && storyPayload.urls.length > 0 && shelterStoryOpen;
 
   return (
     <div className="space-y-4 relative">
+      {passengerHasPendingDriverCounter(trip) ? (
+        <div className="sticky top-0 z-[100] -mx-0.5 px-0.5 pb-2 bg-slate-50/95 backdrop-blur-sm border-b border-amber-200/60">
+          <PassengerDriverCounterofferBlock trip={trip} variant="hero" />
+        </div>
+      ) : null}
+
       {ridePhaseOk && storyPayload.urls.length > 0 ? (
         <ShelterRideStoryOverlay
           open={showShelterOverlay}
@@ -103,82 +91,20 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           <span className="font-bold text-red-800">{t('dropoff')}:</span> {trip.dropoff.addressLine}
         </div>
         {grossCents != null ? (
-          <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm font-semibold text-emerald-950 tabular-nums">
-            {t('totalFare')}: {formatMoneyFromCents(grossCents)}
-          </div>
-        ) : null}
-
-        {showDriverCounterPanel ? (
-          <div className="rounded-xl border-2 border-amber-300 bg-amber-50/95 p-4 space-y-3 shadow-sm">
-            <div className="text-xs font-extrabold uppercase tracking-wide text-amber-950">{t('passengerDriverCounterTitle')}</div>
-            <p className="text-sm text-amber-950/90 leading-snug">{t('passengerDriverCounterLead')}</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-              {grossCents != null ? (
-                <div className="rounded-lg border border-white/80 bg-white/90 px-3 py-2">
-                  <div className="text-[11px] font-bold text-slate-500 uppercase">{t('passengerYourOfferLabel')}</div>
-                  <div className="text-lg font-extrabold text-slate-900 tabular-nums">{formatMoneyFromCents(grossCents)}</div>
-                </div>
-              ) : null}
-              <div className="rounded-lg border border-amber-400/60 bg-amber-100/80 px-3 py-2">
-                <div className="text-[11px] font-bold text-amber-900 uppercase">{t('passengerDriverAsksLabel')}</div>
-                <div className="text-lg font-extrabold text-amber-950 tabular-nums">{formatMoneyFromCents(driverCounterCents!)}</div>
-              </div>
-            </div>
-            {driverCounterDetail ? (
-              <div className="rounded-lg border border-amber-200/80 bg-white/80 px-3 py-2 text-xs text-slate-800">
-                <span className="font-bold text-slate-600">{t('passengerDriverCounterMessageLabel')}: </span>
-                {driverCounterDetail}
-              </div>
+          <div
+            className={`rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums ${
+              passengerHasPendingDriverCounter(trip)
+                ? 'border-amber-300/80 bg-amber-50/90 text-amber-950'
+                : 'border-emerald-200/80 bg-emerald-50/90 text-emerald-950'
+            }`}
+          >
+            {passengerHasPendingDriverCounter(trip) ? `${t('passengerYourOfferLabel')}: ` : `${t('totalFare')}: `}
+            {formatMoneyFromCents(grossCents)}
+            {passengerHasPendingDriverCounter(trip) && typeof trip.offerState?.driverCounterOfferCents === 'number' ? (
+              <span className="block mt-1 text-xs font-bold text-amber-900">
+                {t('passengerDriverAsksLabel')}: {formatMoneyFromCents(Math.round(trip.offerState.driverCounterOfferCents))}
+              </span>
             ) : null}
-            {offerError ? <div className="text-xs font-semibold text-red-700">{offerError}</div> : null}
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={offerBusy || !user?.id}
-                className="gw-button gw-button-primary text-sm disabled:opacity-50"
-                onClick={() => {
-                  if (!user?.id) return;
-                  setOfferBusy(true);
-                  setOfferError(null);
-                  void (async () => {
-                    try {
-                      const updated = await goodWheelsRideApi.passengerRespondToDriverCounter(trip.id, user.id, 'accept_driver_counter');
-                      setActiveTrip(updated);
-                      await hydrate(user.id);
-                    } catch (e) {
-                      setOfferError(e instanceof Error ? e.message : t('tripStatusUpdateError'));
-                    } finally {
-                      setOfferBusy(false);
-                    }
-                  })();
-                }}
-              >
-                {offerBusy ? '…' : t('passengerAcceptDriverFare')}
-              </button>
-              <button
-                type="button"
-                disabled={offerBusy || !user?.id}
-                className="gw-button gw-button-secondary text-sm disabled:opacity-50"
-                onClick={() => {
-                  if (!user?.id) return;
-                  setOfferBusy(true);
-                  setOfferError(null);
-                  void (async () => {
-                    try {
-                      const updated = await goodWheelsRideApi.passengerRespondToDriverCounter(trip.id, user.id, 'keep_passenger_offer');
-                      setActiveTrip(updated);
-                      await hydrate(user.id);
-                    } catch (e) {
-                      setOfferError(e instanceof Error ? e.message : t('tripStatusUpdateError'));
-                    } finally {
-                      setOfferBusy(false);
-                    }
-                  })();
-                }}
-              >
-                {t('passengerKeepMyOffer')}
-              </button>
-            </div>
           </div>
         ) : null}
 
