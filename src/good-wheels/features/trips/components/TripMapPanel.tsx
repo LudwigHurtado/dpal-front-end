@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CircleMarker, MapContainer, Marker, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -15,8 +15,12 @@ type Props = {
 
 function FitBounds({ points }: { points: [number, number][] }) {
   const map = useMap();
+  const lastSignatureRef = useRef<string>('');
   useEffect(() => {
     if (points.length === 0) return;
+    const signature = JSON.stringify(points.map((p) => [Number(p[0].toFixed(5)), Number(p[1].toFixed(5))]));
+    if (lastSignatureRef.current === signature) return;
+    lastSignatureRef.current = signature;
     if (points.length === 1) {
       map.setView(points[0], 13);
       return;
@@ -29,8 +33,16 @@ function FitBounds({ points }: { points: [number, number][] }) {
 
 function PassengerFollow({ follow, driverPos }: { follow: boolean; driverPos: [number, number] | null }) {
   const map = useMap();
+  const lastPanRef = useRef<[number, number] | null>(null);
   useEffect(() => {
     if (!follow || !driverPos) return;
+    const last = lastPanRef.current;
+    if (last) {
+      const dLat = Math.abs(last[0] - driverPos[0]);
+      const dLng = Math.abs(last[1] - driverPos[1]);
+      if (dLat < 0.00015 && dLng < 0.00015) return;
+    }
+    lastPanRef.current = driverPos;
     map.panTo(driverPos, { animate: true });
   }, [follow, driverPos, map]);
   return null;
@@ -84,10 +96,12 @@ const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = 
     };
   }, [trip.id, trip.pickup.point, trip.dropoff.point, trip.pickup.addressLine, trip.dropoff.addressLine]);
 
-  const driverPos: [number, number] | null =
-    trip.driverLocation && Number.isFinite(trip.driverLocation.lat) && Number.isFinite(trip.driverLocation.lng)
-      ? [Number(trip.driverLocation.lat), Number(trip.driverLocation.lng)]
-      : null;
+  const driverPos = useMemo<[number, number] | null>(() => {
+    if (!trip.driverLocation || !Number.isFinite(trip.driverLocation.lat) || !Number.isFinite(trip.driverLocation.lng)) {
+      return null;
+    }
+    return [Number(trip.driverLocation.lat), Number(trip.driverLocation.lng)];
+  }, [trip.driverLocation?.lat, trip.driverLocation?.lng]);
 
   const center: [number, number] = pickupLL ? [pickupLL.lat, pickupLL.lng] : [40.7128, -74.006];
   const linePositions = useMemo<[number, number][]>(() => {
@@ -102,7 +116,7 @@ const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = 
     const pts: [number, number][] = [];
     if (pickupLL) pts.push([pickupLL.lat, pickupLL.lng]);
     if (!isPassengerView && dropoffLL) pts.push([dropoffLL.lat, dropoffLL.lng]);
-    if (driverPos) pts.push(driverPos);
+    if (!isPassengerView && driverPos) pts.push(driverPos);
     return pts;
   }, [pickupLL, dropoffLL, driverPos, isPassengerView]);
 
@@ -171,7 +185,7 @@ const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = 
         <MapContainer center={center} zoom={13} style={{ width: '100%', height: 240 }} zoomControl attributionControl>
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
           />
           {pickupLL ? (
             <CircleMarker
