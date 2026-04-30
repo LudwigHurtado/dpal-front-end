@@ -53,6 +53,13 @@ function PinCapture({ pinMode, onPinSelect }: { pinMode: Props['pinMode']; onPin
   return null;
 }
 
+function seededUnit(seed: string, idx: number): number {
+  const key = `${seed}-${idx}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  return ((hash >>> 0) % 1000) / 1000;
+}
+
 const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = null, onPinSelect }) => {
   const isPassengerView = variant === 'passenger';
   const title = variant === 'driver' ? 'Navigation' : variant === 'worker' ? 'Coordination map' : 'Live map';
@@ -99,6 +106,43 @@ const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = 
     return pts;
   }, [pickupLL, dropoffLL, driverPos, isPassengerView]);
 
+  const nearbyCars = useMemo<[number, number][]>(() => {
+    const base = pickupLL ?? dropoffLL;
+    if (!base) return [];
+    const cars: [number, number][] = [];
+    for (let i = 0; i < 4; i += 1) {
+      const latOffset = (seededUnit(trip.id, i * 2) - 0.5) * 0.01;
+      const lngOffset = (seededUnit(trip.id, i * 2 + 1) - 0.5) * 0.01;
+      cars.push([base.lat + latOffset, base.lng + lngOffset]);
+    }
+    return cars;
+  }, [trip.id, pickupLL, dropoffLL]);
+
+  const selectedNearbyCar = useMemo<[number, number] | null>(() => {
+    if (nearbyCars.length === 0) return null;
+    const base = pickupLL ? [pickupLL.lat, pickupLL.lng] : nearbyCars[0];
+    let best: [number, number] = nearbyCars[0];
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const car of nearbyCars) {
+      const dLat = car[0] - base[0];
+      const dLng = car[1] - base[1];
+      const score = dLat * dLat + dLng * dLng;
+      if (score < bestScore) {
+        best = car;
+        bestScore = score;
+      }
+    }
+    return best;
+  }, [nearbyCars, pickupLL]);
+
+  const selectedCarLink = useMemo<[number, number][]>(() => {
+    if (!selectedNearbyCar || !pickupLL) return [];
+    return [
+      [pickupLL.lat, pickupLL.lng],
+      selectedNearbyCar,
+    ];
+  }, [selectedNearbyCar, pickupLL]);
+
   return (
     <div className="gw-card p-5 space-y-3">
       <div className="gw-card-title">{title}</div>
@@ -111,6 +155,11 @@ const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = 
           </>
         )}
       </div>
+      {nearbyCars.length > 0 ? (
+        <div className="text-xs font-semibold text-slate-600">
+          Nearby cars detected. Signal link is shown to the active car for live passenger-driver coordination.
+        </div>
+      ) : null}
       {isPassengerView && trip.driverId ? (
         <div className="flex justify-end">
           <button type="button" className="gw-button gw-button-secondary" onClick={() => setFollowVehicle((v) => !v)}>
@@ -135,6 +184,25 @@ const TripMapPanel: React.FC<Props> = ({ trip, variant = 'passenger', pinMode = 
             <CircleMarker center={[dropoffLL.lat, dropoffLL.lng]} radius={8} pathOptions={{ color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }} />
           ) : null}
           {linePositions.length > 1 ? <Polyline positions={linePositions} pathOptions={{ color: '#1a73e8', weight: 4, opacity: 0.9 }} /> : null}
+          {selectedCarLink.length > 1 ? (
+            <>
+              <Polyline positions={selectedCarLink} pathOptions={{ color: '#06b6d4', weight: 3, opacity: 0.95, dashArray: '7 7' }} />
+              <Polyline positions={selectedCarLink} pathOptions={{ color: '#1d4ed8', weight: 1.5, opacity: 0.8, dashArray: '2 10' }} />
+            </>
+          ) : null}
+          {nearbyCars.map((car, idx) => (
+            <CircleMarker
+              key={`${trip.id}-nearby-car-${idx}`}
+              center={car}
+              radius={6}
+              pathOptions={{
+                color: '#ffffff',
+                weight: 2,
+                fillColor: selectedNearbyCar && car[0] === selectedNearbyCar[0] && car[1] === selectedNearbyCar[1] ? '#06b6d4' : '#334155',
+                fillOpacity: 1,
+              }}
+            />
+          ))}
           {driverPos ? <Marker position={driverPos} /> : null}
           <FitBounds points={fitPoints} />
           <PassengerFollow follow={isPassengerView && followVehicle} driverPos={driverPos} />
