@@ -1,10 +1,9 @@
 import type { Trip } from '../types/ride';
 
-/** Local first, with remote fallback for in-ride “shelter impact” playback. */
+/** Local in-ride “shelter impact” playback. */
 export const GOOD_WHEELS_OFFER_VIDEO_URL = '/good-wheels/passenger-offer-side.mp4';
 const DEFAULT_SHELTER_VIDEO_URLS: string[] = [
   GOOD_WHEELS_OFFER_VIDEO_URL,
-  'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
 ];
 
 const SHELTER_STORY_STATUSES = new Set<string>([
