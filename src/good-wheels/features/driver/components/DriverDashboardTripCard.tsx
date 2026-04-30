@@ -4,6 +4,7 @@ import type { Trip } from '../../trips/tripTypes';
 import TripRouteSummaryCard from '../../trips/components/TripRouteSummaryCard';
 import FareBreakdownCard from '../../trips/components/FareBreakdownCard';
 import DriverCounterOfferPanel from './DriverCounterOfferPanel';
+import DriverTripRouteMiniMap from './DriverTripRouteMiniMap';
 import { useGwLang } from '../../../i18n/useGwLang';
 import { calculateGoodWheelsFareSplit, fareBasisForTrip, formatMoneyFromCents } from '../../trips/utils/fareSplit';
 import { GW_PATHS } from '../../../routes/paths';
@@ -47,7 +48,6 @@ const DriverDashboardTripCard: React.FC<{
       ? Math.round(trip.offerState.driverCounterOfferCents)
       : 0;
   const chatHref = `${GW_PATHS.driver.active}?tripId=${encodeURIComponent(trip.id)}`;
-  const svgGradId = `tg-${trip.id.replace(/[^a-zA-Z0-9_-]/g, '') || 'x'}`;
 
   const listenSignal = () => {
     if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
@@ -76,28 +76,8 @@ const DriverDashboardTripCard: React.FC<{
       ) : null}
       <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 p-3 sm:p-4">
         {/* Full-width thumb in column layout; fixed width on sm+ row so the details column never collapses to 0 */}
-        <div
-          className="gw-driver-dash-trip-thumb shrink-0 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 overflow-hidden w-full min-h-[96px] sm:w-[120px] sm:min-w-[120px] sm:max-w-[120px]"
-          aria-hidden
-        >
-          <svg viewBox="0 0 120 96" className="h-24 w-full max-w-[120px] sm:h-[96px] sm:w-[120px]" preserveAspectRatio="xMidYMid slice">
-            <defs>
-              <linearGradient id={svgGradId} x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#e2e8f0" />
-                <stop offset="100%" stopColor="#cbd5e1" />
-              </linearGradient>
-            </defs>
-            <rect width="120" height="96" fill={`url(#${svgGradId})`} />
-            <path
-              d="M12 72 Q40 20 108 28"
-              fill="none"
-              stroke="#1a73e8"
-              strokeWidth="3"
-              strokeLinecap="round"
-            />
-            <circle cx="14" cy="70" r="5" fill="#16a34a" stroke="#fff" strokeWidth="2" />
-            <circle cx="106" cy="26" r="5" fill="#dc2626" stroke="#fff" strokeWidth="2" />
-          </svg>
+        <div className="gw-driver-dash-trip-thumb shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 w-full min-h-[96px] sm:w-[120px] sm:min-w-[120px] sm:max-w-[120px]">
+          <DriverTripRouteMiniMap trip={trip} />
         </div>
 
         <div className="min-w-0 flex-1 flex flex-col gap-2">
