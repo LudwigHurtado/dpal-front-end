@@ -105,7 +105,7 @@ export type TripEstimateFareSplit = {
   platformShareCents: number;
   adminPercent: 5;
   driverPercentOfNet: 90;
-  platformPercentOfNet: 10;
+  platformPercentOfNet: 5;
 };
 
 export type Trip = {

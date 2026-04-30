@@ -1,19 +1,25 @@
 import type { Trip } from '../tripTypes';
 
 /**
- * Good Wheels fare split: 5% admin on gross, then 90/10 on remainder to driver vs platform.
- * Driver payout is 90% of net after admin — not 90% of gross.
+ * Good Wheels fare split policy:
+ * - Driver: 90% of gross fare
+ * - Charity/community: 5% of gross fare
+ * - Admin: 5% of gross fare
+ *
+ * Optional passenger add-ons/donations are separate and do not reduce driver payout.
  */
 
 export type FareSplit = {
   totalFareCents: number;
   adminCostCents: number;
+  /** Compatibility field retained for existing UI payloads. */
   netFareCents: number;
   driverPayoutCents: number;
+  /** Compatibility field name retained; now represents charity/community share. */
   platformShareCents: number;
   adminPercent: 5;
   driverPercentOfNet: 90;
-  platformPercentOfNet: 10;
+  platformPercentOfNet: 5;
 };
 
 /** Nested shape returned by API / persisted on trip estimate */
@@ -22,7 +28,7 @@ export type FareSplitPayload = Omit<FareSplit, 'totalFareCents'>;
 const PERCENTS = {
   adminPercent: 5 as const,
   driverPercentOfNet: 90 as const,
-  platformPercentOfNet: 10 as const,
+  platformPercentOfNet: 5 as const,
 };
 
 function emptySplit(): FareSplit {
@@ -46,9 +52,9 @@ export function calculateGoodWheelsFareSplit(totalFareCents: number): FareSplit 
   }
   const total = Math.round(raw);
   const adminCostCents = Math.round(total * 0.05);
+  const driverPayoutCents = Math.round(total * 0.9);
+  const platformShareCents = total - adminCostCents - driverPayoutCents;
   const netFareCents = total - adminCostCents;
-  const driverPayoutCents = Math.round(netFareCents * 0.9);
-  const platformShareCents = netFareCents - driverPayoutCents;
   return {
     totalFareCents: total,
     adminCostCents,

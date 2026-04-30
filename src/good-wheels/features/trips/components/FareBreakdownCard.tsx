@@ -130,10 +130,6 @@ const FareBreakdownCard: React.FC<Props> = ({
             <span className="font-semibold tabular-nums">{formatMoneyFromCents(split.adminCostCents, currency)}</span>
           </div>
           <div className="flex justify-between gap-2">
-            <span>{t('netAfterAdmin')}</span>
-            <span className="font-semibold tabular-nums">{formatMoneyFromCents(split.netFareCents, currency)}</span>
-          </div>
-          <div className="flex justify-between gap-2">
             <span>{t('driverReceives90OfNet')}</span>
             <span className="font-semibold tabular-nums">{formatMoneyFromCents(split.driverPayoutCents, currency)}</span>
           </div>
