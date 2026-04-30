@@ -32,6 +32,8 @@ const DriverQueuePage: React.FC = () => {
   const tf = useGwLang((s) => s.tf);
   const user = useAuthStore((s) => s.user);
   const activeTrip = useTripStore((s) => s.activeTrip);
+  const clearTripStoreActiveTrip = useTripStore((s) => s.clearActiveTrip);
+  const clearDriverActiveTrip = useDriverStore((s) => s.clearActiveTrip);
   const hydrate = useDriverStore((s) => s.hydrate);
   const queueItems = useDriverStore((s) => s.queueItems);
   const pendingDealTrips = useDriverStore((s) => s.pendingDealTrips);
@@ -55,6 +57,15 @@ const DriverQueuePage: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [hydrate]);
 
+  useEffect(() => {
+    if (!activeTrip || !user?.id) return;
+    const belongsToDriver = activeTrip.driverId === user.id;
+    if (!belongsToDriver) {
+      clearTripStoreActiveTrip();
+      clearDriverActiveTrip();
+    }
+  }, [activeTrip, user?.id, clearTripStoreActiveTrip, clearDriverActiveTrip]);
+
   const openTrips = useMemo(
     () => queueItems.filter((trip) => ['requested', 'broadcasted', 'matched'].includes(trip.status)),
     [queueItems],
@@ -73,7 +84,12 @@ const DriverQueuePage: React.FC = () => {
     return arr;
   }, [openTrips, sortBy]);
 
-  const isOnTrip = Boolean(activeTrip && ACTIVE_TRIP_STATUSES.has(activeTrip.status));
+  const isOnTrip = Boolean(
+    activeTrip &&
+      user?.id &&
+      activeTrip.driverId === user.id &&
+      ACTIVE_TRIP_STATUSES.has(activeTrip.status),
+  );
   const completedToday = dashboardSummary?.completedToday ?? 0;
   const illustrativeDailyUsd = completedToday * 28.5;
   const todayEarningsDisplay =
@@ -130,7 +146,13 @@ const DriverQueuePage: React.FC = () => {
             <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-[#1a73e8]" aria-hidden />
           </Link>
           <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 pl-3 pr-2 py-1.5">
-            <span className={`text-xs font-bold ${isOnlineUi ? 'text-emerald-700' : 'text-slate-500'}`}>{onlineLabel}</span>
+            <span
+              className={`text-xs font-bold ${
+                isOnlineUi ? 'text-emerald-700' : availabilityStatus === 'offline' ? 'text-red-700' : 'text-slate-500'
+              }`}
+            >
+              {onlineLabel}
+            </span>
             <button
               type="button"
               role="switch"

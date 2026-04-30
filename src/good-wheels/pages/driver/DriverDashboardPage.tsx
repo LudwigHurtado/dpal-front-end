@@ -188,7 +188,13 @@ const DriverDashboardPage: React.FC = () => {
             <span className="absolute top-2 right-2.5 h-2 w-2 rounded-full bg-[#1a73e8]" aria-hidden />
           </Link>
           <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 pl-3 pr-2 py-1.5">
-            <span className={`text-xs font-bold ${isOnlineUi ? 'text-emerald-700' : 'text-slate-500'}`}>{onlineLabel}</span>
+            <span
+              className={`text-xs font-bold ${
+                isOnlineUi ? 'text-emerald-700' : availabilityStatus === 'offline' ? 'text-red-700' : 'text-slate-500'
+              }`}
+            >
+              {onlineLabel}
+            </span>
             <button
               type="button"
               role="switch"

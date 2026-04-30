@@ -144,6 +144,8 @@ type GoodWheelsTrip = {
   completedAtIso?: string;
   cancelledAtIso?: string;
   cancelReason?: string;
+  cancelledByRole?: 'driver' | 'passenger' | 'system';
+  cancelledByUserId?: string;
   offerState?: GoodWheelsTripOfferState;
 };
 
@@ -1352,6 +1354,11 @@ router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promi
 
 router.post('/trips/:tripId/cancel', async (req: Request, res: Response): Promise<void> => {
   const tripId = String(req.params.tripId || '').trim();
+  const actorRoleRaw = String(req.body?.actorRole || '').trim().toLowerCase();
+  const actorRole: GoodWheelsTrip['cancelledByRole'] =
+    actorRoleRaw === 'driver' || actorRoleRaw === 'passenger' ? actorRoleRaw : 'system';
+  const actorUserId = String(req.body?.actorUserId || '').trim() || undefined;
+  const reason = String(req.body?.reason || 'Cancelled by rider/driver');
   const trips = await seedTripsIfEmpty();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
@@ -1371,11 +1378,18 @@ router.post('/trips/:tripId/cancel', async (req: Request, res: Response): Promis
         id: mkId('evt'),
         atIso: now,
         label: 'Ride cancelled',
-        detail: String(req.body?.reason || 'Cancelled by rider/driver'),
+        detail:
+          actorRole === 'driver'
+            ? `Driver cancelled: ${reason}`
+            : actorRole === 'passenger'
+              ? `Passenger cancelled: ${reason}`
+              : reason,
       },
     ],
     cancelledAtIso: now,
-    cancelReason: String(req.body?.reason || 'Cancelled by rider/driver'),
+    cancelReason: reason,
+    cancelledByRole: actorRole,
+    cancelledByUserId: actorUserId,
   };
   trips[idx] = next;
   await writeJsonArray(TRIPS_FILE, trips);

@@ -1,7 +1,4 @@
-import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
-import { mockRideApi } from '../../services/adapters/mockAdapters';
 import type { RideRequestDraft, Trip } from './tripTypes';
-import { mapMockTripToTrip } from './tripMockMapper';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 import type { Charity, DonationConfig, DonationFundingSource, DonationRecord } from '../charity/types';
 import { calculateDonationAmount } from '../charity/utils';
@@ -13,24 +10,12 @@ import { createCharitySupportBonus, createDonationReward, createRideReward, pers
  */
 export const tripService = {
   async getActiveTrip(userId: string): Promise<Trip | null> {
-    if (GOOD_WHEELS_DEMO_MODE) {
-      const raw = await mockRideApi.getActiveTrip(userId);
-      return raw ? mapMockTripToTrip(raw) : null;
-    }
     return goodWheelsRideApi.getActiveTrip(userId);
   },
   async listHistory(userId: string): Promise<Trip[]> {
-    if (GOOD_WHEELS_DEMO_MODE) {
-      const raw = await mockRideApi.listHistory(userId);
-      return raw.map((t) => mapMockTripToTrip(t));
-    }
     return goodWheelsRideApi.listHistory(userId);
   },
   async requestTrip(draft: RideRequestDraft): Promise<Trip> {
-    if (GOOD_WHEELS_DEMO_MODE) {
-      const raw = await mockRideApi.requestRide(draft);
-      return mapMockTripToTrip(raw);
-    }
     return goodWheelsRideApi.requestRide(draft);
   },
   /**

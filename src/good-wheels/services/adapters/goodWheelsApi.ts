@@ -231,11 +231,19 @@ export const goodWheelsRideApi = {
     return mapMockTripToTrip(data.trip);
   },
 
-  async cancelTrip(tripId: string, reason?: string): Promise<Trip> {
+  async cancelTrip(
+    tripId: string,
+    reason?: string,
+    actor?: { role?: 'driver' | 'passenger'; userId?: string },
+  ): Promise<Trip> {
     const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/cancel`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({
+        reason,
+        actorRole: actor?.role,
+        actorUserId: actor?.userId,
+      }),
     });
     if (!res.ok) throw new Error(`Cancel trip failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);

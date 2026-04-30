@@ -15,7 +15,6 @@ import { DEFAULT_DRIVER_FILTER_ID } from './driverConstants';
 import { driverService } from './driverService';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 import { goodWheelsDriverApi } from '../../services/adapters/goodWheelsApi';
-import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import { useAuthStore } from '../../store/useAuthStore';
 import { mapMockTripToTrip } from '../trips/tripMockMapper';
 
@@ -101,45 +100,6 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     if (isInitial) set({ dashboardLoading: true, dashboardError: null, dashboardStale: false });
     else set({ dashboardError: null });
     try {
-      if (GOOD_WHEELS_DEMO_MODE) {
-        const [driverProfile, queueItems, vehicle, performanceSummary] = await Promise.all([
-          driverService.fetchDriverProfile(authDriverId),
-          driverService.fetchDriverQueue(authDriverId),
-          driverService.fetchVehicleInfo(authDriverId),
-          driverService.fetchPerformanceSummary(authDriverId),
-        ]);
-        const activeTrip = useTripStore.getState().activeTrip;
-        const hasActive = Boolean(activeTrip && ACTIVE_ASSIGNED.has(activeTrip.status));
-        const prevAvail = get().availabilityStatus;
-        const availabilityStatus: DriverAvailabilityStatus = hasActive
-          ? 'busy'
-          : prevAvail === 'paused'
-            ? 'paused'
-            : driverProfile.availability === 'offline'
-              ? 'offline'
-              : 'online';
-        const syncIso = new Date().toISOString();
-        set({
-          driverProfile,
-          queueItems: dedupeTripsByLatestUpdate(queueItems),
-          pendingDealTrips: [],
-          recentCompletedTrips: [],
-          dashboardSummary: {
-            availableCount: queueItems.length,
-            pendingDealCount: 0,
-            activeTripStatus: hasActive ? activeTrip?.status ?? null : null,
-            completedToday: 0,
-            completedTrips: performanceSummary.completedTrips,
-          },
-          vehicle,
-          performanceSummary,
-          availabilityStatus,
-          dashboardError: null,
-          lastDashboardSyncIso: syncIso,
-        });
-        return;
-      }
-
       const [dash, vehicle, performanceSummary] = await Promise.all([
         driverService.fetchDriverDashboard(authDriverId),
         driverService.fetchVehicleInfo(authDriverId),
@@ -214,13 +174,14 @@ export const useDriverStore = create<DriverState>((set, get) => ({
               lastDashboardSyncIso: parsed.syncedAt ?? null,
               dashboardStale: true,
             });
-            if (activeTrip) useTripStore.getState().setActiveTrip(activeTrip);
+            // Do not resurrect potentially stale active trips from cache.
           }
         }
       } catch {
         /* ignore */
       }
-      set({ dashboardError: msg, dashboardStale: stale });
+      useTripStore.getState().clearActiveTrip();
+      set({ dashboardError: msg, dashboardStale: stale, availabilityStatus: 'offline' });
     } finally {
       set({ dashboardLoading: false });
     }
@@ -272,18 +233,9 @@ export const useDriverStore = create<DriverState>((set, get) => ({
         { id: `acc-${Date.now()}`, atIso: new Date().toISOString(), label: 'Accepted by driver', detail: 'Driver is on the way.' },
       ],
     };
-    if (!GOOD_WHEELS_DEMO_MODE) {
-      next = await goodWheelsRideApi.acceptTrip(tripId, driverId);
-    } else {
-      set({
-        queueItems: queueItems.filter((t) => t.id !== tripId),
-        pendingDealTrips: pendingDealTrips.filter((t) => t.id !== tripId),
-      });
-    }
+    next = await goodWheelsRideApi.acceptTrip(tripId, driverId);
     get().bindActiveTrip(next);
-    if (!GOOD_WHEELS_DEMO_MODE) {
-      await get().hydrate();
-    }
+    await get().hydrate();
     return next;
   },
 
@@ -292,60 +244,17 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     const found = queueItems.find((t) => t.id === tripId) ?? pendingDealTrips.find((t) => t.id === tripId);
     if (!found) return null;
     const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id ?? 'usr-driver-001';
-    const now = new Date().toISOString();
     let updated: Trip;
-    if (GOOD_WHEELS_DEMO_MODE) {
-      const basePassenger =
-        found.offerState?.passengerOfferCents ??
-        (typeof found.estimate?.totalFareCents === 'number' ? found.estimate.totalFareCents : amountCents);
-      const recommended =
-        found.offerState?.recommendedFareCents ??
-        (typeof found.estimate?.totalFareCents === 'number' ? found.estimate.totalFareCents : amountCents);
-      updated = {
-        ...found,
-        negotiationDriverId: driverId,
-        updatedAtIso: now,
-        offerState: {
-          passengerOfferCents: basePassenger,
-          recommendedFareCents: recommended,
-          driverCounterOfferCents: amountCents,
-          acceptedFareCents: found.offerState?.acceptedFareCents,
-          status: 'driver_countered',
-          updatedAtIso: now,
-        },
-        driverResponseState: { driverId, status: 'countered', lastActionAtIso: now },
-        timeline: [
-          ...found.timeline,
-          {
-            id: `co-${Date.now()}`,
-            atIso: now,
-            label: 'Driver sent counteroffer',
-            detail: `Counteroffer $${(amountCents / 100).toFixed(2)}${message ? ` — ${message}` : ''}`,
-          },
-        ],
-      };
-      set({
-        queueItems: queueItems.filter((t) => t.id !== tripId),
-        pendingDealTrips: [...pendingDealTrips.filter((t) => t.id !== tripId), updated],
-      });
-    } else {
-      updated = await goodWheelsRideApi.sendTripCounteroffer(tripId, driverId, amountCents, message);
-      await get().hydrate();
-    }
+    updated = await goodWheelsRideApi.sendTripCounteroffer(tripId, driverId, amountCents, message);
+    await get().hydrate();
     return updated;
   },
 
   async declineQueueTrip(tripId) {
     const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id ?? '';
     try {
-      if (!GOOD_WHEELS_DEMO_MODE && driverId) {
-        await goodWheelsDriverApi.rejectTripForDriver(tripId, driverId);
-      } else {
-        set((s) => ({
-          queueItems: s.queueItems.filter((t) => t.id !== tripId),
-          pendingDealTrips: s.pendingDealTrips.filter((t) => t.id !== tripId),
-        }));
-      }
+      if (!driverId) throw new Error('Driver ID is required');
+      await goodWheelsDriverApi.rejectTripForDriver(tripId, driverId);
       await get().hydrate();
     } catch (e) {
       set({ dashboardError: e instanceof Error ? e.message : 'Decline failed' });
