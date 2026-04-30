@@ -84,7 +84,9 @@ export type TripOfferNegotiationStatus =
   | 'passenger_offered'
   | 'driver_countered'
   | 'accepted'
-  | 'rejected';
+  | 'rejected'
+  | 'closed'
+  | 'cancelled_by_passenger';
 
 export type TripOfferState = {
   passengerOfferCents?: number;
@@ -185,5 +187,18 @@ export type Trip = {
     lastActionAtIso: string;
   };
   acceptedAtIso?: string;
+  closedAtIso?: string;
+  expirationAtIso?: string;
+  driverLocation?: {
+    lat: number;
+    lng: number;
+    heading?: number;
+    updatedAtIso: string;
+  };
+  routeProgress?: {
+    currentLeg: 'to_pickup' | 'to_dropoff';
+    remainingDistanceKm?: number;
+    remainingEtaMinutes?: number;
+  };
 };
 

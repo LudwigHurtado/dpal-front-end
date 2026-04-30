@@ -109,6 +109,25 @@ Deployment alignment status:
 - `GET/POST {VITE_API_BASE}/api/good-wheels/chat/:threadId/messages`
 - `GET/POST {VITE_API_BASE}/api/good-wheels/broadcasts`
 
+## Negotiation persistence checklist
+
+1. Passenger creates ride with custom offer.
+2. Driver sends counteroffer.
+3. Passenger navigates away from chat/screen.
+4. Passenger returns to Good Wheels.
+5. Passenger still sees the pending counteroffer.
+6. Passenger refreshes browser.
+7. Pending counteroffer still appears.
+8. Passenger clicks Refresh.
+9. Same counteroffer appears.
+10. Passenger clicks Close negotiation.
+11. Confirmation appears.
+12. Passenger confirms close.
+13. Driver dashboard no longer waits forever.
+14. Passenger can start a new request.
+15. Passenger creates another request.
+16. Driver sees the new request as a separate deal.
+
 ## Key files
 
 - `src/good-wheels/routes/AppRouter.tsx`

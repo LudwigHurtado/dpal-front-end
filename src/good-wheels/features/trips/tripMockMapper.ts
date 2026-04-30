@@ -39,7 +39,7 @@ function asOfferState(v: unknown, updatedFallback: string): TripOfferState | und
   if (!v || typeof v !== 'object') return undefined;
   const o = v as Record<string, unknown>;
   const statusRaw = typeof o.status === 'string' ? o.status : 'none';
-  const status = (['none', 'passenger_offered', 'driver_countered', 'accepted', 'rejected'].includes(statusRaw)
+  const status = (['none', 'passenger_offered', 'driver_countered', 'accepted', 'rejected', 'closed', 'cancelled_by_passenger'].includes(statusRaw)
     ? statusRaw
     : 'none') as TripOfferNegotiationStatus;
   return {
@@ -168,7 +168,30 @@ export function mapMockTripToTrip(input: unknown): Trip {
     broadcastId: typeof o.broadcastId === 'string' ? o.broadcastId : undefined,
     completedAtIso: typeof o.completedAtIso === 'string' ? o.completedAtIso : undefined,
     cancelledAtIso: typeof o.cancelledAtIso === 'string' ? o.cancelledAtIso : undefined,
+    closedAtIso: typeof o.closedAtIso === 'string' ? o.closedAtIso : undefined,
+    expirationAtIso: typeof o.expirationAtIso === 'string' ? o.expirationAtIso : undefined,
     cancelReason: typeof o.cancelReason === 'string' ? o.cancelReason : undefined,
+    driverLocation:
+      o.driverLocation && typeof o.driverLocation === 'object' && Number.isFinite(o.driverLocation.lat) && Number.isFinite(o.driverLocation.lng)
+        ? {
+            lat: Number(o.driverLocation.lat),
+            lng: Number(o.driverLocation.lng),
+            heading: Number.isFinite(o.driverLocation.heading) ? Number(o.driverLocation.heading) : undefined,
+            updatedAtIso: asIso(o.driverLocation.updatedAtIso, updatedAtIso),
+          }
+        : undefined,
+    routeProgress:
+      o.routeProgress && typeof o.routeProgress === 'object' && (o.routeProgress.currentLeg === 'to_pickup' || o.routeProgress.currentLeg === 'to_dropoff')
+        ? {
+            currentLeg: o.routeProgress.currentLeg,
+            remainingDistanceKm: Number.isFinite(o.routeProgress.remainingDistanceKm)
+              ? Number(o.routeProgress.remainingDistanceKm)
+              : undefined,
+            remainingEtaMinutes: Number.isFinite(o.routeProgress.remainingEtaMinutes)
+              ? Number(o.routeProgress.remainingEtaMinutes)
+              : undefined,
+          }
+        : undefined,
     createdAtIso,
     updatedAtIso,
     estimate: estimateBlock,

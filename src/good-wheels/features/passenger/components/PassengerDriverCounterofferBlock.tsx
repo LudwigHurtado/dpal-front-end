@@ -7,6 +7,7 @@ import { useGwLang } from '../../../i18n/useGwLang';
 import { GW_PATHS } from '../../../routes/paths';
 import { formatMoneyFromCents } from '../../trips/utils/fareSplit';
 import { goodWheelsRideApi } from '../../../services/adapters/goodWheelsApi';
+import { GOOD_WHEELS_OFFER_VIDEO_URL } from '../../../data/shelterStoryVideos';
 
 export function passengerHasPendingDriverCounter(trip: Trip | null | undefined): boolean {
   if (!trip?.offerState) return false;
@@ -89,6 +90,22 @@ const PassengerDriverCounterofferBlock: React.FC<{
     }
   };
 
+  const closeNegotiation = async () => {
+    if (!user?.id) return;
+    if (!window.confirm(t('closeNegotiationConfirm'))) return;
+    setOfferBusy(true);
+    setOfferError(null);
+    try {
+      const updated = await goodWheelsRideApi.closeTripOffer(trip.id, user.id, t('closeNegotiationReason'));
+      setActiveTrip(updated);
+      await hydrate(user.id);
+    } catch (e) {
+      setOfferError(e instanceof Error ? e.message : t('tripStatusUpdateError'));
+    } finally {
+      setOfferBusy(false);
+    }
+  };
+
   return (
     <div className={wrap} data-gw-passenger-counteroffer>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -135,6 +152,17 @@ const PassengerDriverCounterofferBlock: React.FC<{
         </div>
       )}
 
+      <div className="rounded-lg border border-amber-300/90 bg-white/90 p-2">
+        <div className="text-[11px] font-bold text-slate-600 uppercase mb-1">Offer video</div>
+        <video
+          className="w-full max-h-44 rounded-md bg-black object-contain"
+          src={GOOD_WHEELS_OFFER_VIDEO_URL}
+          controls
+          playsInline
+          preload="metadata"
+        />
+      </div>
+
       {offerError ? <div className="text-xs font-semibold text-red-700">{offerError}</div> : null}
 
       <div className={`flex flex-wrap gap-2 ${isHero ? 'pt-1' : ''}`}>
@@ -153,6 +181,14 @@ const PassengerDriverCounterofferBlock: React.FC<{
           onClick={() => void respond('keep_passenger_offer')}
         >
           {t('passengerKeepMyOffer')}
+        </button>
+        <button
+          type="button"
+          disabled={offerBusy || !user?.id}
+          className={`gw-button gw-button-secondary ${isHero ? 'text-sm px-5 py-2.5' : 'text-sm'} disabled:opacity-50`}
+          onClick={() => void closeNegotiation()}
+        >
+          {t('closeNegotiation')}
         </button>
       </div>
     </div>

@@ -55,6 +55,7 @@ type GoodWheelsUser = {
   familySafeMode?: boolean;
   organization?: string;
   queueIds?: string[];
+  lastKnownLocation?: { lat: number; lng: number; heading?: number; updatedAtIso: string };
 };
 
 type GoodWheelsTripOfferState = {
@@ -62,7 +63,7 @@ type GoodWheelsTripOfferState = {
   recommendedFareCents?: number;
   driverCounterOfferCents?: number;
   acceptedFareCents?: number;
-  status: 'none' | 'passenger_offered' | 'driver_countered' | 'accepted' | 'rejected';
+  status: 'none' | 'passenger_offered' | 'driver_countered' | 'accepted' | 'rejected' | 'closed' | 'cancelled_by_passenger';
   updatedAtIso: string;
 };
 
@@ -82,6 +83,19 @@ type GoodWheelsTrip = {
   rejectedDriverIds?: string[];
   driverResponseState?: GoodWheelsDriverResponseState;
   acceptedAtIso?: string;
+  closedAtIso?: string;
+  expirationAtIso?: string;
+  driverLocation?: {
+    lat: number;
+    lng: number;
+    heading?: number;
+    updatedAtIso: string;
+  };
+  routeProgress?: {
+    currentLeg: 'to_pickup' | 'to_dropoff';
+    remainingDistanceKm?: number;
+    remainingEtaMinutes?: number;
+  };
   pickupCategory?: string;
   dropoffCategory?: string;
   driverSnapshot?: {
@@ -132,6 +146,11 @@ type GoodWheelsTrip = {
   cancelReason?: string;
   offerState?: GoodWheelsTripOfferState;
 };
+
+function legForStatus(status: string): 'to_pickup' | 'to_dropoff' {
+  if (status === 'passenger_onboard' || status === 'in_progress' || status === 'support_in_progress') return 'to_dropoff';
+  return 'to_pickup';
+}
 
 const router = Router();
 
@@ -874,6 +893,15 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
     },
     status: 'accepted',
     updatedAtIso: now,
+    driverLocation: driver.lastKnownLocation
+      ? {
+          lat: driver.lastKnownLocation.lat,
+          lng: driver.lastKnownLocation.lng,
+          heading: driver.lastKnownLocation.heading,
+          updatedAtIso: driver.lastKnownLocation.updatedAtIso,
+        }
+      : prev.driverLocation,
+    routeProgress: { currentLeg: 'to_pickup' },
     chatThreadId: prev.chatThreadId || `good-wheels-trip-${prev.id}`,
     timeline: [
       ...prev.timeline,
@@ -1068,6 +1096,72 @@ router.post('/trips/:tripId/passenger-offer-response', async (req: Request, res:
   res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
+router.post('/trips/:tripId/offer/close', async (req: Request, res: Response): Promise<void> => {
+  const tripId = String(req.params.tripId || '').trim();
+  const passengerId = String(req.body?.passengerId || '').trim();
+  const reason = String(req.body?.reason || 'Passenger closed negotiation').trim();
+  if (!tripId || !passengerId) {
+    res.status(400).json({ ok: false, error: 'tripId and passengerId are required' });
+    return;
+  }
+  const trips = await seedTripsIfEmpty();
+  const idx = trips.findIndex((t) => t.id === tripId);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'Trip not found' });
+    return;
+  }
+  const prev = trips[idx];
+  if (prev.passengerId !== passengerId) {
+    res.status(403).json({ ok: false, error: 'Not authorized for this trip' });
+    return;
+  }
+  if (['completed', 'cancelled', 'canceled'].includes(prev.status)) {
+    res.status(400).json({ ok: false, error: 'Trip already closed' });
+    return;
+  }
+  const now = new Date().toISOString();
+  const next: GoodWheelsTrip = {
+    ...prev,
+    status: 'cancelled',
+    updatedAtIso: now,
+    closedAtIso: now,
+    cancelledAtIso: now,
+    cancelReason: reason,
+    negotiationDriverId: undefined,
+    driverResponseState: undefined,
+    offerState: prev.offerState
+      ? {
+          ...prev.offerState,
+          status: 'cancelled_by_passenger',
+          updatedAtIso: now,
+        }
+      : {
+          status: 'cancelled_by_passenger',
+          updatedAtIso: now,
+        },
+    timeline: [
+      ...prev.timeline,
+      {
+        id: mkId('evt'),
+        atIso: now,
+        label: 'Passenger closed negotiation',
+        detail: reason,
+      },
+    ],
+  };
+  trips[idx] = next;
+  await writeJsonArray(TRIPS_FILE, trips);
+  if (next.broadcastId) {
+    const broadcasts = await readJsonArray<GoodWheelsBroadcast>(BROADCASTS_FILE);
+    const bi = broadcasts.findIndex((b) => b.id === next.broadcastId);
+    if (bi >= 0) {
+      broadcasts[bi] = { ...broadcasts[bi], status: 'closed' };
+      await writeJsonArray(BROADCASTS_FILE, broadcasts);
+    }
+  }
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
+});
+
 router.post('/trips/:tripId/reject-driver', async (req: Request, res: Response): Promise<void> => {
   const tripId = String(req.params.tripId || '').trim();
   const driverId = String(req.body?.driverId || '').trim();
@@ -1127,6 +1221,64 @@ router.post('/trips/:tripId/reject-driver', async (req: Request, res: Response):
   res.json({ ok: true, trip: enrichTripEstimate(next) });
 });
 
+router.patch('/trips/:tripId/driver-location', async (req: Request, res: Response): Promise<void> => {
+  const tripId = String(req.params.tripId || '').trim();
+  const driverId = String(req.body?.driverId || '').trim();
+  const lat = Number(req.body?.lat);
+  const lng = Number(req.body?.lng);
+  const headingRaw = req.body?.heading;
+  const heading = typeof headingRaw === 'number' && Number.isFinite(headingRaw) ? Number(headingRaw) : undefined;
+  if (!tripId || !driverId || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    res.status(400).json({ ok: false, error: 'tripId, driverId, lat and lng are required' });
+    return;
+  }
+  const trips = await seedTripsIfEmpty();
+  const idx = trips.findIndex((t) => t.id === tripId);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'Trip not found' });
+    return;
+  }
+  const prev = trips[idx];
+  if (prev.driverId !== driverId) {
+    res.status(403).json({ ok: false, error: 'Driver not assigned to this trip' });
+    return;
+  }
+  const allowed = new Set(['accepted', 'driver_en_route', 'driver_arriving', 'driver_arrived', 'arrived', 'passenger_onboard', 'in_progress', 'support_in_progress']);
+  if (!allowed.has(prev.status)) {
+    res.status(400).json({ ok: false, error: 'Trip status does not allow location updates' });
+    return;
+  }
+  const now = new Date().toISOString();
+  const next: GoodWheelsTrip = {
+    ...prev,
+    updatedAtIso: now,
+    driverLocation: {
+      lat,
+      lng,
+      heading,
+      updatedAtIso: now,
+    },
+    routeProgress: {
+      ...(prev.routeProgress ?? {}),
+      currentLeg: legForStatus(prev.status),
+    },
+  };
+  trips[idx] = next;
+  await writeJsonArray(TRIPS_FILE, trips);
+
+  const users = await seedUsersIfEmpty();
+  const ui = users.findIndex((u) => u.id === driverId && u.role === 'driver');
+  if (ui >= 0) {
+    users[ui] = {
+      ...users[ui],
+      lastKnownLocation: { lat, lng, heading, updatedAtIso: now },
+    };
+    await writeJsonArray(USERS_FILE, users);
+  }
+
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
+});
+
 router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promise<void> => {
   const tripId = String(req.params.tripId || '').trim();
   const status = normalizeTerminalStatus(asTripStatus(req.body?.status));
@@ -1159,6 +1311,12 @@ router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promi
       },
     ],
   };
+  if (['accepted', 'driver_en_route', 'driver_arriving', 'driver_arrived', 'arrived', 'passenger_onboard', 'in_progress', 'support_in_progress'].includes(status)) {
+    next.routeProgress = {
+      ...(prev.routeProgress ?? {}),
+      currentLeg: legForStatus(status),
+    };
+  }
   if (status === 'completed') {
     next.completedAtIso = now;
     next.cancelledAtIso = undefined;
@@ -1168,6 +1326,14 @@ router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promi
     next.cancelledAtIso = now;
     next.cancelReason = timelineDetail || 'Cancelled';
     next.completedAtIso = undefined;
+    next.negotiationDriverId = undefined;
+    if (next.offerState) {
+      next.offerState = {
+        ...next.offerState,
+        status: 'cancelled_by_passenger',
+        updatedAtIso: now,
+      };
+    }
   }
   trips[idx] = next;
   await writeJsonArray(TRIPS_FILE, trips);

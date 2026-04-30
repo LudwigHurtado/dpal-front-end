@@ -13,6 +13,7 @@ import { getShelterStoryPayload, isShelterStoryStatus } from '../../../data/shel
 import { formatMoneyFromCents } from '../../trips/utils/fareSplit';
 import { TERMINAL_STATUSES } from '../../trips/tripConstants';
 import PassengerDriverCounterofferBlock, { passengerHasPendingDriverCounter } from './PassengerDriverCounterofferBlock';
+import { goodWheelsRideApi } from '../../../services/adapters/goodWheelsApi';
 
 const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const navigate = useNavigate();
@@ -20,6 +21,21 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const tf = useGwLang((s) => s.tf);
   const user = useAuthStore((s) => s.user);
   const hydrate = useTripStore((s) => s.hydrate);
+  const setActiveTrip = useTripStore((s) => s.setActiveTrip);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [lastSyncAtIso, setLastSyncAtIso] = useState<string | null>(null);
+  const [closingBusy, setClosingBusy] = useState(false);
+
+  const syncTrip = async () => {
+    if (!user?.id) return;
+    setSyncBusy(true);
+    try {
+      await hydrate(user.id);
+      setLastSyncAtIso(new Date().toISOString());
+    } finally {
+      setSyncBusy(false);
+    }
+  };
 
   const storyPayload = useMemo(() => getShelterStoryPayload(trip), [trip]);
   const ridePhaseOk = isShelterStoryStatus(trip.status) && !TERMINAL_STATUSES.has(trip.status);
@@ -27,11 +43,24 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
 
   useEffect(() => {
     if (!user?.id) return;
-    const tick = () => void hydrate(user.id);
+    const tick = () => void syncTrip();
     void tick();
     const id = window.setInterval(tick, 5000);
     return () => window.clearInterval(id);
-  }, [hydrate, user?.id]);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const onFocus = () => void syncTrip();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void syncTrip();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     setShelterStoryOpen(true);
@@ -49,6 +78,27 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
         : undefined;
 
   const showShelterOverlay = ridePhaseOk && storyPayload.urls.length > 0 && shelterStoryOpen;
+  const hasDriverLocation = Boolean(
+    trip.driverLocation && Number.isFinite(trip.driverLocation.lat) && Number.isFinite(trip.driverLocation.lng),
+  );
+  const trackingText =
+    trip.status === 'accepted'
+      ? hasDriverLocation
+        ? t('driverAcceptedTrackingToPickup')
+        : t('driverAcceptedWaitingForDriverLocation')
+      : trip.status === 'driver_en_route' || trip.status === 'driver_arriving'
+        ? t('driverOnTheWay')
+        : trip.status === 'driver_arrived' || trip.status === 'arrived'
+          ? t('driverHasArrived')
+          : trip.status === 'passenger_onboard'
+            ? t('passengerOnboard')
+            : trip.status === 'in_progress' || trip.status === 'support_in_progress'
+              ? t('rideInProgress')
+              : trip.status === 'completed'
+                ? t('rideCompletedLabel')
+                : trip.status === 'cancelled' || trip.status === 'canceled'
+                  ? t('rideCancelledLabel')
+                  : t('driverAcceptedYourRide');
 
   return (
     <div className="space-y-4 relative">
@@ -89,6 +139,14 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           <span className="font-bold text-emerald-800">{t('pickupLabel')}:</span> {trip.pickup.addressLine}
           <span className="mx-2 text-slate-400">→</span>
           <span className="font-bold text-red-800">{t('dropoff')}:</span> {trip.dropoff.addressLine}
+        </div>
+        <div className="rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2 text-sm font-semibold text-sky-950">
+          {trackingText}
+          {hasDriverLocation ? (
+            <span className="block text-xs text-sky-800 mt-1">
+              {t('lastUpdated')}: {new Date(trip.driverLocation!.updatedAtIso).toLocaleTimeString()}
+            </span>
+          ) : null}
         </div>
         {grossCents != null ? (
           <div
@@ -133,10 +191,40 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           )}
         </div>
         <p className="text-xs font-semibold text-slate-600">{t('rideNotActiveUntilAccepted')}</p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <button type="button" className="gw-button gw-button-secondary" onClick={() => void syncTrip()} disabled={syncBusy}>
+            {syncBusy ? `${t('refreshRide')}...` : t('refreshRide')}
+          </button>
           <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.dashboard)}>
             {t('dashboard')}
           </button>
+          {['requested', 'broadcasted', 'matched', 'accepted', 'driver_en_route', 'driver_arrived', 'arrived'].includes(trip.status) ? (
+            <button
+              type="button"
+              className="gw-button gw-button-secondary"
+              disabled={closingBusy}
+              onClick={() => {
+                if (!user?.id) return;
+                if (!window.confirm(t('closeNegotiationConfirm'))) return;
+                setClosingBusy(true);
+                void (async () => {
+                  try {
+                    const updated = await goodWheelsRideApi.closeTripOffer(trip.id, user.id, t('closeNegotiationReason'));
+                    setActiveTrip(updated);
+                  } finally {
+                    setClosingBusy(false);
+                  }
+                })();
+              }}
+            >
+              {closingBusy ? `${t('closeNegotiation')}...` : t('closeNegotiation')}
+            </button>
+          ) : null}
+          {lastSyncAtIso ? (
+            <span className="text-[11px] font-semibold text-slate-500">
+              {new Date(lastSyncAtIso).toLocaleTimeString()}
+            </span>
+          ) : null}
         </div>
       </div>
 

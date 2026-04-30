@@ -16,6 +16,7 @@ const TripMapPanel: React.FC<{
   const directionsRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const clickListenerRef = useRef<google.maps.MapsEventListener | null>(null);
   const driverMarkerRef = useRef<google.maps.Marker | null>(null);
+  const arrivalMarkerRef = useRef<google.maps.Marker | null>(null);
   const nearbyCarsRef = useRef<google.maps.Marker[]>([]);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
@@ -136,6 +137,28 @@ const TripMapPanel: React.FC<{
         })
       );
     }
+    if (arrivalMarkerRef.current) {
+      arrivalMarkerRef.current.setMap(null);
+      arrivalMarkerRef.current = null;
+    }
+    const atPickup = trip.status === 'driver_arrived' || trip.status === 'arrived';
+    if (atPickup && pickupLL) {
+      arrivalMarkerRef.current = new g.maps.Marker({
+        map,
+        position: pickupLL,
+        label: { text: '●', color: '#ffffff', fontWeight: '900' },
+        icon: {
+          path: g.maps.SymbolPath.CIRCLE,
+          scale: 5,
+          fillColor: '#0ea5e9',
+          fillOpacity: 0.95,
+          strokeColor: '#075985',
+          strokeWeight: 2,
+        },
+        zIndex: 20,
+        title: 'Driver arrived',
+      });
+    }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (map as any).__gwMarkers = markers;
 
@@ -150,11 +173,25 @@ const TripMapPanel: React.FC<{
       return;
     }
 
+    const shouldTrackDriver = Boolean(
+      trip.driverId &&
+        ['accepted', 'driver_en_route', 'driver_arriving', 'driver_arrived', 'arrived', 'passenger_onboard', 'in_progress', 'support_in_progress'].includes(
+          trip.status,
+        ),
+    );
+    const driverLoc =
+      trip.driverLocation && Number.isFinite(trip.driverLocation.lat) && Number.isFinite(trip.driverLocation.lng)
+        ? { lat: Number(trip.driverLocation.lat), lng: Number(trip.driverLocation.lng) }
+        : null;
+    const currentLeg = trip.routeProgress?.currentLeg ?? (trip.status === 'passenger_onboard' || trip.status === 'in_progress' ? 'to_dropoff' : 'to_pickup');
+
     const svc = new g.maps.DirectionsService();
+    const origin = shouldTrackDriver && driverLoc ? driverLoc : pickupLL;
+    const destination = shouldTrackDriver && driverLoc ? (currentLeg === 'to_pickup' ? pickupLL : dropoffLL) : dropoffLL;
     svc.route(
       {
-        origin: pickupLL,
-        destination: dropoffLL,
+        origin,
+        destination,
         travelMode: g.maps.TravelMode.DRIVING,
       },
       (result, status) => {
@@ -169,7 +206,7 @@ const TripMapPanel: React.FC<{
         dr.setDirections({ routes: [] } as unknown as google.maps.DirectionsResult);
       }
     );
-  }, [ready, g, center, pickupLL, dropoffLL, trip.status, variant]);
+  }, [ready, g, center, pickupLL, dropoffLL, trip.status, trip.driverId, trip.driverLocation, trip.routeProgress, variant]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -194,29 +231,13 @@ const TripMapPanel: React.FC<{
     const shouldTrack = Boolean(trip.driverId && driverVisibleAfterAccept.has(trip.status));
     if (!shouldTrack) return;
 
-    const enRouteToPickup =
-      trip.status === 'accepted' || trip.status === 'driver_en_route' || trip.status === 'driver_arriving';
-    const atPickup = trip.status === 'driver_arrived' || trip.status === 'arrived';
-    const onRide =
-      trip.status === 'passenger_onboard' || trip.status === 'in_progress' || trip.status === 'support_in_progress';
-
-    let pos: LatLng;
-    if (enRouteToPickup) {
-      const approachStart = { lat: pickupLL.lat - 0.008, lng: pickupLL.lng - 0.01 };
-      pos = {
-        lat: approachStart.lat + (pickupLL.lat - approachStart.lat) * 0.22,
-        lng: approachStart.lng + (pickupLL.lng - approachStart.lng) * 0.22,
-      };
-    } else if (atPickup) {
-      pos = { ...pickupLL };
-    } else if (onRide) {
-      pos = {
-        lat: pickupLL.lat + (dropoffLL.lat - pickupLL.lat) * 0.45,
-        lng: pickupLL.lng + (dropoffLL.lng - pickupLL.lng) * 0.45,
-      };
-    } else {
-      pos = { ...pickupLL };
-    }
+    const hasDriverLocation =
+      trip.driverLocation && Number.isFinite(trip.driverLocation.lat) && Number.isFinite(trip.driverLocation.lng);
+    if (!hasDriverLocation) return;
+    const pos: LatLng = {
+      lat: Number(trip.driverLocation!.lat),
+      lng: Number(trip.driverLocation!.lng),
+    };
 
     const marker = new g.maps.Marker({
       map,
@@ -224,15 +245,15 @@ const TripMapPanel: React.FC<{
       icon: {
         path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
         scale: 5,
-        fillColor: '#CA8A04',
+        fillColor: '#2563eb',
         fillOpacity: 1,
-        strokeColor: '#422006',
+        strokeColor: '#1e3a8a',
         strokeWeight: 1,
       },
       title: 'Driver',
     });
     driverMarkerRef.current = marker;
-  }, [ready, g, pickupLL, dropoffLL, trip.status, trip.driverId]);
+  }, [ready, g, pickupLL, dropoffLL, trip.status, trip.driverId, trip.driverLocation]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -287,7 +308,8 @@ const TripMapPanel: React.FC<{
         <div className="text-xs font-bold text-slate-600">
           Marker legend: <span style={{ color: '#22c55e' }}>Green = Pickup</span> ·{' '}
           <span style={{ color: '#ef4444' }}>Red = Drop-off</span> ·{' '}
-          <span style={{ color: '#d97706' }}>Yellow = Route</span> (Maps Directions API)
+          <span style={{ color: '#d97706' }}>Yellow = Route</span> · <span style={{ color: '#0369a1' }}>Blue = Driver</span>{' '}
+          (Maps Directions API)
         </div>
       )}
       {directionsError && (

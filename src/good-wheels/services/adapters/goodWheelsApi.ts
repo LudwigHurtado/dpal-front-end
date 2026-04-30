@@ -150,6 +150,31 @@ export const goodWheelsRideApi = {
     return mapMockTripToTrip(data.trip);
   },
 
+  async closeTripOffer(tripId: string, passengerId: string, reason?: string): Promise<Trip> {
+    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/offer/close`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passengerId, reason }),
+    });
+    if (!res.ok) throw new Error(`Close negotiation failed (${res.status})`);
+    const data = await parseJson<{ trip: unknown }>(res);
+    return mapMockTripToTrip(data.trip);
+  },
+
+  async updateDriverLocation(
+    tripId: string,
+    input: { driverId: string; lat: number; lng: number; heading?: number },
+  ): Promise<Trip> {
+    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/driver-location`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`Driver location update failed (${res.status})`);
+    const data = await parseJson<{ trip: unknown }>(res);
+    return mapMockTripToTrip(data.trip);
+  },
+
   async updateTripStatus(tripId: string, status: Trip['status'], timelineLabel?: string, timelineDetail?: string): Promise<Trip> {
     const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/status`), {
       method: 'PATCH',
