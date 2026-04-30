@@ -1,4 +1,6 @@
 :root {
+  /** Matches `.gw-appbar-inner` vertical rhythm so full-bleed pages (e.g. passenger map) fit under the sticky bar. */
+  --gw-appbar-height: 56px;
   --gw-bg: #F5F7FA;
   --gw-surface: #ffffff;
   --gw-surface-2: #f1f5f9;
@@ -28,13 +30,101 @@
   background: linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(14, 165, 233, 0.08)), rgba(15, 23, 42, 0.92);
 }
 .gw-theme-driver {
-  --gw-accent: var(--gw-driver-accent);
+  --gw-accent: #1a73e8;
+  --gw-driver-accent: #1a73e8;
 }
 .gw-theme-driver .gw-appbar {
-  background: linear-gradient(90deg, rgba(202, 138, 4, 0.18), rgba(15, 23, 42, 0.92)), rgba(15, 23, 42, 0.95);
+  background: linear-gradient(90deg, rgba(26, 115, 232, 0.2), rgba(15, 23, 42, 0.94)), rgba(15, 23, 42, 0.96);
 }
 .gw-theme-driver .gw-driver-surface {
-  border-color: rgba(202, 138, 4, 0.35);
+  border-color: rgba(26, 115, 232, 0.28);
+}
+
+/* Driver shell — sidebar brand + dashboard reference surfaces */
+.gw-driver-sidenav-brand {
+  border-radius: var(--gw-radius-xl);
+  padding: 16px 14px;
+  background: linear-gradient(155deg, #1a73e8 0%, #1557b0 42%, #0d47a1 100%);
+  color: #fff;
+  box-shadow: 0 14px 36px rgba(26, 115, 232, 0.35);
+}
+.gw-driver-sidenav-logo {
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  font-size: 13px;
+}
+.gw-driver-sidenav-tagline {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+.gw-driver-sidenav-promo {
+  border-radius: var(--gw-radius-xl);
+  border: 1px solid rgba(26, 115, 232, 0.18);
+  background: linear-gradient(180deg, rgba(26, 115, 232, 0.07), rgba(255, 255, 255, 0.92));
+  padding: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.45;
+}
+.gw-driver-sidenav-promo span {
+  display: block;
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #1557b0;
+}
+.gw-driver-sidenav-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 2px 0;
+}
+.gw-driver-sidenav-footer a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--gw-muted);
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+.gw-driver-sidenav-footer a:hover {
+  background: rgba(15, 23, 42, 0.04);
+  color: var(--gw-text);
+}
+
+.gw-driver-dashboard {
+  max-width: 920px;
+}
+.gw-driver-dash-btn-primary {
+  background: linear-gradient(180deg, #1a73e8, #1557b0);
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.gw-driver-dash-btn-primary:hover:not(:disabled) {
+  opacity: 0.94;
+}
+.gw-driver-dash-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.gw-driver-dash-btn-outline {
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.gw-driver-dash-btn-outline:hover:not(:disabled) {
+  background: rgba(26, 115, 232, 0.06);
+}
+.gw-theme-driver .gw-sidenav-link.active {
+  color: #1557b0;
+  border-color: rgba(26, 115, 232, 0.22);
+  background: rgba(26, 115, 232, 0.09);
 }
 .gw-theme-worker {
   --gw-accent: var(--gw-worker-accent);
@@ -119,6 +209,10 @@
 
 .gw-appshell { display: grid; grid-template-columns: 280px 1fr; gap: 18px; padding: 18px 0 56px; }
 @media (max-width: 960px) { .gw-appshell { grid-template-columns: 1fr; } }
+/* Passenger mobile: no bottom tab bar — avoid a tall empty strip under `gw-content`. */
+@media (max-width: 859px) {
+  .gw-theme-passenger .gw-appshell { padding-bottom: 18px; }
+}
 .gw-sidenav { position: sticky; top: 76px; align-self: start; display: flex; flex-direction: column; gap: 12px; }
 @media (max-width: 960px) { .gw-sidenav { position: static; } }
 .gw-sidenav-card { border: 1px solid var(--gw-border); background: rgba(255,255,255,0.78); border-radius: var(--gw-radius-xl); padding: 14px; box-shadow: var(--gw-shadow); }

@@ -102,11 +102,29 @@ const AppLayout: React.FC = () => {
   const themeClass =
     role === 'driver' ? 'gw-theme-driver' : role === 'worker' ? 'gw-theme-worker' : role === 'passenger' ? 'gw-theme-passenger' : 'gw-theme-guest';
 
-  /** Passenger map ride home is full-viewport; bottom tabs duplicate in-sheet controls and steal vertical space — see `PassengerRideHomePage` ride menu. */
-  const hideMobileBottomNav =
-    role === 'passenger' && location.pathname === GW_PATHS.passenger.dashboard;
+  /** Passengers use the same sidenav destinations as desktop; bottom tab bars duplicate that and waste vertical space on phones. */
+  const hideMobileBottomNav = role === 'passenger' && effectiveIsMobile;
   const showMobileBottomNav = effectiveIsMobile && mobileTabs.length > 0 && !hideMobileBottomNav;
   const mobileContentPaddingBottom = effectiveIsMobile && showMobileBottomNav ? 84 : undefined;
+
+  const [passengerMenuOpen, setPassengerMenuOpen] = useState(false);
+  const [driverMenuOpen, setDriverMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!passengerMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setPassengerMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [passengerMenuOpen]);
+  useEffect(() => {
+    if (!driverMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDriverMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [driverMenuOpen]);
 
   return (
     <div className={`${previewing ? 'gw-root min-h-screen gw-previewing gw-force-mobile' : 'gw-root min-h-screen'} ${themeClass}`}>
@@ -123,6 +141,20 @@ const AppLayout: React.FC = () => {
       >
       <header className="gw-appbar">
         <div className="gw-container gw-appbar-inner">
+          {effectiveIsMobile && role === 'passenger' && (
+            <button
+              type="button"
+              className="gw-button gw-button-ghost"
+              aria-label={t('menu')}
+              aria-expanded={passengerMenuOpen}
+              onClick={() => setPassengerMenuOpen((o) => !o)}
+              style={{ padding: '8px 12px', minWidth: 44 }}
+            >
+              <span style={{ display: 'block', fontSize: 18, lineHeight: 1 }} aria-hidden>
+                ☰
+              </span>
+            </button>
+          )}
           <button type="button" className="gw-button gw-button-ghost" onClick={() => navigate(GW_PATHS.public.home)}>
             {t('appName')}
           </button>
@@ -167,10 +199,17 @@ const AppLayout: React.FC = () => {
       <div className="gw-container gw-appshell">
         {!effectiveIsMobile && (
         <aside className="gw-sidenav">
-          <div className="gw-sidenav-card">
-            <div className="gw-sidenav-title">{user?.fullName ?? '—'}</div>
-            <div className="gw-sidenav-sub">{t('role')}: {role ? t(`roleName_${role}` as any) : '—'}</div>
-          </div>
+          {role === 'driver' ? (
+            <div className="gw-driver-sidenav-brand" aria-hidden={false}>
+              <div className="gw-driver-sidenav-logo">GOOD WHEELS</div>
+              <div className="gw-driver-sidenav-tagline">{t('driverAppTitle')}</div>
+            </div>
+          ) : (
+            <div className="gw-sidenav-card">
+              <div className="gw-sidenav-title">{user?.fullName ?? '—'}</div>
+              <div className="gw-sidenav-sub">{t('role')}: {role ? t(`roleName_${role}` as any) : '—'}</div>
+            </div>
+          )}
 
           {role === 'passenger' && (
             <nav className="gw-sidenav-links">
@@ -184,14 +223,40 @@ const AppLayout: React.FC = () => {
           )}
 
           {role === 'driver' && (
-            <nav className="gw-sidenav-links">
-              <NavLink to={GW_PATHS.driver.dashboard} className="gw-sidenav-link">{t('dashboard')}</NavLink>
-              <NavLink to={GW_PATHS.driver.queue} className="gw-sidenav-link">{t('queue')}</NavLink>
-              <NavLink to={GW_PATHS.driver.active} className="gw-sidenav-link">{t('activeTrip')}</NavLink>
-              <NavLink to={GW_PATHS.driver.earnings} className="gw-sidenav-link">{t('earnings')}</NavLink>
-              <NavLink to={GW_PATHS.driver.vehicle} className="gw-sidenav-link">{t('vehicle')}</NavLink>
-              <NavLink to={GW_PATHS.driver.history} className="gw-sidenav-link">{t('history')}</NavLink>
-            </nav>
+            <>
+              <nav className="gw-sidenav-links">
+                <NavLink to={GW_PATHS.driver.dashboard} className="gw-sidenav-link">
+                  {t('dashboard')}
+                </NavLink>
+                <NavLink to={GW_PATHS.driver.queue} className="gw-sidenav-link">
+                  {t('queue')}
+                </NavLink>
+                <NavLink to={GW_PATHS.driver.active} className="gw-sidenav-link">
+                  {t('activeTrip')}
+                </NavLink>
+                <NavLink to={GW_PATHS.driver.earnings} className="gw-sidenav-link">
+                  {t('earnings')}
+                </NavLink>
+                <NavLink to={GW_PATHS.driver.vehicle} className="gw-sidenav-link">
+                  {t('vehicle')}
+                </NavLink>
+                <NavLink to={GW_PATHS.driver.history} className="gw-sidenav-link">
+                  {t('history')}
+                </NavLink>
+              </nav>
+              <div className="gw-driver-sidenav-promo">
+                <span>{t('driverNavPromoTitle')}</span>
+                {t('driverNavPromoBody')}
+              </div>
+              <div className="gw-driver-sidenav-footer">
+                <NavLink to={GW_PATHS.public.help}>
+                  {t('support')} <span aria-hidden>›</span>
+                </NavLink>
+                <NavLink to={GW_PATHS.shared.settings}>
+                  {t('settings')} <span aria-hidden>›</span>
+                </NavLink>
+              </div>
+            </>
           )}
 
           {role === 'worker' && (
@@ -217,20 +282,183 @@ const AppLayout: React.FC = () => {
           aria-label="Bottom navigation"
         >
           <div className="gw-bottomnav-inner">
-            {mobileTabs.map((t) => {
-              const active = location.pathname === t.to;
+            {mobileTabs.map((tab) => {
+              const active = location.pathname === tab.to;
               return (
                 <NavLink
-                  key={t.to}
-                  to={t.to}
+                  key={tab.to}
+                  to={tab.to}
                   className={active ? 'gw-bottomnav-item gw-bottomnav-item-active' : 'gw-bottomnav-item'}
                 >
-                  <span className="gw-bottomnav-label">{t.label}</span>
+                  <span className="gw-bottomnav-label">{tab.label}</span>
                 </NavLink>
               );
             })}
           </div>
         </nav>
+      )}
+
+      {effectiveIsMobile && role === 'passenger' && passengerMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label={t('donationClose')}
+            onClick={() => setPassengerMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 85,
+              background: 'rgba(15, 23, 42, 0.45)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          />
+          <nav
+            aria-label={t('menu')}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 'min(300px, 88vw)',
+              zIndex: 90,
+              background: 'rgba(255,255,255,0.98)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              boxShadow: '12px 0 40px rgba(15,23,42,0.18)',
+              display: 'flex',
+              flexDirection: 'column',
+              paddingTop: 'max(10px, env(safe-area-inset-top, 0px))',
+              borderTopRightRadius: 18,
+              borderBottomRightRadius: 18,
+            }}
+          >
+            <div style={{ padding: '12px 18px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 14, fontWeight: 800, color: '#0f172a' }}>
+              {user?.fullName ?? t('dashboard')}
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 10px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(
+                [
+                  { to: GW_PATHS.passenger.dashboard, label: t('dashboard') },
+                  { to: GW_PATHS.passenger.request, label: t('requestRide') },
+                  { to: GW_PATHS.passenger.active, label: t('activeTrip') },
+                  { to: GW_PATHS.passenger.history, label: t('rideHistory') },
+                  { to: GW_PATHS.passenger.places, label: t('savedPlaces') },
+                  { to: GW_PATHS.passenger.support, label: t('support') },
+                  { to: GW_PATHS.passenger.charities, label: t('charities') },
+                  { to: GW_PATHS.passenger.donations, label: t('donations') },
+                  { to: GW_PATHS.auth.profile, label: t('profile') },
+                ] as const
+              ).map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setPassengerMenuOpen(false)}
+                  style={({ isActive }) => ({
+                    display: 'block',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: isActive ? '#0077C8' : '#334155',
+                    background: isActive ? 'rgba(0, 119, 200, 0.08)' : 'transparent',
+                    border: isActive ? '1px solid rgba(0, 119, 200, 0.18)' : '1px solid transparent',
+                  })}
+                >
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          </nav>
+        </>
+      )}
+
+      {effectiveIsMobile && role === 'driver' && driverMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label={t('donationClose')}
+            onClick={() => setDriverMenuOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 85,
+              background: 'rgba(15, 23, 42, 0.45)',
+              border: 'none',
+              cursor: 'pointer',
+            }}
+          />
+          <nav
+            aria-label={t('menu')}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              bottom: 0,
+              width: 'min(300px, 88vw)',
+              zIndex: 90,
+              background: 'rgba(255,255,255,0.98)',
+              backdropFilter: 'blur(14px)',
+              WebkitBackdropFilter: 'blur(14px)',
+              boxShadow: '12px 0 40px rgba(15,23,42,0.18)',
+              display: 'flex',
+              flexDirection: 'column',
+              paddingTop: 'max(10px, env(safe-area-inset-top, 0px))',
+              borderTopRightRadius: 18,
+              borderBottomRightRadius: 18,
+            }}
+          >
+            <div className="gw-driver-sidenav-brand" style={{ margin: '10px 12px 12px', borderRadius: 18 }}>
+              <div className="gw-driver-sidenav-logo">GOOD WHEELS</div>
+              <div className="gw-driver-sidenav-tagline">{t('driverAppTitle')}</div>
+            </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '0 10px 18px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {(
+                [
+                  { to: GW_PATHS.driver.dashboard, label: t('dashboard') },
+                  { to: GW_PATHS.driver.queue, label: t('queue') },
+                  { to: GW_PATHS.driver.active, label: t('activeTrip') },
+                  { to: GW_PATHS.driver.earnings, label: t('earnings') },
+                  { to: GW_PATHS.driver.vehicle, label: t('vehicle') },
+                  { to: GW_PATHS.driver.history, label: t('history') },
+                  { to: GW_PATHS.auth.profile, label: t('profile') },
+                ] as const
+              ).map(({ to, label }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  onClick={() => setDriverMenuOpen(false)}
+                  style={({ isActive }) => ({
+                    display: 'block',
+                    padding: '12px 14px',
+                    borderRadius: 12,
+                    textDecoration: 'none',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: isActive ? '#1557b0' : '#334155',
+                    background: isActive ? 'rgba(26, 115, 232, 0.08)' : 'transparent',
+                    border: isActive ? '1px solid rgba(26, 115, 232, 0.18)' : '1px solid transparent',
+                  })}
+                >
+                  {label}
+                </NavLink>
+              ))}
+              <div className="gw-driver-sidenav-promo" style={{ marginTop: 8 }}>
+                <span>{t('driverNavPromoTitle')}</span>
+                {t('driverNavPromoBody')}
+              </div>
+              <div className="gw-driver-sidenav-footer" style={{ marginTop: 8 }}>
+                <NavLink to={GW_PATHS.public.help} onClick={() => setDriverMenuOpen(false)} style={{ width: '100%' }}>
+                  {t('support')} <span aria-hidden>›</span>
+                </NavLink>
+                <NavLink to={GW_PATHS.shared.settings} onClick={() => setDriverMenuOpen(false)} style={{ width: '100%' }}>
+                  {t('settings')} <span aria-hidden>›</span>
+                </NavLink>
+              </div>
+            </div>
+          </nav>
+        </>
       )}
       </div>
 
