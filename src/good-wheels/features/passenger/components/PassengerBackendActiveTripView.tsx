@@ -152,6 +152,24 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
             </span>
           ) : null}
         </div>
+        {trip.status === 'cancelled' || trip.status === 'canceled' ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900">
+            {trip.cancelledByRole === 'driver'
+              ? 'Driver canceled this ride. You can report it and request another ride now.'
+              : trip.cancelledByRole === 'passenger'
+                ? 'You canceled this ride. You can report it or request a new ride.'
+                : 'This ride was canceled. You can report it and request another ride now.'}
+            {trip.cancelReason ? <span className="block mt-1 text-xs">Reason: {trip.cancelReason}</span> : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.support)}>
+                {t('reportIssue')}
+              </button>
+              <button type="button" className="gw-button gw-button-primary" onClick={() => navigate(GW_PATHS.passenger.request)}>
+                {t('requestRideBtn')}
+              </button>
+            </div>
+          </div>
+        ) : null}
         {grossCents != null ? (
           <div
             className={`rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums ${

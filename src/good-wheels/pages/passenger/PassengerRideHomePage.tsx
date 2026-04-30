@@ -808,30 +808,6 @@ const PassengerRideHomePage: React.FC = () => {
           {t('demoRidePreview')}
         </div>
       )}
-      {ready && (
-        <div
-          style={{
-            position: 'absolute',
-            bottom: 52,
-            right: 14,
-            zIndex: 18,
-            background: 'rgba(255,255,255,0.95)',
-            border: '1px solid #E2E8F0',
-            borderRadius: 10,
-            padding: '8px 10px',
-            fontSize: 10,
-            fontWeight: 800,
-            color: '#334155',
-            maxWidth: 250,
-            lineHeight: 1.45,
-          }}
-        >
-          <div>{t('legendGreenPickup')}</div>
-          <div>{t('legendRedDropoff')}</div>
-          <div>{t('legendDriverAfterAcceptance')}</div>
-        </div>
-      )}
-
       {!GOOD_WHEELS_DEMO_MODE && activeTrip && passengerHasPendingDriverCounter(activeTrip) ? (
         <div
           style={{

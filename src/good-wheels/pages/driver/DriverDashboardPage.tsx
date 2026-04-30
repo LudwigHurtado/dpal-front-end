@@ -41,6 +41,8 @@ const DriverDashboardPage: React.FC = () => {
   const tf = useGwLang((s) => s.tf);
   const user = useAuthStore((s) => s.user);
   const activeTrip = useTripStore((s) => s.activeTrip);
+  const lastTerminalTrip = useTripStore((s) => s.lastTerminalTrip);
+  const clearLastTerminalTrip = useTripStore((s) => s.clearLastTerminalTrip);
   const clearTripStoreActiveTrip = useTripStore((s) => s.clearActiveTrip);
   const hydrate = useDriverStore((s) => s.hydrate);
   const clearDriverActiveTrip = useDriverStore((s) => s.clearActiveTrip);
@@ -146,12 +148,18 @@ const DriverDashboardPage: React.FC = () => {
     try {
       if (!GOOD_WHEELS_DEMO_MODE) {
         if (mode === 'cancel') {
-          await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver cancelled from dashboard');
+          await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver cancelled from dashboard', {
+            role: 'driver',
+            userId: user?.id ?? activeTrip.driverId,
+          });
         } else if (mode === 'close') {
           await goodWheelsRideApi.completeTrip(activeTrip.id, 'Driver closed trip from dashboard');
         } else {
           try {
-            await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver reset stale trip from dashboard');
+            await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver reset stale trip from dashboard', {
+              role: 'driver',
+              userId: user?.id ?? activeTrip.driverId,
+            });
           } catch {
             // If backend cancel fails, still allow local reset so driver can continue.
           }
@@ -253,6 +261,38 @@ const DriverDashboardPage: React.FC = () => {
 
       {lastSyncedLabel ? (
         <div className="text-[11px] text-slate-500 font-medium">{tf('dashboardLastSynced', { at: lastSyncedLabel })}</div>
+      ) : null}
+
+      {lastTerminalTrip && (lastTerminalTrip.status === 'cancelled' || lastTerminalTrip.status === 'canceled') ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 space-y-3">
+          <div className="text-sm font-extrabold text-rose-900">Ride canceled</div>
+          <div className="text-sm text-rose-900">
+            {lastTerminalTrip.cancelledByRole === 'passenger'
+              ? 'The passenger canceled this ride.'
+              : lastTerminalTrip.cancelledByRole === 'driver'
+                ? 'You canceled this ride.'
+                : 'This ride was canceled.'}
+            {lastTerminalTrip.cancelReason ? ` Reason: ${lastTerminalTrip.cancelReason}` : ''}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="gw-button gw-button-primary"
+              onClick={() => {
+                void setAvailability('online');
+                void hydrate();
+              }}
+            >
+              Continue searching for passengers
+            </button>
+            <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.comms)}>
+              {t('reportIssue')}
+            </button>
+            <button type="button" className="gw-button gw-button-secondary" onClick={() => clearLastTerminalTrip()}>
+              Dismiss
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {/* Profile + hero stats */}

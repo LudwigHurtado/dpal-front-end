@@ -175,6 +175,8 @@ export type Trip = {
   completedAtIso?: string;
   cancelledAtIso?: string;
   cancelReason?: string;
+  cancelledByRole?: 'driver' | 'passenger' | 'system';
+  cancelledByUserId?: string;
   /** Fare negotiation; gross trip fare on `estimate` until a future accept flow applies `acceptedFareCents`. */
   offerState?: TripOfferState;
   /** Driver in exclusive negotiation (e.g. after sending a counteroffer). */

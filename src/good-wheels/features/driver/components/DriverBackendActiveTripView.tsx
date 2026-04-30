@@ -94,12 +94,18 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
     setTripActionError(null);
     try {
       if (mode === 'cancel') {
-        await goodWheelsRideApi.cancelTrip(trip.id, 'Driver cancelled from active trip view');
+        await goodWheelsRideApi.cancelTrip(trip.id, 'Driver cancelled from active trip view', {
+          role: 'driver',
+          userId: user?.id ?? trip.driverId,
+        });
       } else if (mode === 'close') {
         await goodWheelsRideApi.completeTrip(trip.id, 'Driver closed trip from active trip view');
       } else {
         try {
-          await goodWheelsRideApi.cancelTrip(trip.id, 'Driver reset stale trip from active trip view');
+          await goodWheelsRideApi.cancelTrip(trip.id, 'Driver reset stale trip from active trip view', {
+            role: 'driver',
+            userId: user?.id ?? trip.driverId,
+          });
         } catch {
           // Keep local reset path available for stale UI recovery.
         }
@@ -166,6 +172,24 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           {sharingLocation ? t('trackingRideToDestination') : t('waitingForDriverLocation')}
           {sharingUpdatedAtIso ? ` · ${t('lastUpdated')}: ${new Date(sharingUpdatedAtIso).toLocaleTimeString()}` : ''}
         </div>
+        {trip.status === 'cancelled' || trip.status === 'canceled' ? (
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900">
+            {trip.cancelledByRole === 'passenger'
+              ? 'Passenger canceled this ride. You can report it and return to searching now.'
+              : trip.cancelledByRole === 'driver'
+                ? 'You canceled this ride. You can report it and continue searching for passengers.'
+                : 'This ride was canceled. You can report it and continue searching for passengers.'}
+            {trip.cancelReason ? <span className="block mt-1 text-xs">Reason: {trip.cancelReason}</span> : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.comms)}>
+                {t('reportIssue')}
+              </button>
+              <button type="button" className="gw-button gw-button-primary" onClick={() => navigate(GW_PATHS.driver.dashboard)}>
+                Continue searching for passengers
+              </button>
+            </div>
+          </div>
+        ) : null}
         {sharingError ? <div className="text-xs font-semibold text-red-700">{sharingError}</div> : null}
         <div className="border-t border-slate-200/80 pt-3">
           <div className="text-xs font-extrabold text-slate-700 mb-2">Trip reset controls</div>

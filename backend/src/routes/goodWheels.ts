@@ -1129,6 +1129,8 @@ router.post('/trips/:tripId/offer/close', async (req: Request, res: Response): P
     closedAtIso: now,
     cancelledAtIso: now,
     cancelReason: reason,
+    cancelledByRole: 'passenger',
+    cancelledByUserId: passengerId,
     negotiationDriverId: undefined,
     driverResponseState: undefined,
     offerState: prev.offerState

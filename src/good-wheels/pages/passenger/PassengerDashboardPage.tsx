@@ -21,6 +21,8 @@ const PassengerDashboardPage: React.FC = () => {
   const activeTrip = useTripStore((s) => s.activeTrip);
   const loading = useTripStore((s) => s.loading);
   const hydrateTrips = useTripStore((s) => s.hydrate);
+  const lastTerminalTrip = useTripStore((s) => s.lastTerminalTrip);
+  const clearLastTerminalTrip = useTripStore((s) => s.clearLastTerminalTrip);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 860 : false));
 
   useEffect(() => {
@@ -88,6 +90,31 @@ const PassengerDashboardPage: React.FC = () => {
           <Link to={GW_PATHS.passenger.request} className="gw-button gw-button-primary">{t('requestRideBtn')}</Link>
         </div>
       )}
+
+      {lastTerminalTrip && (lastTerminalTrip.status === 'cancelled' || lastTerminalTrip.status === 'canceled') ? (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50/90 p-4 space-y-3">
+          <div className="text-sm font-extrabold text-rose-900">Ride canceled</div>
+          <div className="text-sm text-rose-900">
+            {lastTerminalTrip.cancelledByRole === 'driver'
+              ? 'Your driver canceled this ride.'
+              : lastTerminalTrip.cancelledByRole === 'passenger'
+                ? 'You canceled this ride.'
+                : 'This ride was canceled.'}
+            {lastTerminalTrip.cancelReason ? ` Reason: ${lastTerminalTrip.cancelReason}` : ''}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" className="gw-button gw-button-primary" onClick={() => navigate(GW_PATHS.passenger.request)}>
+              {t('requestRideBtn')}
+            </button>
+            <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.support)}>
+              {t('reportIssue')}
+            </button>
+            <button type="button" className="gw-button gw-button-secondary" onClick={() => clearLastTerminalTrip()}>
+              Dismiss
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="gw-card p-6">

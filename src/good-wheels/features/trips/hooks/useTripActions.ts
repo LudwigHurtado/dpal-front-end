@@ -52,7 +52,12 @@ export function useTripActions(role: Role, trip: Trip) {
   };
   const cancelTrip = async () => {
     if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('cancelled', 'Trip cancelled');
-    const next = await goodWheelsRideApi.cancelTrip(trip.id, 'Cancelled by user');
+    const actorRole = role === 'driver' ? 'driver' : role === 'passenger' ? 'passenger' : undefined;
+    const actorUserId = actorRole === 'driver' ? trip.driverId : actorRole === 'passenger' ? trip.passengerId : undefined;
+    const next = await goodWheelsRideApi.cancelTrip(trip.id, 'Cancelled by user', {
+      role: actorRole,
+      userId: actorUserId,
+    });
     useTripStore.getState().setActiveTrip(next);
     useTripStore.getState().updateStatus('cancelled', 'Trip cancelled');
   };

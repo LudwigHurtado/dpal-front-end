@@ -171,6 +171,11 @@ export function mapMockTripToTrip(input: unknown): Trip {
     closedAtIso: typeof o.closedAtIso === 'string' ? o.closedAtIso : undefined,
     expirationAtIso: typeof o.expirationAtIso === 'string' ? o.expirationAtIso : undefined,
     cancelReason: typeof o.cancelReason === 'string' ? o.cancelReason : undefined,
+    cancelledByRole:
+      o.cancelledByRole === 'driver' || o.cancelledByRole === 'passenger' || o.cancelledByRole === 'system'
+        ? o.cancelledByRole
+        : undefined,
+    cancelledByUserId: typeof o.cancelledByUserId === 'string' ? o.cancelledByUserId : undefined,
     driverLocation:
       o.driverLocation && typeof o.driverLocation === 'object' && Number.isFinite(o.driverLocation.lat) && Number.isFinite(o.driverLocation.lng)
         ? {

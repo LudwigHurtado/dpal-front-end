@@ -9,7 +9,8 @@ const TripMapPanel: React.FC<{
   pinMode?: 'pickup' | 'dropoff' | null;
   onPinSelect?: (args: { lat: number; lng: number; addressLine: string; mode: 'pickup' | 'dropoff' }) => void;
 }> = ({ trip, variant = 'passenger', pinMode = null, onPinSelect }) => {
-  const title = variant === 'driver' ? 'Navigation' : variant === 'worker' ? 'Coordination map' : 'Trip map';
+  const isPassengerView = variant === 'passenger';
+  const title = variant === 'driver' ? 'Navigation' : variant === 'worker' ? 'Coordination map' : 'Live map';
   const { google: g, ready, error } = useGoogleMaps();
   const mapRef = useRef<HTMLDivElement | null>(null);
   const mapObjRef = useRef<google.maps.Map | null>(null);
@@ -20,6 +21,7 @@ const TripMapPanel: React.FC<{
   const nearbyCarsRef = useRef<google.maps.Marker[]>([]);
   const [pickupLL, setPickupLL] = useState<LatLng | null>(null);
   const [dropoffLL, setDropoffLL] = useState<LatLng | null>(null);
+  const [followVehicle, setFollowVehicle] = useState(true);
   /** Set when DirectionsService fails (e.g. Directions API disabled in GCP). */
   const [directionsError, setDirectionsError] = useState<string | null>(null);
 
@@ -108,19 +110,20 @@ const TripMapPanel: React.FC<{
         new g.maps.Marker({
           map,
           position: pickupLL,
-          label: { text: 'P', color: '#ffffff', fontWeight: '800' },
+          label: { text: isPassengerView ? 'You' : 'P', color: '#ffffff', fontWeight: '800' },
           icon: {
             path: g.maps.SymbolPath.CIRCLE,
             scale: 8,
-            fillColor: '#22c55e',
+            fillColor: isPassengerView ? '#0f766e' : '#22c55e',
             fillOpacity: 0.9,
-            strokeColor: '#14532d',
+            strokeColor: isPassengerView ? '#134e4a' : '#14532d',
             strokeWeight: 2,
           },
+          title: isPassengerView ? 'Passenger location' : 'Pickup',
         })
       );
     }
-    if (dropoffLL) {
+    if (!isPassengerView && dropoffLL) {
       markers.push(
         new g.maps.Marker({
           map,
@@ -141,7 +144,7 @@ const TripMapPanel: React.FC<{
       arrivalMarkerRef.current.setMap(null);
       arrivalMarkerRef.current = null;
     }
-    const atPickup = trip.status === 'driver_arrived' || trip.status === 'arrived';
+    const atPickup = !isPassengerView && (trip.status === 'driver_arrived' || trip.status === 'arrived');
     if (atPickup && pickupLL) {
       arrivalMarkerRef.current = new g.maps.Marker({
         map,
@@ -168,6 +171,11 @@ const TripMapPanel: React.FC<{
     // Do not show synthetic nearby cars before real acceptance.
 
     const dr = directionsRef.current;
+    if (isPassengerView) {
+      if (dr) dr.setDirections({ routes: [] } as unknown as google.maps.DirectionsResult);
+      setDirectionsError(null);
+      return;
+    }
     if (!dr || !pickupLL || !dropoffLL) {
       setDirectionsError(null);
       return;
@@ -206,7 +214,7 @@ const TripMapPanel: React.FC<{
         dr.setDirections({ routes: [] } as unknown as google.maps.DirectionsResult);
       }
     );
-  }, [ready, g, center, pickupLL, dropoffLL, trip.status, trip.driverId, trip.driverLocation, trip.routeProgress, variant]);
+  }, [ready, g, center, pickupLL, dropoffLL, trip.status, trip.driverId, trip.driverLocation, trip.routeProgress, variant, isPassengerView]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -242,18 +250,42 @@ const TripMapPanel: React.FC<{
     const marker = new g.maps.Marker({
       map,
       position: pos,
-      icon: {
-        path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-        scale: 5,
-        fillColor: '#2563eb',
-        fillOpacity: 1,
-        strokeColor: '#1e3a8a',
-        strokeWeight: 1,
-      },
+      icon: isPassengerView
+        ? {
+            path: g.maps.SymbolPath.CIRCLE,
+            scale: 7,
+            fillColor: '#111827',
+            fillOpacity: 1,
+            strokeColor: '#0f172a',
+            strokeWeight: 2,
+          }
+        : {
+            path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+            scale: 5,
+            fillColor: '#2563eb',
+            fillOpacity: 1,
+            strokeColor: '#1e3a8a',
+            strokeWeight: 1,
+          },
       title: 'Driver',
     });
     driverMarkerRef.current = marker;
-  }, [ready, g, pickupLL, dropoffLL, trip.status, trip.driverId, trip.driverLocation]);
+
+    if (isPassengerView && followVehicle) {
+      map.panTo(pos);
+    }
+  }, [ready, g, pickupLL, dropoffLL, trip.status, trip.driverId, trip.driverLocation, isPassengerView, followVehicle]);
+
+  useEffect(() => {
+    if (!isPassengerView) return;
+    const shouldTrack = Boolean(
+      trip.driverId &&
+        ['accepted', 'driver_en_route', 'driver_arriving', 'driver_arrived', 'arrived', 'passenger_onboard', 'in_progress', 'support_in_progress'].includes(
+          trip.status,
+        ),
+    );
+    if (!shouldTrack) setFollowVehicle(true);
+  }, [trip.driverId, trip.status, isPassengerView]);
 
   useEffect(() => {
     if (!ready || !g) return;
@@ -291,8 +323,14 @@ const TripMapPanel: React.FC<{
     <div className="gw-card p-5 space-y-3">
       <div className="gw-card-title">{title}</div>
       <div className="text-sm text-slate-600">
-        <strong className="text-slate-800">{trip.pickup.label}</strong> →{' '}
-        <strong className="text-slate-800">{trip.dropoff.label}</strong>
+        {isPassengerView ? (
+          <strong className="text-slate-800">Live locations: you and your assigned vehicle</strong>
+        ) : (
+          <>
+            <strong className="text-slate-800">{trip.pickup.label}</strong> →{' '}
+            <strong className="text-slate-800">{trip.dropoff.label}</strong>
+          </>
+        )}
       </div>
       {pinMode && (
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -304,7 +342,7 @@ const TripMapPanel: React.FC<{
           </button>
         </div>
       )}
-      {!pinMode && (
+      {!pinMode && !isPassengerView && (
         <div className="text-xs font-bold text-slate-600">
           Marker legend: <span style={{ color: '#22c55e' }}>Green = Pickup</span> ·{' '}
           <span style={{ color: '#ef4444' }}>Red = Drop-off</span> ·{' '}
@@ -317,6 +355,13 @@ const TripMapPanel: React.FC<{
           {directionsError}
         </div>
       )}
+      {isPassengerView && trip.driverId ? (
+        <div className="flex justify-end">
+          <button type="button" className="gw-button gw-button-secondary" onClick={() => setFollowVehicle((v) => !v)}>
+            {followVehicle ? 'Stop following vehicle' : 'Follow vehicle'}
+          </button>
+        </div>
+      ) : null}
       <div
         className="gw-map-canvas"
         style={{

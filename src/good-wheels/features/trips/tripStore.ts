@@ -97,7 +97,20 @@ export const useTripStore = create<TripState>((set, get) => ({
         clearActiveTripMarker();
       }
       const keepActive = Boolean(active && !TERMINAL_STATUSES.has(active.status));
-      set({ activeTrip: keepActive ? active : null, history: hist, loading: false });
+      const latestCancelled =
+        hist.find((trip) => trip.status === 'cancelled' || trip.status === 'canceled') ?? null;
+      set((state) => ({
+        activeTrip: keepActive ? active : null,
+        history: hist,
+        lastTerminalTrip:
+          latestCancelled &&
+          (!state.lastTerminalTrip ||
+            state.lastTerminalTrip.id !== latestCancelled.id ||
+            state.lastTerminalTrip.updatedAtIso !== latestCancelled.updatedAtIso)
+            ? latestCancelled
+            : state.lastTerminalTrip,
+        loading: false,
+      }));
     } catch {
       set({ loading: false, error: 'Could not load trips.' });
     }
