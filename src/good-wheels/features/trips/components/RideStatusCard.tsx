@@ -5,6 +5,7 @@ import TripStatusBadge from './TripStatusBadge';
 import TripSupportCategoryChip from './TripSupportCategoryChip';
 import TripSummaryDrawer from './TripSummaryDrawer';
 import TripSafetyBanner from './TripSafetyBanner';
+import { useGwLang } from '../../../i18n/useGwLang';
 
 const RideStatusCard: React.FC<{
   role: Role;
@@ -15,6 +16,7 @@ const RideStatusCard: React.FC<{
   worker?: UserProfile | null;
 }> = ({ role, trip, supportCategory }) => {
   const [open, setOpen] = useState(false);
+  const t = useGwLang((s) => s.t);
   const title = useMemo(() => tripPrimaryLine(trip), [trip]);
 
   return (
@@ -33,6 +35,11 @@ const RideStatusCard: React.FC<{
                 </span>
               )}
             </div>
+            {role === 'passenger' && trip.offerState?.status === 'driver_countered' ? (
+              <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950">
+                {t('dashboardDriverCounterBanner')}
+              </div>
+            ) : null}
           </div>
           <button type="button" className="gw-button gw-button-secondary" onClick={() => setOpen(true)}>
             View

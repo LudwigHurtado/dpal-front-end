@@ -17,6 +17,7 @@ const PassengerDashboardPage: React.FC = () => {
   const user = useAuthStore((s) => s.user);
   const activeTrip = useTripStore((s) => s.activeTrip);
   const loading = useTripStore((s) => s.loading);
+  const hydrateTrips = useTripStore((s) => s.hydrate);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 860 : false));
 
   useEffect(() => {
@@ -24,6 +25,13 @@ const PassengerDashboardPage: React.FC = () => {
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  useEffect(() => {
+    if (!user?.id || !activeTrip) return;
+    const uid = user.id;
+    const id = window.setInterval(() => void hydrateTrips(uid), 8000);
+    return () => window.clearInterval(id);
+  }, [user?.id, activeTrip?.id, hydrateTrips]);
 
   const nearbyCharities = useMemo(
     () => [

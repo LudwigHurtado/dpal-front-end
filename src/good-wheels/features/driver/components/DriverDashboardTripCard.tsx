@@ -43,6 +43,8 @@ const DriverDashboardTripCard: React.FC<{
   const dropShort = trip.dropoff.label || trip.dropoff.addressLine?.split(',')[0] || trip.dropoff.addressLine;
   const etaPickupMin = pickupEtaMinutesStable(trip.id, Math.max(distKm, 0.1));
   const isPendingCounter = dealVariant === 'pending_counteroffer';
+  const passengerAcceptedCounter =
+    isPendingCounter && trip.offerState?.status === 'accepted' && !trip.driverId;
   const counterCents =
     typeof trip.offerState?.driverCounterOfferCents === 'number' && trip.offerState.driverCounterOfferCents > 0
       ? Math.round(trip.offerState.driverCounterOfferCents)
@@ -69,9 +71,23 @@ const DriverDashboardTripCard: React.FC<{
   return (
     <div className="gw-driver-dash-trip rounded-2xl border border-slate-200/90 bg-white shadow-sm overflow-hidden">
       {isPendingCounter ? (
-        <div className="border-b border-amber-100 bg-amber-50/90 px-3 py-2.5 text-xs font-semibold text-amber-950 flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center rounded-full bg-amber-200/80 px-2 py-0.5 font-bold">{t('counterofferSentLabel')}</span>
-          <span className="text-amber-900/95">{t('waitingForPassengerResponseLabel')}</span>
+        <div
+          className={`border-b px-3 py-2.5 text-xs font-semibold flex flex-wrap items-center gap-2 ${
+            passengerAcceptedCounter
+              ? 'border-emerald-200 bg-emerald-50/95 text-emerald-950'
+              : 'border-amber-100 bg-amber-50/90 text-amber-950'
+          }`}
+        >
+          <span
+            className={`inline-flex items-center rounded-full px-2 py-0.5 font-bold ${
+              passengerAcceptedCounter ? 'bg-emerald-200/90' : 'bg-amber-200/80'
+            }`}
+          >
+            {passengerAcceptedCounter ? t('passengerAcceptedFareBadge') : t('counterofferSentLabel')}
+          </span>
+          <span className={passengerAcceptedCounter ? 'text-emerald-900/95' : 'text-amber-900/95'}>
+            {passengerAcceptedCounter ? t('driverPassengerAcceptedCounterBanner') : t('waitingForPassengerResponseLabel')}
+          </span>
         </div>
       ) : null}
       <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 p-3 sm:p-4">
@@ -123,7 +139,7 @@ const DriverDashboardTripCard: React.FC<{
           </div>
 
           <div className="flex flex-wrap gap-2 pt-1">
-            {!isPendingCounter && onAccept ? (
+            {onAccept && (!isPendingCounter || passengerAcceptedCounter) ? (
               <button
                 type="button"
                 className="gw-driver-dash-btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white shadow-sm"

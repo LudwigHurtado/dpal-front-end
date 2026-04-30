@@ -331,16 +331,28 @@ function filterAvailableRequestsForDriver(trips: GoodWheelsTrip[], driverId: str
     .filter((t) => !(t.driverId && t.driverId !== driverId))
     .filter((t) => !t.rejectedDriverIds?.includes(driverId))
     .filter((t) => !(t.negotiationDriverId && t.negotiationDriverId !== driverId))
-    .filter((t) => !(t.negotiationDriverId === driverId && t.offerState?.status === 'driver_countered'))
+    .filter(
+      (t) =>
+        !(
+          t.negotiationDriverId === driverId &&
+          (t.offerState?.status === 'driver_countered' ||
+            (t.offerState?.status === 'accepted' && !t.driverId && typeof t.offerState?.acceptedFareCents === 'number'))
+        ),
+    )
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
 }
 
-/** Trips where this driver countered and is waiting on the passenger. */
+/** Trips where this driver countered (or passenger accepted that counter) and the ride is not yet assigned. */
 function filterPendingCounterDealsForDriver(trips: GoodWheelsTrip[], driverId: string): GoodWheelsTrip[] {
   if (!driverId) return [];
   return trips
     .filter((t) => isOpenPoolStatus(t.status) && !isTerminalTripStatus(t.status))
-    .filter((t) => t.negotiationDriverId === driverId && t.offerState?.status === 'driver_countered')
+    .filter((t) => t.negotiationDriverId === driverId)
+    .filter(
+      (t) =>
+        t.offerState?.status === 'driver_countered' ||
+        (t.offerState?.status === 'accepted' && !t.driverId && typeof t.offerState?.acceptedFareCents === 'number'),
+    )
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
 }
 
@@ -950,6 +962,104 @@ router.post('/trips/:tripId/counteroffer', async (req: Request, res: Response): 
         atIso: now,
         label: 'Driver sent counteroffer',
         detail: detailParts.join(' — '),
+      },
+    ],
+  };
+  trips[idx] = next;
+  await writeJsonArray(TRIPS_FILE, trips);
+  res.json({ ok: true, trip: enrichTripEstimate(next) });
+});
+
+/** Passenger accepts the driver's counter-offer fare, or declines it and keeps their original offer in the pool. */
+router.post('/trips/:tripId/passenger-offer-response', async (req: Request, res: Response): Promise<void> => {
+  const tripId = String(req.params.tripId || '').trim();
+  const passengerId = String(req.body?.passengerId || '').trim();
+  const action = String(req.body?.action || '').trim();
+  if (!tripId || !passengerId || !['accept_driver_counter', 'keep_passenger_offer'].includes(action)) {
+    res.status(400).json({ ok: false, error: 'tripId, passengerId, and action (accept_driver_counter | keep_passenger_offer) are required' });
+    return;
+  }
+  const trips = await seedTripsIfEmpty();
+  const idx = trips.findIndex((t) => t.id === tripId);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'Trip not found' });
+    return;
+  }
+  const prev = trips[idx];
+  if (prev.passengerId !== passengerId) {
+    res.status(403).json({ ok: false, error: 'Not authorized for this trip' });
+    return;
+  }
+  if (!['requested', 'broadcasted', 'matched'].includes(prev.status)) {
+    res.status(400).json({ ok: false, error: 'Trip is not open for offer responses' });
+    return;
+  }
+  if (prev.offerState?.status !== 'driver_countered') {
+    res.status(400).json({ ok: false, error: 'No pending driver counteroffer' });
+    return;
+  }
+  const counterCents =
+    typeof prev.offerState.driverCounterOfferCents === 'number' && Number.isFinite(prev.offerState.driverCounterOfferCents)
+      ? Math.round(prev.offerState.driverCounterOfferCents)
+      : 0;
+  const negotiationDriverId = prev.negotiationDriverId;
+  if (!negotiationDriverId || counterCents <= 0) {
+    res.status(400).json({ ok: false, error: 'Invalid negotiation state' });
+    return;
+  }
+  const now = new Date().toISOString();
+
+  if (action === 'accept_driver_counter') {
+    const offerState: GoodWheelsTripOfferState = {
+      passengerOfferCents: prev.offerState.passengerOfferCents,
+      recommendedFareCents: prev.offerState.recommendedFareCents,
+      driverCounterOfferCents: counterCents,
+      acceptedFareCents: counterCents,
+      status: 'accepted',
+      updatedAtIso: now,
+    };
+    const next: GoodWheelsTrip = {
+      ...prev,
+      updatedAtIso: now,
+      negotiationDriverId,
+      offerState,
+      timeline: [
+        ...prev.timeline,
+        {
+          id: mkId('evt'),
+          atIso: now,
+          label: 'Passenger accepted counteroffer',
+          detail: `Agreed fare $${(counterCents / 100).toFixed(2)}`,
+        },
+      ],
+    };
+    trips[idx] = next;
+    await writeJsonArray(TRIPS_FILE, trips);
+    res.json({ ok: true, trip: enrichTripEstimate(next) });
+    return;
+  }
+
+  const offerState: GoodWheelsTripOfferState | undefined = prev.offerState
+    ? {
+        passengerOfferCents: prev.offerState.passengerOfferCents,
+        recommendedFareCents: prev.offerState.recommendedFareCents,
+        status: 'passenger_offered',
+        updatedAtIso: now,
+      }
+    : undefined;
+  const next: GoodWheelsTrip = {
+    ...prev,
+    updatedAtIso: now,
+    negotiationDriverId: undefined,
+    offerState,
+    driverResponseState: undefined,
+    timeline: [
+      ...prev.timeline,
+      {
+        id: mkId('evt'),
+        atIso: now,
+        label: 'Passenger kept their offer',
+        detail: 'Driver counteroffer was not accepted; request returned to the driver pool.',
       },
     ],
   };

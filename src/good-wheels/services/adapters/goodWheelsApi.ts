@@ -135,6 +135,21 @@ export const goodWheelsRideApi = {
     return mapMockTripToTrip(data.trip);
   },
 
+  async passengerRespondToDriverCounter(
+    tripId: string,
+    passengerId: string,
+    action: 'accept_driver_counter' | 'keep_passenger_offer',
+  ): Promise<Trip> {
+    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/passenger-offer-response`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ passengerId, action }),
+    });
+    if (!res.ok) throw new Error(`Offer response failed (${res.status})`);
+    const data = await parseJson<{ trip: unknown }>(res);
+    return mapMockTripToTrip(data.trip);
+  },
+
   async updateTripStatus(tripId: string, status: Trip['status'], timelineLabel?: string, timelineDetail?: string): Promise<Trip> {
     const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/status`), {
       method: 'PATCH',

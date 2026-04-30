@@ -251,6 +251,12 @@ const DriverQueuePage: React.FC = () => {
                 trip={trip}
                 dealVariant="pending_counteroffer"
                 showListen={false}
+                onAccept={() => {
+                  if (!user?.id) return;
+                  void acceptQueueTrip(trip.id).then((next) => {
+                    if (next) navigate(GW_PATHS.driver.active);
+                  });
+                }}
                 onDecline={() => void useDriverStore.getState().declineQueueTrip(trip.id)}
               />
             ))}

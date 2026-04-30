@@ -57,6 +57,8 @@ const DriverRequestCard: React.FC<{
     recommendedFareCents > 0 && passengerOfferCents > 0 && recommendedFareCents !== passengerOfferCents;
   const offerSplit = useMemo(() => calculateGoodWheelsFareSplit(passengerOfferCents), [passengerOfferCents]);
   const isPendingCounter = dealVariant === 'pending_counteroffer';
+  const passengerAcceptedCounter =
+    isPendingCounter && trip.offerState?.status === 'accepted' && !trip.driverId;
   const counterCents =
     typeof trip.offerState?.driverCounterOfferCents === 'number' && trip.offerState.driverCounterOfferCents > 0
       ? Math.round(trip.offerState.driverCounterOfferCents)
@@ -116,8 +118,24 @@ const DriverRequestCard: React.FC<{
     <div className="gw-card overflow-hidden gw-driver-surface border border-slate-200/80 shadow-sm">
       <div className="p-3 sm:p-4">
         {isPendingCounter ? (
-          <div className="mb-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-950">
-            {t('counterofferSentLabel')} · {t('waitingForPassengerResponseLabel')}
+          <div
+            className={`mb-3 rounded-lg border px-3 py-2 text-xs font-semibold ${
+              passengerAcceptedCounter
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+                : 'border-sky-200 bg-sky-50 text-sky-950'
+            }`}
+          >
+            {passengerAcceptedCounter ? (
+              <>
+                <span className="font-extrabold">{t('passengerAcceptedFareBadge')}</span>
+                <span className="mx-1">·</span>
+                {t('driverPassengerAcceptedCounterBanner')}
+              </>
+            ) : (
+              <>
+                {t('counterofferSentLabel')} · {t('waitingForPassengerResponseLabel')}
+              </>
+            )}
           </div>
         ) : null}
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -199,6 +217,15 @@ const DriverRequestCard: React.FC<{
               <Link to={chatHref} className="gw-button gw-button-secondary text-xs px-3 py-1.5 no-underline inline-flex items-center">
                 {t('openTripChat')}
               </Link>
+            ) : null}
+            {isPendingCounter && passengerAcceptedCounter && onAccept ? (
+              <button
+                type="button"
+                className="gw-button text-xs px-3 py-1.5 font-bold bg-emerald-600 text-white hover:bg-emerald-700 border-0 shadow-sm"
+                onClick={onAccept}
+              >
+                {t('acceptRide')}
+              </button>
             ) : null}
             {!isPendingCounter ? (
               <>
