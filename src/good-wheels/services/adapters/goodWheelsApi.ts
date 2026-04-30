@@ -155,11 +155,16 @@ export const goodWheelsRideApi = {
   },
 
   async sendTripCounteroffer(tripId: string, driverId: string, amountCents: number, message?: string): Promise<Trip> {
-    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/counteroffer`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ driverId, amountCents, message }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/counteroffer`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverId, amountCents, message }),
+      });
+    } catch {
+      throw new Error('Could not reach Good Wheels server. Please refresh and try again.');
+    }
     if (!res.ok) throw new Error(`Counteroffer failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
     return mapMockTripToTrip(data.trip);
@@ -170,22 +175,32 @@ export const goodWheelsRideApi = {
     passengerId: string,
     action: 'accept_driver_counter' | 'keep_passenger_offer',
   ): Promise<Trip> {
-    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/passenger-offer-response`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passengerId, action }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/passenger-offer-response`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passengerId, action }),
+      });
+    } catch {
+      throw new Error('Could not sync offer response. Please refresh and try again.');
+    }
     if (!res.ok) throw new Error(`Offer response failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
     return mapMockTripToTrip(data.trip);
   },
 
   async closeTripOffer(tripId: string, passengerId: string, reason?: string): Promise<Trip> {
-    const res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/offer/close`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ passengerId, reason }),
-    });
+    let res: Response;
+    try {
+      res = await fetch(buildApiUrl(`/api/good-wheels/trips/${encodeURIComponent(tripId)}/offer/close`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ passengerId, reason }),
+      });
+    } catch {
+      throw new Error('Could not close this offer right now. Please refresh and try again.');
+    }
     if (!res.ok) throw new Error(`Close negotiation failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
     return mapMockTripToTrip(data.trip);

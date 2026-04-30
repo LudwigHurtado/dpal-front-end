@@ -170,7 +170,6 @@ const AppLayout: React.FC = () => {
           {role === 'passenger' && (
             <nav className="gw-sidenav-links">
               <NavLink to={GW_PATHS.passenger.dashboard} className="gw-sidenav-link">{t('dashboard')}</NavLink>
-              <NavLink to={GW_PATHS.passenger.request} className="gw-sidenav-link">{t('requestRide')}</NavLink>
               <NavLink to={GW_PATHS.passenger.active} className="gw-sidenav-link">{t('activeTrip')}</NavLink>
               <NavLink to={GW_PATHS.passenger.history} className="gw-sidenav-link">{t('rideHistory')}</NavLink>
               <NavLink to={GW_PATHS.passenger.places} className="gw-sidenav-link">{t('savedPlaces')}</NavLink>
@@ -325,7 +324,6 @@ const AppLayout: React.FC = () => {
               {(
                 [
                   { to: GW_PATHS.passenger.dashboard, label: t('dashboard') },
-                  { to: GW_PATHS.passenger.request, label: t('requestRide') },
                   { to: GW_PATHS.passenger.active, label: t('activeTrip') },
                   { to: GW_PATHS.passenger.history, label: t('rideHistory') },
                   { to: GW_PATHS.passenger.places, label: t('savedPlaces') },

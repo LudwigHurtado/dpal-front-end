@@ -82,7 +82,11 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
     trip.driverLocation && Number.isFinite(trip.driverLocation.lat) && Number.isFinite(trip.driverLocation.lng),
   );
   const trackingText =
-    trip.status === 'accepted'
+    trip.status === 'requested' || trip.status === 'broadcasted' || trip.status === 'matched'
+      ? t('searchingDriver')
+      : passengerHasPendingDriverCounter(trip)
+        ? t('passengerDriverCounterLead')
+    : trip.status === 'accepted'
       ? hasDriverLocation
         ? t('driverAcceptedTrackingToPickup')
         : t('driverAcceptedWaitingForDriverLocation')
@@ -98,7 +102,7 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
                 ? t('rideCompletedLabel')
                 : trip.status === 'cancelled' || trip.status === 'canceled'
                   ? t('rideCancelledLabel')
-                  : t('driverAcceptedYourRide');
+                  : t('searchingDriver');
 
   return (
     <div className="space-y-4 relative">

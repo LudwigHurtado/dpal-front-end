@@ -1,6 +1,5 @@
 import { mockDelay } from '../mockDelay';
 import { MOCK_USERS } from '../../data/mock/mockUsers';
-import { MOCK_TRIPS } from '../../data/mock/mockTrips';
 import type { Role } from '../../types/role';
 import type { UserProfile } from '../../types/user';
 import type { RideRequestDraft, Trip } from '../../types/ride';
@@ -25,13 +24,15 @@ export const mockAuthApi = {
 };
 
 export const mockRideApi = {
-  async getActiveTrip(userId: string): Promise<Trip | null> {
+  async getActiveTrip(_userId: string): Promise<Trip | null> {
     await mockDelay(300);
-    return MOCK_TRIPS.active.passengerId === userId ? MOCK_TRIPS.active : null;
+    // Start passengers/drivers with a clean slate in demo mode.
+    return null;
   },
-  async listHistory(userId: string): Promise<Trip[]> {
+  async listHistory(_userId: string): Promise<Trip[]> {
     await mockDelay(300);
-    return MOCK_TRIPS.history.filter((t) => t.passengerId === userId || t.driverId === userId);
+    // Demo mode should not preload synthetic history activity.
+    return [];
   },
   async requestRide(draft: RideRequestDraft): Promise<Trip> {
     await mockDelay(650);
@@ -48,8 +49,8 @@ export const mockRideApi = {
     const gross = pCents ?? rCents ?? 800;
     const split = calculateGoodWheelsFareSplit(gross);
     const now = new Date().toISOString();
-    const pickup = draft.pickup ?? MOCK_TRIPS.active.pickup;
-    const dropoff = draft.dropoff ?? MOCK_TRIPS.active.dropoff;
+    const pickup = draft.pickup ?? { label: 'Pickup', addressLine: 'Pickup location' };
+    const dropoff = draft.dropoff ?? { label: 'Dropoff', addressLine: 'Dropoff location' };
     return {
       id: `trip-mock-${Date.now()}`,
       passengerId: draft.passengerId || 'usr-passenger-001',

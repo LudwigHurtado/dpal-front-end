@@ -47,6 +47,24 @@ const PassengerDashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-8">
+      <section
+        className="relative overflow-hidden rounded-2xl border border-emerald-200/60 p-4 sm:p-5 text-white"
+        style={{
+          backgroundImage:
+            "linear-gradient(115deg, rgba(6,95,70,0.88), rgba(14,116,144,0.80)), url('/main-screen/water-project-monitoring.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="relative z-10 max-w-2xl">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-emerald-100">DPAL Passenger Mission</p>
+          <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight">Request support rides with clear status and trusted pricing.</h2>
+          <p className="mt-1.5 text-sm font-medium text-cyan-50/95">
+            Track driver offers, review counteroffers, and keep every trip transparent from request to completion.
+          </p>
+        </div>
+      </section>
+
       {isMobile && !activeTrip && (
         <div className="gw-mobile-header">
           <div className="gw-mobile-header-inner">
