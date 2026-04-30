@@ -248,8 +248,14 @@ const DriverRequestCard: React.FC<{
                     {t('acceptRide')}
                   </button>
                 ) : null}
-                <button type="button" className="gw-button gw-button-secondary text-xs px-3 py-1.5 border border-slate-200" onClick={onDecline}>
-                  {t('rejectRide')}
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  onClick={onDecline}
+                  aria-label={t('rejectRide')}
+                  title={t('rejectRide')}
+                >
+                  <span aria-hidden style={{ fontSize: 16, lineHeight: 1, fontWeight: 800 }}>×</span>
                 </button>
                 {trip.broadcastId ? (
                   <button
@@ -318,8 +324,14 @@ const DriverRequestCard: React.FC<{
                 <Link to={chatHref} className="gw-button gw-button-secondary text-xs px-3 py-1.5 no-underline inline-flex items-center">
                   {t('openTripChat')}
                 </Link>
-                <button type="button" className="gw-button gw-button-secondary text-xs px-3 py-1.5 border border-slate-300" onClick={onDecline}>
-                  {t('rejectRide')}
+                <button
+                  type="button"
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                  onClick={onDecline}
+                  aria-label={t('rejectRide')}
+                  title={t('rejectRide')}
+                >
+                  <span aria-hidden style={{ fontSize: 16, lineHeight: 1, fontWeight: 800 }}>×</span>
                 </button>
               </div>
             </>

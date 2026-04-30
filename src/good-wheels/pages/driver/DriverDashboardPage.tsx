@@ -68,6 +68,15 @@ const DriverDashboardPage: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [hydrate]);
 
+  useEffect(() => {
+    if (!activeTrip || !user?.id) return;
+    const belongsToDriver = activeTrip.driverId === user.id;
+    if (!belongsToDriver) {
+      clearTripStoreActiveTrip();
+      clearDriverActiveTrip();
+    }
+  }, [activeTrip, user?.id, clearTripStoreActiveTrip, clearDriverActiveTrip]);
+
   const openTrips = useMemo(
     () => queueItems.filter((trip) => ['requested', 'broadcasted', 'matched'].includes(trip.status)),
     [queueItems],
@@ -85,7 +94,12 @@ const DriverDashboardPage: React.FC = () => {
     return arr;
   }, [openTrips, sortBy]);
 
-  const isOnTrip = Boolean(activeTrip && ACTIVE_TRIP_STATUSES.has(activeTrip.status));
+  const isOnTrip = Boolean(
+    activeTrip &&
+      user?.id &&
+      activeTrip.driverId === user.id &&
+      ACTIVE_TRIP_STATUSES.has(activeTrip.status),
+  );
 
   const availableCount = dashboardSummary?.availableCount ?? openTrips.length;
 

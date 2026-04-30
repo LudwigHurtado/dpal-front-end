@@ -183,8 +183,14 @@ const DriverDashboardTripCard: React.FC<{
               {expanded ? t('hideDetails') : t('details')}
             </button>
             {!isPendingCounter ? (
-              <button type="button" className="text-xs font-semibold text-slate-500 underline-offset-2 hover:underline px-2 py-2" onClick={onDecline}>
-                {t('rejectRide')}
+              <button
+                type="button"
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                onClick={onDecline}
+                aria-label={t('rejectRide')}
+                title={t('rejectRide')}
+              >
+                <span aria-hidden style={{ fontSize: 16, lineHeight: 1, fontWeight: 800 }}>×</span>
               </button>
             ) : null}
           </div>

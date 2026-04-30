@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/useAuthStore';
 import { useTripStore } from '../features/trips/tripStore';
 import { GW_PATHS } from '../routes/paths';
@@ -12,7 +12,6 @@ import { getDpalApiConfig } from '../../config/api';
 
 const AppLayout: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const role = useAuthStore((s) => s.activeRole);
   const signOut = useAuthStore((s) => s.signOut);
@@ -78,40 +77,11 @@ const AppLayout: React.FC = () => {
   const previewing = previewDevice !== 'off' && isDev;
   const effectiveIsMobile = previewing ? true : isMobile;
 
-  const mobileTabs = useMemo(() => {
-    if (role === 'driver') {
-      return [
-        { to: GW_PATHS.driver.dashboard, label: t('ride') },
-        { to: GW_PATHS.driver.queue,     label: t('queue') },
-        { to: GW_PATHS.driver.active,    label: t('onTrip') },
-        { to: GW_PATHS.driver.vehicle,   label: t('profile') },
-      ];
-    }
-    if (role === 'passenger') {
-      return [
-        { to: GW_PATHS.passenger.dashboard, label: t('ride') },
-        { to: GW_PATHS.passenger.charities, label: t('charities') },
-        { to: GW_PATHS.passenger.donations, label: t('donations') },
-        { to: GW_PATHS.auth.profile,        label: t('profile') },
-      ];
-    }
-    if (role === 'worker') {
-      return [
-        { to: GW_PATHS.worker.dashboard, label: t('home') },
-        { to: GW_PATHS.worker.dispatch,  label: t('dispatch') },
-        { to: GW_PATHS.worker.tasks,     label: t('tasks') },
-        { to: GW_PATHS.auth.profile,     label: t('profile') },
-      ];
-    }
-    return [];
-  }, [role, lang]); // eslint-disable-line react-hooks/exhaustive-deps
-
   const themeClass =
     role === 'driver' ? 'gw-theme-driver' : role === 'worker' ? 'gw-theme-worker' : role === 'passenger' ? 'gw-theme-passenger' : 'gw-theme-guest';
 
-  /** Passengers use the same sidenav destinations as desktop; bottom tab bars duplicate that and waste vertical space on phones. */
-  const hideMobileBottomNav = role === 'passenger' && effectiveIsMobile;
-  const showMobileBottomNav = effectiveIsMobile && mobileTabs.length > 0 && !hideMobileBottomNav;
+  /** Mobile uses the slide-out drawer for navigation; remove bottom tabs for all roles. */
+  const showMobileBottomNav = false;
   const mobileContentPaddingBottom = effectiveIsMobile && showMobileBottomNav ? 84 : undefined;
 
   const [passengerMenuOpen, setPassengerMenuOpen] = useState(false);
@@ -148,13 +118,16 @@ const AppLayout: React.FC = () => {
       >
       <header className="gw-appbar">
         <div className="gw-container gw-appbar-inner">
-          {effectiveIsMobile && role === 'passenger' && (
+          {effectiveIsMobile && (role === 'passenger' || role === 'driver' || role === 'worker') && (
             <button
               type="button"
               className="gw-button gw-button-ghost"
               aria-label={t('menu')}
-              aria-expanded={passengerMenuOpen}
-              onClick={() => setPassengerMenuOpen((o) => !o)}
+              aria-expanded={role === 'driver' ? driverMenuOpen : passengerMenuOpen}
+              onClick={() => {
+                if (role === 'driver') setDriverMenuOpen((o) => !o);
+                else setPassengerMenuOpen((o) => !o);
+              }}
               style={{ padding: '8px 12px', minWidth: 44 }}
             >
               <span style={{ display: 'block', fontSize: 18, lineHeight: 1 }} aria-hidden>
@@ -173,30 +146,6 @@ const AppLayout: React.FC = () => {
           )}
           {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.notifications} className="gw-navpill">{t('notifications')}</NavLink>}
           {!effectiveIsMobile && <NavLink to={GW_PATHS.shared.settings} className="gw-navpill">{t('settings')}</NavLink>}
-          {/* Language toggle */}
-          <div style={{ display: 'flex', gap: 2, background: 'rgba(0,0,0,0.15)', borderRadius: 8, padding: 2 }}>
-            {(['en', 'es', 'pt'] as GwLang[]).map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLang(l)}
-                style={{
-                  padding: '3px 10px',
-                  borderRadius: 6,
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: '0.05em',
-                  background: lang === l ? '#fff' : 'transparent',
-                  color: lang === l ? '#0e7490' : 'rgba(255,255,255,0.6)',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
           <button type="button" className="gw-button gw-button-ghost" onClick={() => void signOut().then(() => navigate(GW_PATHS.public.home))}>
             {t('signOut')}
           </button>
@@ -263,6 +212,30 @@ const AppLayout: React.FC = () => {
                   {t('settings')} <span aria-hidden>›</span>
                 </NavLink>
               </div>
+              <div className="gw-sidenav-card">
+                <div className="gw-sidenav-title">Language</div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                  {(['en', 'es', 'pt'] as GwLang[]).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLang(l)}
+                      className="gw-button"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 10,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background: lang === l ? 'rgba(26,115,232,0.12)' : 'rgba(15,23,42,0.03)',
+                        color: lang === l ? '#1557b0' : '#334155',
+                        borderColor: lang === l ? 'rgba(26,115,232,0.25)' : 'rgba(15,23,42,0.1)',
+                      }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </>
           )}
 
@@ -275,6 +248,33 @@ const AppLayout: React.FC = () => {
               <NavLink to={GW_PATHS.worker.impact} className="gw-sidenav-link">{t('impact')}</NavLink>
             </nav>
           )}
+
+          {role !== 'driver' && (
+            <div className="gw-sidenav-card">
+              <div className="gw-sidenav-title">Language</div>
+              <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+                {(['en', 'es', 'pt'] as GwLang[]).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setLang(l)}
+                    className="gw-button"
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 10,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      background: lang === l ? 'rgba(0,119,200,0.12)' : 'rgba(15,23,42,0.03)',
+                      color: lang === l ? '#0077C8' : '#334155',
+                      borderColor: lang === l ? 'rgba(0,119,200,0.25)' : 'rgba(15,23,42,0.1)',
+                    }}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </aside>
         )}
 
@@ -282,28 +282,6 @@ const AppLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
-
-      {showMobileBottomNav && (
-        <nav
-          className="gw-bottomnav"
-          aria-label="Bottom navigation"
-        >
-          <div className="gw-bottomnav-inner">
-            {mobileTabs.map((tab) => {
-              const active = location.pathname === tab.to;
-              return (
-                <NavLink
-                  key={tab.to}
-                  to={tab.to}
-                  className={active ? 'gw-bottomnav-item gw-bottomnav-item-active' : 'gw-bottomnav-item'}
-                >
-                  <span className="gw-bottomnav-label">{tab.label}</span>
-                </NavLink>
-              );
-            })}
-          </div>
-        </nav>
-      )}
 
       {effectiveIsMobile && role === 'passenger' && passengerMenuOpen && (
         <>
@@ -376,6 +354,30 @@ const AppLayout: React.FC = () => {
                   {label}
                 </NavLink>
               ))}
+              <div style={{ marginTop: 10, borderTop: '1px solid #E5E7EB', paddingTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Language</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['en', 'es', 'pt'] as GwLang[]).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLang(l)}
+                      className="gw-button"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 10,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background: lang === l ? 'rgba(0,119,200,0.12)' : 'rgba(15,23,42,0.03)',
+                        color: lang === l ? '#0077C8' : '#334155',
+                        borderColor: lang === l ? 'rgba(0,119,200,0.24)' : 'rgba(15,23,42,0.1)',
+                      }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </nav>
         </>
@@ -462,6 +464,30 @@ const AppLayout: React.FC = () => {
                 <NavLink to={GW_PATHS.shared.settings} onClick={() => setDriverMenuOpen(false)} style={{ width: '100%' }}>
                   {t('settings')} <span aria-hidden>›</span>
                 </NavLink>
+              </div>
+              <div style={{ marginTop: 10, borderTop: '1px solid #E5E7EB', paddingTop: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: '#0f172a', marginBottom: 8 }}>Language</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {(['en', 'es', 'pt'] as GwLang[]).map((l) => (
+                    <button
+                      key={l}
+                      type="button"
+                      onClick={() => setLang(l)}
+                      className="gw-button"
+                      style={{
+                        padding: '6px 10px',
+                        borderRadius: 10,
+                        fontSize: 11,
+                        fontWeight: 800,
+                        background: lang === l ? 'rgba(26,115,232,0.12)' : 'rgba(15,23,42,0.03)',
+                        color: lang === l ? '#1557b0' : '#334155',
+                        borderColor: lang === l ? 'rgba(26,115,232,0.24)' : 'rgba(15,23,42,0.1)',
+                      }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </nav>
