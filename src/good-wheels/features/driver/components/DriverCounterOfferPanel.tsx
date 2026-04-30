@@ -23,7 +23,13 @@ const DriverCounterOfferPanel: React.FC<Props> = ({
   const [raw, setRaw] = useState('');
   const [message, setMessage] = useState('');
 
-  const passengerSplit = useMemo(() => calculateGoodWheelsFareSplit(passengerOfferCents), [passengerOfferCents]);
+  /** Basis for “you receive” in the summary block: passenger offer when present, otherwise recommended rate (never mixed). */
+  const basisCents = useMemo(() => {
+    if (passengerOfferCents > 0) return passengerOfferCents;
+    return recommendedFareCents > 0 ? recommendedFareCents : 0;
+  }, [passengerOfferCents, recommendedFareCents]);
+
+  const basisSplit = useMemo(() => calculateGoodWheelsFareSplit(basisCents), [basisCents]);
 
   const counterCents = useMemo(() => {
     const n = Number.parseFloat(raw.replace(/,/g, '.'));
@@ -40,18 +46,22 @@ const DriverCounterOfferPanel: React.FC<Props> = ({
     <div className="rounded-xl border border-amber-200/80 bg-amber-50/40 p-3 space-y-3">
       <div className="text-xs font-bold text-amber-950 uppercase tracking-wide">{t('counteroffer')}</div>
       <div className="grid gap-2 text-sm">
-        <div className="flex justify-between gap-2">
-          <span className="text-slate-600">{t('passengerOffer')}</span>
-          <span className="font-semibold text-slate-900 tabular-nums">{formatMoneyFromCents(passengerOfferCents)}</span>
-        </div>
-        <div className="flex justify-between gap-2">
-          <span className="text-slate-600">{t('recommendedFare')}</span>
-          <span className="font-semibold text-slate-900 tabular-nums">{formatMoneyFromCents(recommendedFareCents)}</span>
-        </div>
+        {passengerOfferCents > 0 ? (
+          <div className="flex justify-between gap-2">
+            <span className="text-slate-600">{t('passengerOffer')}</span>
+            <span className="font-semibold text-slate-900 tabular-nums">{formatMoneyFromCents(passengerOfferCents)}</span>
+          </div>
+        ) : null}
+        {recommendedFareCents > 0 ? (
+          <div className="flex justify-between gap-2">
+            <span className="text-slate-600">{t('recommendedFare')}</span>
+            <span className="font-semibold text-slate-900 tabular-nums">{formatMoneyFromCents(recommendedFareCents)}</span>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-2 border-t border-amber-200/60 pt-2">
           <span className="text-slate-700 font-medium">{t('youReceive')}</span>
           <span className="font-extrabold text-emerald-800 tabular-nums">
-            {formatMoneyFromCents(passengerSplit.driverPayoutCents)}
+            {formatMoneyFromCents(basisSplit.driverPayoutCents)}
           </span>
         </div>
       </div>

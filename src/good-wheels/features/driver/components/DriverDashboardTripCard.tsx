@@ -5,21 +5,9 @@ import TripRouteSummaryCard from '../../trips/components/TripRouteSummaryCard';
 import FareBreakdownCard from '../../trips/components/FareBreakdownCard';
 import DriverCounterOfferPanel from './DriverCounterOfferPanel';
 import { useGwLang } from '../../../i18n/useGwLang';
-import { calculateGoodWheelsFareSplit, formatMoneyFromCents } from '../../trips/utils/fareSplit';
+import { calculateGoodWheelsFareSplit, fareBasisForTrip, formatMoneyFromCents } from '../../trips/utils/fareSplit';
 import { GW_PATHS } from '../../../routes/paths';
 import { useDriverStore } from '../driverStore';
-
-function offerCents(trip: Trip): number {
-  const explicit =
-    typeof trip.offerState?.passengerOfferCents === 'number' && trip.offerState.passengerOfferCents > 0
-      ? Math.round(trip.offerState.passengerOfferCents)
-      : 0;
-  const est =
-    typeof trip.estimate?.totalFareCents === 'number' && trip.estimate.totalFareCents > 0
-      ? Math.round(trip.estimate.totalFareCents)
-      : 0;
-  return explicit > 0 ? explicit : est;
-}
 
 function pickupEtaMinutesStable(tripId: string, km: number): number {
   let h = 0;
@@ -33,7 +21,9 @@ const DriverDashboardTripCard: React.FC<{
   onAccept?: () => void;
   onDecline: () => void;
   dealVariant?: 'available' | 'pending_counteroffer';
-}> = ({ trip, onAccept, onDecline, dealVariant = 'available' }) => {
+  /** Queue route: optional broadcast listen (no autoplay). */
+  showListen?: boolean;
+}> = ({ trip, onAccept, onDecline, dealVariant = 'available', showListen = false }) => {
   const t = useGwLang((s) => s.t);
   const tf = useGwLang((s) => s.tf);
   const sendCounteroffer = useDriverStore((s) => s.sendCounteroffer);
@@ -42,9 +32,10 @@ const DriverDashboardTripCard: React.FC<{
   const [counterBusy, setCounterBusy] = useState(false);
   const [counterError, setCounterError] = useState<string | null>(null);
 
-  const passengerOfferCents = offerCents(trip);
-  const offerSplit = useMemo(() => calculateGoodWheelsFareSplit(passengerOfferCents), [passengerOfferCents]);
-  const fareUsd = passengerOfferCents > 0 ? passengerOfferCents / 100 : null;
+  const fareBasis = useMemo(() => fareBasisForTrip(trip), [trip]);
+  const { explicitPassengerCents, recommendedFareCents, displayCents, displayKind } = fareBasis;
+  const offerSplit = useMemo(() => calculateGoodWheelsFareSplit(displayCents), [displayCents]);
+  const fareUsd = displayCents > 0 ? displayCents / 100 : null;
   const durationMinutes = trip.routeSummary?.durationMinutes ?? Math.max(6, trip.estimate.etaMinutes);
   const distKm = trip.estimate.distanceKm;
   const pickupShort = trip.pickup.label || trip.pickup.addressLine?.split(',')[0] || trip.pickup.addressLine;
@@ -58,13 +49,31 @@ const DriverDashboardTripCard: React.FC<{
   const chatHref = `${GW_PATHS.driver.active}?tripId=${encodeURIComponent(trip.id)}`;
   const svgGradId = `tg-${trip.id.replace(/[^a-zA-Z0-9_-]/g, '') || 'x'}`;
 
-  const recommendedFareCents =
-    typeof trip.offerState?.recommendedFareCents === 'number' && trip.offerState.recommendedFareCents > 0
-      ? Math.round(trip.offerState.recommendedFareCents)
-      : passengerOfferCents;
+  const listenSignal = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    const tListen = [
+      t('newRideBroadcast'),
+      `${t('pickupLabel')}: ${trip.pickup.addressLine}`,
+      `${t('dropoff')}: ${trip.dropoff.addressLine}`,
+      `${t('safetyStatusLabel')}: ${(trip.safetyStatus ?? 'standard').replace(/_/g, ' ')}`,
+      `${t('estimatedDistance')}: ${trip.estimate.distanceKm.toFixed(1)} km`,
+    ]
+      .filter(Boolean)
+      .join('. ');
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(tListen));
+  };
+
+  const canCounteroffer = displayCents > 0 && !isPendingCounter;
 
   return (
     <div className="gw-driver-dash-trip rounded-2xl border border-slate-200/90 bg-white shadow-sm overflow-hidden">
+      {isPendingCounter ? (
+        <div className="border-b border-amber-100 bg-amber-50/90 px-3 py-2.5 text-xs font-semibold text-amber-950 flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center rounded-full bg-amber-200/80 px-2 py-0.5 font-bold">{t('counterofferSentLabel')}</span>
+          <span className="text-amber-900/95">{t('waitingForPassengerResponseLabel')}</span>
+        </div>
+      ) : null}
       <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 p-3 sm:p-4">
         <div
           className="gw-driver-dash-trip-thumb shrink-0 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 overflow-hidden"
@@ -108,12 +117,19 @@ const DriverDashboardTripCard: React.FC<{
               </div>
             </div>
             <div className="text-right shrink-0">
-              {passengerOfferCents > 0 ? (
-                <div className="text-lg font-extrabold text-slate-900 tabular-nums">{tf('tripOfferLabel', { amount: formatMoneyFromCents(passengerOfferCents) })}</div>
+              {displayCents > 0 ? (
+                displayKind === 'passenger' ? (
+                  <div className="text-lg font-extrabold text-slate-900 tabular-nums">{tf('tripOfferLabel', { amount: formatMoneyFromCents(displayCents) })}</div>
+                ) : (
+                  <div>
+                    <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">{t('recommendedFare')}</div>
+                    <div className="text-lg font-extrabold text-slate-900 tabular-nums">{formatMoneyFromCents(displayCents)}</div>
+                  </div>
+                )
               ) : (
                 <div className="text-sm font-semibold text-amber-800">{t('farePending')}</div>
               )}
-              {!isPendingCounter && passengerOfferCents > 0 ? (
+              {!isPendingCounter && displayCents > 0 ? (
                 <div className="text-[11px] font-semibold text-emerald-800 mt-0.5">
                   {t('youReceive')} {formatMoneyFromCents(offerSplit.driverPayoutCents)}
                 </div>
@@ -136,7 +152,16 @@ const DriverDashboardTripCard: React.FC<{
                 {t('acceptRide')}
               </button>
             ) : null}
-            {!isPendingCounter ? (
+            {showListen && !isPendingCounter ? (
+              <button
+                type="button"
+                className="gw-driver-dash-btn-outline px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 text-slate-800 bg-white"
+                onClick={listenSignal}
+              >
+                {t('listen')}
+              </button>
+            ) : null}
+            {!isPendingCounter && canCounteroffer ? (
               <button
                 type="button"
                 className="gw-driver-dash-btn-outline px-4 py-2 rounded-xl text-sm font-bold border border-[#1a73e8]/35 text-[#1557b0] bg-white"
@@ -148,11 +173,12 @@ const DriverDashboardTripCard: React.FC<{
               >
                 {t('counteroffer')}
               </button>
-            ) : (
+            ) : null}
+            {isPendingCounter ? (
               <Link to={chatHref} className="gw-driver-dash-btn-outline px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 text-slate-800 no-underline inline-flex items-center justify-center">
                 {t('openTripChat')}
               </Link>
-            )}
+            ) : null}
             <button
               type="button"
               className="gw-driver-dash-btn-outline px-4 py-2 rounded-xl text-sm font-bold border border-slate-200 text-slate-800 bg-white"
@@ -171,9 +197,9 @@ const DriverDashboardTripCard: React.FC<{
 
       {(expanded || counterOpen) && (
         <div className="border-t border-slate-100 bg-[#f8f9fa] px-3 py-3 sm:px-4 space-y-3">
-          {counterOpen && passengerOfferCents > 0 && !isPendingCounter && (
+          {counterOpen && canCounteroffer && (
             <DriverCounterOfferPanel
-              passengerOfferCents={passengerOfferCents}
+              passengerOfferCents={explicitPassengerCents}
               recommendedFareCents={recommendedFareCents}
               busy={counterBusy}
               error={counterError}

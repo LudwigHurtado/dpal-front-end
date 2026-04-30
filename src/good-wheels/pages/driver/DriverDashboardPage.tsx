@@ -7,7 +7,7 @@ import { GW_PATHS } from '../../routes/paths';
 import { useGwLang } from '../../i18n/useGwLang';
 import { useTripStore } from '../../features/trips/tripStore';
 import type { Trip } from '../../features/trips/tripTypes';
-import { formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
+import { fareBasisForTrip, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 
 const ACTIVE_TRIP_STATUSES = new Set([
@@ -24,15 +24,7 @@ const ACTIVE_TRIP_STATUSES = new Set([
 type SortKey = 'nearest' | 'fare' | 'eta';
 
 function tripOfferSortCents(trip: Trip): number {
-  const explicit =
-    typeof trip.offerState?.passengerOfferCents === 'number' && trip.offerState.passengerOfferCents > 0
-      ? Math.round(trip.offerState.passengerOfferCents)
-      : 0;
-  const est =
-    typeof trip.estimate?.totalFareCents === 'number' && trip.estimate.totalFareCents > 0
-      ? Math.round(trip.estimate.totalFareCents)
-      : 0;
-  return explicit > 0 ? explicit : est;
+  return fareBasisForTrip(trip).displayCents;
 }
 
 function initials(name: string): string {

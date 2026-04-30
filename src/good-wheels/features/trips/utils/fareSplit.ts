@@ -1,3 +1,5 @@
+import type { Trip } from '../tripTypes';
+
 /**
  * Good Wheels fare split: 5% admin on gross, then 90/10 on remainder to driver vs platform.
  * Driver payout is 90% of net after admin — not 90% of gross.
@@ -80,4 +82,41 @@ export function formatMoneyFromCents(cents: number, currency = 'USD'): string {
 export function calculateFareSplitFromUsd(totalFareUsd: number): FareSplit {
   if (!Number.isFinite(totalFareUsd) || totalFareUsd <= 0) return emptySplit();
   return calculateGoodWheelsFareSplit(Math.round(totalFareUsd * 100));
+}
+
+/**
+ * Fare shown on driver queue/dashboard cards: passenger offer when set; otherwise recommended rate (not estimate-as-passenger).
+ */
+export function fareBasisForTrip(trip: Trip): {
+  explicitPassengerCents: number;
+  recommendedFareCents: number;
+  displayCents: number;
+  displayKind: 'passenger' | 'recommended';
+} {
+  const explicit =
+    typeof trip.offerState?.passengerOfferCents === 'number' && trip.offerState.passengerOfferCents > 0
+      ? Math.round(trip.offerState.passengerOfferCents)
+      : 0;
+  const est =
+    typeof trip.estimate?.totalFareCents === 'number' && trip.estimate.totalFareCents > 0
+      ? Math.round(trip.estimate.totalFareCents)
+      : 0;
+  const recommended =
+    typeof trip.offerState?.recommendedFareCents === 'number' && trip.offerState.recommendedFareCents > 0
+      ? Math.round(trip.offerState.recommendedFareCents)
+      : est;
+  if (explicit > 0) {
+    return {
+      explicitPassengerCents: explicit,
+      recommendedFareCents: recommended > 0 ? recommended : explicit,
+      displayCents: explicit,
+      displayKind: 'passenger',
+    };
+  }
+  return {
+    explicitPassengerCents: 0,
+    recommendedFareCents: recommended,
+    displayCents: recommended,
+    displayKind: 'recommended',
+  };
 }
