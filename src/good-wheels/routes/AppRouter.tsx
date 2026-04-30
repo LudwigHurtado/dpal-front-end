@@ -10,7 +10,6 @@ import ProtectedRoute from './guards/ProtectedRoute';
 import RoleSelectPage from '../pages/auth/RoleSelectPage';
 import SignInPage from '../pages/auth/SignInPage';
 import HomePage from '../pages/public/HomePage';
-import PassengerRideHomePage from '../pages/passenger/PassengerRideHomePage';
 import PassengerDashboardPage from '../pages/passenger/PassengerDashboardPage';
 import RequestRidePage from '../pages/passenger/RequestRidePage';
 import PassengerActiveTripPage from '../pages/passenger/PassengerActiveTripPage';
@@ -56,7 +55,7 @@ export default function AppRouter(): React.ReactElement {
               {
                 element: <RoleProtectedRoute role="passenger" />,
                 children: [
-                  { path: GW_PATHS.passenger.dashboard, element: <PassengerRideHomePage /> },
+                  { path: GW_PATHS.passenger.dashboard, element: <PassengerDashboardPage /> },
                   { path: GW_PATHS.passenger.request, element: <RequestRidePage /> },
                   { path: GW_PATHS.passenger.active, element: <PassengerActiveTripPage /> },
                   { path: GW_PATHS.passenger.charities, element: <CharitiesPage /> },
