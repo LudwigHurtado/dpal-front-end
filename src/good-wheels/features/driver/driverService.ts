@@ -86,6 +86,12 @@ function makeQueueTrips(): Trip[] {
 type RawDashboard = Awaited<ReturnType<typeof goodWheelsDriverApi.fetchDriverDashboard>>;
 
 function mapDriverDashboard(raw: RawDashboard): DriverDashboardPayload {
+  const isRealTrip = (trip: Trip) => !isLikelyDemoQueueTrip(trip);
+  const availableRequests = (raw.availableRequests ?? []).map(mapMockTripToTrip).filter(isRealTrip);
+  const pendingDeals = (raw.pendingDeals ?? []).map(mapMockTripToTrip).filter(isRealTrip);
+  const counteredDeals = (raw.counteredDeals ?? []).map(mapMockTripToTrip).filter(isRealTrip);
+  const activeTrip = raw.activeTrip ? mapMockTripToTrip(raw.activeTrip) : null;
+  const recentCompletedTrips = (raw.recentCompletedTrips ?? []).map(mapMockTripToTrip).filter(isRealTrip);
   return {
     driver: {
       id: raw.driver.id,
@@ -95,12 +101,17 @@ function mapDriverDashboard(raw: RawDashboard): DriverDashboardPayload {
       availability: raw.driver.availability as DriverProfile['availability'],
     },
     availability: raw.availability,
-    activeTrip: raw.activeTrip ? mapMockTripToTrip(raw.activeTrip) : null,
-    pendingDeals: (raw.pendingDeals ?? []).map(mapMockTripToTrip),
-    counteredDeals: (raw.counteredDeals ?? []).map(mapMockTripToTrip),
-    availableRequests: (raw.availableRequests ?? []).map(mapMockTripToTrip),
-    recentCompletedTrips: (raw.recentCompletedTrips ?? []).map(mapMockTripToTrip),
-    summary: raw.summary,
+    activeTrip: activeTrip && isRealTrip(activeTrip) ? activeTrip : null,
+    pendingDeals,
+    counteredDeals,
+    availableRequests,
+    recentCompletedTrips,
+    summary: {
+      ...raw.summary,
+      availableCount: availableRequests.length,
+      pendingDealCount: pendingDeals.length,
+      activeTripStatus: activeTrip && isRealTrip(activeTrip) ? raw.summary.activeTripStatus : null,
+    },
   };
 }
 

@@ -299,25 +299,13 @@ function publicUser(u: GoodWheelsUser): Omit<GoodWheelsUser, 'password'> {
 
 async function seedTripsIfEmpty(): Promise<GoodWheelsTrip[]> {
   const trips = await readJsonArray<GoodWheelsTrip>(TRIPS_FILE);
-  if (trips.length > 0) return trips;
+  const cleanedExisting = trips.filter((t) => !/^trip-q-/i.test(String(t.id || '')));
+  if (cleanedExisting.length !== trips.length) {
+    await writeJsonArray(TRIPS_FILE, cleanedExisting);
+  }
+  if (cleanedExisting.length > 0) return cleanedExisting;
   const now = new Date().toISOString();
-  const seeded: GoodWheelsTrip[] = [
-    {
-      id: 'trip-q-2001',
-      passengerId: 'usr-passenger-001',
-      pickup: { label: 'Home', addressLine: '88 Willow Ln' },
-      dropoff: { label: 'School', addressLine: 'Ridgeview Elementary' },
-      purpose: 'school_transport',
-      supportCategoryId: 'school_ride',
-      status: 'matched',
-      safetyStatus: 'family_safe',
-      createdAtIso: now,
-      updatedAtIso: now,
-      estimate: { etaMinutes: 9, distanceKm: 5.1 },
-      timeline: [{ id: 'q1', atIso: now, label: 'Request available', detail: 'Family-safe pickup requested.' }],
-      routeSummary: { distanceKm: 5.1, durationMinutes: 14, previewSteps: ['Head east', 'Arrive at school entrance'] },
-    },
-  ];
+  const seeded: GoodWheelsTrip[] = [];
   await writeJsonArray(TRIPS_FILE, seeded);
   return seeded;
 }
