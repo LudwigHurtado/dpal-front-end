@@ -412,44 +412,51 @@ function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
   const prev = trip.offerState;
   const negStatus = prev?.status ?? 'none';
 
-  let passengerCents = 0;
-  if (typeof prev?.passengerOfferCents === 'number' && Number.isFinite(prev.passengerOfferCents) && prev.passengerOfferCents > 0) {
-    passengerCents = Math.round(prev.passengerOfferCents);
-  }
-  if (passengerCents <= 0) {
-    const est = trip.estimate?.totalFareCents;
-    if (typeof est === 'number' && Number.isFinite(est) && est > 0) {
-      passengerCents = Math.round(est);
-    }
-  }
-
-  let recommendedCents = 0;
-  if (typeof prev?.recommendedFareCents === 'number' && Number.isFinite(prev.recommendedFareCents) && prev.recommendedFareCents > 0) {
-    recommendedCents = Math.round(prev.recommendedFareCents);
-  }
-  if (recommendedCents <= 0) {
-    recommendedCents = heuristicCents;
-  }
-
   const acceptedCents =
     typeof prev?.acceptedFareCents === 'number' && Number.isFinite(prev.acceptedFareCents) && prev.acceptedFareCents > 0
       ? Math.round(prev.acceptedFareCents)
       : 0;
 
-  const splitBase =
-    negStatus === 'accepted' && acceptedCents > 0 ? acceptedCents : passengerCents > 0 ? passengerCents : heuristicCents;
+  const offerPassengerCents =
+    typeof prev?.passengerOfferCents === 'number' && Number.isFinite(prev.passengerOfferCents) && prev.passengerOfferCents > 0
+      ? Math.round(prev.passengerOfferCents)
+      : 0;
 
-  const split = calculateGoodWheelsFareSplit(splitBase);
+  const estimatePassengerCents =
+    typeof trip.estimate?.totalFareCents === 'number' && Number.isFinite(trip.estimate.totalFareCents) && trip.estimate.totalFareCents > 0
+      ? Math.round(trip.estimate.totalFareCents)
+      : 0;
 
-  const mergedPassenger = passengerCents > 0 ? passengerCents : splitBase;
-  const mergedRecommended = recommendedCents > 0 ? recommendedCents : heuristicCents;
+  const recommendedFromOffer =
+    typeof prev?.recommendedFareCents === 'number' && Number.isFinite(prev.recommendedFareCents) && prev.recommendedFareCents > 0
+      ? Math.round(prev.recommendedFareCents)
+      : 0;
+
+  /** Gross listed fare (single source for split + estimate.totalFareCents). */
+  let grossListCents = 0;
+  if (negStatus === 'accepted' && acceptedCents > 0) {
+    grossListCents = acceptedCents;
+  } else if (offerPassengerCents > 0) {
+    grossListCents = offerPassengerCents;
+  } else if (estimatePassengerCents > 0) {
+    grossListCents = estimatePassengerCents;
+  } else {
+    grossListCents = heuristicCents;
+  }
+
+  const recommendedFareCents = recommendedFromOffer > 0 ? recommendedFromOffer : heuristicCents;
+
+  const split = calculateGoodWheelsFareSplit(grossListCents);
+
+  const displayPassengerOfferCents =
+    negStatus === 'accepted' && acceptedCents > 0 ? acceptedCents : offerPassengerCents > 0 ? offerPassengerCents : grossListCents;
 
   const mergedOffer: GoodWheelsTripOfferState = {
-    passengerOfferCents: mergedPassenger,
-    recommendedFareCents: mergedRecommended,
+    passengerOfferCents: displayPassengerOfferCents,
+    recommendedFareCents,
     driverCounterOfferCents: prev?.driverCounterOfferCents,
     acceptedFareCents: acceptedCents > 0 ? acceptedCents : prev?.acceptedFareCents,
-    status: negStatus !== 'none' ? negStatus : splitBase > 0 ? 'passenger_offered' : 'none',
+    status: negStatus !== 'none' ? negStatus : grossListCents > 0 ? 'passenger_offered' : 'none',
     updatedAtIso:
       prev?.updatedAtIso && negStatus !== 'none'
         ? prev.updatedAtIso
@@ -461,11 +468,11 @@ function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
     estimate: {
       etaMinutes: typeof trip.estimate?.etaMinutes === 'number' ? trip.estimate.etaMinutes : 8,
       distanceKm: dist,
-      totalFareCents: split.totalFareCents,
+      totalFareCents: grossListCents,
       currency: trip.estimate?.currency || 'USD',
       fareSplit: fareSplitToPayload(split),
     },
-    offerState: mergedOffer.status === 'none' && splitBase <= 0 ? undefined : mergedOffer,
+    offerState: mergedOffer.status === 'none' && grossListCents <= 0 ? undefined : mergedOffer,
   };
 }
 

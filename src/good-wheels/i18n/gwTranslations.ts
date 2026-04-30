@@ -519,6 +519,9 @@ export const GW_TRANSLATIONS = {
     pickupEtaMinutesAway: '{{n}} min away',
     driverOnlineHoursUnavailable: '—',
     counterBtnShort: 'Counter',
+    shelterStoryBackToMap: 'Back to map',
+    shelterStoryNextVideo: 'Next video',
+    shelterStoryOpenAgain: 'Watch shelter story',
   },
   es: {
     appName: 'Good Wheels',
@@ -1040,6 +1043,9 @@ export const GW_TRANSLATIONS = {
     pickupEtaMinutesAway: 'A {{n}} min',
     driverOnlineHoursUnavailable: '—',
     counterBtnShort: 'Contraoferta',
+    shelterStoryBackToMap: 'Volver al mapa',
+    shelterStoryNextVideo: 'Siguiente video',
+    shelterStoryOpenAgain: 'Ver historia del refugio',
   },
   pt: {
     appName: 'Good Wheels',
@@ -1561,6 +1567,9 @@ export const GW_TRANSLATIONS = {
     pickupEtaMinutesAway: 'A {{n}} min',
     driverOnlineHoursUnavailable: '—',
     counterBtnShort: 'Contraproposta',
+    shelterStoryBackToMap: 'Voltar ao mapa',
+    shelterStoryNextVideo: 'Próximo vídeo',
+    shelterStoryOpenAgain: 'Ver história do abrigo',
   },
 } satisfies Record<GwLang, Record<string, string>>;
 

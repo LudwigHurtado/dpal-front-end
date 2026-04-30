@@ -83,10 +83,21 @@ export function mapMockTripToTrip(input: unknown): Trip {
     const etaMinutes = typeof est.etaMinutes === 'number' ? est.etaMinutes : 12;
     const distanceKm = typeof est.distanceKm === 'number' ? est.distanceKm : 4.2;
     const currency = typeof est.currency === 'string' ? est.currency : 'USD';
+    const offerPassenger =
+      o.offerState &&
+      typeof o.offerState === 'object' &&
+      typeof (o.offerState as { passengerOfferCents?: unknown }).passengerOfferCents === 'number' &&
+      Number.isFinite((o.offerState as { passengerOfferCents: number }).passengerOfferCents) &&
+      (o.offerState as { passengerOfferCents: number }).passengerOfferCents > 0
+        ? Math.round((o.offerState as { passengerOfferCents: number }).passengerOfferCents)
+        : 0;
     let totalFareCents: number | undefined =
       typeof est.totalFareCents === 'number' && Number.isFinite(est.totalFareCents)
         ? Math.round(est.totalFareCents)
         : undefined;
+    if ((totalFareCents == null || totalFareCents <= 0) && offerPassenger > 0) {
+      totalFareCents = offerPassenger;
+    }
     if ((totalFareCents == null || totalFareCents <= 0) && typeof o.fareUsd === 'number' && o.fareUsd > 0) {
       totalFareCents = Math.round(o.fareUsd * 100);
     }

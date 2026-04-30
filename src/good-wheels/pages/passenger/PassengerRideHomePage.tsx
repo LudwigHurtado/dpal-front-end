@@ -18,6 +18,7 @@ import {
   roleGpsIconColor,
 } from './locationSelectionChrome';
 import { estimateGoodWheelsListedFareUsd } from '../../features/trips/utils/rideHailFareEstimate';
+import { parseUsdInputToCents } from '../../features/trips/utils/moneyInput';
 
 /* ─────────────────────────────────────────────
    Types
@@ -508,19 +509,16 @@ const PassengerRideHomePage: React.FC = () => {
     const charityNote = selectedCause
       ? ` | ${t('charities')}: ${selectedCause.name} (${selectedCause.category})`
       : '';
-    const passengerUsdRaw = Number(maxPrice || 0);
     const recUsd = estimateFareForVehicle(vehicleType);
-    const effectiveUsd =
-      Number.isFinite(passengerUsdRaw) && passengerUsdRaw > 0
-        ? passengerUsdRaw
-        : Number.isFinite(recUsd) && recUsd > 0
-          ? recUsd
-          : undefined;
-    const passengerOfferCents = effectiveUsd != null ? Math.round(effectiveUsd * 100) : undefined;
-    const recommendedFareCents =
-      Number.isFinite(recUsd) && recUsd > 0 ? Math.round(recUsd * 100) : passengerOfferCents;
+    const fromInputCents = parseUsdInputToCents(maxPrice);
+    const recommendedFareCentsBase =
+      Number.isFinite(recUsd) && recUsd > 0 ? Math.round(recUsd * 100 + Number.EPSILON) : undefined;
+    const passengerOfferCents = fromInputCents ?? recommendedFareCentsBase;
+    const recommendedFareCents = recommendedFareCentsBase ?? passengerOfferCents;
+    const displayUsd =
+      passengerOfferCents != null ? (passengerOfferCents / 100).toFixed(2) : (Number.isFinite(recUsd) && recUsd > 0 ? recUsd.toFixed(2) : '0.00');
     setDraft({
-      notes: `${tf('negotiation_yourOffer', { amount: (effectiveUsd ?? 0).toFixed(2) })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
+      notes: `${tf('negotiation_yourOffer', { amount: displayUsd })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
       estimatePreview:
         routeDistanceKm != null
           ? { distanceKm: routeDistanceKm, etaMinutes: routeDurationMinutes != null ? routeDurationMinutes : 8 }
