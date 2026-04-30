@@ -9,7 +9,7 @@ const CharitiesPage: React.FC = () => {
   const t = useGwLang((s) => s.t);
 
   return (
-    <div style={{ background: '#F5F7FA', minHeight: '100vh', paddingBottom: 90 }}>
+    <div style={{ background: '#F5F7FA', minHeight: '100vh', paddingBottom: 24 }}>
       <div style={{
         background: 'linear-gradient(180deg, #0D3B66 0%, #0077C8 100%)',
         padding: '14px 16px 18px',
@@ -72,30 +72,6 @@ const CharitiesPage: React.FC = () => {
           {t('requestRide')}
         </button>
       </div>
-      <nav style={{
-        position: 'fixed',
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'white',
-        borderTop: '1px solid #E2E8F0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, 1fr)',
-        padding: '8px 4px max(8px, env(safe-area-inset-bottom))',
-      }}>
-        {[
-          { label: t('exploreTab'), icon: '🧭' },
-          { label: t('myTripsTab'), icon: '🚗' },
-          { label: t('requestRideTab'), icon: '➕' },
-          { label: t('donationsTab'), icon: '🤝' },
-          { label: t('profileTab'), icon: '👤' },
-        ].map((item) => (
-          <div key={item.label} style={{ textAlign: 'center', fontSize: 10, fontWeight: 800, color: '#475569' }}>
-            <div style={{ fontSize: 18, lineHeight: 1 }}>{item.icon}</div>
-            {item.label}
-          </div>
-        ))}
-      </nav>
     </div>
   );
 };

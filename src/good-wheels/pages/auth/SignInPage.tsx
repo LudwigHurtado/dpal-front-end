@@ -14,6 +14,7 @@ const SignInPage: React.FC = () => {
   const t = useGwLang((s) => s.t);
   const status = useAuthStore((s) => s.status);
   const error = useAuthStore((s) => s.error);
+  const connectionMode = useAuthStore((s) => s.connectionMode);
   const signIn = useAuthStore((s) => s.signIn);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,6 +53,11 @@ const SignInPage: React.FC = () => {
           <p className="gw-muted" style={{ fontSize: 11, marginTop: -4, marginBottom: 8 }}>
             {t('roleHintAfterFields')}
           </p>
+          {connectionMode === 'fallback_demo' && (
+            <div className="gw-info">
+              Safe Demo Mode is active. Live API is currently unavailable, but you can keep using Good Wheels.
+            </div>
+          )}
           {error && <div className="gw-error">{error}</div>}
           <button
             type="button"

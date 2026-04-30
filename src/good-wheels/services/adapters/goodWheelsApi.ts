@@ -6,15 +6,45 @@ import { mapMockTripToTrip } from '../../features/trips/tripMockMapper';
 import { mapGoodWheelsApiUser } from './goodWheelsUserMapper';
 
 async function parseJson<T>(res: Response): Promise<T> {
-  return (await res.json()) as T;
+  const raw = await res.text();
+  if (!raw.trim()) return {} as T;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    // Some edge/runtime failures return plain text or HTML.
+    // Surface a readable error payload instead of a JSON parse crash.
+    return ({ error: raw.slice(0, 320) } as unknown) as T;
+  }
+}
+
+async function postJsonWithAlias(
+  primaryPath: string,
+  aliasPath: string,
+  body: Record<string, unknown>,
+): Promise<Response> {
+  const options: RequestInit = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+
+  const first = await fetch(buildApiUrl(primaryPath), options);
+  if (first.ok) return first;
+
+  if (first.status === 404 || first.status === 405 || first.status >= 500) {
+    const second = await fetch(buildApiUrl(aliasPath), options);
+    if (second.ok) return second;
+    return second;
+  }
+
+  return first;
 }
 
 export const goodWheelsAuthApi = {
   async signIn(email: string, password: string): Promise<{ user: UserProfile }> {
-    const res = await fetch(buildApiUrl('/api/good-wheels/auth/signin'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+    const res = await postJsonWithAlias('/api/good-wheels/auth/signin', '/api/good-wheels/auth/sign-in', {
+      email,
+      password,
     });
     const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
     if (!res.ok || data.ok === false || data.user == null) {

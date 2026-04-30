@@ -9,6 +9,7 @@ import { useTripStore } from '../../features/trips/tripStore';
 import type { Trip } from '../../features/trips/tripTypes';
 import { fareBasisForTrip, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
+import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 
 const ACTIVE_TRIP_STATUSES = new Set([
   'accepted',
@@ -40,7 +41,9 @@ const DriverDashboardPage: React.FC = () => {
   const tf = useGwLang((s) => s.tf);
   const user = useAuthStore((s) => s.user);
   const activeTrip = useTripStore((s) => s.activeTrip);
+  const clearTripStoreActiveTrip = useTripStore((s) => s.clearActiveTrip);
   const hydrate = useDriverStore((s) => s.hydrate);
+  const clearDriverActiveTrip = useDriverStore((s) => s.clearActiveTrip);
   const queueItems = useDriverStore((s) => s.queueItems);
   const pendingDealTrips = useDriverStore((s) => s.pendingDealTrips);
   const recentCompletedTrips = useDriverStore((s) => s.recentCompletedTrips);
@@ -56,6 +59,8 @@ const DriverDashboardPage: React.FC = () => {
   const performanceSummary = useDriverStore((s) => s.performanceSummary);
 
   const [sortBy, setSortBy] = useState<SortKey>('nearest');
+  const [tripActionLoading, setTripActionLoading] = useState<'cancel' | 'close' | 'reset' | null>(null);
+  const [tripActionError, setTripActionError] = useState<string | null>(null);
 
   useEffect(() => {
     void hydrate();
@@ -120,6 +125,35 @@ const DriverDashboardPage: React.FC = () => {
 
   const onlineHoursDisplay = GOOD_WHEELS_DEMO_MODE ? '08h 24m' : t('driverOnlineHoursUnavailable');
 
+  const releaseActiveTrip = async (mode: 'cancel' | 'close' | 'reset') => {
+    if (!activeTrip) return;
+    setTripActionLoading(mode);
+    setTripActionError(null);
+    try {
+      if (!GOOD_WHEELS_DEMO_MODE) {
+        if (mode === 'cancel') {
+          await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver cancelled from dashboard');
+        } else if (mode === 'close') {
+          await goodWheelsRideApi.completeTrip(activeTrip.id, 'Driver closed trip from dashboard');
+        } else {
+          try {
+            await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver reset stale trip from dashboard');
+          } catch {
+            // If backend cancel fails, still allow local reset so driver can continue.
+          }
+        }
+      }
+      clearTripStoreActiveTrip();
+      clearDriverActiveTrip();
+      void setAvailability('online');
+      await hydrate();
+    } catch (e) {
+      setTripActionError(e instanceof Error ? e.message : 'Could not update active ride right now.');
+    } finally {
+      setTripActionLoading(null);
+    }
+  };
+
   return (
     <div className="gw-driver-dashboard space-y-5 pb-8">
       {/* Local top bar (matches reference: title + alerts + online switch) */}
@@ -159,6 +193,24 @@ const DriverDashboardPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <section
+        className="relative overflow-hidden rounded-2xl border border-[#1a73e8]/25 p-4 sm:p-5 text-white"
+        style={{
+          backgroundImage:
+            "linear-gradient(115deg, rgba(13,59,102,0.92), rgba(26,115,232,0.80)), url('/main-screen/dpal-work-network.png')",
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
+      >
+        <div className="relative z-10 max-w-2xl">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.14em] text-cyan-100">DPAL Driver Mission</p>
+          <h2 className="mt-1 text-lg sm:text-xl font-black tracking-tight">Safe rides. Real community impact.</h2>
+          <p className="mt-1.5 text-sm font-medium text-blue-50/95">
+            Keep families moving with verified pickups, transparent timelines, and trusted driver controls.
+          </p>
+        </div>
+      </section>
 
       {dashboardLoading && !driverProfile ? (
         <div className="rounded-2xl border border-slate-200/80 bg-white p-4 text-sm font-medium text-slate-700">{t('restoringDriverDashboard')}</div>
@@ -238,16 +290,49 @@ const DriverDashboardPage: React.FC = () => {
       </div>
 
       {isOnTrip && activeTrip ? (
-        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-emerald-900">{t('youAreOnTrip')}</div>
+              <div className="text-sm font-semibold text-emerald-950">
+                {activeTrip.pickup.label} → {activeTrip.dropoff.label}
+              </div>
+            </div>
+            <Link to={GW_PATHS.driver.active} className="gw-driver-dash-btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white no-underline inline-flex justify-center">
+              {t('resumeActiveTripCta')}
+            </Link>
+          </div>
           <div>
-            <div className="text-xs font-bold uppercase tracking-wide text-emerald-900">{t('youAreOnTrip')}</div>
-            <div className="text-sm font-semibold text-emerald-950">
-              {activeTrip.pickup.label} → {activeTrip.dropoff.label}
+            <div className="text-xs font-bold text-emerald-900 mb-2">Driver controls</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="gw-button"
+                onClick={() => void releaseActiveTrip('cancel')}
+                disabled={tripActionLoading !== null}
+                style={{ background: 'rgba(220,38,38,0.12)', color: '#991b1b' }}
+              >
+                {tripActionLoading === 'cancel' ? 'Cancelling…' : 'Cancel this ride'}
+              </button>
+              <button
+                type="button"
+                className="gw-button gw-button-secondary"
+                onClick={() => void releaseActiveTrip('close')}
+                disabled={tripActionLoading !== null}
+              >
+                {tripActionLoading === 'close' ? 'Closing…' : 'Close ride and finish'}
+              </button>
+              <button
+                type="button"
+                className="gw-button gw-button-primary"
+                onClick={() => void releaseActiveTrip('reset')}
+                disabled={tripActionLoading !== null}
+              >
+                {tripActionLoading === 'reset' ? 'Resetting…' : 'Continue searching for passengers'}
+              </button>
             </div>
           </div>
-          <Link to={GW_PATHS.driver.active} className="gw-driver-dash-btn-primary px-4 py-2 rounded-xl text-sm font-bold text-white no-underline inline-flex justify-center">
-            {t('resumeActiveTripCta')}
-          </Link>
+          {tripActionError ? <div className="text-xs font-semibold text-rose-700">{tripActionError}</div> : null}
         </div>
       ) : null}
 

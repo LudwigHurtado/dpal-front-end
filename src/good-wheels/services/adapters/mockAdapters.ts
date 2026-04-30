@@ -4,6 +4,7 @@ import { MOCK_TRIPS } from '../../data/mock/mockTrips';
 import type { Role } from '../../types/role';
 import type { UserProfile } from '../../types/user';
 import type { RideRequestDraft, Trip } from '../../types/ride';
+import { calculateGoodWheelsFareSplit, fareSplitToPayload } from '../../features/trips/utils/fareSplit';
 
 export const mockAuthApi = {
   async signIn(email: string, _password: string): Promise<{ user: UserProfile }> {
@@ -32,10 +33,56 @@ export const mockRideApi = {
     await mockDelay(300);
     return MOCK_TRIPS.history.filter((t) => t.passengerId === userId || t.driverId === userId);
   },
-  async requestRide(_draft: RideRequestDraft): Promise<Trip> {
+  async requestRide(draft: RideRequestDraft): Promise<Trip> {
     await mockDelay(650);
-    // For foundation: return the existing “active” trip shape as if newly created.
-    return MOCK_TRIPS.active;
+    const dist = draft.estimatePreview?.distanceKm ?? 4.8;
+    const eta = draft.estimatePreview?.etaMinutes ?? 8;
+    const pCents =
+      typeof draft.passengerOfferCents === 'number' && draft.passengerOfferCents > 0
+        ? Math.round(draft.passengerOfferCents)
+        : undefined;
+    const rCents =
+      typeof draft.recommendedFareCents === 'number' && draft.recommendedFareCents > 0
+        ? Math.round(draft.recommendedFareCents)
+        : pCents;
+    const gross = pCents ?? rCents ?? 800;
+    const split = calculateGoodWheelsFareSplit(gross);
+    const now = new Date().toISOString();
+    const pickup = draft.pickup ?? MOCK_TRIPS.active.pickup;
+    const dropoff = draft.dropoff ?? MOCK_TRIPS.active.dropoff;
+    return {
+      id: `trip-mock-${Date.now()}`,
+      passengerId: draft.passengerId || 'usr-passenger-001',
+      pickup,
+      dropoff,
+      purpose: draft.purpose ?? 'normal_ride',
+      supportCategoryId: draft.supportCategoryId,
+      status: 'broadcasted',
+      safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
+      createdAtIso: now,
+      updatedAtIso: now,
+      estimate: {
+        etaMinutes: eta,
+        distanceKm: dist,
+        totalFareCents: gross,
+        currency: 'USD',
+        fareSplit: fareSplitToPayload(split),
+      },
+      routeSummary: draft.routeSummaryPreview
+        ? {
+            distanceKm: draft.routeSummaryPreview.distanceKm,
+            durationMinutes: draft.routeSummaryPreview.durationMinutes,
+            previewSteps: draft.routeSummaryPreview.previewSteps,
+          }
+        : undefined,
+      timeline: [{ id: `evt-${Date.now()}`, atIso: now, label: 'Ride requested', detail: 'Mock trip created' }],
+      offerState: {
+        passengerOfferCents: gross,
+        recommendedFareCents: rCents ?? gross,
+        status: 'passenger_offered',
+        updatedAtIso: now,
+      },
+    };
   },
 };
 

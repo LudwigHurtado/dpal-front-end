@@ -326,6 +326,7 @@
 .gw-card-title { font-weight: 800; letter-spacing: -0.01em; }
 .gw-muted { color: var(--gw-muted); }
 .gw-error { background: rgba(251, 113, 133, 0.10); border: 1px solid rgba(251, 113, 133, 0.25); color: #9f1239; padding: 10px 12px; border-radius: 14px; font-size: 14px; }
+.gw-info { background: rgba(59, 130, 246, 0.10); border: 1px solid rgba(59, 130, 246, 0.30); color: #1e3a8a; padding: 10px 12px; border-radius: 14px; font-size: 13px; font-weight: 700; }
 .gw-link { color: var(--gw-blue); text-decoration: none; font-weight: 600; }
 .gw-link:hover { text-decoration: underline; }
 
@@ -408,6 +409,16 @@
 .gw-form { display: grid; gap: 12px; margin-top: 14px; }
 .gw-label { display: grid; gap: 6px; font-size: 14px; font-weight: 700; color: var(--gw-text); }
 .gw-input { width: 100%; border: 1px solid var(--gw-border); background: white; border-radius: 14px; padding: 10px 12px; font-size: 14px; }
+@media (max-width: 640px) {
+  .gw-main { padding: 16px 0 30px; }
+  .gw-auth { align-items: flex-start; padding: 14px 0 24px; }
+  .gw-auth-card { border-radius: 18px; padding: 16px; box-shadow: 0 12px 30px rgba(2, 6, 23, 0.20); }
+  .gw-topbar-inner { padding: 10px 0; }
+  .gw-brand-title { font-size: 14px; }
+  .gw-brand-sub { font-size: 11px; }
+  .gw-topnav { gap: 6px; }
+  .gw-navlink { display: none; }
+}
 
 .gw-role-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 @media (max-width: 960px) { .gw-role-grid { grid-template-columns: 1fr; } }

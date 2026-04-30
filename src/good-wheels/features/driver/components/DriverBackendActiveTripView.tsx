@@ -21,6 +21,8 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [sharingLocation, setSharingLocation] = useState(false);
   const [sharingError, setSharingError] = useState<string | null>(null);
   const [sharingUpdatedAtIso, setSharingUpdatedAtIso] = useState<string | null>(null);
+  const [tripActionLoading, setTripActionLoading] = useState<'cancel' | 'close' | 'reset' | null>(null);
+  const [tripActionError, setTripActionError] = useState<string | null>(null);
 
   const canShareLocation = useMemo(
     () =>
@@ -87,6 +89,30 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
 
   const threadId = trip.chatThreadId ?? `good-wheels-trip-${trip.id}`;
 
+  const releaseTrip = async (mode: 'cancel' | 'close' | 'reset') => {
+    setTripActionLoading(mode);
+    setTripActionError(null);
+    try {
+      if (mode === 'cancel') {
+        await goodWheelsRideApi.cancelTrip(trip.id, 'Driver cancelled from active trip view');
+      } else if (mode === 'close') {
+        await goodWheelsRideApi.completeTrip(trip.id, 'Driver closed trip from active trip view');
+      } else {
+        try {
+          await goodWheelsRideApi.cancelTrip(trip.id, 'Driver reset stale trip from active trip view');
+        } catch {
+          // Keep local reset path available for stale UI recovery.
+        }
+      }
+      useTripStore.getState().clearActiveTrip();
+      navigate(GW_PATHS.driver.dashboard);
+    } catch (e) {
+      setTripActionError(e instanceof Error ? e.message : 'Could not update this trip right now.');
+    } finally {
+      setTripActionLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="gw-card p-5 space-y-3 border-amber-200/40" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.04) 0%, #fff 40%)' }}>
@@ -141,6 +167,37 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           {sharingUpdatedAtIso ? ` · ${t('lastUpdated')}: ${new Date(sharingUpdatedAtIso).toLocaleTimeString()}` : ''}
         </div>
         {sharingError ? <div className="text-xs font-semibold text-red-700">{sharingError}</div> : null}
+        <div className="border-t border-slate-200/80 pt-3">
+          <div className="text-xs font-extrabold text-slate-700 mb-2">Trip reset controls</div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="gw-button"
+              onClick={() => void releaseTrip('cancel')}
+              disabled={tripActionLoading !== null}
+              style={{ background: 'rgba(220,38,38,0.12)', color: '#991b1b' }}
+            >
+              {tripActionLoading === 'cancel' ? 'Cancelling…' : 'Cancel ride'}
+            </button>
+            <button
+              type="button"
+              className="gw-button gw-button-secondary"
+              onClick={() => void releaseTrip('close')}
+              disabled={tripActionLoading !== null}
+            >
+              {tripActionLoading === 'close' ? 'Closing…' : 'Close as completed'}
+            </button>
+            <button
+              type="button"
+              className="gw-button gw-button-primary"
+              onClick={() => void releaseTrip('reset')}
+              disabled={tripActionLoading !== null}
+            >
+              {tripActionLoading === 'reset' ? 'Resetting…' : 'Continue searching for new passenger'}
+            </button>
+          </div>
+          {tripActionError ? <div className="text-xs font-semibold text-rose-700 mt-2">{tripActionError}</div> : null}
+        </div>
       </div>
 
       <TripMapPanel trip={trip} variant="driver" />
