@@ -36,11 +36,11 @@ const DriverDashboardTripCard: React.FC<{
   const { explicitPassengerCents, recommendedFareCents, displayCents, displayKind } = fareBasis;
   const offerSplit = useMemo(() => calculateGoodWheelsFareSplit(displayCents), [displayCents]);
   const fareUsd = displayCents > 0 ? displayCents / 100 : null;
-  const durationMinutes = trip.routeSummary?.durationMinutes ?? Math.max(6, trip.estimate.etaMinutes);
-  const distKm = trip.estimate.distanceKm;
+  const durationMinutes = trip.routeSummary?.durationMinutes ?? Math.max(6, trip.estimate?.etaMinutes ?? 8);
+  const distKm = Number.isFinite(trip.estimate?.distanceKm) ? (trip.estimate?.distanceKm as number) : 0;
   const pickupShort = trip.pickup.label || trip.pickup.addressLine?.split(',')[0] || trip.pickup.addressLine;
   const dropShort = trip.dropoff.label || trip.dropoff.addressLine?.split(',')[0] || trip.dropoff.addressLine;
-  const etaPickupMin = pickupEtaMinutesStable(trip.id, distKm);
+  const etaPickupMin = pickupEtaMinutesStable(trip.id, Math.max(distKm, 0.1));
   const isPendingCounter = dealVariant === 'pending_counteroffer';
   const counterCents =
     typeof trip.offerState?.driverCounterOfferCents === 'number' && trip.offerState.driverCounterOfferCents > 0
@@ -56,7 +56,7 @@ const DriverDashboardTripCard: React.FC<{
       `${t('pickupLabel')}: ${trip.pickup.addressLine}`,
       `${t('dropoff')}: ${trip.dropoff.addressLine}`,
       `${t('safetyStatusLabel')}: ${(trip.safetyStatus ?? 'standard').replace(/_/g, ' ')}`,
-      `${t('estimatedDistance')}: ${trip.estimate.distanceKm.toFixed(1)} km`,
+      `${t('estimatedDistance')}: ${distKm.toFixed(1)} km`,
     ]
       .filter(Boolean)
       .join('. ');
@@ -75,12 +75,12 @@ const DriverDashboardTripCard: React.FC<{
         </div>
       ) : null}
       <div className="flex flex-col sm:flex-row sm:items-stretch gap-3 p-3 sm:p-4">
+        {/* Full-width thumb in column layout; fixed width on sm+ row so the details column never collapses to 0 */}
         <div
-          className="gw-driver-dash-trip-thumb shrink-0 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 overflow-hidden"
-          style={{ width: '100%', minHeight: 96, maxWidth: '100%' }}
+          className="gw-driver-dash-trip-thumb shrink-0 flex items-center justify-center rounded-xl border border-slate-100 bg-slate-50 overflow-hidden w-full min-h-[96px] sm:w-[120px] sm:min-w-[120px] sm:max-w-[120px]"
           aria-hidden
         >
-          <svg viewBox="0 0 120 96" className="w-full h-24 sm:w-[120px] sm:h-[96px]" preserveAspectRatio="xMidYMid slice">
+          <svg viewBox="0 0 120 96" className="h-24 w-full max-w-[120px] sm:h-[96px] sm:w-[120px]" preserveAspectRatio="xMidYMid slice">
             <defs>
               <linearGradient id={svgGradId} x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stopColor="#e2e8f0" />
