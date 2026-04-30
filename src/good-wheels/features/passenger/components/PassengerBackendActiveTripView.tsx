@@ -39,6 +39,15 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           <span className="mx-2 text-slate-400">→</span>
           <span className="font-bold text-red-800">{t('dropoff')}:</span> {trip.dropoff.addressLine}
         </div>
+        {(() => {
+          const grossCents = trip.offerState?.passengerOfferCents ?? trip.estimate?.totalFareCents;
+          if (grossCents == null || !Number.isFinite(grossCents) || grossCents <= 0) return null;
+          return (
+            <div className="rounded-lg border border-emerald-200/80 bg-emerald-50/90 px-3 py-2 text-sm font-semibold text-emerald-950">
+              {t('totalFare')}: ${(grossCents / 100).toFixed(2)}
+            </div>
+          );
+        })()}
         <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-800">
           <div className="font-extrabold text-slate-900">{driverName}</div>
           {trip.driverSnapshot?.fullName && v && (

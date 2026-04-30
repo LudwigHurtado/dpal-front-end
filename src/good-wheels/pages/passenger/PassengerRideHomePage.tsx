@@ -508,8 +508,19 @@ const PassengerRideHomePage: React.FC = () => {
     const charityNote = selectedCause
       ? ` | ${t('charities')}: ${selectedCause.name} (${selectedCause.category})`
       : '';
+    const passengerUsdRaw = Number(maxPrice || 0);
+    const recUsd = estimateFareForVehicle(vehicleType);
+    const effectiveUsd =
+      Number.isFinite(passengerUsdRaw) && passengerUsdRaw > 0
+        ? passengerUsdRaw
+        : Number.isFinite(recUsd) && recUsd > 0
+          ? recUsd
+          : undefined;
+    const passengerOfferCents = effectiveUsd != null ? Math.round(effectiveUsd * 100) : undefined;
+    const recommendedFareCents =
+      Number.isFinite(recUsd) && recUsd > 0 ? Math.round(recUsd * 100) : passengerOfferCents;
     setDraft({
-      notes: `${tf('negotiation_yourOffer', { amount: Number(maxPrice || 0).toFixed(2) })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
+      notes: `${tf('negotiation_yourOffer', { amount: (effectiveUsd ?? 0).toFixed(2) })} ${vehicleLabel(selVehicle.label)}${charityNote}`,
       estimatePreview:
         routeDistanceKm != null
           ? { distanceKm: routeDistanceKm, etaMinutes: routeDurationMinutes != null ? routeDurationMinutes : 8 }
@@ -518,6 +529,8 @@ const PassengerRideHomePage: React.FC = () => {
         routeDistanceKm != null && routeDurationMinutes != null
           ? { distanceKm: routeDistanceKm, durationMinutes: routeDurationMinutes }
           : undefined,
+      passengerOfferCents,
+      recommendedFareCents,
     });
     await requestRide();
     setBroadcasting(false);
@@ -531,7 +544,6 @@ const PassengerRideHomePage: React.FC = () => {
     setNegotiationState('pending');
     setNegotiationNote(`${t('negotiation_offerSent')} · ${t('negotiation_driverReviewing')}`);
     window.setTimeout(() => {
-      // Driver hears the broadcast first, then either accepts or counters.
       const requestedFare = estimateFareForVehicle(vehicleType);
       if (offer >= requestedFare) {
         setNegotiationState('accepted');
@@ -539,10 +551,15 @@ const PassengerRideHomePage: React.FC = () => {
         void handleBroadcast();
         return;
       }
-      const counter = Number((requestedFare).toFixed(2));
-      setDriverCounterOffer(counter);
-      setNegotiationState('countered');
-      setNegotiationNote(`${tf('negotiation_driverCountered', { amount: counter.toFixed(2) })} · ${t('negotiation_waitingResponse')}`);
+      // Do not label the route-based minimum as a driver counteroffer (no driver response yet).
+      setDriverCounterOffer(null);
+      setNegotiationState('idle');
+      setNegotiationNote(
+        tf('negotiation_route_below_guidance', {
+          minimum: requestedFare.toFixed(2),
+          offered: offer.toFixed(2),
+        }),
+      );
     }, 900);
   };
 
@@ -578,6 +595,8 @@ const PassengerRideHomePage: React.FC = () => {
       notes: undefined,
       estimatePreview: undefined,
       routeSummaryPreview: undefined,
+      passengerOfferCents: undefined,
+      recommendedFareCents: undefined,
     });
   }, [setDraft]);
 

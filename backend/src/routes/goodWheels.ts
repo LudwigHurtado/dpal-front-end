@@ -7,6 +7,7 @@ import {
   fareSplitToPayload,
   type GoodWheelsFareSplitPayload,
 } from '../utils/goodWheelsFareSplit';
+import { listedFareCentsFromRoute } from '../services/goodWheelsListedFareEstimate';
 
 type BroadcastAudience = 'all' | 'nearby' | 'mission' | 'emergency' | 'community' | 'surge' | 'charity' | 'hazard';
 type ChatSenderRole = 'driver' | 'passenger' | 'dispatch' | 'system';
@@ -300,12 +301,6 @@ async function seedTripsIfEmpty(): Promise<GoodWheelsTrip[]> {
   return seeded;
 }
 
-function defaultTotalFareCentsFromDistance(distanceKm: number): number {
-  const km = Number.isFinite(distanceKm) && distanceKm > 0 ? distanceKm : 4.8;
-  const usd = Math.max(5.4, km * 2.9 + 4);
-  return Math.round(usd * 100);
-}
-
 function isTerminalTripStatus(status: string): boolean {
   return ['completed', 'cancelled', 'canceled'].includes(status);
 }
@@ -409,7 +404,11 @@ function buildDriverDashboardPayload(
 function enrichTripEstimate(trip: GoodWheelsTrip): GoodWheelsTrip {
   const dist =
     typeof trip.estimate?.distanceKm === 'number' && trip.estimate.distanceKm > 0 ? trip.estimate.distanceKm : 4.8;
-  const heuristicCents = defaultTotalFareCentsFromDistance(dist);
+  const etaForHeuristic =
+    typeof trip.estimate?.etaMinutes === 'number' && Number.isFinite(trip.estimate.etaMinutes)
+      ? Math.max(1, Math.round(trip.estimate.etaMinutes))
+      : undefined;
+  const heuristicCents = listedFareCentsFromRoute(dist, etaForHeuristic);
   const prev = trip.offerState;
   const negStatus = prev?.status ?? 'none';
 
@@ -601,7 +600,7 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
       ? Math.round(Number(body.recommendedFareCents))
       : 0);
 
-  const heuristicCents = defaultTotalFareCentsFromDistance(distanceKm);
+  const heuristicCents = listedFareCentsFromRoute(distanceKm, etaMinutes);
 
   let totalFareCents =
     typeof estFareIn?.totalFareCents === 'number' && Number.isFinite(estFareIn.totalFareCents) && estFareIn.totalFareCents > 0

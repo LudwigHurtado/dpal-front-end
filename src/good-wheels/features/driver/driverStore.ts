@@ -32,6 +32,18 @@ const ACTIVE_ASSIGNED = new Set<string>([
 
 const dashboardCacheKey = (driverId: string) => `good-wheels-driver-dashboard-cache-${driverId}`;
 
+/** Prefer latest `updatedAtIso` if the dashboard payload ever repeats the same trip id. */
+function dedupeTripsByLatestUpdate(trips: Trip[]): Trip[] {
+  const byId = new Map<string, Trip>();
+  for (const trip of trips) {
+    const prev = byId.get(trip.id);
+    if (!prev || (trip.updatedAtIso ?? '') >= (prev.updatedAtIso ?? '')) {
+      byId.set(trip.id, trip);
+    }
+  }
+  return Array.from(byId.values()).sort((a, b) => (b.updatedAtIso ?? '').localeCompare(a.updatedAtIso ?? ''));
+}
+
 type DriverState = {
   driverProfile: DriverProfile | null;
   availabilityStatus: DriverAvailabilityStatus;
@@ -109,7 +121,7 @@ export const useDriverStore = create<DriverState>((set, get) => ({
         const syncIso = new Date().toISOString();
         set({
           driverProfile,
-          queueItems,
+          queueItems: dedupeTripsByLatestUpdate(queueItems),
           pendingDealTrips: [],
           recentCompletedTrips: [],
           dashboardSummary: {
@@ -164,8 +176,8 @@ export const useDriverStore = create<DriverState>((set, get) => ({
 
       set({
         driverProfile: dash.driver,
-        queueItems: dash.availableRequests,
-        pendingDealTrips: dash.pendingDeals,
+        queueItems: dedupeTripsByLatestUpdate(dash.availableRequests),
+        pendingDealTrips: dedupeTripsByLatestUpdate(dash.pendingDeals),
         recentCompletedTrips: dash.recentCompletedTrips,
         dashboardSummary: dash.summary,
         vehicle,
@@ -195,8 +207,8 @@ export const useDriverStore = create<DriverState>((set, get) => ({
             const activeRaw = d.activeTrip;
             const activeTrip = activeRaw ? mapMockTripToTrip(activeRaw) : null;
             set({
-              queueItems: available,
-              pendingDealTrips: pending,
+              queueItems: dedupeTripsByLatestUpdate(available),
+              pendingDealTrips: dedupeTripsByLatestUpdate(pending),
               recentCompletedTrips: recent,
               dashboardSummary: (d.summary as DriverDashboardSummary) ?? null,
               lastDashboardSyncIso: parsed.syncedAt ?? null,
