@@ -266,9 +266,9 @@ export default function DriverCommsPage() {
   }
 
   const acknowledgeLastBroadcast = async () => {
-    if (!lastBroadcast) return;
+    if (!lastBroadcast || !user?.id) return;
     try {
-      await goodWheelsCommsService.acknowledgeBroadcast(lastBroadcast.id, user?.id ?? 'usr-driver-001');
+      await goodWheelsCommsService.acknowledgeBroadcast(lastBroadcast.id, user.id);
       const next = await goodWheelsCommsService.listBroadcasts({ limit: 20 });
       setRecentBroadcasts(next);
     } catch {
@@ -277,9 +277,9 @@ export default function DriverCommsPage() {
   };
 
   const acceptLastBroadcastRide = async () => {
-    if (!lastBroadcast?.tripId) return;
+    if (!lastBroadcast?.tripId || !user?.id) return;
     try {
-      await goodWheelsRideApi.acceptTrip(lastBroadcast.tripId, user?.id ?? 'usr-driver-001');
+      await goodWheelsRideApi.acceptTrip(lastBroadcast.tripId, user.id);
       const next = await goodWheelsCommsService.listBroadcasts({ limit: 20 });
       setRecentBroadcasts(next);
     } catch {

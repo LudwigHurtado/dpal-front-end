@@ -1,7 +1,6 @@
 import type { Role, SafetyStatus, Trip, TripStatus } from '../tripTypes';
 import { actionsForRoleAndStatus, type TripAction, type TripActionId } from '../tripActions';
 import { useTripStore } from '../tripStore';
-import { GOOD_WHEELS_DEMO_MODE } from '../../../app/appConfig';
 import { goodWheelsRideApi } from '../../../services/adapters/goodWheelsApi';
 
 function nowIso(): string {
@@ -17,6 +16,11 @@ export function useTripActions(role: Role, trip: Trip) {
 
   const requestTrip = useTripStore((s) => s.requestRide);
 
+  const requireTripId = () => {
+    if (!trip?.id) throw new Error('Trip ID is required for this action.');
+    return trip.id;
+  };
+
   const setTripFromServer = (next: Trip) => {
     useTripStore.getState().setActiveTrip(next);
     if (next.status === 'completed' || next.status === 'cancelled') {
@@ -25,36 +29,30 @@ export function useTripActions(role: Role, trip: Trip) {
   };
 
   const assignDriver = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('driver_assigned', 'Driver assigned');
-    const next = await goodWheelsRideApi.updateTripStatus(trip.id, 'accepted', 'Driver assigned');
+    const next = await goodWheelsRideApi.updateTripStatus(requireTripId(), 'accepted', 'Driver assigned');
     setTripFromServer(next);
   };
   const markDriverArriving = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('driver_arriving', 'Driver arriving');
-    const next = await goodWheelsRideApi.updateTripStatus(trip.id, 'driver_en_route', 'Driver en route');
+    const next = await goodWheelsRideApi.updateTripStatus(requireTripId(), 'driver_en_route', 'Driver en route');
     setTripFromServer(next);
   };
   const markDriverArrived = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('arrived', 'Driver arrived');
-    const next = await goodWheelsRideApi.updateTripStatus(trip.id, 'driver_arrived', 'Driver arrived');
+    const next = await goodWheelsRideApi.updateTripStatus(requireTripId(), 'driver_arrived', 'Driver arrived');
     setTripFromServer(next);
   };
   const startTrip = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('in_progress', 'Trip started');
-    const next = await goodWheelsRideApi.updateTripStatus(trip.id, 'in_progress', 'Trip started');
+    const next = await goodWheelsRideApi.updateTripStatus(requireTripId(), 'in_progress', 'Trip started');
     setTripFromServer(next);
   };
   const completeTrip = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('completed', 'Trip completed');
-    const next = await goodWheelsRideApi.completeTrip(trip.id, 'Trip completed by driver');
+    const next = await goodWheelsRideApi.completeTrip(requireTripId(), 'Trip completed by driver');
     useTripStore.getState().setActiveTrip(next);
     useTripStore.getState().updateStatus('completed', 'Trip completed');
   };
   const cancelTrip = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('cancelled', 'Trip cancelled');
     const actorRole = role === 'driver' ? 'driver' : role === 'passenger' ? 'passenger' : undefined;
     const actorUserId = actorRole === 'driver' ? trip.driverId : actorRole === 'passenger' ? trip.passengerId : undefined;
-    const next = await goodWheelsRideApi.cancelTrip(trip.id, 'Cancelled by user', {
+    const next = await goodWheelsRideApi.cancelTrip(requireTripId(), 'Cancelled by user', {
       role: actorRole,
       userId: actorUserId,
     });
@@ -62,13 +60,11 @@ export function useTripActions(role: Role, trip: Trip) {
     useTripStore.getState().updateStatus('cancelled', 'Trip cancelled');
   };
   const escalateTrip = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('escalated', 'Escalated');
-    const next = await goodWheelsRideApi.updateTripStatus(trip.id, 'escalated', 'Escalated');
+    const next = await goodWheelsRideApi.updateTripStatus(requireTripId(), 'escalated', 'Escalated');
     setTripFromServer(next);
   };
   const attachWorker = async () => {
-    if (GOOD_WHEELS_DEMO_MODE || !trip?.id) return updateStatus('support_in_progress', 'Support attached');
-    const next = await goodWheelsRideApi.updateTripStatus(trip.id, 'support_in_progress', 'Support attached');
+    const next = await goodWheelsRideApi.updateTripStatus(requireTripId(), 'support_in_progress', 'Support attached');
     setTripFromServer(next);
   };
 

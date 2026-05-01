@@ -16,8 +16,7 @@ import { driverService } from './driverService';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 import { goodWheelsDriverApi } from '../../services/adapters/goodWheelsApi';
 import { useAuthStore } from '../../store/useAuthStore';
-import { mapMockTripToTrip } from '../trips/tripMockMapper';
-import { looksLikeSeededFixture } from '../trips/utils/seededFixtureFilter';
+import { mapApiTripToTrip } from '../trips/apiTripMapper';
 
 const ACTIVE_ASSIGNED = new Set<string>([
   'accepted',
@@ -113,24 +112,22 @@ export const useDriverStore = create<DriverState>((set, get) => ({
         /* ignore quota */
       }
 
-      // Filter seeded fixture trips (Carlos / Home → Clinic) before they reach
-      // the trip store or queue UI.
-      const realActive = dash.activeTrip && !looksLikeSeededFixture(dash.activeTrip) ? dash.activeTrip : null;
-      const realAvailable = (dash.availableRequests ?? []).filter((t) => !looksLikeSeededFixture(t));
-      const realPending = (dash.pendingDeals ?? []).filter((t) => !looksLikeSeededFixture(t));
-      const realRecent = (dash.recentCompletedTrips ?? []).filter((t) => !looksLikeSeededFixture(t));
+      const realActive = dash.activeTrip ?? null;
+      const realAvailable = dash.availableRequests ?? [];
+      const realPending = dash.pendingDeals ?? [];
+      const realRecent = dash.recentCompletedTrips ?? [];
 
       if (realActive) {
         useTripStore.getState().setActiveTrip(realActive);
       } else {
         const cur = useTripStore.getState().activeTrip;
-        if (cur?.driverId === authDriverId || (cur && looksLikeSeededFixture(cur))) {
+        if (cur?.driverId === authDriverId) {
           useTripStore.getState().clearActiveTrip();
         }
       }
 
       const hist = await tripService.listHistory(authDriverId);
-      useTripStore.setState({ history: hist.filter((t) => !looksLikeSeededFixture(t)) });
+      useTripStore.setState({ history: hist });
 
       const hasDriverActive = Boolean(realActive && ACTIVE_ASSIGNED.has(realActive.status));
       const prevAvail = get().availabilityStatus;
@@ -165,19 +162,15 @@ export const useDriverStore = create<DriverState>((set, get) => ({
           const d = parsed.dash;
           if (d) {
             stale = true;
-            const available = (Array.isArray(d.availableRequests)
-              ? (d.availableRequests as unknown[]).map((x) => mapMockTripToTrip(x))
-              : []
-            ).filter((t) => !looksLikeSeededFixture(t));
-            const pending = (Array.isArray(d.pendingDeals) ? (d.pendingDeals as unknown[]).map((x) => mapMockTripToTrip(x)) : []).filter(
-              (t) => !looksLikeSeededFixture(t),
-            );
-            const recent = (Array.isArray(d.recentCompletedTrips)
-              ? (d.recentCompletedTrips as unknown[]).map((x) => mapMockTripToTrip(x))
-              : []
-            ).filter((t) => !looksLikeSeededFixture(t));
+            const available = Array.isArray(d.availableRequests)
+              ? (d.availableRequests as unknown[]).map((x) => mapApiTripToTrip(x))
+              : [];
+            const pending = Array.isArray(d.pendingDeals) ? (d.pendingDeals as unknown[]).map((x) => mapApiTripToTrip(x)) : [];
+            const recent = Array.isArray(d.recentCompletedTrips)
+              ? (d.recentCompletedTrips as unknown[]).map((x) => mapApiTripToTrip(x))
+              : [];
             const activeRaw = d.activeTrip;
-            const activeTrip = activeRaw ? mapMockTripToTrip(activeRaw) : null;
+            const activeTrip = activeRaw ? mapApiTripToTrip(activeRaw) : null;
             set({
               queueItems: dedupeTripsByLatestUpdate(available),
               pendingDealTrips: dedupeTripsByLatestUpdate(pending),
@@ -234,7 +227,11 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     const { queueItems, pendingDealTrips } = get();
     const found = queueItems.find((t) => t.id === tripId) ?? pendingDealTrips.find((t) => t.id === tripId);
     if (!found) return null;
-    const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id ?? 'usr-driver-001';
+    const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id;
+    if (!driverId) {
+      set({ dashboardError: 'Driver ID is required to accept a ride.' });
+      return null;
+    }
     let next: Trip = {
       ...found,
       driverId,
@@ -255,7 +252,11 @@ export const useDriverStore = create<DriverState>((set, get) => ({
     const { queueItems, pendingDealTrips } = get();
     const found = queueItems.find((t) => t.id === tripId) ?? pendingDealTrips.find((t) => t.id === tripId);
     if (!found) return null;
-    const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id ?? 'usr-driver-001';
+    const driverId = get().driverProfile?.id ?? useAuthStore.getState().user?.id;
+    if (!driverId) {
+      set({ dashboardError: 'Driver ID is required to send a counteroffer.' });
+      return null;
+    }
     let updated: Trip;
     updated = await goodWheelsRideApi.sendTripCounteroffer(tripId, driverId, amountCents, message);
     await get().hydrate();

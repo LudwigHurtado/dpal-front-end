@@ -34,11 +34,11 @@ export type DriverVehicleInfo = {
 };
 
 export type DriverPerformanceSummary = {
-  rating: number; // 0-5
+  rating: number | null; // 0-5 when available
   completedTrips: number;
-  responseTimeSeconds: number;
-  trustScore: number; // 0-100
-  safetyCompliance: 'good' | 'needs_attention';
+  responseTimeSeconds: number | null;
+  trustScore: number | null; // 0-100 when available
+  safetyCompliance: 'good' | 'needs_attention' | null;
 };
 
 export type DriverProfile = {

@@ -7,7 +7,6 @@ import { useDriverStore } from '../features/driver/driverStore';
 import DevicePreview, { readGwPreviewDevice, type GwPreviewDeviceId, GW_PREVIEW_DEVICES, writeGwPreviewDevice } from '../components/dev/DevicePreview';
 import { useGwLang } from '../i18n/useGwLang';
 import type { GwLang } from '../i18n/gwTranslations';
-import { GOOD_WHEELS_DEMO_MODE } from '../app/appConfig';
 import { getDpalApiConfig } from '../../config/api';
 
 const AppLayout: React.FC = () => {
@@ -522,7 +521,6 @@ const AppLayout: React.FC = () => {
           }}
         >
           <div style={{ fontWeight: 800, marginBottom: 6 }}>{t('goodWheelsDebug')}</div>
-          <div>{t('demoMode')}: {String(GOOD_WHEELS_DEMO_MODE)}</div>
           <div>{t('apiBase')}: {getDpalApiConfig().apiBaseUrl}</div>
           <div>{t('backendHealth')}: {backendHealth}</div>
           <div>{t('activeTripId')}: {activeTrip?.id ?? t('no')}</div>

@@ -362,7 +362,7 @@
 .gw-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 @media (max-width: 960px) { .gw-grid-2 { grid-template-columns: 1fr; } }
 
-/* Mobile "Good Wheels by DPAL" header + home sections (mockup-inspired) */
+/* Mobile "Good Wheels by DPAL" header + home sections */
 .gw-mobile-header {
   border-radius: 0 0 22px 22px;
   background: linear-gradient(180deg, rgba(0,119,200,1), rgba(13,59,102,1));

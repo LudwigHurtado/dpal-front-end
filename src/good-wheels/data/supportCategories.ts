@@ -1,6 +1,6 @@
-import type { SupportCategory } from '../../types/support';
+import type { SupportCategory } from '../types/support';
 
-export const MOCK_SUPPORT_CATEGORIES: SupportCategory[] = [
+export const SUPPORT_CATEGORIES: SupportCategory[] = [
   {
     id: 'medical_transport',
     label: 'Medical Transport',
@@ -50,4 +50,3 @@ export const MOCK_SUPPORT_CATEGORIES: SupportCategory[] = [
     tone: 'urgent',
   },
 ];
-

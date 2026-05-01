@@ -10,10 +10,7 @@ import type {
 } from './tripTypes';
 import { calculateGoodWheelsFareSplit, fareSplitToPayload } from './utils/fareSplit';
 
-/**
- * Mock/API mapper placeholder.
- * Kept as a separate file because real backend shapes often differ from UI domain shapes.
- */
+/** Maps backend trip payloads into the Good Wheels UI trip domain. */
 function asIso(v: unknown, fallback: string): string {
   if (typeof v === 'string' && !Number.isNaN(new Date(v).getTime())) return v;
   return fallback;
@@ -83,7 +80,7 @@ function asTimeline(v: unknown): TripTimelineEvent[] {
     .filter(Boolean);
 }
 
-export function mapMockTripToTrip(input: unknown): Trip {
+export function mapApiTripToTrip(input: unknown): Trip {
   const now = new Date().toISOString();
   const o = (input ?? {}) as any;
 
@@ -138,7 +135,7 @@ export function mapMockTripToTrip(input: unknown): Trip {
 
   return {
     id,
-    passengerId: typeof o.passengerId === 'string' ? o.passengerId : 'passenger-demo',
+    passengerId: typeof o.passengerId === 'string' ? o.passengerId : 'unknown-passenger',
     driverId: typeof o.driverId === 'string' ? o.driverId : undefined,
     driverSnapshot:
       o.driverSnapshot && typeof o.driverSnapshot === 'object'

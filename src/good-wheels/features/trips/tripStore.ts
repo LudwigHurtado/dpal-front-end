@@ -2,9 +2,7 @@ import { create } from 'zustand';
 import type { RideRequestDraft, SafetyStatus, Trip, TripStatus, TripTimelineEvent } from './tripTypes';
 import { tripService } from './tripService';
 import { TERMINAL_STATUSES } from './tripConstants';
-import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import { useAuthStore } from '../../store/useAuthStore';
-import { looksLikeSeededFixture } from './utils/seededFixtureFilter';
 
 type TripState = {
   activeTrip: Trip | null;
@@ -59,20 +57,6 @@ const clearActiveTripMarker = () => {
   }
 };
 
-const readActiveTripMarker = (): { id?: string; status?: string; updatedAtIso?: string } | null => {
-  try {
-    const raw = localStorage.getItem(ACTIVE_TRIP_MARKER_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { id?: string; status?: string; updatedAtIso?: string };
-    return parsed && typeof parsed === 'object' ? parsed : null;
-  } catch {
-    return null;
-  }
-};
-
-const isLikelyDemoTripId = (id: string): boolean =>
-  /(^mock|^demo|^local|^trip-q|mock|demo|local)/i.test(id);
-
 const WAITING_FOR_DRIVER_STATUSES = new Set<TripStatus>(['requested', 'broadcasted', 'matched']);
 
 export const useTripStore = create<TripState>((set, get) => ({
@@ -92,34 +76,21 @@ export const useTripStore = create<TripState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const [active, hist] = await Promise.all([tripService.getActiveTrip(userId), tripService.listHistory(userId)]);
-      const marker = readActiveTripMarker();
-      if (!GOOD_WHEELS_DEMO_MODE && marker?.id && isLikelyDemoTripId(marker.id)) {
+      if (!active) {
         clearActiveTripMarker();
       }
-      if (!GOOD_WHEELS_DEMO_MODE && !active) {
-        clearActiveTripMarker();
-      }
-      // Drop seeded fixture trips (Carlos / Home → Clinic / 0,0 coords) the API
-      // may still serve. Either it's real and not seeded, or we don't show it.
       const currentActive = get().activeTrip;
       const currentIsWaiting =
         currentActive &&
         currentActive.passengerId === userId &&
-        !looksLikeSeededFixture(currentActive) &&
         WAITING_FOR_DRIVER_STATUSES.has(currentActive.status);
-      const activeReal =
-        active && !looksLikeSeededFixture(active)
-          ? active
-          : currentIsWaiting
-            ? currentActive
-            : null;
-      const histReal = hist.filter((t) => !looksLikeSeededFixture(t));
+      const activeReal = active ?? (currentIsWaiting ? currentActive : null);
       const keepActive = Boolean(activeReal && !TERMINAL_STATUSES.has(activeReal.status));
       const latestCancelled =
-        histReal.find((trip) => trip.status === 'cancelled' || trip.status === 'canceled') ?? null;
+        hist.find((trip) => trip.status === 'cancelled' || trip.status === 'canceled') ?? null;
       set((state) => ({
         activeTrip: keepActive ? activeReal : null,
-        history: histReal,
+        history: hist,
         lastTerminalTrip:
           latestCancelled &&
           (!state.lastTerminalTrip ||
@@ -139,31 +110,13 @@ export const useTripStore = create<TripState>((set, get) => ({
       set({ error: 'Please choose pickup and destination.' });
       return;
     }
-    // In demo mode we can optimistically render a local requested trip.
-    if (GOOD_WHEELS_DEMO_MODE) {
-      set({
-        loading: true,
-        error: null,
-        activeTrip: {
-          id: `trip-${Date.now()}`,
-          passengerId: 'usr-passenger-001',
-          pickup: draft.pickup,
-          dropoff: draft.dropoff,
-          purpose: draft.purpose,
-          supportCategoryId: draft.supportCategoryId,
-          status: 'requested',
-          safetyStatus: draft.familySafe ? 'family_safe' : 'standard',
-          createdAtIso: new Date().toISOString(),
-          updatedAtIso: new Date().toISOString(),
-          estimate: { etaMinutes: 8, distanceKm: 4.8 },
-          timeline: [{ id: `evt-${Date.now()}`, atIso: new Date().toISOString(), label: 'Finding a driver…' }],
-        },
-      });
-    } else {
-      set({ loading: true, error: null });
-    }
+    set({ loading: true, error: null });
     try {
-      const passengerId = useAuthStore.getState().user?.id || 'usr-passenger-001';
+      const passengerId = useAuthStore.getState().user?.id;
+      if (!passengerId) {
+        set({ loading: false, error: 'Please sign in before requesting a ride.' });
+        return;
+      }
       const trip = await tripService.requestTrip({ ...draft, passengerId });
       setActiveTripMarker(trip);
       set({

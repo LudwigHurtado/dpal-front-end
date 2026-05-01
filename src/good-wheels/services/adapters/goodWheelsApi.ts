@@ -2,7 +2,7 @@ import { buildApiUrl } from '../../../config/api';
 import type { Role } from '../../types/role';
 import type { RideRequestDraft, Trip } from '../../types/ride';
 import type { UserProfile } from '../../types/user';
-import { mapMockTripToTrip } from '../../features/trips/tripMockMapper';
+import { mapApiTripToTrip } from '../../features/trips/apiTripMapper';
 import { mapGoodWheelsApiUser } from './goodWheelsUserMapper';
 
 async function parseJson<T>(res: Response): Promise<T> {
@@ -61,11 +61,11 @@ export const goodWheelsAuthApi = {
     if (!res.ok) throw new Error(`Sign out failed (${res.status})`);
   },
 
-  async switchRole(role: Role): Promise<{ user: UserProfile }> {
+  async switchRole(userId: string, role: Role): Promise<{ user: UserProfile }> {
     const res = await fetch(buildApiUrl('/api/good-wheels/auth/switch-role'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ role }),
+      body: JSON.stringify({ userId, role }),
     });
     const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
     if (!res.ok || data.ok === false || data.user == null) {
@@ -82,7 +82,7 @@ export const goodWheelsRideApi = {
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`Active trip fetch failed (${res.status})`);
     const data = await parseJson<{ trip: unknown | null }>(res);
-    return data.trip ? mapMockTripToTrip(data.trip) : null;
+    return data.trip ? mapApiTripToTrip(data.trip) : null;
   },
 
   async listHistory(userId: string): Promise<Trip[]> {
@@ -91,10 +91,13 @@ export const goodWheelsRideApi = {
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`History fetch failed (${res.status})`);
     const data = await parseJson<{ trips?: unknown[] }>(res);
-    return Array.isArray(data.trips) ? data.trips.map(mapMockTripToTrip) : [];
+    return Array.isArray(data.trips) ? data.trips.map(mapApiTripToTrip) : [];
   },
 
   async requestRide(draft: RideRequestDraft): Promise<Trip> {
+    if (!draft.passengerId) {
+      throw new Error('Passenger ID is required to request a ride.');
+    }
     const passengerCents =
       typeof draft.passengerOfferCents === 'number' && draft.passengerOfferCents > 0
         ? Math.round(draft.passengerOfferCents)
@@ -108,7 +111,7 @@ export const goodWheelsRideApi = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        passengerId: draft.passengerId || 'usr-passenger-001',
+        passengerId: draft.passengerId,
         pickup: draft.pickup,
         dropoff: draft.dropoff,
         purpose: draft.purpose,
@@ -140,7 +143,7 @@ export const goodWheelsRideApi = {
     });
     if (!res.ok) throw new Error(`Request trip failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async acceptTrip(tripId: string, driverId: string): Promise<Trip> {
@@ -151,7 +154,7 @@ export const goodWheelsRideApi = {
     });
     if (!res.ok) throw new Error(`Accept trip failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async sendTripCounteroffer(tripId: string, driverId: string, amountCents: number, message?: string): Promise<Trip> {
@@ -167,7 +170,7 @@ export const goodWheelsRideApi = {
     }
     if (!res.ok) throw new Error(`Counteroffer failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async passengerRespondToDriverCounter(
@@ -187,7 +190,7 @@ export const goodWheelsRideApi = {
     }
     if (!res.ok) throw new Error(`Offer response failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async closeTripOffer(tripId: string, passengerId: string, reason?: string): Promise<Trip> {
@@ -203,7 +206,7 @@ export const goodWheelsRideApi = {
     }
     if (!res.ok) throw new Error(`Close negotiation failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async updateDriverLocation(
@@ -217,7 +220,7 @@ export const goodWheelsRideApi = {
     });
     if (!res.ok) throw new Error(`Driver location update failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async updateTripStatus(tripId: string, status: Trip['status'], timelineLabel?: string, timelineDetail?: string): Promise<Trip> {
@@ -228,7 +231,7 @@ export const goodWheelsRideApi = {
     });
     if (!res.ok) throw new Error(`Update status failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async cancelTrip(
@@ -247,7 +250,7 @@ export const goodWheelsRideApi = {
     });
     if (!res.ok) throw new Error(`Cancel trip failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async completeTrip(tripId: string, note?: string): Promise<Trip> {
@@ -258,12 +261,12 @@ export const goodWheelsRideApi = {
     });
     if (!res.ok) throw new Error(`Complete trip failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 };
 
 export const goodWheelsDriverApi = {
-  async fetchProfile(driverId = 'usr-driver-001'): Promise<{
+  async fetchProfile(driverId: string): Promise<{
     id: string;
     fullName: string;
     isVerifiedDriver: boolean;
@@ -284,7 +287,7 @@ export const goodWheelsDriverApi = {
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`Driver queue failed (${res.status})`);
     const data = await parseJson<{ queue?: unknown[] }>(res);
-    return Array.isArray(data.queue) ? data.queue.map(mapMockTripToTrip) : [];
+    return Array.isArray(data.queue) ? data.queue.map(mapApiTripToTrip) : [];
   },
 
   async fetchDriverDashboard(driverId: string): Promise<{
@@ -318,7 +321,7 @@ export const goodWheelsDriverApi = {
     });
     if (!res.ok) throw new Error(`Reject trip failed (${res.status})`);
     const data = await parseJson<{ trip: unknown }>(res);
-    return mapMockTripToTrip(data.trip);
+    return mapApiTripToTrip(data.trip);
   },
 
   async fetchHistory(driverId: string): Promise<Trip[]> {
@@ -327,7 +330,7 @@ export const goodWheelsDriverApi = {
     const res = await fetch(url.toString());
     if (!res.ok) throw new Error(`Driver history failed (${res.status})`);
     const data = await parseJson<{ history?: unknown[] }>(res);
-    return Array.isArray(data.history) ? data.history.map(mapMockTripToTrip) : [];
+    return Array.isArray(data.history) ? data.history.map(mapApiTripToTrip) : [];
   },
 
   async updateAvailability(driverId: string, status: string): Promise<void> {
@@ -340,7 +343,7 @@ export const goodWheelsDriverApi = {
     if (!res.ok) throw new Error(`Driver availability failed (${res.status})`);
   },
 
-  async fetchVehicle(driverId = 'usr-driver-001'): Promise<{
+  async fetchVehicle(driverId: string): Promise<{
     id: string;
     makeModel: string;
     plateMasked: string;
@@ -359,12 +362,12 @@ export const goodWheelsDriverApi = {
     return data.vehicle;
   },
 
-  async fetchPerformance(driverId = 'usr-driver-001'): Promise<{
-    rating: number;
+  async fetchPerformance(driverId: string): Promise<{
+    rating: number | null;
     completedTrips: number;
-    responseTimeSeconds: number;
-    trustScore: number;
-    safetyCompliance: 'good' | 'needs_attention';
+    responseTimeSeconds: number | null;
+    trustScore: number | null;
+    safetyCompliance: 'good' | 'needs_attention' | null;
   }> {
     const url = new URL(buildApiUrl('/api/good-wheels/driver/performance'));
     url.searchParams.set('driverId', driverId);

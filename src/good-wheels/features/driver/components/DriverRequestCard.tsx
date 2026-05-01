@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Trip } from '../../trips/tripTypes';
 import TripStatusBadge from '../../trips/components/TripStatusBadge';
 import TripSupportCategoryChip from '../../trips/components/TripSupportCategoryChip';
-import { MOCK_SUPPORT_CATEGORIES } from '../../../data/mock/mockSupportCategories';
+import { SUPPORT_CATEGORIES } from '../../../data/supportCategories';
 import { useGwLang } from '../../../i18n/useGwLang';
 import { goodWheelsCommsService } from '../../../services/goodWheelsCommsService';
 import { useAuthStore } from '../../../store/useAuthStore';
@@ -33,7 +33,7 @@ const DriverRequestCard: React.FC<{
   const [counterBusy, setCounterBusy] = useState(false);
 
   const category = useMemo(
-    () => (trip.supportCategoryId ? MOCK_SUPPORT_CATEGORIES.find((c) => c.id === trip.supportCategoryId) ?? null : null),
+    () => (trip.supportCategoryId ? SUPPORT_CATEGORIES.find((c) => c.id === trip.supportCategoryId) ?? null : null),
     [trip.supportCategoryId],
   );
 

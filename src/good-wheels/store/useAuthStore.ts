@@ -51,11 +51,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
   async switchRole(role) {
-    const { status } = get();
-    if (status !== 'signed_in') return;
+    const { status, user: currentUser } = get();
+    if (status !== 'signed_in' || !currentUser?.id) return;
     set({ status: 'loading', error: null });
     try {
-      const { user } = await goodWheelsAuthApi.switchRole(role);
+      const { user } = await goodWheelsAuthApi.switchRole(currentUser.id, role);
       set({ status: 'signed_in', user, activeRole: user.role });
     } catch {
       set({ status: 'signed_in', error: 'Could not switch roles.' });

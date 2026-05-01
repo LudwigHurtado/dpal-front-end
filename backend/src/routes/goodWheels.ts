@@ -48,6 +48,15 @@ type GoodWheelsUser = {
     verifiedVehicle?: 'unverified' | 'pending' | 'verified';
   };
   vehicleId?: string;
+  vehicle?: {
+    makeModel?: string;
+    plateMasked?: string;
+    seats?: number;
+    accessibilityReady?: boolean;
+    color?: string;
+    colorName?: string;
+    vehicleType?: 'car' | 'moto' | 'truck' | 'van';
+  };
   isOnline?: boolean;
   earningsCents?: number;
   savedPlaceIds?: string[];
@@ -239,57 +248,8 @@ function normalizeTerminalStatus(status: string): string {
   return status;
 }
 
-async function seedUsersIfEmpty(): Promise<GoodWheelsUser[]> {
-  const users = await readJsonArray<GoodWheelsUser>(USERS_FILE);
-  const seeded: GoodWheelsUser[] = [
-    {
-      id: 'usr-passenger-001',
-      email: 'passenger@goodwheels.test',
-      password: 'GoodWheels123!',
-      role: 'passenger',
-      fullName: 'Ariana M.',
-      phoneMasked: '(•••) •••-1842',
-      trust: { trustScore: 92, verifiedUser: 'verified' },
-      savedPlaceIds: ['plc-home-001', 'plc-clinic-001'],
-      assistancePreferences: ['Medical Transport', 'Family Safe'],
-      familySafeMode: true,
-    },
-    {
-      id: 'usr-driver-001',
-      email: 'driver@goodwheels.test',
-      password: 'GoodWheels123!',
-      role: 'driver',
-      fullName: 'Carlos Driver',
-      phoneMasked: '(•••) •••-5220',
-      trust: { trustScore: 95, verifiedUser: 'verified', verifiedDriver: 'verified', verifiedVehicle: 'verified' },
-      vehicleId: 'veh-001',
-      isOnline: true,
-      earningsCents: 18450,
-    },
-    {
-      id: 'usr-worker-001',
-      role: 'worker',
-      fullName: 'Samira T.',
-      phoneMasked: '(•••) •••-9031',
-      trust: { trustScore: 97, verifiedUser: 'verified' },
-      organization: 'Community Support Desk',
-      queueIds: ['tsk-001', 'tsk-002'],
-    },
-  ];
-  if (users.length > 0) {
-    const byId = new Map(users.map((u) => [u.id, u]));
-    const merged = users.map((u) => {
-      const seed = seeded.find((s) => s.id === u.id);
-      return seed ? { ...u, ...seed, trust: { ...u.trust, ...seed.trust } } : u;
-    });
-    for (const seed of seeded) {
-      if (!byId.has(seed.id)) merged.push(seed);
-    }
-    await writeJsonArray(USERS_FILE, merged);
-    return merged;
-  }
-  await writeJsonArray(USERS_FILE, seeded);
-  return seeded;
+async function loadUsers(): Promise<GoodWheelsUser[]> {
+  return readJsonArray<GoodWheelsUser>(USERS_FILE);
 }
 
 function publicUser(u: GoodWheelsUser): Omit<GoodWheelsUser, 'password'> {
@@ -297,17 +257,9 @@ function publicUser(u: GoodWheelsUser): Omit<GoodWheelsUser, 'password'> {
   return rest;
 }
 
-async function seedTripsIfEmpty(): Promise<GoodWheelsTrip[]> {
+async function loadTrips(): Promise<GoodWheelsTrip[]> {
   const trips = await readJsonArray<GoodWheelsTrip>(TRIPS_FILE);
-  const cleanedExisting = trips.filter((t) => !/^trip-q-/i.test(String(t.id || '')));
-  if (cleanedExisting.length !== trips.length) {
-    await writeJsonArray(TRIPS_FILE, cleanedExisting);
-  }
-  if (cleanedExisting.length > 0) return cleanedExisting;
-  const now = new Date().toISOString();
-  const seeded: GoodWheelsTrip[] = [];
-  await writeJsonArray(TRIPS_FILE, seeded);
-  return seeded;
+  return trips;
 }
 
 function isTerminalTripStatus(status: string): boolean {
@@ -510,7 +462,7 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
 router.post('/auth/signin', async (req: Request, res: Response): Promise<void> => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
   if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
@@ -527,7 +479,7 @@ router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> 
   // Alias for backwards compatibility with old docs/spelling.
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
   if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
@@ -542,10 +494,15 @@ router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> 
 
 router.post('/auth/switch-role', async (req: Request, res: Response): Promise<void> => {
   const role = String(req.body?.role || '').trim() as GoodWheelsUser['role'];
-  const users = await seedUsersIfEmpty();
-  const user = users.find((u) => u.role === role);
+  const userId = String(req.body?.userId || '').trim();
+  if (!userId || !role) {
+    res.status(400).json({ ok: false, error: 'userId and role are required' });
+    return;
+  }
+  const users = await loadUsers();
+  const user = users.find((u) => u.id === userId && u.role === role);
   if (!user) {
-    res.status(404).json({ ok: false, error: 'No user found with that role' });
+    res.status(404).json({ ok: false, error: 'User does not have that role' });
     return;
   }
   res.json({ ok: true, user: publicUser(user) });
@@ -557,7 +514,7 @@ router.post('/auth/signout', async (_req: Request, res: Response): Promise<void>
 
 router.get('/trips/active', async (req: Request, res: Response): Promise<void> => {
   const userId = String(req.query.userId || '').trim();
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const active = trips
     .filter((t) =>
       (t.passengerId === userId || t.driverId === userId || t.workerId === userId) &&
@@ -569,7 +526,7 @@ router.get('/trips/active', async (req: Request, res: Response): Promise<void> =
 
 router.get('/trips/history', async (req: Request, res: Response): Promise<void> => {
   const userId = String(req.query.userId || '').trim();
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const history = trips
     .filter((t) => (t.passengerId === userId || t.driverId === userId || t.workerId === userId) && ['completed', 'cancelled', 'canceled'].includes(t.status))
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
@@ -578,8 +535,9 @@ router.get('/trips/history', async (req: Request, res: Response): Promise<void> 
 
 router.post('/trips/request', async (req: Request, res: Response): Promise<void> => {
   const body = req.body ?? {};
-  if (!body.pickup || !body.dropoff) {
-    res.status(400).json({ ok: false, error: 'pickup and dropoff are required' });
+  const passengerId = String(body.passengerId || '').trim();
+  if (!passengerId || !body.pickup || !body.dropoff) {
+    res.status(400).json({ ok: false, error: 'passengerId, pickup and dropoff are required' });
     return;
   }
   const now = new Date().toISOString();
@@ -651,7 +609,7 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
   const initialFareSplit = calculateGoodWheelsFareSplit(passengerOfferCents);
   const trip: GoodWheelsTrip = {
     id: tripId,
-    passengerId: String(body.passengerId || 'usr-passenger-001'),
+    passengerId,
     pickup: body.pickup,
     dropoff: body.dropoff,
     pickupCategory: body.pickupCategory ? String(body.pickupCategory) : undefined,
@@ -692,7 +650,7 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
       updatedAtIso: now,
     },
   };
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const broadcast: GoodWheelsBroadcast = {
     id: mkId('gwb'),
     audience: 'nearby',
@@ -719,13 +677,13 @@ router.get('/driver/dashboard', async (req: Request, res: Response): Promise<voi
     res.status(400).json({ ok: false, error: 'driverId is required' });
     return;
   }
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const user = users.find((u) => u.id === driverId) ?? null;
   if (!user) {
     res.status(404).json({ ok: false, error: 'User not found' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const driverProfile = {
     id: user.id,
     fullName: user.fullName,
@@ -737,16 +695,20 @@ router.get('/driver/dashboard', async (req: Request, res: Response): Promise<voi
 });
 
 router.get('/driver/queue', async (req: Request, res: Response): Promise<void> => {
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const driverId = String(req.query.driverId || '').trim();
   const queue = filterAvailableRequestsForDriver(trips, driverId);
   res.json({ ok: true, queue: queue.map(enrichTripEstimate) });
 });
 
 router.get('/driver/profile', async (req: Request, res: Response): Promise<void> => {
-  const driverId = String(req.query.driverId || 'usr-driver-001');
-  const users = await seedUsersIfEmpty();
-  const user = users.find((u) => u.id === driverId && u.role === 'driver') ?? users.find((u) => u.role === 'driver');
+  const driverId = String(req.query.driverId || '').trim();
+  if (!driverId) {
+    res.status(400).json({ ok: false, error: 'driverId is required' });
+    return;
+  }
+  const users = await loadUsers();
+  const user = users.find((u) => u.id === driverId && u.role === 'driver');
   if (!user) {
     res.status(404).json({ ok: false, error: 'Driver not found' });
     return;
@@ -765,7 +727,7 @@ router.get('/driver/profile', async (req: Request, res: Response): Promise<void>
 
 router.get('/driver/history', async (req: Request, res: Response): Promise<void> => {
   const driverId = String(req.query.driverId || '').trim();
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const history = trips
     .filter((t) => t.driverId === driverId && ['completed', 'cancelled', 'canceled'].includes(t.status))
     .sort((a, b) => b.updatedAtIso.localeCompare(a.updatedAtIso));
@@ -779,7 +741,7 @@ router.patch('/driver/availability', async (req: Request, res: Response): Promis
     res.status(400).json({ ok: false, error: 'driverId and status are required' });
     return;
   }
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const idx = users.findIndex((u) => u.id === driverId && u.role === 'driver');
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Driver not found' });
@@ -791,41 +753,53 @@ router.patch('/driver/availability', async (req: Request, res: Response): Promis
 });
 
 router.get('/driver/vehicle', async (req: Request, res: Response): Promise<void> => {
-  const driverId = String(req.query.driverId || 'usr-driver-001');
-  const users = await seedUsersIfEmpty();
-  const user = users.find((u) => u.id === driverId && u.role === 'driver') ?? users.find((u) => u.role === 'driver');
+  const driverId = String(req.query.driverId || '').trim();
+  if (!driverId) {
+    res.status(400).json({ ok: false, error: 'driverId is required' });
+    return;
+  }
+  const users = await loadUsers();
+  const user = users.find((u) => u.id === driverId && u.role === 'driver');
   if (!user) {
     res.status(404).json({ ok: false, error: 'Driver not found' });
+    return;
+  }
+  if (!user.vehicleId) {
+    res.status(404).json({ ok: false, error: 'Driver vehicle is not configured' });
     return;
   }
   res.json({
     ok: true,
     vehicle: {
-      id: user.vehicleId || 'veh-001',
-      makeModel: 'Toyota Corolla',
-      plateMasked: 'GW-2026',
-      seats: 4,
-      accessibilityReady: false,
-      verification: 'verified',
-      color: '#EAB308',
-      colorName: 'Yellow',
-      vehicleType: 'car',
+      id: user.vehicleId,
+      makeModel: user.vehicle?.makeModel,
+      plateMasked: user.vehicle?.plateMasked,
+      seats: user.vehicle?.seats,
+      accessibilityReady: Boolean(user.vehicle?.accessibilityReady),
+      verification: user.trust.verifiedVehicle === 'verified' ? 'verified' : 'unverified',
+      color: user.vehicle?.color,
+      colorName: user.vehicle?.colorName,
+      vehicleType: user.vehicle?.vehicleType,
     },
   });
 });
 
 router.get('/driver/performance', async (req: Request, res: Response): Promise<void> => {
-  const driverId = String(req.query.driverId || 'usr-driver-001');
-  const trips = await seedTripsIfEmpty();
+  const driverId = String(req.query.driverId || '').trim();
+  if (!driverId) {
+    res.status(400).json({ ok: false, error: 'driverId is required' });
+    return;
+  }
+  const trips = await loadTrips();
   const completedTrips = trips.filter((t) => t.driverId === driverId && t.status === 'completed').length;
   res.json({
     ok: true,
     performance: {
-      rating: 4.9,
+      rating: null,
       completedTrips,
-      responseTimeSeconds: 42,
-      trustScore: 95,
-      safetyCompliance: 'good',
+      responseTimeSeconds: null,
+      trustScore: null,
+      safetyCompliance: null,
     },
   });
 });
@@ -837,13 +811,13 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
     res.status(400).json({ ok: false, error: 'tripId and driverId are required' });
     return;
   }
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const driver = users.find((u) => u.id === driverId && u.role === 'driver');
   if (!driver) {
     res.status(404).json({ ok: false, error: 'Driver not found' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -868,17 +842,19 @@ router.post('/trips/:tripId/accept', async (req: Request, res: Response): Promis
     driverSnapshot: {
       id: driver.id,
       fullName: driver.fullName,
-      vehicle: {
-        makeModel: 'Toyota Corolla',
-        plateMasked: 'GW-2026',
-        colorName: 'Yellow',
-        seats: 4,
-        verification: 'verified',
-        vehicleType: 'car',
-      },
+      vehicle: driver.vehicle
+        ? {
+            makeModel: driver.vehicle.makeModel,
+            plateMasked: driver.vehicle.plateMasked,
+            colorName: driver.vehicle.colorName,
+            seats: driver.vehicle.seats,
+            verification: driver.trust.verifiedVehicle,
+            vehicleType: driver.vehicle.vehicleType,
+          }
+        : undefined,
       trust: {
-        verifiedDriver: driver?.trust?.verifiedDriver ?? 'verified',
-        verifiedVehicle: driver?.trust?.verifiedVehicle ?? 'verified',
+        verifiedDriver: driver?.trust?.verifiedDriver,
+        verifiedVehicle: driver?.trust?.verifiedVehicle,
       },
     },
     status: 'accepted',
@@ -927,13 +903,13 @@ router.post('/trips/:tripId/counteroffer', async (req: Request, res: Response): 
     res.status(400).json({ ok: false, error: 'tripId, driverId, and positive amountCents are required' });
     return;
   }
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const driver = users.find((u) => u.id === driverId && u.role === 'driver');
   if (!driver) {
     res.status(404).json({ ok: false, error: 'Driver not found' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -997,7 +973,7 @@ router.post('/trips/:tripId/passenger-offer-response', async (req: Request, res:
     res.status(400).json({ ok: false, error: 'tripId, passengerId, and action (accept_driver_counter | keep_passenger_offer) are required' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -1094,7 +1070,7 @@ router.post('/trips/:tripId/offer/close', async (req: Request, res: Response): P
     res.status(400).json({ ok: false, error: 'tripId and passengerId are required' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -1161,7 +1137,7 @@ router.post('/trips/:tripId/reject-driver', async (req: Request, res: Response):
     res.status(400).json({ ok: false, error: 'tripId and driverId are required' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -1224,7 +1200,7 @@ router.patch('/trips/:tripId/driver-location', async (req: Request, res: Respons
     res.status(400).json({ ok: false, error: 'tripId, driverId, lat and lng are required' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -1258,7 +1234,7 @@ router.patch('/trips/:tripId/driver-location', async (req: Request, res: Respons
   trips[idx] = next;
   await writeJsonArray(TRIPS_FILE, trips);
 
-  const users = await seedUsersIfEmpty();
+  const users = await loadUsers();
   const ui = users.findIndex((u) => u.id === driverId && u.role === 'driver');
   if (ui >= 0) {
     users[ui] = {
@@ -1280,7 +1256,7 @@ router.patch('/trips/:tripId/status', async (req: Request, res: Response): Promi
     res.status(400).json({ ok: false, error: 'tripId and status are required' });
     return;
   }
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -1349,7 +1325,7 @@ router.post('/trips/:tripId/cancel', async (req: Request, res: Response): Promis
     actorRoleRaw === 'driver' || actorRoleRaw === 'passenger' ? actorRoleRaw : 'system';
   const actorUserId = String(req.body?.actorUserId || '').trim() || undefined;
   const reason = String(req.body?.reason || 'Cancelled by rider/driver');
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });
@@ -1396,7 +1372,7 @@ router.post('/trips/:tripId/cancel', async (req: Request, res: Response): Promis
 
 router.post('/trips/:tripId/complete', async (req: Request, res: Response): Promise<void> => {
   const tripId = String(req.params.tripId || '').trim();
-  const trips = await seedTripsIfEmpty();
+  const trips = await loadTrips();
   const idx = trips.findIndex((t) => t.id === tripId);
   if (idx < 0) {
     res.status(404).json({ ok: false, error: 'Trip not found' });

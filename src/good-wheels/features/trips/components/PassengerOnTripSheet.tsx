@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import type { Trip } from '../tripTypes';
 import DonationPanel from '../../charity/components/DonationPanel';
 import CharitySelectorModal from '../../charity/components/CharitySelectorModal';
-import { MOCK_CHARITIES } from '../../charity/mockCharities';
 import { useDonation } from '../../charity/useDonation';
 import FareBreakdownCard from './FareBreakdownCard';
 import { useGwLang } from '../../../i18n/useGwLang';
@@ -23,7 +22,7 @@ export default function PassengerOnTripSheet({
     if (typeof trip?.estimate?.totalFareCents === 'number' && trip.estimate.totalFareCents > 0) {
       return trip.estimate.totalFareCents / 100;
     }
-    return 18.5;
+    return 0;
   }, [trip?.fareUsd, trip?.estimate?.totalFareCents]);
   const {
     fareUsd,
@@ -86,7 +85,7 @@ export default function PassengerOnTripSheet({
 
       <CharitySelectorModal
         open={charityOpen}
-        charities={MOCK_CHARITIES}
+        charities={[]}
         selectedCharityId={selectedCharity?.id ?? null}
         onSelect={(c) => {
           setSelectedCharity(c);

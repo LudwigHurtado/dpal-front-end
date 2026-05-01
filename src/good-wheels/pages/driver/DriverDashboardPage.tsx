@@ -8,7 +8,6 @@ import { useGwLang } from '../../i18n/useGwLang';
 import { useTripStore } from '../../features/trips/tripStore';
 import type { Trip } from '../../features/trips/tripTypes';
 import { fareBasisForTrip, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
-import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 
 const ACTIVE_TRIP_STATUSES = new Set([
@@ -106,15 +105,12 @@ const DriverDashboardPage: React.FC = () => {
   const availableCount = dashboardSummary?.availableCount ?? openTrips.length;
 
   const completedToday = dashboardSummary?.completedToday ?? 0;
-  const illustrativeDailyUsd = completedToday * 28.5;
-  const todayEarningsDisplay =
-    completedToday > 0 ? formatMoneyFromCents(Math.round(illustrativeDailyUsd * 100)) : formatMoneyFromCents(0);
-  const earningsDeltaPct = completedToday > 0 ? 18 : 0;
+  const todayEarningsDisplay = '—';
 
   const completedLifetime =
     dashboardSummary?.completedTrips ?? performanceSummary?.completedTrips ?? 0;
-  const rating = performanceSummary?.rating ?? 4.9;
-  const trustPct = performanceSummary?.trustScore ?? 92;
+  const ratingDisplay = typeof performanceSummary?.rating === 'number' ? performanceSummary.rating.toFixed(1) : '—';
+  const trustDisplay = typeof performanceSummary?.trustScore === 'number' ? `${performanceSummary.trustScore}%` : '—';
 
   const activeTripsDisplay = isOnTrip ? 1 : 0;
 
@@ -139,31 +135,25 @@ const DriverDashboardPage: React.FC = () => {
     }
   }, [lastDashboardSyncIso]);
 
-  const onlineHoursDisplay = GOOD_WHEELS_DEMO_MODE ? '08h 24m' : t('driverOnlineHoursUnavailable');
+  const onlineHoursDisplay = t('driverOnlineHoursUnavailable');
 
   const releaseActiveTrip = async (mode: 'cancel' | 'close' | 'reset') => {
     if (!activeTrip) return;
     setTripActionLoading(mode);
     setTripActionError(null);
     try {
-      if (!GOOD_WHEELS_DEMO_MODE) {
-        if (mode === 'cancel') {
-          await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver cancelled from dashboard', {
-            role: 'driver',
-            userId: user?.id ?? activeTrip.driverId,
-          });
-        } else if (mode === 'close') {
-          await goodWheelsRideApi.completeTrip(activeTrip.id, 'Driver closed trip from dashboard');
-        } else {
-          try {
-            await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver reset stale trip from dashboard', {
-              role: 'driver',
-              userId: user?.id ?? activeTrip.driverId,
-            });
-          } catch {
-            // If backend cancel fails, still allow local reset so driver can continue.
-          }
-        }
+      if (mode === 'cancel') {
+        await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver cancelled from dashboard', {
+          role: 'driver',
+          userId: user?.id ?? activeTrip.driverId,
+        });
+      } else if (mode === 'close') {
+        await goodWheelsRideApi.completeTrip(activeTrip.id, 'Driver closed trip from dashboard');
+      } else {
+        await goodWheelsRideApi.cancelTrip(activeTrip.id, 'Driver reset stale trip from dashboard', {
+          role: 'driver',
+          userId: user?.id ?? activeTrip.driverId,
+        });
       }
       clearTripStoreActiveTrip();
       clearDriverActiveTrip();
@@ -309,7 +299,7 @@ const DriverDashboardPage: React.FC = () => {
             <div className="text-xl font-extrabold text-slate-900 truncate">{driverProfile?.fullName ?? user?.fullName ?? '—'}</div>
             <div className="mt-0.5 text-sm text-slate-600">
               {tf('driverRatingTripsLine', {
-                rating: rating.toFixed(1),
+                rating: ratingDisplay,
                 trips: completedLifetime,
               })}
             </div>
@@ -320,7 +310,7 @@ const DriverDashboardPage: React.FC = () => {
           <div className="rounded-xl border border-emerald-100 bg-emerald-50/80 p-4">
             <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-900/80">{t('todaysEarnings')}</div>
             <div className="mt-1 text-2xl font-extrabold text-slate-900 tabular-nums">{todayEarningsDisplay}</div>
-            <div className="mt-1 text-xs font-semibold text-emerald-700">{tf('todaysEarningsDelta', { pct: earningsDeltaPct })}</div>
+            <div className="mt-1 text-xs font-semibold text-emerald-700">Live earnings not connected</div>
           </div>
           <div className="rounded-xl border border-sky-100 bg-sky-50/80 p-4">
             <div className="text-[11px] font-bold uppercase tracking-wide text-sky-900/80">{t('activeTrip')}</div>
@@ -333,8 +323,8 @@ const DriverDashboardPage: React.FC = () => {
           {[
             { icon: '🕐', label: t('perfOnlineLabel'), value: onlineHoursDisplay },
             { icon: '🚗', label: t('perfCompletedLabel'), value: String(completedLifetime) },
-            { icon: '⭐', label: t('perfRatingLabel'), value: rating.toFixed(1) },
-            { icon: '🎯', label: t('perfAcceptanceLabel'), value: `${trustPct}%` },
+            { icon: '⭐', label: t('perfRatingLabel'), value: ratingDisplay },
+            { icon: '🎯', label: t('perfAcceptanceLabel'), value: trustDisplay },
           ].map((row) => (
             <div key={row.label} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-[#f8f9fa] px-3 py-2.5">
               <span className="text-lg leading-none" aria-hidden>
