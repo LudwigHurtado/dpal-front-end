@@ -80,10 +80,14 @@ export const useTripStore = create<TripState>((set, get) => ({
         clearActiveTripMarker();
       }
       const currentActive = get().activeTrip;
+      const currentWasTerminalOnServer =
+        currentActive &&
+        hist.some((trip) => trip.id === currentActive.id && TERMINAL_STATUSES.has(trip.status));
       const currentIsWaiting =
         currentActive &&
         currentActive.passengerId === userId &&
-        WAITING_FOR_DRIVER_STATUSES.has(currentActive.status);
+        WAITING_FOR_DRIVER_STATUSES.has(currentActive.status) &&
+        !currentWasTerminalOnServer;
       const activeReal = active ?? (currentIsWaiting ? currentActive : null);
       const keepActive = Boolean(activeReal && !TERMINAL_STATUSES.has(activeReal.status));
       const latestCancelled =

@@ -12,6 +12,7 @@ import { useTripStore } from '../../features/trips/tripStore';
 import type { Trip } from '../../features/trips/tripTypes';
 import { fareBasisForTrip, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
+import TripMapPanel from '../../features/trips/components/TripMapPanel';
 
 /* ── Compact live map for driver dashboard ─────────────────────────────── */
 type DriverMapProps = {
@@ -243,12 +244,16 @@ const DriverDashboardPage: React.FC = () => {
     <div className="gw-driver-dashboard space-y-5 pb-8">
 
       {/* ── LIVE MAP — primary view ──────────────────────────────────── */}
-      <div style={{ borderRadius: 20, overflow: 'hidden', height: 280, position: 'relative', boxShadow: '0 4px 20px rgba(15,23,42,0.12)' }}>
-        <DriverLiveMap driverPos={driverGeoPos} requestPickups={requestPickups} />
+      <div style={{ borderRadius: 20, overflow: 'hidden', height: 320, position: 'relative', boxShadow: '0 4px 20px rgba(15,23,42,0.12)' }}>
+        {isOnTrip && activeTrip ? (
+          <TripMapPanel trip={activeTrip} variant="driver" height="100%" />
+        ) : (
+          <DriverLiveMap driverPos={driverGeoPos} requestPickups={requestPickups} />
+        )}
         {/* map overlay: status pill + availability toggle */}
         <div style={{ position: 'absolute', top: 12, left: 12, right: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 99, padding: '6px 14px', fontSize: 13, fontWeight: 800, color: '#0f172a', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
-            Good Wheels Driver
+            {isOnTrip ? 'Active ride route' : 'Good Wheels Driver'}
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.95)', borderRadius: 99, padding: '6px 12px', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
@@ -268,7 +273,7 @@ const DriverDashboardPage: React.FC = () => {
           </div>
         </div>
         {/* request count badge */}
-        {availableCount > 0 && (
+        {!isOnTrip && availableCount > 0 && (
           <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 400, background: '#16a34a', color: '#fff', borderRadius: 99, padding: '5px 12px', fontSize: 12, fontWeight: 800, boxShadow: '0 2px 8px rgba(22,163,74,0.4)' }}>
             {availableCount} ride{availableCount !== 1 ? 's' : ''} nearby
           </div>
@@ -522,7 +527,7 @@ const DriverDashboardPage: React.FC = () => {
                 onAccept={() => {
                   if (!user?.id) return;
                   void acceptQueueTrip(trip.id).then((next) => {
-                    if (next) navigate(GW_PATHS.driver.active);
+                    if (next) void hydrate();
                   });
                 }}
                 onDecline={() => void useDriverStore.getState().declineQueueTrip(trip.id)}
@@ -569,7 +574,7 @@ const DriverDashboardPage: React.FC = () => {
                 onAccept={() => {
                   if (!user?.id) return;
                   void acceptQueueTrip(trip.id).then((next) => {
-                    if (next) navigate(GW_PATHS.driver.active);
+                    if (next) void hydrate();
                   });
                 }}
                 onDecline={() => void useDriverStore.getState().declineQueueTrip(trip.id)}

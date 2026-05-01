@@ -342,8 +342,8 @@ const PassengerPriceOfferPage: React.FC = () => {
       notes: `Vehicle: ${selected.title}`,
     });
     await requestTripRide();
-    // useTripStore.requestRide sets `activeTrip` on success and `error` on failure.
-    if (useTripStore.getState().activeTrip) navigate(GW_PATHS.passenger.active);
+    // useTripStore.requestRide sets `activeTrip`; the dashboard is the persistent ride home.
+    if (useTripStore.getState().activeTrip) navigate(GW_PATHS.passenger.dashboard);
   }
 
   if (!hasPoints) return null;
