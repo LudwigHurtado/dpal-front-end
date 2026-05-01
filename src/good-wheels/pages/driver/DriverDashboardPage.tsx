@@ -1,5 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { CircleMarker, MapContainer, TileLayer, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDriverStore } from '../../features/driver/driverStore';
 import DriverDashboardTripCard from '../../features/driver/components/DriverDashboardTripCard';
@@ -9,6 +12,52 @@ import { useTripStore } from '../../features/trips/tripStore';
 import type { Trip } from '../../features/trips/tripTypes';
 import { fareBasisForTrip, formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
+
+/* ── Compact live map for driver dashboard ─────────────────────────────── */
+type DriverMapProps = {
+  driverPos: [number, number] | null;
+  requestPickups: [number, number][];
+};
+
+function FitDriverView({ driverPos, requestPickups }: DriverMapProps) {
+  const map = useMap();
+  const lastRef = useRef('');
+  useEffect(() => {
+    const pts = [...(driverPos ? [driverPos] : []), ...requestPickups];
+    if (!pts.length) return;
+    const sig = JSON.stringify(pts.map(([a, b]) => [+a.toFixed(3), +b.toFixed(3)]));
+    if (lastRef.current === sig) return;
+    lastRef.current = sig;
+    if (pts.length === 1) { map.setView(pts[0], 13); return; }
+    const b = L.latLngBounds(pts);
+    if (b.isValid()) map.fitBounds(b, { padding: [32, 32], maxZoom: 14 });
+  }, [map, driverPos, requestPickups]);
+  return null;
+}
+
+const DriverLiveMap: React.FC<DriverMapProps> = ({ driverPos, requestPickups }) => {
+  const center: [number, number] = driverPos ?? [40.7128, -74.006];
+  return (
+    <MapContainer center={center} zoom={12} style={{ width: '100%', height: '100%' }} zoomControl={false} attributionControl={false}>
+      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
+      {/* Available ride request pickups — green dots */}
+      {requestPickups.map((pos, i) => (
+        <CircleMarker key={i} center={pos} radius={10}
+          pathOptions={{ color: '#fff', weight: 2, fillColor: '#16a34a', fillOpacity: 0.9 }} />
+      ))}
+      {/* Driver position — blue dot */}
+      {driverPos && (
+        <>
+          <CircleMarker center={driverPos} radius={20}
+            pathOptions={{ color: '#0077C8', weight: 0, fillColor: '#0077C8', fillOpacity: 0.15 }} />
+          <CircleMarker center={driverPos} radius={9}
+            pathOptions={{ color: '#fff', weight: 3, fillColor: '#0077C8', fillOpacity: 1 }} />
+        </>
+      )}
+      <FitDriverView driverPos={driverPos} requestPickups={requestPickups} />
+    </MapContainer>
+  );
+};
 
 const ACTIVE_TRIP_STATUSES = new Set([
   'accepted',
@@ -62,6 +111,18 @@ const DriverDashboardPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortKey>('nearest');
   const [tripActionLoading, setTripActionLoading] = useState<'cancel' | 'close' | 'reset' | null>(null);
   const [tripActionError, setTripActionError] = useState<string | null>(null);
+  const [statsExpanded, setStatsExpanded] = useState(false);
+  const [driverGeoPos, setDriverGeoPos] = useState<[number, number] | null>(null);
+
+  // Try to get driver's real location for the map
+  useEffect(() => {
+    if (!('geolocation' in navigator)) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setDriverGeoPos([pos.coords.latitude, pos.coords.longitude]),
+      () => { /* no-op — map will fall back to default city */ },
+      { timeout: 8000, maximumAge: 60000 },
+    );
+  }, []);
 
   useEffect(() => {
     // Clear stale localStorage cache on mount so old fake/test rides don't reappear.
@@ -106,6 +167,13 @@ const DriverDashboardPage: React.FC = () => {
       activeTrip.driverId === user.id &&
       ACTIVE_TRIP_STATUSES.has(activeTrip.status),
   );
+
+  // Pickup locations of open ride requests — shown as green dots on the driver map
+  const requestPickups = useMemo<[number, number][]>(() =>
+    openTrips
+      .filter((t) => t.pickup.point && Number.isFinite(t.pickup.point.lat) && Number.isFinite(t.pickup.point.lng))
+      .map((t) => [t.pickup.point!.lat, t.pickup.point!.lng] as [number, number]),
+  [openTrips]);
 
   const availableCount = dashboardSummary?.availableCount ?? openTrips.length;
 
@@ -173,7 +241,46 @@ const DriverDashboardPage: React.FC = () => {
 
   return (
     <div className="gw-driver-dashboard space-y-5 pb-8">
-      {/* Local top bar (matches reference: title + alerts + online switch) */}
+
+      {/* ── LIVE MAP — primary view ──────────────────────────────────── */}
+      <div style={{ borderRadius: 20, overflow: 'hidden', height: 280, position: 'relative', boxShadow: '0 4px 20px rgba(15,23,42,0.12)' }}>
+        <DriverLiveMap driverPos={driverGeoPos} requestPickups={requestPickups} />
+        {/* map overlay: status pill + availability toggle */}
+        <div style={{ position: 'absolute', top: 12, left: 12, right: 12, zIndex: 400, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ background: 'rgba(255,255,255,0.95)', borderRadius: 99, padding: '6px 14px', fontSize: 13, fontWeight: 800, color: '#0f172a', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+            Good Wheels Driver
+          </div>
+          <div style={{ flex: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'rgba(255,255,255,0.95)', borderRadius: 99, padding: '6px 12px', backdropFilter: 'blur(8px)', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+            <span style={{ fontSize: 12, fontWeight: 800, color: isOnlineUi ? '#16a34a' : availabilityStatus === 'offline' ? '#dc2626' : '#64748b' }}>
+              {onlineLabel}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isOnlineUi}
+              disabled={availabilityToggleDisabled}
+              onClick={() => setAvailability(isOnlineUi ? 'offline' : 'online')}
+              style={{ width: 40, height: 22, borderRadius: 99, border: 'none', cursor: availabilityToggleDisabled ? 'not-allowed' : 'pointer', background: isOnlineUi ? '#16a34a' : '#94a3b8', position: 'relative', transition: 'background 200ms', opacity: availabilityToggleDisabled ? 0.5 : 1 }}
+            >
+              <span style={{ position: 'absolute', top: 3, left: isOnlineUi ? 20 : 3, width: 16, height: 16, borderRadius: '50%', background: '#fff', transition: 'left 200ms', boxShadow: '0 1px 4px rgba(0,0,0,0.2)' }} />
+            </button>
+          </div>
+        </div>
+        {/* request count badge */}
+        {availableCount > 0 && (
+          <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 400, background: '#16a34a', color: '#fff', borderRadius: 99, padding: '5px 12px', fontSize: 12, fontWeight: 800, boxShadow: '0 2px 8px rgba(22,163,74,0.4)' }}>
+            {availableCount} ride{availableCount !== 1 ? 's' : ''} nearby
+          </div>
+        )}
+        {isOnTrip && activeTrip && (
+          <div style={{ position: 'absolute', bottom: 12, left: 12, zIndex: 400, background: '#1a73e8', color: '#fff', borderRadius: 99, padding: '5px 12px', fontSize: 12, fontWeight: 800, boxShadow: '0 2px 8px rgba(26,115,232,0.4)' }}>
+            On a trip
+          </div>
+        )}
+      </div>
+
+      {/* ── LOCAL TOP BAR ───────────────────────────────────────────── */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm">
         <div className="min-w-0">
           <h1 className="text-lg font-extrabold text-slate-900 tracking-tight truncate">{t('driverAppTitle')}</h1>
@@ -290,8 +397,18 @@ const DriverDashboardPage: React.FC = () => {
         </div>
       ) : null}
 
+      {/* ── STATS / EARNINGS — collapsible ─────────────────────── */}
+      <button
+        type="button"
+        onClick={() => setStatsExpanded((v) => !v)}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderRadius: 14, background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(15,23,42,0.06)', cursor: 'pointer' }}
+      >
+        <span style={{ fontSize: 13, fontWeight: 800, color: '#0f172a' }}>📊 Earnings &amp; Stats</span>
+        <span style={{ fontSize: 13, color: '#64748b', fontWeight: 700 }}>{statsExpanded ? '▲ Hide' : '▼ Show'}</span>
+      </button>
+
       {/* Profile + hero stats */}
-      <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
+      {statsExpanded && <div className="rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-start gap-4">
           <div
             className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-lg font-extrabold text-white shadow-inner"
@@ -342,7 +459,7 @@ const DriverDashboardPage: React.FC = () => {
             </div>
           ))}
         </div>
-      </div>
+      </div>}
 
       {isOnTrip && activeTrip ? (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 space-y-3">

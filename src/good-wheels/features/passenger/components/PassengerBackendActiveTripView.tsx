@@ -25,6 +25,7 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [syncBusy, setSyncBusy] = useState(false);
   const [lastSyncAtIso, setLastSyncAtIso] = useState<string | null>(null);
   const [closingBusy, setClosingBusy] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
 
   const syncTrip = async () => {
     if (!user?.id) return;
@@ -62,9 +63,7 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
     };
   }, [user?.id]);
 
-  useEffect(() => {
-    setShelterStoryOpen(true);
-  }, [trip.id, trip.status]);
+  useEffect(() => { setShelterStoryOpen(true); }, [trip.id, trip.status]);
 
   const threadId = trip.chatThreadId ?? `good-wheels-trip-${trip.id}`;
   const driverName = trip.driverSnapshot?.fullName ?? t('waitingForDriver');
@@ -81,38 +80,32 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const hasDriverLocation = Boolean(
     trip.driverLocation && Number.isFinite(trip.driverLocation.lat) && Number.isFinite(trip.driverLocation.lng),
   );
-  const trackingText =
-    trip.status === 'requested' || trip.status === 'broadcasted' || trip.status === 'matched'
-      ? t('searchingDriver')
-      : passengerHasPendingDriverCounter(trip)
-        ? t('passengerDriverCounterLead')
-    : trip.status === 'accepted'
-      ? hasDriverLocation
-        ? t('driverAcceptedTrackingToPickup')
-        : t('driverAcceptedWaitingForDriverLocation')
-      : trip.status === 'driver_en_route' || trip.status === 'driver_arriving'
-        ? t('driverOnTheWay')
-        : trip.status === 'driver_arrived' || trip.status === 'arrived'
-          ? t('driverHasArrived')
-          : trip.status === 'passenger_onboard'
-            ? t('passengerOnboard')
-            : trip.status === 'in_progress' || trip.status === 'support_in_progress'
-              ? t('rideInProgress')
-              : trip.status === 'completed'
-                ? t('rideCompletedLabel')
-                : trip.status === 'cancelled' || trip.status === 'canceled'
-                  ? t('rideCancelledLabel')
-                  : t('searchingDriver');
+  const isSearching = ['requested', 'broadcasted', 'matched'].includes(trip.status);
+  const isCancelled = trip.status === 'cancelled' || trip.status === 'canceled';
+
+  const statusLabel = isSearching
+    ? t('searchingDriver')
+    : passengerHasPendingDriverCounter(trip)
+      ? t('passengerDriverCounterLead')
+      : trip.status === 'accepted'
+        ? hasDriverLocation ? t('driverAcceptedTrackingToPickup') : t('driverAcceptedWaitingForDriverLocation')
+        : ['driver_en_route', 'driver_arriving'].includes(trip.status)
+          ? t('driverOnTheWay')
+          : ['driver_arrived', 'arrived'].includes(trip.status)
+            ? t('driverHasArrived')
+            : trip.status === 'passenger_onboard'
+              ? t('passengerOnboard')
+              : ['in_progress', 'support_in_progress'].includes(trip.status)
+                ? t('rideInProgress')
+                : trip.status === 'completed'
+                  ? t('rideCompletedLabel')
+                  : isCancelled ? t('rideCancelledLabel') : t('searchingDriver');
 
   return (
-    <div className="space-y-4 relative">
-      {passengerHasPendingDriverCounter(trip) ? (
-        <div className="sticky top-0 z-[100] -mx-0.5 px-0.5 pb-2 bg-slate-50/95 backdrop-blur-sm border-b border-amber-200/60">
-          <PassengerDriverCounterofferBlock trip={trip} variant="hero" />
-        </div>
-      ) : null}
+    <div style={{ position: 'relative', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0f172a' }}>
 
-      {ridePhaseOk && storyPayload.urls.length > 0 ? (
+      {/* ── SHELTER STORY (full-screen overlay) ─────────────────── */}
+      {ridePhaseOk && storyPayload.urls.length > 0 && (
         <ShelterRideStoryOverlay
           open={showShelterOverlay}
           title={storyPayload.title}
@@ -120,111 +113,135 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           videoUrls={storyPayload.urls}
           onBackToMap={() => setShelterStoryOpen(false)}
         />
-      ) : null}
+      )}
 
-      {ridePhaseOk && storyPayload.urls.length > 0 && !shelterStoryOpen ? (
-        <div className="fixed bottom-[max(16px,env(safe-area-inset-bottom))] left-1/2 z-[120] -translate-x-1/2 px-3 w-full max-w-md flex justify-center pointer-events-none">
-          <button
-            type="button"
-            onClick={() => setShelterStoryOpen(true)}
-            className="pointer-events-auto rounded-full border border-sky-200 bg-white/95 px-4 py-2.5 text-sm font-extrabold text-sky-900 shadow-lg backdrop-blur-sm hover:bg-sky-50"
-          >
-            {t('shelterStoryOpenAgain')}
+      {/* ── COUNTEROFFER BANNER (sticky top) ────────────────────── */}
+      {passengerHasPendingDriverCounter(trip) && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 200, padding: '8px 12px', background: 'rgba(255,251,235,0.97)', borderBottom: '1px solid #fbbf24' }}>
+          <PassengerDriverCounterofferBlock trip={trip} variant="hero" />
+        </div>
+      )}
+
+      {/* ── MAP — fills the whole screen ────────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <TripMapPanel trip={trip} variant="passenger" height="100%" />
+      </div>
+
+      {/* ── CHAT SLIDE-UP ───────────────────────────────────────── */}
+      {chatOpen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 300, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', gap: 12 }}>
+            <button type="button" onClick={() => setChatOpen(false)} style={{ fontWeight: 800, color: '#0077C8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>
+              ← {t('dashboard')}
+            </button>
+            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>{t('chatWithDriver')}</span>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <TripChatPanel
+              threadId={threadId}
+              role="passenger"
+              userId={user?.id ?? trip.passengerId}
+              userName={user?.fullName ?? 'Passenger'}
+              title={t('chatWithDriver')}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ── BOTTOM SHEET ────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        zIndex: 150,
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(12px)',
+        borderRadius: '20px 20px 0 0',
+        boxShadow: '0 -4px 32px rgba(15,23,42,0.18)',
+        padding: '16px 16px max(16px, env(safe-area-inset-bottom))',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}>
+        {/* drag handle */}
+        <div style={{ width: 40, height: 4, borderRadius: 99, background: '#cbd5e1', margin: '0 auto 4px' }} />
+
+        {/* Status row */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <TripStatusBadge status={trip.status} />
+          <button type="button" onClick={() => void syncTrip()} disabled={syncBusy}
+            style={{ fontSize: 12, fontWeight: 700, color: '#0077C8', background: 'none', border: 'none', cursor: 'pointer' }}>
+            {syncBusy ? '...' : t('refreshRide')}
           </button>
         </div>
-      ) : null}
 
-      <div className="gw-card p-5 space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="gw-card-title">{t('activeTrip')}</div>
-          <TripStatusBadge status={trip.status} />
-        </div>
-        <div className="text-sm text-slate-700">
-          <span className="font-bold text-emerald-800">{t('pickupLabel')}:</span> {trip.pickup.addressLine}
-          <span className="mx-2 text-slate-400">→</span>
-          <span className="font-bold text-red-800">{t('dropoff')}:</span> {trip.dropoff.addressLine}
-        </div>
-        <div className="rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2 text-sm font-semibold text-sky-950">
-          {trackingText}
-          {hasDriverLocation ? (
-            <span className="block text-xs text-sky-800 mt-1">
-              {t('lastUpdated')}: {new Date(trip.driverLocation!.updatedAtIso).toLocaleTimeString()}
+        {/* Status message */}
+        <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', lineHeight: 1.4 }}>
+          {statusLabel}
+          {hasDriverLocation && trip.driverLocation && (
+            <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', marginLeft: 8 }}>
+              {t('lastUpdated')}: {new Date(trip.driverLocation.updatedAtIso).toLocaleTimeString()}
             </span>
-          ) : null}
+          )}
         </div>
-        {trip.status === 'cancelled' || trip.status === 'canceled' ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900">
-            {trip.cancelledByRole === 'driver'
-              ? 'Driver canceled this ride. You can report it and request another ride now.'
-              : trip.cancelledByRole === 'passenger'
-                ? 'You canceled this ride. You can report it or request a new ride.'
-                : 'This ride was canceled. You can report it and request another ride now.'}
-            {trip.cancelReason ? <span className="block mt-1 text-xs">Reason: {trip.cancelReason}</span> : null}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.support)}>
-                {t('reportIssue')}
-              </button>
+
+        {/* Route summary */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: '#475569', fontWeight: 600, flexWrap: 'wrap' }}>
+          <span style={{ color: '#16a34a', fontWeight: 800 }}>●</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40vw' }}>{trip.pickup.addressLine}</span>
+          <span style={{ color: '#94a3b8' }}>→</span>
+          <span style={{ color: '#dc2626', fontWeight: 800 }}>●</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40vw' }}>{trip.dropoff.addressLine}</span>
+        </div>
+
+        {/* Driver info */}
+        {trip.driverSnapshot?.fullName && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#1a73e8,#0f5cc0)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 14 }}>
+              {driverName.charAt(0)}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{driverName}</div>
+              {v && (
+                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, marginTop: 1 }}>
+                  {v.makeModel}{v.colorName ? ` · ${v.colorName}` : ''}{v.plateMasked ? ` · ${v.plateMasked}` : ''}
+                </div>
+              )}
+            </div>
+            {grossCents != null && (
+              <div style={{ fontSize: 18, fontWeight: 900, color: '#0f172a' }}>{formatMoneyFromCents(grossCents)}</div>
+            )}
+          </div>
+        )}
+
+        {/* Cancelled state */}
+        {isCancelled && (
+          <div style={{ padding: '10px 12px', borderRadius: 12, background: '#fff1f2', border: '1px solid #fecdd3' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#9f1239', marginBottom: 6 }}>
+              {trip.cancelledByRole === 'driver' ? 'Driver canceled this ride.' : 'Ride was canceled.'}
+              {trip.cancelReason ? ` Reason: ${trip.cancelReason}` : ''}
+            </div>
+            <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="gw-button gw-button-primary" onClick={() => navigate(GW_PATHS.passenger.request)}>
                 {t('requestRideBtn')}
               </button>
+              <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.support)}>
+                {t('reportIssue')}
+              </button>
             </div>
           </div>
-        ) : null}
-        {grossCents != null ? (
-          <div
-            className={`rounded-lg border px-3 py-2 text-sm font-semibold tabular-nums ${
-              passengerHasPendingDriverCounter(trip)
-                ? 'border-amber-300/80 bg-amber-50/90 text-amber-950'
-                : 'border-emerald-200/80 bg-emerald-50/90 text-emerald-950'
-            }`}
-          >
-            {passengerHasPendingDriverCounter(trip) ? `${t('passengerYourOfferLabel')}: ` : `${t('totalFare')}: `}
-            {formatMoneyFromCents(grossCents)}
-            {passengerHasPendingDriverCounter(trip) && typeof trip.offerState?.driverCounterOfferCents === 'number' ? (
-              <span className="block mt-1 text-xs font-bold text-amber-900">
-                {t('passengerDriverAsksLabel')}: {formatMoneyFromCents(Math.round(trip.offerState.driverCounterOfferCents))}
-              </span>
-            ) : null}
-          </div>
-        ) : null}
+        )}
 
-        {trip.offerState?.status === 'accepted' &&
-        typeof trip.offerState.acceptedFareCents === 'number' &&
-        trip.offerState.acceptedFareCents > 0 &&
-        !trip.driverId ? (
-          <div className="rounded-lg border border-sky-200 bg-sky-50/90 px-3 py-2 text-sm font-semibold text-sky-950">
-            {tf('passengerAcceptedDriverFareNote', { amount: formatMoneyFromCents(Math.round(trip.offerState.acceptedFareCents)) })}
-          </div>
-        ) : null}
-
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm text-slate-800">
-          <div className="font-extrabold text-slate-900">{driverName}</div>
-          {trip.driverSnapshot?.fullName && v && (
-            <div className="mt-1 text-xs text-slate-600 space-y-0.5">
-              <div>
-                {v.makeModel} · {v.plateMasked} · {v.colorName}
-                {v.seats != null ? ` · ${v.seats} seats` : null}
-              </div>
-              <div className="text-emerald-800 font-semibold">
-                {trip.driverSnapshot.trust?.verifiedDriver === 'verified' ? t('verifiedDriver') : null}
-                {trip.driverSnapshot.trust?.verifiedVehicle === 'verified' ? ` · ${t('verifiedVehicle')}` : null}
-              </div>
-            </div>
-          )}
-        </div>
-        <p className="text-xs font-semibold text-slate-600">{t('rideNotActiveUntilAccepted')}</p>
-        <div className="flex flex-wrap gap-2 items-center">
-          <button type="button" className="gw-button gw-button-secondary" onClick={() => void syncTrip()} disabled={syncBusy}>
-            {syncBusy ? `${t('refreshRide')}...` : t('refreshRide')}
+        {/* Action buttons */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="gw-button gw-button-secondary" style={{ flex: 1 }}
+            onClick={() => setChatOpen(true)}>
+            💬 {t('chatWithDriver')}
           </button>
           <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.dashboard)}>
             {t('dashboard')}
           </button>
-          {['requested', 'broadcasted', 'matched', 'accepted', 'driver_en_route', 'driver_arrived', 'arrived'].includes(trip.status) ? (
-            <button
-              type="button"
-              className="gw-button gw-button-secondary"
-              disabled={closingBusy}
+          {['requested', 'broadcasted', 'matched', 'accepted', 'driver_en_route', 'driver_arrived', 'arrived'].includes(trip.status) && (
+            <button type="button" className="gw-button gw-button-secondary" disabled={closingBusy}
               onClick={() => {
                 if (!user?.id) return;
                 if (!window.confirm(t('closeNegotiationConfirm'))) return;
@@ -233,36 +250,28 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
                   try {
                     const updated = await goodWheelsRideApi.closeTripOffer(trip.id, user.id, t('closeNegotiationReason'));
                     setActiveTrip(updated);
-                  } finally {
-                    setClosingBusy(false);
-                  }
+                  } finally { setClosingBusy(false); }
                 })();
-              }}
-            >
-              {closingBusy ? `${t('closeNegotiation')}...` : t('closeNegotiation')}
+              }}>
+              {closingBusy ? '...' : t('cancelRide')}
             </button>
-          ) : null}
-          {lastSyncAtIso ? (
-            <span className="text-[11px] font-semibold text-slate-500">
-              {new Date(lastSyncAtIso).toLocaleTimeString()}
-            </span>
-          ) : null}
+          )}
         </div>
+
+        {/* shelter story reopen */}
+        {ridePhaseOk && storyPayload.urls.length > 0 && !shelterStoryOpen && (
+          <button type="button" onClick={() => setShelterStoryOpen(true)}
+            style={{ fontSize: 12, fontWeight: 700, color: '#0369a1', background: 'none', border: 'none', cursor: 'pointer', alignSelf: 'center' }}>
+            {t('shelterStoryOpenAgain')}
+          </button>
+        )}
+
+        {lastSyncAtIso && (
+          <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 600, textAlign: 'center' }}>
+            Synced {new Date(lastSyncAtIso).toLocaleTimeString()}
+          </div>
+        )}
       </div>
-
-      {/* Hide the map during the pure waiting/matching phase. The cause-story
-          commercial owns the screen until a driver accepts. */}
-      {trip.status === 'requested' || trip.status === 'broadcasted' || trip.status === 'matched' ? null : (
-        <TripMapPanel trip={trip} variant="passenger" />
-      )}
-
-      <TripChatPanel
-        threadId={threadId}
-        role="passenger"
-        userId={user?.id ?? trip.passengerId}
-        userName={user?.fullName ?? 'Passenger'}
-        title={t('chatWithDriver')}
-      />
     </div>
   );
 };

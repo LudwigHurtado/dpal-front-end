@@ -23,21 +23,17 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [sharingUpdatedAtIso, setSharingUpdatedAtIso] = useState<string | null>(null);
   const [tripActionLoading, setTripActionLoading] = useState<'cancel' | 'close' | 'reset' | null>(null);
   const [tripActionError, setTripActionError] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [controlsExpanded, setControlsExpanded] = useState(false);
 
   const canShareLocation = useMemo(
-    () =>
-      ['accepted', 'driver_en_route', 'driver_arriving', 'driver_arrived', 'arrived', 'passenger_onboard', 'in_progress', 'support_in_progress'].includes(
-        trip.status,
-      ),
+    () => ['accepted', 'driver_en_route', 'driver_arriving', 'driver_arrived', 'arrived', 'passenger_onboard', 'in_progress', 'support_in_progress'].includes(trip.status),
     [trip.status],
   );
 
   const pushDriverLocation = async () => {
     if (!user?.id || !trip.driverId || trip.driverId !== user.id) return;
-    if (!('geolocation' in navigator)) {
-      setSharingError(t('locationSharingDenied'));
-      return;
-    }
+    if (!('geolocation' in navigator)) { setSharingError(t('locationSharingDenied')); return; }
     await new Promise<void>((resolve) => {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -54,15 +50,10 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
               setSharingError(null);
             } catch (e) {
               setSharingError(e instanceof Error ? e.message : t('tripStatusUpdateError'));
-            } finally {
-              resolve();
-            }
+            } finally { resolve(); }
           })();
         },
-        () => {
-          setSharingError(t('locationSharingDenied'));
-          resolve();
-        },
+        () => { setSharingError(t('locationSharingDenied')); resolve(); },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 },
       );
     });
@@ -88,50 +79,72 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   }, [canShareLocation, sharingLocation]);
 
   const threadId = trip.chatThreadId ?? `good-wheels-trip-${trip.id}`;
+  const isCancelled = trip.status === 'cancelled' || trip.status === 'canceled';
 
   const releaseTrip = async (mode: 'cancel' | 'close' | 'reset') => {
     setTripActionLoading(mode);
     setTripActionError(null);
     try {
       if (mode === 'cancel') {
-        await goodWheelsRideApi.cancelTrip(trip.id, 'Driver cancelled from active trip view', {
-          role: 'driver',
-          userId: user?.id ?? trip.driverId,
-        });
+        await goodWheelsRideApi.cancelTrip(trip.id, 'Driver cancelled from active trip view', { role: 'driver', userId: user?.id ?? trip.driverId });
       } else if (mode === 'close') {
         await goodWheelsRideApi.completeTrip(trip.id, 'Driver closed trip from active trip view');
       } else {
-        try {
-          await goodWheelsRideApi.cancelTrip(trip.id, 'Driver reset stale trip from active trip view', {
-            role: 'driver',
-            userId: user?.id ?? trip.driverId,
-          });
-        } catch {
-          // Keep local reset path available for stale UI recovery.
-        }
+        try { await goodWheelsRideApi.cancelTrip(trip.id, 'Driver reset stale trip', { role: 'driver', userId: user?.id ?? trip.driverId }); } catch { /* ok */ }
       }
       useTripStore.getState().clearActiveTrip();
       navigate(GW_PATHS.driver.dashboard);
     } catch (e) {
       setTripActionError(e instanceof Error ? e.message : 'Could not update this trip right now.');
-    } finally {
-      setTripActionLoading(null);
-    }
+    } finally { setTripActionLoading(null); }
   };
 
   return (
-    <div className="space-y-4">
-      <div className="gw-card p-5 space-y-3 border-amber-200/40" style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.04) 0%, #fff 40%)' }}>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="gw-card-title">{t('onTrip')}</div>
+    <div style={{ position: 'relative', height: '100dvh', display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#0f172a' }}>
+
+      {/* ── CHAT SLIDE-UP ───────────────────────────────────────── */}
+      {chatOpen && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 300, background: '#fff', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #e2e8f0', gap: 12 }}>
+            <button type="button" onClick={() => setChatOpen(false)} style={{ fontWeight: 800, color: '#0077C8', background: 'none', border: 'none', cursor: 'pointer', fontSize: 14 }}>
+              ← Map
+            </button>
+            <span style={{ fontWeight: 700, color: '#0f172a', fontSize: 15 }}>{t('chatWithPassenger')}</span>
+          </div>
+          <div style={{ flex: 1, overflow: 'auto' }}>
+            <TripChatPanel threadId={threadId} role="driver" userId={user?.id ?? trip.driverId ?? ''} userName={user?.fullName ?? 'Driver'} title={t('chatWithPassenger')} />
+          </div>
+        </div>
+      )}
+
+      {/* ── MAP — fills the full screen ─────────────────────────── */}
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <TripMapPanel trip={trip} variant="driver" height="100%" />
+      </div>
+
+      {/* ── BOTTOM SHEET ────────────────────────────────────────── */}
+      <div style={{
+        position: 'absolute',
+        bottom: 0, left: 0, right: 0,
+        zIndex: 150,
+        background: 'rgba(255,255,255,0.97)',
+        backdropFilter: 'blur(12px)',
+        borderRadius: '20px 20px 0 0',
+        boxShadow: '0 -4px 32px rgba(15,23,42,0.18)',
+        padding: '16px 16px max(16px, env(safe-area-inset-bottom))',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+      }}>
+        {/* drag handle */}
+        <button type="button" onClick={() => setControlsExpanded((v) => !v)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div style={{ width: 40, height: 4, borderRadius: 99, background: '#cbd5e1' }} />
+        </button>
+
+        {/* Status + primary action */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           <TripStatusBadge status={trip.status} />
-        </div>
-        <div className="text-sm text-slate-700">
-          <span className="font-bold text-emerald-800">{t('pickupLabel')}:</span> {trip.pickup.addressLine}
-          <span className="mx-2 text-slate-400">→</span>
-          <span className="font-bold text-red-800">{t('dropoff')}:</span> {trip.dropoff.addressLine}
-        </div>
-        <div className="flex flex-wrap gap-2">
+          <div style={{ flex: 1 }} />
           {trip.status === 'accepted' && (
             <button type="button" className="gw-button gw-button-primary" onClick={() => void markDriverArriving()}>
               {t('driverEnRoute')}
@@ -152,87 +165,78 @@ const DriverBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
               {t('completeRide')}
             </button>
           )}
+        </div>
+
+        {/* Route summary */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, color: '#475569', fontWeight: 600, flexWrap: 'wrap' }}>
+          <span style={{ color: '#16a34a', fontWeight: 800 }}>●</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40vw' }}>{trip.pickup.addressLine}</span>
+          <span style={{ color: '#94a3b8' }}>→</span>
+          <span style={{ color: '#dc2626', fontWeight: 800 }}>●</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '40vw' }}>{trip.dropoff.addressLine}</span>
+        </div>
+
+        {/* Cancelled state */}
+        {isCancelled && (
+          <div style={{ padding: '10px 12px', borderRadius: 12, background: '#fff1f2', border: '1px solid #fecdd3' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#9f1239', marginBottom: 6 }}>
+              {trip.cancelledByRole === 'passenger' ? 'Passenger canceled this ride.' : 'Ride was canceled.'}
+              {trip.cancelReason ? ` Reason: ${trip.cancelReason}` : ''}
+            </div>
+            <button type="button" className="gw-button gw-button-primary" onClick={() => navigate(GW_PATHS.driver.dashboard)}>
+              Continue searching for passengers
+            </button>
+          </div>
+        )}
+
+        {/* Location sharing status */}
+        {sharingLocation && (
+          <div style={{ fontSize: 11, fontWeight: 600, color: '#0077C8' }}>
+            📡 {t('trackingRideToDestination')}
+            {sharingUpdatedAtIso ? ` · ${new Date(sharingUpdatedAtIso).toLocaleTimeString()}` : ''}
+          </div>
+        )}
+        {sharingError && <div style={{ fontSize: 11, fontWeight: 600, color: '#dc2626' }}>{sharingError}</div>}
+
+        {/* Secondary actions */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" className="gw-button gw-button-secondary" style={{ flex: 1 }} onClick={() => setChatOpen(true)}>
+            💬 {t('chatWithPassenger')}
+          </button>
+          {canShareLocation && (
+            <button type="button" className="gw-button gw-button-secondary"
+              onClick={() => { setSharingError(null); setSharingLocation((s) => !s); }}>
+              {sharingLocation ? '⏹ Stop' : '📍 Share location'}
+            </button>
+          )}
           <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.dashboard)}>
             {t('dashboard')}
           </button>
-          {canShareLocation ? (
-            <button
-              type="button"
-              className="gw-button gw-button-secondary"
-              onClick={() => {
-                setSharingError(null);
-                setSharingLocation((s) => !s);
-              }}
-            >
-              {sharingLocation ? t('stopSharingLiveLocation') : t('shareLiveLocation')}
-            </button>
-          ) : null}
         </div>
-        <div className="text-xs font-semibold text-slate-600">
-          {sharingLocation ? t('trackingRideToDestination') : t('waitingForDriverLocation')}
-          {sharingUpdatedAtIso ? ` · ${t('lastUpdated')}: ${new Date(sharingUpdatedAtIso).toLocaleTimeString()}` : ''}
-        </div>
-        {trip.status === 'cancelled' || trip.status === 'canceled' ? (
-          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-900">
-            {trip.cancelledByRole === 'passenger'
-              ? 'Passenger canceled this ride. You can report it and return to searching now.'
-              : trip.cancelledByRole === 'driver'
-                ? 'You canceled this ride. You can report it and continue searching for passengers.'
-                : 'This ride was canceled. You can report it and continue searching for passengers.'}
-            {trip.cancelReason ? <span className="block mt-1 text-xs">Reason: {trip.cancelReason}</span> : null}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.driver.comms)}>
-                {t('reportIssue')}
+
+        {/* Expanded: trip reset controls */}
+        {controlsExpanded && (
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: '#64748b', letterSpacing: 0.5 }}>TRIP CONTROLS</div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button type="button" className="gw-button" disabled={!!tripActionLoading}
+                style={{ background: 'rgba(220,38,38,0.10)', color: '#991b1b' }}
+                onClick={() => void releaseTrip('cancel')}>
+                {tripActionLoading === 'cancel' ? 'Cancelling…' : t('cancelRide')}
               </button>
-              <button type="button" className="gw-button gw-button-primary" onClick={() => navigate(GW_PATHS.driver.dashboard)}>
-                Continue searching for passengers
+              <button type="button" className="gw-button gw-button-secondary" disabled={!!tripActionLoading}
+                onClick={() => void releaseTrip('close')}>
+                {tripActionLoading === 'close' ? 'Closing…' : 'Mark completed'}
+              </button>
+              <button type="button" className="gw-button gw-button-primary" disabled={!!tripActionLoading}
+                onClick={() => void releaseTrip('reset')}>
+                {tripActionLoading === 'reset' ? 'Resetting…' : 'Find new passenger'}
               </button>
             </div>
+            {tripActionError && <div style={{ fontSize: 11, fontWeight: 600, color: '#dc2626' }}>{tripActionError}</div>}
           </div>
-        ) : null}
-        {sharingError ? <div className="text-xs font-semibold text-red-700">{sharingError}</div> : null}
-        <div className="border-t border-slate-200/80 pt-3">
-          <div className="text-xs font-extrabold text-slate-700 mb-2">Trip reset controls</div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              className="gw-button"
-              onClick={() => void releaseTrip('cancel')}
-              disabled={tripActionLoading !== null}
-              style={{ background: 'rgba(220,38,38,0.12)', color: '#991b1b' }}
-            >
-              {tripActionLoading === 'cancel' ? 'Cancelling…' : 'Cancel ride'}
-            </button>
-            <button
-              type="button"
-              className="gw-button gw-button-secondary"
-              onClick={() => void releaseTrip('close')}
-              disabled={tripActionLoading !== null}
-            >
-              {tripActionLoading === 'close' ? 'Closing…' : 'Close as completed'}
-            </button>
-            <button
-              type="button"
-              className="gw-button gw-button-primary"
-              onClick={() => void releaseTrip('reset')}
-              disabled={tripActionLoading !== null}
-            >
-              {tripActionLoading === 'reset' ? 'Resetting…' : 'Continue searching for new passenger'}
-            </button>
-          </div>
-          {tripActionError ? <div className="text-xs font-semibold text-rose-700 mt-2">{tripActionError}</div> : null}
-        </div>
+        )}
       </div>
-
-      <TripMapPanel trip={trip} variant="driver" />
-
-      <TripChatPanel
-        threadId={threadId}
-        role="driver"
-        userId={user?.id ?? trip.driverId ?? ''}
-        userName={user?.fullName ?? 'Driver'}
-        title={t('chatWithPassenger')}
-      />
     </div>
   );
 };
