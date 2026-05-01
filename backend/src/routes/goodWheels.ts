@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import path from 'path';
 import { promises as fs } from 'fs';
 import crypto from 'crypto';
+import bcrypt from 'bcrypt';
 import {
   calculateGoodWheelsFareSplit,
   fareSplitToPayload,
@@ -170,6 +171,12 @@ const BROADCASTS_FILE = path.join(DATA_DIR, 'broadcasts.json');
 const CHAT_FILE = path.join(DATA_DIR, 'chatMessages.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const TRIPS_FILE = path.join(DATA_DIR, 'trips.json');
+const RESET_TOKENS_FILE = path.join(DATA_DIR, 'resetTokens.json');
+
+type ResetToken = { token: string; userId: string; expiresAt: string };
+
+const BCRYPT_ROUNDS = 10;
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000;
 
 let writeQueue: Promise<void> = Promise.resolve();
 
@@ -192,6 +199,7 @@ async function ensureStorage(): Promise<void> {
     ensureJsonFile(CHAT_FILE, []),
     ensureJsonFile(USERS_FILE, []),
     ensureJsonFile(TRIPS_FILE, []),
+    ensureJsonFile(RESET_TOKENS_FILE, []),
   ]);
 }
 
@@ -459,35 +467,56 @@ router.get('/health', async (_req: Request, res: Response): Promise<void> => {
   });
 });
 
+async function verifyPassword(input: string, stored: string): Promise<boolean> {
+  if (!input || !stored) return false;
+  if (stored.startsWith('$2b$') || stored.startsWith('$2a$')) {
+    return bcrypt.compare(input, stored);
+  }
+  return input === stored;
+}
+
 router.post('/auth/signin', async (req: Request, res: Response): Promise<void> => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
+  if (!email || !password) {
+    res.status(400).json({ ok: false, error: 'Email and password are required' });
+    return;
+  }
   const users = await loadUsers();
   const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
   if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
     return;
   }
-  if (user.password && password && user.password !== password) {
-    res.status(401).json({ ok: false, error: 'Invalid credentials' });
-    return;
+  if (user.password) {
+    const ok = await verifyPassword(password, user.password);
+    if (!ok) {
+      res.status(401).json({ ok: false, error: 'Invalid credentials' });
+      return;
+    }
   }
   res.json({ ok: true, user: publicUser(user) });
 });
 
 router.post('/auth/sign-in', async (req: Request, res: Response): Promise<void> => {
-  // Alias for backwards compatibility with old docs/spelling.
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '').trim();
+  if (!email || !password) {
+    res.status(400).json({ ok: false, error: 'Email and password are required' });
+    return;
+  }
   const users = await loadUsers();
   const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
   if (!user) {
     res.status(401).json({ ok: false, error: 'Invalid credentials' });
     return;
   }
-  if (user.password && password && user.password !== password) {
-    res.status(401).json({ ok: false, error: 'Invalid credentials' });
-    return;
+  if (user.password) {
+    const ok = await verifyPassword(password, user.password);
+    if (!ok) {
+      res.status(401).json({ ok: false, error: 'Invalid credentials' });
+      return;
+    }
   }
   res.json({ ok: true, user: publicUser(user) });
 });
@@ -510,6 +539,151 @@ router.post('/auth/switch-role', async (req: Request, res: Response): Promise<vo
 
 router.post('/auth/signout', async (_req: Request, res: Response): Promise<void> => {
   res.json({ ok: true });
+});
+
+router.post('/auth/register', async (req: Request, res: Response): Promise<void> => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '').trim();
+  const fullName = String(req.body?.fullName || '').trim();
+  const phone = String(req.body?.phone || '').trim();
+  const role = String(req.body?.role || 'passenger').trim() as GoodWheelsUser['role'];
+
+  if (!email || !password || !fullName) {
+    res.status(400).json({ ok: false, error: 'Full name, email, and password are required' });
+    return;
+  }
+  if (!['passenger', 'driver'].includes(role)) {
+    res.status(400).json({ ok: false, error: 'Role must be passenger or driver' });
+    return;
+  }
+  if (password.length < 8) {
+    res.status(400).json({ ok: false, error: 'Password must be at least 8 characters' });
+    return;
+  }
+
+  const users = await loadUsers();
+  const existing = users.find((u) => (u.email ?? '').toLowerCase() === email);
+  if (existing) {
+    res.status(409).json({ ok: false, error: 'An account with this email already exists' });
+    return;
+  }
+
+  const hashedPassword = await bcrypt.hash(password, BCRYPT_ROUNDS);
+  const now = new Date().toISOString();
+  const id = mkId(role === 'driver' ? 'drv' : 'pax');
+
+  const vehicle = role === 'driver' && req.body?.vehicleMakeModel
+    ? {
+        makeModel: String(req.body.vehicleMakeModel || '').trim() || undefined,
+        plateMasked: String(req.body.vehiclePlate || '').trim() || undefined,
+        seats: typeof req.body.vehicleSeats === 'number' ? req.body.vehicleSeats : 4,
+        color: String(req.body.vehicleColor || '').trim() || undefined,
+        colorName: String(req.body.vehicleColorName || '').trim() || undefined,
+        vehicleType: (['car', 'moto', 'truck', 'van'].includes(String(req.body.vehicleType || ''))
+          ? req.body.vehicleType : 'car') as GoodWheelsUser['vehicle'] extends undefined ? never : NonNullable<GoodWheelsUser['vehicle']>['vehicleType'],
+        accessibilityReady: Boolean(req.body.vehicleAccessibility),
+      }
+    : undefined;
+
+  const newUser: GoodWheelsUser = {
+    id,
+    email,
+    password: hashedPassword,
+    role,
+    fullName,
+    phoneMasked: phone ? phone.replace(/\d(?=\d{4})/g, '*') : '***-***-****',
+    trust: {
+      trustScore: 50,
+      verifiedUser: 'unverified',
+      ...(role === 'driver' ? { verifiedDriver: 'unverified', verifiedVehicle: 'unverified' } : {}),
+    },
+    isOnline: false,
+    savedPlaceIds: [],
+    assistancePreferences: [],
+    familySafeMode: false,
+    ...(role === 'driver' && vehicle ? {
+      vehicleId: mkId('veh'),
+      vehicle,
+    } : {}),
+  };
+
+  users.push(newUser);
+  await writeJsonArray(USERS_FILE, users);
+
+  console.log(`[GoodWheels] Registered new ${role}: ${email} (id=${id}) at ${now}`);
+  res.status(201).json({ ok: true, user: publicUser(newUser) });
+});
+
+router.post('/auth/forgot-password', async (req: Request, res: Response): Promise<void> => {
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!email) {
+    res.status(400).json({ ok: false, error: 'Email is required' });
+    return;
+  }
+  const users = await loadUsers();
+  const user = users.find((u) => (u.email ?? '').toLowerCase() === email) ?? null;
+  if (!user) {
+    // Always respond OK to prevent email enumeration
+    res.json({ ok: true, message: 'If that email is registered, a reset token has been sent.' });
+    return;
+  }
+
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS).toISOString();
+
+  const tokens = await readJsonArray<ResetToken>(RESET_TOKENS_FILE);
+  const filtered = tokens.filter((t) => t.userId !== user.id || new Date(t.expiresAt) > new Date());
+  filtered.push({ token, userId: user.id, expiresAt });
+  await writeJsonArray(RESET_TOKENS_FILE, filtered);
+
+  console.log(`[GoodWheels] Password reset token generated for ${email}: ${token}`);
+  res.json({
+    ok: true,
+    message: 'If that email is registered, a reset token has been sent.',
+    // Returned for dev/demo — remove or email this in production
+    resetToken: token,
+  });
+});
+
+router.post('/auth/reset-password', async (req: Request, res: Response): Promise<void> => {
+  const token = String(req.body?.token || '').trim();
+  const newPassword = String(req.body?.newPassword || '').trim();
+  if (!token || !newPassword) {
+    res.status(400).json({ ok: false, error: 'Token and new password are required' });
+    return;
+  }
+  if (newPassword.length < 8) {
+    res.status(400).json({ ok: false, error: 'Password must be at least 8 characters' });
+    return;
+  }
+
+  const tokens = await readJsonArray<ResetToken>(RESET_TOKENS_FILE);
+  const record = tokens.find((t) => t.token === token);
+  if (!record) {
+    res.status(400).json({ ok: false, error: 'Invalid or expired reset token' });
+    return;
+  }
+  if (new Date(record.expiresAt) < new Date()) {
+    res.status(400).json({ ok: false, error: 'Reset token has expired. Please request a new one.' });
+    return;
+  }
+
+  const users = await loadUsers();
+  const idx = users.findIndex((u) => u.id === record.userId);
+  if (idx < 0) {
+    res.status(404).json({ ok: false, error: 'User not found' });
+    return;
+  }
+
+  const hashed = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+  users[idx] = { ...users[idx], password: hashed };
+  await writeJsonArray(USERS_FILE, users);
+
+  // Invalidate all reset tokens for this user after use
+  const remaining = tokens.filter((t) => t.userId !== record.userId);
+  await writeJsonArray(RESET_TOKENS_FILE, remaining);
+
+  res.json({ ok: true, message: 'Password updated. You can now sign in with your new password.' });
 });
 
 router.get('/trips/active', async (req: Request, res: Response): Promise<void> => {

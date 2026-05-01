@@ -9,6 +9,9 @@ import AppLayout from '../layouts/AppLayout';
 import ProtectedRoute from './guards/ProtectedRoute';
 import RoleSelectPage from '../pages/auth/RoleSelectPage';
 import SignInPage from '../pages/auth/SignInPage';
+import SignUpPage from '../pages/auth/SignUpPage';
+import ForgotPasswordPage from '../pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/auth/ResetPasswordPage';
 import HomePage from '../pages/public/HomePage';
 import PassengerDashboardPage from '../pages/passenger/PassengerDashboardPage';
 import PassengerPriceOfferPage from '../pages/passenger/PassengerPriceOfferPage';
@@ -41,6 +44,9 @@ export default function AppRouter(): React.ReactElement {
         children: [
           { path: GW_PATHS.public.home, element: <HomePage /> },
           { path: GW_PATHS.auth.signIn, element: <SignInPage /> },
+          { path: GW_PATHS.auth.signUp, element: <SignUpPage /> },
+          { path: GW_PATHS.auth.forgotPassword, element: <ForgotPasswordPage /> },
+          { path: GW_PATHS.auth.resetPassword, element: <ResetPasswordPage /> },
           { path: '*', element: <NotFoundPage /> },
         ],
       },

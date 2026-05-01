@@ -40,6 +40,21 @@ async function postJsonWithAlias(
   return first;
 }
 
+export type GwRegisterBody = {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  role: 'passenger' | 'driver';
+  vehicleMakeModel?: string;
+  vehiclePlate?: string;
+  vehicleSeats?: number;
+  vehicleColor?: string;
+  vehicleColorName?: string;
+  vehicleType?: 'car' | 'moto' | 'truck' | 'van';
+  vehicleAccessibility?: boolean;
+};
+
 export const goodWheelsAuthApi = {
   async signIn(email: string, password: string): Promise<{ user: UserProfile }> {
     const res = await postJsonWithAlias('/api/good-wheels/auth/signin', '/api/good-wheels/auth/sign-in', {
@@ -49,6 +64,27 @@ export const goodWheelsAuthApi = {
     const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
     if (!res.ok || data.ok === false || data.user == null) {
       throw new Error(data.error || `Sign in failed (${res.status})`);
+    }
+    return { user: mapGoodWheelsApiUser(data.user) };
+  },
+
+  async signUp(body: GwRegisterBody): Promise<{ user: UserProfile }> {
+    let res: Response;
+    try {
+      res = await fetch(buildApiUrl('/api/good-wheels/auth/register'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch {
+      throw new Error('Could not reach the server. Make sure the backend is running on localhost:3001.');
+    }
+    if (res.status === 404) {
+      throw new Error('Registration is not available on this server. Run the local backend (cd backend && npm run dev) and set VITE_API_BASE=http://localhost:3001.');
+    }
+    const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
+    if (!res.ok || data.ok === false || data.user == null) {
+      throw new Error(data.error || `Registration failed (${res.status})`);
     }
     return { user: mapGoodWheelsApiUser(data.user) };
   },
@@ -72,6 +108,29 @@ export const goodWheelsAuthApi = {
       throw new Error(data.error || `Role switch failed (${res.status})`);
     }
     return { user: mapGoodWheelsApiUser(data.user) };
+  },
+
+  async forgotPassword(email: string): Promise<{ message: string; resetToken?: string }> {
+    const res = await fetch(buildApiUrl('/api/good-wheels/auth/forgot-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await parseJson<{ ok?: boolean; message?: string; resetToken?: string; error?: string }>(res);
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    return { message: data.message ?? 'Check your email for a reset link.', resetToken: data.resetToken };
+  },
+
+  async resetPassword(token: string, newPassword: string): Promise<void> {
+    const res = await fetch(buildApiUrl('/api/good-wheels/auth/reset-password'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, newPassword }),
+    });
+    const data = await parseJson<{ ok?: boolean; error?: string }>(res);
+    if (!res.ok || data.ok === false) {
+      throw new Error(data.error || `Reset failed (${res.status})`);
+    }
   },
 };
 

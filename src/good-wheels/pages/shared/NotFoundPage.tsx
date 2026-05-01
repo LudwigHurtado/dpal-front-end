@@ -8,7 +8,7 @@ const NotFoundPage: React.FC = () => {
       <h2 className="gw-h2">Page not found</h2>
       <p className="gw-muted">That link doesn’t exist in Good Wheels.</p>
       <div className="mt-4">
-        <Link className="gw-link" to={GW_PATHS.public.home}>Go to home</Link>
+        <Link className="gw-link" to={GW_PATHS.public.home}>Home</Link>
       </div>
     </div>
   );

@@ -1,5 +1,47 @@
 [
   {
+    "id": "pax-seed-001",
+    "email": "passenger@goodwheels.app",
+    "password": "$2b$10$4RKqqKZTCbneHgG/GLOnCePwQ50H1d9RByQF9Z/kL1QI2zAYBJitK",
+    "role": "passenger",
+    "fullName": "Alex Rivera",
+    "phoneMasked": "***-***-1234",
+    "trust": {
+      "trustScore": 75,
+      "verifiedUser": "verified"
+    },
+    "isOnline": false,
+    "savedPlaceIds": [],
+    "assistancePreferences": [],
+    "familySafeMode": false
+  },
+  {
+    "id": "drv-seed-001",
+    "email": "driver@goodwheels.app",
+    "password": "$2b$10$1kPaW1WpXH2Zq/7.rQJ2E.wmClGqrcBlJtZacijzzj2oNVogjv/rK",
+    "role": "driver",
+    "fullName": "Marcus Johnson",
+    "phoneMasked": "***-***-5678",
+    "trust": {
+      "trustScore": 88,
+      "verifiedUser": "verified",
+      "verifiedDriver": "verified",
+      "verifiedVehicle": "verified"
+    },
+    "vehicleId": "veh-seed-001",
+    "vehicle": {
+      "makeModel": "Toyota Camry 2022",
+      "plateMasked": "***-1234",
+      "seats": 4,
+      "color": "#1a1a2e",
+      "colorName": "Navy Blue",
+      "vehicleType": "car",
+      "accessibilityReady": false
+    },
+    "isOnline": false,
+    "earningsCents": 0
+  },
+  {
     "id": "usr-passenger-001",
     "role": "passenger",
     "fullName": "Ariana M.",
@@ -8,14 +50,8 @@
       "trustScore": 92,
       "verifiedUser": "verified"
     },
-    "savedPlaceIds": [
-      "plc-home-001",
-      "plc-clinic-001"
-    ],
-    "assistancePreferences": [
-      "Medical Transport",
-      "Family Safe"
-    ],
+    "savedPlaceIds": ["plc-home-001", "plc-clinic-001"],
+    "assistancePreferences": ["Medical Transport", "Family Safe"],
     "familySafeMode": true,
     "email": "passenger@goodwheels.test",
     "password": "GoodWheels123!"
@@ -47,9 +83,6 @@
       "verifiedUser": "verified"
     },
     "organization": "Community Support Desk",
-    "queueIds": [
-      "tsk-001",
-      "tsk-002"
-    ]
+    "queueIds": ["tsk-001", "tsk-002"]
   }
 ]

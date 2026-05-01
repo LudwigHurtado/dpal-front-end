@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Role } from '../types/role';
 import type { UserProfile } from '../types/user';
-import { goodWheelsAuthApi } from '../services/adapters/goodWheelsApi';
+import { goodWheelsAuthApi, type GwRegisterBody } from '../services/adapters/goodWheelsApi';
 
 type AuthStatus = 'signed_out' | 'signed_in' | 'loading';
 
@@ -12,8 +12,11 @@ type AuthState = {
   error: string | null;
   connectionMode: 'live';
   signIn: (email: string, password: string) => Promise<void>;
+  signUp: (body: GwRegisterBody) => Promise<void>;
   signOut: () => Promise<void>;
   switchRole: (role: Role) => Promise<void>;
+  forgotPassword: (email: string) => Promise<{ message: string; resetToken?: string }>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
 };
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -35,6 +38,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch (e) {
       const msg = e instanceof Error && e.message ? e.message : 'Could not sign in. Please try again.';
       set({ status: 'signed_out', error: msg, connectionMode: 'live' });
+    }
+  },
+  async signUp(body) {
+    set({ status: 'loading', error: null });
+    try {
+      const { user } = await goodWheelsAuthApi.signUp(body);
+      set({
+        status: 'signed_in',
+        user,
+        activeRole: user.role,
+        connectionMode: 'live',
+      });
+    } catch (e) {
+      const msg = e instanceof Error && e.message ? e.message : 'Registration failed. Please try again.';
+      set({ status: 'signed_out', error: msg });
     }
   },
   async signOut() {
@@ -60,6 +78,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     } catch {
       set({ status: 'signed_in', error: 'Could not switch roles.' });
     }
+  },
+  async forgotPassword(email) {
+    return goodWheelsAuthApi.forgotPassword(email);
+  },
+  async resetPassword(token, newPassword) {
+    await goodWheelsAuthApi.resetPassword(token, newPassword);
   },
 }));
 

@@ -110,8 +110,9 @@ const SignInPage: React.FC = () => {
               </button>
             </div>
           )}
-          <div className="gw-muted text-sm" style={{ marginTop: 14 }}>
-            New here? <Link to={GW_PATHS.auth.signUp} className="gw-link">Create an account</Link>
+          <div className="gw-muted text-sm" style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span>{t('signInForgotPassword')} <Link to={GW_PATHS.auth.forgotPassword} className="gw-link">{t('signInResetCta')}</Link></span>
+            <span>{t('signInNewHere')} <Link to={GW_PATHS.auth.signUp} className="gw-link">{t('signUpCreateAccount')}</Link></span>
           </div>
         </div>
       </div>
