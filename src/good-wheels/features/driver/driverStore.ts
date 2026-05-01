@@ -154,39 +154,13 @@ export const useDriverStore = create<DriverState>((set, get) => ({
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Dashboard load failed';
-      let stale = false;
-      try {
-        const raw = localStorage.getItem(dashboardCacheKey(authDriverId));
-        if (raw) {
-          const parsed = JSON.parse(raw) as { syncedAt?: string; dash?: Record<string, unknown> };
-          const d = parsed.dash;
-          if (d) {
-            stale = true;
-            const available = Array.isArray(d.availableRequests)
-              ? (d.availableRequests as unknown[]).map((x) => mapApiTripToTrip(x))
-              : [];
-            const pending = Array.isArray(d.pendingDeals) ? (d.pendingDeals as unknown[]).map((x) => mapApiTripToTrip(x)) : [];
-            const recent = Array.isArray(d.recentCompletedTrips)
-              ? (d.recentCompletedTrips as unknown[]).map((x) => mapApiTripToTrip(x))
-              : [];
-            const activeRaw = d.activeTrip;
-            const activeTrip = activeRaw ? mapApiTripToTrip(activeRaw) : null;
-            set({
-              queueItems: dedupeTripsByLatestUpdate(available),
-              pendingDealTrips: dedupeTripsByLatestUpdate(pending),
-              recentCompletedTrips: recent,
-              dashboardSummary: (d.summary as DriverDashboardSummary) ?? null,
-              lastDashboardSyncIso: parsed.syncedAt ?? null,
-              dashboardStale: true,
-            });
-            // Do not resurrect potentially stale active trips from cache.
-          }
-        }
-      } catch {
-        /* ignore */
+      // 429 rate limit: stay silent, keep last known state, don't flash an error.
+      if (msg === '__RATE_LIMITED__') {
+        set({ dashboardLoading: false });
+        return;
       }
       useTripStore.getState().clearActiveTrip();
-      set({ dashboardError: msg, dashboardStale: stale, availabilityStatus: 'offline' });
+      set({ dashboardError: msg, dashboardStale: false, availabilityStatus: 'offline' });
     } finally {
       set({ dashboardLoading: false });
     }

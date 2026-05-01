@@ -64,8 +64,13 @@ const DriverDashboardPage: React.FC = () => {
   const [tripActionError, setTripActionError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Clear stale localStorage cache on mount so old fake/test rides don't reappear.
+    const uid = useAuthStore.getState().user?.id;
+    if (uid) {
+      try { localStorage.removeItem(`good-wheels-driver-dashboard-cache-${uid}`); } catch { /* ignore */ }
+    }
     void hydrate();
-    const timer = window.setInterval(() => void hydrate(), 8000);
+    const timer = window.setInterval(() => void hydrate(), 20000);
     return () => window.clearInterval(timer);
   }, [hydrate]);
 

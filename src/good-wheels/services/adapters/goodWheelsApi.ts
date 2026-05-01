@@ -368,6 +368,7 @@ export const goodWheelsDriverApi = {
     const url = new URL(buildApiUrl('/api/good-wheels/driver/dashboard'));
     url.searchParams.set('driverId', driverId);
     const res = await fetch(url.toString());
+    if (res.status === 429) throw new Error('__RATE_LIMITED__');
     if (!res.ok) throw new Error(`Driver dashboard failed (${res.status})`);
     return parseJson(res);
   },
