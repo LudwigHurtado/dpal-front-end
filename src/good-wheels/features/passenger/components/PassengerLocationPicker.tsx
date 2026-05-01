@@ -184,7 +184,7 @@ const PassengerLocationPicker: React.FC = () => {
       destinationLat: dropoff.latLng.lat,
       destinationLng: dropoff.latLng.lng,
     });
-    navigate(GW_PATHS.passenger.request);
+    navigate(GW_PATHS.passenger.price);
   }
 
   return (
@@ -514,7 +514,7 @@ const PassengerLocationPicker: React.FC = () => {
             letterSpacing: 0.3,
           }}
         >
-          {bothSet ? 'Continue → Negotiate with driver' : 'Pick both points to continue'}
+          {bothSet ? 'Continue to price' : 'Pick both points to continue'}
         </button>
         </div>
       </div>

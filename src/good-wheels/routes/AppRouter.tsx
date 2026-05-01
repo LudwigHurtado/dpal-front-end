@@ -11,6 +11,7 @@ import RoleSelectPage from '../pages/auth/RoleSelectPage';
 import SignInPage from '../pages/auth/SignInPage';
 import HomePage from '../pages/public/HomePage';
 import PassengerDashboardPage from '../pages/passenger/PassengerDashboardPage';
+import PassengerPriceOfferPage from '../pages/passenger/PassengerPriceOfferPage';
 import PassengerActiveTripPage from '../pages/passenger/PassengerActiveTripPage';
 import CharitiesPage from '../pages/passenger/CharitiesPage';
 import DonationsPage from '../pages/passenger/DonationsPage';
@@ -56,6 +57,7 @@ export default function AppRouter(): React.ReactElement {
                 children: [
                   { path: GW_PATHS.passenger.dashboard, element: <PassengerDashboardPage /> },
                   { path: GW_PATHS.passenger.request, element: <PassengerDashboardPage /> },
+                  { path: GW_PATHS.passenger.price, element: <PassengerPriceOfferPage /> },
                   { path: GW_PATHS.passenger.active, element: <PassengerActiveTripPage /> },
                   { path: GW_PATHS.passenger.charities, element: <CharitiesPage /> },
                   { path: GW_PATHS.passenger.donations, element: <DonationsPage /> },

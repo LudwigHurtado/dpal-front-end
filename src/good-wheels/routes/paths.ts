@@ -18,6 +18,7 @@ export const GW_PATHS = {
   passenger: {
     dashboard: '/app/passenger/dashboard',
     request: '/app/passenger/request',
+    price: '/app/passenger/price',
     active: '/app/passenger/active',
     history: '/app/passenger/history',
     places: '/app/passenger/places',
