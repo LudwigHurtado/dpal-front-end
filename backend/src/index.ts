@@ -24,6 +24,7 @@ import earthObservationRouter from './routes/earthObservation';
 import dpalAssistantRouter from './routes/dpalAssistant';
 import situationRouter from './routes/situation';
 import goodWheelsRouter from './routes/goodWheels';
+import signalsRouter from './routes/signals';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
 import path from 'path';
@@ -117,6 +118,7 @@ app.use('/api/aquascan', aquascanRouter);
 app.use('/api/water', waterRouter);
 app.use('/api/earth-observation', earthObservationRouter);
 app.use('/api/dpal-assistant', dpalAssistantRouter);
+app.use('/api/signals', signalsRouter);
 app.use('/api/situation', situationRouter);
 app.use('/api/good-wheels', goodWheelsRouter);
 

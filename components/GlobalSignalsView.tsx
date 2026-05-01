@@ -22,7 +22,7 @@ import {
 } from './icons';
 import {
   apiUrl, API_ROUTES,
-  SIGNAL_DETAIL, SIGNAL_STATUS, SIGNAL_ENRICH, SIGNAL_CREATE_MISSION,
+  SIGNAL_STATUS, SIGNAL_ENRICH, SIGNAL_CREATE_MISSION,
 } from '../constants';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -116,10 +116,20 @@ function relTime(ts: string): string {
   return `${Math.floor(d / 86_400_000)}d ago`;
 }
 
+async function readBodyJson(res: Response): Promise<unknown | null> {
+  const text = await res.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 async function apiFetch<T>(url: string, opts?: RequestInit): Promise<T> {
   const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
-  const json = await res.json();
-  if (!res.ok || json.ok === false) throw new Error(json.error ?? `HTTP ${res.status}`);
+  const json = (await readBodyJson(res)) as Record<string, unknown> | null;
+  if (!res.ok || json?.ok === false) throw new Error((json?.error as string) ?? `HTTP ${res.status}`);
   return json as T;
 }
 
@@ -337,22 +347,85 @@ const GlobalSignalsView: React.FC<GlobalSignalsViewProps> = ({ onReturn }) => {
   const [filterStatus, setFilterStatus] = useState<SignalStatus | 'all'>('new');
 
   const loadData = useCallback(async () => {
-    setLoading(true); setErr('');
+    setLoading(true); setErr(''); setNotice('');
     try {
       const params = new URLSearchParams({ limit: '100' });
       if (filterCat    !== 'all') params.set('category',  filterCat);
       if (filterRisk   !== 'all') params.set('riskLevel', filterRisk);
       if (filterStatus !== 'all') params.set('status',    filterStatus);
 
-      const [sdResult, stResult] = await Promise.allSettled([
-        apiFetch<{ ok: boolean; signals: GlobalSignal[] }>(apiUrl(API_ROUTES.SIGNALS_LIST) + '?' + params.toString()),
-        apiFetch<{ ok: boolean; stats: SignalStats }>(apiUrl(API_ROUTES.SIGNALS_STATS)),
+      const listUrl = apiUrl(API_ROUTES.SIGNALS_LIST) + '?' + params.toString();
+      const statsUrl = apiUrl(API_ROUTES.SIGNALS_STATS);
+
+      const [listRes, statsRes] = await Promise.all([
+        fetch(listUrl, { headers: { Accept: 'application/json' } }),
+        fetch(statsUrl, { headers: { Accept: 'application/json' } }),
       ]);
-      if (sdResult.status === 'rejected') throw sdResult.reason;
-      setSignals(sdResult.value.signals);
-      if (stResult.status === 'fulfilled') setStats(stResult.value.stats);
-    } catch (ex: unknown) { setErr(ex instanceof Error ? ex.message : String(ex)); }
-    finally { setLoading(false); }
+
+      const listJson = (await readBodyJson(listRes)) as {
+        ok?: boolean;
+        signals?: GlobalSignal[];
+        error?: string;
+        mode?: string;
+      } | null;
+
+      let signalsList: GlobalSignal[] = [];
+      if (listRes.ok && listJson && listJson.ok !== false && Array.isArray(listJson.signals)) {
+        signalsList = listJson.signals;
+      } else {
+        const msg =
+          listJson?.error ??
+          `Signals list unavailable (HTTP ${listRes.status}). Point VITE_API_BASE at a backend that exposes /api/signals.`;
+        setErr(msg);
+        setSignals([]);
+        setStats(null);
+        return;
+      }
+
+      const statsJson = (await readBodyJson(statsRes)) as {
+        ok?: boolean;
+        stats?: SignalStats;
+      } | null;
+
+      let statsVal: SignalStats | null = null;
+      if (statsRes.ok && statsJson && statsJson.ok !== false && statsJson.stats) {
+        statsVal = statsJson.stats;
+      } else if (signalsList.length) {
+        const categories: Record<string, number> = {};
+        for (const s of signalsList) {
+          categories[s.category] = (categories[s.category] ?? 0) + 1;
+        }
+        statsVal = {
+          total: signalsList.length,
+          critical: signalsList.filter((s) => s.riskLevel === 'critical').length,
+          high: signalsList.filter((s) => s.riskLevel === 'high').length,
+          missionsCreated: signalsList.filter((s) => s.status === 'mission_created').length,
+          categories,
+        };
+        setNotice('Stats endpoint unreachable — showing counts from the current signal list.');
+      } else {
+        setStats(null);
+      }
+
+      setSignals(signalsList);
+      if (statsVal) setStats(statsVal);
+
+      if (signalsList.length === 0) {
+        setNotice((prev) =>
+          prev
+            ? prev
+            : listJson.mode === 'in_memory_stub'
+              ? 'Signals API reachable — click Import Feeds to seed demo signals on this server.'
+              : 'No signals match the current filters.',
+        );
+      }
+    } catch (ex: unknown) {
+      setErr(ex instanceof Error ? ex.message : String(ex));
+      setSignals([]);
+      setStats(null);
+    } finally {
+      setLoading(false);
+    }
   }, [filterCat, filterRisk, filterStatus]);
 
   useEffect(() => { void loadData(); }, [loadData]);
