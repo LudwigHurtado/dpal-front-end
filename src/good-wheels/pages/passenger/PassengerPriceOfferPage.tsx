@@ -33,76 +33,158 @@ type VehicleClass = {
   perMileUsd: number;
   perMinuteUsd: number;
   minimumUsd: number;
-  /** Maps to RideDraftInput.urgency on submit. */
   urgency: 'low' | 'normal' | 'high' | 'priority';
-  Icon: React.FC<{ size?: number; tone?: string }>;
+  Icon: React.FC<{ size?: number; active?: boolean }>;
 };
 
-const MotoIcon: React.FC<{ size?: number; tone?: string }> = ({ size = 44, tone = ACCENT }) => (
-  <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
-    <circle cx="14" cy="48" r="9" fill="none" stroke={tone} strokeWidth="3" />
-    <circle cx="50" cy="48" r="9" fill="none" stroke={tone} strokeWidth="3" />
-    <path d="M14 48 L26 28 L40 28 L50 48" fill="none" stroke={tone} strokeWidth="3" strokeLinejoin="round" />
-    <path d="M28 28 L34 18 L44 18" fill="none" stroke={tone} strokeWidth="3" strokeLinecap="round" />
-    <rect x="36" y="32" width="14" height="6" rx="1.5" fill={tone} opacity="0.85" />
-  </svg>
-);
+/* ── Vehicle illustrations — side-profile style ─────────────────────────── */
 
-const CarIcon: React.FC<{ size?: number; tone?: string }> = ({ size = 44, tone = ACCENT }) => (
-  <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
-    <path
-      d="M8 40 L12 30 C13.5 26 17 24 21 24 H43 C47 24 50.5 26 52 30 L56 40 V46 H8 Z"
-      fill={tone}
-      opacity="0.16"
-      stroke={tone}
-      strokeWidth="2.5"
-      strokeLinejoin="round"
-    />
-    <path d="M16 30 L19 26 H45 L48 30" fill="none" stroke={tone} strokeWidth="2" />
-    <circle cx="20" cy="46" r="5" fill="#0f172a" />
-    <circle cx="44" cy="46" r="5" fill="#0f172a" />
-    <circle cx="20" cy="46" r="2" fill="#fff" />
-    <circle cx="44" cy="46" r="2" fill="#fff" />
-  </svg>
-);
+const MotoIcon: React.FC<{ size?: number; active?: boolean }> = ({ size = 56, active = false }) => {
+  const body = active ? '#0077C8' : '#334155';
+  const wheel = active ? '#0077C8' : '#1e293b';
+  const chrome = active ? '#bfdbfe' : '#94a3b8';
+  return (
+    <svg viewBox="0 0 110 72" width={size} height={size} aria-hidden fill="none">
+      {/* rear wheel */}
+      <circle cx="22" cy="52" r="15" stroke={wheel} strokeWidth="4" />
+      <circle cx="22" cy="52" r="7" stroke={wheel} strokeWidth="2.5" />
+      <circle cx="22" cy="52" r="2.5" fill={wheel} />
+      {/* front wheel */}
+      <circle cx="88" cy="52" r="15" stroke={wheel} strokeWidth="4" />
+      <circle cx="88" cy="52" r="7" stroke={wheel} strokeWidth="2.5" />
+      <circle cx="88" cy="52" r="2.5" fill={wheel} />
+      {/* frame / swingarm */}
+      <path d="M22 52 L38 28 L62 24 L78 38 L88 52" stroke={body} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" />
+      {/* body fairing */}
+      <path d="M44 34 Q55 16 72 20 L80 36 L60 40 Z" fill={body} opacity="0.82" />
+      {/* seat */}
+      <path d="M38 30 Q50 22 62 24 L60 30 Q50 30 40 35 Z" fill={chrome} opacity="0.55" />
+      {/* handlebar */}
+      <path d="M76 28 L84 20 L90 23" stroke={chrome} strokeWidth="3" strokeLinecap="round" />
+      {/* headlight */}
+      <ellipse cx="90" cy="36" rx="5" ry="4" fill={active ? '#fef9c3' : '#e2e8f0'} />
+      {/* exhaust */}
+      <path d="M26 46 Q18 50 12 54" stroke={chrome} strokeWidth="2.5" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  );
+};
 
-const ComfortIcon: React.FC<{ size?: number; tone?: string }> = ({ size = 44, tone = ACCENT }) => (
-  <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
-    <path
-      d="M6 42 L10 28 C11.5 24 15 22 19 22 H45 C49 22 52.5 24 54 28 L58 42 V48 H6 Z"
-      fill={tone}
-      opacity="0.18"
-      stroke={tone}
-      strokeWidth="2.5"
-      strokeLinejoin="round"
-    />
-    <path d="M14 30 L17 24 H47 L50 30" fill="none" stroke={tone} strokeWidth="2" />
-    <rect x="22" y="32" width="20" height="6" rx="1.5" fill={tone} opacity="0.45" />
-    <circle cx="18" cy="48" r="5" fill="#0f172a" />
-    <circle cx="46" cy="48" r="5" fill="#0f172a" />
-    <circle cx="18" cy="48" r="2" fill="#fff" />
-    <circle cx="46" cy="48" r="2" fill="#fff" />
-  </svg>
-);
+const CarIcon: React.FC<{ size?: number; active?: boolean }> = ({ size = 56, active = false }) => {
+  const paint = active ? '#0077C8' : '#334155';
+  const glass = active ? '#bfdbfe' : '#cbd5e1';
+  const wheel = active ? '#1e40af' : '#1e293b';
+  return (
+    <svg viewBox="0 0 120 72" width={size} height={size} aria-hidden fill="none">
+      {/* body */}
+      <path d="M8 50 L10 36 C11 30 15 28 20 28 H100 C105 28 109 30 110 36 L112 50 V56 H8 Z"
+        fill={paint} opacity="0.15" stroke={paint} strokeWidth="2.5" strokeLinejoin="round" />
+      {/* cabin */}
+      <path d="M30 28 L36 16 Q40 12 48 12 H76 Q82 12 86 16 L92 28 Z"
+        fill={paint} opacity="0.85" />
+      {/* windshield */}
+      <path d="M36 28 L40 16 H56 L54 28 Z" fill={glass} opacity="0.85" />
+      {/* rear window */}
+      <path d="M66 28 L70 16 H80 L86 28 Z" fill={glass} opacity="0.85" />
+      {/* side windows */}
+      <path d="M55 28 L57 16 H69 L67 28 Z" fill={glass} opacity="0.5" />
+      {/* door lines */}
+      <line x1="60" y1="28" x2="60" y2="50" stroke={paint} strokeWidth="1.5" opacity="0.4" />
+      <line x1="82" y1="28" x2="82" y2="50" stroke={paint} strokeWidth="1.5" opacity="0.4" />
+      {/* wheels */}
+      <circle cx="30" cy="55" r="11" fill={wheel} />
+      <circle cx="30" cy="55" r="5.5" fill="#475569" />
+      <circle cx="30" cy="55" r="2.5" fill={active ? '#93c5fd' : '#94a3b8'} />
+      <circle cx="90" cy="55" r="11" fill={wheel} />
+      <circle cx="90" cy="55" r="5.5" fill="#475569" />
+      <circle cx="90" cy="55" r="2.5" fill={active ? '#93c5fd' : '#94a3b8'} />
+      {/* headlight */}
+      <ellipse cx="111" cy="40" rx="5" ry="3.5" fill={active ? '#fef9c3' : '#e2e8f0'} />
+      {/* taillight */}
+      <ellipse cx="9" cy="42" rx="4" ry="3" fill={active ? '#fca5a5' : '#fecaca'} opacity="0.9" />
+    </svg>
+  );
+};
 
-const LuxuryIcon: React.FC<{ size?: number; tone?: string }> = ({ size = 44, tone = ACCENT }) => (
-  <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden>
-    <path
-      d="M4 44 L8 32 C10 27 14 24 19 24 H45 C50 24 54 27 56 32 L60 44 V50 H4 Z"
-      fill="#0f172a"
-      stroke={tone}
-      strokeWidth="2.5"
-      strokeLinejoin="round"
-    />
-    <path d="M12 32 L17 25 H47 L52 32" fill="none" stroke={tone} strokeWidth="2" />
-    <rect x="18" y="34" width="28" height="6" rx="1.5" fill={tone} />
-    <circle cx="18" cy="50" r="5" fill={tone} />
-    <circle cx="46" cy="50" r="5" fill={tone} />
-    <circle cx="18" cy="50" r="2" fill="#0f172a" />
-    <circle cx="46" cy="50" r="2" fill="#0f172a" />
-    <path d="M30 18 L32 14 L34 18 Z" fill={tone} />
-  </svg>
-);
+const ComfortIcon: React.FC<{ size?: number; active?: boolean }> = ({ size = 56, active = false }) => {
+  const paint = active ? '#0077C8' : '#334155';
+  const glass = active ? '#bfdbfe' : '#cbd5e1';
+  const wheel = active ? '#1e40af' : '#1e293b';
+  return (
+    <svg viewBox="0 0 128 72" width={size} height={size} aria-hidden fill="none">
+      {/* body — slightly larger, crossover roofline */}
+      <path d="M6 50 L8 34 C9 28 14 26 20 26 H108 C114 26 119 28 120 34 L122 50 V57 H6 Z"
+        fill={paint} opacity="0.15" stroke={paint} strokeWidth="2.5" strokeLinejoin="round" />
+      {/* cabin — flatter roof, more upright */}
+      <path d="M28 26 L32 13 Q36 10 44 10 H86 Q92 10 96 13 L100 26 Z"
+        fill={paint} opacity="0.88" />
+      {/* windshield */}
+      <path d="M34 26 L37 13 H54 L52 26 Z" fill={glass} opacity="0.85" />
+      {/* panoramic roof tint */}
+      <path d="M54 26 L54 13 H78 L78 26 Z" fill={glass} opacity="0.35" />
+      {/* rear quarter */}
+      <path d="M78 26 L80 13 H90 L96 26 Z" fill={glass} opacity="0.75" />
+      {/* chrome roof rails */}
+      <path d="M32 11 L96 11" stroke={active ? '#bfdbfe' : '#94a3b8'} strokeWidth="2" strokeLinecap="round" />
+      {/* door lines */}
+      <line x1="62" y1="26" x2="62" y2="50" stroke={paint} strokeWidth="1.5" opacity="0.4" />
+      <line x1="86" y1="26" x2="86" y2="50" stroke={paint} strokeWidth="1.5" opacity="0.4" />
+      {/* wheels */}
+      <circle cx="30" cy="56" r="12" fill={wheel} />
+      <circle cx="30" cy="56" r="6" fill="#475569" />
+      <circle cx="30" cy="56" r="3" fill={active ? '#93c5fd' : '#94a3b8'} />
+      <circle cx="96" cy="56" r="12" fill={wheel} />
+      <circle cx="96" cy="56" r="6" fill="#475569" />
+      <circle cx="96" cy="56" r="3" fill={active ? '#93c5fd' : '#94a3b8'} />
+      {/* headlight */}
+      <ellipse cx="121" cy="38" rx="5" ry="4" fill={active ? '#fef9c3' : '#e2e8f0'} />
+      {/* taillight strip */}
+      <path d="M7 38 L7 46" stroke={active ? '#f87171' : '#fca5a5'} strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+};
+
+const LuxuryIcon: React.FC<{ size?: number; active?: boolean }> = ({ size = 56, active = false }) => {
+  const paint = active ? '#0077C8' : '#1e293b';
+  const glass = active ? '#bfdbfe' : '#94a3b8';
+  const chrome = active ? '#bfdbfe' : '#cbd5e1';
+  const wheel = active ? '#1e40af' : '#0f172a';
+  return (
+    <svg viewBox="0 0 140 72" width={size} height={size} aria-hidden fill="none">
+      {/* long body — executive proportions */}
+      <path d="M4 50 L6 32 C7 26 12 24 18 24 H122 C128 24 133 26 134 32 L136 50 V58 H4 Z"
+        fill={paint} opacity={active ? 0.2 : 0.9} stroke={active ? paint : chrome} strokeWidth="2" strokeLinejoin="round" />
+      {/* cabin — long, low roofline */}
+      <path d="M30 24 L36 12 Q42 8 52 8 H92 Q100 8 106 12 L110 24 Z"
+        fill={paint} opacity={active ? 0.9 : 0.95} />
+      {/* windshield */}
+      <path d="M36 24 L41 11 H60 L58 24 Z" fill={glass} opacity="0.9" />
+      {/* rear window */}
+      <path d="M84 24 L90 11 H100 L106 24 Z" fill={glass} opacity="0.8" />
+      {/* side window */}
+      <path d="M59 24 L59 11 H83 L83 24 Z" fill={glass} opacity="0.45" />
+      {/* chrome window surround */}
+      <path d="M36 24 L41 11 H100 L106 24" stroke={chrome} strokeWidth="1.5" fill="none" opacity="0.6" />
+      {/* chrome side strip */}
+      <path d="M18 38 L122 38" stroke={chrome} strokeWidth="1.5" opacity="0.55" />
+      {/* door lines */}
+      <line x1="68" y1="24" x2="68" y2="50" stroke={chrome} strokeWidth="1.5" opacity="0.35" />
+      <line x1="94" y1="24" x2="94" y2="50" stroke={chrome} strokeWidth="1.5" opacity="0.35" />
+      {/* large wheels — luxury proportions */}
+      <circle cx="34" cy="57" r="13" fill={wheel} />
+      <circle cx="34" cy="57" r="7" fill="#334155" />
+      <circle cx="34" cy="57" r="3" fill={chrome} />
+      <circle cx="106" cy="57" r="13" fill={wheel} />
+      <circle cx="106" cy="57" r="7" fill="#334155" />
+      <circle cx="106" cy="57" r="3" fill={chrome} />
+      {/* LED headlight bar */}
+      <path d="M130 32 L136 36 L134 42" stroke={active ? '#fef9c3' : '#e2e8f0'} strokeWidth="3" strokeLinecap="round" fill="none" />
+      {/* LED taillight bar */}
+      <path d="M6 32 L4 38 L6 46" stroke={active ? '#f87171' : '#fca5a5'} strokeWidth="3.5" strokeLinecap="round" fill="none" />
+      {/* hood ornament hint */}
+      <circle cx="133" cy="28" r="2" fill={chrome} opacity="0.7" />
+    </svg>
+  );
+};
 
 const VEHICLE_CLASSES: VehicleClass[] = [
   {
@@ -350,16 +432,17 @@ const PassengerPriceOfferPage: React.FC = () => {
                 <div
                   style={{
                     flex: '0 0 auto',
-                    width: 56,
+                    width: 80,
                     height: 56,
                     borderRadius: 12,
-                    background: active ? `${ACCENT}18` : 'rgba(15,23,42,0.04)',
+                    background: active ? `${ACCENT}12` : 'rgba(15,23,42,0.03)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    overflow: 'hidden',
                   }}
                 >
-                  <c.Icon size={44} tone={active ? ACCENT : '#0f172a'} />
+                  <c.Icon size={72} active={active} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: '#0f172a' }}>{c.title}</div>
@@ -398,7 +481,13 @@ const PassengerPriceOfferPage: React.FC = () => {
             inputMode="decimal"
             value={customRaw}
             onChange={(e) => setCustomRaw(e.target.value.replace(/[^0-9.]/g, ''))}
-            placeholder={`e.g. ${selected.fareUsd.toFixed(2)}`}
+            onFocus={() => {
+              if (!customRaw) {
+                const standardPrice = pricedClasses.find((c) => c.id === 'standard')?.fareUsd;
+                if (standardPrice) setCustomRaw(standardPrice.toFixed(2));
+              }
+            }}
+            placeholder={`${(pricedClasses.find((c) => c.id === 'standard')?.fareUsd ?? selected.fareUsd).toFixed(2)}`}
             style={{
               flex: 1,
               border: 'none',
