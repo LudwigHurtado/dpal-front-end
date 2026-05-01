@@ -514,7 +514,7 @@ const PassengerLocationPicker: React.FC = () => {
             letterSpacing: 0.3,
           }}
         >
-          {bothSet ? 'Continue to price' : 'Pick both points to continue'}
+          {bothSet ? 'Continue' : 'Pick both points to continue'}
         </button>
         </div>
       </div>
