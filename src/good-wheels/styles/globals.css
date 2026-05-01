@@ -27,7 +27,11 @@
   --gw-accent: var(--gw-passenger-accent);
 }
 .gw-theme-passenger .gw-appbar {
-  background: linear-gradient(90deg, rgba(22, 163, 74, 0.12), rgba(14, 165, 233, 0.08)), rgba(15, 23, 42, 0.92);
+  background: transparent;
+  border-bottom: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 .gw-theme-driver {
   --gw-accent: #1a73e8;
