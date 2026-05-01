@@ -93,6 +93,7 @@ const DriverDashboardPage: React.FC = () => {
   const lastTerminalTrip = useTripStore((s) => s.lastTerminalTrip);
   const clearLastTerminalTrip = useTripStore((s) => s.clearLastTerminalTrip);
   const clearTripStoreActiveTrip = useTripStore((s) => s.clearActiveTrip);
+  const setTripStoreActiveTrip = useTripStore((s) => s.setActiveTrip);
   const hydrate = useDriverStore((s) => s.hydrate);
   const clearDriverActiveTrip = useDriverStore((s) => s.clearActiveTrip);
   const queueItems = useDriverStore((s) => s.queueItems);
@@ -111,6 +112,7 @@ const DriverDashboardPage: React.FC = () => {
 
   const [sortBy, setSortBy] = useState<SortKey>('nearest');
   const [tripActionLoading, setTripActionLoading] = useState<'cancel' | 'close' | 'reset' | null>(null);
+  const [statusActionLoading, setStatusActionLoading] = useState<string | null>(null);
   const [tripActionError, setTripActionError] = useState<string | null>(null);
   const [statsExpanded, setStatsExpanded] = useState(false);
   const [driverGeoPos, setDriverGeoPos] = useState<[number, number] | null>(null);
@@ -238,6 +240,63 @@ const DriverDashboardPage: React.FC = () => {
     } finally {
       setTripActionLoading(null);
     }
+  };
+
+  const updateActiveTripStatus = async (
+    status: Trip['status'],
+    label: string,
+    detail?: string,
+  ) => {
+    if (!activeTrip) return;
+    setStatusActionLoading(status);
+    setTripActionError(null);
+    try {
+      const next =
+        status === 'completed'
+          ? await goodWheelsRideApi.completeTrip(activeTrip.id, detail ?? 'Trip completed by driver')
+          : await goodWheelsRideApi.updateTripStatus(activeTrip.id, status, label, detail);
+      setTripStoreActiveTrip(next);
+      await hydrate();
+    } catch (e) {
+      setTripActionError(e instanceof Error ? e.message : 'Could not update ride status right now.');
+    } finally {
+      setStatusActionLoading(null);
+    }
+  };
+
+  const shareDriverLocationOnce = async () => {
+    if (!activeTrip || !user?.id) return;
+    if (!('geolocation' in navigator)) {
+      setTripActionError('Location is not available in this browser.');
+      return;
+    }
+    setStatusActionLoading('driver-location');
+    setTripActionError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        void (async () => {
+          try {
+            const next = await goodWheelsRideApi.updateDriverLocation(activeTrip.id, {
+              driverId: user.id,
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              heading: Number.isFinite(pos.coords.heading ?? NaN) ? Number(pos.coords.heading) : undefined,
+            });
+            setTripStoreActiveTrip(next);
+            await hydrate();
+          } catch (e) {
+            setTripActionError(e instanceof Error ? e.message : 'Could not share driver location.');
+          } finally {
+            setStatusActionLoading(null);
+          }
+        })();
+      },
+      () => {
+        setTripActionError('Location permission was denied.');
+        setStatusActionLoading(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 },
+    );
   };
 
   return (
@@ -480,7 +539,60 @@ const DriverDashboardPage: React.FC = () => {
             </Link>
           </div>
           <div>
-            <div className="text-xs font-bold text-emerald-900 mb-2">Driver controls</div>
+            <div className="text-xs font-bold text-emerald-900 mb-2">Ride flow</div>
+            <div className="flex flex-wrap gap-2">
+              {activeTrip.status === 'accepted' ? (
+                <button
+                  type="button"
+                  className="gw-button gw-button-primary"
+                  disabled={statusActionLoading !== null}
+                  onClick={() => void updateActiveTripStatus('driver_en_route', 'Driver en route', 'Driver is heading to pickup.')}
+                >
+                  {statusActionLoading === 'driver_en_route' ? 'Updating...' : 'Driver en route'}
+                </button>
+              ) : null}
+              {activeTrip.status === 'driver_en_route' || activeTrip.status === 'driver_arriving' ? (
+                <button
+                  type="button"
+                  className="gw-button gw-button-primary"
+                  disabled={statusActionLoading !== null}
+                  onClick={() => void updateActiveTripStatus('driver_arrived', 'Driver arrived', 'Driver reached pickup.')}
+                >
+                  {statusActionLoading === 'driver_arrived' ? 'Updating...' : 'Driver arrived'}
+                </button>
+              ) : null}
+              {activeTrip.status === 'driver_arrived' || activeTrip.status === 'arrived' ? (
+                <button
+                  type="button"
+                  className="gw-button gw-button-primary"
+                  disabled={statusActionLoading !== null}
+                  onClick={() => void updateActiveTripStatus('in_progress', 'Trip started', 'Passenger is onboard.')}
+                >
+                  {statusActionLoading === 'in_progress' ? 'Updating...' : 'Start ride'}
+                </button>
+              ) : null}
+              {activeTrip.status === 'passenger_onboard' || activeTrip.status === 'in_progress' || activeTrip.status === 'support_in_progress' ? (
+                <button
+                  type="button"
+                  className="gw-button gw-button-primary"
+                  disabled={statusActionLoading !== null}
+                  onClick={() => void updateActiveTripStatus('completed', 'Ride completed', 'Trip completed by driver.')}
+                >
+                  {statusActionLoading === 'completed' ? 'Completing...' : 'Complete ride'}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="gw-button gw-button-secondary"
+                disabled={statusActionLoading !== null}
+                onClick={() => void shareDriverLocationOnce()}
+              >
+                {statusActionLoading === 'driver-location' ? 'Sharing...' : 'Share location'}
+              </button>
+            </div>
+          </div>
+          <div>
+            <div className="text-xs font-bold text-emerald-900 mb-2">Trip controls</div>
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
