@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, Polyline, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { GW_PATHS } from '../../../routes/paths';
 import { useRideStore } from '../../../store/useRideStore';
@@ -42,6 +43,37 @@ function FlyTo({ to, zoomTo = 15 }: { to: LatLng | null; zoomTo?: number }) {
   return null;
 }
 
+function FitToRoute({ pickup, dropoff }: { pickup: LatLng | null; dropoff: LatLng | null }) {
+  const map = useMap();
+  const last = useRef<string>('');
+  useEffect(() => {
+    if (!pickup || !dropoff) return;
+    const sig = `${pickup.lat.toFixed(4)},${pickup.lng.toFixed(4)}|${dropoff.lat.toFixed(4)},${dropoff.lng.toFixed(4)}`;
+    if (last.current === sig) return;
+    last.current = sig;
+    const bounds = L.latLngBounds([
+      [pickup.lat, pickup.lng],
+      [dropoff.lat, dropoff.lng],
+    ]);
+    if (bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+  }, [pickup, dropoff, map]);
+  return null;
+}
+
+async function fetchClosestRoute(a: LatLng, b: LatLng, signal?: AbortSignal): Promise<[number, number][] | null> {
+  const url = `https://router.project-osrm.org/route/v1/driving/${a.lng},${a.lat};${b.lng},${b.lat}?overview=full&geometries=geojson&alternatives=false`;
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const data = (await res.json()) as { routes?: { geometry?: { coordinates?: [number, number][] } }[] };
+    const coords = data.routes?.[0]?.geometry?.coordinates;
+    if (!Array.isArray(coords) || coords.length < 2) return null;
+    return coords.map(([lng, lat]) => [lat, lng] as [number, number]);
+  } catch {
+    return null;
+  }
+}
+
 const PassengerLocationPicker: React.FC = () => {
   const navigate = useNavigate();
   const setDraft = useRideStore((s) => s.setDraft);
@@ -52,13 +84,32 @@ const PassengerLocationPicker: React.FC = () => {
   const [dropoff, setDropoff] = useState<PinPoint | null>(null);
   const [inputs, setInputs] = useState<Record<Mode, string>>({ pickup: '', dropoff: '' });
   const [status, setStatus] = useState<Status>({ kind: 'idle', message: '' });
-  const [isCompact, setIsCompact] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 720 : false));
+  const [routeLine, setRouteLine] = useState<[number, number][] | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   useEffect(() => {
-    const onResize = () => setIsCompact(window.innerWidth < 720);
-    window.addEventListener('resize', onResize);
-    return () => window.removeEventListener('resize', onResize);
-  }, []);
+    if (!pickup || !dropoff) {
+      setRouteLine(null);
+      setRouteLoading(false);
+      return;
+    }
+    const ac = new AbortController();
+    setRouteLoading(true);
+    fetchClosestRoute(pickup.latLng, dropoff.latLng, ac.signal).then((coords) => {
+      if (ac.signal.aborted) return;
+      setRouteLine(
+        coords ?? [
+          [pickup.latLng.lat, pickup.latLng.lng],
+          [dropoff.latLng.lat, dropoff.latLng.lng],
+        ],
+      );
+      setRouteLoading(false);
+    });
+    return () => {
+      ac.abort();
+      setRouteLoading(false);
+    };
+  }, [pickup, dropoff]);
 
   const activePoint = mode === 'pickup' ? pickup : dropoff;
   const setActivePoint = (next: PinPoint | null) => {
@@ -136,11 +187,16 @@ const PassengerLocationPicker: React.FC = () => {
     navigate(GW_PATHS.passenger.request);
   }
 
-  const mapHeight = isCompact ? 320 : 420;
-
   return (
-    <div className="gw-card overflow-hidden" style={{ padding: 0 }}>
-      <div style={{ position: 'relative', width: '100%', height: mapHeight }}>
+    <div style={{ position: 'relative', width: '100%', overflow: 'hidden' }}>
+      <div
+        style={{
+          position: 'relative',
+          width: '100%',
+          height: 'min(78dvh, 720px)',
+          minHeight: 420,
+        }}
+      >
         <MapContainer
           center={center}
           zoom={pickup || dropoff ? 14 : 12}
@@ -149,11 +205,26 @@ const PassengerLocationPicker: React.FC = () => {
           attributionControl
         >
           <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png"
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            maxZoom={19}
           />
           <ClickCapture onClick={handleMapClick} />
           <FlyTo to={flyTarget} />
+          <FitToRoute pickup={pickup?.latLng ?? null} dropoff={dropoff?.latLng ?? null} />
+
+          {routeLine && routeLine.length > 1 ? (
+            <>
+              <Polyline
+                positions={routeLine}
+                pathOptions={{ color: '#0b1f3a', weight: 8, opacity: 0.35, lineCap: 'round', lineJoin: 'round' }}
+              />
+              <Polyline
+                positions={routeLine}
+                pathOptions={{ color: '#1a73e8', weight: 5, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }}
+              />
+            </>
+          ) : null}
 
           {pickup ? (
             <>
@@ -200,12 +271,13 @@ const PassengerLocationPicker: React.FC = () => {
           ) : null}
         </MapContainer>
 
-        {/* Mode toggle (top-left overlay) */}
+        {/* Mode toggle (top-center overlay) */}
         <div
           style={{
             position: 'absolute',
             top: 12,
-            left: 12,
+            left: '50%',
+            transform: 'translateX(-50%)',
             zIndex: 1000,
             display: 'flex',
             gap: 6,
@@ -276,14 +348,14 @@ const PassengerLocationPicker: React.FC = () => {
           ◎
         </button>
 
-        {/* Status pill (bottom-center overlay) */}
+        {/* Status pill (above inputs overlay) */}
         {status.message ? (
           <div
             role="status"
             style={{
               position: 'absolute',
               left: '50%',
-              bottom: 12,
+              bottom: 200,
               transform: 'translateX(-50%)',
               zIndex: 1000,
               padding: '6px 12px',
@@ -302,10 +374,49 @@ const PassengerLocationPicker: React.FC = () => {
             {status.message}
           </div>
         ) : null}
-      </div>
 
-      {/* Two dedicated address inputs (green pickup, red drop-off) */}
-      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {/* Route loading hint */}
+        {routeLoading ? (
+          <div
+            style={{
+              position: 'absolute',
+              left: '50%',
+              top: 64,
+              transform: 'translateX(-50%)',
+              zIndex: 1000,
+              padding: '4px 10px',
+              borderRadius: 999,
+              fontSize: 11,
+              fontWeight: 700,
+              background: 'rgba(255,255,255,0.92)',
+              color: '#0f172a',
+              boxShadow: '0 4px 14px rgba(15,23,42,0.10)',
+            }}
+          >
+            Finding closest route…
+          </div>
+        ) : null}
+
+        {/* Translucent inputs overlay anchored to bottom of map */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 12,
+            right: 12,
+            bottom: 12,
+            zIndex: 1000,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 10,
+            padding: 12,
+            borderRadius: 18,
+            background: 'rgba(255,255,255,0.55)',
+            backdropFilter: 'blur(10px)',
+            WebkitBackdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255,255,255,0.55)',
+            boxShadow: '0 12px 30px rgba(15,23,42,0.18)',
+          }}
+        >
         {(['pickup', 'dropoff'] as const).map((slot) => {
           const color = slot === 'pickup' ? PICKUP_GREEN : DROPOFF_RED;
           const label = slot === 'pickup' ? 'PICKUP' : 'DROP-OFF';
@@ -323,9 +434,9 @@ const PassengerLocationPicker: React.FC = () => {
                 padding: '8px 10px 8px 12px',
                 borderRadius: 14,
                 border: `2px solid ${color}`,
-                background: isActive ? `${color}10` : '#ffffff',
-                boxShadow: isActive ? `0 0 0 3px ${color}22` : 'none',
-                transition: 'box-shadow 120ms ease, background 120ms ease',
+                background: 'transparent',
+                boxShadow: isActive ? `0 0 0 3px ${color}33` : 'none',
+                transition: 'box-shadow 120ms ease',
               }}
             >
               <span
@@ -359,7 +470,7 @@ const PassengerLocationPicker: React.FC = () => {
                     outline: 'none',
                     background: 'transparent',
                     fontSize: 14,
-                    fontWeight: 600,
+                    fontWeight: 700,
                     color: '#0f172a',
                     padding: '2px 0',
                   }}
@@ -405,6 +516,7 @@ const PassengerLocationPicker: React.FC = () => {
         >
           {bothSet ? 'Continue → Negotiate with driver' : 'Pick both points to continue'}
         </button>
+        </div>
       </div>
     </div>
   );

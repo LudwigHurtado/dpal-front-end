@@ -471,11 +471,7 @@ const App: React.FC = () => {
   const [gatewayCategory, setGatewayCategory] = useState<Category | null>(getInitialGatewayCategory);
   const [modeShell, setModeShell] = useState<{ category: Category; mode: CategoryMode } | null>(null);
 
-  const [showNavRestoreTip, setShowNavRestoreTip] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    const nav = readNavSession();
-    return Boolean(nav && (nav.viewHistory?.length ?? 0) > 0);
-  });
+  const [showNavRestoreTip, setShowNavRestoreTip] = useState(false);
 
   /** Avoid duplicate GET /api/reports/:id; stale async completions ignored via generation counter. */
   const reportIdRemoteAttemptRef = useRef<string | null>(null);
