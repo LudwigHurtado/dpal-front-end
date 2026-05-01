@@ -5,6 +5,8 @@ import { goodWheelsAuthApi, type GwRegisterBody } from '../services/adapters/goo
 
 type AuthStatus = 'signed_out' | 'signed_in' | 'loading';
 
+const AUTH_STORAGE_KEY = 'good-wheels-auth-v1';
+
 type AuthState = {
   status: AuthStatus;
   user: UserProfile | null;
@@ -19,16 +21,58 @@ type AuthState = {
   resetPassword: (token: string, newPassword: string) => Promise<void>;
 };
 
+function readStoredAuth(): Pick<AuthState, 'status' | 'user' | 'activeRole' | 'connectionMode'> {
+  if (typeof window === 'undefined') {
+    return { status: 'signed_out', user: null, activeRole: null, connectionMode: 'live' };
+  }
+  try {
+    const raw = window.localStorage.getItem(AUTH_STORAGE_KEY);
+    if (!raw) return { status: 'signed_out', user: null, activeRole: null, connectionMode: 'live' };
+    const parsed = JSON.parse(raw) as { user?: UserProfile; activeRole?: Role };
+    if (!parsed.user?.id || !parsed.user.role) {
+      window.localStorage.removeItem(AUTH_STORAGE_KEY);
+      return { status: 'signed_out', user: null, activeRole: null, connectionMode: 'live' };
+    }
+    return {
+      status: 'signed_in',
+      user: parsed.user,
+      activeRole: parsed.activeRole ?? parsed.user.role,
+      connectionMode: 'live',
+    };
+  } catch {
+    return { status: 'signed_out', user: null, activeRole: null, connectionMode: 'live' };
+  }
+}
+
+function writeStoredAuth(user: UserProfile, activeRole: Role) {
+  try {
+    window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ user, activeRole }));
+  } catch {
+    // storage can fail in private mode; in-memory auth still works for this session
+  }
+}
+
+function clearStoredAuth() {
+  try {
+    window.localStorage.removeItem(AUTH_STORAGE_KEY);
+  } catch {
+    // ignore storage failures
+  }
+}
+
+const storedAuth = readStoredAuth();
+
 export const useAuthStore = create<AuthState>((set, get) => ({
-  status: 'signed_out',
-  user: null,
-  activeRole: null,
+  status: storedAuth.status,
+  user: storedAuth.user,
+  activeRole: storedAuth.activeRole,
   error: null,
-  connectionMode: 'live',
+  connectionMode: storedAuth.connectionMode,
   async signIn(email, password) {
     set({ status: 'loading', error: null });
     try {
       const { user } = await goodWheelsAuthApi.signIn(email, password);
+      writeStoredAuth(user, user.role);
       set({
         status: 'signed_in',
         user,
@@ -44,6 +88,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'loading', error: null });
     try {
       const { user } = await goodWheelsAuthApi.signUp(body);
+      writeStoredAuth(user, user.role);
       set({
         status: 'signed_in',
         user,
@@ -60,6 +105,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       await goodWheelsAuthApi.signOut();
     } finally {
+      clearStoredAuth();
       set({
         status: 'signed_out',
         user: null,
@@ -74,6 +120,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ status: 'loading', error: null });
     try {
       const { user } = await goodWheelsAuthApi.switchRole(currentUser.id, role);
+      writeStoredAuth(user, user.role);
       set({ status: 'signed_in', user, activeRole: user.role });
     } catch {
       set({ status: 'signed_in', error: 'Could not switch roles.' });

@@ -9,6 +9,8 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { GW_PATHS } from '../../routes/paths';
 import { useGwLang } from '../../i18n/useGwLang';
 import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
+import PassengerDriverCounterofferBlock, { passengerHasPendingDriverCounter } from '../../features/passenger/components/PassengerDriverCounterofferBlock';
+import { formatMoneyFromCents } from '../../features/trips/utils/fareSplit';
 
 const SEARCHING_STATUSES = new Set(['requested', 'broadcasted', 'matched']);
 const ACTIVE_STATUSES = new Set([
@@ -75,6 +77,7 @@ const PassengerDashboardPage: React.FC = () => {
   const loading = useTripStore((s) => s.loading);
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [mapExpanded, setMapExpanded] = useState(true);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -92,9 +95,30 @@ const PassengerDashboardPage: React.FC = () => {
   if (!ride) return <PassengerLocationPicker />;
 
   const searching = SEARCHING_STATUSES.has(ride.status);
+  const hasCounteroffer = passengerHasPendingDriverCounter(ride);
   const hasDriverLocation = Boolean(
     ride.driverLocation && Number.isFinite(ride.driverLocation.lat) && Number.isFinite(ride.driverLocation.lng),
   );
+  const distanceLabel =
+    typeof ride.routeProgress?.remainingDistanceKm === 'number'
+      ? `${ride.routeProgress.remainingDistanceKm.toFixed(1)} km remaining`
+      : typeof ride.estimate?.distanceKm === 'number'
+        ? `${ride.estimate.distanceKm.toFixed(1)} km route`
+        : null;
+  const etaLabel =
+    typeof ride.routeProgress?.remainingEtaMinutes === 'number'
+      ? `${Math.round(ride.routeProgress.remainingEtaMinutes)} min remaining`
+      : typeof ride.estimate?.etaMinutes === 'number'
+        ? `${Math.round(ride.estimate.etaMinutes)} min estimate`
+        : null;
+  const fareLabel =
+    typeof ride.offerState?.driverCounterOfferCents === 'number' && ride.offerState.status === 'driver_countered'
+      ? formatMoneyFromCents(ride.offerState.driverCounterOfferCents)
+      : typeof ride.offerState?.passengerOfferCents === 'number'
+        ? formatMoneyFromCents(ride.offerState.passengerOfferCents)
+        : typeof ride.estimate?.totalFareCents === 'number'
+          ? formatMoneyFromCents(ride.estimate.totalFareCents)
+          : null;
 
   const title = searching
     ? 'Looking for your driver'
@@ -129,23 +153,22 @@ const PassengerDashboardPage: React.FC = () => {
   };
 
   return (
-    <div style={{ position: 'relative', height: 'calc(100dvh - 96px)', minHeight: 560, overflow: 'hidden', borderRadius: 20 }}>
-      <TripMapPanel trip={ride} variant="passenger" height="100%" />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minHeight: 'calc(100dvh - 96px)' }}>
+      {hasCounteroffer ? (
+        <div style={{ position: 'relative', zIndex: 1200 }}>
+          <PassengerDriverCounterofferBlock trip={ride} variant="hero" />
+        </div>
+      ) : null}
 
       <div
         style={{
-          position: 'absolute',
-          top: 12,
-          left: 12,
-          right: 12,
-          zIndex: 500,
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          padding: '10px 12px',
+          padding: '12px',
           borderRadius: 18,
-          background: 'rgba(255,255,255,0.96)',
-          backdropFilter: 'blur(12px)',
+          background: '#fff',
+          border: '1px solid rgba(15,23,42,0.08)',
           boxShadow: '0 8px 26px rgba(15,23,42,0.18)',
         }}
       >
@@ -159,20 +182,46 @@ const PassengerDashboardPage: React.FC = () => {
           <div style={{ marginTop: 3, fontSize: 12, fontWeight: 650, color: '#475569', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {ride.pickup.addressLine} to {ride.dropoff.addressLine}
           </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+            {distanceLabel ? <MetricPill label={distanceLabel} /> : null}
+            {etaLabel ? <MetricPill label={etaLabel} /> : null}
+            {fareLabel ? <MetricPill label={fareLabel} /> : null}
+          </div>
         </div>
+        <button
+          type="button"
+          className="gw-button gw-button-secondary"
+          onClick={() => setMapExpanded((v) => !v)}
+          style={{ flex: '0 0 auto' }}
+        >
+          {mapExpanded ? 'Hide map' : 'Show map'}
+        </button>
       </div>
+
+      {mapExpanded ? (
+        <div style={{ position: 'relative', height: hasCounteroffer ? 'min(48dvh, 420px)' : 'min(64dvh, 620px)', minHeight: 300, overflow: 'hidden', borderRadius: 20 }}>
+          <TripMapPanel trip={ride} variant="passenger" height="100%" />
+          <button
+            type="button"
+            className="gw-button gw-button-secondary"
+            onClick={() => setMapExpanded(false)}
+            style={{ position: 'absolute', top: 12, right: 12, zIndex: 700, background: 'rgba(255,255,255,0.96)' }}
+          >
+            Close map
+          </button>
+        </div>
+      ) : (
+        <div style={{ borderRadius: 18, padding: 14, background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1e3a8a', fontSize: 13, fontWeight: 750 }}>
+          Map is hidden. Your ride is still active and syncing in the background.
+        </div>
+      )}
 
       <div
         style={{
-          position: 'absolute',
-          left: 12,
-          right: 12,
-          bottom: 12,
-          zIndex: 500,
           padding: 14,
           borderRadius: 18,
-          background: 'rgba(255,255,255,0.96)',
-          backdropFilter: 'blur(12px)',
+          background: '#fff',
+          border: '1px solid rgba(15,23,42,0.08)',
           boxShadow: '0 8px 26px rgba(15,23,42,0.18)',
         }}
       >
@@ -198,6 +247,9 @@ const PassengerDashboardPage: React.FC = () => {
           <button type="button" className="gw-button gw-button-primary" style={{ flex: 1 }} onClick={() => navigate(GW_PATHS.passenger.active)}>
             Ride details
           </button>
+          <button type="button" className="gw-button gw-button-secondary" onClick={() => navigate(GW_PATHS.passenger.dashboard)}>
+            Dashboard
+          </button>
           <button type="button" className="gw-button gw-button-secondary" onClick={() => void hydrate(user?.id ?? '')} disabled={!user?.id}>
             Refresh
           </button>
@@ -211,5 +263,11 @@ const PassengerDashboardPage: React.FC = () => {
     </div>
   );
 };
+
+const MetricPill: React.FC<{ label: string }> = ({ label }) => (
+  <span style={{ borderRadius: 999, background: '#f1f5f9', color: '#334155', padding: '4px 8px', fontSize: 11, fontWeight: 800 }}>
+    {label}
+  </span>
+);
 
 export default PassengerDashboardPage;
