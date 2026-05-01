@@ -25,8 +25,6 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
   const [syncBusy, setSyncBusy] = useState(false);
   const [lastSyncAtIso, setLastSyncAtIso] = useState<string | null>(null);
   const [closingBusy, setClosingBusy] = useState(false);
-  const [showImpactCategoryPicker, setShowImpactCategoryPicker] = useState(false);
-  const [selectedImpactCategory, setSelectedImpactCategory] = useState<string | null>(null);
 
   const syncTrip = async () => {
     if (!user?.id) return;
@@ -66,8 +64,6 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
 
   useEffect(() => {
     setShelterStoryOpen(true);
-    setShowImpactCategoryPicker(false);
-    setSelectedImpactCategory(null);
   }, [trip.id, trip.status]);
 
   const threadId = trip.chatThreadId ?? `good-wheels-trip-${trip.id}`;
@@ -122,66 +118,8 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
           title={storyPayload.title}
           subtitle={storyPayload.subtitle}
           videoUrls={storyPayload.urls}
-          onBackToMap={() => {
-            setShelterStoryOpen(false);
-            setShowImpactCategoryPicker(true);
-          }}
+          onBackToMap={() => setShelterStoryOpen(false)}
         />
-      ) : null}
-
-      {showImpactCategoryPicker ? (
-        <div className="fixed inset-0 z-[210] bg-slate-950/96 text-white">
-          <div className="h-full w-full max-w-4xl mx-auto px-5 py-[max(20px,env(safe-area-inset-top))] pb-[max(24px,env(safe-area-inset-bottom))] flex flex-col">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2 className="text-2xl sm:text-3xl font-black tracking-tight">Choose support category</h2>
-                <p className="mt-1 text-sm sm:text-base text-slate-200">
-                  Select where you want your next impact contribution to focus.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowImpactCategoryPicker(false)}
-                className="rounded-full border border-white/30 bg-white/10 px-3 py-1.5 text-sm font-bold hover:bg-white/20"
-              >
-                Close
-              </button>
-            </div>
-
-            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {['Senior Citizens', 'Orphanages', 'Animal Shelter', 'Homeless Facilities'].map((label) => {
-                const active = selectedImpactCategory === label;
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => setSelectedImpactCategory(label)}
-                    className={`rounded-2xl border px-4 py-5 text-left text-lg font-extrabold transition ${
-                      active
-                        ? 'border-cyan-300 bg-cyan-500/20 text-cyan-100'
-                        : 'border-white/20 bg-white/5 text-white hover:bg-white/10'
-                    }`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="mt-auto pt-6 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="gw-button gw-button-primary"
-                onClick={() => navigate(GW_PATHS.passenger.charities, { state: { presetCategory: selectedImpactCategory } })}
-              >
-                Continue to charities
-              </button>
-              <button type="button" className="gw-button gw-button-secondary" onClick={() => setShowImpactCategoryPicker(false)}>
-                Back to ride map
-              </button>
-            </div>
-          </div>
-        </div>
       ) : null}
 
       {ridePhaseOk && storyPayload.urls.length > 0 && !shelterStoryOpen ? (
