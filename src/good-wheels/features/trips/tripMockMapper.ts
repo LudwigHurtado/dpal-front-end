@@ -28,10 +28,24 @@ function asStatus(v: unknown): TripStatus {
 
 function asPlaceRef(v: unknown, fallbackLabel: string): PlaceRef {
   const o = (v ?? {}) as Partial<PlaceRef>;
+  // Drop `(0,0)` and non-finite coordinate fallbacks — they cause Africa→destination
+  // polylines on the trip map. Treat them as if the point is missing.
+  let point: PlaceRef['point'];
+  if (o.point && typeof o.point === 'object') {
+    const lat = Number((o.point as { lat?: unknown }).lat);
+    const lng = Number((o.point as { lng?: unknown }).lng);
+    const valid =
+      Number.isFinite(lat) &&
+      Number.isFinite(lng) &&
+      !(Math.abs(lat) < 1e-6 && Math.abs(lng) < 1e-6) &&
+      Math.abs(lat) <= 90 &&
+      Math.abs(lng) <= 180;
+    if (valid) point = { lat, lng } as PlaceRef['point'];
+  }
   return {
     label: typeof o.label === 'string' ? o.label : fallbackLabel,
     addressLine: typeof o.addressLine === 'string' ? o.addressLine : '—',
-    point: o.point && typeof o.point === 'object' ? (o.point as any) : undefined,
+    point,
   } as PlaceRef;
 }
 

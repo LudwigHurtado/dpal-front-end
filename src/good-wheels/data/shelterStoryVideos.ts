@@ -7,6 +7,12 @@ const DEFAULT_SHELTER_VIDEO_URLS: string[] = [
 ];
 
 const SHELTER_STORY_STATUSES = new Set<string>([
+  // Waiting/matching phases — the passenger should see the cause commercial
+  // immediately after sending an offer, while drivers decide whether to accept.
+  'requested',
+  'broadcasted',
+  'matched',
+  // In-ride phases
   'accepted',
   'driver_en_route',
   'driver_arrived',

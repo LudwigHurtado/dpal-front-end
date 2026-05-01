@@ -17,6 +17,7 @@ import { goodWheelsRideApi } from '../../services/adapters/goodWheelsApi';
 import { goodWheelsDriverApi } from '../../services/adapters/goodWheelsApi';
 import { useAuthStore } from '../../store/useAuthStore';
 import { mapMockTripToTrip } from '../trips/tripMockMapper';
+import { looksLikeSeededFixture } from '../trips/utils/seededFixtureFilter';
 
 const ACTIVE_ASSIGNED = new Set<string>([
   'accepted',
@@ -112,19 +113,26 @@ export const useDriverStore = create<DriverState>((set, get) => ({
         /* ignore quota */
       }
 
-      if (dash.activeTrip) {
-        useTripStore.getState().setActiveTrip(dash.activeTrip);
+      // Filter seeded fixture trips (Carlos / Home → Clinic) before they reach
+      // the trip store or queue UI.
+      const realActive = dash.activeTrip && !looksLikeSeededFixture(dash.activeTrip) ? dash.activeTrip : null;
+      const realAvailable = (dash.availableRequests ?? []).filter((t) => !looksLikeSeededFixture(t));
+      const realPending = (dash.pendingDeals ?? []).filter((t) => !looksLikeSeededFixture(t));
+      const realRecent = (dash.recentCompletedTrips ?? []).filter((t) => !looksLikeSeededFixture(t));
+
+      if (realActive) {
+        useTripStore.getState().setActiveTrip(realActive);
       } else {
         const cur = useTripStore.getState().activeTrip;
-        if (cur?.driverId === authDriverId) {
+        if (cur?.driverId === authDriverId || (cur && looksLikeSeededFixture(cur))) {
           useTripStore.getState().clearActiveTrip();
         }
       }
 
       const hist = await tripService.listHistory(authDriverId);
-      useTripStore.setState({ history: hist });
+      useTripStore.setState({ history: hist.filter((t) => !looksLikeSeededFixture(t)) });
 
-      const hasDriverActive = Boolean(dash.activeTrip && ACTIVE_ASSIGNED.has(dash.activeTrip.status));
+      const hasDriverActive = Boolean(realActive && ACTIVE_ASSIGNED.has(realActive.status));
       const prevAvail = get().availabilityStatus;
       const availabilityStatus: DriverAvailabilityStatus = hasDriverActive
         ? 'busy'
@@ -136,9 +144,9 @@ export const useDriverStore = create<DriverState>((set, get) => ({
 
       set({
         driverProfile: dash.driver,
-        queueItems: dedupeTripsByLatestUpdate(dash.availableRequests),
-        pendingDealTrips: dedupeTripsByLatestUpdate(dash.pendingDeals),
-        recentCompletedTrips: dash.recentCompletedTrips,
+        queueItems: dedupeTripsByLatestUpdate(realAvailable),
+        pendingDealTrips: dedupeTripsByLatestUpdate(realPending),
+        recentCompletedTrips: realRecent,
         dashboardSummary: dash.summary,
         vehicle,
         performanceSummary,
@@ -157,13 +165,17 @@ export const useDriverStore = create<DriverState>((set, get) => ({
           const d = parsed.dash;
           if (d) {
             stale = true;
-            const available = Array.isArray(d.availableRequests)
+            const available = (Array.isArray(d.availableRequests)
               ? (d.availableRequests as unknown[]).map((x) => mapMockTripToTrip(x))
-              : [];
-            const pending = Array.isArray(d.pendingDeals) ? (d.pendingDeals as unknown[]).map((x) => mapMockTripToTrip(x)) : [];
-            const recent = Array.isArray(d.recentCompletedTrips)
+              : []
+            ).filter((t) => !looksLikeSeededFixture(t));
+            const pending = (Array.isArray(d.pendingDeals) ? (d.pendingDeals as unknown[]).map((x) => mapMockTripToTrip(x)) : []).filter(
+              (t) => !looksLikeSeededFixture(t),
+            );
+            const recent = (Array.isArray(d.recentCompletedTrips)
               ? (d.recentCompletedTrips as unknown[]).map((x) => mapMockTripToTrip(x))
-              : [];
+              : []
+            ).filter((t) => !looksLikeSeededFixture(t));
             const activeRaw = d.activeTrip;
             const activeTrip = activeRaw ? mapMockTripToTrip(activeRaw) : null;
             set({

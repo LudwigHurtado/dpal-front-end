@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { GW_PATHS } from '../../routes/paths';
 import { useRideStore } from '../../store/useRideStore';
 import { useAuthStore } from '../../store/useAuthStore';
+import { useTripStore } from '../../features/trips/tripStore';
+import type { PlaceRef } from '../../types/ride';
 
 const PICKUP_GREEN = '#16a34a';
 const DROPOFF_RED = '#dc2626';
@@ -176,11 +178,14 @@ function fmtUsd(n: number): string {
 const PassengerPriceOfferPage: React.FC = () => {
   const navigate = useNavigate();
   const draft = useRideStore((s) => s.draft);
-  const setDraft = useRideStore((s) => s.setDraft);
-  const requestRide = useRideStore((s) => s.requestRide);
-  const loading = useRideStore((s) => s.loading);
-  const error = useRideStore((s) => s.error);
   const user = useAuthStore((s) => s.user);
+  // The price page submits through the *API* trip path so the offer reaches
+  // the driver queue with `passengerOfferCents` set. The legacy `useRideStore`
+  // path is local-only and never reached drivers.
+  const setTripDraft = useTripStore((s) => s.setDraft);
+  const requestTripRide = useTripStore((s) => s.requestRide);
+  const loading = useTripStore((s) => s.loading);
+  const error = useTripStore((s) => s.error);
 
   const hasPoints =
     Number.isFinite(draft.pickupLat) &&
@@ -230,9 +235,33 @@ const PassengerPriceOfferPage: React.FC = () => {
 
   async function sendOffer() {
     if (!user?.id || !hasPoints) return;
-    setDraft({ urgency: selected.urgency });
-    const ride = await requestRide({ passengerId: user.id, passengerName: user.fullName || 'Passenger' });
-    if (ride) navigate(GW_PATHS.passenger.active);
+    const offerCents = Math.max(50, Math.round(offerAmount * 100));
+    const recommendedCents = Math.max(50, Math.round(selected.fareUsd * 100));
+    const pickup: PlaceRef = {
+      label: 'Pickup',
+      addressLine: draft.pickupAddress || 'Selected pickup',
+      point: { lat: draft.pickupLat as number, lng: draft.pickupLng as number },
+    };
+    const dropoff: PlaceRef = {
+      label: 'Drop-off',
+      addressLine: draft.destinationAddress || 'Selected drop-off',
+      point: { lat: draft.destinationLat as number, lng: draft.destinationLng as number },
+    };
+    setTripDraft({
+      passengerId: user.id,
+      pickup,
+      dropoff,
+      purpose: 'normal_ride',
+      familySafe: true,
+      passengerOfferCents: offerCents,
+      recommendedFareCents: recommendedCents,
+      estimatePreview: { etaMinutes: durationMin, distanceKm },
+      routeSummaryPreview: { distanceKm, durationMinutes: durationMin },
+      notes: `Vehicle: ${selected.title}`,
+    });
+    await requestTripRide();
+    // useTripStore.requestRide sets `activeTrip` on success and `error` on failure.
+    if (useTripStore.getState().activeTrip) navigate(GW_PATHS.passenger.active);
   }
 
   if (!hasPoints) return null;

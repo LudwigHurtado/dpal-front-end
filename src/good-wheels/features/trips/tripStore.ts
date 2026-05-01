@@ -4,6 +4,7 @@ import { tripService } from './tripService';
 import { TERMINAL_STATUSES } from './tripConstants';
 import { GOOD_WHEELS_DEMO_MODE } from '../../app/appConfig';
 import { useAuthStore } from '../../store/useAuthStore';
+import { looksLikeSeededFixture } from './utils/seededFixtureFilter';
 
 type TripState = {
   activeTrip: Trip | null;
@@ -96,12 +97,16 @@ export const useTripStore = create<TripState>((set, get) => ({
       if (!GOOD_WHEELS_DEMO_MODE && !active) {
         clearActiveTripMarker();
       }
-      const keepActive = Boolean(active && !TERMINAL_STATUSES.has(active.status));
+      // Drop seeded fixture trips (Carlos / Home → Clinic / 0,0 coords) the API
+      // may still serve. Either it's real and not seeded, or we don't show it.
+      const activeReal = active && !looksLikeSeededFixture(active) ? active : null;
+      const histReal = hist.filter((t) => !looksLikeSeededFixture(t));
+      const keepActive = Boolean(activeReal && !TERMINAL_STATUSES.has(activeReal.status));
       const latestCancelled =
-        hist.find((trip) => trip.status === 'cancelled' || trip.status === 'canceled') ?? null;
+        histReal.find((trip) => trip.status === 'cancelled' || trip.status === 'canceled') ?? null;
       set((state) => ({
-        activeTrip: keepActive ? active : null,
-        history: hist,
+        activeTrip: keepActive ? activeReal : null,
+        history: histReal,
         lastTerminalTrip:
           latestCancelled &&
           (!state.lastTerminalTrip ||

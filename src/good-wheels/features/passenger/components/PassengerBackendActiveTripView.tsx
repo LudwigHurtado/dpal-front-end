@@ -312,7 +312,11 @@ const PassengerBackendActiveTripView: React.FC<{ trip: Trip }> = ({ trip }) => {
         </div>
       </div>
 
-      <TripMapPanel trip={trip} variant="passenger" />
+      {/* Hide the map during the pure waiting/matching phase. The cause-story
+          commercial owns the screen until a driver accepts. */}
+      {trip.status === 'requested' || trip.status === 'broadcasted' || trip.status === 'matched' ? null : (
+        <TripMapPanel trip={trip} variant="passenger" />
+      )}
 
       <TripChatPanel
         threadId={threadId}
