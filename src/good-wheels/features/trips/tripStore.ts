@@ -73,6 +73,8 @@ const readActiveTripMarker = (): { id?: string; status?: string; updatedAtIso?: 
 const isLikelyDemoTripId = (id: string): boolean =>
   /(^mock|^demo|^local|^trip-q|mock|demo|local)/i.test(id);
 
+const WAITING_FOR_DRIVER_STATUSES = new Set<TripStatus>(['requested', 'broadcasted', 'matched']);
+
 export const useTripStore = create<TripState>((set, get) => ({
   activeTrip: null,
   history: [],
@@ -99,7 +101,18 @@ export const useTripStore = create<TripState>((set, get) => ({
       }
       // Drop seeded fixture trips (Carlos / Home → Clinic / 0,0 coords) the API
       // may still serve. Either it's real and not seeded, or we don't show it.
-      const activeReal = active && !looksLikeSeededFixture(active) ? active : null;
+      const currentActive = get().activeTrip;
+      const currentIsWaiting =
+        currentActive &&
+        currentActive.passengerId === userId &&
+        !looksLikeSeededFixture(currentActive) &&
+        WAITING_FOR_DRIVER_STATUSES.has(currentActive.status);
+      const activeReal =
+        active && !looksLikeSeededFixture(active)
+          ? active
+          : currentIsWaiting
+            ? currentActive
+            : null;
       const histReal = hist.filter((t) => !looksLikeSeededFixture(t));
       const keepActive = Boolean(activeReal && !TERMINAL_STATUSES.has(activeReal.status));
       const latestCancelled =

@@ -39,6 +39,8 @@
 }
 .gw-theme-driver .gw-appbar {
   background: linear-gradient(90deg, rgba(26, 115, 232, 0.2), rgba(15, 23, 42, 0.94)), rgba(15, 23, 42, 0.96);
+  border-bottom: none;
+  box-shadow: none;
 }
 .gw-theme-driver .gw-driver-surface {
   border-color: rgba(26, 115, 232, 0.28);
@@ -50,7 +52,7 @@
   padding: 16px 14px;
   background: linear-gradient(155deg, #1a73e8 0%, #1557b0 42%, #0d47a1 100%);
   color: #fff;
-  box-shadow: 0 14px 36px rgba(26, 115, 232, 0.35);
+  box-shadow: none;
 }
 .gw-driver-sidenav-logo {
   font-weight: 900;
