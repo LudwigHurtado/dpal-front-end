@@ -1,5 +1,11 @@
 const DEFAULT_API_BASE = 'https://web-production-a27b.up.railway.app';
-const LOCAL_DEV_API_BASE = 'http://localhost:3001';
+/**
+ * Dev fallback intentionally points at the production Railway API so that running
+ * `npm run dev` without a `.env.local` Just Works™ — same behavior as Vercel prod,
+ * including auth, good-wheels, situation room, etc. Set `VITE_API_BASE` (or
+ * `dpal_api_base_override` in localStorage) when you do want a local backend.
+ */
+const LOCAL_DEV_API_BASE = DEFAULT_API_BASE;
 
 type EnvBag = Record<string, unknown>;
 

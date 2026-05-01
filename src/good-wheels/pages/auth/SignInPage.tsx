@@ -29,8 +29,27 @@ const SignInPage: React.FC = () => {
   };
 
   return (
-    <div className="gw-auth" style={{ background: 'linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #14532d 100%)', minHeight: '100dvh' }}>
-      <div className="gw-auth-card" style={{ maxWidth: 420, border: '1px solid rgba(148,163,184,0.25)', boxShadow: '0 24px 60px rgba(0,0,0,0.35)' }}>
+    <div
+      className="gw-auth"
+      style={{
+        background: 'linear-gradient(165deg, #0f172a 0%, #1e293b 45%, #14532d 100%)',
+        minHeight: '100dvh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+      }}
+    >
+      <div
+        className="gw-auth-card"
+        style={{
+          maxWidth: 420,
+          width: '100%',
+          margin: 'auto',
+          border: '1px solid rgba(148,163,184,0.25)',
+          boxShadow: '0 24px 60px rgba(0,0,0,0.35)',
+        }}
+      >
         <h1 className="gw-h2" style={{ marginBottom: 4 }}>
           {t('loginTitle')}
         </h1>
