@@ -89,8 +89,8 @@ const PassengerLocationPicker: React.FC = () => {
     if (mode === 'pickup' && !dropoff) setMode('dropoff');
   }
 
-  async function handleAddressSubmit() {
-    const value = inputs[mode].trim();
+  async function submitAddressFor(target: Mode) {
+    const value = inputs[target].trim();
     if (!value) return;
     setStatus({ kind: 'loading', message: 'Looking up address…' });
     const ll = await nominatimForwardGeocode(value);
@@ -98,9 +98,11 @@ const PassengerLocationPicker: React.FC = () => {
       setStatus({ kind: 'error', message: 'Could not find that address. Try a more specific one or tap the map.' });
       return;
     }
-    setActivePoint({ latLng: ll, address: value });
+    if (target === 'pickup') setPickup({ latLng: ll, address: value });
+    else setDropoff({ latLng: ll, address: value });
+    setMode(target);
     setStatus({ kind: 'idle', message: '' });
-    if (mode === 'pickup' && !dropoff) setMode('dropoff');
+    if (target === 'pickup' && !dropoff) setMode('dropoff');
   }
 
   function useCurrentLocation() {
@@ -302,78 +304,92 @@ const PassengerLocationPicker: React.FC = () => {
         ) : null}
       </div>
 
-      {/* Address input + chips + continue */}
-      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={inputs[mode]}
-            onChange={(e) => setInputs((s) => ({ ...s, [mode]: e.target.value }))}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                void handleAddressSubmit();
-              }
-            }}
-            className="gw-input"
-            style={{ flex: 1 }}
-            placeholder={mode === 'pickup' ? 'Pickup address — or tap the map' : 'Drop-off address — or tap the map'}
-            aria-label={mode === 'pickup' ? 'Pickup address' : 'Drop-off address'}
-          />
-          <button
-            type="button"
-            onClick={() => void handleAddressSubmit()}
-            disabled={!inputs[mode].trim()}
-            className="gw-button gw-button-secondary"
-            style={{ whiteSpace: 'nowrap' }}
-          >
-            Set
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            type="button"
-            onClick={() => setMode('pickup')}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              textAlign: 'left',
-              padding: '8px 12px',
-              borderRadius: 12,
-              border: `2px solid ${mode === 'pickup' ? PICKUP_GREEN : 'rgba(22,163,74,0.35)'}`,
-              background: pickup ? 'rgba(22,163,74,0.08)' : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 800, color: PICKUP_GREEN, letterSpacing: 0.4 }}>
-              ● PICKUP
+      {/* Two dedicated address inputs (green pickup, red drop-off) */}
+      <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {(['pickup', 'dropoff'] as const).map((slot) => {
+          const color = slot === 'pickup' ? PICKUP_GREEN : DROPOFF_RED;
+          const label = slot === 'pickup' ? 'PICKUP' : 'DROP-OFF';
+          const placeholder = slot === 'pickup' ? 'Pickup address — or tap the map' : 'Drop-off address — or tap the map';
+          const isActive = mode === slot;
+          const isSet = slot === 'pickup' ? !!pickup : !!dropoff;
+          return (
+            <div
+              key={slot}
+              onClick={() => setMode(slot)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                padding: '8px 10px 8px 12px',
+                borderRadius: 14,
+                border: `2px solid ${color}`,
+                background: isActive ? `${color}10` : '#ffffff',
+                boxShadow: isActive ? `0 0 0 3px ${color}22` : 'none',
+                transition: 'box-shadow 120ms ease, background 120ms ease',
+              }}
+            >
+              <span
+                aria-hidden
+                style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: 999,
+                  background: isSet ? color : 'transparent',
+                  border: `2px solid ${color}`,
+                  flex: '0 0 auto',
+                }}
+              />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.6, color }}>{label}</div>
+                <input
+                  value={inputs[slot]}
+                  onFocus={() => setMode(slot)}
+                  onChange={(e) => setInputs((s) => ({ ...s, [slot]: e.target.value }))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      void submitAddressFor(slot);
+                    }
+                  }}
+                  placeholder={placeholder}
+                  aria-label={`${label} address`}
+                  style={{
+                    width: '100%',
+                    border: 'none',
+                    outline: 'none',
+                    background: 'transparent',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: '#0f172a',
+                    padding: '2px 0',
+                  }}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void submitAddressFor(slot);
+                }}
+                disabled={!inputs[slot].trim()}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 10,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: 0.3,
+                  border: `1px solid ${color}`,
+                  background: inputs[slot].trim() ? color : 'transparent',
+                  color: inputs[slot].trim() ? '#ffffff' : color,
+                  cursor: inputs[slot].trim() ? 'pointer' : 'not-allowed',
+                  opacity: inputs[slot].trim() ? 1 : 0.55,
+                }}
+              >
+                SET
+              </button>
             </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {pickup ? pickup.address : 'Tap the map or type an address'}
-            </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode('dropoff')}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              textAlign: 'left',
-              padding: '8px 12px',
-              borderRadius: 12,
-              border: `2px solid ${mode === 'dropoff' ? DROPOFF_RED : 'rgba(220,38,38,0.35)'}`,
-              background: dropoff ? 'rgba(220,38,38,0.08)' : 'transparent',
-              cursor: 'pointer',
-            }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 800, color: DROPOFF_RED, letterSpacing: 0.4 }}>
-              ● DROP-OFF
-            </div>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {dropoff ? dropoff.address : 'Tap the map or type an address'}
-            </div>
-          </button>
-        </div>
+          );
+        })}
 
         <button
           type="button"
