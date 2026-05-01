@@ -77,10 +77,10 @@ export const goodWheelsAuthApi = {
         body: JSON.stringify(body),
       });
     } catch {
-      throw new Error('Could not reach the server. Make sure the backend is running on localhost:3001.');
+      throw new Error('Could not reach the Good Wheels server. Check the API URL, backend deploy, and CORS settings.');
     }
     if (res.status === 404) {
-      throw new Error('Registration is not available on this server. Run the local backend (cd backend && npm run dev) and set VITE_API_BASE=http://localhost:3001.');
+      throw new Error('Registration is not available on this Good Wheels server. Check that the backend deploy includes the latest Good Wheels auth routes.');
     }
     const data = await parseJson<{ ok?: boolean; user?: unknown; error?: string }>(res);
     if (!res.ok || data.ok === false || data.user == null) {

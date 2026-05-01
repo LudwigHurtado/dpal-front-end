@@ -63,7 +63,11 @@ app.use(cors({
   origin: (origin, cb) => {
     // Allow server-to-server (no origin header) and all listed origins
     if (!origin) return cb(null, true);
-    if (allowedOriginSet.has(normalizeOrigin(origin))) return cb(null, true);
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOriginSet.has(normalizedOrigin)) return cb(null, true);
+    if (/^https:\/\/dpal-front-end(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(normalizedOrigin)) {
+      return cb(null, true);
+    }
     // In development allow any localhost
     if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost/.test(origin)) return cb(null, true);
     console.warn(`[CORS] Blocked origin: ${origin}`);
@@ -83,6 +87,7 @@ const limiter = rateLimit({
   max: 100,
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/good-wheels') || req.originalUrl.startsWith('/api/good-wheels'),
 });
 app.use('/api/', limiter);
 
