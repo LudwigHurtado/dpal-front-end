@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import AquaScanVisualSnapshotAnalyzer from './AquaScanVisualSnapshotAnalyzer';
 import type { AquaScanProject } from '../water/aquaScanMockData';
 import type { NearbyEntity } from '../../services/entityLookupService';
 import type { WaterAnalysisResponse } from '../../services/waterAnalysisService';
@@ -72,6 +73,8 @@ type AquaScanReaderContext = {
 export type AquaScanIntelligenceOutput = {
   stateLabel: 'active calculated result' | 'saved history result' | 'setup only' | 'no setup';
   summary: string;
+  companyObjective: string;
+  reportDataPoints: string[];
   keyFindings: string[];
   confidenceInterpretation: string;
   suggestedQuestions: string[];
@@ -115,6 +118,9 @@ const INDEX_GUIDE: Record<CopernicusIndexType, string> = {
   NDMI: 'NDMI tracks moisture signal and moisture stress.',
   NBR: 'NBR tracks burn or disturbance-related change.',
 };
+
+const DPAL_AQUASCAN_OBJECTIVE =
+  'DPAL AquaScan helps communities turn satellite observations, field evidence, and transparent report records into safer water decisions. Its objective is to screen water-risk signals, document what was observed, preserve evidence for validator review, and support responsible civic action without claiming proof that the data cannot support.';
 
 const QUESTION_LABELS: Array<{ id: AquaScanQuestionId; label: string }> = [
   { id: 'ndwi_meaning', label: 'What does this NDWI change mean?' },
@@ -185,6 +191,90 @@ function describeIndexReading(indexType: CopernicusIndexType, deltaPercent: numb
   return deltaPercent < 0
     ? 'NBR decreased, which may indicate disturbance or burn-related change, but it is not proof of fire without additional context.'
     : 'NBR increased, suggesting less disturbance signal in the after period, but it still needs context review.';
+}
+
+function formatCoordinate(value: number | null | undefined): string {
+  return typeof value === 'number' && Number.isFinite(value) ? value.toFixed(5) : 'not available';
+}
+
+function formatDateWindow(range: { from: string; to: string }): string {
+  return range.from && range.to ? `${range.from} to ${range.to}` : 'not selected';
+}
+
+function buildReportDataPoints(args: {
+  activeContext: AquaScanReaderContext | null;
+  selectedProject: AquaScanProject;
+  selectedFocusLocation: AquaScanFocusLocationSummary;
+  savedAoiAreaSqKm: number;
+  nearbyEntities: NearbyEntity[];
+  waterData: WaterAnalysisResponse | null;
+  riskScore: number;
+  evidencePacketPayload: Record<string, unknown> | null;
+  calculationHistory: AquaScanCalculationHistoryEntry[];
+}): string[] {
+  const active = args.activeContext;
+  return [
+    `Project: ${args.selectedProject.projectName || 'Unnamed project'} (${args.selectedProject.id || 'draft'}).`,
+    `Concern: ${args.selectedProject.concernType}; water body type: ${args.selectedProject.waterBodyType}; suspected source: ${args.selectedProject.suspectedSource}.`,
+    `Community impact focus: ${args.selectedProject.communityImpact.length > 0 ? args.selectedProject.communityImpact.join(', ') : 'not listed'}.`,
+    `Focus location: ${args.selectedFocusLocation?.displayName ?? args.selectedProject.locationName ?? 'not selected'} at ${formatCoordinate(args.selectedFocusLocation?.latitude)} / ${formatCoordinate(args.selectedFocusLocation?.longitude)}.`,
+    `AOI area: ${args.savedAoiAreaSqKm > 0 ? `${args.savedAoiAreaSqKm.toFixed(2)} km2` : 'not saved'}.`,
+    active
+      ? `Satellite comparison: ${active.indexType} on ${active.collection}; before ${formatDateWindow(active.before)}; after ${formatDateWindow(active.after)}.`
+      : 'Satellite comparison: no active calculated result loaded.',
+    active
+      ? `Result: ${formatSignedPercent(active.deltaPercent)} change; ${active.confidenceScore != null ? `${Math.round(active.confidenceScore * 100)}% confidence` : 'confidence unavailable'}; ${active.measurementStatus}.`
+      : `Saved history rows available: ${args.calculationHistory.length}.`,
+    `Risk score: ${args.riskScore}/100.`,
+    `Nearby mapped entities: ${args.nearbyEntities.length}. Context only; proximity does not prove responsibility.`,
+    `Live water data: ${args.waterData ? 'available in this session' : 'not available or not loaded'}.`,
+    `Evidence packet: ${args.evidencePacketPayload ? 'generated or staged' : 'not generated yet'}.`,
+  ];
+}
+
+function answerCustomAquaScanQuestion(question: string, intelligence: AquaScanIntelligenceOutput): string {
+  const normalized = question.trim().toLowerCase();
+  if (!normalized) {
+    return 'Ask about the AquaScan result, AOI, confidence, missing evidence, validator readiness, satellite indexes, report summary, or DPAL company objective.';
+  }
+
+  if (/\b(company|objective|mission|dpal|purpose|why)\b/.test(normalized)) {
+    return intelligence.companyObjective;
+  }
+
+  if (/\b(report|summary|data|reading|result|mean|change|percent|dates|aoi|location|project)\b/.test(normalized)) {
+    return `Here is the useful report data I can share from this workspace: ${intelligence.reportDataPoints.join(' ')}`;
+  }
+
+  if (/\b(confidence|strong|reliable|trust|valid)\b/.test(normalized)) {
+    return `${intelligence.confidenceInterpretation} For validation, use this as screening evidence and pair it with field photos, lab results when relevant, imagery review, and validator review.`;
+  }
+
+  if (/\b(evidence|missing|packet|pdf|qr|ledger|blockchain)\b/.test(normalized)) {
+    return `Evidence posture: ${intelligence.evidenceNeeded.join(' ')} The Evidence Packet/PDF/QR path is useful when you want a shareable record of the AOI, dates, index reading, warnings, limitations, and validator material.`;
+  }
+
+  if (/\b(sample|lab|water test|field|photo)\b/.test(normalized)) {
+    return 'A field photo or water sample is most useful when the satellite signal points to a meaningful water change, when the concern involves contamination/turbidity, or when the report may be escalated. Satellite data can prioritize where to sample; it does not replace lab confirmation.';
+  }
+
+  if (/\b(ndwi|ndvi|ndmi|nbr|index|satellite|sentinel|landsat)\b/.test(normalized)) {
+    return `${INDEX_GUIDE.NDWI} ${INDEX_GUIDE.NDVI} ${INDEX_GUIDE.NDMI} ${INDEX_GUIDE.NBR} Use NDWI first for water presence/wetness, then NDMI or NDVI for moisture and vegetation context.`;
+  }
+
+  if (/\b(risk|danger|contamination|pollution|responsibility|liability|proof)\b/.test(normalized)) {
+    return 'This report can identify water-risk indicators and prioritize review, but it does not prove contamination, legal responsibility, liability, wrongdoing, or official violations without field evidence, lab testing, and validator or agency review.';
+  }
+
+  if (/\b(flow|direction|tributary|confluence|junction|upstream|downstream|into\s+the\s+river|from\s+the\s+canyon|leak|leakage|pipe|plume|visual|screenshot|snapshot|what\s+the\s+map|satellite\s+photo|aerial)\b/.test(normalized)) {
+    return 'For flow direction, tributary junctions, or what a map image visually shows, use the Visual snapshot reading panel on this page: upload a screenshot or paste from clipboard (for example after Win+Shift+S). The vision model describes visible channels and topography hints and states what cannot be proven from a still image. Pair that reading with your AquaScan index comparison and dates — numbers alone do not establish inflow versus outflow without hydrology context and field checks.';
+  }
+
+  if (/\b(next|action|should|recommend|do)\b/.test(normalized)) {
+    return `Recommended next actions: ${intelligence.recommendedActions.join(' ')}`;
+  }
+
+  return `Based on the current AquaScan context: ${intelligence.summary} Useful supporting data: ${intelligence.reportDataPoints.slice(0, 6).join(' ')} The main limitation is that satellite measurements are screening indicators, not final proof.`;
 }
 
 function buildCurrentContext(args: {
@@ -287,6 +377,17 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
         : hasValidAoi
           ? 'AOI is saved. Select before/after dates to set up a comparison.'
           : 'Select or draw an AOI to begin AquaScan comparison.';
+  const reportDataPoints = buildReportDataPoints({
+    activeContext,
+    selectedProject: args.selectedProject,
+    selectedFocusLocation: args.selectedFocusLocation,
+    savedAoiAreaSqKm: args.savedAoiAreaSqKm,
+    nearbyEntities: args.nearbyEntities,
+    waterData: args.waterData,
+    riskScore: args.riskScore,
+    evidencePacketPayload: args.evidencePacketPayload,
+    calculationHistory: args.calculationHistory,
+  });
 
   const keyFindings = [
     currentContext
@@ -389,6 +490,8 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
   return {
     stateLabel,
     summary,
+    companyObjective: DPAL_AQUASCAN_OBJECTIVE,
+    reportDataPoints,
     keyFindings,
     confidenceInterpretation,
     suggestedQuestions,
@@ -406,15 +509,35 @@ export function buildAquaScanIntelligence(args: AquaScanIntelligenceReaderProps)
 
 export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProps) {
   const intelligence = useMemo(() => buildAquaScanIntelligence(props), [props]);
+  const visualWorkspaceContext = useMemo(
+    () =>
+      [
+        intelligence.summary,
+        intelligence.currentMeasurementStatus,
+        ...intelligence.reportDataPoints,
+        ...intelligence.keyFindings.slice(0, 8),
+      ].join('\n'),
+    [intelligence],
+  );
   const [activeQuestionId, setActiveQuestionId] = useState<AquaScanQuestionId>('ndwi_meaning');
+  const [customQuestion, setCustomQuestion] = useState('');
+  const [customAnswer, setCustomAnswer] = useState('');
   const activeQuestion = intelligence.questionsAndAnswers.find((item) => item.id === activeQuestionId) ?? intelligence.questionsAndAnswers[0];
+  const askCustomQuestion = (question: string) => {
+    const nextQuestion = question.trim();
+    setCustomQuestion(nextQuestion);
+    setCustomAnswer(answerCustomAquaScanQuestion(nextQuestion, intelligence));
+  };
 
   if (props.variant === 'compact') {
     return (
-      <div className="mt-2 rounded-lg border border-violet-500/30 bg-violet-950/20 p-2.5 text-[10px]">
-        <p className="mb-1 font-semibold uppercase tracking-wider text-violet-300">AI Intelligence Reader</p>
-        <p className="text-slate-300">{intelligence.summary}</p>
-        <p className="mt-2 text-[10px] text-slate-400">{intelligence.confidenceInterpretation}</p>
+      <div className="mt-2 space-y-2">
+        <div className="rounded-lg border border-violet-500/30 bg-violet-950/20 p-2.5 text-[10px]">
+          <p className="mb-1 font-semibold uppercase tracking-wider text-violet-300">AI Intelligence Reader</p>
+          <p className="text-slate-300">{intelligence.summary}</p>
+          <p className="mt-2 text-[10px] text-slate-400">{intelligence.confidenceInterpretation}</p>
+        </div>
+        <AquaScanVisualSnapshotAnalyzer workspaceContextText={visualWorkspaceContext} variant="compact" />
       </div>
     );
   }
@@ -501,7 +624,66 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
           </div>
         </div>
         <div>
-          <p className="font-semibold text-white">Interactive questions</p>
+          <p className="font-semibold text-white">AI report Q&A</p>
+          <div className="mt-2 rounded-lg border border-cyan-500/25 bg-cyan-950/15 p-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Company objective</p>
+            <p className="mt-1 text-slate-300">{intelligence.companyObjective}</p>
+            <div className="mt-3 grid gap-2 md:grid-cols-2">
+              {intelligence.reportDataPoints.slice(0, 6).map((line) => (
+                <p key={line} className="rounded-md border border-slate-800 bg-slate-950/50 px-2 py-1 text-[11px] text-slate-300">
+                  {line}
+                </p>
+              ))}
+            </div>
+          </div>
+          <form
+            className="mt-3 flex flex-col gap-2 sm:flex-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              askCustomQuestion(customQuestion);
+            }}
+          >
+            <input
+              type="text"
+              value={customQuestion}
+              onChange={(event) => setCustomQuestion(event.target.value)}
+              placeholder="Ask about this report, satellite result, confidence, evidence, or DPAL objective..."
+              className="min-h-10 flex-1 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
+            />
+            <button
+              type="submit"
+              className="min-h-10 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/20"
+            >
+              Ask
+            </button>
+          </form>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {[
+              'What is the objective of DPAL AquaScan?',
+              'What useful data is in this report?',
+              'Is this enough for validation?',
+              'What evidence should we collect next?',
+              'Which way is water flowing on the map?',
+            ].map((question) => (
+              <button
+                key={question}
+                type="button"
+                onClick={() => askCustomQuestion(question)}
+                className="rounded-full border border-cyan-500/30 bg-cyan-950/20 px-2 py-1 text-[10px] text-cyan-100 transition hover:bg-cyan-900/30"
+              >
+                {question}
+              </button>
+            ))}
+          </div>
+          {customAnswer ? (
+            <div className="mt-2 rounded-lg border border-cyan-500/30 bg-slate-900/70 p-3 text-slate-300">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Answer</p>
+              <p className="mt-1">{customAnswer}</p>
+            </div>
+          ) : null}
+        </div>
+        <div>
+          <p className="font-semibold text-white">Guided questions</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {intelligence.questionsAndAnswers.map((question) => (
               <button
@@ -525,6 +707,7 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
             </div>
           ) : null}
         </div>
+        <AquaScanVisualSnapshotAnalyzer workspaceContextText={visualWorkspaceContext} variant="full" />
         <div className="rounded-lg border border-amber-500/40 bg-amber-900/15 p-3 text-[11px] text-amber-100">
           <p>{intelligence.limitations[0]}</p>
           <p className="mt-1">{intelligence.limitations[1]}</p>

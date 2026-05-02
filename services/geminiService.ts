@@ -125,6 +125,42 @@ export async function runGeminiPrompt(prompt: string): Promise<string> {
   return text;
 }
 
+/** One inline image for multimodal `generateContent` (browser or server proxy). */
+export type GeminiInlineImageInput = {
+  mimeType: string;
+  /** Raw base64 only (no `data:` prefix). */
+  base64Data: string;
+};
+
+/**
+ * Vision-capable prompt: text plus one or more inline images.
+ * Uses the same routing as `runGeminiPrompt` (browser key or `VITE_USE_SERVER_AI`).
+ */
+export async function runGeminiWithImagePrompt(
+  prompt: string,
+  images: GeminiInlineImageInput[],
+  model = "gemini-2.5-flash",
+): Promise<string> {
+  if (!images.length) {
+    return runGeminiPrompt(prompt);
+  }
+  const parts: Array<{ text: string } | { inlineData: { mimeType: string; data: string } }> = [{ text: prompt }];
+  for (const img of images) {
+    const data = img.base64Data.replace(/^data:image\/\w+;base64,/, "").trim();
+    parts.push({
+      inlineData: {
+        mimeType: img.mimeType.includes("/") ? img.mimeType : "image/jpeg",
+        data,
+      },
+    });
+  }
+  const { text } = await runGeminiGenerate({
+    model,
+    contents: [{ role: "user", parts: parts as unknown[] }],
+  });
+  return text;
+}
+
 const handleApiError = (error: any): never => {
   console.error(`Backend API Error:`, error);
 
