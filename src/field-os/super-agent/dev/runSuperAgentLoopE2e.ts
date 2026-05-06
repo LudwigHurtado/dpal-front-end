@@ -103,6 +103,7 @@ async function case2ViuCarbon() {
   const plan = await rt.createInvestigationPlan(input);
   const ws = rt.getCaseWorkspace();
   assert(ws?.mappedWorkflowIds.includes('carbon-viu-project'), 'case2: carbon-viu-project mapped');
+  assert(!ws?.mappedWorkflowIds.includes('carb-emissions-audit'), 'case2: no automatic carb-emissions-audit');
   assert(plan.subAgentsNeeded.includes('EarthObservationAgent'), 'case2: EarthObservationAgent');
   assert(plan.subAgentsNeeded.includes('ReportAgent'), 'case2: ReportAgent');
   assert(plan.subAgentsNeeded.includes('ValidatorAgent'), 'case2: ValidatorAgent');
@@ -111,10 +112,53 @@ async function case2ViuCarbon() {
   assert(plan.claimLabels.calculated === true, 'case2: calculated flag for modeled VIU/carbon goal');
   assert(plan.humanApprovalCheckpoints.includes('viu_draft_issuance'), 'case2: VIU draft issuance gated');
 
-  await rt.runPlannedWorkflowPreview();
+  const preview = await rt.runPlannedWorkflowPreview();
+  const mappedViu = preview.plan.executionSequence.find((s) => s.workflowId === 'carbon-viu-project');
+  assert(Boolean(mappedViu), 'case2: mapped carbon viu execution step exists');
+  assert(
+    Boolean(
+      mappedViu?.inputs?.selectedDateRange &&
+      mappedViu.inputs.selectedDateRange.startDate &&
+      mappedViu.inputs.selectedDateRange.endDate
+    ),
+    'case2: selectedDateRange is passed into VIU preview inputs'
+  );
+  const blockchainStep = preview.workflowResults
+    .flatMap((w) => w.steps)
+    .find((step) => step.stepId === 'blockchain_anchor');
+  assert(Boolean(blockchainStep), 'case2: blockchain draft step exists');
+  assert(
+    JSON.stringify(blockchainStep?.output ?? {}).toLowerCase().includes('preview'),
+    'case2: blockchain step output is preview wording'
+  );
+  const hasLiveBlockchainArtifact = preview.allArtifacts.some((a) => String(a.type).toLowerCase() === 'blockchain');
+  assert(!hasLiveBlockchainArtifact, 'case2: no live blockchain artifact in Dry Run');
   assertExportComplete(rt, 'case2');
   assertNoFalseVerificationClaims(rt, 'case2');
   ok('case2 VIU / carbon');
+}
+
+async function case6CarbAuditCue() {
+  const rt = new SuperAgentRuntime({ dryRunMode: true });
+  const input = fullInput({
+    goal: 'Run a CARB emissions audit for an industrial refinery facility with MRR reporting boundary checks.',
+  });
+  const plan = await rt.createInvestigationPlan(input);
+  const ws = rt.getCaseWorkspace();
+  assert(plan.subAgentsNeeded.includes('CarbEmissionsAgent'), 'case6: CarbEmissionsAgent selected');
+  assert(ws?.mappedWorkflowIds.includes('carb-emissions-audit'), 'case6: carb-emissions-audit mapped');
+  const preview = await rt.runPlannedWorkflowPreview();
+  const mappedCarb = preview.plan.executionSequence.find((s) => s.workflowId === 'carb-emissions-audit');
+  assert(Boolean(mappedCarb), 'case6: mapped carb execution step exists');
+  assert(
+    Boolean(
+      mappedCarb?.inputs?.selectedDateRange &&
+      mappedCarb.inputs.selectedDateRange.startDate &&
+      mappedCarb.inputs.selectedDateRange.endDate
+    ),
+    'case6: selectedDateRange passed into carb audit preview inputs'
+  );
+  ok('case6 CARB mapping strict cue');
 }
 
 async function case3GoodWheels() {
@@ -191,6 +235,7 @@ async function main() {
   await case3GoodWheels();
   await case4MissingInputs();
   await case5AllGatesApproved();
+  await case6CarbAuditCue();
   console.log('\nAll Super Agent Loop E2E checks passed.');
 }
 

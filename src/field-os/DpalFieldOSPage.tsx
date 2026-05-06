@@ -14,6 +14,11 @@ import { APPROVAL_GATES } from './super-agent/runtime/humanApprovalGate';
 import { CaseWorkspace, CaseWorkspaceState } from './super-agent/runtime/caseWorkspace';
 import { ExecutionTraceService, ExecutionTrace } from './super-agent/runtime/executionTraceService';
 import { SuperAgentCompletionStatus } from './super-agent/runtime/superAgentRuntime';
+import {
+  getReviewStatus,
+  submitCaseForReview,
+  type ReviewerStatusResponse,
+} from './super-agent/services/reviewerNodeClient';
 
 const runner = new WorkflowRunner();
 
@@ -75,6 +80,16 @@ type SuperAgentCaseSnapshot = {
   humanApprovalRequired: boolean;
   mappedExecutionPlan: MappedExecutionPlan | null;
   planExecutionResult: ExecutionBridgeResult | null;
+};
+
+type ReviewStatusUi = {
+  submitted: boolean;
+  reportId: string | null;
+  status: string | null;
+  humanVerified: boolean;
+  reviewerNotes: Array<{ note?: string; at?: string; reviewerId?: string }>;
+  reviewedAt: string | null;
+  decision: string | null;
 };
 
 function deriveFinalActionsBlocked(
@@ -392,6 +407,17 @@ const DpalFieldOSPage: React.FC = () => {
   const [persistVersion, setPersistVersion] = useState(0);
   const [loopNextRecommendedAction, setLoopNextRecommendedAction] = useState<string | null>(null);
   const [exportSnapshotJson, setExportSnapshotJson] = useState<string | null>(null);
+  const [reviewStatusUi, setReviewStatusUi] = useState<ReviewStatusUi>({
+    submitted: false,
+    reportId: null,
+    status: null,
+    humanVerified: false,
+    reviewerNotes: [],
+    reviewedAt: null,
+    decision: null,
+  });
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [isReviewBusy, setIsReviewBusy] = useState(false);
 
   const caseWorkspaceRef = useRef<CaseWorkspace | null>(null);
   const executionTraceRef = useRef<ExecutionTraceService | null>(null);
@@ -528,6 +554,7 @@ const DpalFieldOSPage: React.FC = () => {
     setSuperAgentTab('plan');
     setLoopNextRecommendedAction(null);
     setExportSnapshotJson(null);
+    setReviewError(null);
 
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
@@ -675,6 +702,16 @@ const DpalFieldOSPage: React.FC = () => {
     setSuperAgentTab('plan');
     setLoopNextRecommendedAction(null);
     setExportSnapshotJson(null);
+    setReviewStatusUi({
+      submitted: false,
+      reportId: null,
+      status: null,
+      humanVerified: false,
+      reviewerNotes: [],
+      reviewedAt: null,
+      decision: null,
+    });
+    setReviewError(null);
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
     setPersistVersion((v) => v + 1);
@@ -798,6 +835,120 @@ const DpalFieldOSPage: React.FC = () => {
       planExecutionResult,
     };
     setExportSnapshotJson(JSON.stringify(snapshot, null, 2));
+  };
+
+  const buildCaseSnapshot = (): SuperAgentCaseSnapshot => {
+    const completionStatus = checkCompletionStatusLocal();
+    const approvalStatus = superAgentPlan
+      ? Object.fromEntries(superAgentPlan.humanApprovalCheckpoints.map((id) => [id, Boolean(gateApprovals[id])]))
+      : {};
+    return {
+      currentPlan: superAgentPlan,
+      currentCaseWorkspace: caseWorkspaceRef.current?.getState() ?? null,
+      evidenceTimeline: timelineEntries,
+      executionTraces: executionTraceRows,
+      completionStatus,
+      approvalStatus,
+      finalActionsBlocked: finalActionsBlockedUi,
+      humanApprovalRequired: humanApprovalRequiredUi,
+      mappedExecutionPlan,
+      planExecutionResult,
+    };
+  };
+
+  const applyReviewerStatus = (status: ReviewerStatusResponse) => {
+    setReviewStatusUi({
+      submitted: true,
+      reportId: status.reportId,
+      status: status.status,
+      humanVerified: Boolean(status.humanVerified),
+      reviewerNotes: Array.isArray(status.reviewerNotes) ? status.reviewerNotes : [],
+      reviewedAt: status.reviewedAt ?? null,
+      decision: status.decision ?? null,
+    });
+
+    if (!superAgentPlan) return;
+    if (status.humanVerified) {
+      const ws = caseWorkspaceRef.current;
+      const traceSvc = executionTraceRef.current;
+      if (ws && ws.getState().caseId === superAgentPlan.caseId) {
+        ws.getState().claimLabels.human_verified = true;
+        ws.addEvidenceTimelineEvent('Reviewer marked case human-verified.', `Decision: ${status.decision ?? 'verified'}`);
+      }
+      if (traceSvc) {
+        traceSvc.recordTrace(
+          'ReviewerNode',
+          'Reviewer marked case human-verified',
+          'ReviewerNodeClient',
+          'dry-run',
+          { reportId: status.reportId, decision: status.decision },
+          `status=${status.status}`,
+          'success',
+          superAgentPlan.caseId
+        );
+      }
+      setPersistVersion((v) => v + 1);
+    }
+  };
+
+  const requestVerificationReview = async () => {
+    if (!superAgentPlan) return;
+    if (!gateApprovals.validator_submission) {
+      setReviewError('Validator submission approval gate is required before requesting review.');
+      return;
+    }
+    setReviewError(null);
+    setIsReviewBusy(true);
+    try {
+      const snapshot = buildCaseSnapshot();
+      const submitted = await submitCaseForReview(snapshot);
+      setReviewStatusUi((prev) => ({
+        ...prev,
+        submitted: true,
+        reportId: submitted.reportId,
+        status: submitted.status,
+        humanVerified: false,
+      }));
+      const ws = caseWorkspaceRef.current;
+      const traceSvc = executionTraceRef.current;
+      if (ws && ws.getState().caseId === superAgentPlan.caseId) {
+        ws.addEvidenceTimelineEvent(
+          'Case submitted to Reviewer Node for human verification.',
+          `${submitted.status} · ${submitted.reportId}`
+        );
+      }
+      if (traceSvc) {
+        traceSvc.recordTrace(
+          'ReviewerNode',
+          'Request verification review',
+          'ReviewerNodeClient',
+          'dry-run',
+          { caseId: superAgentPlan.caseId, reportId: submitted.reportId },
+          submitted.message,
+          'success',
+          superAgentPlan.caseId
+        );
+      }
+      setPersistVersion((v) => v + 1);
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'Failed to submit case for review.');
+    } finally {
+      setIsReviewBusy(false);
+    }
+  };
+
+  const refreshReviewStatus = async () => {
+    if (!superAgentPlan) return;
+    setReviewError(null);
+    setIsReviewBusy(true);
+    try {
+      const status = await getReviewStatus(superAgentPlan.caseId);
+      applyReviewerStatus(status);
+    } catch (err) {
+      setReviewError(err instanceof Error ? err.message : 'Failed to refresh review status.');
+    } finally {
+      setIsReviewBusy(false);
+    }
   };
 
   const runPlannedWorkflow = async () => {
@@ -1138,6 +1289,22 @@ const DpalFieldOSPage: React.FC = () => {
                       </button>
                       <button
                         type="button"
+                        onClick={requestVerificationReview}
+                        disabled={!superAgentPlan || isReviewBusy}
+                        className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Request Verification Review
+                      </button>
+                      <button
+                        type="button"
+                        onClick={refreshReviewStatus}
+                        disabled={!superAgentPlan || isReviewBusy}
+                        className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-900 ring-1 ring-cyan-200 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Refresh Review Status
+                      </button>
+                      <button
+                        type="button"
                         onClick={exportCaseSnapshot}
                         className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200"
                       >
@@ -1188,6 +1355,42 @@ const DpalFieldOSPage: React.FC = () => {
                   {loopNextRecommendedAction && (
                     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
                       <span className="font-semibold">Loop next action:</span> {loopNextRecommendedAction}
+                    </div>
+                  )}
+
+                  {(reviewError || reviewStatusUi.submitted) && (
+                    <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 text-sm text-cyan-950">
+                      {reviewError && <p className="font-semibold">{reviewError}</p>}
+                      {reviewStatusUi.submitted && (
+                        <div className="space-y-1">
+                          <p>
+                            <span className="font-semibold">Reviewer status:</span> {reviewStatusUi.status ?? 'pending_review'}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Decision:</span> {reviewStatusUi.decision ?? 'Pending'}
+                          </p>
+                          <p>
+                            <span className="font-semibold">Reviewed at:</span>{' '}
+                            {reviewStatusUi.reviewedAt ? new Date(reviewStatusUi.reviewedAt).toLocaleString() : 'Not reviewed yet'}
+                          </p>
+                          <p>
+                            <span className="font-semibold">human_verified:</span> {reviewStatusUi.humanVerified ? 'true' : 'false'}
+                          </p>
+                          <p>
+                            <span className="font-semibold">blockchain_anchored:</span>{' '}
+                            {superAgentPlan.claimLabels.blockchain_anchored ? 'true' : 'false'}
+                          </p>
+                          {reviewStatusUi.reviewerNotes.length > 0 && (
+                            <ul className="list-disc pl-5">
+                              {reviewStatusUi.reviewerNotes.map((note, idx) => (
+                                <li key={`${note.at ?? 'note'}-${idx}`}>
+                                  {note.note || 'Note'} {note.reviewerId ? `(${note.reviewerId})` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1594,6 +1797,14 @@ const DpalFieldOSPage: React.FC = () => {
                             <li key={item.workflowId} className="rounded-2xl bg-white p-3">
                               <p className="font-semibold text-slate-900">{item.workflowId}</p>
                               <p className="text-sm text-slate-500">Position: {item.position + 1}</p>
+                              <p className="text-xs text-slate-500">
+                                selectedDateRange:{' '}
+                                {item.inputs?.selectedDateRange
+                                  ? JSON.stringify(item.inputs.selectedDateRange)
+                                  : item.inputs?.dateRange
+                                  ? JSON.stringify(item.inputs.dateRange)
+                                  : 'unspecified'}
+                              </p>
                             </li>
                           ))}
                         </ul>

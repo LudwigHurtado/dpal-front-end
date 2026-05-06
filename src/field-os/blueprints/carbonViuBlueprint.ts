@@ -37,8 +37,8 @@ export class CarbonViuBlueprint implements Blueprint {
     },
     {
       id: 'blockchain_anchor',
-      name: 'Blockchain Anchor',
-      description: 'Log carbon credits on blockchain',
+      name: 'Prepare Blockchain Anchor Draft',
+      description: 'Prepare a blockchain anchor preview draft (Dry Run — not submitted)',
       requiredInputs: ['evidence'],
       module: 'BlockchainLogModule',
       outputKey: 'blockchain',
@@ -115,25 +115,33 @@ export class CarbonViuBlueprint implements Blueprint {
         });
       }
 
-      // Step 4: Blockchain Anchor
+      // Step 4: Blockchain Anchor Draft (Dry Run only)
       const blockchainModule = new BlockchainLogModule();
       const blockchainResult = await blockchainModule.execute({
         action: 'log',
+        hash: `draftHashPreview-${Date.now()}`,
         data: vaultResult.data,
       });
       results.push({
         stepId: 'blockchain_anchor',
         success: blockchainResult.success,
-        output: blockchainResult.data,
+        output: {
+          ...blockchainResult.data,
+          status: 'Blockchain anchor preview — not submitted',
+          submissionState: 'dry-run-preview',
+        },
         timestamp: new Date(),
       });
       if (blockchainResult.success) {
         artifacts.push({
-          type: 'blockchain',
-          id: blockchainResult.data.hash,
-          data: blockchainResult.data,
+          type: 'draft_hash_preview',
+          id: `draft-hash-preview-${Date.now()}`,
+          data: {
+            draftHashPreview: blockchainResult.data.hash,
+            status: 'Blockchain anchor preview — not submitted',
+          },
         });
-        confidence = 'verified';
+        confidence = 'medium';
       }
 
     } catch (error) {
@@ -145,7 +153,8 @@ export class CarbonViuBlueprint implements Blueprint {
       requiredInputs: ['projectType', 'location', 'baseline'],
       outputArtifacts: artifacts,
       confidenceStatus: confidence,
-      nextRecommendedAction: 'Issue carbon credits and prepare verification report',
+      nextRecommendedAction:
+        'Review Dry Run VIU outputs, collect human approvals, and prepare blockchain anchor draft for later submission.',
     };
   }
 }

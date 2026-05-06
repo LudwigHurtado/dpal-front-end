@@ -52,7 +52,7 @@ export interface WorkflowStepResult {
 }
 
 export interface Artifact {
-  type: 'report' | 'evidence' | 'scan' | 'validation' | 'blockchain' | 'situation_room';
+  type: 'report' | 'evidence' | 'scan' | 'validation' | 'blockchain' | 'situation_room' | 'draft_hash_preview';
   id: string;
   data: any;
 }

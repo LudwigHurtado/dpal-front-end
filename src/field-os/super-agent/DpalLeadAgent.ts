@@ -79,7 +79,18 @@ export class DpalLeadAgent {
     ) {
       agents.add('EarthObservationAgent');
     }
-    if (normalized.includes('carb') || normalized.includes('emission') || normalized.includes('mrv') || normalized.includes('carbon')) {
+    const carbAuditCue =
+      normalized.includes('carb') ||
+      normalized.includes('emission') ||
+      normalized.includes('facility') ||
+      normalized.includes('ghg') ||
+      normalized.includes('pollution') ||
+      normalized.includes('industrial') ||
+      normalized.includes('refinery') ||
+      normalized.includes('regulated facility') ||
+      normalized.includes('reporting boundary') ||
+      normalized.includes('mrr');
+    if (carbAuditCue) {
       agents.add('CarbEmissionsAgent');
     }
     const viuCue =
@@ -92,7 +103,7 @@ export class DpalLeadAgent {
       normalized.includes('restoration') ||
       normalized.includes('biomass');
     if (viuCue) {
-      agents.add('CarbEmissionsAgent');
+      agents.add('EarthObservationAgent');
       agents.add('ReportAgent');
       agents.add('ValidatorAgent');
     }

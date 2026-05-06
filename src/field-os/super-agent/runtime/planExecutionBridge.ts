@@ -161,10 +161,14 @@ export class PlanExecutionBridge {
   }
 
   private buildWorkflowInputs(workflowId: string, plan: SuperAgentPlan): Record<string, any> {
+    const selectedDateRange = plan.dateRange?.startDate || plan.dateRange?.endDate
+      ? { startDate: plan.dateRange?.startDate, endDate: plan.dateRange?.endDate }
+      : undefined;
     const baseInputs: Record<string, any> = {
       goal: plan.goal,
       location: plan.location,
       dateRange: plan.dateRange,
+      selectedDateRange,
       caseId: plan.caseId,
     };
 
@@ -173,14 +177,23 @@ export class PlanExecutionBridge {
         return {
           ...baseInputs,
           concern: plan.goal,
-          parameters: { analysisType: 'water_quality' },
+          parameters: {
+            analysisType: 'water_quality',
+            selectedDateRange: selectedDateRange ?? 'unspecified',
+          },
         };
 
       case 'earth-observation-audit':
         return {
           ...baseInputs,
           analysisType: 'land_change',
-          parameters: { dateRange: '30d' },
+          parameters: {
+            selectedDateRange:
+              selectedDateRange ?? {
+                startDate: 'unspecified',
+                endDate: 'unspecified',
+              },
+          },
         };
 
       case 'carb-emissions-audit':
@@ -196,7 +209,14 @@ export class PlanExecutionBridge {
           ...baseInputs,
           projectType: 'observation_study',
           baseline: plan.goal,
-          parameters: { vegetationIndex: 'NDVI' },
+          parameters: {
+            vegetationIndex: 'NDVI',
+            selectedDateRange:
+              selectedDateRange ?? {
+                startDate: 'unspecified',
+                endDate: 'unspecified',
+              },
+          },
         };
 
       case 'good-wheels-incident-review':

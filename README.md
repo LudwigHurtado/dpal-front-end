@@ -78,6 +78,7 @@ All Vite-exposed variables must start with `VITE_`. Copy `.env.example` to `.env
 | `VITE_BRAVE_SEARCH_API_KEY` | Optional | Live web search |
 | `VITE_GOOGLE_MAPS_API_KEY` | Optional | Locator / Places |
 | `VITE_LAYOUT_VERSION` | Optional | `v1` or `v2` hub layout experiment |
+| `VITE_REVIEWER_NODE_API_BASE` | Optional | Reviewer Node API base used by Field OS Super Agent verification bridge. Default fallback in app: `http://localhost:8787/api` |
 
 \* At least one of `VITE_GEMINI_API_KEY` or `VITE_USE_SERVER_AI=true` is needed for AI features.
 
@@ -101,6 +102,38 @@ Backend-only satellite credentials live on Railway, not in Vercel:
 After changing Railway variables, redeploy or restart the backend service.
 
 **API routes this SPA expects on `VITE_API_BASE`:** Among others, **`POST /api/earth-observation/scan`** and **`POST /api/dpal-assistant/project-guide`** are implemented in this repo under **`backend/src/routes/`** and must be deployed on whatever backend you point the front-end at (often the same Railway service as `dpal-ai-server`), or proxied there.
+
+---
+
+## Field OS -> Reviewer verification bridge
+
+The Super Agent workspace in `src/field-os/DpalFieldOSPage.tsx` can submit a case snapshot to `dpal-reviewer-node` and then poll review status.
+
+### Local run (both projects)
+
+1. Start reviewer node API/UI:
+   - `cd "C:\DPAL Reviewer Node"`
+   - `npm install`
+   - `npm run dev:all`
+2. Start this front-end:
+   - `cd "C:\dpal-front-end"`
+   - `npm install`
+   - set `.env.local`:
+     - `VITE_REVIEWER_NODE_API_BASE=http://localhost:8787/api`
+   - `npm run dev`
+
+### Field OS flow
+
+1. Generate a Super Agent plan in Field OS.
+2. Check the `Validator Submission` approval gate.
+3. Click `Request Verification Review` (submits `POST /api/reviewer/v1/verifier/cases`).
+4. In Reviewer Portal, open the Field OS case card and set status (needs evidence / verified / rejected / escalated).
+5. Back in Field OS, click `Refresh Review Status` (calls `GET /api/reviewer/v1/verifier/cases/:caseId/status`).
+
+Rules enforced in this bridge:
+
+- `human_verified` is only set true in Field OS when Reviewer Node returns `humanVerified: true` (verified decision).
+- Reviewer status alone never sets `blockchain_anchored` true.
 
 ---
 
