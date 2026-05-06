@@ -1072,7 +1072,7 @@ const DpalFieldOSPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 px-6 py-8">
+    <div className="min-h-screen bg-[#05090b] text-teal-50 px-6 py-8 [&_.bg-white]:bg-[#0f171b] [&_.bg-slate-50]:bg-[#0b1418] [&_.border-slate-200]:border-teal-900/40 [&_.text-slate-900]:text-teal-50 [&_.text-slate-800]:text-teal-100 [&_.text-slate-700]:text-teal-200 [&_.text-slate-600]:text-teal-300 [&_.text-slate-500]:text-teal-400">
       <div className="mx-auto max-w-screen-2xl">
         <header className="mb-10 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-sm uppercase tracking-[0.3em] text-slate-500">Agentic Command Center</p>
