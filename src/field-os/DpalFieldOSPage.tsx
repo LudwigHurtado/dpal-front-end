@@ -1,6 +1,7 @@
 // src/field-os/DpalFieldOSPage.tsx
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import html2canvas from 'html2canvas';
 import { getWorkflowDefinitions } from './workflowRegistry';
 import { WorkflowRunner, WorkflowExecutionResult } from './workflowRunner';
 import { DpalLeadAgent } from './super-agent/DpalLeadAgent';
@@ -445,9 +446,15 @@ const DpalFieldOSPage: React.FC = () => {
   const [manualScreenshotUrl, setManualScreenshotUrl] = useState('');
   const [manualReviewerNote, setManualReviewerNote] = useState('');
   const [manualEvidenceAttachments, setManualEvidenceAttachments] = useState<ReviewerEvidenceAttachment[]>([]);
+  const [isScreenshotCaptureBusy, setIsScreenshotCaptureBusy] = useState(false);
+  const [screenshotCaptureError, setScreenshotCaptureError] = useState<string | null>(null);
 
   const caseWorkspaceRef = useRef<CaseWorkspace | null>(null);
   const executionTraceRef = useRef<ExecutionTraceService | null>(null);
+  const planSafetyPanelRef = useRef<HTMLDivElement | null>(null);
+  const workspaceTimelinePanelRef = useRef<HTMLDivElement | null>(null);
+  const previewExecutionPanelRef = useRef<HTMLDivElement | null>(null);
+  const evidencePackagePanelRef = useRef<HTMLDivElement | null>(null);
 
   const timelineEntries = useMemo(() => {
     if (!superAgentPlan) return [];
@@ -586,6 +593,7 @@ const DpalFieldOSPage: React.FC = () => {
     setManualScreenshotUrl('');
     setManualReviewerNote('');
     setManualEvidenceAttachments([]);
+    setScreenshotCaptureError(null);
 
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
@@ -747,6 +755,7 @@ const DpalFieldOSPage: React.FC = () => {
     setManualScreenshotUrl('');
     setManualReviewerNote('');
     setManualEvidenceAttachments([]);
+    setScreenshotCaptureError(null);
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
     setPersistVersion((v) => v + 1);
@@ -1052,9 +1061,67 @@ const DpalFieldOSPage: React.FC = () => {
     };
   };
 
+  const reviewerEvidencePackage = useMemo(
+    () => buildReviewerEvidencePackage(),
+    [superAgentPlan, mappedExecutionPlan, planExecutionResult, superAgentEvidenceRefs, manualEvidenceAttachments]
+  );
+
+  const captureScreenshotAttachment = async (
+    targetRef: React.RefObject<HTMLDivElement | null>,
+    title: string,
+    description: string
+  ) => {
+    if (!superAgentPlan) return;
+    const target = targetRef.current;
+    if (!target) {
+      setScreenshotCaptureError('Screenshot target area is not visible yet. Open the relevant tab and try again.');
+      return;
+    }
+    setScreenshotCaptureError(null);
+    setIsScreenshotCaptureBusy(true);
+    try {
+      const canvas = await html2canvas(target, {
+        scale: Math.min(2, window.devicePixelRatio || 1.5),
+        useCORS: true,
+        backgroundColor: '#0f171b',
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      // TODO: Upload screenshots to backend storage and send stable URLs in evidenceAttachments.
+      const attachment: ReviewerEvidenceAttachment = {
+        id: `screenshot-${Date.now()}`,
+        type: 'screenshot',
+        title,
+        description: `${description} Local screenshot capture — backend storage pending.`,
+        url: dataUrl,
+        thumbnailUrl: dataUrl,
+        source: 'field_os_screenshot_capture',
+        workflowId: 'super-agent',
+        claimLabels: superAgentPlan.claimLabels,
+        createdAt: new Date().toISOString(),
+      };
+      setManualEvidenceAttachments((prev) => [...prev, attachment]);
+    } catch (error) {
+      setScreenshotCaptureError(error instanceof Error ? error.message : 'Screenshot capture failed.');
+    } finally {
+      setIsScreenshotCaptureBusy(false);
+    }
+  };
+
+  const captureCurrentReportSnapshot = async () => {
+    const map: Record<SuperAgentWorkspaceTab, React.RefObject<HTMLDivElement | null>> = {
+      plan: planSafetyPanelRef,
+      workspace: workspaceTimelinePanelRef,
+      execution: previewExecutionPanelRef,
+    };
+    await captureScreenshotAttachment(
+      map[superAgentTab],
+      'Current report snapshot',
+      `Captured from Super Agent ${superAgentTab} tab (Preview / Dry Run).`
+    );
+  };
+
   const buildCaseSnapshot = (): SuperAgentCaseSnapshot => {
     const completionStatus = checkCompletionStatusLocal();
-    const evidencePackage = buildReviewerEvidencePackage();
     const approvalStatus = superAgentPlan
       ? Object.fromEntries(superAgentPlan.humanApprovalCheckpoints.map((id) => [id, Boolean(gateApprovals[id])]))
       : {};
@@ -1070,7 +1137,7 @@ const DpalFieldOSPage: React.FC = () => {
       mappedExecutionPlan,
       planExecutionResult,
       mappedWorkflows: mappedExecutionPlan?.mappedWorkflowIds ?? [],
-      pendingAdapters: evidencePackage.pendingAdapters,
+      pendingAdapters: reviewerEvidencePackage.pendingAdapters,
       evidenceRefs: superAgentEvidenceRefs
         .split(/\r?\n|,|;/)
         .map((line) => line.trim())
@@ -1078,8 +1145,8 @@ const DpalFieldOSPage: React.FC = () => {
       claimLabels: superAgentPlan?.claimLabels ?? {},
       limitations: superAgentPlan?.limitations ?? [],
       nextRecommendedAction: superAgentPlan?.nextRecommendedAction ?? '',
-      analysisSummaries: evidencePackage.analysisSummaries,
-      evidenceAttachments: evidencePackage.evidenceAttachments,
+      analysisSummaries: reviewerEvidencePackage.analysisSummaries,
+      evidenceAttachments: reviewerEvidencePackage.evidenceAttachments,
       subAgentOutputs: superAgentPlan?.subAgentOutputs ?? [],
       workflowPreviewArtifacts: planExecutionResult?.allArtifacts ?? [],
     };
@@ -1379,15 +1446,15 @@ const DpalFieldOSPage: React.FC = () => {
               ))}
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-slate-900">Super Agent Mode</h2>
-                  <p className="mt-3 text-slate-600">
+                  <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Super Agent Mode</h2>
+                  <p className="mt-2 text-base leading-relaxed text-slate-600 sm:mt-3">
                     Let DPAL decide which agents and tools are needed from a natural-language investigation goal.
                   </p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-slate-800">
+                <span className="rounded-full bg-teal-200/90 px-4 py-1.5 text-sm font-bold text-[#041316] ring-1 ring-teal-600/40">
                   Goal-driven planning
                 </span>
               </div>
@@ -1402,7 +1469,7 @@ const DpalFieldOSPage: React.FC = () => {
                   value={superAgentGoal}
                   onChange={(event) => setSuperAgentGoal(event.target.value)}
                   placeholder="Investigate whether this property shows vegetation decline and water stress from March to April 2026."
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-base leading-relaxed text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 />
                 <label className="block text-sm font-medium text-slate-700" htmlFor="super-agent-location">
                   Optional focus location
@@ -1413,7 +1480,7 @@ const DpalFieldOSPage: React.FC = () => {
                   value={superAgentLocation}
                   onChange={(event) => setSuperAgentLocation(event.target.value)}
                   placeholder="Example: 37.25, -119.80 or River Valley property"
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 />
 
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1426,7 +1493,7 @@ const DpalFieldOSPage: React.FC = () => {
                       type="date"
                       value={superAgentStartDate}
                       onChange={(event) => setSuperAgentStartDate(event.target.value)}
-                      className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                      className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert"
                     />
                   </div>
                   <div>
@@ -1438,7 +1505,7 @@ const DpalFieldOSPage: React.FC = () => {
                       type="date"
                       value={superAgentEndDate}
                       onChange={(event) => setSuperAgentEndDate(event.target.value)}
-                      className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                      className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-base text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200 [color-scheme:dark] [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:invert"
                     />
                   </div>
                 </div>
@@ -1452,7 +1519,7 @@ const DpalFieldOSPage: React.FC = () => {
                   value={superAgentEvidenceRefs}
                   onChange={(event) => setSuperAgentEvidenceRefs(event.target.value)}
                   placeholder="Paste evidence URLs, IDs, or source notes here."
-                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 p-4 text-base leading-relaxed text-slate-900 outline-none focus:border-slate-400 focus:ring-4 focus:ring-slate-200"
                 />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1473,31 +1540,101 @@ const DpalFieldOSPage: React.FC = () => {
               </div>
 
               {superAgentPlan && mappedExecutionPlan && (
-                <div className="mt-8 space-y-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mt-8 space-y-6 rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                   <div className="flex flex-col gap-3 border-b border-slate-200 pb-4 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Investigation workspace</p>
-                      <h3 className="mt-1 text-xl font-semibold text-slate-900">Super Agent output</h3>
-                      <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                      <h3 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">Super Agent output</h3>
+                      <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
                         Preview and Dry Run only — Pending live service adapter for production connectors. “Verified” language applies only when Human-verified is explicitly true on the plan.
                       </p>
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div ref={evidencePackagePanelRef} className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Evidence package for reviewer</p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {(['water', 'earthObservation', 'pollution', 'carbonViu'] as const).map((key) => {
-                            const summary = (buildReviewerEvidencePackage().analysisSummaries as Record<string, any>)[key];
+                            const summary = (reviewerEvidencePackage.analysisSummaries as Record<string, any>)[key];
                             return (
                               <div key={key} className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
                                 <p className="font-semibold text-slate-900">{key}</p>
-                                <p className="text-slate-600">{summary?.summary ?? 'Pending live service adapter / preview inputs'}</p>
+                                <p className="text-slate-600">
+                                  {summary?.summary ??
+                                    'No analysis summary yet. Run Planned Workflow Preview (Dry Run) or connect a live service adapter.'}
+                                </p>
                               </div>
                             );
                           })}
                           <div className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
                             <p className="font-semibold text-slate-900">Attachments / screenshots</p>
-                            <p className="text-slate-600">{buildReviewerEvidencePackage().evidenceAttachments.length} attachment(s) prepared</p>
+                            <p className="text-slate-600">{reviewerEvidencePackage.evidenceAttachments.length} attachment(s) prepared</p>
                           </div>
                         </div>
+                        {screenshotCaptureError && (
+                          <p className="mt-2 text-xs text-rose-700">{screenshotCaptureError}</p>
+                        )}
+                        <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          <button
+                            type="button"
+                            onClick={captureCurrentReportSnapshot}
+                            disabled={isScreenshotCaptureBusy}
+                            className="w-full rounded-full bg-cyan-100 px-3 py-2 text-xs font-semibold text-cyan-900 ring-1 ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            Capture Current Report Snapshot
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              captureScreenshotAttachment(
+                                previewExecutionPanelRef,
+                                'Preview & execution snapshot',
+                                'Captured from Preview & execution tab (Dry Run).'
+                              )
+                            }
+                            disabled={isScreenshotCaptureBusy}
+                            className="w-full rounded-full bg-cyan-100 px-3 py-2 text-xs font-semibold text-cyan-900 ring-1 ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            Capture Preview & Execution Snapshot
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              captureScreenshotAttachment(
+                                evidencePackagePanelRef,
+                                'Evidence package snapshot',
+                                'Captured from Evidence package for reviewer panel (Dry Run).'
+                              )
+                            }
+                            disabled={isScreenshotCaptureBusy}
+                            className="w-full rounded-full bg-cyan-100 px-3 py-2 text-xs font-semibold text-cyan-900 ring-1 ring-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
+                          >
+                            Capture Evidence Package Snapshot
+                          </button>
+                        </div>
+                        {manualEvidenceAttachments.filter((item) => item.type === 'screenshot').length > 0 && (
+                          <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                            {manualEvidenceAttachments
+                              .filter((item) => item.type === 'screenshot')
+                              .slice(-6)
+                              .map((shot) => (
+                                <a
+                                  key={shot.id}
+                                  href={shot.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="rounded-xl border border-slate-200 bg-white p-2 text-xs"
+                                >
+                                  <p className="font-semibold text-slate-900">{shot.title}</p>
+                                  {shot.thumbnailUrl && (
+                                    <img
+                                      src={shot.thumbnailUrl}
+                                      alt={shot.title}
+                                      className="mt-1 h-20 w-full rounded-md object-cover"
+                                    />
+                                  )}
+                                  <p className="mt-1 text-slate-600">{shot.description}</p>
+                                </a>
+                              ))}
+                          </div>
+                        )}
                         <div className="mt-2 grid gap-2 sm:grid-cols-3">
                           <input
                             value={manualEvidenceUrl}
@@ -1527,7 +1664,7 @@ const DpalFieldOSPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 lg:grid-cols-4">
                       <button
                         type="button"
                         onClick={() => {
@@ -1543,14 +1680,14 @@ const DpalFieldOSPage: React.FC = () => {
                         type="button"
                         onClick={createSuperAgentPlan}
                         disabled={superAgentStatus === 'planning'}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="rounded-full bg-teal-100/90 px-4 py-2 text-sm font-semibold text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Regenerate Plan
                       </button>
                       <button
                         type="button"
                         onClick={resetSuperAgentCaseState}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200"
+                        className="rounded-full bg-teal-100/90 px-4 py-2 text-sm font-semibold text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200"
                       >
                         Reset / Start New Case
                       </button>
@@ -1580,12 +1717,12 @@ const DpalFieldOSPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={exportCaseSnapshot}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200"
+                        className="rounded-full bg-teal-100/90 px-4 py-2 text-sm font-semibold text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200"
                       >
                         Export Case Snapshot
                       </button>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
                       {(['plan', 'workspace', 'execution'] as const).map((tab) => (
                         <button
                           key={tab}
@@ -1594,7 +1731,7 @@ const DpalFieldOSPage: React.FC = () => {
                           className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                             superAgentTab === tab
                               ? 'bg-slate-900 text-white shadow-sm'
-                              : 'bg-slate-50 text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100'
+                              : 'bg-teal-50 text-[#041316] ring-1 ring-teal-700/25 hover:bg-teal-100'
                           }`}
                         >
                           {tab === 'plan' ? 'Plan & safety' : tab === 'workspace' ? 'Workspace & timeline' : 'Preview & execution'}
@@ -1603,7 +1740,7 @@ const DpalFieldOSPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-5">
+                  <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                       <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active Case ID</p>
                       <p className="mt-1 font-mono text-sm text-slate-900">{superAgentPlan.caseId}</p>
@@ -1681,7 +1818,7 @@ const DpalFieldOSPage: React.FC = () => {
                   )}
 
                   {superAgentTab === 'plan' && (
-                  <div className="space-y-6">
+                  <div ref={planSafetyPanelRef} className="space-y-6">
                   <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                     <h3 className="text-lg font-semibold text-slate-900">Truth &amp; Claim Safety</h3>
                     <p className="mt-2 text-sm text-slate-600">
@@ -1858,7 +1995,7 @@ const DpalFieldOSPage: React.FC = () => {
                   )}
 
                   {superAgentTab === 'workspace' && (
-                  <div className="space-y-6">
+                  <div ref={workspaceTimelinePanelRef} className="space-y-6">
                   <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                     <div className="flex flex-col gap-1 border-b border-slate-200 pb-4">
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Case Workspace</p>
@@ -1964,7 +2101,7 @@ const DpalFieldOSPage: React.FC = () => {
                   )}
 
                   {superAgentTab === 'execution' && (
-                  <div className="space-y-6">
+                  <div ref={previewExecutionPanelRef} className="space-y-6">
                   <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <button
                       type="button"
