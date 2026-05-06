@@ -80,6 +80,16 @@ type SuperAgentCaseSnapshot = {
   humanApprovalRequired: boolean;
   mappedExecutionPlan: MappedExecutionPlan | null;
   planExecutionResult: ExecutionBridgeResult | null;
+  mappedWorkflows?: string[];
+  pendingAdapters?: string[];
+  evidenceRefs?: string[];
+  claimLabels?: Record<string, boolean>;
+  limitations?: string[];
+  nextRecommendedAction?: string;
+  analysisSummaries?: Record<string, unknown>;
+  evidenceAttachments?: ReviewerEvidenceAttachment[];
+  subAgentOutputs?: unknown[];
+  workflowPreviewArtifacts?: unknown[];
 };
 
 type ReviewStatusUi = {
@@ -90,6 +100,19 @@ type ReviewStatusUi = {
   reviewerNotes: Array<{ note?: string; at?: string; reviewerId?: string }>;
   reviewedAt: string | null;
   decision: string | null;
+};
+
+type ReviewerEvidenceAttachment = {
+  id: string;
+  type: 'screenshot' | 'map' | 'chart' | 'document' | 'scan_artifact' | 'url' | 'note';
+  title: string;
+  description: string;
+  url?: string;
+  thumbnailUrl?: string;
+  source: string;
+  workflowId?: string;
+  claimLabels?: Record<string, boolean>;
+  createdAt: string;
 };
 
 function deriveFinalActionsBlocked(
@@ -418,6 +441,10 @@ const DpalFieldOSPage: React.FC = () => {
   });
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [isReviewBusy, setIsReviewBusy] = useState(false);
+  const [manualEvidenceUrl, setManualEvidenceUrl] = useState('');
+  const [manualScreenshotUrl, setManualScreenshotUrl] = useState('');
+  const [manualReviewerNote, setManualReviewerNote] = useState('');
+  const [manualEvidenceAttachments, setManualEvidenceAttachments] = useState<ReviewerEvidenceAttachment[]>([]);
 
   const caseWorkspaceRef = useRef<CaseWorkspace | null>(null);
   const executionTraceRef = useRef<ExecutionTraceService | null>(null);
@@ -555,6 +582,10 @@ const DpalFieldOSPage: React.FC = () => {
     setLoopNextRecommendedAction(null);
     setExportSnapshotJson(null);
     setReviewError(null);
+    setManualEvidenceUrl('');
+    setManualScreenshotUrl('');
+    setManualReviewerNote('');
+    setManualEvidenceAttachments([]);
 
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
@@ -712,6 +743,10 @@ const DpalFieldOSPage: React.FC = () => {
       decision: null,
     });
     setReviewError(null);
+    setManualEvidenceUrl('');
+    setManualScreenshotUrl('');
+    setManualReviewerNote('');
+    setManualEvidenceAttachments([]);
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
     setPersistVersion((v) => v + 1);
@@ -837,8 +872,189 @@ const DpalFieldOSPage: React.FC = () => {
     setExportSnapshotJson(JSON.stringify(snapshot, null, 2));
   };
 
+  const addManualEvidenceAttachment = () => {
+    if (!manualEvidenceUrl.trim() && !manualScreenshotUrl.trim() && !manualReviewerNote.trim()) return;
+    const now = new Date().toISOString();
+    const items: ReviewerEvidenceAttachment[] = [];
+    if (manualEvidenceUrl.trim()) {
+      items.push({
+        id: `manual-url-${Date.now()}`,
+        type: 'url',
+        title: 'Manual evidence URL',
+        description: 'User-provided evidence reference URL.',
+        url: manualEvidenceUrl.trim(),
+        source: 'Field OS manual input',
+        createdAt: now,
+      });
+    }
+    if (manualScreenshotUrl.trim()) {
+      items.push({
+        id: `manual-shot-${Date.now()}`,
+        type: 'screenshot',
+        title: 'Manual screenshot URL',
+        description: 'User-provided screenshot URL for reviewer context.',
+        url: manualScreenshotUrl.trim(),
+        thumbnailUrl: manualScreenshotUrl.trim(),
+        source: 'Field OS manual input',
+        createdAt: now,
+      });
+    }
+    if (manualReviewerNote.trim()) {
+      items.push({
+        id: `manual-note-${Date.now()}`,
+        type: 'note',
+        title: 'Reviewer note',
+        description: manualReviewerNote.trim(),
+        source: 'Field OS manual input',
+        createdAt: now,
+      });
+    }
+    setManualEvidenceAttachments((prev) => [...prev, ...items]);
+    setManualEvidenceUrl('');
+    setManualScreenshotUrl('');
+    setManualReviewerNote('');
+  };
+
+  const buildReviewerEvidencePackage = () => {
+    const plan = superAgentPlan;
+    if (!plan) {
+      return {
+        analysisSummaries: {},
+        evidenceAttachments: [] as ReviewerEvidenceAttachment[],
+        pendingAdapters: [] as string[],
+      };
+    }
+    const ws = caseWorkspaceRef.current?.getState();
+    const pendingAdapters = mappedExecutionPlan?.pendingAdapters ?? ws?.pendingAdapters ?? [];
+    const outputByAgent = (id: string) => plan.subAgentOutputs?.find((o) => o.agentId === id);
+    const byWorkflow = (id: string) => planExecutionResult?.workflowResults.find((w) => w.workflowId === id);
+    const allArtifacts = planExecutionResult?.allArtifacts ?? [];
+    const waterOutput = outputByAgent('AquaScanAgent');
+    const eoOutput = outputByAgent('EarthObservationAgent');
+    const pollutionOutput = outputByAgent('CarbEmissionsAgent');
+    const viuOutput = outputByAgent('ValidatorAgent') ?? outputByAgent('ReportAgent');
+    const analysisSummaries = {
+      water: waterOutput || byWorkflow('aquascan-investigation')
+        ? {
+            title: 'Water analysis',
+            summary: waterOutput?.findings?.[0] ?? byWorkflow('aquascan-investigation')?.nextRecommendedAction ?? 'Pending water analysis details.',
+            findings: waterOutput?.findings ?? [],
+            artifacts: waterOutput?.artifacts ?? [],
+            confidence: waterOutput?.confidence ?? byWorkflow('aquascan-investigation')?.confidence ?? 'medium',
+            limitations: waterOutput?.limitations ?? [],
+            sourceWorkflowIds: ['aquascan-investigation'],
+            status: waterOutput?.status ?? byWorkflow('aquascan-investigation')?.status ?? 'pending',
+          }
+        : undefined,
+      earthObservation: eoOutput || byWorkflow('earth-observation-audit')
+        ? {
+            title: 'Vegetation / canopy analysis',
+            summary: eoOutput?.findings?.[0] ?? byWorkflow('earth-observation-audit')?.nextRecommendedAction ?? 'Pending vegetation/canopy analysis.',
+            vegetationHealth: eoOutput?.findings ?? [],
+            canopyChange: eoOutput?.findings ?? [],
+            ndviNotes: eoOutput?.limitations ?? [],
+            biomassRelevance: eoOutput?.findings ?? [],
+            artifacts: eoOutput?.artifacts ?? [],
+            confidence: eoOutput?.confidence ?? byWorkflow('earth-observation-audit')?.confidence ?? 'medium',
+            limitations: eoOutput?.limitations ?? [],
+            sourceWorkflowIds: ['earth-observation-audit'],
+            status: eoOutput?.status ?? byWorkflow('earth-observation-audit')?.status ?? 'pending',
+          }
+        : undefined,
+      pollution: pollutionOutput || byWorkflow('carb-emissions-audit')
+        ? {
+            title: 'Pollution / emissions analysis',
+            summary: pollutionOutput?.findings?.[0] ?? byWorkflow('carb-emissions-audit')?.nextRecommendedAction ?? 'Pending pollution/emissions analysis.',
+            carbOrEmissionsNotes: pollutionOutput?.findings ?? [],
+            sourceReconciliationNotes: pollutionOutput?.limitations ?? [],
+            artifacts: pollutionOutput?.artifacts ?? [],
+            confidence: pollutionOutput?.confidence ?? byWorkflow('carb-emissions-audit')?.confidence ?? 'medium',
+            limitations: pollutionOutput?.limitations ?? [],
+            sourceWorkflowIds: ['carb-emissions-audit'],
+            status: pollutionOutput?.status ?? byWorkflow('carb-emissions-audit')?.status ?? 'pending',
+          }
+        : undefined,
+      carbonViu: byWorkflow('carbon-viu-project') || viuOutput
+        ? {
+            title: 'Carbon / VIU analysis',
+            summary: byWorkflow('carbon-viu-project')?.nextRecommendedAction ?? viuOutput?.findings?.[0] ?? 'Pending VIU analysis.',
+            viuReadiness: byWorkflow('carbon-viu-project')?.status ?? 'pending',
+            biomassOrCO2eNotes: viuOutput?.findings ?? [],
+            issuanceStatus: 'Draft only (Dry Run)',
+            artifacts: viuOutput?.artifacts ?? [],
+            confidence: viuOutput?.confidence ?? byWorkflow('carbon-viu-project')?.confidence ?? 'medium',
+            limitations: viuOutput?.limitations ?? ['Pending live service adapter'],
+            sourceWorkflowIds: ['carbon-viu-project'],
+            status: byWorkflow('carbon-viu-project')?.status ?? viuOutput?.status ?? 'pending',
+          }
+        : undefined,
+    };
+    const parsedEvidenceRefs = superAgentEvidenceRefs
+      .split(/\r?\n|,|;/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    const refAttachments: ReviewerEvidenceAttachment[] = parsedEvidenceRefs.map((ref: string, idx: number) => {
+      const isUrl = /^https?:\/\//i.test(ref);
+      return {
+        id: `ref-${idx}-${plan.caseId}`,
+        type: isUrl ? 'url' : 'note',
+        title: isUrl ? 'Evidence URL reference' : 'Evidence reference note',
+        description: ref,
+        url: isUrl ? ref : undefined,
+        source: 'Super Agent evidenceRefs',
+        claimLabels: plan.claimLabels,
+        createdAt: new Date().toISOString(),
+      };
+    });
+    const artifactAttachments: ReviewerEvidenceAttachment[] = allArtifacts.map((artifact: any, idx: number) => ({
+      id: `artifact-${idx}-${plan.caseId}`,
+      type: 'scan_artifact',
+      title: String(artifact?.type || 'Workflow artifact'),
+      description: String(artifact?.id || 'Preview artifact from workflow execution'),
+      source: 'Workflow preview artifact',
+      claimLabels: plan.claimLabels,
+      createdAt: new Date().toISOString(),
+    }));
+    const pendingScreenshot: ReviewerEvidenceAttachment[] = manualEvidenceAttachments.some((a) => a.type === 'screenshot')
+      ? []
+      : [
+          {
+            id: `pending-screenshot-${plan.caseId}`,
+            type: 'note',
+            title: 'Pending screenshot capture',
+            description: 'Pending screenshot capture for reviewer packet (Dry Run).',
+            source: 'Field OS',
+            createdAt: new Date().toISOString(),
+          },
+        ];
+    const pendingAdapterAttachment: ReviewerEvidenceAttachment[] = pendingAdapters.length
+      ? [
+          {
+            id: `pending-adapter-${plan.caseId}`,
+            type: 'note',
+            title: 'Pending live service adapter',
+            description: pendingAdapters.join('; '),
+            source: 'PlanExecutionBridge',
+            createdAt: new Date().toISOString(),
+          },
+        ]
+      : [];
+    return {
+      analysisSummaries,
+      evidenceAttachments: [
+        ...refAttachments,
+        ...artifactAttachments,
+        ...pendingScreenshot,
+        ...pendingAdapterAttachment,
+        ...manualEvidenceAttachments,
+      ],
+      pendingAdapters,
+    };
+  };
+
   const buildCaseSnapshot = (): SuperAgentCaseSnapshot => {
     const completionStatus = checkCompletionStatusLocal();
+    const evidencePackage = buildReviewerEvidencePackage();
     const approvalStatus = superAgentPlan
       ? Object.fromEntries(superAgentPlan.humanApprovalCheckpoints.map((id) => [id, Boolean(gateApprovals[id])]))
       : {};
@@ -853,6 +1069,19 @@ const DpalFieldOSPage: React.FC = () => {
       humanApprovalRequired: humanApprovalRequiredUi,
       mappedExecutionPlan,
       planExecutionResult,
+      mappedWorkflows: mappedExecutionPlan?.mappedWorkflowIds ?? [],
+      pendingAdapters: evidencePackage.pendingAdapters,
+      evidenceRefs: superAgentEvidenceRefs
+        .split(/\r?\n|,|;/)
+        .map((line) => line.trim())
+        .filter(Boolean),
+      claimLabels: superAgentPlan?.claimLabels ?? {},
+      limitations: superAgentPlan?.limitations ?? [],
+      nextRecommendedAction: superAgentPlan?.nextRecommendedAction ?? '',
+      analysisSummaries: evidencePackage.analysisSummaries,
+      evidenceAttachments: evidencePackage.evidenceAttachments,
+      subAgentOutputs: superAgentPlan?.subAgentOutputs ?? [],
+      workflowPreviewArtifacts: planExecutionResult?.allArtifacts ?? [],
     };
   };
 
@@ -1252,6 +1481,51 @@ const DpalFieldOSPage: React.FC = () => {
                       <p className="mt-1 max-w-2xl text-sm text-slate-600">
                         Preview and Dry Run only — Pending live service adapter for production connectors. “Verified” language applies only when Human-verified is explicitly true on the plan.
                       </p>
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Evidence package for reviewer</p>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                          {(['water', 'earthObservation', 'pollution', 'carbonViu'] as const).map((key) => {
+                            const summary = (buildReviewerEvidencePackage().analysisSummaries as Record<string, any>)[key];
+                            return (
+                              <div key={key} className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
+                                <p className="font-semibold text-slate-900">{key}</p>
+                                <p className="text-slate-600">{summary?.summary ?? 'Pending live service adapter / preview inputs'}</p>
+                              </div>
+                            );
+                          })}
+                          <div className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
+                            <p className="font-semibold text-slate-900">Attachments / screenshots</p>
+                            <p className="text-slate-600">{buildReviewerEvidencePackage().evidenceAttachments.length} attachment(s) prepared</p>
+                          </div>
+                        </div>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                          <input
+                            value={manualEvidenceUrl}
+                            onChange={(e) => setManualEvidenceUrl(e.target.value)}
+                            placeholder="Add evidence URL"
+                            className="rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900"
+                          />
+                          <input
+                            value={manualScreenshotUrl}
+                            onChange={(e) => setManualScreenshotUrl(e.target.value)}
+                            placeholder="Add screenshot URL"
+                            className="rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900"
+                          />
+                          <input
+                            value={manualReviewerNote}
+                            onChange={(e) => setManualReviewerNote(e.target.value)}
+                            placeholder="Add note for reviewer"
+                            className="rounded-xl border border-slate-200 bg-white p-2 text-xs text-slate-900"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={addManualEvidenceAttachment}
+                          className="mt-2 rounded-full bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Add evidence attachment
+                        </button>
+                      </div>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button

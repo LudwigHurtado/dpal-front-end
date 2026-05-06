@@ -17,6 +17,16 @@ export type ReviewerCaseSnapshot = {
   approvalStatus: Record<string, boolean>;
   finalActionsBlocked: boolean;
   humanApprovalRequired: boolean;
+  pendingAdapters?: string[];
+  mappedWorkflows?: string[];
+  evidenceRefs?: string[];
+  claimLabels?: Record<string, boolean>;
+  limitations?: string[];
+  nextRecommendedAction?: string;
+  analysisSummaries?: Record<string, unknown>;
+  evidenceAttachments?: unknown[];
+  subAgentOutputs?: unknown[];
+  workflowPreviewArtifacts?: unknown[];
 };
 
 export type ReviewerSubmissionResponse = {
@@ -75,18 +85,23 @@ export async function submitCaseForReview(caseSnapshot: ReviewerCaseSnapshot): P
     goal: plan.goal,
     location: plan.location || '',
     dateRange: plan.dateRange || {},
-    evidenceRefs: toArray(plan.evidenceRefs),
-    claimLabels: plan.claimLabels || {},
-    limitations: toArray(plan.limitations),
+    evidenceRefs: toArray(caseSnapshot.evidenceRefs ?? plan.evidenceRefs),
+    claimLabels: caseSnapshot.claimLabels || plan.claimLabels || {},
+    limitations: toArray(caseSnapshot.limitations ?? plan.limitations),
     caseWorkspace: caseSnapshot.currentCaseWorkspace || {},
     evidenceTimeline: toArray(caseSnapshot.evidenceTimeline),
     executionTraces: toArray(caseSnapshot.executionTraces),
-    mappedWorkflows: toArray(caseSnapshot.mappedExecutionPlan?.mappedWorkflowIds),
+    mappedWorkflows: toArray(caseSnapshot.mappedWorkflows ?? caseSnapshot.mappedExecutionPlan?.mappedWorkflowIds),
+    pendingAdapters: toArray(caseSnapshot.pendingAdapters),
     artifacts: toArray(caseSnapshot.planExecutionResult?.allArtifacts),
+    workflowPreviewArtifacts: toArray(caseSnapshot.workflowPreviewArtifacts),
+    subAgentOutputs: toArray(caseSnapshot.subAgentOutputs),
+    analysisSummaries: caseSnapshot.analysisSummaries || {},
+    evidenceAttachments: toArray(caseSnapshot.evidenceAttachments),
     approvalStatus: caseSnapshot.approvalStatus || {},
     finalActionsBlocked: Boolean(caseSnapshot.finalActionsBlocked),
     humanApprovalRequired: Boolean(caseSnapshot.humanApprovalRequired),
-    nextRecommendedAction: plan.nextRecommendedAction || '',
+    nextRecommendedAction: caseSnapshot.nextRecommendedAction || plan.nextRecommendedAction || '',
   };
 
   const url = `${reviewerApiBase()}/reviewer/v1/verifier/cases`;
