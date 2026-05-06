@@ -6,13 +6,25 @@ export class CarbEmissionsAgent {
   agentId = 'carb-emissions-agent';
   name = 'CARB Emissions Agent';
 
-  async executeTask(goal: string, location?: string): Promise<SubAgentOutput> {
+  async executeTask(
+    goal: string,
+    location?: string,
+    dateRange?: { startDate?: string; endDate?: string }
+  ): Promise<SubAgentOutput> {
+    const dateRangeText =
+      dateRange?.startDate || dateRange?.endDate
+        ? `${dateRange?.startDate ?? '…'} to ${dateRange?.endDate ?? '…'}`
+        : 'unspecified';
     return {
       agentId: this.agentId,
       name: this.name,
       task: 'Frame CARB emissions audit scope',
       status: 'completed',
-      findings: [`Dry-run CARB audit scope for goal: ${goal}`, `Relevant location: ${location || 'unspecified'}`],
+      findings: [
+        `Dry-run CARB audit scope for goal: ${goal}`,
+        `Relevant location: ${location || 'unspecified'}`,
+        `Date range focus: ${dateRangeText}`,
+      ],
       artifacts: ['carb_audit_scope'],
       confidence: 'medium',
       limitations: ['Pending live CARB data adapter.'],

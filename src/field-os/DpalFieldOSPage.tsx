@@ -13,6 +13,7 @@ import {
 import { APPROVAL_GATES } from './super-agent/runtime/humanApprovalGate';
 import { CaseWorkspace, CaseWorkspaceState } from './super-agent/runtime/caseWorkspace';
 import { ExecutionTraceService, ExecutionTrace } from './super-agent/runtime/executionTraceService';
+import { SuperAgentCompletionStatus } from './super-agent/runtime/superAgentRuntime';
 
 const runner = new WorkflowRunner();
 
@@ -61,6 +62,19 @@ type UiExecutionTraceRow = {
   timestamp?: Date;
   outputSummary: string;
   status: string;
+};
+
+type SuperAgentCaseSnapshot = {
+  currentPlan: SuperAgentPlan | null;
+  currentCaseWorkspace: CaseWorkspaceState | null;
+  evidenceTimeline: EvidenceTimelineEntry[];
+  executionTraces: UiExecutionTraceRow[];
+  completionStatus: SuperAgentCompletionStatus;
+  approvalStatus: Record<string, boolean>;
+  finalActionsBlocked: boolean;
+  humanApprovalRequired: boolean;
+  mappedExecutionPlan: MappedExecutionPlan | null;
+  planExecutionResult: ExecutionBridgeResult | null;
 };
 
 function deriveFinalActionsBlocked(
@@ -376,6 +390,8 @@ const DpalFieldOSPage: React.FC = () => {
   const [superAgentTab, setSuperAgentTab] = useState<SuperAgentWorkspaceTab>('plan');
   const [investigationTimes, setInvestigationTimes] = useState<InvestigationTimes>({});
   const [persistVersion, setPersistVersion] = useState(0);
+  const [loopNextRecommendedAction, setLoopNextRecommendedAction] = useState<string | null>(null);
+  const [exportSnapshotJson, setExportSnapshotJson] = useState<string | null>(null);
 
   const caseWorkspaceRef = useRef<CaseWorkspace | null>(null);
   const executionTraceRef = useRef<ExecutionTraceService | null>(null);
@@ -430,6 +446,15 @@ const DpalFieldOSPage: React.FC = () => {
     }
     return deriveFinalActionsBlocked(superAgentPlan.humanApprovalCheckpoints, gateApprovals, planExecutionResult);
   }, [superAgentPlan, gateApprovals, planExecutionResult, persistVersion]);
+
+  const humanApprovalRequiredUi = useMemo(() => {
+    if (!superAgentPlan) return false;
+    const ws = caseWorkspaceRef.current;
+    if (ws && ws.getState().caseId === superAgentPlan.caseId) {
+      return ws.getState().humanApprovalRequired;
+    }
+    return superAgentPlan.humanApprovalCheckpoints.some((id) => !gateApprovals[id]);
+  }, [superAgentPlan, gateApprovals, persistVersion]);
 
   useEffect(() => {
     if (!superAgentPlan || !caseWorkspaceRef.current) return;
@@ -501,6 +526,8 @@ const DpalFieldOSPage: React.FC = () => {
     setGateApprovals({});
     setInvestigationTimes({});
     setSuperAgentTab('plan');
+    setLoopNextRecommendedAction(null);
+    setExportSnapshotJson(null);
 
     caseWorkspaceRef.current = null;
     executionTraceRef.current = null;
@@ -634,6 +661,143 @@ const DpalFieldOSPage: React.FC = () => {
       setSuperAgentError(planError instanceof Error ? planError.message : 'Failed to create a Super Agent plan.');
       setSuperAgentStatus('error');
     }
+  };
+
+  const resetSuperAgentCaseState = () => {
+    setSuperAgentPlan(null);
+    setMappedExecutionPlan(null);
+    setPlanExecutionResult(null);
+    setPlanExecutionError(null);
+    setGateApprovals({});
+    setInvestigationTimes({});
+    setSuperAgentStatus('idle');
+    setSuperAgentError(null);
+    setSuperAgentTab('plan');
+    setLoopNextRecommendedAction(null);
+    setExportSnapshotJson(null);
+    caseWorkspaceRef.current = null;
+    executionTraceRef.current = null;
+    setPersistVersion((v) => v + 1);
+  };
+
+  const checkCompletionStatusLocal = (): SuperAgentCompletionStatus => {
+    if (!superAgentPlan) {
+      return {
+        caseId: '',
+        planComplete: false,
+        previewRun: false,
+        evidenceSufficient: false,
+        approvalsCleared: false,
+        finalActionsBlocked: true,
+        missingInputs: ['goal'],
+        pendingAdapters: [],
+        nextRecommendedAction: 'Generate a Super Agent plan first (Preview / Dry Run only).',
+        loopShouldContinue: true,
+      };
+    }
+
+    const missingInputs: string[] = [];
+    if (!superAgentGoal.trim()) missingInputs.push('goal');
+    if (!superAgentLocation.trim()) missingInputs.push('location');
+    if (!superAgentStartDate.trim() || !superAgentEndDate.trim()) missingInputs.push('dateRange');
+    const evidenceRefs = superAgentEvidenceRefs
+      .split(/\r?\n|,|;/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (evidenceRefs.length === 0) missingInputs.push('evidenceRefs');
+
+    const planComplete = missingInputs.length === 0;
+    const preview = planExecutionResult;
+    const previewRun = Boolean(preview);
+    const previewHealthy = Boolean(preview && preview.status !== 'failed' && preview.dryRunPreviewCompleted);
+    const approvalsCleared =
+      superAgentPlan.humanApprovalCheckpoints.length === 0 ||
+      superAgentPlan.humanApprovalCheckpoints.every((id) => gateApprovals[id] === true);
+    const pendingAdapters = mappedExecutionPlan?.pendingAdapters ?? [];
+    const evidenceSufficient = evidenceRefs.length > 0 || previewHealthy;
+
+    let loopShouldContinue = true;
+    let nextRecommendedAction = superAgentPlan.nextRecommendedAction;
+    if (!planComplete) {
+      nextRecommendedAction = `Provide missing inputs for the completion promise: ${missingInputs.join(', ')} (Preview only).`;
+    } else if (!previewRun) {
+      nextRecommendedAction =
+        'Run Planned Workflow Preview (Dry Run) to continue this case; Pending live service adapter for live systems.';
+    } else if (!previewHealthy) {
+      nextRecommendedAction =
+        'Preview indicates failures or incomplete Dry Run; review workflow results and rerun Preview.';
+    } else if (!approvalsCleared) {
+      nextRecommendedAction =
+        'Human approval required — check all approval gates before final actions can clear.';
+    } else {
+      loopShouldContinue = false;
+      nextRecommendedAction =
+        'Dry Run Preview complete for this session; final actions may proceed only with explicit approvals and live adapters.';
+      if (pendingAdapters.length > 0) {
+        nextRecommendedAction += ` Pending live service adapter (informational): ${pendingAdapters.join('; ')}.`;
+      }
+    }
+
+    return {
+      caseId: superAgentPlan.caseId,
+      planComplete,
+      previewRun,
+      evidenceSufficient,
+      approvalsCleared,
+      finalActionsBlocked: finalActionsBlockedUi,
+      missingInputs,
+      pendingAdapters,
+      nextRecommendedAction,
+      loopShouldContinue,
+    };
+  };
+
+  const continueSuperAgentLoop = () => {
+    if (!superAgentPlan) return;
+    const completion = checkCompletionStatusLocal();
+    setLoopNextRecommendedAction(completion.nextRecommendedAction);
+    const ws = caseWorkspaceRef.current;
+    const traceSvc = executionTraceRef.current;
+    const cid = superAgentPlan.caseId;
+    if (ws && ws.getState().caseId === cid) {
+      ws.addEvidenceTimelineEvent(
+        'Super Agent loop — completion check (Dry Run)',
+        `${completion.loopShouldContinue ? 'Continue' : 'Ready for next phase'}: ${completion.nextRecommendedAction}`
+      );
+    }
+    if (traceSvc) {
+      traceSvc.recordTrace(
+        'SuperAgentRuntime',
+        'Super Agent loop — completion check (Dry Run)',
+        'SuperAgentRuntime',
+        'dry-run',
+        completion,
+        completion.nextRecommendedAction,
+        'success',
+        cid
+      );
+    }
+    setPersistVersion((v) => v + 1);
+  };
+
+  const exportCaseSnapshot = () => {
+    const completionStatus = checkCompletionStatusLocal();
+    const approvalStatus = superAgentPlan
+      ? Object.fromEntries(superAgentPlan.humanApprovalCheckpoints.map((id) => [id, Boolean(gateApprovals[id])]))
+      : {};
+    const snapshot: SuperAgentCaseSnapshot = {
+      currentPlan: superAgentPlan,
+      currentCaseWorkspace: caseWorkspaceRef.current?.getState() ?? null,
+      evidenceTimeline: timelineEntries,
+      executionTraces: executionTraceRows,
+      completionStatus,
+      approvalStatus,
+      finalActionsBlocked: finalActionsBlockedUi,
+      humanApprovalRequired: humanApprovalRequiredUi,
+      mappedExecutionPlan,
+      planExecutionResult,
+    };
+    setExportSnapshotJson(JSON.stringify(snapshot, null, 2));
   };
 
   const runPlannedWorkflow = async () => {
@@ -939,6 +1103,48 @@ const DpalFieldOSPage: React.FC = () => {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSuperAgentTab('execution');
+                          runPlannedWorkflow();
+                        }}
+                        disabled={!superAgentPlan || isPlanExecutionRunning}
+                        className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        Run Planned Workflow Preview
+                      </button>
+                      <button
+                        type="button"
+                        onClick={createSuperAgentPlan}
+                        disabled={superAgentStatus === 'planning'}
+                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-70"
+                      >
+                        Regenerate Plan
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetSuperAgentCaseState}
+                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200"
+                      >
+                        Reset / Start New Case
+                      </button>
+                      <button
+                        type="button"
+                        onClick={continueSuperAgentLoop}
+                        className="rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-200"
+                      >
+                        Continue Loop
+                      </button>
+                      <button
+                        type="button"
+                        onClick={exportCaseSnapshot}
+                        className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200"
+                      >
+                        Export Case Snapshot
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
                       {(['plan', 'workspace', 'execution'] as const).map((tab) => (
                         <button
                           key={tab}
@@ -955,6 +1161,47 @@ const DpalFieldOSPage: React.FC = () => {
                       ))}
                     </div>
                   </div>
+
+                  <div className="grid gap-3 sm:grid-cols-5">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Active Case ID</p>
+                      <p className="mt-1 font-mono text-sm text-slate-900">{superAgentPlan.caseId}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Last Plan Generated</p>
+                      <p className="mt-1 text-sm text-slate-900">{investigationTimes.planGenerated?.toLocaleString() ?? '—'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Last Preview Run</p>
+                      <p className="mt-1 text-sm text-slate-900">{investigationTimes.previewCompleted?.toLocaleString() ?? '—'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Final Actions Blocked</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{finalActionsBlockedUi ? 'true' : 'false'}</p>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Human Approval Required</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{humanApprovalRequiredUi ? 'true' : 'false'}</p>
+                    </div>
+                  </div>
+
+                  {loopNextRecommendedAction && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+                      <span className="font-semibold">Loop next action:</span> {loopNextRecommendedAction}
+                    </div>
+                  )}
+
+                  {exportSnapshotJson && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">Case snapshot JSON</p>
+                      <textarea
+                        readOnly
+                        value={exportSnapshotJson}
+                        rows={12}
+                        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white p-3 font-mono text-xs text-slate-900"
+                      />
+                    </div>
+                  )}
 
                   {superAgentTab === 'plan' && (
                   <div className="space-y-6">

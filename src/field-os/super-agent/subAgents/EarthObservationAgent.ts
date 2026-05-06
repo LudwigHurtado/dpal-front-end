@@ -6,13 +6,25 @@ export class EarthObservationAgent {
   agentId = 'earth-observation-agent';
   name = 'Earth Observation Agent';
 
-  async executeTask(goal: string, location?: string): Promise<SubAgentOutput> {
+  async executeTask(
+    goal: string,
+    location?: string,
+    dateRange?: { startDate?: string; endDate?: string }
+  ): Promise<SubAgentOutput> {
+    const dateRangeText =
+      dateRange?.startDate || dateRange?.endDate
+        ? `${dateRange?.startDate ?? '…'} to ${dateRange?.endDate ?? '…'}`
+        : 'unspecified';
     return {
       agentId: this.agentId,
       name: this.name,
       task: 'Generate earth observation audit criteria',
       status: 'completed',
-      findings: [`Dry-run Earth Observation plan for goal: ${goal}`, `Location focus: ${location || 'unspecified'}`],
+      findings: [
+        `Dry-run Earth Observation plan for goal: ${goal}`,
+        `Location focus: ${location || 'unspecified'}`,
+        `Date range focus: ${dateRangeText}`,
+      ],
       artifacts: ['earth_observation_plan'],
       confidence: 'medium',
       limitations: ['Pending live Earth Observation adapter.'],

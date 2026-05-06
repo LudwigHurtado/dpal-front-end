@@ -12,7 +12,11 @@ export class DpalLeadAgent {
     /** Completion promise: loop treats missing optional fields as incomplete until supplied (Preview scope). */
     const requiredInputs = ['goal', 'location', 'dateRange', 'evidenceRefs'];
     const subAgentsNeeded = this.selectSubAgents(input.goal);
-    const subAgentOutputs = await this.orchestrator.executeAgents(subAgentsNeeded, input.goal, input.location);
+    const subAgentOutputs = await this.orchestrator.executeAgents(subAgentsNeeded, input.goal, {
+      location: input.location,
+      dateRange: input.dateRange,
+      evidenceRefs: input.evidenceRefs,
+    });
     const plannedSteps = this.buildSteps(subAgentsNeeded, input);
     const expectedArtifacts = ['report', 'evidence', 'validation', 'timeline'];
     const humanApprovalCheckpoints = ['final_report_publication', 'public_qr_publication', 'blockchain_anchoring', 'validator_submission', 'legal_packet_export', 'viu_draft_issuance'];
