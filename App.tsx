@@ -135,6 +135,7 @@ import EmissionsIntegrityAuditPage from './src/features/emissionsIntegrity/Emiss
 import CarbEmissionsAuditPage from './src/features/carbEmissionsAudit/CarbEmissionsAuditPage';
 import HazardousWasteAuditPage from './src/features/hazardousWasteAudit/HazardousWasteAuditPage';
 import EnvironmentalIntelligenceHubView from './components/EnvironmentalIntelligenceHubView';
+import DpalInfographicsGalleryView from './components/DpalInfographicsGalleryView';
 import PrivateHubMenuView from './components/PrivateHubMenuView';
 import EnvironmentalCommandCenter from './src/features/environmentalPreview/EnvironmentalCommandCenter';
 import EnvironmentalIntelligenceHub from './src/features/environmentalPreview/EnvironmentalIntelligenceHub';
@@ -145,8 +146,9 @@ import EpaLiveDashboard from './src/environmental/epa-live/EpaLiveDashboard';
 import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvidencePage';
 import type { EpaFacilityProfile } from './src/types/epa';
 import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
+import DpalFieldOSPage from './src/field-os/DpalFieldOSPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2645,6 +2647,10 @@ const App: React.FC = () => {
           />
         )}
 
+        {currentView === 'dpalInfographicsGallery' && (
+          <DpalInfographicsGalleryView onReturn={() => goBack('environmentalIntelligenceHub')} />
+        )}
+
         {currentView === 'epaGhgLive' && (
           <EpaLiveDashboard
             onOpenFacilityPage={(facilityId, snapshot) => openEpaFacilityDetail(facilityId, snapshot)}
@@ -2735,6 +2741,8 @@ const App: React.FC = () => {
           />
         )}
 
+        {currentView === 'fieldOS' && <DpalFieldOSPage />}
+
         {currentView === 'hazardousWasteAudit' && (
           <HazardousWasteAuditPage
             onReturn={() => goBack('mainMenu')}
@@ -2752,8 +2760,6 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
-            onOpenAquaScanReport={openAquaScanReportViewer}
-            onOpenAquaScanSituationRoom={openAquaScanSituationRoom}
           />
         )}
 
@@ -2762,8 +2768,6 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
-            onOpenAquaScanReport={openAquaScanReportViewer}
-            onOpenAquaScanSituationRoom={openAquaScanSituationRoom}
           />
         )}
 
@@ -2772,8 +2776,6 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
-            onOpenAquaScanReport={openAquaScanReportViewer}
-            onOpenAquaScanSituationRoom={openAquaScanSituationRoom}
           />
         )}
 

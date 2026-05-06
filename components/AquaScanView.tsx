@@ -53,25 +53,10 @@ import AquaScanIntelligenceReader, {
   formatCalculationHistoryHeadline,
   type AquaScanCalculationHistoryEntry,
 } from './aquascan/AquaScanIntelligenceReader';
-import AquaScanReportPanel from './aquascan/AquaScanReportPanel';
-import {
-  buildAquaScanEvidenceReport,
-  saveAquaScanEvidenceReport,
-} from '../services/aquascanReportService';
-import {
-  logAquaScanReportToLedger,
-  updateAquaScanReportPdfHash,
-} from '../services/aquascanReportLedgerService';
-import { generateAquaScanEvidencePdf } from '../services/aquascanPdfReportService';
-import { generateQrCodeDataUrl } from '../utils/qrUtils';
-import type { AquaScanEvidenceReport } from '../types/aquascanReport';
-
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
   onOpenWaterOperations?: () => void;
-  onOpenAquaScanReport?: (reportId: string) => void;
-  onOpenAquaScanSituationRoom?: (roomId: string) => void;
 }
 
 interface FocusLocation {
@@ -162,7 +147,6 @@ type AquaScanWorkflowStateInput = {
   selectedFocusLocation: FocusLocation | null;
   mapCenter: [number, number];
   evidencePacketGenerated: boolean;
-  report: AquaScanEvidenceReport | null;
 };
 
 type AquaScanWorkflowState = {
@@ -178,11 +162,6 @@ type AquaScanWorkflowState = {
   hasAnyComparisonSource: boolean;
   hasFocusPoint: boolean;
   canRunComparison: boolean;
-  canGeneratePreliminaryReport: boolean;
-  canGenerateCalculatedReport: boolean;
-  canGenerateHistoryReport: boolean;
-  canGenerateAnyReport: boolean;
-  hasReport: boolean;
   evidencePacketStatus: 'done' | 'optional';
   actionStatus: 'locked' | 'ready' | 'done';
 };
@@ -205,14 +184,12 @@ function deriveAquaScanWorkflowState(input: AquaScanWorkflowStateInput): AquaSca
   const hasFocusPoint = Boolean(input.selectedFocusLocation)
     || (Number.isFinite(input.mapCenter[0]) && Number.isFinite(input.mapCenter[1]));
   const canRunComparison = input.hasReadySavedAoi && hasSelectedIndex && hasBeforeDates && hasAfterDates;
-  const canGeneratePreliminaryReport = hasValidAoi && hasSelectedIndex;
-  const canGenerateCalculatedReport = hasActiveComparison;
-  const canGenerateHistoryReport = hasSavedHistory;
-  const canGenerateAnyReport =
-    canGeneratePreliminaryReport || canGenerateCalculatedReport || canGenerateHistoryReport;
-  const hasReport = Boolean(input.report);
   const evidencePacketStatus = input.evidencePacketGenerated ? 'done' : 'optional';
-  const actionStatus = hasReport ? 'done' : (canGenerateAnyReport || hasAnyComparisonSource ? 'ready' : 'locked');
+  const actionStatus = hasActiveComparison
+    ? 'done'
+    : hasComparisonSetup || hasSavedHistory || hasAnyComparisonSource
+      ? 'ready'
+      : 'locked';
 
   return {
     hasDraftAoi,
@@ -227,11 +204,6 @@ function deriveAquaScanWorkflowState(input: AquaScanWorkflowStateInput): AquaSca
     hasAnyComparisonSource,
     hasFocusPoint,
     canRunComparison,
-    canGeneratePreliminaryReport,
-    canGenerateCalculatedReport,
-    canGenerateHistoryReport,
-    canGenerateAnyReport,
-    hasReport,
     evidencePacketStatus,
     actionStatus,
   };
@@ -670,8 +642,6 @@ export default function AquaScanView({
   onReturn,
   hero,
   onOpenWaterOperations,
-  onOpenAquaScanReport,
-  onOpenAquaScanSituationRoom,
 }: AquaScanViewProps) {
   const [projects, setProjects] = useState<AquaScanProject[]>([]);
   const [helpersExpanded, setHelpersExpanded] = useState(false);
@@ -681,9 +651,6 @@ export default function AquaScanView({
   const [showPacket, setShowPacket] = useState(false);
   const [showGuide, setShowGuide] = useState(true);
   const [actionNotice, setActionNotice] = useState<string>('');
-  const [reportNotice, setReportNotice] = useState<string | null>(null);
-  const [reportBusy, setReportBusy] = useState(false);
-  const [generatedReport, setGeneratedReport] = useState<AquaScanEvidenceReport | null>(null);
   const [commandTick, setCommandTick] = useState(0);
   const [mapCommand, setMapCommand] = useState<'none' | 'zoomIn' | 'zoomOut' | 'panNorth' | 'panSouth' | 'panEast' | 'panWest' | 'reset'>('none');
   const [mapExpanded, setMapExpanded] = useState(false);
@@ -815,8 +782,6 @@ export default function AquaScanView({
   );
   const hasSavedAoi = Boolean(savedAoiGeoJson);
   const readySavedAoi = hasSavedAoi && !drawingAoi;
-  const generatedReportMatchesProject = generatedReport?.projectId === selectedProject.id;
-  const activeGeneratedReport = generatedReportMatchesProject ? generatedReport : null;
   const workflowState = useMemo(
     () => deriveAquaScanWorkflowState({
       draftAoiPoints: aoiPoints,
@@ -831,10 +796,8 @@ export default function AquaScanView({
       selectedFocusLocation,
       mapCenter,
       evidencePacketGenerated: showPacket,
-      report: activeGeneratedReport,
     }),
     [
-      activeGeneratedReport,
       aoiPoints,
       afterRange,
       beforeRange,
@@ -1839,15 +1802,6 @@ export default function AquaScanView({
   }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResultForPacket, evidencePacket, intelligenceReader.confidenceInterpretation, intelligenceReader.evidenceNeeded, intelligenceReader.keyFindings, intelligenceReader.limitations, intelligenceReader.recommendedActions, intelligenceReader.suggestedQuestions, intelligenceReader.summary, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
 
   const activeHistoryResult = displayedHistoryItem;
-  const hasBasicReportSource = Boolean(
-    hasCurrentComparisonResult
-    || activeHistoryResult
-    || selectedFocusLocation
-    || readySavedAoi
-    || selectedProject.projectName.trim()
-    || selectedProject.locationName.trim(),
-  );
-  const canGenerateReport = workflowState.canGenerateAnyReport;
   const comparisonSetupReady = Boolean(readySavedAoi && comparisonIndexType && beforeRange.from && beforeRange.to && afterRange.from && afterRange.to);
   const scanStatusLabel = selectedFocusLocation
     ? waterData
@@ -1872,361 +1826,12 @@ export default function AquaScanView({
       : hasCurrentComparisonResult
         ? 'Complete'
         : 'Not run';
-  const reportReadinessLabel = hasCurrentComparisonResult
-    ? 'Report: Ready to generate'
-    : activeHistoryResult
-      ? 'Report: Ready from saved history'
-      : hasBasicReportSource
-        ? 'Report: Ready from preliminary state'
-        : 'Report: Waiting for map or project state';
 
   useEffect(() => {
     if ((import.meta as any).env?.DEV) {
       console.debug('AquaScan workflow state', workflowState);
     }
   }, [workflowState]);
-
-  function buildIndexEntry(beforeValue: number | null, afterValue: number | null, percentChange: number | null) {
-    const safeBefore = typeof beforeValue === 'number' && Number.isFinite(beforeValue) ? beforeValue : undefined;
-    const safeAfter = typeof afterValue === 'number' && Number.isFinite(afterValue) ? afterValue : undefined;
-    const safePercent = typeof percentChange === 'number' && Number.isFinite(percentChange) ? percentChange : undefined;
-    const change =
-      safeBefore != null && safeAfter != null
-        ? Number((safeAfter - safeBefore).toFixed(6))
-        : undefined;
-    return {
-      before: safeBefore,
-      after: safeAfter,
-      change,
-      percentChange: safePercent,
-    };
-  }
-
-  function reportIndexKey(indexType: CopernicusIndexType): 'ndwi' | 'ndvi' | 'ndmi' | 'nbr' {
-    if (indexType === 'NDVI') return 'ndvi';
-    if (indexType === 'NDMI') return 'ndmi';
-    if (indexType === 'NBR') return 'nbr';
-    return 'ndwi';
-  }
-
-  async function buildReportIndices(
-    sourceContext: ReturnType<typeof buildReportSourceContext>,
-    historyItem?: AquaScanCalculationHistoryEntry | null,
-  ): Promise<{
-    indices: {
-      ndwi?: ReturnType<typeof buildIndexEntry>;
-      ndvi?: ReturnType<typeof buildIndexEntry>;
-      ndmi?: ReturnType<typeof buildIndexEntry>;
-      nbr?: ReturnType<typeof buildIndexEntry>;
-    };
-    unavailable: string[];
-    autoFetched: string[];
-  }> {
-    const indices = {
-      ndwi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-      ndvi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-      ndmi: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-      nbr: undefined as ReturnType<typeof buildIndexEntry> | undefined,
-    };
-    const unavailable = new Set<string>();
-    const autoFetched = new Set<string>();
-    const requestedIndexes: CopernicusIndexType[] = ['NDWI', 'NDVI', 'NDMI', 'NBR'];
-
-    if (sourceContext.result?.indexType) {
-      indices[reportIndexKey(sourceContext.result.indexType)] = buildIndexEntry(
-        sourceContext.result.before.mean ?? null,
-        sourceContext.result.after.mean ?? null,
-        sourceContext.result.delta.percentChange ?? null,
-      );
-    }
-
-    const canAutoFetchAllIndexes = Boolean(
-      savedAoiGeoJson
-      && readySavedAoi
-      && sourceContext.beforeWindow?.from
-      && sourceContext.beforeWindow?.to
-      && sourceContext.afterWindow?.from
-      && sourceContext.afterWindow?.to
-      && (!historyItem || historyItem.setupSignature === currentComparisonSetupSignature),
-    );
-
-    if (canAutoFetchAllIndexes && savedAoiGeoJson) {
-      const collection = sourceContext.result?.collection ?? comparisonCollection;
-      const settled = await Promise.allSettled(
-        requestedIndexes.map(async (indexType) => {
-          if (sourceContext.result?.indexType === indexType && indices[reportIndexKey(indexType)]) {
-            return { indexType, result: sourceContext.result, fetched: false };
-          }
-          const result = await fetchAoiStatisticsComparison({
-            aoiGeoJson: savedAoiGeoJson,
-            indexType,
-            collection,
-            before: {
-              from: sourceContext.beforeWindow!.from,
-              to: sourceContext.beforeWindow!.to,
-            },
-            after: {
-              from: sourceContext.afterWindow!.from,
-              to: sourceContext.afterWindow!.to,
-            },
-          });
-          return { indexType, result, fetched: true };
-        }),
-      );
-
-      settled.forEach((entry, idx) => {
-        const indexType = requestedIndexes[idx];
-        if (entry.status === 'fulfilled') {
-          indices[reportIndexKey(indexType)] = buildIndexEntry(
-            entry.value.result.before.mean ?? null,
-            entry.value.result.after.mean ?? null,
-            entry.value.result.delta.percentChange ?? null,
-          );
-          if (entry.value.fetched) {
-            autoFetched.add(indexType);
-          }
-        } else {
-          unavailable.add(indexType);
-        }
-      });
-    } else {
-      requestedIndexes.forEach((indexType) => {
-        if (!indices[reportIndexKey(indexType)]) {
-          unavailable.add(indexType);
-        }
-      });
-    }
-
-    if (!indices.ndwi && typeof waterData?.waterAnalysis?.ndwi === 'number') {
-      indices.ndwi = {
-        before: undefined,
-        after: Number(waterData.waterAnalysis.ndwi.toFixed(6)),
-        change: undefined,
-        percentChange: undefined,
-      };
-      unavailable.delete('NDWI');
-    }
-
-    return {
-      indices,
-      unavailable: Array.from(unavailable),
-      autoFetched: Array.from(autoFetched),
-    };
-  }
-
-  function buildReportSourceContext(historyItem?: AquaScanCalculationHistoryEntry | null): {
-    sourceLabel: string;
-    result: CopernicusStatisticsComparisonResponse | null;
-    statusLabel: string;
-    beforeWindow?: { from: string; to: string };
-    afterWindow?: { from: string; to: string };
-    comparisonSource: string;
-    confidence?: number;
-    warnings: string[];
-  } {
-    if (historyItem?.resultSnapshot) {
-      return {
-        sourceLabel: 'Saved comparison history',
-        result: historyItem.resultSnapshot,
-        statusLabel: historyItem.measurementStatus,
-        beforeWindow: historyItem.before,
-        afterWindow: historyItem.after,
-        comparisonSource: `Saved comparison history (${historyItem.generatedAt.slice(0, 10)})`,
-        confidence: historyItem.confidenceScore ?? undefined,
-        warnings: historyItem.resultSnapshot.warnings ?? [],
-      };
-    }
-    if (hasCurrentComparisonResult && comparisonResult) {
-      return {
-        sourceLabel: 'Current live comparison result',
-        result: comparisonResult,
-        statusLabel: comparisonMeasurementStatus,
-        beforeWindow: beforeRange,
-        afterWindow: afterRange,
-        comparisonSource: 'Current live comparison result',
-        confidence: comparisonHasValidSamples ? comparisonResult.confidenceScore : undefined,
-        warnings: comparisonResult.warnings ?? [],
-      };
-    }
-    return {
-      sourceLabel: 'Preliminary / no active comparison loaded',
-      result: null,
-      statusLabel: 'Preliminary / no active comparison loaded',
-      beforeWindow: beforeRange,
-      afterWindow: afterRange,
-      comparisonSource: 'Current map, AOI, satellite, AI, and project state',
-      confidence: inspectQualityConfidence != null ? inspectQualityConfidence / 100 : undefined,
-      warnings: [],
-    };
-  }
-
-  function buildReportEvidencePacket(): {
-    status: 'not_generated' | 'generated' | 'partial';
-    includedFiles: [];
-    screenshots: [];
-    notes: string[];
-    evidenceHash?: string;
-  } {
-    if (!showPacket) {
-      return {
-        status: 'not_generated',
-        includedFiles: [],
-        screenshots: [],
-        notes: [
-          'No formal Evidence Packet was generated before this report.',
-          'This report was created from available AquaScan reading, map, satellite, AI, and project state.',
-        ],
-      };
-    }
-    return {
-      status: 'partial',
-      includedFiles: [],
-      screenshots: [],
-      notes: [
-        `Selected layers: ${mockSatelliteLayers.filter((layer) => selectedLayerIds.includes(layer.id)).map((layer) => layer.name).join(', ') || 'None selected'}`,
-        `Measurement status: ${evidencePacketPayload.measurementStatus}`,
-        selectedProject.hasLabResult ? 'Lab result flag: uploaded in project state.' : 'Lab result flag: pending connection.',
-        selectedProject.evidenceCount > 0
-          ? `${selectedProject.evidenceCount} evidence item(s) counted in project state. File-level metadata not connected.`
-          : 'No uploaded evidence files connected yet.',
-        'Additional field evidence, lab results, photos, and validator review may be attached later.',
-      ],
-      evidenceHash: activeGeneratedReport?.evidencePacket.evidenceHash,
-    };
-  }
-
-  async function generateEvidenceReport(options?: {
-    historyItem?: AquaScanCalculationHistoryEntry | null;
-    sourceContext?: 'compare' | 'evidence';
-    openReportAfterCreate?: boolean;
-  }): Promise<AquaScanEvidenceReport | null> {
-    if (!canGenerateReport) {
-      setReportNotice('Load a comparison, select a saved history result, or use the current map/AOI/project state before generating a report.');
-      return null;
-    }
-    setReportBusy(true);
-    setReportNotice(null);
-    try {
-      const sourceContext = buildReportSourceContext(options?.historyItem ?? null);
-      const reportIndices = await buildReportIndices(sourceContext, options?.historyItem ?? null);
-
-      const cloudCoverText = waterData?.satellite.cloudCover ?? '';
-      const cloudCoverNumber = cloudCoverText
-        ? Number.parseFloat(String(cloudCoverText).replace('%', '').trim())
-        : Number.NaN;
-      const reportDraft = await buildAquaScanEvidenceReport({
-        projectId: selectedProject.id,
-        projectName: selectedProject.projectName || 'Unnamed project',
-        createdBy: hero?.name,
-        aquaScanResult: {
-          sourceLabel: sourceContext.sourceLabel,
-          beforeDate: sourceContext.beforeWindow?.from || undefined,
-          afterDate: sourceContext.afterWindow?.to || undefined,
-          comparisonDate: selectedDate,
-          aoiName: selectedFocusLocation?.displayName || selectedProject.locationName || 'Selected AOI',
-          aoiCoordinates: (savedAoi ?? []).map(([lat, lng]) => ({ lat, lng })),
-          centerPoint: selectedFocusLocation
-            ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
-            : { lat: mapCenter[0], lng: mapCenter[1] },
-          areaSqKm: Number(savedAoiAreaSqKm.toFixed(4)),
-          status: sourceContext.statusLabel,
-          confidence: sourceContext.confidence,
-          indices: reportIndices.indices,
-        },
-        satelliteMetadata: {
-          source: sourceContext.result?.sourceCitation ?? sourceContext.comparisonSource,
-          provider: waterData?.satellite.provider ?? 'Pending connection',
-          product: waterData?.satellite.product ?? 'Not available',
-          layerName: activeGibsLayer.label,
-          acquisitionDate: sourceContext.result?.generatedAt ?? waterData?.satellite.acquisitionDate ?? selectedDate,
-          comparisonWindow: `${sourceContext.beforeWindow?.from || 'Not available'} to ${sourceContext.afterWindow?.to || 'Not available'}`,
-          resolution: waterData?.satellite.resolution ?? 'Not available',
-          cloudCover: Number.isFinite(cloudCoverNumber) ? cloudCoverNumber : null,
-          tileUrl,
-          mapSnapshotUrl: undefined,
-          inspectedCoordinates: selectedFocusLocation
-            ? { lat: selectedFocusLocation.latitude, lng: selectedFocusLocation.longitude }
-            : { lat: mapCenter[0], lng: mapCenter[1] },
-        },
-        aiIntelligence: {
-          summary: intelligenceReader.summary,
-          keyFindings: intelligenceReader.keyFindings,
-          confidenceInterpretation: intelligenceReader.confidenceInterpretation,
-          riskLevel: riskBand(riskScore),
-          missingEvidence: intelligenceReader.evidenceNeeded,
-          suggestedQuestions: intelligenceReader.suggestedQuestions,
-          recommendedActions: intelligenceReader.recommendedActions,
-          disclaimers: [
-            packetPreview.legalSafeNote,
-            ...intelligenceReader.limitations,
-            !waterData ? 'Live satellite values are pending connection for the current selection.' : '',
-            reportIndices.autoFetched.length > 0
-              ? `Auto-analysis added for report generation: ${reportIndices.autoFetched.join(', ')}.`
-              : '',
-            reportIndices.unavailable.length > 0
-              ? `Automatic multi-index comparison was not available for: ${reportIndices.unavailable.join(', ')}. Those rows remain Not available or fallback only.`
-              : '',
-            sourceContext.sourceLabel === 'Preliminary / no active comparison loaded'
-              ? 'No active calculated result was loaded at report creation time. This report is preliminary and based on current workspace state.'
-              : '',
-          ].filter(Boolean),
-        },
-        evidencePacket: buildReportEvidencePacket(),
-      });
-
-      reportDraft.qr.qrCodeDataUrl = await generateQrCodeDataUrl(reportDraft.qr.verificationUrl || reportDraft.qr.reportUrl);
-      saveAquaScanEvidenceReport(reportDraft);
-      const ledgerReport = await logAquaScanReportToLedger(reportDraft);
-      let finalizedReport = ledgerReport;
-      try {
-        const pdfResult = await generateAquaScanEvidencePdf(ledgerReport);
-        finalizedReport = updateAquaScanReportPdfHash(ledgerReport.reportId, pdfResult.pdfHash) ?? ledgerReport;
-      } catch {
-        setReportNotice('Report created and logged, but PDF hashing is still pending. You can retry from the report panel.');
-      }
-      setGeneratedReport(finalizedReport);
-      setReportNotice(
-        finalizedReport.hashes.pdfHash
-          ? `Evidence report created, logged to the DPAL Evidence Ledger, QR generated, and PDF hash recorded.${reportIndices.autoFetched.length > 0 ? ` Auto-analysis added: ${reportIndices.autoFetched.join(', ')}.` : ''}${reportIndices.unavailable.length > 0 ? ` Unavailable: ${reportIndices.unavailable.join(', ')}.` : ''}`
-          : `Evidence report created, logged, and QR generated. PDF hash is still pending.${reportIndices.autoFetched.length > 0 ? ` Auto-analysis added: ${reportIndices.autoFetched.join(', ')}.` : ''}${reportIndices.unavailable.length > 0 ? ` Unavailable: ${reportIndices.unavailable.join(', ')}.` : ''}`,
-      );
-      if (options?.openReportAfterCreate) {
-        onOpenAquaScanReport?.(finalizedReport.reportId);
-      }
-      return finalizedReport;
-    } catch (error) {
-      console.error('AquaScan evidence report generation failed:', error);
-      setReportNotice('Unable to generate the AquaScan evidence report from the current workspace state.');
-      return null;
-    } finally {
-      setReportBusy(false);
-    }
-  }
-
-  async function downloadGeneratedReportPdf(): Promise<void> {
-    if (!activeGeneratedReport) {
-      setReportNotice('Generate an AquaScan evidence report before downloading the PDF.');
-      return;
-    }
-    setReportBusy(true);
-    try {
-      const pdfResult = await generateAquaScanEvidencePdf(activeGeneratedReport);
-      const updated = updateAquaScanReportPdfHash(activeGeneratedReport.reportId, pdfResult.pdfHash) ?? activeGeneratedReport;
-      setGeneratedReport(updated);
-      const url = URL.createObjectURL(pdfResult.blob);
-      const anchor = document.createElement('a');
-      anchor.href = url;
-      anchor.download = pdfResult.fileName;
-      anchor.click();
-      URL.revokeObjectURL(url);
-      setReportNotice('PDF report downloaded successfully.');
-    } catch (error) {
-      console.error('AquaScan PDF download failed:', error);
-      setReportNotice('PDF generation failed for this AquaScan evidence report.');
-    } finally {
-      setReportBusy(false);
-    }
-  }
 
   const latitudeDisplayValue = parseCoordinateInput(selectedProject.latitude);
   const longitudeDisplayValue = parseCoordinateInput(selectedProject.longitude);
@@ -4169,14 +3774,6 @@ export default function AquaScanView({
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => { void generateEvidenceReport({ sourceContext: 'compare' }); }}
-                    disabled={reportBusy || !workflowState.canGeneratePreliminaryReport}
-                    className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-3 py-1.5 text-xs font-semibold text-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {reportBusy ? 'Generating...' : 'Generate Preliminary PDF + QR'}
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => { void runMrvComparison(); }}
                     disabled={!canCalculateMrv}
                     title={mrvBlockReason || undefined}
@@ -4200,16 +3797,6 @@ export default function AquaScanView({
                       {s.replace(/_/g, ' ')}
                     </button>
                   ))}
-                  {workflowState.hasSavedHistory ? (
-                    <button
-                      type="button"
-                      onClick={() => { void generateEvidenceReport({ historyItem: calculationHistory[0] ?? null, sourceContext: 'compare', openReportAfterCreate: true }); }}
-                      disabled={reportBusy}
-                      className="rounded-lg border border-violet-500/50 bg-violet-900/20 px-3 py-1.5 text-xs font-semibold text-violet-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Create Report from Saved History
-                    </button>
-                  ) : null}
                 </div>
                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-6">
                   {([
@@ -4238,16 +3825,16 @@ export default function AquaScanView({
                 {!displayedComparisonResult ? (
                   <p className="text-xs text-slate-500">
                     {comparisonSetupReady
-                      ? 'Comparison setup is ready. Run Calculate Comparison to generate satellite/statistical measurement values, or create a preliminary setup report.'
+                      ? 'Comparison setup is ready. Run Calculate Comparison to generate satellite/statistical measurement values.'
                       : 'Select AOI, index, and date windows to prepare the comparison setup.'}
                   </p>
                 ) : null}
                 {!hasCurrentComparisonResult && displayedHistoryItem ? (
                   <p className="text-xs text-amber-200">
-                    Saved comparison results are available. Restore a result or create a report directly from history.
+                    Saved comparison results are available. Restore a result from history when needed.
                   </p>
                 ) : !hasCurrentComparisonResult && hasPreviousMeasurements ? (
-                  <p className="text-xs text-amber-200">Saved comparison results are available. Restore a result or create a report directly from history.</p>
+                  <p className="text-xs text-amber-200">Saved comparison results are available. Restore a result from history when needed.</p>
                 ) : null}
                 <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                   {(
@@ -4290,40 +3877,6 @@ export default function AquaScanView({
                 ) : (
                   <p className="text-xs text-slate-500">Run comparison to see interpretation.</p>
                 )}
-                <AquaScanReportPanel
-                  title="Create Report From This Reading"
-                  sourceContext="compare"
-                  canGenerate={canGenerateReport}
-                  readinessLabel={reportReadinessLabel}
-                  generateLabel={
-                    hasCurrentComparisonResult
-                      ? 'Generate Calculated PDF + QR'
-                      : activeHistoryResult
-                        ? 'Generate Saved History PDF + QR'
-                        : 'Generate Preliminary PDF + QR'
-                  }
-                  report={activeGeneratedReport}
-                  busy={reportBusy}
-                  notice={reportNotice}
-                  allowWithoutEvidencePacket
-                  onGenerate={() => { void generateEvidenceReport({ sourceContext: 'compare' }); }}
-                  onLogLedger={() => { void generateEvidenceReport({ sourceContext: 'compare' }); }}
-                  onDownloadPdf={() => { void downloadGeneratedReportPdf(); }}
-                  onOpenReport={() => {
-                    if (!activeGeneratedReport) {
-                      setReportNotice('Generate an AquaScan evidence report before opening the verification page.');
-                      return;
-                    }
-                    onOpenAquaScanReport?.(activeGeneratedReport.reportId);
-                  }}
-                  onOpenSituationRoom={() => {
-                    if (!activeGeneratedReport) {
-                      setReportNotice('Generate an AquaScan evidence report before opening the Situation Room.');
-                      return;
-                    }
-                    onOpenAquaScanSituationRoom?.(activeGeneratedReport.situationRoom.roomId);
-                  }}
-                />
                 <AquaScanIntelligenceReader
                   selectedFocusLocation={selectedFocusLocation
                     ? {
@@ -4396,13 +3949,6 @@ export default function AquaScanView({
                             <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => { void generateEvidenceReport({ historyItem: item, sourceContext: 'compare', openReportAfterCreate: true }); }}
-                                className="rounded border border-emerald-500/40 px-2 py-0.5 text-[10px] text-emerald-200 hover:border-emerald-400 hover:text-emerald-100"
-                              >
-                                Create Report from Saved Result
-                              </button>
-                              <button
-                                type="button"
                                 onClick={() => setIntelligenceHistoryCalculationId(item.calculationId)}
                                 className="rounded border border-violet-500/40 px-2 py-0.5 text-[10px] text-violet-200 hover:border-violet-400 hover:text-violet-100"
                               >
@@ -4428,34 +3974,6 @@ export default function AquaScanView({
             {/* -- Evidence Packet Tab -- */}
             {activeTab === 'evidence' ? (
               <div className="space-y-4">
-                <AquaScanReportPanel
-                  title="Create Full Evidence Report"
-                  sourceContext="evidence"
-                  canGenerate={canGenerateReport}
-                  readinessLabel={reportReadinessLabel}
-                  generateLabel="Generate PDF + QR Report"
-                  report={activeGeneratedReport}
-                  busy={reportBusy}
-                  notice={reportNotice}
-                  allowWithoutEvidencePacket
-                  onGenerate={() => { void generateEvidenceReport({ sourceContext: 'evidence' }); }}
-                  onLogLedger={() => { void generateEvidenceReport({ sourceContext: 'evidence' }); }}
-                  onDownloadPdf={() => { void downloadGeneratedReportPdf(); }}
-                  onOpenReport={() => {
-                    if (!activeGeneratedReport) {
-                      setReportNotice('Generate an AquaScan evidence report before opening the verification page.');
-                      return;
-                    }
-                    onOpenAquaScanReport?.(activeGeneratedReport.reportId);
-                  }}
-                  onOpenSituationRoom={() => {
-                    if (!activeGeneratedReport) {
-                      setReportNotice('Generate an AquaScan evidence report before opening the Situation Room.');
-                      return;
-                    }
-                    onOpenAquaScanSituationRoom?.(activeGeneratedReport.situationRoom.roomId);
-                  }}
-                />
                 {!canGenerateEvidencePacket ? (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
                     Select a focus location and save an AOI before generating an evidence packet.
@@ -4466,7 +3984,7 @@ export default function AquaScanView({
                     Evidence Packet Optional
                   </span>
                   <p className="text-[11px] text-slate-400">
-                    Optional: Generate a deeper Evidence Packet with attachments and validator material. You can create a PDF/QR report before this step.
+                    Optional: Generate a deeper Evidence Packet with attachments and validator material for export and review.
                   </p>
                 </div>
                 {comparisonResult && !hasCurrentComparisonResult ? (

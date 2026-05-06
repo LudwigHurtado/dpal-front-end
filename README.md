@@ -35,6 +35,35 @@ npm run lint
 
 ---
 
+## Project quality checklist
+
+Run this sequence before merging changes that touch **Field OS**, **Super Agent** (`SuperAgentRuntime`, `CaseWorkspace`, `ExecutionTraceService`, `PlanExecutionBridge`, `DpalLeadAgent`), or **workflow previews** — or when you want a quick regression guard.
+
+```bash
+npm run test:super-agent-loop
+npm run lint
+npm run build
+```
+
+Shortcut (same steps in order):
+
+```bash
+npm run check:quality
+```
+
+### Super Agent Loop E2E (`test:super-agent-loop`)
+
+| | |
+|--|--|
+| **Command** | `npm run test:super-agent-loop` |
+| **Runner** | [`tsx`](https://github.com/privatenumber/tsx) executes `src/field-os/super-agent/dev/runSuperAgentLoopE2e.ts` (dev-only; not bundled in the app). |
+| **What it covers** | End-to-end **Dry Run** behavior: `createInvestigationPlan` → `runPlannedWorkflowPreview` → `checkCompletionStatus` / `continueLoop` → `export()`, plus representative goals (water/vegetation, VIU/carbon, Good Wheels), missing-input handling, and all-gates-approved completion. Asserts honest claim language (no false “human verified” / “blockchain anchored” phrasing). |
+| **When to run** | After edits to Super Agent runtime, lead agent selection, plan/workflow bridge, or Field OS workflow blueprints used in previews. Also run before release branches if those areas changed. |
+
+> **TODO(CI):** This repo has **no GitHub Actions (or other) CI workflow** checked in yet. When CI is added, run **`npm run test:super-agent-loop` before `npm run lint` and `npm run build`** so the Super Agent loop cannot regress silently.
+
+---
+
 ## Environment variables
 
 All Vite-exposed variables must start with `VITE_`. Copy `.env.example` to `.env.local`.

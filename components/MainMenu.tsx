@@ -294,7 +294,15 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     onClick={() => onNavigate('missionMarketplace')}
                 />
 
-                
+                <PrimaryNavModule
+                    icon={<Broadcast className="w-8 h-8" />}
+                    label="DPAL Field OS"
+                    subLabel="Agentic workflows and Super Agent planning for accountability cases."
+                    status="Beta"
+                    colorClass="sky"
+                    bgImageUrl="/main-screen/dpal-mission-control-hero.png"
+                    onClick={() => onNavigate('fieldOS')}
+                />
 
                 <PrimaryNavModule 
                     icon={<Fingerprint className="w-8 h-8" />}

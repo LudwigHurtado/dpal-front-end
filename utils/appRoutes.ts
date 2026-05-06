@@ -137,6 +137,8 @@ export const VIEW_PATHS: Record<string, string> = {
   waterMonitor: '/water',
   /** Explicit AquaScan route for side-by-side testing */
   aquaScanWater: '/water/aquascan',
+  /** DPAL Field OS agentic command center */
+  fieldOS: '/field-os',
   /** Aqualand Well alias for upgraded AquaScan workspace */
   aqualandWell: '/water/aqualand',
   aquascanReportViewer: '/aquascan/reports',
@@ -154,6 +156,8 @@ export const VIEW_PATHS: Record<string, string> = {
   emissionsIntegrityAudit: '/emissions-integrity-audit',
   carbEmissionsAudit: '/carb-emissions-audit',
   hazardousWasteAudit: '/hazardous-waste-audit',
+  /** Shareable DPAL one-pager gallery (Environmental Intelligence hub family). */
+  dpalInfographicsGallery: '/environmental-intelligence/infographics',
   environmentalIntelligenceHub: '/environmental-intelligence',
   epaGhgLive: '/environmental-intelligence/epa-ghg',
   envirofactsGeoIntelligence: '/environmental-intelligence/envirofacts-map',
