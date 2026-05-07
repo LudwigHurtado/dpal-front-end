@@ -5,6 +5,7 @@ import {
   ChevronDown,
   ChevronRight,
   Cloud,
+  Droplets,
   FileText,
   Globe,
   Loader,
@@ -242,7 +243,7 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div
           className="rounded-2xl p-4 border dpal-border-subtle"
           style={{ background: 'var(--dpal-card)' }}
@@ -271,6 +272,27 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
           </p>
           {integrations.satellite.message && (
             <p className="text-[11px] mt-1 dpal-text-muted">{integrations.satellite.message}</p>
+          )}
+        </div>
+        <div
+          className="rounded-2xl p-4 border dpal-border-subtle"
+          style={{ background: 'var(--dpal-card)' }}
+        >
+          <div className="flex items-center gap-2 mb-2">
+            <Droplets className="w-4 h-4" style={{ color: '#60a5fa' }} />
+            <span className="text-[10px] font-black uppercase tracking-widest dpal-text-muted">Water-level integration</span>
+          </div>
+          {integrations.waterLevel ? (
+            <>
+              <p className="text-xs font-semibold" style={{ color: 'var(--dpal-text-primary)' }}>
+                {integrations.waterLevel.providerLabel} · {integrations.waterLevel.status}
+              </p>
+              {integrations.waterLevel.message && (
+                <p className="text-[11px] mt-1 dpal-text-muted">{integrations.waterLevel.message}</p>
+              )}
+            </>
+          ) : (
+            <p className="text-[11px] dpal-text-muted">Water-level integration not returned by this API version.</p>
           )}
         </div>
       </div>

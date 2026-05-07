@@ -67,7 +67,36 @@ function cameraContribution(cameras: FloodCameraDetection[]): FloodRiskFactor | 
   };
 }
 
+function waterLevelGaugeContribution(weather: FloodWeatherSignal | null): FloodRiskFactor | null {
+  const wl = weather?.waterLevelMeta;
+  if (!wl) return null;
+  const pctNorm = clamp(wl.levelPercentOfCritical / 100, 0, 1.2);
+  let contribution = Math.round(pctNorm * 11);
+  if (wl.levelPercentOfCritical >= 100) contribution += 5;
+  if (wl.trend === 'rising') contribution += 3;
+  if (wl.trend === 'falling') contribution = Math.max(0, contribution - 2);
+  const sensitive =
+    wl.gaugeType === 'drainage_channel' ||
+    wl.gaugeType === 'bridge_underpass_marker' ||
+    wl.gaugeType === 'retention_basin';
+  if (sensitive) contribution = Math.round(contribution * 1.12);
+  contribution = clamp(contribution, 0, 18);
+  if (contribution <= 0) return null;
+  const sourceTag = wl.isLive ? `live · ${wl.providerLabel}` : `${wl.status} · ${wl.providerLabel}`;
+  const detail =
+    `Water level ${wl.waterLevelMeters.toFixed(1)}m / ${wl.criticalLevelMeters.toFixed(1)}m critical threshold · ` +
+    `${wl.levelPercentOfCritical.toFixed(0)}% of critical · trend ${wl.trend} · ` +
+    `${wl.gaugeType.replace(/_/g, ' ')} · source: ${wl.provider} · ${sourceTag}`;
+  return {
+    label: 'Water level / gauge',
+    detail,
+    contribution,
+  };
+}
+
+/** Legacy river delta when Stage 12E meta is not present. */
 function riverContribution(weather: FloodWeatherSignal | null): FloodRiskFactor | null {
+  if (weather?.waterLevelMeta) return null;
   if (!weather || weather.riverDeltaMeters === undefined) return null;
   if (weather.riverDeltaMeters <= 0) return null;
   const contribution = Math.round(clamp(weather.riverDeltaMeters / 1.5, 0, 1) * 15);
@@ -192,6 +221,7 @@ function confidenceFromInputs(input: FloodRiskEngineInput): FloodConfidenceBand 
   ) {
     signals += 1;
   }
+  if (input.weather?.waterLevelMeta) signals += 1;
   if (signals >= 3) return 'high';
   if (signals === 2) return 'medium';
   return 'low';
@@ -205,6 +235,7 @@ export function computeFloodRiskScore(input: FloodRiskEngineInput): FloodRiskSco
 
   push(rainfallContribution(input.weather));
   push(cameraContribution(input.cameras));
+  push(waterLevelGaugeContribution(input.weather));
   push(riverContribution(input.weather));
   push(satelliteContribution(input.weather));
   push(citizenContribution(input.citizenReports));

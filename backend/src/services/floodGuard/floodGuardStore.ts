@@ -21,6 +21,7 @@ import { computeFloodRiskScore } from './floodRiskEngine';
 import { draftFloodAlert, settingsForCity } from './floodAlertRouter';
 import { buildSyntheticRainfallSignal, getRainfallSample } from './floodRainfallAdapter';
 import { getSatelliteSample } from './floodSatelliteAdapter';
+import { getWaterLevelSample } from './floodWaterLevelAdapter';
 import { cloneZone, getZoneById, getZonesForCity, listAllRegisteredZones } from './floodCityZoneService';
 import { evaluateZoneForAgents } from './agents/floodAgentOrchestrator';
 import {
@@ -307,10 +308,11 @@ export class FloodGuardStore {
       const merged: FloodWeatherSignal = {
         ...base!,
         zoneId,
-        riverGaugeMeters: base?.riverGaugeMeters,
-        riverDeltaMeters: base?.riverDeltaMeters,
+        riverGaugeMeters: base?.waterLevelMeta?.waterLevelMeters ?? base?.riverGaugeMeters,
+        riverDeltaMeters: base?.waterLevelMeta?.trendDeltaMeters ?? base?.riverDeltaMeters,
         satelliteWaterExpansionPct: base?.satelliteWaterExpansionPct,
         satelliteMeta: base?.satelliteMeta,
+        waterLevelMeta: base?.waterLevelMeta,
       };
       this.data.weather[zoneId] = merged;
       return merged;
@@ -321,6 +323,11 @@ export class FloodGuardStore {
       signal.satelliteMeta = base.satelliteMeta;
     } else if (base?.satelliteWaterExpansionPct !== undefined) {
       signal.satelliteWaterExpansionPct = base.satelliteWaterExpansionPct;
+    }
+    if (base?.waterLevelMeta) {
+      signal.waterLevelMeta = base.waterLevelMeta;
+      signal.riverGaugeMeters = base.waterLevelMeta.waterLevelMeters;
+      signal.riverDeltaMeters = base.waterLevelMeta.trendDeltaMeters;
     }
     this.data.weather[zoneId] = signal;
     return signal;
@@ -339,16 +346,24 @@ export class FloodGuardStore {
     const sample = await getRainfallSample(zone, base, new Date());
     const merged: FloodWeatherSignal = {
       ...sample.signal,
-      riverGaugeMeters: base?.riverGaugeMeters,
-      riverDeltaMeters: base?.riverDeltaMeters,
+      riverGaugeMeters: base?.waterLevelMeta?.waterLevelMeters ?? base?.riverGaugeMeters,
+      riverDeltaMeters: base?.waterLevelMeta?.trendDeltaMeters ?? base?.riverDeltaMeters,
       satelliteWaterExpansionPct: base?.satelliteWaterExpansionPct ?? sample.signal.satelliteWaterExpansionPct,
       satelliteMeta: base?.satelliteMeta ?? sample.signal.satelliteMeta,
+      waterLevelMeta: base?.waterLevelMeta,
     };
     this.data.weather[zoneId] = merged;
     return merged;
   }
 
-  /** Prime rainfall + satellite (Stages 12A/12B) for every zone we track. */
+  /** Stages 12A/12B/12E — rainfall, satellite water, then water-level gauge. */
+  async primeEnvironmentalSignals(zoneId: string): Promise<void> {
+    await this.primeRainfall(zoneId);
+    await this.primeSatellite(zoneId);
+    await this.primeWaterLevel(zoneId);
+  }
+
+  /** Prime environmental stack for every zone we track. */
   async primeRainfallForActiveZones(): Promise<void> {
     const ids = new Set<string>([
       ...Object.keys(this.data.activeByZone),
@@ -359,12 +374,6 @@ export class FloodGuardStore {
     getZonesForCity('SCZ').forEach((z) => ids.add(z.zoneId));
     getZonesForCity('DEN').forEach((z) => ids.add(z.zoneId));
     await Promise.all(Array.from(ids).map((zid) => this.primeEnvironmentalSignals(zid)));
-  }
-
-  /** Rainfall (12A) then satellite water (12B) for one zone. */
-  async primeEnvironmentalSignals(zoneId: string): Promise<void> {
-    await this.primeRainfall(zoneId);
-    await this.primeSatellite(zoneId);
   }
 
   /**
@@ -388,6 +397,32 @@ export class FloodGuardStore {
       zoneId,
       satelliteWaterExpansionPct: sample.expansionPercent,
       satelliteMeta: sample.meta,
+      waterLevelMeta: cur.waterLevelMeta,
+      riverGaugeMeters: cur.waterLevelMeta?.waterLevelMeters ?? cur.riverGaugeMeters,
+      riverDeltaMeters: cur.waterLevelMeta?.trendDeltaMeters ?? cur.riverDeltaMeters,
+    };
+  }
+
+  /** Stage 12E — water-level / gauge sample merged onto the weather row. */
+  async primeWaterLevel(zoneId: string): Promise<void> {
+    const zone = getZoneById(zoneId);
+    if (!zone) return;
+    const cur =
+      this.data.weather[zoneId] ??
+      INITIAL_WEATHER[zoneId] ?? {
+        zoneId,
+        rainfall30mMm: 0,
+        rainfall24hMm: 0,
+        source: 'weather_feed',
+        capturedAt: new Date().toISOString(),
+      };
+    const { meta } = await getWaterLevelSample(zone, cur, new Date());
+    this.data.weather[zoneId] = {
+      ...cur,
+      zoneId,
+      waterLevelMeta: meta,
+      riverGaugeMeters: meta.waterLevelMeters,
+      riverDeltaMeters: meta.trendDeltaMeters,
     };
   }
 

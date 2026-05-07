@@ -192,6 +192,49 @@ export interface FloodSatelliteMeta {
   message?: string;
 }
 
+/** Stage 12E — water level / gauge (mirrors backend). */
+export type FloodWaterLevelIntegrationStatus =
+  | 'live'
+  | 'fallback'
+  | 'unavailable'
+  | 'http_error'
+  | 'network_error';
+
+export type FloodWaterLevelGaugeType =
+  | 'river'
+  | 'canal'
+  | 'drainage_channel'
+  | 'retention_basin'
+  | 'reservoir'
+  | 'bridge_underpass_marker'
+  | 'manual_field_reading'
+  | 'synthetic_fallback';
+
+export type FloodWaterLevelTrend = 'rising' | 'falling' | 'stable' | 'unknown';
+
+export interface FloodWaterLevelMeta {
+  zoneId: string;
+  gaugeId: string;
+  gaugeName: string;
+  gaugeType: FloodWaterLevelGaugeType;
+  waterLevelMeters: number;
+  normalLevelMeters: number;
+  warningLevelMeters: number;
+  criticalLevelMeters: number;
+  levelPercentOfCritical: number;
+  trend: FloodWaterLevelTrend;
+  trendDeltaMeters: number;
+  readingTimestamp: string;
+  status: FloodWaterLevelIntegrationStatus;
+  provider: string;
+  providerLabel: string;
+  isLive: boolean;
+  fetchedAt: string;
+  upstreamUrl?: string;
+  attribution?: string;
+  message?: string;
+}
+
 export interface FloodWeatherSignal {
   zoneId: string;
   /** mm of rainfall in the last 30 minutes. */
@@ -210,6 +253,8 @@ export interface FloodWeatherSignal {
   rainfallMeta?: FloodRainfallMeta;
   /** AquaScan / satellite provenance (Stage 12B). */
   satelliteMeta?: FloodSatelliteMeta;
+  /** Stage 12E — gauge / water-stage intelligence. */
+  waterLevelMeta?: FloodWaterLevelMeta;
 }
 
 // ── Risk engine output ───────────────────────────────────────────────────────
@@ -404,6 +449,30 @@ export interface FloodIntegrationStatus {
       provider: string;
     }>;
   };
+  /** Stage 12E — optional for older API responses. */
+  waterLevel?: {
+    available: boolean;
+    status: FloodWaterLevelIntegrationStatus;
+    provider: string;
+    providerLabel: string;
+    message?: string;
+    attribution?: string;
+    upstreamUrl?: string;
+    samples?: Array<{
+      zoneId: string;
+      gaugeId: string;
+      gaugeName: string;
+      gaugeType: FloodWaterLevelGaugeType;
+      waterLevelMeters: number;
+      criticalLevelMeters: number;
+      levelPercentOfCritical: number;
+      trend: FloodWaterLevelTrend;
+      status: FloodWaterLevelIntegrationStatus;
+      provider: string;
+      isLive: boolean;
+      fetchedAt: string;
+    }>;
+  };
   ledger: { available: boolean; message?: string };
   routing: { available: boolean; message?: string };
 }
@@ -452,6 +521,26 @@ export interface FloodEvidencePacket {
   missionSafetyClassification?: FloodMissionSafetyClassification;
   recommendedMissions?: FloodRecommendedMission[];
   blockedMissionReasons?: string[];
+  waterLevelProvenance?: {
+    zoneId: string;
+    gaugeId: string;
+    gaugeName: string;
+    gaugeType: FloodWaterLevelGaugeType;
+    waterLevelMeters: number;
+    normalLevelMeters: number;
+    warningLevelMeters: number;
+    criticalLevelMeters: number;
+    levelPercentOfCritical: number;
+    trend: FloodWaterLevelTrend;
+    trendDeltaMeters: number;
+    readingTimestamp: string;
+    provider: string;
+    status: FloodWaterLevelIntegrationStatus;
+    isLive: boolean;
+    fetchedAt: string;
+    attribution?: string;
+    message?: string;
+  };
 }
 
 // ── Settings / routing rules (Stage 7) ───────────────────────────────────────

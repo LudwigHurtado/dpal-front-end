@@ -1,8 +1,9 @@
 /**
  * DPAL FloodGuard HTTP API — `/api/floodguard/*`
  *
- * Stages 12A/12B — routes await `store.primeEnvironmentalSignals` (rainfall +
- * AquaScan satellite) before recomputing risk scores where freshness matters.
+ * Stages 12A–12E — routes await `store.primeEnvironmentalSignals` (rainfall,
+ * AquaScan satellite, water-level gauge) before recomputing risk scores where
+ * freshness matters.
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -21,6 +22,7 @@ import { getFloodGuardStore } from '../services/floodGuard/floodGuardStore';
 import { runFloodAgentMonitor } from '../services/floodGuard/agents/floodAgentOrchestrator';
 import { rainfallAdapterHealth } from '../services/floodGuard/floodRainfallAdapter';
 import { satelliteAdapterHealth } from '../services/floodGuard/floodSatelliteAdapter';
+import { waterLevelAdapterHealth } from '../services/floodGuard/floodWaterLevelAdapter';
 import type {
   FloodAlert,
   FloodIntegrationStatus,
@@ -32,10 +34,11 @@ type FloodGuardStoreInstance = ReturnType<typeof getFloodGuardStore>;
 
 function buildIntegrationMeta(
   alerts: FloodAlert[] = [],
-  opts?: { includeSatelliteForZoneId?: string; store?: FloodGuardStoreInstance },
+  opts?: { includeSatelliteForZoneId?: string; includeWaterLevelForZoneId?: string; store?: FloodGuardStoreInstance },
 ): FloodIntegrationStatus {
   const health = rainfallAdapterHealth();
   const satHealth = satelliteAdapterHealth();
+  const wlHealth = waterLevelAdapterHealth();
   // Aggregate the per-zone rainfall samples carried by current alerts so the
   // dashboard can show provenance per zone without an extra round-trip.
   const samples = alerts
@@ -91,6 +94,48 @@ function buildIntegrationMeta(
     }
   }
 
+  const wlSamples = alerts
+    .map((a) => {
+      const wl = a.signalSnapshot.weather?.waterLevelMeta;
+      if (!wl) return null;
+      return {
+        zoneId: a.zoneId,
+        gaugeId: wl.gaugeId,
+        gaugeName: wl.gaugeName,
+        gaugeType: wl.gaugeType,
+        waterLevelMeters: wl.waterLevelMeters,
+        criticalLevelMeters: wl.criticalLevelMeters,
+        levelPercentOfCritical: wl.levelPercentOfCritical,
+        trend: wl.trend,
+        status: wl.status,
+        provider: wl.provider,
+        isLive: wl.isLive,
+        fetchedAt: wl.fetchedAt,
+      };
+    })
+    .filter((s): s is NonNullable<typeof s> => s !== null);
+
+  if (opts?.includeWaterLevelForZoneId && opts.store) {
+    const w = opts.store.getWeatherSnapshot(opts.includeWaterLevelForZoneId);
+    const wl = w?.waterLevelMeta;
+    if (wl && !wlSamples.some((s) => s.zoneId === wl.zoneId)) {
+      wlSamples.push({
+        zoneId: wl.zoneId,
+        gaugeId: wl.gaugeId,
+        gaugeName: wl.gaugeName,
+        gaugeType: wl.gaugeType,
+        waterLevelMeters: wl.waterLevelMeters,
+        criticalLevelMeters: wl.criticalLevelMeters,
+        levelPercentOfCritical: wl.levelPercentOfCritical,
+        trend: wl.trend,
+        status: wl.status,
+        provider: wl.provider,
+        isLive: wl.isLive,
+        fetchedAt: wl.fetchedAt,
+      });
+    }
+  }
+
   return {
     rainfall: {
       available: true, // adapter always returns a sample (live OR fallback)
@@ -113,6 +158,15 @@ function buildIntegrationMeta(
         : undefined,
       upstreamUrl: satHealth.upstreamUrl,
       samples: satSamples.length ? satSamples : undefined,
+    },
+    waterLevel: {
+      available: true,
+      status: wlHealth.status,
+      provider: wlHealth.provider,
+      providerLabel: wlHealth.providerLabel,
+      message: wlHealth.message,
+      attribution: wlHealth.liveEnabled ? undefined : 'Deterministic DPAL gauge continuity layer.',
+      samples: wlSamples.length ? wlSamples : undefined,
     },
     ledger: {
       available: true,
@@ -189,7 +243,11 @@ router.get('/zones/:zoneId/status', async (req: Request, res: Response) => {
   const status = store.getActiveAlertForZone(zoneId);
   res.json({
     status,
-    integrations: buildIntegrationMeta(status ? [status] : [], { includeSatelliteForZoneId: zoneId, store }),
+    integrations: buildIntegrationMeta(status ? [status] : [], {
+      includeSatelliteForZoneId: zoneId,
+      includeWaterLevelForZoneId: zoneId,
+      store,
+    }),
   });
 });
 

@@ -84,6 +84,34 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
       }
     : null;
 
+  const wl = weather?.waterLevelMeta;
+  const waterLevelProvenance = wl
+    ? {
+        zoneId: wl.zoneId,
+        gaugeId: wl.gaugeId,
+        gaugeName: wl.gaugeName,
+        gaugeType: wl.gaugeType,
+        waterLevelMeters: wl.waterLevelMeters,
+        normalLevelMeters: wl.normalLevelMeters,
+        warningLevelMeters: wl.warningLevelMeters,
+        criticalLevelMeters: wl.criticalLevelMeters,
+        levelPercentOfCritical: wl.levelPercentOfCritical,
+        trend: wl.trend,
+        trendDeltaMeters: wl.trendDeltaMeters,
+        readingTimestamp: wl.readingTimestamp,
+        provider: wl.provider,
+        status: wl.status,
+        isLive: wl.isLive,
+        fetchedAt: wl.fetchedAt,
+        attribution: wl.attribution,
+        message: wl.message,
+      }
+    : null;
+
+  if (wl) {
+    summary += ` Water stage ${wl.waterLevelMeters.toFixed(1)}m (${wl.levelPercentOfCritical.toFixed(0)}% of critical, ${wl.trend}).`;
+  }
+
   const agenticMonitoring = input.agentEvaluation
     ? {
         agentFindings: input.agentEvaluation.agentFindings,
@@ -104,6 +132,7 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
     signals: input.alert.signalSnapshot,
     rainfallProvenance,
     satelliteProvenance,
+    waterLevelProvenance,
     audiences: input.alert.audiences,
     channels: input.alert.channels,
     lifecycle: input.alert.lifecycle,
@@ -131,6 +160,7 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
     riskScore: input.riskScore,
     signals: input.alert.signalSnapshot,
     legalDisclaimer: FLOODGUARD_LEGAL_DISCLAIMER,
+    ...(waterLevelProvenance ? { waterLevelProvenance } : {}),
     ...(input.agentEvaluation
       ? {
           agentFindings: input.agentEvaluation.agentFindings,

@@ -3,6 +3,7 @@ import type {
   FloodConfidenceBand,
   FloodMissionSafetyClassification,
   FloodSatelliteMeta,
+  FloodWaterLevelMeta,
   FloodWeatherSignal,
   FloodZone,
 } from '../floodGuardTypes';
@@ -32,6 +33,14 @@ export function runMissionSafetyAgent(args: {
   const { zone, alertLevel, riskScore, confidence, weather } = args;
   const rationale: string[] = [];
 
+  const wl: FloodWaterLevelMeta | undefined = weather?.waterLevelMeta;
+  const wlPct = wl?.levelPercentOfCritical ?? 0;
+  const wlRising = wl?.trend === 'rising';
+  const wlSensitive =
+    wl?.gaugeType === 'drainage_channel' ||
+    wl?.gaugeType === 'bridge_underpass_marker' ||
+    wl?.gaugeType === 'retention_basin';
+
   const intensity = weather?.rainfallMeta?.intensityMmPerHr ?? (weather?.rainfall30mMm ?? 0) * 2;
   const sm: FloodSatelliteMeta | undefined = weather?.satelliteMeta;
   const wet = sm?.floodWetConfidence ?? 0;
@@ -45,6 +54,33 @@ export function runMissionSafetyAgent(args: {
       FLOOD_AGENT_LEGAL,
     );
   };
+
+  // --- Water stage (Stage 12E) — strictest local hydro checks ---
+  if (wl && wlPct >= 92) {
+    rationale.push('Gauge stage at or above critical envelope — keep all work remote.');
+    blockField();
+    return { classification: 'no_mission_allowed', rationale };
+  }
+  if (wl && wlPct >= 82 && wlRising) {
+    rationale.push('Water stage high and rising — treat channel and underpass risk as severe; no proximity missions.');
+    blockField();
+    return { classification: 'no_mission_allowed', rationale };
+  }
+  if (wl && wlPct >= 72 && wlRising) {
+    rationale.push('Water stage elevated with a rising trend — only remote observation and desk validation.');
+    blockField();
+    return { classification: 'remote_only', rationale };
+  }
+  if (wl && wlPct >= 68 && (wlSensitive || alertLevel >= 3)) {
+    rationale.push('Sensitive gauge type or elevated alert with meaningful stage — safe-distance or post-event tasks only.');
+    blockField();
+    return { classification: 'safe_distance_only', rationale };
+  }
+  if (wl && wlPct >= 58 && wlSensitive) {
+    rationale.push('Drainage / underpass / basin gauge under stress — defer field checks until flows ease.');
+    blockField();
+    return { classification: 'post_event_only', rationale };
+  }
 
   // --- Strictest gates ---
   if (alertLevel >= 5) {
