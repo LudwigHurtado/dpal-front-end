@@ -11,6 +11,11 @@ DPAL ledger, and how to share a public-safe verification link.
 
 No prior knowledge of the codebase or remote-sensing pipelines is assumed.
 
+> **For programmers and continuing developers**, also read:
+> - [`FLOODGUARD_DEVELOPER_GUIDE.md`](./FLOODGUARD_DEVELOPER_GUIDE.md) — onboarding, file map, how to extend each stage.
+> - [`FLOODGUARD_ARCHITECTURE.md`](./FLOODGUARD_ARCHITECTURE.md) — pipeline diagram and exact hashing recipes.
+> - [`FLOODGUARD_PRODUCTION_STATUS.md`](./FLOODGUARD_PRODUCTION_STATUS.md) — current production smoke results and known issues.
+
 ---
 
 ## Table of contents
