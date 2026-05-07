@@ -147,8 +147,9 @@ import EpaFacilityEvidencePage from './src/environmental/epa-live/EpaFacilityEvi
 import type { EpaFacilityProfile } from './src/types/epa';
 import EnvirofactsGeoDashboard from './src/environmental/envirofacts-map/EnvirofactsGeoDashboard';
 import DpalFieldOSPage from './src/field-os/DpalFieldOSPage';
+import FloodGuardPage from './src/features/floodGuard/FloodGuardPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2742,6 +2743,13 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'fieldOS' && <DpalFieldOSPage />}
+
+        {currentView === 'floodGuard' && (
+          <FloodGuardPage
+            onReturn={() => goBack('mainMenu')}
+            actorName={heroWithRank.name}
+          />
+        )}
 
         {currentView === 'hazardousWasteAudit' && (
           <HazardousWasteAuditPage

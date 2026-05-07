@@ -385,6 +385,59 @@ export interface FloodDispatchedMissionRecord {
   zoneSafetyAtDispatch: FloodMissionSafetyClassification;
   createdAt: string;
   status: 'open' | 'completed' | 'cancelled';
+  /** Stage 12F — linked DPAL mission bridge record (id only, full object lives separately). */
+  dpalMissionId?: string;
+}
+
+/**
+ * Stage 12F — DPAL mission bridge record. Created when a FloodGuard agent-approved
+ * dispatch passes the safety gate. Designed to be migrated to a central DPAL
+ * mission service in the future without breaking the FloodGuard contract.
+ */
+export type FloodDpalMissionStatus =
+  | 'open'
+  | 'accepted_by_validator'
+  | 'in_progress'
+  | 'awaiting_proof'
+  | 'completed'
+  | 'cancelled';
+
+export type FloodDpalSafeMissionCategory =
+  | 'remote_observation'
+  | 'post_event_infrastructure_check'
+  | 'safe_distance_road_status'
+  | 'shelter_status_verification'
+  | 'public_data_collection'
+  | 'drainage_condition_after_recede'
+  | 'validator_desk_review';
+
+export interface FloodMissionBridgeRecord {
+  missionId: string;
+  source: 'floodguard';
+  sourceAlertId: string | null;
+  sourceZoneId: string;
+  cityId: string;
+  /** Internal FloodGuard mission type (kept for traceability). */
+  missionType: FloodSafeMissionType;
+  /** DPAL-side category — what the broader mission system understands. */
+  dpalCategory: FloodDpalSafeMissionCategory;
+  missionTitle: string;
+  missionDescription: string;
+  safetyClassification: FloodMissionSafetyClassification;
+  safetyRationale: string[];
+  allowedProofTypes: string[];
+  forbiddenActions: string[];
+  status: FloodDpalMissionStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+  linkedEvidencePacketId: string | null;
+  linkedSituationRoomId: string | null;
+  agentFindings: FloodAgentFinding[];
+  rainfallMeta?: FloodRainfallMeta;
+  satelliteMeta?: FloodSatelliteMeta;
+  waterLevelMeta?: FloodWaterLevelMeta;
+  legalDisclaimer: string;
 }
 
 export interface FloodEvidencePacket {
@@ -431,6 +484,207 @@ export interface FloodEvidencePacket {
     attribution?: string;
     message?: string;
   };
+  /** Stage 12F — DPAL bridge missions linked to this alert / zone. */
+  linkedMissions?: Array<{
+    missionId: string;
+    missionType: FloodSafeMissionType;
+    dpalCategory: FloodDpalSafeMissionCategory;
+    safetyClassification: FloodMissionSafetyClassification;
+    status: FloodDpalMissionStatus;
+    createdAt: string;
+  }>;
+  /** Stage 12G — routing preview decisions hashed alongside packet body. */
+  routingPreview?: FloodRoutingPreviewSummary;
+  /** Stage 12H — composite anchoring hash bound to provenance digests. */
+  anchoringHash?: string;
+  /** Stage 12H — provenance digests for evidence packet display. */
+  rainfallDigest?: string;
+  satelliteDigest?: string;
+  waterLevelDigest?: string;
+  agentFindingsDigest?: string;
+  routingPreviewDigest?: string;
+  /** Stage 12H — most recent ledger anchor status snapshot. */
+  ledgerAnchor?: FloodLedgerRecord;
+}
+
+/* ───────────── Stage 12G — Alert Routing types (preview / dry-run only) ─────────── */
+
+export type FloodRoutingAudience =
+  | 'dpal_operator'
+  | 'city_validator'
+  | 'city_official'
+  | 'emergency_contact'
+  | 'school_admin'
+  | 'hospital_admin'
+  | 'shelter_operator'
+  | 'community_group'
+  | 'public_dashboard'
+  | 'situation_room';
+
+export type FloodRoutingChannel =
+  | 'dashboard'
+  | 'situation_room'
+  | 'email_preview'
+  | 'sms_preview'
+  | 'webhook_preview'
+  | 'public_map'
+  | 'mission_bridge';
+
+/**
+ * Routing modes — DPAL stays in dry-run / preview by default. External delivery
+ * adapters are not implemented in this stage and must be wired explicitly later
+ * with operator + legal review.
+ */
+export type FloodRoutingMode = 'dry_run' | 'preview_only' | 'internal_only' | 'external_disabled';
+
+export type FloodRoutingBlockedReasonCode =
+  | 'evidence_incomplete'
+  | 'not_human_verified'
+  | 'alert_level_too_low'
+  | 'no_mission_allowed'
+  | 'external_routing_disabled'
+  | 'audience_disabled_for_zone'
+  | 'channel_not_implemented'
+  | 'no_active_situation_room'
+  | 'no_linked_mission';
+
+export interface FloodRoutingDecision {
+  routingId: string;
+  alertId: string;
+  zoneId: string;
+  cityId: string;
+  alertLevel: FloodAlertLevel;
+  riskScore: number;
+  audience: FloodRoutingAudience;
+  channel: FloodRoutingChannel;
+  mode: FloodRoutingMode;
+  messageTitle: string;
+  messageBody: string;
+  safetyDisclaimer: string;
+  shouldRoute: boolean;
+  blockedReason?: string;
+  blockedCode?: FloodRoutingBlockedReasonCode;
+  createdAt: string;
+  createdBy: string;
+  linkedMissionIds?: string[];
+  linkedEvidencePacketId?: string;
+}
+
+export interface FloodRoutingPreviewSummary {
+  generatedAt: string;
+  generatedBy: string;
+  mode: FloodRoutingMode;
+  totalDecisions: number;
+  routableCount: number;
+  blockedCount: number;
+  decisions: FloodRoutingDecision[];
+  legalDisclaimer: string;
+  /** Compact rationale string for evidence-packet hashing. */
+  digest: string;
+}
+
+/* ───────────── Stage 12H — Ledger anchoring upgrade ─────────── */
+
+export type FloodLedgerAnchorStatus =
+  | 'pending'
+  | 'anchored_mock'
+  | 'anchored_live'
+  | 'failed'
+  | 'superseded';
+
+export type FloodLedgerChainProvider =
+  | 'dpal_local_mock'
+  | 'dpal_chain_pending'
+  | 'external_evm'
+  | 'external_bitcoin'
+  | 'external_other';
+
+/**
+ * Stage 12H — full DPAL ledger record. The mock chain provider keeps the
+ * anchor flow self-contained (no paid blockchain). When a real chain becomes
+ * available, swap `chainProvider`/`isMock` and add `verificationUrl`.
+ */
+export interface FloodLedgerRecord {
+  ledgerRecordId: string;
+  alertId: string;
+  zoneId: string;
+  cityId: string;
+  evidencePacketId: string;
+  contentHash: string;
+  /**
+   * Composite SHA-256 of the evidence content hash and every available
+   * provenance/agent/routing/mission digest. Stronger accountability binding.
+   */
+  anchoringHash: string;
+  rainfallDigest?: string;
+  satelliteDigest?: string;
+  waterLevelDigest?: string;
+  agentFindingsDigest?: string;
+  linkedMissionIds: string[];
+  routingPreviewDigest?: string;
+  legalDisclaimer: string;
+  anchorStatus: FloodLedgerAnchorStatus;
+  chainProvider: FloodLedgerChainProvider;
+  chainProviderLabel: string;
+  isMock: boolean;
+  createdAt: string;
+  anchoredAt: string;
+  createdBy: string;
+  verificationUrl?: string;
+  qrPayload: string;
+  /** Optional human-readable summary line. */
+  notes?: string;
+}
+
+/* ────── Stage 12I — Public verification (QR / share link) record ────── */
+
+export type FloodPublicVerificationStatus =
+  | 'verified_anchored_mock'
+  | 'verified_anchored_live'
+  | 'pending_anchor'
+  | 'superseded'
+  | 'failed'
+  | 'unknown';
+
+/**
+ * Public-safe ledger record returned from `GET /api/floodguard/public/ledger/:id`.
+ *
+ * Strict rules:
+ *   - never includes raw citizen reports, contact info, situation-room
+ *     messages, or operator notes;
+ *   - never includes preview message bodies for outbound channels;
+ *   - keeps mock/live labeling truthful so the UI cannot imply government
+ *     confirmation.
+ */
+export interface FloodPublicLedgerRecord {
+  ledgerRecordId: string;
+  alertId: string;
+  zoneId: string;
+  zoneName?: string;
+  cityId: string;
+  cityName?: string;
+  evidencePacketId: string;
+  contentHash: string;
+  anchoringHash: string;
+  rainfallDigest?: string;
+  satelliteDigest?: string;
+  waterLevelDigest?: string;
+  agentFindingsDigest?: string;
+  routingPreviewDigest?: string;
+  linkedMissionIds: string[];
+  qrPayload: string;
+  legalDisclaimer: string;
+  /** Human-readable, public-safe summary line (no private details). */
+  publicSummary: string;
+  verificationStatus: FloodPublicVerificationStatus;
+  privacyNotice: string;
+  anchorStatus: FloodLedgerAnchorStatus;
+  chainProviderLabel: string;
+  isMock: boolean;
+  createdAt: string;
+  anchoredAt: string;
+  /** Optional verification URL for live chains. */
+  verificationUrl?: string;
 }
 
 export interface FloodAlertSettings {

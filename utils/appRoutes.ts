@@ -139,6 +139,8 @@ export const VIEW_PATHS: Record<string, string> = {
   aquaScanWater: '/water/aquascan',
   /** DPAL Field OS agentic command center */
   fieldOS: '/field-os',
+  /** DPAL FloodGuard — verified civic flood intelligence for cities */
+  floodGuard: '/floodguard',
   /** Aqualand Well alias for upgraded AquaScan workspace */
   aqualandWell: '/water/aqualand',
   aquascanReportViewer: '/aquascan/reports',

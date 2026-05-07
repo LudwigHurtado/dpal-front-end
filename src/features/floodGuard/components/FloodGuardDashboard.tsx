@@ -57,6 +57,7 @@ import FloodEvidencePacketView from './FloodEvidencePacketView';
 import FloodSituationRoomView from './FloodSituationRoomView';
 import FloodCameraMonitorPanel from './FloodCameraMonitorPanel';
 import FloodAlertSettingsPanel from './FloodAlertSettingsPanel';
+import FloodAlertRoutingPanel from './FloodAlertRoutingPanel';
 import FloodHistoricalAnalyticsPanel from './FloodHistoricalAnalyticsPanel';
 import FloodValidatorWorkflowPanel from './FloodValidatorWorkflowPanel';
 import FloodAgentMonitorPanel from './FloodAgentMonitorPanel';
@@ -364,14 +365,29 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
     if (!selectedAlert) return;
     const packet = evidenceByAlert[selectedAlert.alertId];
     if (!packet) return;
-    const apiRes = await floodGuardApi.anchorAlert(selectedAlert.alertId);
+    const apiRes = await floodGuardApi.anchorAlert(selectedAlert.alertId, { createdBy: actorName });
     if (apiRes.ok) {
+      const record = apiRes.data.record;
+      setEvidenceByAlert((prev) => ({
+        ...prev,
+        [selectedAlert.alertId]: {
+          ...packet,
+          ledgerRecordId: record.ledgerRecordId,
+          anchoringHash: record.anchoringHash,
+          ledgerAnchor: record,
+          rainfallDigest: record.rainfallDigest,
+          satelliteDigest: record.satelliteDigest,
+          waterLevelDigest: record.waterLevelDigest,
+          agentFindingsDigest: record.agentFindingsDigest,
+          routingPreviewDigest: record.routingPreviewDigest,
+        },
+      }));
       setAlerts((prev) =>
         prev.map((a) =>
           a.alertId === selectedAlert.alertId
             ? {
                 ...a,
-                ledgerAnchorHash: apiRes.data.contentHash,
+                ledgerAnchorHash: record.anchoringHash,
                 lifecycle: 'human_verified',
                 updatedAt: new Date().toISOString(),
               }
@@ -710,6 +726,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
             <FloodAlertSettingsPanel settings={settings} onChange={setSettings} />
+            <FloodAlertRoutingPanel alert={selectedAlert} actorName={actorName} />
           </div>
           <div className="space-y-4">
             <div

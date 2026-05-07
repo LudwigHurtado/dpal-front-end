@@ -493,6 +493,54 @@ export interface FloodDispatchedMissionRecord {
   zoneSafetyAtDispatch: FloodMissionSafetyClassification;
   createdAt: string;
   status: 'open' | 'completed' | 'cancelled';
+  /** Stage 12F — linked DPAL mission bridge record id. */
+  dpalMissionId?: string;
+}
+
+// ── Stage 12F — DPAL mission bridge (mirrors backend) ────────────────────────
+
+export type FloodDpalMissionStatus =
+  | 'open'
+  | 'accepted_by_validator'
+  | 'in_progress'
+  | 'awaiting_proof'
+  | 'completed'
+  | 'cancelled';
+
+export type FloodDpalSafeMissionCategory =
+  | 'remote_observation'
+  | 'post_event_infrastructure_check'
+  | 'safe_distance_road_status'
+  | 'shelter_status_verification'
+  | 'public_data_collection'
+  | 'drainage_condition_after_recede'
+  | 'validator_desk_review';
+
+export interface FloodMissionBridgeRecord {
+  missionId: string;
+  source: 'floodguard';
+  sourceAlertId: string | null;
+  sourceZoneId: string;
+  cityId: string;
+  missionType: string;
+  dpalCategory: FloodDpalSafeMissionCategory;
+  missionTitle: string;
+  missionDescription: string;
+  safetyClassification: FloodMissionSafetyClassification;
+  safetyRationale: string[];
+  allowedProofTypes: string[];
+  forbiddenActions: string[];
+  status: FloodDpalMissionStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+  linkedEvidencePacketId: string | null;
+  linkedSituationRoomId: string | null;
+  agentFindings: FloodAgentFinding[];
+  rainfallMeta?: FloodRainfallMeta;
+  satelliteMeta?: FloodSatelliteMeta;
+  waterLevelMeta?: FloodWaterLevelMeta;
+  legalDisclaimer: string;
 }
 
 export interface FloodEvidencePacket {
@@ -541,6 +589,178 @@ export interface FloodEvidencePacket {
     attribution?: string;
     message?: string;
   };
+  /** Stage 12F — DPAL bridge missions linked to this alert / zone. */
+  linkedMissions?: Array<{
+    missionId: string;
+    missionType: string;
+    dpalCategory: FloodDpalSafeMissionCategory;
+    safetyClassification: FloodMissionSafetyClassification;
+    status: FloodDpalMissionStatus;
+    createdAt: string;
+  }>;
+  /** Stage 12G — most recent routing preview embedded into hashed packet body. */
+  routingPreview?: FloodRoutingPreviewSummary;
+  /** Stage 12H — composite anchoring hash bound to provenance digests. */
+  anchoringHash?: string;
+  rainfallDigest?: string;
+  satelliteDigest?: string;
+  waterLevelDigest?: string;
+  agentFindingsDigest?: string;
+  routingPreviewDigest?: string;
+  /** Stage 12H — most recent ledger anchor for this packet (if anchored). */
+  ledgerAnchor?: FloodLedgerRecord;
+}
+
+// ── Stage 12G — Alert routing (preview / dry-run) ────────────────────────────
+
+export type FloodRoutingAudience =
+  | 'dpal_operator'
+  | 'city_validator'
+  | 'city_official'
+  | 'emergency_contact'
+  | 'school_admin'
+  | 'hospital_admin'
+  | 'shelter_operator'
+  | 'community_group'
+  | 'public_dashboard'
+  | 'situation_room';
+
+export type FloodRoutingChannel =
+  | 'dashboard'
+  | 'situation_room'
+  | 'email_preview'
+  | 'sms_preview'
+  | 'webhook_preview'
+  | 'public_map'
+  | 'mission_bridge';
+
+export type FloodRoutingMode = 'dry_run' | 'preview_only' | 'internal_only' | 'external_disabled';
+
+export type FloodRoutingBlockedReasonCode =
+  | 'evidence_incomplete'
+  | 'not_human_verified'
+  | 'alert_level_too_low'
+  | 'no_mission_allowed'
+  | 'external_routing_disabled'
+  | 'audience_disabled_for_zone'
+  | 'channel_not_implemented'
+  | 'no_active_situation_room'
+  | 'no_linked_mission';
+
+export interface FloodRoutingDecision {
+  routingId: string;
+  alertId: string;
+  zoneId: string;
+  cityId: string;
+  alertLevel: FloodAlertLevel;
+  riskScore: number;
+  audience: FloodRoutingAudience;
+  channel: FloodRoutingChannel;
+  mode: FloodRoutingMode;
+  messageTitle: string;
+  messageBody: string;
+  safetyDisclaimer: string;
+  shouldRoute: boolean;
+  blockedReason?: string;
+  blockedCode?: FloodRoutingBlockedReasonCode;
+  createdAt: string;
+  createdBy: string;
+  linkedMissionIds?: string[];
+  linkedEvidencePacketId?: string;
+}
+
+export interface FloodRoutingPreviewSummary {
+  generatedAt: string;
+  generatedBy: string;
+  mode: FloodRoutingMode;
+  totalDecisions: number;
+  routableCount: number;
+  blockedCount: number;
+  decisions: FloodRoutingDecision[];
+  legalDisclaimer: string;
+  digest: string;
+}
+
+// ── Stage 12H — Ledger anchoring upgrade (mirrors backend) ───────────────────
+
+export type FloodLedgerAnchorStatus =
+  | 'pending'
+  | 'anchored_mock'
+  | 'anchored_live'
+  | 'failed'
+  | 'superseded';
+
+export type FloodLedgerChainProvider =
+  | 'dpal_local_mock'
+  | 'dpal_chain_pending'
+  | 'external_evm'
+  | 'external_bitcoin'
+  | 'external_other';
+
+export interface FloodLedgerRecord {
+  ledgerRecordId: string;
+  alertId: string;
+  zoneId: string;
+  cityId: string;
+  evidencePacketId: string;
+  contentHash: string;
+  anchoringHash: string;
+  rainfallDigest?: string;
+  satelliteDigest?: string;
+  waterLevelDigest?: string;
+  agentFindingsDigest?: string;
+  linkedMissionIds: string[];
+  routingPreviewDigest?: string;
+  legalDisclaimer: string;
+  anchorStatus: FloodLedgerAnchorStatus;
+  chainProvider: FloodLedgerChainProvider;
+  chainProviderLabel: string;
+  isMock: boolean;
+  createdAt: string;
+  anchoredAt: string;
+  createdBy: string;
+  verificationUrl?: string;
+  qrPayload: string;
+  notes?: string;
+}
+
+// ── Stage 12I — Public verification record (QR / share link) ─────────────────
+
+export type FloodPublicVerificationStatus =
+  | 'verified_anchored_mock'
+  | 'verified_anchored_live'
+  | 'pending_anchor'
+  | 'superseded'
+  | 'failed'
+  | 'unknown';
+
+export interface FloodPublicLedgerRecord {
+  ledgerRecordId: string;
+  alertId: string;
+  zoneId: string;
+  zoneName?: string;
+  cityId: string;
+  cityName?: string;
+  evidencePacketId: string;
+  contentHash: string;
+  anchoringHash: string;
+  rainfallDigest?: string;
+  satelliteDigest?: string;
+  waterLevelDigest?: string;
+  agentFindingsDigest?: string;
+  routingPreviewDigest?: string;
+  linkedMissionIds: string[];
+  qrPayload: string;
+  legalDisclaimer: string;
+  publicSummary: string;
+  verificationStatus: FloodPublicVerificationStatus;
+  privacyNotice: string;
+  anchorStatus: FloodLedgerAnchorStatus;
+  chainProviderLabel: string;
+  isMock: boolean;
+  createdAt: string;
+  anchoredAt: string;
+  verificationUrl?: string;
 }
 
 // ── Settings / routing rules (Stage 7) ───────────────────────────────────────

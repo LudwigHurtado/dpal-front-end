@@ -15,6 +15,7 @@ import {
 import { floodGuardApi } from '../services/floodGuardApi';
 import type {
   FloodAgentMonitorResponse,
+  FloodMissionBridgeRecord,
   FloodMissionSafetyClassification,
   FloodZoneAgentEvaluation,
 } from '../floodGuardTypes';
@@ -90,6 +91,7 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
   onOpenEvidenceForZone,
 }) => {
   const [monitor, setMonitor] = useState<FloodAgentMonitorResponse | null>(null);
+  const [dpalMissions, setDpalMissions] = useState<FloodMissionBridgeRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -97,23 +99,41 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
   const [dispatchError, setDispatchError] = useState<string | null>(null);
   const [dispatchSuccess, setDispatchSuccess] = useState<string | null>(null);
 
+  const refreshMissions = useCallback(async () => {
+    const res = await floodGuardApi.listDpalMissions();
+    if (res.ok) setDpalMissions(res.data.missions);
+    else setDpalMissions([]);
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const res = await floodGuardApi.getAgentMonitor();
-    if (!res.ok) {
+    const [monitorRes] = await Promise.all([floodGuardApi.getAgentMonitor(), refreshMissions()]);
+    if (!monitorRes.ok) {
       setMonitor(null);
-      setError(res.message);
+      setError(monitorRes.message);
       setLoading(false);
       return;
     }
-    setMonitor(res.data);
+    setMonitor(monitorRes.data);
     setLoading(false);
-  }, []);
+  }, [refreshMissions]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  /** Map of "zoneId:missionType" -> latest active bridge record (open/in_progress). */
+  const dispatchedByZoneAndType = useMemo(() => {
+    const m = new Map<string, FloodMissionBridgeRecord>();
+    for (const rec of dpalMissions) {
+      if (rec.status === 'cancelled' || rec.status === 'completed') continue;
+      const key = `${rec.sourceZoneId}:${rec.missionType}`;
+      const prev = m.get(key);
+      if (!prev || prev.createdAt < rec.createdAt) m.set(key, rec);
+    }
+    return m;
+  }, [dpalMissions]);
 
   const zonesForCity = useMemo(
     () => (monitor ? monitor.zones.filter((z) => z.cityId === cityId) : []),
@@ -140,7 +160,12 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
       setDispatchError(res.message + (res.code ? ` (${res.code})` : ''));
       return;
     }
-    setDispatchSuccess(`Dispatched ${res.data.mission.missionId} · ${missionType}`);
+    const dpalId = res.data.dpalMission?.missionId;
+    setDispatchSuccess(
+      `Dispatched ${res.data.mission.missionId} · ${missionType}` +
+        (dpalId ? ` · DPAL mission ${dpalId}` : ''),
+    );
+    void refreshMissions();
   };
 
   if (loading && !monitor) {
@@ -322,6 +347,7 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
       {zonesForCity.map((zone) => {
         const open = expanded[zone.zoneId] ?? true;
         const levelStyle = ALERT_LEVEL_COLORS[zone.alertLevel];
+        const zoneMissions = dpalMissions.filter((m) => m.sourceZoneId === zone.zoneId);
         return (
           <div
             key={zone.zoneId}
@@ -450,35 +476,73 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
                         </tr>
                       </thead>
                       <tbody>
-                        {zone.recommendedMissions.map((m) => (
-                          <tr key={m.missionType} className="border-b dpal-border-subtle" style={{ color: 'var(--dpal-text-secondary)' }}>
-                            <td className="py-2 pr-2 font-mono text-[10px]">{m.missionType}</td>
-                            <td className="py-2 pr-2 font-medium" style={{ color: 'var(--dpal-text-primary)' }}>
-                              {m.title}
-                            </td>
-                            <td className="py-2 pr-2 max-w-[220px]">{m.description}</td>
-                            <td className="py-2 pr-2">
-                              <SafetyChip classification={zone.missionSafetyClassification} />
-                            </td>
-                            <td className="py-2 pr-2 font-mono text-[10px]">{zone.zoneId}</td>
-                            <td className="py-2">
-                              <button
-                                type="button"
-                                disabled={dispatchKey === `${zone.zoneId}:${m.missionType}`}
-                                onClick={() => void handleDispatch(zone, m.missionType)}
-                                className="rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
-                                style={{
-                                  background: 'rgba(34,211,238,0.15)',
-                                  border: '1px solid rgba(34,211,238,0.4)',
-                                  color: '#22d3ee',
-                                  opacity: dispatchKey === `${zone.zoneId}:${m.missionType}` ? 0.5 : 1,
-                                }}
-                              >
-                                {dispatchKey === `${zone.zoneId}:${m.missionType}` ? '…' : 'Dispatch'}
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
+                        {zone.recommendedMissions.map((m) => {
+                          const dispatchedKey = `${zone.zoneId}:${m.missionType}`;
+                          const existing = dispatchedByZoneAndType.get(dispatchedKey);
+                          const inFlight = dispatchKey === dispatchedKey;
+                          return (
+                            <tr key={m.missionType} className="border-b dpal-border-subtle" style={{ color: 'var(--dpal-text-secondary)' }}>
+                              <td className="py-2 pr-2 font-mono text-[10px]">{m.missionType}</td>
+                              <td className="py-2 pr-2 font-medium" style={{ color: 'var(--dpal-text-primary)' }}>
+                                {m.title}
+                              </td>
+                              <td className="py-2 pr-2 max-w-[220px]">{m.description}</td>
+                              <td className="py-2 pr-2">
+                                <SafetyChip classification={zone.missionSafetyClassification} />
+                              </td>
+                              <td className="py-2 pr-2 font-mono text-[10px]">{zone.zoneId}</td>
+                              <td className="py-2">
+                                {existing ? (
+                                  <div className="flex flex-col gap-1">
+                                    <span
+                                      className="inline-flex items-center justify-center rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
+                                      style={{
+                                        background: 'rgba(34,197,94,0.12)',
+                                        border: '1px solid rgba(34,197,94,0.35)',
+                                        color: '#86efac',
+                                      }}
+                                      title={`DPAL mission ${existing.missionId} (status: ${existing.status})`}
+                                    >
+                                      Dispatched · {existing.status}
+                                    </span>
+                                    <span className="text-[10px] font-mono dpal-text-muted truncate max-w-[160px]">
+                                      {existing.missionId}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      disabled={inFlight}
+                                      onClick={() => void handleDispatch(zone, m.missionType)}
+                                      className="rounded-md px-2 py-1 text-[10px] font-semibold uppercase tracking-wide"
+                                      style={{
+                                        background: 'rgba(34,211,238,0.08)',
+                                        border: '1px solid rgba(34,211,238,0.3)',
+                                        color: '#22d3ee',
+                                        opacity: inFlight ? 0.5 : 1,
+                                      }}
+                                    >
+                                      {inFlight ? '…' : 'Re-dispatch'}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={inFlight}
+                                    onClick={() => void handleDispatch(zone, m.missionType)}
+                                    className="rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
+                                    style={{
+                                      background: 'rgba(34,211,238,0.15)',
+                                      border: '1px solid rgba(34,211,238,0.4)',
+                                      color: '#22d3ee',
+                                      opacity: inFlight ? 0.5 : 1,
+                                    }}
+                                  >
+                                    {inFlight ? '…' : 'Dispatch'}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -506,6 +570,52 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
                     ))}
                   </ul>
                 </div>
+
+                {zoneMissions.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-black uppercase tracking-widest dpal-text-muted mb-2">
+                      DPAL bridge missions for this zone ({zoneMissions.length})
+                    </div>
+                    <ul className="space-y-2">
+                      {zoneMissions.map((bm) => (
+                        <li
+                          key={bm.missionId}
+                          className="rounded-lg p-2 border text-xs dpal-border-subtle"
+                          style={{ background: 'var(--dpal-background)' }}
+                        >
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-[10px] dpal-text-muted">{bm.missionId}</span>
+                            <span
+                              className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded"
+                              style={{
+                                background: 'rgba(59,130,246,0.15)',
+                                color: '#bfdbfe',
+                                border: '1px solid rgba(59,130,246,0.35)',
+                              }}
+                            >
+                              {bm.dpalCategory}
+                            </span>
+                            <SafetyChip classification={bm.safetyClassification} />
+                            <span className="text-[10px] font-bold uppercase tracking-wide dpal-text-muted">
+                              {bm.status}
+                            </span>
+                          </div>
+                          <p className="mt-1" style={{ color: 'var(--dpal-text-primary)' }}>
+                            {bm.missionTitle}
+                          </p>
+                          <p className="mt-1 text-[11px]" style={{ color: 'var(--dpal-text-secondary)' }}>
+                            {bm.missionDescription}
+                          </p>
+                          {bm.linkedEvidencePacketId && (
+                            <p className="text-[10px] dpal-text-muted mt-1">
+                              Evidence packet: <span className="font-mono">{bm.linkedEvidencePacketId}</span>
+                            </p>
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div className="flex flex-wrap gap-2 pt-2 border-t dpal-border-subtle">
                   <button

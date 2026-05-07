@@ -10,6 +10,7 @@ import VerifyEmailPage from "./pages/auth/VerifyEmailPage";
 import AccountDashboardPage from "./pages/auth/AccountDashboardPage";
 import ProfilePage from "./pages/auth/ProfilePage";
 import AdminDashboardPage from "./pages/auth/AdminDashboardPage";
+import FloodLedgerVerificationPage from "./src/features/floodGuard/components/FloodLedgerVerificationPage";
 
 /**
  * Auth routes are mounted ahead of the main `App` catch-all so URLs like `/login`
@@ -27,6 +28,10 @@ export default function AppBootstrap() {
         <Route path="/account" element={<AccountDashboardPage />} />
         <Route path="/account/profile" element={<ProfilePage />} />
         <Route path="/admin" element={<AdminDashboardPage />} />
+        <Route
+          path="/floodguard/verify/:ledgerRecordId"
+          element={<FloodLedgerVerificationPage />}
+        />
         <Route path="*" element={<App />} />
       </Routes>
     </AuthProvider>

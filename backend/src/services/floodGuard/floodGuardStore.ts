@@ -11,7 +11,13 @@ import type {
   FloodCitizenReport,
   FloodDispatchedMissionRecord,
   FloodEvidencePacket,
+  FloodLedgerRecord,
+  FloodPublicLedgerRecord,
+  FloodMissionBridgeRecord,
   FloodMissionSafetyClassification,
+  FloodRoutingMode,
+  FloodRoutingPreviewSummary,
+  FloodSafeMissionType,
   FloodSituationMessage,
   FloodSituationRoom,
   FloodWeatherSignal,
@@ -22,7 +28,13 @@ import { draftFloodAlert, settingsForCity } from './floodAlertRouter';
 import { buildSyntheticRainfallSignal, getRainfallSample } from './floodRainfallAdapter';
 import { getSatelliteSample } from './floodSatelliteAdapter';
 import { getWaterLevelSample } from './floodWaterLevelAdapter';
-import { cloneZone, getZoneById, getZonesForCity, listAllRegisteredZones } from './floodCityZoneService';
+import {
+  cloneZone,
+  getCities,
+  getZoneById,
+  getZonesForCity,
+  listAllRegisteredZones,
+} from './floodCityZoneService';
 import { evaluateZoneForAgents } from './agents/floodAgentOrchestrator';
 import {
   isKnownSafeMissionType,
@@ -30,7 +42,16 @@ import {
   safetyClassificationAtLeastAsStrict,
 } from './agents/floodMissionDispatchAgent';
 import { buildFloodEvidencePacket } from './floodEvidencePacketService';
-import { anchorEvidenceOnLedger } from './floodLedgerService';
+import {
+  anchorEvidenceFull,
+  buildAgentFindingsDigest,
+  buildRainfallDigest,
+  buildRoutingDigest,
+  buildSatelliteDigest,
+  buildWaterLevelDigest,
+} from './floodLedgerService';
+import { buildMissionBridgeRecord } from './floodMissionBridgeService';
+import { buildFloodRoutingPreview, isValidRoutingMode } from './floodAlertRoutingService';
 import { randomUUID } from 'crypto';
 
 const STORE_DIR = path.join(process.cwd(), 'data', 'floodguard');
@@ -141,7 +162,7 @@ const SEED_REPORTS: FloodCitizenReport[] = [
 ];
 
 interface PersistedShape {
-  version: 1 | 2;
+  version: 1 | 2 | 3 | 4 | 5;
   detections: Record<string, FloodCameraDetection[]>;
   reports: Record<string, FloodCitizenReport[]>;
   weather: Record<string, FloodWeatherSignal>;
@@ -151,11 +172,19 @@ interface PersistedShape {
   evidenceByAlert: Record<string, FloodEvidencePacket>;
   anchors: Record<string, { contentHash: string; ledgerRecordId: string; anchoredAt: string }>;
   dispatchedMissions?: FloodDispatchedMissionRecord[];
+  /** Stage 12F — DPAL mission bridge records persisted alongside FloodGuard state. */
+  dpalMissions?: FloodMissionBridgeRecord[];
+  /** Stage 12G — newest-first routing previews per alert id. */
+  routingByAlert?: Record<string, FloodRoutingPreviewSummary[]>;
+  /** Stage 12H — full ledger records, indexed by ledgerRecordId. */
+  ledgerRecords?: Record<string, FloodLedgerRecord>;
+  /** Stage 12H — newest-first ledger record ids per alert id. */
+  ledgerByAlert?: Record<string, string[]>;
 }
 
 function emptyPersisted(): PersistedShape {
   return {
-    version: 2,
+    version: 5,
     detections: {},
     reports: {},
     weather: {},
@@ -165,6 +194,10 @@ function emptyPersisted(): PersistedShape {
     evidenceByAlert: {},
     anchors: {},
     dispatchedMissions: [],
+    dpalMissions: [],
+    routingByAlert: {},
+    ledgerRecords: {},
+    ledgerByAlert: {},
   };
 }
 
@@ -240,11 +273,27 @@ export class FloodGuardStore {
       if (fs.existsSync(STORE_FILE)) {
         const raw = fs.readFileSync(STORE_FILE, 'utf8');
         const parsed = JSON.parse(raw) as PersistedShape;
-        if (parsed && parsed.alerts && parsed.detections && (parsed.version === 1 || parsed.version === 2)) {
+        if (
+          parsed &&
+          parsed.alerts &&
+          parsed.detections &&
+          (parsed.version === 1 ||
+            parsed.version === 2 ||
+            parsed.version === 3 ||
+            parsed.version === 4 ||
+            parsed.version === 5)
+        ) {
           this.data = {
             ...parsed,
-            version: 2,
+            version: 5,
             dispatchedMissions: Array.isArray(parsed.dispatchedMissions) ? parsed.dispatchedMissions : [],
+            dpalMissions: Array.isArray(parsed.dpalMissions) ? parsed.dpalMissions : [],
+            routingByAlert:
+              parsed.routingByAlert && typeof parsed.routingByAlert === 'object' ? parsed.routingByAlert : {},
+            ledgerRecords:
+              parsed.ledgerRecords && typeof parsed.ledgerRecords === 'object' ? parsed.ledgerRecords : {},
+            ledgerByAlert:
+              parsed.ledgerByAlert && typeof parsed.ledgerByAlert === 'object' ? parsed.ledgerByAlert : {},
           };
           return;
         }
@@ -571,8 +620,9 @@ export class FloodGuardStore {
   }
 
   /**
-   * Stage 12C — create a persisted mission record only when catalog + live safety gate allow it.
-   * Caller should `await primeEnvironmentalSignals(zoneId)` first for fresh rainfall/satellite.
+   * Stage 12C/12F — create a persisted FloodGuard mission record AND a DPAL
+   * mission bridge record only when the catalog + live safety gate allow it.
+   * Caller should `await primeEnvironmentalSignals(zoneId)` first for fresh rainfall/satellite/water-level.
    */
   dispatchMission(args: {
     zoneId: string;
@@ -580,7 +630,7 @@ export class FloodGuardStore {
     requestedBy: string;
     safetyClassification: string;
   }):
-    | { ok: true; record: FloodDispatchedMissionRecord }
+    | { ok: true; record: FloodDispatchedMissionRecord; dpalMission: FloodMissionBridgeRecord }
     | { ok: false; code: string; reason: string } {
     const zone = getZoneById(args.zoneId);
     if (!zone) return { ok: false, code: 'not_found', reason: 'Zone not found.' };
@@ -622,19 +672,155 @@ export class FloodGuardStore {
       };
     }
 
-    const record: FloodDispatchedMissionRecord = {
-      missionId: `FG-MIS-${randomUUID().slice(0, 8)}`,
+    const missionId = `FG-MIS-${randomUUID().slice(0, 8)}`;
+    const missionType = args.missionType as FloodSafeMissionType;
+    const recommended = serverEval.recommendedMissions.find((m) => m.missionType === missionType) ?? null;
+    const activeAlert = this.getActiveAlertForZone(args.zoneId);
+    const linkedSituationRoomId = activeAlert ? this.data.situationRooms[activeAlert.alertId]?.roomId ?? null : null;
+    const linkedEvidencePacketId = activeAlert?.evidencePacketId ?? null;
+
+    const weather = this.data.weather[args.zoneId];
+    const dpalMission = buildMissionBridgeRecord({
+      missionId,
       zoneId: args.zoneId,
-      missionType: args.missionType,
+      cityId: zone.cityId,
+      missionType,
+      recommended,
+      safetyClassification: serverEval.missionSafetyClassification,
+      safetyRationale: serverEval.safetyRationale,
+      agentFindings: serverEval.agentFindings,
+      createdBy: args.requestedBy.trim(),
+      sourceAlertId: activeAlert?.alertId ?? null,
+      linkedEvidencePacketId,
+      linkedSituationRoomId,
+      rainfallMeta: weather?.rainfallMeta,
+      satelliteMeta: weather?.satelliteMeta,
+      waterLevelMeta: weather?.waterLevelMeta,
+    });
+
+    if (!dpalMission) {
+      return {
+        ok: false,
+        code: 'bridge_blocked',
+        reason: 'DPAL mission bridge could not map this mission to a safe DPAL category.',
+      };
+    }
+
+    const record: FloodDispatchedMissionRecord = {
+      missionId,
+      zoneId: args.zoneId,
+      missionType,
       requestedBy: args.requestedBy.trim(),
       safetyClassification: args.safetyClassification,
       zoneSafetyAtDispatch: serverEval.missionSafetyClassification,
       createdAt: new Date().toISOString(),
       status: 'open',
+      dpalMissionId: dpalMission.missionId,
     };
     this.data.dispatchedMissions = [...(this.data.dispatchedMissions ?? []), record];
+    this.data.dpalMissions = [...(this.data.dpalMissions ?? []), dpalMission];
     this.persist();
-    return { ok: true, record };
+    return { ok: true, record, dpalMission };
+  }
+
+  /** Stage 12F — list bridge records (newest first). */
+  listDpalMissions(filters?: { zoneId?: string; alertId?: string }): FloodMissionBridgeRecord[] {
+    const all = [...(this.data.dpalMissions ?? [])];
+    const filtered = all.filter((m) => {
+      if (filters?.zoneId && m.sourceZoneId !== filters.zoneId) return false;
+      if (filters?.alertId && m.sourceAlertId !== filters.alertId) return false;
+      return true;
+    });
+    return filtered.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }
+
+  /** Stage 12F — get a single bridge record. */
+  getDpalMission(missionId: string): FloodMissionBridgeRecord | undefined {
+    return (this.data.dpalMissions ?? []).find((m) => m.missionId === missionId);
+  }
+
+  /** Stage 12F — link an evidence packet onto bridge records for the same zone/alert. */
+  linkEvidenceToMissions(packetId: string, alertId: string, zoneId: string): void {
+    const next = (this.data.dpalMissions ?? []).map((m) => {
+      if (m.linkedEvidencePacketId) return m;
+      if (m.sourceAlertId === alertId || m.sourceZoneId === zoneId) {
+        return { ...m, linkedEvidencePacketId: packetId, updatedAt: new Date().toISOString() };
+      }
+      return m;
+    });
+    this.data.dpalMissions = next;
+  }
+
+  /** Stage 12F — compact mission summary for evidence packet `linkedMissions`. */
+  getLinkedMissionsSummary(zoneId: string, alertId: string): NonNullable<FloodEvidencePacket['linkedMissions']> {
+    return (this.data.dpalMissions ?? [])
+      .filter((m) => m.sourceZoneId === zoneId || m.sourceAlertId === alertId)
+      .map((m) => ({
+        missionId: m.missionId,
+        missionType: m.missionType,
+        dpalCategory: m.dpalCategory,
+        safetyClassification: m.safetyClassification,
+        status: m.status,
+        createdAt: m.createdAt,
+      }));
+  }
+
+  /**
+   * Stage 12G — generate (and persist) a routing preview for an alert. Always
+   * dry-run / preview; this never sends external notifications.
+   */
+  previewRouting(args: {
+    alertId: string;
+    generatedBy: string;
+    mode?: string;
+  }):
+    | { ok: true; preview: FloodRoutingPreviewSummary }
+    | { ok: false; code: 'not_found' | 'validation_error'; reason: string } {
+    const alert = this.data.alerts[args.alertId];
+    if (!alert) return { ok: false, code: 'not_found', reason: 'Alert not found.' };
+    const zone = getZoneById(alert.zoneId);
+    if (!zone) return { ok: false, code: 'not_found', reason: 'Zone for alert not found.' };
+    if (!args.generatedBy || typeof args.generatedBy !== 'string' || !args.generatedBy.trim()) {
+      return { ok: false, code: 'validation_error', reason: 'generatedBy is required.' };
+    }
+    const mode: FloodRoutingMode = isValidRoutingMode(args.mode ?? '') ? (args.mode as FloodRoutingMode) : 'dry_run';
+
+    this.recomputeZone(alert.zoneId);
+    const fresh = this.data.alerts[args.alertId] ?? alert;
+    const agentEvaluation = evaluateZoneForAgents(this, zone);
+    const linkedMissions = (this.data.dpalMissions ?? []).filter(
+      (m) => m.sourceAlertId === args.alertId || m.sourceZoneId === alert.zoneId,
+    );
+    const hasSituationRoom = Boolean(this.data.situationRooms[args.alertId]);
+
+    const preview = buildFloodRoutingPreview({
+      alert: fresh,
+      zone,
+      agentEvaluation,
+      linkedMissions,
+      evidencePacketId: fresh.evidencePacketId ?? null,
+      hasSituationRoom,
+      generatedBy: args.generatedBy.trim(),
+      mode,
+    });
+
+    const map = this.data.routingByAlert ?? {};
+    const existing = Array.isArray(map[args.alertId]) ? map[args.alertId] : [];
+    map[args.alertId] = [preview, ...existing].slice(0, 25);
+    this.data.routingByAlert = map;
+    this.persist();
+    return { ok: true, preview };
+  }
+
+  /** Stage 12G — list previews for an alert (newest first). */
+  listRoutingForAlert(alertId: string): FloodRoutingPreviewSummary[] {
+    return [...(this.data.routingByAlert?.[alertId] ?? [])];
+  }
+
+  /** Stage 12G — return the most recent routing preview for evidence packet hashing. */
+  getLatestRoutingPreview(alertId: string): FloodRoutingPreviewSummary | null {
+    const list = this.data.routingByAlert?.[alertId] ?? [];
+    return list.length ? list[0] : null;
   }
 
   generateEvidencePacket(alertId: string, generatedBy: string): FloodEvidencePacket | null {
@@ -652,30 +838,214 @@ export class FloodGuardStore {
     const riskScore = computeFloodRiskScore({ zone, cameras, citizenReports, weather });
     const agentEvaluation = evaluateZoneForAgents(this, zone);
 
-    const packet = buildFloodEvidencePacket({ alert: fresh, riskScore, generatedBy, agentEvaluation });
+    const linkedMissions = this.getLinkedMissionsSummary(fresh.zoneId, fresh.alertId);
+    const routingPreview = this.getLatestRoutingPreview(alertId);
+    const packet = buildFloodEvidencePacket({
+      alert: fresh,
+      riskScore,
+      generatedBy,
+      agentEvaluation,
+      linkedMissions,
+      routingPreview,
+    });
+
+    // Stage 12H — surface provenance digests on the packet so the UI can show
+    // them without re-deriving. The same digests feed the ledger record.
+    packet.rainfallDigest = buildRainfallDigest(weather);
+    packet.satelliteDigest = buildSatelliteDigest(weather);
+    packet.waterLevelDigest = buildWaterLevelDigest(weather);
+    packet.agentFindingsDigest = buildAgentFindingsDigest(agentEvaluation);
+    packet.routingPreviewDigest = buildRoutingDigest(routingPreview);
+    const latestLedgerId = (this.data.ledgerByAlert ?? {})[alertId]?.[0];
+    const latestLedger = latestLedgerId ? this.data.ledgerRecords?.[latestLedgerId] : undefined;
+    if (latestLedger) {
+      packet.anchoringHash = latestLedger.anchoringHash;
+      packet.ledgerAnchor = latestLedger;
+    }
+
     this.data.evidenceByAlert[alertId] = packet;
     fresh.evidencePacketId = packet.packetId;
     fresh.lifecycle = fresh.lifecycle === 'ai_detected' ? 'evidence_assembled' : fresh.lifecycle;
     fresh.updatedAt = new Date().toISOString();
     this.data.alerts[alertId] = fresh;
+    this.linkEvidenceToMissions(packet.packetId, alertId, fresh.zoneId);
     this.persist();
     return packet;
   }
 
-  anchorAlert(alertId: string): { contentHash: string; ledgerRecordId: string } | null {
+  /**
+   * Stage 12H — upgraded ledger anchor. Builds a structured `FloodLedgerRecord`
+   * including provenance/agent/routing/mission digests, persists it, supersedes
+   * older records for the alert, and updates the cached evidence packet so the
+   * UI can render the full record without an extra round-trip.
+   *
+   * Returns a back-compat shape `{ contentHash, ledgerRecordId }` for callers
+   * that haven't migrated; full record is also returned via `record`.
+   */
+  anchorAlert(
+    alertId: string,
+    options: { createdBy?: string } = {},
+  ): { contentHash: string; ledgerRecordId: string; record: FloodLedgerRecord } | null {
     const packet = this.data.evidenceByAlert[alertId];
     if (!packet) return null;
-    const anchor = anchorEvidenceOnLedger(packet.contentHash, alertId);
-    this.data.anchors[alertId] = anchor;
     const alert = this.data.alerts[alertId];
-    if (alert) {
-      alert.ledgerAnchorHash = anchor.contentHash;
-      alert.lifecycle = 'human_verified';
-      alert.updatedAt = new Date().toISOString();
-      this.data.alerts[alertId] = alert;
+    if (!alert) return null;
+    const zone = getZoneById(alert.zoneId);
+    if (!zone) return null;
+
+    const weather = this.data.weather[alert.zoneId] ?? null;
+    const agentEvaluation = evaluateZoneForAgents(this, zone);
+    const routingPreview = this.getLatestRoutingPreview(alertId);
+    const linkedMissionIds = (this.data.dpalMissions ?? [])
+      .filter((m) => m.sourceAlertId === alertId || m.sourceZoneId === alert.zoneId)
+      .map((m) => m.missionId);
+
+    const record = anchorEvidenceFull({
+      alert,
+      packet,
+      weather,
+      agentEvaluation,
+      routingPreview,
+      linkedMissionIds,
+      createdBy: options.createdBy ?? 'DPAL Operator',
+    });
+
+    // Persist record + supersede older records for this alert.
+    const records = { ...(this.data.ledgerRecords ?? {}) };
+    const previousIds = [...((this.data.ledgerByAlert ?? {})[alertId] ?? [])];
+    for (const oldId of previousIds) {
+      const old = records[oldId];
+      if (old && old.anchorStatus !== 'superseded' && old.anchorStatus !== 'failed') {
+        records[oldId] = { ...old, anchorStatus: 'superseded' };
+      }
     }
+    records[record.ledgerRecordId] = record;
+    this.data.ledgerRecords = records;
+    this.data.ledgerByAlert = {
+      ...(this.data.ledgerByAlert ?? {}),
+      [alertId]: [record.ledgerRecordId, ...previousIds].slice(0, 25),
+    };
+
+    // Back-compat anchors map for older callers.
+    this.data.anchors[alertId] = {
+      contentHash: record.contentHash,
+      ledgerRecordId: record.ledgerRecordId,
+      anchoredAt: record.anchoredAt,
+    };
+
+    // Update alert lifecycle (`human_verified` per existing behavior).
+    alert.ledgerAnchorHash = record.anchoringHash;
+    alert.lifecycle = 'human_verified';
+    alert.updatedAt = new Date().toISOString();
+    this.data.alerts[alertId] = alert;
+
+    // Refresh the cached evidence packet so the UI shows the new ledger info.
+    const updatedPacket: FloodEvidencePacket = {
+      ...packet,
+      anchoringHash: record.anchoringHash,
+      ledgerAnchor: record,
+      ledgerRecordId: record.ledgerRecordId,
+      rainfallDigest: record.rainfallDigest,
+      satelliteDigest: record.satelliteDigest,
+      waterLevelDigest: record.waterLevelDigest,
+      agentFindingsDigest: record.agentFindingsDigest,
+      routingPreviewDigest: record.routingPreviewDigest,
+    };
+    this.data.evidenceByAlert[alertId] = updatedPacket;
+
     this.persist();
-    return { contentHash: anchor.contentHash, ledgerRecordId: anchor.ledgerRecordId };
+    return { contentHash: record.contentHash, ledgerRecordId: record.ledgerRecordId, record };
+  }
+
+  /** Stage 12H — fetch a single ledger record by id. */
+  getLedgerRecord(ledgerRecordId: string): FloodLedgerRecord | undefined {
+    return (this.data.ledgerRecords ?? {})[ledgerRecordId];
+  }
+
+  /** Stage 12H — list ledger records for an alert (newest first). */
+  listLedgerRecordsForAlert(alertId: string): FloodLedgerRecord[] {
+    const ids = (this.data.ledgerByAlert ?? {})[alertId] ?? [];
+    return ids
+      .map((id) => (this.data.ledgerRecords ?? {})[id])
+      .filter((rec): rec is FloodLedgerRecord => Boolean(rec));
+  }
+
+  /**
+   * Stage 12I — build a public-safe verification view of a ledger record.
+   *
+   * Privacy contract:
+   *   - never expose raw citizen reports, contact info, or operator notes;
+   *   - never expose situation-room messages;
+   *   - never expose preview message bodies for outbound channels;
+   *   - mock/live labeling is preserved verbatim.
+   */
+  toPublicLedgerRecord(record: FloodLedgerRecord): FloodPublicLedgerRecord {
+    const zone = getZoneById(record.zoneId);
+    const city = getCities().find((c) => c.cityId === record.cityId);
+    const alert = this.data.alerts[record.alertId];
+
+    const verificationStatus: FloodPublicLedgerRecord['verificationStatus'] =
+      record.anchorStatus === 'anchored_mock'
+        ? 'verified_anchored_mock'
+        : record.anchorStatus === 'anchored_live'
+          ? 'verified_anchored_live'
+          : record.anchorStatus === 'pending'
+            ? 'pending_anchor'
+            : record.anchorStatus === 'superseded'
+              ? 'superseded'
+              : record.anchorStatus === 'failed'
+                ? 'failed'
+                : 'unknown';
+
+    const summaryParts: string[] = [];
+    if (alert) {
+      summaryParts.push(`Alert level: ${String(alert.level ?? 'unknown')}`);
+      if (typeof alert.riskScore === 'number') {
+        summaryParts.push(`risk score ${Math.round(alert.riskScore)}/100`);
+      }
+    }
+    if (zone) summaryParts.push(`Zone: ${zone.name}`);
+    if (city) summaryParts.push(`City: ${city.name}`);
+    if (record.linkedMissionIds.length) {
+      summaryParts.push(`${record.linkedMissionIds.length} linked DPAL mission(s)`);
+    }
+    summaryParts.push(record.isMock ? 'Mock anchor' : 'Live anchor');
+
+    const publicSummary =
+      summaryParts.join(' · ') ||
+      'DPAL FloodGuard anchored evidence record. See digests for verification.';
+
+    const privacyNotice =
+      'Public verification view — private citizen reports, contact details, internal Situation Room messages, and operator notes are intentionally excluded.';
+
+    return {
+      ledgerRecordId: record.ledgerRecordId,
+      alertId: record.alertId,
+      zoneId: record.zoneId,
+      zoneName: zone?.name,
+      cityId: record.cityId,
+      cityName: city?.name,
+      evidencePacketId: record.evidencePacketId,
+      contentHash: record.contentHash,
+      anchoringHash: record.anchoringHash,
+      rainfallDigest: record.rainfallDigest,
+      satelliteDigest: record.satelliteDigest,
+      waterLevelDigest: record.waterLevelDigest,
+      agentFindingsDigest: record.agentFindingsDigest,
+      routingPreviewDigest: record.routingPreviewDigest,
+      linkedMissionIds: [...record.linkedMissionIds],
+      qrPayload: record.qrPayload,
+      legalDisclaimer: record.legalDisclaimer,
+      publicSummary,
+      verificationStatus,
+      privacyNotice,
+      anchorStatus: record.anchorStatus,
+      chainProviderLabel: record.chainProviderLabel,
+      isMock: record.isMock,
+      createdAt: record.createdAt,
+      anchoredAt: record.anchoredAt,
+      verificationUrl: record.verificationUrl,
+    };
   }
 }
 

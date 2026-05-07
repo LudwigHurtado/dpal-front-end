@@ -4,6 +4,24 @@
  * Stages 12A–12E — routes await `store.primeEnvironmentalSignals` (rainfall,
  * AquaScan satellite, water-level gauge) before recomputing risk scores where
  * freshness matters.
+ *
+ * Stage 12F — adds DPAL mission bridge endpoints `/missions` and
+ * `/missions/:missionId`, and `/agents/dispatch-mission` now returns both the
+ * FloodGuard `dispatchedMission` and the DPAL `dpalMission` record.
+ *
+ * Stage 12G — adds preview-only routing endpoints
+ * `POST /alerts/:alertId/route-preview` and `GET /alerts/:alertId/routing`.
+ * No external notifications are sent — only dry-run / preview decisions are
+ * computed, persisted, and returned for operator review.
+ *
+ * Stage 12H — upgrades `POST /anchor-alert` to return a full DPAL ledger record
+ * (mock chain by default) and adds `GET /ledger/:ledgerRecordId` and
+ * `GET /alerts/:alertId/ledger`. No paid blockchain calls are made.
+ *
+ * Stage 12I — adds the public verification endpoint
+ * `GET /public/ledger/:ledgerRecordId` so QR / share links can render a
+ * privacy-safe verification view without exposing private reports, contact
+ * info, situation-room messages, or operator-only notes.
  */
 
 import { Router, type Request, type Response } from 'express';
@@ -211,7 +229,74 @@ router.post('/agents/dispatch-mission', async (req: Request, res: Response) => {
     res.status(400).json({ error: result.reason, code: result.code });
     return;
   }
-  res.json({ mission: result.record });
+  res.json({ mission: result.record, dispatchedMission: result.record, dpalMission: result.dpalMission });
+});
+
+/** GET /api/floodguard/missions — Stage 12F bridge listing. */
+router.get('/missions', (req: Request, res: Response) => {
+  const store = getFloodGuardStore();
+  const zoneId = typeof req.query.zoneId === 'string' ? req.query.zoneId : undefined;
+  const alertId = typeof req.query.alertId === 'string' ? req.query.alertId : undefined;
+  const missions = store.listDpalMissions({ zoneId, alertId });
+  res.json({
+    missions,
+    legalNotice:
+      'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+  });
+});
+
+/** GET /api/floodguard/missions/:missionId — Stage 12F bridge detail. */
+router.get('/missions/:missionId', (req: Request, res: Response) => {
+  const store = getFloodGuardStore();
+  const mission = store.getDpalMission(String(req.params.missionId));
+  if (!mission) {
+    res.status(404).json({ error: 'Mission not found', code: 'not_found' });
+    return;
+  }
+  res.json({ mission });
+});
+
+/**
+ * Stage 12G — generate a routing preview for an alert. Always dry-run / preview;
+ * never sends external notifications. Persists the preview to the store so it
+ * can later be folded into the SHA-256 evidence packet.
+ */
+router.post('/alerts/:alertId/route-preview', async (req: Request, res: Response) => {
+  const alertId = String(req.params.alertId);
+  if (!alertId) {
+    res.status(400).json({ error: 'alertId required', code: 'validation_error' });
+    return;
+  }
+  const body = (req.body ?? {}) as { generatedBy?: string; mode?: string };
+  const generatedBy = String(body.generatedBy ?? 'DPAL Operator');
+  const store = getFloodGuardStore();
+  const existing = store.getAlert(alertId);
+  if (existing) await store.primeEnvironmentalSignals(existing.zoneId);
+  const result = store.previewRouting({ alertId, generatedBy, mode: body.mode });
+  if (!result.ok) {
+    const status = result.code === 'not_found' ? 404 : 400;
+    res.status(status).json({ error: result.reason, code: result.code });
+    return;
+  }
+  res.json({ preview: result.preview });
+});
+
+/** Stage 12G — list previous routing previews for an alert (newest first). */
+router.get('/alerts/:alertId/routing', (req: Request, res: Response) => {
+  const alertId = String(req.params.alertId);
+  const store = getFloodGuardStore();
+  const alert = store.getAlert(alertId);
+  if (!alert) {
+    res.status(404).json({ error: 'Alert not found', code: 'not_found' });
+    return;
+  }
+  const previews = store.listRoutingForAlert(alertId);
+  res.json({
+    alertId,
+    previews,
+    legalNotice:
+      'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+  });
 });
 
 /** GET /api/floodguard/cities */
@@ -322,15 +407,16 @@ router.post('/generate-evidence-packet', async (req: Request, res: Response) => 
   res.json({ packet });
 });
 
-/** POST /api/floodguard/anchor-alert */
+/** POST /api/floodguard/anchor-alert — Stage 12H upgraded anchor with full ledger record. */
 router.post('/anchor-alert', (req: Request, res: Response) => {
-  const alertId = String((req.body as { alertId?: string })?.alertId ?? '');
+  const body = (req.body ?? {}) as { alertId?: string; createdBy?: string };
+  const alertId = String(body.alertId ?? '');
   if (!alertId) {
     res.status(400).json({ error: 'alertId required', code: 'validation_error' });
     return;
   }
   const store = getFloodGuardStore();
-  const anchor = store.anchorAlert(alertId);
+  const anchor = store.anchorAlert(alertId, { createdBy: String(body.createdBy ?? 'DPAL Operator') });
   if (!anchor) {
     res.status(400).json({
       error: 'Evidence packet must be generated before anchoring.',
@@ -338,7 +424,62 @@ router.post('/anchor-alert', (req: Request, res: Response) => {
     });
     return;
   }
-  res.json({ alertId, ledgerRecordId: anchor.ledgerRecordId, contentHash: anchor.contentHash });
+  res.json({
+    alertId,
+    ledgerRecordId: anchor.ledgerRecordId,
+    contentHash: anchor.contentHash,
+    record: anchor.record,
+  });
+});
+
+/** GET /api/floodguard/ledger/:ledgerRecordId — Stage 12H ledger lookup. */
+router.get('/ledger/:ledgerRecordId', (req: Request, res: Response) => {
+  const store = getFloodGuardStore();
+  const record = store.getLedgerRecord(String(req.params.ledgerRecordId));
+  if (!record) {
+    res.status(404).json({ error: 'Ledger record not found', code: 'not_found' });
+    return;
+  }
+  res.json({ record });
+});
+
+/**
+ * GET /api/floodguard/public/ledger/:ledgerRecordId — Stage 12I public, QR-friendly
+ * verification record. Strips private citizen reports, situation-room messages,
+ * preview message bodies, and operator notes; preserves digests, hashes,
+ * mock/live labeling, and the legal disclaimer.
+ */
+router.get('/public/ledger/:ledgerRecordId', (req: Request, res: Response) => {
+  const store = getFloodGuardStore();
+  const record = store.getLedgerRecord(String(req.params.ledgerRecordId));
+  if (!record) {
+    res.status(404).json({ error: 'Ledger record not found', code: 'not_found' });
+    return;
+  }
+  const publicRecord = store.toPublicLedgerRecord(record);
+  res.json({
+    record: publicRecord,
+    legalNotice:
+      'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+  });
+});
+
+/** GET /api/floodguard/alerts/:alertId/ledger — Stage 12H ledger history per alert. */
+router.get('/alerts/:alertId/ledger', (req: Request, res: Response) => {
+  const store = getFloodGuardStore();
+  const alertId = String(req.params.alertId);
+  const alert = store.getAlert(alertId);
+  if (!alert) {
+    res.status(404).json({ error: 'Alert not found', code: 'not_found' });
+    return;
+  }
+  const records = store.listLedgerRecordsForAlert(alertId);
+  res.json({
+    alertId,
+    records,
+    legalNotice:
+      'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+  });
 });
 
 /** GET /api/floodguard/alerts/live */

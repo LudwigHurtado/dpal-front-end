@@ -157,6 +157,13 @@ export const API_ROUTES = {
   HAZ_WASTE_AUDIT_LIST: '/api/hazardous-waste-audit/list',
   RCRA_DATA_SEARCH: '/api/rcra-data/search',
   RCRA_DATA_IMPORT: '/api/rcra-data/import',
+  /** DPAL FloodGuard — verified civic flood intelligence */
+  FLOODGUARD_CITIES: '/api/floodguard/cities',
+  FLOODGUARD_CAMERA_ALERT: '/api/floodguard/camera-alert',
+  FLOODGUARD_CITIZEN_REPORT: '/api/floodguard/citizen-report',
+  FLOODGUARD_GENERATE_EVIDENCE_PACKET: '/api/floodguard/generate-evidence-packet',
+  FLOODGUARD_ANCHOR_ALERT: '/api/floodguard/anchor-alert',
+  FLOODGUARD_ALERTS_LIVE: '/api/floodguard/alerts/live',
 } as const;
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
@@ -197,6 +204,12 @@ export const WATER_GENERATE_REPORT   = (id: string) => apiUrl(`/api/water/projec
 export const WATER_ISSUE_CREDITS     = (id: string) => apiUrl(`/api/water/projects/${encodeURIComponent(id)}/credits/issue`);
 export const WATER_CREDIT_LIST       = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/list`);
 export const WATER_CREDIT_RETIRE     = (id: string) => apiUrl(`/api/water/credits/${encodeURIComponent(id)}/retire`);
+
+// ── FloodGuard helpers ────────────────────────────────────────────────────────
+export const FLOODGUARD_CITY_ZONES = (cityId: string) => apiUrl(`/api/floodguard/cities/${encodeURIComponent(cityId)}/zones`);
+export const FLOODGUARD_ZONE_STATUS = (zoneId: string) => apiUrl(`/api/floodguard/zones/${encodeURIComponent(zoneId)}/status`);
+export const FLOODGUARD_ALERT_DETAIL = (alertId: string) => apiUrl(`/api/floodguard/alerts/${encodeURIComponent(alertId)}`);
+export const FLOODGUARD_SITUATION = (alertId: string) => apiUrl(`/api/floodguard/situation/${encodeURIComponent(alertId)}`);
 
 /** Home layout options for hub: feed-first (A), map (B), categories (C). Persisted in localStorage. */
 export type HomeLayout = 'feed' | 'map' | 'categories';

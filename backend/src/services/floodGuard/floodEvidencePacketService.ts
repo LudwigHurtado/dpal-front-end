@@ -7,9 +7,12 @@ import type {
   FloodAlert,
   FloodEvidencePacket,
   FloodRiskScore,
+  FloodRoutingPreviewSummary,
   FloodZoneAgentEvaluation,
 } from './floodGuardTypes';
 import { runEvidenceAgent } from './agents/floodEvidenceAgent';
+
+type LinkedMissionsSummary = NonNullable<FloodEvidencePacket['linkedMissions']>;
 
 export const FLOODGUARD_LEGAL_DISCLAIMER =
   'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts. ' +
@@ -21,6 +24,10 @@ export interface BuildEvidencePacketInput {
   generatedBy: string;
   /** Stage 12C agentic evaluation for hashed body + packet fields. */
   agentEvaluation?: FloodZoneAgentEvaluation | null;
+  /** Stage 12F — DPAL bridge missions linked to this alert / zone. */
+  linkedMissions?: LinkedMissionsSummary;
+  /** Stage 12G — most recent routing preview (dry-run) for hashed body + packet field. */
+  routingPreview?: FloodRoutingPreviewSummary | null;
 }
 
 export function sha256Hex(json: string): string {
@@ -124,6 +131,18 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
       }
     : undefined;
 
+  const linkedMissions = input.linkedMissions && input.linkedMissions.length ? input.linkedMissions : undefined;
+  if (linkedMissions) {
+    summary += ` Linked DPAL missions: ${linkedMissions.length}.`;
+  }
+
+  const routingPreview = input.routingPreview ?? undefined;
+  if (routingPreview) {
+    summary +=
+      ` Routing preview: ${routingPreview.routableCount} routable / ${routingPreview.blockedCount} blocked` +
+      ` (${routingPreview.mode}).`;
+  }
+
   const body = {
     alertId: input.alert.alertId,
     zoneId: input.alert.zoneId,
@@ -140,6 +159,8 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
     generatedAt,
     generatedBy: input.generatedBy,
     agenticMonitoring,
+    linkedMissions,
+    routingPreviewDigest: routingPreview ? routingPreview.digest : null,
   };
 
   const contentHash = sha256Hex(JSON.stringify(body));
@@ -171,5 +192,7 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
           ),
         }
       : {}),
+    ...(linkedMissions ? { linkedMissions } : {}),
+    ...(routingPreview ? { routingPreview } : {}),
   };
 }

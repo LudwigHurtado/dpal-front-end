@@ -1664,7 +1664,7 @@ const DpalFieldOSPage: React.FC = () => {
                         </button>
                       </div>
                     </div>
-                    <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="flex w-full flex-wrap gap-3">
                       <button
                         type="button"
                         onClick={() => {
@@ -1672,7 +1672,7 @@ const DpalFieldOSPage: React.FC = () => {
                           runPlannedWorkflow();
                         }}
                         disabled={!superAgentPlan || isPlanExecutionRunning}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-slate-900 px-4 py-2 text-center text-sm font-semibold leading-tight text-white transition hover:bg-slate-700 whitespace-normal disabled:cursor-not-allowed disabled:bg-slate-400"
                       >
                         Run Planned Workflow Preview
                       </button>
@@ -1680,21 +1680,21 @@ const DpalFieldOSPage: React.FC = () => {
                         type="button"
                         onClick={createSuperAgentPlan}
                         disabled={superAgentStatus === 'planning'}
-                        className="rounded-full bg-teal-100/90 px-4 py-2 text-sm font-semibold text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-teal-100/90 px-4 py-2 text-center text-sm font-semibold leading-tight text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200 whitespace-normal disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Regenerate Plan
                       </button>
                       <button
                         type="button"
                         onClick={resetSuperAgentCaseState}
-                        className="rounded-full bg-teal-100/90 px-4 py-2 text-sm font-semibold text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-teal-100/90 px-4 py-2 text-center text-sm font-semibold leading-tight text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200 whitespace-normal"
                       >
                         Reset / Start New Case
                       </button>
                       <button
                         type="button"
                         onClick={continueSuperAgentLoop}
-                        className="rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-200"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-amber-100 px-4 py-2 text-center text-sm font-semibold leading-tight text-amber-900 ring-1 ring-amber-200 transition hover:bg-amber-200 whitespace-normal"
                       >
                         Continue Loop
                       </button>
@@ -1702,7 +1702,7 @@ const DpalFieldOSPage: React.FC = () => {
                         type="button"
                         onClick={requestVerificationReview}
                         disabled={!superAgentPlan || isReviewBusy}
-                        className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-200 transition hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-emerald-100 px-4 py-2 text-center text-sm font-semibold leading-tight text-emerald-900 ring-1 ring-emerald-200 transition hover:bg-emerald-200 whitespace-normal disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Request Verification Review
                       </button>
@@ -1710,25 +1710,25 @@ const DpalFieldOSPage: React.FC = () => {
                         type="button"
                         onClick={refreshReviewStatus}
                         disabled={!superAgentPlan || isReviewBusy}
-                        className="rounded-full bg-cyan-100 px-4 py-2 text-sm font-semibold text-cyan-900 ring-1 ring-cyan-200 transition hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-70"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-cyan-100 px-4 py-2 text-center text-sm font-semibold leading-tight text-cyan-900 ring-1 ring-cyan-200 transition hover:bg-cyan-200 whitespace-normal disabled:cursor-not-allowed disabled:opacity-70"
                       >
                         Refresh Review Status
                       </button>
                       <button
                         type="button"
                         onClick={exportCaseSnapshot}
-                        className="rounded-full bg-teal-100/90 px-4 py-2 text-sm font-semibold text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200"
+                        className="min-h-[3rem] min-w-[14rem] flex-1 rounded-full bg-teal-100/90 px-4 py-2 text-center text-sm font-semibold leading-tight text-[#041316] ring-1 ring-teal-700/30 transition hover:bg-teal-200 whitespace-normal"
                       >
                         Export Case Snapshot
                       </button>
                     </div>
-                    <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-3">
+                    <div className="flex w-full flex-wrap gap-3">
                       {(['plan', 'workspace', 'execution'] as const).map((tab) => (
                         <button
                           key={tab}
                           type="button"
                           onClick={() => setSuperAgentTab(tab)}
-                          className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                          className={`min-h-[3rem] min-w-[13rem] flex-1 rounded-full px-4 py-2 text-center text-sm font-semibold leading-tight whitespace-normal transition ${
                             superAgentTab === tab
                               ? 'bg-slate-900 text-white shadow-sm'
                               : 'bg-teal-50 text-[#041316] ring-1 ring-teal-700/25 hover:bg-teal-100'

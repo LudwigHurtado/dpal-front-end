@@ -14,6 +14,13 @@
  *   GET  /api/floodguard/situation/:alertId
  *   GET  /api/floodguard/agents/monitor
  *   POST /api/floodguard/agents/dispatch-mission
+ *   GET  /api/floodguard/missions
+ *   GET  /api/floodguard/missions/:missionId
+ *   POST /api/floodguard/alerts/:alertId/route-preview
+ *   GET  /api/floodguard/alerts/:alertId/routing
+ *   GET  /api/floodguard/ledger/:ledgerRecordId
+ *   GET  /api/floodguard/alerts/:alertId/ledger
+ *   GET  /api/floodguard/public/ledger/:ledgerRecordId
  *
  * Until the backend ships, callers receive a typed `unavailable` result so the
  * UI can fall back to the Santa Cruz mock data without throwing.
@@ -28,7 +35,12 @@ import type {
   FloodCitizenReport,
   FloodDispatchedMissionRecord,
   FloodEvidencePacket,
+  FloodLedgerRecord,
+  FloodPublicLedgerRecord,
+  FloodMissionBridgeRecord,
   FloodMissionSafetyClassification,
+  FloodRoutingMode,
+  FloodRoutingPreviewSummary,
   FloodSituationRoom,
   FloodZone,
 } from '../floodGuardTypes';
@@ -46,6 +58,14 @@ export const FLOODGUARD_ROUTES = {
   SITUATION: (alertId: string) => `/api/floodguard/situation/${encodeURIComponent(alertId)}`,
   AGENTS_MONITOR: '/api/floodguard/agents/monitor',
   AGENTS_DISPATCH_MISSION: '/api/floodguard/agents/dispatch-mission',
+  MISSIONS: '/api/floodguard/missions',
+  MISSION_DETAIL: (missionId: string) => `/api/floodguard/missions/${encodeURIComponent(missionId)}`,
+  ROUTE_PREVIEW: (alertId: string) => `/api/floodguard/alerts/${encodeURIComponent(alertId)}/route-preview`,
+  ROUTING_HISTORY: (alertId: string) => `/api/floodguard/alerts/${encodeURIComponent(alertId)}/routing`,
+  LEDGER_DETAIL: (ledgerRecordId: string) => `/api/floodguard/ledger/${encodeURIComponent(ledgerRecordId)}`,
+  LEDGER_HISTORY: (alertId: string) => `/api/floodguard/alerts/${encodeURIComponent(alertId)}/ledger`,
+  PUBLIC_LEDGER_DETAIL: (ledgerRecordId: string) =>
+    `/api/floodguard/public/ledger/${encodeURIComponent(ledgerRecordId)}`,
 } as const;
 
 export type FloodGuardApiResult<T> =
@@ -115,31 +135,89 @@ export const floodGuardApi = {
       method: 'POST',
       body: JSON.stringify({ alertId, generatedBy: generatedBy ?? 'DPAL Web' }),
     }),
-  anchorAlert: (alertId: string) =>
-    safeFetch<{ alertId: string; ledgerRecordId: string; contentHash: string }>(
-      apiUrl(FLOODGUARD_ROUTES.ANCHOR_ALERT),
-      {
-        method: 'POST',
-        body: JSON.stringify({ alertId }),
-      },
-    ),
+  /**
+   * Stage 12H — anchor flow returns the full DPAL ledger record (mock chain by
+   * default). Older callers can still read `ledgerRecordId` / `contentHash`.
+   */
+  anchorAlert: (alertId: string, options?: { createdBy?: string }) =>
+    safeFetch<{
+      alertId: string;
+      ledgerRecordId: string;
+      contentHash: string;
+      record: FloodLedgerRecord;
+    }>(apiUrl(FLOODGUARD_ROUTES.ANCHOR_ALERT), {
+      method: 'POST',
+      body: JSON.stringify({ alertId, createdBy: options?.createdBy }),
+    }),
 
   /** Stage 12C — agentic evaluation for all Geo-IDs. */
   getAgentMonitor: () =>
     safeFetch<FloodAgentMonitorResponse>(apiUrl(FLOODGUARD_ROUTES.AGENTS_MONITOR)),
 
-  /** Stage 12C — dispatch only when mission type and safety gate allow. */
+  /** Stage 12C/12F — dispatch only when mission type and safety gate allow.
+   *  Stage 12F: response also includes the DPAL bridge mission record. */
   dispatchMission: (payload: {
     zoneId: string;
     missionType: string;
     requestedBy: string;
     safetyClassification: FloodMissionSafetyClassification;
   }) =>
-    safeFetch<{ mission: FloodDispatchedMissionRecord }>(
-      apiUrl(FLOODGUARD_ROUTES.AGENTS_DISPATCH_MISSION),
+    safeFetch<{
+      mission: FloodDispatchedMissionRecord;
+      dispatchedMission?: FloodDispatchedMissionRecord;
+      dpalMission?: FloodMissionBridgeRecord;
+    }>(apiUrl(FLOODGUARD_ROUTES.AGENTS_DISPATCH_MISSION), {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Stage 12F — list FloodGuard-created DPAL bridge missions. */
+  listDpalMissions: (filters?: { zoneId?: string; alertId?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.zoneId) params.set('zoneId', filters.zoneId);
+    if (filters?.alertId) params.set('alertId', filters.alertId);
+    const qs = params.toString();
+    const path = qs ? `${FLOODGUARD_ROUTES.MISSIONS}?${qs}` : FLOODGUARD_ROUTES.MISSIONS;
+    return safeFetch<{ missions: FloodMissionBridgeRecord[]; legalNotice: string }>(apiUrl(path));
+  },
+
+  /** Stage 12F — get a single DPAL bridge mission. */
+  getDpalMission: (missionId: string) =>
+    safeFetch<{ mission: FloodMissionBridgeRecord }>(apiUrl(FLOODGUARD_ROUTES.MISSION_DETAIL(missionId))),
+
+  /** Stage 12G — generate a routing preview (no external sends). */
+  previewRouting: (alertId: string, payload: { generatedBy: string; mode?: FloodRoutingMode }) =>
+    safeFetch<{ preview: FloodRoutingPreviewSummary }>(
+      apiUrl(FLOODGUARD_ROUTES.ROUTE_PREVIEW(alertId)),
       {
         method: 'POST',
         body: JSON.stringify(payload),
       },
+    ),
+
+  /** Stage 12G — list previously generated routing previews for an alert. */
+  listRoutingPreviews: (alertId: string) =>
+    safeFetch<{ alertId: string; previews: FloodRoutingPreviewSummary[]; legalNotice: string }>(
+      apiUrl(FLOODGUARD_ROUTES.ROUTING_HISTORY(alertId)),
+    ),
+
+  /** Stage 12H — fetch a single DPAL ledger record. */
+  getLedgerRecord: (ledgerRecordId: string) =>
+    safeFetch<{ record: FloodLedgerRecord }>(apiUrl(FLOODGUARD_ROUTES.LEDGER_DETAIL(ledgerRecordId))),
+
+  /** Stage 12H — list ledger records for an alert (newest first). */
+  listLedgerRecordsForAlert: (alertId: string) =>
+    safeFetch<{ alertId: string; records: FloodLedgerRecord[]; legalNotice: string }>(
+      apiUrl(FLOODGUARD_ROUTES.LEDGER_HISTORY(alertId)),
+    ),
+
+  /**
+   * Stage 12I — public, QR-friendly verification view of a ledger record.
+   * Server strips private citizen reports, contact info, situation-room
+   * messages, preview message bodies, and operator-only notes.
+   */
+  getPublicLedgerRecord: (ledgerRecordId: string) =>
+    safeFetch<{ record: FloodPublicLedgerRecord; legalNotice: string }>(
+      apiUrl(FLOODGUARD_ROUTES.PUBLIC_LEDGER_DETAIL(ledgerRecordId)),
     ),
 };
