@@ -336,6 +336,96 @@ export interface FloodRecommendedMission {
   requiresValidator: boolean;
 }
 
+/** Blocked / unsafe mission pattern (Stage 12C monitor). */
+export interface FloodBlockedMission {
+  missionType: string;
+  reason: string;
+}
+
+/** One zone after agentic evaluation (GET /api/floodguard/agents/monitor). */
+export interface FloodZoneAgentEvaluation {
+  zoneId: string;
+  cityId: string;
+  zoneName: string;
+  riskScore: number;
+  alertLevel: FloodAlertLevel;
+  alertLabel: string;
+  confidenceBand: FloodConfidenceBand;
+  riskReasons: string[];
+  activeAlertId: string | null;
+  agentFindings: FloodAgentFinding[];
+  missionSafetyClassification: FloodMissionSafetyClassification;
+  safetyRationale: string[];
+  recommendedMissions: FloodRecommendedMission[];
+  blockedMissions: FloodBlockedMission[];
+  situationRoomSuggested: boolean;
+  situationRoomNote?: string;
+  validatorDispatchSuggested: boolean;
+  evaluatedAt: string;
+}
+
+/** Integration strip returned with agent monitor (mirrors backend). */
+export interface FloodIntegrationStatus {
+  rainfall: {
+    available: boolean;
+    status: FloodRainfallIntegrationStatus;
+    provider: FloodRainfallProvider;
+    providerLabel: string;
+    message?: string;
+    attribution?: string;
+    upstreamUrl?: string;
+    samples?: Array<{
+      zoneId: string;
+      rainfall30mMm: number;
+      rainfall24hMm: number;
+      intensityMmPerHr: number;
+      status: FloodRainfallIntegrationStatus;
+      provider: FloodRainfallProvider;
+      fetchedAt: string;
+    }>;
+  };
+  satellite: {
+    available: boolean;
+    status: FloodSatelliteIntegrationStatus;
+    provider: string;
+    providerLabel: string;
+    message?: string;
+    attribution?: string;
+    upstreamUrl?: string;
+    samples?: Array<{
+      zoneId: string;
+      ndwiMean: number;
+      waterExtentSqKm: number;
+      previousWaterExtentSqKm: number;
+      waterExpansionPercent: number;
+      floodWetConfidence: number;
+      isLive: boolean;
+      status: FloodSatelliteIntegrationStatus;
+      provider: string;
+    }>;
+  };
+  ledger: { available: boolean; message?: string };
+  routing: { available: boolean; message?: string };
+}
+
+export interface FloodAgentMonitorResponse {
+  evaluatedAt: string;
+  legalNotice: string;
+  zones: FloodZoneAgentEvaluation[];
+  integrations: FloodIntegrationStatus;
+}
+
+export interface FloodDispatchedMissionRecord {
+  missionId: string;
+  zoneId: string;
+  missionType: string;
+  requestedBy: string;
+  safetyClassification: FloodMissionSafetyClassification;
+  zoneSafetyAtDispatch: FloodMissionSafetyClassification;
+  createdAt: string;
+  status: 'open' | 'completed' | 'cancelled';
+}
+
 export interface FloodEvidencePacket {
   packetId: string;
   alertId: string;
