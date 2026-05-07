@@ -18,6 +18,7 @@ import {
   type CitizenReportBody,
 } from '../services/floodGuard/floodCitizenReportService';
 import { getFloodGuardStore } from '../services/floodGuard/floodGuardStore';
+import { runFloodAgentMonitor } from '../services/floodGuard/agents/floodAgentOrchestrator';
 import { rainfallAdapterHealth } from '../services/floodGuard/floodRainfallAdapter';
 import { satelliteAdapterHealth } from '../services/floodGuard/floodSatelliteAdapter';
 import type {
@@ -123,6 +124,41 @@ function buildIntegrationMeta(
     },
   };
 }
+
+/** GET /api/floodguard/agents/monitor — Stage 12C agentic evaluation for all Geo-IDs. */
+router.get('/agents/monitor', async (_req: Request, res: Response) => {
+  const store = getFloodGuardStore();
+  await store.primeEnvironmentalForAllRegisteredZones();
+  res.json(runFloodAgentMonitor(store));
+});
+
+/** POST /api/floodguard/agents/dispatch-mission — safe mission catalog + live safety gate. */
+router.post('/agents/dispatch-mission', async (req: Request, res: Response) => {
+  const body = req.body as {
+    zoneId?: string;
+    missionType?: string;
+    requestedBy?: string;
+    safetyClassification?: string;
+  };
+  const zoneId = String(body.zoneId ?? '');
+  if (!zoneId) {
+    res.status(400).json({ error: 'zoneId required', code: 'validation_error' });
+    return;
+  }
+  const store = getFloodGuardStore();
+  await store.primeEnvironmentalSignals(zoneId);
+  const result = store.dispatchMission({
+    zoneId,
+    missionType: String(body.missionType ?? ''),
+    requestedBy: String(body.requestedBy ?? ''),
+    safetyClassification: String(body.safetyClassification ?? ''),
+  });
+  if (!result.ok) {
+    res.status(400).json({ error: result.reason, code: result.code });
+    return;
+  }
+  res.json({ mission: result.record });
+});
 
 /** GET /api/floodguard/cities */
 router.get('/cities', (_req: Request, res: Response) => {

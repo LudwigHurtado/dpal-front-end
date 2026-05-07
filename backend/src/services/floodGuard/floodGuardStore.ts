@@ -9,7 +9,9 @@ import type {
   FloodAlert,
   FloodCameraDetection,
   FloodCitizenReport,
+  FloodDispatchedMissionRecord,
   FloodEvidencePacket,
+  FloodMissionSafetyClassification,
   FloodSituationMessage,
   FloodSituationRoom,
   FloodWeatherSignal,
@@ -19,9 +21,16 @@ import { computeFloodRiskScore } from './floodRiskEngine';
 import { draftFloodAlert, settingsForCity } from './floodAlertRouter';
 import { buildSyntheticRainfallSignal, getRainfallSample } from './floodRainfallAdapter';
 import { getSatelliteSample } from './floodSatelliteAdapter';
-import { cloneZone, getZoneById, getZonesForCity } from './floodCityZoneService';
+import { cloneZone, getZoneById, getZonesForCity, listAllRegisteredZones } from './floodCityZoneService';
+import { evaluateZoneForAgents } from './agents/floodAgentOrchestrator';
+import {
+  isKnownSafeMissionType,
+  isMissionAllowedForClassification,
+  safetyClassificationAtLeastAsStrict,
+} from './agents/floodMissionDispatchAgent';
 import { buildFloodEvidencePacket } from './floodEvidencePacketService';
 import { anchorEvidenceOnLedger } from './floodLedgerService';
+import { randomUUID } from 'crypto';
 
 const STORE_DIR = path.join(process.cwd(), 'data', 'floodguard');
 const STORE_FILE = path.join(STORE_DIR, 'store.json');
@@ -131,7 +140,7 @@ const SEED_REPORTS: FloodCitizenReport[] = [
 ];
 
 interface PersistedShape {
-  version: 1;
+  version: 1 | 2;
   detections: Record<string, FloodCameraDetection[]>;
   reports: Record<string, FloodCitizenReport[]>;
   weather: Record<string, FloodWeatherSignal>;
@@ -140,11 +149,12 @@ interface PersistedShape {
   situationRooms: Record<string, FloodSituationRoom>;
   evidenceByAlert: Record<string, FloodEvidencePacket>;
   anchors: Record<string, { contentHash: string; ledgerRecordId: string; anchoredAt: string }>;
+  dispatchedMissions?: FloodDispatchedMissionRecord[];
 }
 
 function emptyPersisted(): PersistedShape {
   return {
-    version: 1,
+    version: 2,
     detections: {},
     reports: {},
     weather: {},
@@ -153,6 +163,7 @@ function emptyPersisted(): PersistedShape {
     situationRooms: {},
     evidenceByAlert: {},
     anchors: {},
+    dispatchedMissions: [],
   };
 }
 
@@ -203,7 +214,20 @@ function buildSituationRoom(alert: FloodAlert): FloodSituationRoom {
   };
 }
 
-class FloodGuardStore {
+const MISSION_SAFETY_CLASSIFICATIONS: FloodMissionSafetyClassification[] = [
+  'no_mission_allowed',
+  'remote_only',
+  'safe_distance_only',
+  'post_event_only',
+  'validator_review_required',
+  'mission_allowed',
+];
+
+function isMissionSafetyClassification(s: string): s is FloodMissionSafetyClassification {
+  return MISSION_SAFETY_CLASSIFICATIONS.includes(s as FloodMissionSafetyClassification);
+}
+
+export class FloodGuardStore {
   private data: PersistedShape = emptyPersisted();
 
   constructor() {
@@ -215,8 +239,12 @@ class FloodGuardStore {
       if (fs.existsSync(STORE_FILE)) {
         const raw = fs.readFileSync(STORE_FILE, 'utf8');
         const parsed = JSON.parse(raw) as PersistedShape;
-        if (parsed?.version === 1 && parsed.alerts && parsed.detections) {
-          this.data = parsed;
+        if (parsed && parsed.alerts && parsed.detections && (parsed.version === 1 || parsed.version === 2)) {
+          this.data = {
+            ...parsed,
+            version: 2,
+            dispatchedMissions: Array.isArray(parsed.dispatchedMissions) ? parsed.dispatchedMissions : [],
+          };
           return;
         }
       }
@@ -244,6 +272,26 @@ class FloodGuardStore {
   /** Latest merged weather row after `primeEnvironmentalSignals` / `refreshWeather`. */
   getWeatherSnapshot(zoneId: string): FloodWeatherSignal | null {
     return this.data.weather[zoneId] ?? INITIAL_WEATHER[zoneId] ?? null;
+  }
+
+  getZoneDetections(zoneId: string): FloodCameraDetection[] {
+    return this.data.detections[zoneId] ?? [];
+  }
+
+  getZoneReports(zoneId: string): FloodCitizenReport[] {
+    return this.data.reports[zoneId] ?? [];
+  }
+
+  /** Non-archived alerts for agent integration summaries. */
+  listAlertsSnapshot(): FloodAlert[] {
+    return Object.values(this.data.alerts).filter((a) => a.lifecycle !== 'archived');
+  }
+
+  /** Prime rainfall + satellite for every registered Geo-ID, then recompute risk. */
+  async primeEnvironmentalForAllRegisteredZones(): Promise<void> {
+    const ids = listAllRegisteredZones().map((z) => z.zoneId);
+    await Promise.all(ids.map((zid) => this.primeEnvironmentalSignals(zid)));
+    this.recomputeAllZones();
   }
 
   private refreshWeather(zoneId: string): FloodWeatherSignal | null {
@@ -487,6 +535,73 @@ class FloodGuardStore {
     return room;
   }
 
+  /**
+   * Stage 12C — create a persisted mission record only when catalog + live safety gate allow it.
+   * Caller should `await primeEnvironmentalSignals(zoneId)` first for fresh rainfall/satellite.
+   */
+  dispatchMission(args: {
+    zoneId: string;
+    missionType: string;
+    requestedBy: string;
+    safetyClassification: string;
+  }):
+    | { ok: true; record: FloodDispatchedMissionRecord }
+    | { ok: false; code: string; reason: string } {
+    const zone = getZoneById(args.zoneId);
+    if (!zone) return { ok: false, code: 'not_found', reason: 'Zone not found.' };
+    if (!args.requestedBy || typeof args.requestedBy !== 'string' || !args.requestedBy.trim()) {
+      return { ok: false, code: 'validation_error', reason: 'requestedBy is required.' };
+    }
+    if (!isMissionSafetyClassification(args.safetyClassification)) {
+      return { ok: false, code: 'validation_error', reason: 'Invalid safetyClassification.' };
+    }
+    if (!isKnownSafeMissionType(args.missionType)) {
+      return {
+        ok: false,
+        code: 'unsafe_mission_type',
+        reason: 'Mission type is not in the DPAL safe catalog.',
+      };
+    }
+
+    this.recomputeZone(args.zoneId);
+    const serverEval = evaluateZoneForAgents(this, zone);
+
+    if (
+      !safetyClassificationAtLeastAsStrict(
+        args.safetyClassification,
+        serverEval.missionSafetyClassification,
+      )
+    ) {
+      return {
+        ok: false,
+        code: 'safety_mismatch',
+        reason: `Declared safety gate is looser than the server evaluation (${serverEval.missionSafetyClassification}). Refresh GET /api/floodguard/agents/monitor.`,
+      };
+    }
+
+    if (!isMissionAllowedForClassification(serverEval.missionSafetyClassification, args.missionType)) {
+      return {
+        ok: false,
+        code: 'mission_blocked',
+        reason: `Mission "${args.missionType}" is not permitted under current gate "${serverEval.missionSafetyClassification}".`,
+      };
+    }
+
+    const record: FloodDispatchedMissionRecord = {
+      missionId: `FG-MIS-${randomUUID().slice(0, 8)}`,
+      zoneId: args.zoneId,
+      missionType: args.missionType,
+      requestedBy: args.requestedBy.trim(),
+      safetyClassification: args.safetyClassification,
+      zoneSafetyAtDispatch: serverEval.missionSafetyClassification,
+      createdAt: new Date().toISOString(),
+      status: 'open',
+    };
+    this.data.dispatchedMissions = [...(this.data.dispatchedMissions ?? []), record];
+    this.persist();
+    return { ok: true, record };
+  }
+
   generateEvidencePacket(alertId: string, generatedBy: string): FloodEvidencePacket | null {
     const alert = this.data.alerts[alertId];
     if (!alert) return null;
@@ -500,8 +615,9 @@ class FloodGuardStore {
     const zone = getZoneById(fresh.zoneId);
     if (!zone) return null;
     const riskScore = computeFloodRiskScore({ zone, cameras, citizenReports, weather });
+    const agentEvaluation = evaluateZoneForAgents(this, zone);
 
-    const packet = buildFloodEvidencePacket({ alert: fresh, riskScore, generatedBy });
+    const packet = buildFloodEvidencePacket({ alert: fresh, riskScore, generatedBy, agentEvaluation });
     this.data.evidenceByAlert[alertId] = packet;
     fresh.evidencePacketId = packet.packetId;
     fresh.lifecycle = fresh.lifecycle === 'ai_detected' ? 'evidence_assembled' : fresh.lifecycle;

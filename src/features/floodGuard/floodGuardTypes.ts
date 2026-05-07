@@ -303,6 +303,39 @@ export interface FloodAlert {
 
 // ── Evidence packet (Stage 6) ────────────────────────────────────────────────
 
+export type FloodMissionSafetyClassification =
+  | 'no_mission_allowed'
+  | 'remote_only'
+  | 'safe_distance_only'
+  | 'post_event_only'
+  | 'validator_review_required'
+  | 'mission_allowed';
+
+export type FloodAgentId =
+  | 'rainfall_watch'
+  | 'satellite_watch'
+  | 'water_level_watch'
+  | 'anomaly'
+  | 'mission_safety'
+  | 'mission_dispatch'
+  | 'evidence'
+  | 'situation_room';
+
+export interface FloodAgentFinding {
+  agentId: FloodAgentId;
+  agentLabel: string;
+  severity: 'info' | 'watch' | 'warning' | 'critical';
+  summary: string;
+  details?: string[];
+}
+
+export interface FloodRecommendedMission {
+  missionType: string;
+  title: string;
+  description: string;
+  requiresValidator: boolean;
+}
+
 export interface FloodEvidencePacket {
   packetId: string;
   alertId: string;
@@ -324,6 +357,11 @@ export interface FloodEvidencePacket {
     weather: FloodWeatherSignal | null;
   };
   legalDisclaimer: string;
+  /** Stage 12C — optional agentic snapshot when generated from backend. */
+  agentFindings?: FloodAgentFinding[];
+  missionSafetyClassification?: FloodMissionSafetyClassification;
+  recommendedMissions?: FloodRecommendedMission[];
+  blockedMissionReasons?: string[];
 }
 
 // ── Settings / routing rules (Stage 7) ───────────────────────────────────────

@@ -3,7 +3,13 @@
  */
 
 import { createHash } from 'crypto';
-import type { FloodAlert, FloodEvidencePacket, FloodRiskScore } from './floodGuardTypes';
+import type {
+  FloodAlert,
+  FloodEvidencePacket,
+  FloodRiskScore,
+  FloodZoneAgentEvaluation,
+} from './floodGuardTypes';
+import { runEvidenceAgent } from './agents/floodEvidenceAgent';
 
 export const FLOODGUARD_LEGAL_DISCLAIMER =
   'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts. ' +
@@ -13,6 +19,8 @@ export interface BuildEvidencePacketInput {
   alert: FloodAlert;
   riskScore: FloodRiskScore;
   generatedBy: string;
+  /** Stage 12C agentic evaluation for hashed body + packet fields. */
+  agentEvaluation?: FloodZoneAgentEvaluation | null;
 }
 
 export function sha256Hex(json: string): string {
@@ -32,12 +40,17 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
   const satNote = satMeta
     ? `satellite: ${satMeta.providerLabel} (${satMeta.status}), expansion ${satMeta.waterExpansionPercent.toFixed(1)}%`
     : '';
-  const summary =
+  let summary =
     `Risk score ${input.riskScore.score}/100 (${input.riskScore.alertLabel}) for ${input.alert.zoneId}. ` +
     `${input.alert.signalSnapshot.cameras.length} camera detection(s), ` +
     `${input.alert.signalSnapshot.citizenReports.length} citizen report(s), ` +
     `${rainfallNote}` +
     (satNote ? `. ${satNote}.` : '.');
+
+  if (input.agentEvaluation) {
+    const ev = runEvidenceAgent(input.agentEvaluation);
+    summary += ` Agentic gate: ${ev.headline}.`;
+  }
 
   // Stage 12A — capture rainfall adapter provenance directly in the hashed
   // body so anchored evidence binds the source/state of the rainfall signal.
@@ -71,6 +84,18 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
       }
     : null;
 
+  const agenticMonitoring = input.agentEvaluation
+    ? {
+        agentFindings: input.agentEvaluation.agentFindings,
+        missionSafetyClassification: input.agentEvaluation.missionSafetyClassification,
+        recommendedMissions: input.agentEvaluation.recommendedMissions,
+        blockedMissionReasons: input.agentEvaluation.blockedMissions.map(
+          (b) => `${b.missionType}: ${b.reason}`,
+        ),
+        evaluatedAt: input.agentEvaluation.evaluatedAt,
+      }
+    : undefined;
+
   const body = {
     alertId: input.alert.alertId,
     zoneId: input.alert.zoneId,
@@ -85,6 +110,7 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
     reasons: input.alert.reasons,
     generatedAt,
     generatedBy: input.generatedBy,
+    agenticMonitoring,
   };
 
   const contentHash = sha256Hex(JSON.stringify(body));
@@ -105,5 +131,15 @@ export function buildFloodEvidencePacket(input: BuildEvidencePacketInput): Flood
     riskScore: input.riskScore,
     signals: input.alert.signalSnapshot,
     legalDisclaimer: FLOODGUARD_LEGAL_DISCLAIMER,
+    ...(input.agentEvaluation
+      ? {
+          agentFindings: input.agentEvaluation.agentFindings,
+          missionSafetyClassification: input.agentEvaluation.missionSafetyClassification,
+          recommendedMissions: input.agentEvaluation.recommendedMissions,
+          blockedMissionReasons: input.agentEvaluation.blockedMissions.map(
+            (b) => `${b.missionType}: ${b.reason}`,
+          ),
+        }
+      : {}),
   };
 }

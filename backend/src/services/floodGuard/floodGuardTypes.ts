@@ -251,6 +251,97 @@ export interface FloodAlert {
   publicSafeMessage: string;
 }
 
+/** Stage 12C — mission safety gate before any field dispatch. */
+export type FloodMissionSafetyClassification =
+  | 'no_mission_allowed'
+  | 'remote_only'
+  | 'safe_distance_only'
+  | 'post_event_only'
+  | 'validator_review_required'
+  | 'mission_allowed';
+
+export type FloodSafeMissionType =
+  | 'remote_observation'
+  | 'public_data_collection'
+  | 'safe_distance_road_closure_confirm'
+  | 'shelter_status_verify'
+  | 'safe_high_ground_photo'
+  | 'home_window_report'
+  | 'post_event_infrastructure_check'
+  | 'drainage_post_recede_check'
+  | 'validator_desk_review';
+
+export type FloodAgentId =
+  | 'rainfall_watch'
+  | 'satellite_watch'
+  | 'water_level_watch'
+  | 'anomaly'
+  | 'mission_safety'
+  | 'mission_dispatch'
+  | 'evidence'
+  | 'situation_room';
+
+export interface FloodAgentFinding {
+  agentId: FloodAgentId;
+  agentLabel: string;
+  severity: 'info' | 'watch' | 'warning' | 'critical';
+  summary: string;
+  details?: string[];
+}
+
+export interface FloodRecommendedMission {
+  missionType: FloodSafeMissionType;
+  title: string;
+  description: string;
+  requiresValidator: boolean;
+}
+
+export interface FloodBlockedMission {
+  missionType: string;
+  reason: string;
+}
+
+export interface FloodZoneAgentEvaluation {
+  zoneId: string;
+  cityId: string;
+  zoneName: string;
+  riskScore: number;
+  alertLevel: FloodAlertLevel;
+  alertLabel: string;
+  confidenceBand: FloodConfidenceBand;
+  /** Top risk engine reasons. */
+  riskReasons: string[];
+  activeAlertId: string | null;
+  agentFindings: FloodAgentFinding[];
+  missionSafetyClassification: FloodMissionSafetyClassification;
+  safetyRationale: string[];
+  recommendedMissions: FloodRecommendedMission[];
+  blockedMissions: FloodBlockedMission[];
+  situationRoomSuggested: boolean;
+  situationRoomNote?: string;
+  validatorDispatchSuggested: boolean;
+  evaluatedAt: string;
+}
+
+export interface FloodAgentMonitorResponse {
+  evaluatedAt: string;
+  legalNotice: string;
+  zones: FloodZoneAgentEvaluation[];
+  integrations: FloodIntegrationStatus;
+}
+
+export interface FloodDispatchedMissionRecord {
+  missionId: string;
+  zoneId: string;
+  missionType: FloodSafeMissionType;
+  requestedBy: string;
+  safetyClassification: FloodMissionSafetyClassification;
+  /** Classification at dispatch time from the safety agent. */
+  zoneSafetyAtDispatch: FloodMissionSafetyClassification;
+  createdAt: string;
+  status: 'open' | 'completed' | 'cancelled';
+}
+
 export interface FloodEvidencePacket {
   packetId: string;
   alertId: string;
@@ -269,6 +360,11 @@ export interface FloodEvidencePacket {
     weather: FloodWeatherSignal | null;
   };
   legalDisclaimer: string;
+  /** Stage 12C — agentic monitoring snapshot (optional for legacy packets). */
+  agentFindings?: FloodAgentFinding[];
+  missionSafetyClassification?: FloodMissionSafetyClassification;
+  recommendedMissions?: FloodRecommendedMission[];
+  blockedMissionReasons?: string[];
 }
 
 export interface FloodAlertSettings {
