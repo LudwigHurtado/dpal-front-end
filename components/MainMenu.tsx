@@ -13,6 +13,7 @@ import BlockchainStatusPanel from './BlockchainStatusPanel';
 import GoogleAdSlot from './GoogleAdSlot';
 import { type View, type HeroHubTab, type HubTab } from '../App';
 import { featureFlags } from '../features/featureFlags';
+import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
 
 type BlockLookupResult = { ok: true } | { ok: false; reason: 'invalid' | 'not_found' };
 
@@ -297,11 +298,18 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 <PrimaryNavModule
                     icon={<Broadcast className="w-8 h-8" />}
                     label="DPAL Field OS"
-                    subLabel="Agentic workflows and Super Agent planning for accountability cases."
+                    subLabel="Super Agent first: goal-driven plans across water, EO, CARB, and evidence — then agentic workflows."
                     status="Beta"
                     colorClass="sky"
                     bgImageUrl="/main-screen/dpal-mission-control-hero.png"
-                    onClick={() => onNavigate('fieldOS')}
+                    onClick={() => {
+                        try {
+                            sessionStorage.setItem(FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, '1');
+                        } catch {
+                            /* ignore */
+                        }
+                        onNavigate('fieldOS');
+                    }}
                 />
 
                 <PrimaryNavModule 

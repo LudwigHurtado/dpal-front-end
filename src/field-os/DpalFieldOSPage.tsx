@@ -1,6 +1,11 @@
 // src/field-os/DpalFieldOSPage.tsx
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import {
+  FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY,
+  FIELD_OS_SUPER_AGENT_HASH,
+} from '../../utils/appRoutes';
 import html2canvas from 'html2canvas';
 import { getWorkflowDefinitions } from './workflowRegistry';
 import { WorkflowRunner, WorkflowExecutionResult } from './workflowRunner';
@@ -406,6 +411,7 @@ const statusPillStyles: Record<string, string> = {
 };
 
 const DpalFieldOSPage: React.FC = () => {
+  const location = useLocation();
   const workflows = useMemo(() => getWorkflowDefinitions(), []);
   const leadAgent = useMemo(() => new DpalLeadAgent(), []);
   const planBridge = useMemo(() => new PlanExecutionBridge(), []);
@@ -455,6 +461,23 @@ const DpalFieldOSPage: React.FC = () => {
   const workspaceTimelinePanelRef = useRef<HTMLDivElement | null>(null);
   const previewExecutionPanelRef = useRef<HTMLDivElement | null>(null);
   const evidencePackagePanelRef = useRef<HTMLDivElement | null>(null);
+  const superAgentSectionRef = useRef<HTMLElement | null>(null);
+
+  useLayoutEffect(() => {
+    const fromHash = location.hash === FIELD_OS_SUPER_AGENT_HASH;
+    let fromStorage = false;
+    try {
+      fromStorage = sessionStorage.getItem(FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY) === '1';
+      if (fromStorage) sessionStorage.removeItem(FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY);
+    } catch {
+      /* ignore quota / private mode */
+    }
+    if (!fromHash && !fromStorage) return;
+    const t = window.setTimeout(() => {
+      superAgentSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
+    return () => window.clearTimeout(t);
+  }, [location.pathname, location.hash]);
 
   const timelineEntries = useMemo(() => {
     if (!superAgentPlan) return [];
@@ -515,6 +538,20 @@ const DpalFieldOSPage: React.FC = () => {
     }
     return superAgentPlan.humanApprovalCheckpoints.some((id) => !gateApprovals[id]);
   }, [superAgentPlan, gateApprovals, persistVersion]);
+
+  const humanVerifierStatusLabel = useMemo(() => {
+    if (reviewStatusUi.humanVerified) return 'Human-verified (reviewer)';
+    if (reviewStatusUi.submitted) return 'Not verified yet — submitted for review';
+    return 'Not verified yet';
+  }, [reviewStatusUi.humanVerified, reviewStatusUi.submitted]);
+
+  const superAgentJourneyActiveIdx = useMemo(() => {
+    if (superAgentStatus === 'planning') return 0;
+    if (!superAgentPlan) return 0;
+    if (!planExecutionResult) return 1;
+    if (reviewStatusUi.submitted) return 3;
+    return 2;
+  }, [superAgentStatus, superAgentPlan, planExecutionResult, reviewStatusUi.submitted]);
 
   useEffect(() => {
     if (!superAgentPlan || !caseWorkspaceRef.current) return;
@@ -1189,10 +1226,7 @@ const DpalFieldOSPage: React.FC = () => {
 
   const requestVerificationReview = async () => {
     if (!superAgentPlan) return;
-    if (!gateApprovals.validator_submission) {
-      setReviewError('Validator submission approval gate is required before requesting review.');
-      return;
-    }
+    const gateMissing = !gateApprovals.validator_submission;
     setReviewError(null);
     setIsReviewBusy(true);
     try {
@@ -1210,7 +1244,11 @@ const DpalFieldOSPage: React.FC = () => {
       if (ws && ws.getState().caseId === superAgentPlan.caseId) {
         ws.addEvidenceTimelineEvent(
           'Case submitted to Reviewer Node for human verification.',
-          `${submitted.status} · ${submitted.reportId}`
+          `${submitted.status} · ${submitted.reportId}${
+            gateMissing
+              ? ' — submitted before the validator gate was checked; confirm with reviewer before treating as verified.'
+              : ''
+          }`
         );
       }
       if (traceSvc) {
@@ -1401,63 +1439,72 @@ const DpalFieldOSPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid gap-4">
-              {workflows.map((workflow) => (
-                <div key={workflow.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-2">
-                      <h3 className="text-2xl font-semibold text-slate-900">{workflow.name}</h3>
-                      <p className="text-slate-600">{workflow.description}</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
-                        {workflow.defaultConfidence.charAt(0).toUpperCase() + workflow.defaultConfidence.slice(1)} confidence
-                      </span>
-                      {workflow.dryRun && (
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
-                          Dry Run
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Tools used</h4>
-                      <p className="mt-2 text-slate-700">{workflow.toolsUsed.join(', ')}</p>
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Expected artifacts</h4>
-                      <p className="mt-2 text-slate-700">{workflow.expectedArtifacts.join(', ')}</p>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={() => startWorkflow(workflow.id)}
-                      className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
-                    >
-                      Start Agentic Workflow
-                    </button>
-                    <span className="text-sm text-slate-500">Uses safe dry-run mode until live adapters are available.</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+            <section
+              ref={superAgentSectionRef}
+              id="dpal-field-os-super-agent"
+              className="rounded-3xl border-2 border-teal-600/35 bg-white p-4 shadow-md shadow-teal-950/10 sm:p-6"
+              aria-labelledby="dpal-field-os-super-agent-heading"
+            >
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-900 sm:text-3xl">Super Agent Mode</h2>
+                  <h2
+                    id="dpal-field-os-super-agent-heading"
+                    className="text-2xl font-bold text-slate-900 sm:text-3xl"
+                  >
+                    Super Agent Mode
+                  </h2>
                   <p className="mt-2 text-base leading-relaxed text-slate-600 sm:mt-3">
                     Let DPAL decide which agents and tools are needed from a natural-language investigation goal.
+                    Works in Dry Run / preview and when live adapters are connected — you can move forward while human
+                    verification is still pending.
                   </p>
                 </div>
                 <span className="rounded-full bg-teal-200/90 px-4 py-1.5 text-sm font-bold text-[#041316] ring-1 ring-teal-600/40">
                   Goal-driven planning
                 </span>
               </div>
+
+              <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Super Agent steps">
+                {(
+                  [
+                    { title: 'Goal & context', hint: 'Describe the investigation' },
+                    { title: 'Plan', hint: 'Agents & checkpoints' },
+                    { title: 'Preview', hint: 'Dry Run workflows' },
+                    { title: 'Pack & review', hint: 'Evidence & reviewer' },
+                  ] as const
+                ).map((step, idx) => {
+                  const active = idx === superAgentJourneyActiveIdx;
+                  const done = idx < superAgentJourneyActiveIdx;
+                  return (
+                    <li
+                      key={step.title}
+                      className={`flex gap-3 rounded-2xl border px-3 py-3 text-left ${
+                        active
+                          ? 'border-teal-500 bg-teal-50/90 ring-1 ring-teal-600/30'
+                          : done
+                            ? 'border-slate-200 bg-slate-50'
+                            : 'border-slate-200 bg-white'
+                      }`}
+                    >
+                      <span
+                        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                          done ? 'bg-emerald-600 text-white' : active ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'
+                        }`}
+                        aria-hidden
+                      >
+                        {done ? '✓' : idx + 1}
+                      </span>
+                      <span>
+                        <span className="block text-sm font-semibold text-slate-900">{step.title}</span>
+                        <span className="mt-0.5 block text-xs text-slate-600">{step.hint}</span>
+                        {active && superAgentStatus === 'planning' && idx === 0 ? (
+                          <span className="mt-1 block text-xs font-medium text-teal-800">Planning…</span>
+                        ) : null}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ol>
 
               <div className="mt-6 grid gap-4">
                 <label className="block text-sm font-medium text-slate-700" htmlFor="super-agent-goal">
@@ -1754,12 +1801,20 @@ const DpalFieldOSPage: React.FC = () => {
                       <p className="mt-1 text-sm text-slate-900">{investigationTimes.previewCompleted?.toLocaleString() ?? '—'}</p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Final Actions Blocked</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{finalActionsBlockedUi ? 'true' : 'false'}</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Publishing safeguards</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {finalActionsBlockedUi ? 'On — checklist open' : 'Cleared for this session'}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">Final publish / anchor actions stay cautious until gates are checked.</p>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Human Approval Required</p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">{humanApprovalRequiredUi ? 'true' : 'false'}</p>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Human review status</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{humanVerifierStatusLabel}</p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {humanApprovalRequiredUi
+                          ? 'Approval checklist has open items — you can still run previews and queue review.'
+                          : 'Checklist complete for this session.'}
+                      </p>
                     </div>
                   </div>
 
@@ -1774,6 +1829,12 @@ const DpalFieldOSPage: React.FC = () => {
                       {reviewError && <p className="font-semibold">{reviewError}</p>}
                       {reviewStatusUi.submitted && (
                         <div className="space-y-1">
+                          {!gateApprovals.validator_submission && (
+                            <p className="rounded-lg border border-amber-200 bg-amber-50/90 p-2 text-amber-950">
+                              Validator submission gate was not checked — your case was still queued. Treat as{' '}
+                              <span className="font-semibold">not verified yet</span> until a reviewer confirms.
+                            </p>
+                          )}
                           <p>
                             <span className="font-semibold">Reviewer status:</span> {reviewStatusUi.status ?? 'pending_review'}
                           </p>
@@ -1785,7 +1846,8 @@ const DpalFieldOSPage: React.FC = () => {
                             {reviewStatusUi.reviewedAt ? new Date(reviewStatusUi.reviewedAt).toLocaleString() : 'Not reviewed yet'}
                           </p>
                           <p>
-                            <span className="font-semibold">human_verified:</span> {reviewStatusUi.humanVerified ? 'true' : 'false'}
+                            <span className="font-semibold">human_verified:</span>{' '}
+                            {reviewStatusUi.humanVerified ? 'true' : 'false — not verified yet'}
                           </p>
                           <p>
                             <span className="font-semibold">blockchain_anchored:</span>{' '}
@@ -1866,7 +1928,10 @@ const DpalFieldOSPage: React.FC = () => {
                   <div className="rounded-3xl border border-amber-200 bg-amber-50/40 p-6">
                     <h3 className="text-lg font-semibold text-slate-900">Human Approval Gates</h3>
                     <p className="mt-2 text-sm text-slate-700">
-                      Final accountability actions stay blocked until each gate is explicitly confirmed for this case. Workflow previews run from the Preview &amp; execution tab — Dry Run only; Pending live service adapter for live publishing.
+                      Check each gate before you treat outputs as publication-ready. You can still generate plans, run
+                      Dry Run previews, attach evidence, export snapshots, and request reviewer queue while gates are
+                      open — open items mean “not verified yet,” not a hard stop on analysis. Workflow previews run from
+                      the Preview &amp; execution tab — Dry Run only; Pending live service adapter for live publishing.
                     </p>
                     <ul className="mt-4 space-y-4">
                       {HUMAN_APPROVAL_GATE_IDS.map((gateId) => {
@@ -2285,6 +2350,51 @@ const DpalFieldOSPage: React.FC = () => {
                   )}
                 </div>
               )}
+            </section>
+
+            <div className="grid gap-4">
+              {workflows.map((workflow) => (
+                <div key={workflow.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-2">
+                      <h3 className="text-2xl font-semibold text-slate-900">{workflow.name}</h3>
+                      <p className="text-slate-600">{workflow.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-700">
+                        {workflow.defaultConfidence.charAt(0).toUpperCase() + workflow.defaultConfidence.slice(1)} confidence
+                      </span>
+                      {workflow.dryRun && (
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800">
+                          Dry Run
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Tools used</h4>
+                      <p className="mt-2 text-slate-700">{workflow.toolsUsed.join(', ')}</p>
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Expected artifacts</h4>
+                      <p className="mt-2 text-slate-700">{workflow.expectedArtifacts.join(', ')}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => startWorkflow(workflow.id)}
+                      className="inline-flex items-center justify-center rounded-full bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-700"
+                    >
+                      Start Agentic Workflow
+                    </button>
+                    <span className="text-sm text-slate-500">Uses safe dry-run mode until live adapters are available.</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </section>
 

@@ -130,6 +130,7 @@ import {
   parseEpaFacilityIdFromPath,
   parseMarketplaceListingIdFromPath,
   viewToPath,
+  FIELD_OS_SUPER_AGENT_HASH,
 } from './utils/appRoutes';
 import EmissionsIntegrityAuditPage from './src/features/emissionsIntegrity/EmissionsIntegrityAuditPage';
 import CarbEmissionsAuditPage from './src/features/carbEmissionsAudit/CarbEmissionsAuditPage';
@@ -654,8 +655,11 @@ const App: React.FC = () => {
     /** Keep `?section=` when switching hub tabs so refresh/bookmark retain the active panel. */
     const preserveMissionsHubSection =
       currentView === 'missionMarketplace' && /[?&]section=/.test(location.search);
+    /** Keep Super Agent deep link when syncing URL for Field OS. */
+    const preserveFieldOsSuperAgent =
+      currentView === 'fieldOS' && location.hash === FIELD_OS_SUPER_AGENT_HASH;
     const full =
-      preserveDeepLink || preserveMissionsHubSection
+      preserveDeepLink || preserveMissionsHubSection || preserveFieldOsSuperAgent
         ? `${path}${location.search}${location.hash}`
         : path;
     const cur = `${location.pathname}${location.search}${location.hash}`;

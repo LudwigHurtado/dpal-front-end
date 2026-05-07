@@ -1,7 +1,8 @@
 import React from 'react';
-import { ArrowRight, Activity, Globe, ShieldCheck, Waves, Database, Layout } from './icons';
+import { ArrowRight, Activity, Globe, ShieldCheck, Waves, Database, Layout, Sparkles } from './icons';
 import type { View } from '../App';
 import { API_ROUTES, apiUrl } from '../constants';
+import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
 
 const CONNECTIVITY_REFRESH_MS = 60_000;
@@ -323,6 +324,32 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             ) : null}
           </span>
           <span className="text-slate-500">Last check: {refreshedLabel}</span>
+        </div>
+      </section>
+
+      <section className="mb-10">
+        <h2 className="text-base md:text-lg font-bold text-cyan-200">Agentic investigations</h2>
+        <p className="mt-1 max-w-3xl text-[11px] text-slate-400">
+          One place to describe an environmental accountability goal, get a multi-tool plan (water, Earth Observation,
+          CARB, evidence), run previews, and queue review — without hunting through the workflow list first.
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-3">
+          <HubCard
+            icon={<Sparkles className="w-8 h-8" />}
+            label="Super Agent (Field OS)"
+            subLabel="Goal-driven Super Agent planning on top of Field OS workflows — Dry Run friendly, live when adapters are connected."
+            status="Command"
+            colorClass="teal"
+            bgImageUrl="/main-screen/dpal-mission-control-hero.png"
+            onClick={() => {
+              try {
+                sessionStorage.setItem(FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, '1');
+              } catch {
+                /* ignore */
+              }
+              onNavigate('fieldOS');
+            }}
+          />
         </div>
       </section>
 

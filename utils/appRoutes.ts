@@ -11,6 +11,12 @@ export const AQUASCAN_SITUATION_ROOM_PREFIX = '/aquascan/situation-room';
 export const CARB_REPORT_PREFIX = '/carb/reports';
 export const CARB_SITUATION_ROOM_PREFIX = '/carb/situation-room';
 
+/** Deep-link fragment for Field OS — scrolls to Super Agent (use with `/field-os#super-agent`). */
+export const FIELD_OS_SUPER_AGENT_HASH = '#super-agent';
+
+/** `sessionStorage` key: set before navigating to Field OS to scroll to Super Agent on arrival. */
+export const FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY = 'dpal_field_os_scroll_super_agent';
+
 export function marketplaceMissionDetailPath(listingId: string): string {
   return `${MARKETPLACE_MISSION_DETAIL_PREFIX}/${encodeURIComponent(listingId)}`;
 }
