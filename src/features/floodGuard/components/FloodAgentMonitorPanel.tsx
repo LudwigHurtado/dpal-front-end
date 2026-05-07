@@ -214,6 +214,25 @@ const FloodAgentMonitorPanel: React.FC<FloodAgentMonitorPanelProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Stage 12J — onboarding banner: this is the operational starting point. */}
+      <div
+        className="rounded-2xl p-3 text-[12px] leading-relaxed flex items-start gap-2"
+        style={{
+          background: 'rgba(34,211,238,0.08)',
+          border: '1px solid rgba(34,211,238,0.35)',
+          color: 'var(--dpal-text-secondary)',
+        }}
+      >
+        <Bot className="w-4 h-4 mt-0.5 shrink-0" style={{ color: '#22d3ee' }} />
+        <div>
+          <span className="font-semibold" style={{ color: 'var(--dpal-text-primary)' }}>
+            Start here for real flood intelligence.
+          </span>{' '}
+          Refresh the agent monitor to evaluate rainfall, satellite, water-level, historical risk,
+          exposure, active alerts, and mission safety for each Geo-ID zone.
+        </div>
+      </div>
+
       <div
         className="rounded-2xl p-4 border dpal-border-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
         style={{ background: 'var(--dpal-card)' }}

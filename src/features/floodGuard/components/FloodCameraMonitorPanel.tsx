@@ -46,9 +46,34 @@ const FloodCameraMonitorPanel: React.FC<FloodCameraMonitorPanelProps> = ({
       <div className="flex items-center gap-2 mb-3">
         <Camera className="w-4 h-4" style={{ color: 'var(--dpal-primary)' }} />
         <div className="text-[10px] font-black tracking-widest uppercase dpal-text-muted">
-          Camera Monitor
+          Live Detection · Camera Monitor
         </div>
       </div>
+
+      {/* Stage 12J — operator helper panel */}
+      <div
+        className="rounded-xl px-3 py-3 mb-3 text-[11px] leading-relaxed"
+        style={{
+          background: 'var(--dpal-surface-alt)',
+          border: '1px dashed var(--dpal-border)',
+          color: 'var(--dpal-text-secondary)',
+        }}
+      >
+        <div className="text-[10px] font-bold uppercase tracking-wider dpal-text-muted mb-1">
+          Live Detection
+        </div>
+        <p>
+          This tab shows active flood signals for the selected city and zone. Use it to review
+          current alerts, inspect camera and citizen detections, and submit a safe test detection
+          during demo mode.
+        </p>
+        <p className="mt-2">
+          FloodGuard <span className="font-semibold">starts</span> with rainfall, satellite water
+          expansion, and water-level monitoring. Camera and citizen detections are{' '}
+          <span className="font-semibold">supporting</span> signals, not the primary starting layer.
+        </p>
+      </div>
+
       <div className="text-sm font-semibold mb-1" style={{ color: 'var(--dpal-text-primary)' }}>
         {zone.name}
       </div>
@@ -122,8 +147,13 @@ const FloodCameraMonitorPanel: React.FC<FloodCameraMonitorPanelProps> = ({
           className="rounded-xl p-3 border dpal-border-subtle"
           style={{ background: 'var(--dpal-surface)' }}
         >
-          <div className="text-[10px] font-bold uppercase tracking-wider dpal-text-muted mb-2">
-            Submit test detection (POST /api/floodguard/camera-alert)
+          <div className="text-[10px] font-bold uppercase tracking-wider dpal-text-muted mb-1">
+            Demo Test Detection
+          </div>
+          <div className="text-[11px] mb-2" style={{ color: 'var(--dpal-text-secondary)' }}>
+            Use this form to simulate a flood signal and verify that the alert feed, risk score,
+            validator workflow, and evidence packet flow update correctly. POSTs to{' '}
+            <code>/api/floodguard/camera-alert</code>.
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             <label className="text-[11px] dpal-text-muted">

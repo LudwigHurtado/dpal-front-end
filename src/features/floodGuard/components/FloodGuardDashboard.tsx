@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Activity,
   AlertTriangle,
@@ -62,6 +62,11 @@ import FloodHistoricalAnalyticsPanel from './FloodHistoricalAnalyticsPanel';
 import FloodValidatorWorkflowPanel from './FloodValidatorWorkflowPanel';
 import FloodAgentMonitorPanel from './FloodAgentMonitorPanel';
 import PublicFloodMapView from './PublicFloodMapView';
+import FloodGuardStartPanel, {
+  type FloodGuardDataMode,
+  type FloodGuardSessionStatus,
+  type FloodGuardWorkflowStepId,
+} from './FloodGuardStartPanel';
 
 interface FloodGuardDashboardProps {
   onReturn?: () => void;
@@ -179,6 +184,30 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
     zones: 'mock',
     alerts: 'mock',
   });
+
+  // Stage 12J — operator onboarding state.
+  const [sessionStatus, setSessionStatus] = useState<FloodGuardSessionStatus>('not_started');
+  const [sessionStartedAt, setSessionStartedAt] = useState<string | null>(null);
+  const [completedWorkflowSteps, setCompletedWorkflowSteps] = useState<FloodGuardWorkflowStepId[]>([]);
+
+  const markWorkflowStep = useCallback((id: FloodGuardWorkflowStepId) => {
+    setCompletedWorkflowSteps((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }, []);
+
+  const handleStartSession = useCallback(() => {
+    setSessionStartedAt((prev) => prev ?? new Date().toISOString());
+    setSessionStatus((prev) => {
+      if (prev !== 'not_started') return prev;
+      return feedSource.zones === 'api' ? 'active' : 'demo_mode';
+    });
+  }, [feedSource.zones]);
+
+  // Auto-mark workflow steps based on what tabs the operator visits.
+  useEffect(() => {
+    if (sessionStatus === 'not_started') return;
+    if (activeTab === 'overview') markWorkflowStep('review_city');
+    if (activeTab === 'agent_monitor') markWorkflowStep('open_agent_monitor');
+  }, [activeTab, sessionStatus, markWorkflowStep]);
 
   const zonesById = useMemo(() => Object.fromEntries(zones.map((zone) => [zone.zoneId, zone])), [zones]);
   const selectedZone = selectedZoneId ? zonesById[selectedZoneId] : null;
@@ -341,6 +370,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
               : a,
           ),
         );
+        markWorkflowStep('generate_evidence');
         return;
       }
       const packet = await buildFloodEvidencePacket({
@@ -356,6 +386,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
             : a,
         ),
       );
+      markWorkflowStep('generate_evidence');
     } finally {
       setGeneratingEvidence(false);
     }
@@ -394,6 +425,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
             : a,
         ),
       );
+      markWorkflowStep('anchor_evidence');
       return;
     }
     setAlerts((prev) =>
@@ -453,8 +485,55 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
 
   const evidencePacket = selectedAlert ? evidenceByAlert[selectedAlert.alertId] ?? null : null;
 
+  // Stage 12J — derive onboarding panel inputs from current dashboard state.
+  const dataMode: FloodGuardDataMode =
+    feedSource.zones === 'api' || feedSource.alerts === 'api' ? 'api_connected' : 'local_fallback';
+  const modeChips = useMemo(() => {
+    const chips: string[] = [];
+    chips.push(feedSource.zones === 'api' ? 'API zones' : 'Local zones');
+    chips.push(feedSource.alerts === 'api' ? 'API alerts' : 'Local alerts');
+    chips.push('Synthetic rainfall fallback');
+    chips.push('AquaScan satellite fallback');
+    chips.push('Mock ledger');
+    chips.push('Preview routing only');
+    return chips;
+  }, [feedSource.alerts, feedSource.zones]);
+  const recommendedNextStep = useMemo(() => {
+    if (sessionStatus === 'not_started')
+      return 'Press "Start Monitoring Session" to begin the guided workflow.';
+    if (!completedWorkflowSteps.includes('open_agent_monitor'))
+      return 'Open Agent Monitor and refresh zone evaluation.';
+    if (!completedWorkflowSteps.includes('generate_evidence'))
+      return 'Open the Evidence Packet tab and generate the packet for the selected alert.';
+    if (!completedWorkflowSteps.includes('anchor_evidence'))
+      return 'Anchor the evidence packet on the DPAL ledger.';
+    if (!completedWorkflowSteps.includes('open_verification'))
+      return 'Open the public verification page from the ledger record.';
+    return 'Workflow complete — record is anchored and publicly verifiable.';
+  }, [sessionStatus, completedWorkflowSteps]);
+
+  const startPanelLegal =
+    'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.';
+
   return (
     <div className="space-y-4">
+      <FloodGuardStartPanel
+        projectName={`${city.name} FloodGuard Pilot`}
+        cityName={city.name}
+        cityCountry={city.country}
+        dataMode={dataMode}
+        modeChips={modeChips}
+        sessionStatus={sessionStatus}
+        sessionStartedAt={sessionStartedAt}
+        activeAlertCount={alerts.length}
+        selectedZoneCount={zones.length}
+        recommendedNextStep={recommendedNextStep}
+        completedSteps={completedWorkflowSteps}
+        onStartSession={handleStartSession}
+        onJumpToTab={(tab) => setActiveTab(tab)}
+        legalDisclaimer={startPanelLegal}
+      />
+
       <header
         className="rounded-2xl p-5 border dpal-border-subtle"
         style={{ background: 'var(--dpal-card)' }}
