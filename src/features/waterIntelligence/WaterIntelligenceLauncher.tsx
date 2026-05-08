@@ -73,13 +73,13 @@ export default function WaterIntelligenceLauncher({
           >
             <div className="flex items-center gap-2 font-bold" style={{ color: 'var(--dpal-text-primary)' }}>
               <ShieldCheck className="w-4 h-4" style={{ color: 'var(--dpal-primary)' }} />
-              What you are opening
+              Choose a Water Intelligence Project
             </div>
             <p className="dpal-text-secondary leading-relaxed">
-              This hub launches <span className="font-semibold">basin-scale Water Intelligence</span> (Colorado River
-              conservation exchange pilot) and <span className="font-semibold">city FloodGuard demos</span> (Santa Cruz).
-              FloodGuard handles flood-focused screening; Water Intelligence adds conservation accounting, VWCU registry
-              patterns, exchange categories, and public verification — all explicitly labeled mock/pilot.
+              This hub lets users open basin-scale conservation intelligence, city flood-risk demos, new water
+              projects, and investor/stakeholder presentations. FloodGuard handles flood-focused screening. Water
+              Intelligence adds conservation accounting, acre-feet calculations, Water Ledger records, VWCU registry
+              patterns, exchange categories, and public verification.
             </p>
             <p className="dpal-text-muted text-[11px] leading-relaxed">
               Human-verified and blockchain-anchored labels appear only when explicitly true for a record.
@@ -116,6 +116,13 @@ export default function WaterIntelligenceLauncher({
             A pilot system for measuring conserved consumptive water use, protecting agricultural water-right value,
             issuing pilot Verified Water Conservation Units (VWCUs), and tracking whether saved water is used for resale,
             system enhancement, or sequestered/archived conservation.
+          </p>
+          <p className="text-xs dpal-text-secondary leading-relaxed max-w-4xl">
+            Designed around the concept that verified water conservation can become a measurable, evidence-backed asset
+            while protecting water-right holders.
+          </p>
+          <p className="text-[11px] dpal-text-muted">
+            Includes Water Ledger · VWCU Registry · Evidence Packets · Exchange Categories · Club 20 Proposal Builder
           </p>
           <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-[12px]">
             <div>
@@ -179,6 +186,12 @@ export default function WaterIntelligenceLauncher({
         <article className="rounded-2xl p-5 border dpal-border-subtle space-y-3" style={{ background: 'var(--dpal-card)' }}>
           <div className="flex items-center gap-2">
             <Waves className="w-5 h-5" style={{ color: 'var(--dpal-primary)' }} />
+            <span
+              className="text-[10px] font-bold uppercase px-2 py-0.5 rounded"
+              style={{ background: 'rgba(148,163,184,0.18)', color: '#cbd5e1', border: '1px solid rgba(148,163,184,0.35)' }}
+            >
+              City Demo
+            </span>
             <h2 className="text-base font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
               Santa Cruz de la Sierra FloodGuard Pilot
             </h2>
