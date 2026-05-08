@@ -4,6 +4,7 @@ import {
   getCityIntelligence,
   getFloodRisk,
   getAirQuality,
+  getSatelliteValidation,
   geocodeLocation,
   estimateEmissions,
   verifyChainHash,
@@ -74,6 +75,35 @@ router.get("/air-quality", async (req: Request, res: Response) => {
     res.json({ ok: true, result });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "air-quality failed" });
+  }
+});
+
+/**
+ * GET /api/integrations/satellite-validation?lat=&lng=&signalType=&satelliteValue=
+ * Ground-truth validation layer: compares a satellite (or modeled) signal with nearby OpenAQ readings.
+ */
+router.get("/satellite-validation", async (req: Request, res: Response) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ ok: false, error: "lat and lng query parameters are required" });
+    }
+
+    const signalType = String(req.query.signalType || "pm25").trim() || "pm25";
+    const satelliteRaw = req.query.satelliteValue != null ? String(req.query.satelliteValue) : "";
+    const satelliteNumeric = Number(satelliteRaw);
+
+    const result = await getSatelliteValidation({
+      lat,
+      lng,
+      signalType,
+      satelliteNumeric,
+      satelliteRaw,
+    });
+    res.json({ ok: true, result });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "satellite-validation failed" });
   }
 });
 

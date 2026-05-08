@@ -284,6 +284,238 @@ export async function getAirQuality({ lat, lng }: Coordinates) {
   };
 }
 
+const SATELLITE_VALIDATION_PACKET_TYPE = "DPAL_SATELLITE_VALIDATION_V0_1";
+
+function normalizePollutantKey(signalType: string): string {
+  const s = String(signalType || "").toLowerCase().trim().replace(/\./g, "");
+  if (!s) return "pm25";
+  if (s.includes("pm2") || s === "pm25") return "pm25";
+  if (s.includes("pm10")) return "pm10";
+  if (s.includes("no2")) return "no2";
+  if (s.includes("so2")) return "so2";
+  if (s.includes("co")) return "co";
+  if (s.includes("o3") || s.includes("ozone")) return "o3";
+  return s;
+}
+
+function openAqParameterMatches(parameterRaw: unknown, key: string): boolean {
+  const name = String(
+    typeof parameterRaw === "object" && parameterRaw && "name" in parameterRaw
+      ? (parameterRaw as { name?: string }).name
+      : parameterRaw ?? ""
+  )
+    .toLowerCase()
+    .replace(/\./g, "");
+
+  switch (key) {
+    case "pm25":
+      return name.includes("pm2") || name === "pm25";
+    case "pm10":
+      return name.includes("pm10");
+    case "no2":
+      return name.includes("no2");
+    case "so2":
+      return name.includes("so2");
+    case "co":
+      return name === "co";
+    case "o3":
+      return name.includes("o3") || name.includes("ozone");
+    default:
+      return name.includes(key);
+  }
+}
+
+export type SatelliteValidationInput = Coordinates & {
+  signalType: string;
+  /** Parsed numeric satellite measurement when comparable to µg/m³-style ground stats; NaN if not numeric. */
+  satelliteNumeric: number;
+  satelliteRaw: string;
+};
+
+/**
+ * Compare a satellite or modeled environmental signal to nearby OpenAQ ground observations.
+ * Advisory only until validator review — surfaces disagreement explicitly when sensors diverge.
+ */
+export async function getSatelliteValidation(input: SatelliteValidationInput) {
+  const { lat, lng, signalType, satelliteNumeric, satelliteRaw } = input;
+  const coordinates = { lat, lng };
+  const pollutantKey = normalizePollutantKey(signalType);
+
+  const advisoryNotice =
+    "Advisory screening only: satellite or modeled signals compared with citizen/regulatory-grade ground sensors. No verified operational claim unless a DPAL validator completes review.";
+
+  const apiKey = process.env.OPENAQ_API_KEY;
+  if (!apiKey) {
+    const payloadForHash = {
+      type: SATELLITE_VALIDATION_PACKET_TYPE,
+      coordinates,
+      signalType: pollutantKey,
+      satelliteValue: satelliteRaw,
+      validationStatus: "needs_key" as const,
+      status: "needs_key" as const,
+    };
+    return {
+      status: "needs_key" as const,
+      message: "Set OPENAQ_API_KEY in Railway to enable ground-level satellite validation.",
+      coordinates,
+      signalType: pollutantKey,
+      satelliteValue: satelliteRaw,
+      openAqReadings: [] as unknown[],
+      validationStatus: "needs_key" as const,
+      confidenceScore: 0,
+      method:
+        "DPAL Satellite Validation v0.1 = satellite signal compared with nearby OpenAQ ground observations.",
+      evidenceHash: sha256(JSON.stringify(payloadForHash)),
+      advisoryNotice,
+      claimSafety: { validatorReviewed: false, publicClaimAllowed: false },
+    };
+  }
+
+  const locationParams = new URLSearchParams({
+    coordinates: `${lat},${lng}`,
+    radius: "25000",
+    limit: "8",
+  });
+
+  let locations: any;
+  try {
+    locations = await fetchJson<any>(
+      `https://api.openaq.org/v3/locations?${locationParams.toString()}`,
+      { headers: { "X-API-Key": apiKey } }
+    );
+  } catch (err: any) {
+    dlog("OpenAQ locations failed", err?.message);
+    const validationStatus = "partial" as const;
+    const payloadForHash = {
+      type: SATELLITE_VALIDATION_PACKET_TYPE,
+      coordinates,
+      signalType: pollutantKey,
+      satelliteValue: satelliteRaw,
+      validationStatus,
+      error: String(err?.message || "openaq_error"),
+    };
+    return {
+      message: err?.message || "OpenAQ request failed.",
+      coordinates,
+      signalType: pollutantKey,
+      satelliteValue: satelliteRaw,
+      openAqReadings: [],
+      validationStatus,
+      confidenceScore: 0.15,
+      method:
+        "DPAL Satellite Validation v0.1 = satellite signal compared with nearby OpenAQ ground observations.",
+      evidenceHash: sha256(JSON.stringify(payloadForHash)),
+      advisoryNotice,
+      claimSafety: { validatorReviewed: false, publicClaimAllowed: false },
+    };
+  }
+
+  const locResults: any[] = Array.isArray(locations?.results) ? locations.results : [];
+  const openAqReadings: Record<string, unknown>[] = [];
+  const numericGround: number[] = [];
+
+  const maxLocations = Math.min(5, locResults.length);
+  for (let i = 0; i < maxLocations; i++) {
+    const loc = locResults[i];
+    if (!loc?.id) continue;
+    try {
+      const latest = await fetchJson<any>(
+        `https://api.openaq.org/v3/locations/${loc.id}/latest`,
+        { headers: { "X-API-Key": apiKey } }
+      );
+      const readings = Array.isArray(latest?.results) ? latest.results : [];
+      for (const r of readings) {
+        const param = r.parameter?.name ?? r.parameter;
+        openAqReadings.push({
+          locationId: loc.id,
+          locationName: loc.name ?? null,
+          locality: loc.locality ?? null,
+          country: loc.country ?? null,
+          coordinates: loc.coordinates ?? null,
+          parameter: param,
+          value: r.value,
+          unit: r.unit ?? null,
+          datetime: r.datetime ?? null,
+        });
+        if (openAqParameterMatches(param, pollutantKey)) {
+          const v = Number(r.value);
+          if (Number.isFinite(v)) numericGround.push(v);
+        }
+      }
+    } catch (err: any) {
+      dlog("OpenAQ latest failed", loc.id, err?.message);
+    }
+  }
+
+  const canCompare = Number.isFinite(satelliteNumeric) && numericGround.length > 0;
+  const groundMean =
+    numericGround.length > 0
+      ? numericGround.reduce((a, b) => a + b, 0) / numericGround.length
+      : NaN;
+
+  let validationStatus: "confirmed" | "partial" | "conflicting" | "no_nearby_sensor" =
+    "no_nearby_sensor";
+  let confidenceScore = 0;
+
+  if (numericGround.length === 0) {
+    validationStatus = "no_nearby_sensor";
+    confidenceScore = openAqReadings.length > 0 ? 0.12 : 0;
+  } else if (!Number.isFinite(satelliteNumeric)) {
+    validationStatus = "partial";
+    confidenceScore = Math.min(0.45, 0.2 + numericGround.length * 0.06);
+  } else {
+    const denom = Math.max(Math.abs(satelliteNumeric), Math.abs(groundMean), 1e-6);
+    const relDiff = Math.abs(satelliteNumeric - groundMean) / denom;
+
+    if (relDiff <= 0.28) validationStatus = "confirmed";
+    else if (relDiff <= 0.55) validationStatus = "partial";
+    else validationStatus = "conflicting";
+
+    const agreement = Math.max(0, 1 - Math.min(1, relDiff));
+    const breadth = Math.min(1, numericGround.length / 4);
+    let score = 0.5 * agreement + 0.35 * breadth;
+    if (validationStatus === "confirmed") score += 0.1;
+    if (validationStatus === "conflicting") score *= 0.45;
+    confidenceScore = Math.round(Math.min(1, Math.max(0, score)) * 1000) / 1000;
+  }
+
+  const payloadForHash = {
+    type: SATELLITE_VALIDATION_PACKET_TYPE,
+    coordinates,
+    signalType: pollutantKey,
+    satelliteValue: satelliteRaw,
+    validationStatus,
+    groundSampleCount: numericGround.length,
+    groundMean: Number.isFinite(groundMean) ? Number(groundMean.toFixed(4)) : null,
+    openAqReadingCount: openAqReadings.length,
+    comparable: canCompare,
+    generatedAtHour: new Date().toISOString().slice(0, 13),
+  };
+
+  return {
+    coordinates,
+    signalType: pollutantKey,
+    satelliteValue: satelliteRaw,
+    openAqReadings,
+    validationStatus,
+    confidenceScore,
+    method:
+      "DPAL Satellite Validation v0.1 = satellite signal compared with nearby OpenAQ ground observations.",
+    evidenceHash: sha256(JSON.stringify(payloadForHash)),
+    advisoryNotice,
+    claimSafety: { validatorReviewed: false, publicClaimAllowed: false },
+    ...(Number.isFinite(satelliteNumeric) && numericGround.length > 0
+      ? {
+          comparison: {
+            satelliteNumeric,
+            groundMean: Number(groundMean.toFixed(4)),
+            groundSampleCount: numericGround.length,
+          },
+        }
+      : {}),
+  };
+}
+
 /**
  * Geoapify forward geocoding.
  */
