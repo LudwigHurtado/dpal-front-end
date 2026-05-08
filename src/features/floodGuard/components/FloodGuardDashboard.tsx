@@ -68,7 +68,7 @@ import FloodGuardStartPanel, {
   type FloodGuardWorkflowStepId,
 } from './FloodGuardStartPanel';
 import WaterIntelligenceWorkflowPanel from '../../waterIntelligence/components/WaterIntelligenceWorkflowPanel';
-import WaterIntelligenceAssistant from '../../waterIntelligence/components/WaterIntelligenceAssistant';
+import RussWaterMarketAssistant from '../../waterIntelligence/RussWaterMarketAssistant';
 import MapSourceGuidanceCard from '../../waterIntelligence/components/MapSourceGuidanceCard';
 import { CITY_FLOODGUARD_WORKFLOW_PANEL_STEPS } from '../../waterIntelligence/waterIntelligenceWorkflow';
 
@@ -553,7 +553,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
             onMarkComplete={markWorkflowStep}
           />
         </div>
-        <WaterIntelligenceAssistant
+        <RussWaterMarketAssistant
           context={{
             screen: 'city',
             completedCitySteps: completedWorkflowSteps.length,

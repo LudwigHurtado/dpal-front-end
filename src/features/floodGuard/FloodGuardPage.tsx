@@ -2,9 +2,9 @@ import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import FloodGuardDashboard from './components/FloodGuardDashboard';
 import type { FloodSituationParticipantRole } from './floodGuardTypes';
-import WaterIntelligenceLauncher from '../waterIntelligence/components/WaterIntelligenceLauncher';
-import ColoradoRiverPilotView from '../waterIntelligence/components/ColoradoRiverPilotView';
-import WaterIntelligenceAssistant from '../waterIntelligence/components/WaterIntelligenceAssistant';
+import WaterIntelligenceLauncher from '../waterIntelligence/WaterIntelligenceLauncher';
+import ColoradoRiverExchangePilotView from '../waterIntelligence/ColoradoRiverExchangePilotView';
+import RussWaterMarketAssistant from '../waterIntelligence/RussWaterMarketAssistant';
 
 interface FloodGuardPageProps {
   onReturn?: () => void;
@@ -58,24 +58,16 @@ const FloodGuardPage: React.FC<FloodGuardPageProps> = ({ onReturn, actorName, ac
   const location = useLocation();
   const p = parseWiProject(location.search);
 
-  const goLauncher = () => navigate('/floodguard', { replace: true });
+  const goLauncher = () => navigate('/water-intelligence', { replace: true });
 
   if (!p) {
     return (
       <div className="min-h-screen px-3 md:px-6 py-4 md:py-6" style={{ background: 'var(--dpal-background)' }}>
         <div className="max-w-7xl mx-auto space-y-4">
-          <WaterIntelligenceLauncher
-            onReturn={onReturn}
-            onOpenColorado={() => navigate('/floodguard?p=colorado')}
-            onOpenColoradoWorkflow={() => navigate('/floodguard?p=colorado&focus=workflow')}
-            onOpenColoradoPublicMap={() => navigate('/floodguard?p=colorado&focus=public')}
-            onOpenSantaCruzDemo={() => navigate('/floodguard?p=santa-cruz')}
-            onCreateProject={() => navigate('/floodguard?p=create')}
-            onInvestorDemo={() => navigate('/floodguard?p=investor')}
-          />
+          <WaterIntelligenceLauncher onReturn={onReturn} />
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2" />
-            <WaterIntelligenceAssistant context={{ screen: 'launcher' }} />
+            <RussWaterMarketAssistant context={{ screen: 'launcher' }} />
           </div>
         </div>
       </div>
@@ -86,7 +78,7 @@ const FloodGuardPage: React.FC<FloodGuardPageProps> = ({ onReturn, actorName, ac
     return (
       <div className="min-h-screen px-3 md:px-6 py-4 md:py-6" style={{ background: 'var(--dpal-background)' }}>
         <div className="max-w-7xl mx-auto">
-          <ColoradoRiverPilotView onBack={goLauncher} />
+          <ColoradoRiverExchangePilotView />
         </div>
       </div>
     );

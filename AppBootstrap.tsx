@@ -11,6 +11,7 @@ import AccountDashboardPage from "./pages/auth/AccountDashboardPage";
 import ProfilePage from "./pages/auth/ProfilePage";
 import AdminDashboardPage from "./pages/auth/AdminDashboardPage";
 import FloodLedgerVerificationPage from "./src/features/floodGuard/components/FloodLedgerVerificationPage";
+import WaterIntelligenceRoutes from "./src/features/waterIntelligence/waterIntelligenceRoutes";
 
 /**
  * Auth routes are mounted ahead of the main `App` catch-all so URLs like `/login`
@@ -32,6 +33,7 @@ export default function AppBootstrap() {
           path="/floodguard/verify/:ledgerRecordId"
           element={<FloodLedgerVerificationPage />}
         />
+        <Route path="/water-intelligence/*" element={<WaterIntelligenceRoutes />} />
         <Route path="*" element={<App />} />
       </Routes>
     </AuthProvider>

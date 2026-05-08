@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslations } from '../i18n';
 import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves } from './icons';
 import { Category } from '../types';
@@ -166,6 +167,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     onDispatchMissions,
 }) => {
     const { t } = useTranslations();
+    const navigate = useNavigate();
 
     const [colorIndex, setColorIndex] = useState(0);
     const [showPerimeter, setShowPerimeter] = useState(false);
@@ -364,12 +366,12 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Waves className="w-8 h-8" />}
-                    label="DPAL Water Intelligence"
-                    subLabel="Basin pilots, FloodGuard city demos, evidence packets, routing previews, and ledger-ready records — labeled mock/live/fallback."
+                    label="Water Intelligence"
+                    subLabel="Colorado River conservation exchange pilot, VWCU patterns, evidence, public verification — Pilot / Demonstration Mode; FloodGuard city demos remain at /floodguard."
                     status="Beta"
                     colorClass="cyan"
                     bgImageUrl="/main-screen/water-project-monitoring.png"
-                    onClick={() => onNavigate('floodGuard')}
+                    onClick={() => navigate('/water-intelligence')}
                 />
 
                 <PrimaryNavModule

@@ -10,11 +10,11 @@ export interface MapSourceGuidanceCardProps {
 const COLORADO_LAYERS = [
   'USGS stream gauges',
   'Bureau of Reclamation reservoir data',
-  'NOAA basin forecasts',
+  'NOAA Colorado Basin forecasts',
   'OpenET evapotranspiration data',
-  'NASA/DPAL satellite indices',
+  'NASA / DPAL satellite water and vegetation indices',
   'Field reports',
-  'Water-right/conservation documents',
+  'Water-right and conservation documents',
 ];
 
 /**
@@ -35,9 +35,20 @@ const MapSourceGuidanceCard: React.FC<MapSourceGuidanceCardProps> = ({
       </span>
     </div>
     <p className="text-xs dpal-text-secondary leading-relaxed">
-      FloodGuard and Water Intelligence maps can be built from city-provided zones, river-basin boundaries,
-      reservoir datasets, stream gauges, open geospatial layers, satellite imagery, drainage/hydrology sources,
-      and DPAL-generated risk zones. Each layer should be labeled by source and confidence.
+      {variant === 'colorado' ? (
+        <>
+          DPAL Water Intelligence maps can be built from river-basin boundaries, reservoir datasets, stream gauges, open
+          geospatial layers, satellite imagery, hydrology sources, irrigation district data, field reports,
+          water-right/conservation documents, and DPAL-generated risk/conservation zones. Each layer should be labeled
+          by source and confidence.
+        </>
+      ) : (
+        <>
+          FloodGuard and Water Intelligence maps can be built from city-provided zones, river-basin boundaries,
+          reservoir datasets, stream gauges, open geospatial layers, satellite imagery, drainage/hydrology sources,
+          and DPAL-generated risk zones. Each layer should be labeled by source and confidence.
+        </>
+      )}
     </p>
     {variant === 'colorado' && (
       <div className="rounded-xl px-3 py-2 space-y-1" style={{ background: 'var(--dpal-surface-alt)' }}>
