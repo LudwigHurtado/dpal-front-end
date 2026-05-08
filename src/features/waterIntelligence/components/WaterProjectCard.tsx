@@ -4,6 +4,17 @@ import DataSourceBadge from './DataSourceBadge';
 import WaterStatusBadge from './WaterStatusBadge';
 import { formatTransactionCategory } from '../services/waterIntelligenceLabels';
 
+function getRecommendedNextAction(projectId: string): string {
+  if (projectId === 'WI-CO-GV-AG-001') return 'Complete water-right documentation and validator review.';
+  if (projectId === 'WI-CO-DEN-URB-002')
+    return 'Confirm turf-conversion evidence and municipal conservation assumptions.';
+  if (projectId === 'WI-CO-CBT-LEASE-003')
+    return 'Review lease eligibility and authority approval pathway.';
+  if (projectId === 'WI-CO-RES-SYS-004')
+    return 'Clarify whether saved water is assigned to system enhancement or archived conservation.';
+  return 'Review evidence completeness and authority pathway before any formal claim.';
+}
+
 export default function WaterProjectCard({
   project,
   onOpen,
@@ -22,10 +33,9 @@ export default function WaterProjectCard({
         </h3>
         <WaterStatusBadge status={project.status} />
       </div>
-      <p className="text-[11px] dpal-text-secondary">
+      <p className="text-[11px] dpal-text-secondary leading-relaxed">
         <span className="font-semibold">Method:</span> {project.method}
-      </p>
-      <p className="text-[11px] dpal-text-secondary">
+        <span className="px-1">·</span>
         <span className="font-semibold">Geography:</span> {project.geography}
       </p>
       <p className="text-[11px] dpal-text-secondary">
@@ -39,6 +49,18 @@ export default function WaterProjectCard({
         <div>
           <dt className="dpal-text-muted">Current monitored</dt>
           <dd style={{ color: 'var(--dpal-text-primary)' }}>{project.currentMonitoredUseAF.toLocaleString()} AF</dd>
+        </div>
+        <div>
+          <dt className="dpal-text-muted">Estimated savings</dt>
+          <dd style={{ color: 'var(--dpal-text-primary)' }}>
+            {(project.baselineUseAF - project.currentMonitoredUseAF).toLocaleString()} AF
+          </dd>
+        </div>
+        <div>
+          <dt className="dpal-text-muted">Evidence status</dt>
+          <dd className="capitalize" style={{ color: 'var(--dpal-text-primary)' }}>
+            {project.evidenceStatus}
+          </dd>
         </div>
       </dl>
       <div>
@@ -55,17 +77,17 @@ export default function WaterProjectCard({
           ))}
         </div>
       </div>
-      <div>
-        <div className="text-[10px] font-bold uppercase dpal-text-muted mb-1">Evidence</div>
-        <span className="text-[11px] capitalize" style={{ color: 'var(--dpal-text-secondary)' }}>
-          {project.evidenceStatus}
-        </span>
-      </div>
       <div className="flex flex-wrap gap-1">
         {project.dataSourceLabels.map((l) => (
           <DataSourceBadge key={l} label={l} />
         ))}
+        {project.humanVerified && <DataSourceBadge label="human_verified" />}
+        {project.blockchainAnchored && <DataSourceBadge label="blockchain_anchored" />}
       </div>
+      <p className="text-[11px] dpal-text-secondary leading-relaxed border-t dpal-border-subtle pt-2">
+        <span className="font-semibold dpal-text-muted">Recommended next action:</span>{' '}
+        {getRecommendedNextAction(project.id)}
+      </p>
       {onOpen && (
         <button
           type="button"

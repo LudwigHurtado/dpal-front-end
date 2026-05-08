@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Droplets, ShieldCheck } from '../../../components/icons';
+import { Droplets, ShieldCheck } from '../../../components/icons';
 import RussWaterMarketAssistant from './RussWaterMarketAssistant';
 import ColoradoExchangeWorkflowPanel from './ColoradoExchangeWorkflowPanel';
 import WaterProjectCard from './components/WaterProjectCard';
@@ -11,6 +11,19 @@ import {
   COLORADO_PUBLIC_VERIFICATION_RECORDS,
 } from './services/coloradoRiverMockData';
 import { waterIntelligenceService } from './services/waterIntelligenceService';
+import RouteBreadcrumbHeader from './components/RouteBreadcrumbHeader';
+
+function StatCard({ label, value }: { label: string; value: string }): React.ReactElement {
+  return (
+    <div className="rounded-xl px-3 py-2 border dpal-border-subtle" style={{ background: 'var(--dpal-surface-alt)' }}>
+      <div className="text-[10px] font-bold uppercase tracking-wide dpal-text-muted">{label}</div>
+      <div className="text-[13px] mt-0.5 font-semibold" style={{ color: 'var(--dpal-text-primary)' }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export default function ColoradoRiverExchangePilotView(): React.ReactElement {
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -20,6 +33,8 @@ export default function ColoradoRiverExchangePilotView(): React.ReactElement {
   const monitoringSectionRef = useRef<HTMLDivElement>(null);
   const workflowSectionRef = useRef<HTMLDivElement>(null);
   const [workflowDone, setWorkflowDone] = useState<ExchangeWorkflowStepId[]>([]);
+  const humanVerifiedAsserted = projects.some((p) => p.humanVerified);
+  const blockchainAnchoredAsserted = projects.some((p) => p.blockchainAnchored);
 
   useEffect(() => {
     const focus = searchParams.get('focus');
@@ -36,14 +51,12 @@ export default function ColoradoRiverExchangePilotView(): React.ReactElement {
 
   return (
     <div className="space-y-4">
-      <header className="rounded-2xl p-5 border dpal-border-subtle" style={{ background: 'var(--dpal-card)' }}>
-        <Link
-          to="/water-intelligence"
-          className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold dpal-text-muted hover:opacity-80 mb-3"
-          style={{ background: 'var(--dpal-surface-alt)', border: '1px solid var(--dpal-border)' }}
-        >
-          <ArrowLeft className="w-3.5 h-3.5" /> Water Intelligence home
-        </Link>
+      <header className="rounded-2xl p-5 border dpal-border-subtle space-y-4" style={{ background: 'var(--dpal-card)' }}>
+        <RouteBreadcrumbHeader
+          title="Colorado River Water Conservation Exchange Pilot"
+          subtitle="A DPAL Water Intelligence pilot showing how conserved water can become a measured, evidence-backed, and transaction-ready asset while protecting agricultural water-right holders."
+          currentPageLabel="Colorado River Exchange"
+        />
         <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:justify-between">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
@@ -62,6 +75,15 @@ export default function ColoradoRiverExchangePilotView(): React.ReactElement {
               {COLORADO_EXCHANGE_PILOT.name}
             </h1>
             <p className="text-xs md:text-sm dpal-text-secondary max-w-3xl leading-relaxed">{COLORADO_EXCHANGE_PILOT.headline}</p>
+            <div className="rounded-xl p-3 border dpal-border-subtle text-[11px] leading-relaxed max-w-3xl" style={{ background: 'var(--dpal-surface-alt)' }}>
+              <div className="font-bold dpal-text-muted mb-1">Why this matters</div>
+              <p className="dpal-text-secondary">
+                Water scarcity creates pressure on agriculture, cities, reservoirs, and ecosystems. This pilot
+                demonstrates how DPAL can organize baseline use, conservation monitoring, acre-feet calculations,
+                evidence packets, pilot VWCUs, transaction categories, and public verification into one accountable
+                workflow.
+              </p>
+            </div>
           </div>
           <div
             className="rounded-xl p-3 text-[11px] space-y-1 max-w-md shrink-0"
@@ -71,33 +93,42 @@ export default function ColoradoRiverExchangePilotView(): React.ReactElement {
               <ShieldCheck className="w-4 h-4" style={{ color: 'var(--dpal-primary)' }} />
               Claim safety
             </div>
-            <p className="dpal-text-secondary leading-relaxed">
-              Not an official government product. No agency approval. No legal water-right transfer through this UI.
-              VWCUs are pilot demonstration units unless accepted by a governing authority or contract program.
-            </p>
+            <ul className="dpal-text-secondary leading-relaxed list-disc pl-4 space-y-1">
+              <li>Pilot / Demonstration Mode</li>
+              <li>No government approval</li>
+              <li>No legal water-right transfer through this UI</li>
+              <li>VWCUs are pilot demonstration units unless accepted by a governing authority or contract program</li>
+            </ul>
           </div>
         </div>
-
-        <div className="mt-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-          {[
-            { k: 'Total pilot projects', v: dashboard.totalPilotProjects },
-            { k: 'Baseline AF under review', v: `${dashboard.baselineAFUnderReview.toLocaleString()} AF` },
-            { k: 'Estimated conserved AF', v: `${dashboard.estimatedConservedAF.toLocaleString()} AF` },
-            { k: 'Net verified conservation', v: `${dashboard.netVerifiedConservationAF.toLocaleString()} AF` },
-            { k: 'Pilot VWCUs eligible', v: dashboard.pilotVWcuEligible.toLocaleString() },
-            { k: 'VWCUs — resale', v: dashboard.vwcuResale.toLocaleString() },
-            { k: 'VWCUs — system enhancement', v: dashboard.vwcuSystemEnhancement.toLocaleString() },
-            { k: 'VWCUs — sequestered/archived', v: dashboard.vwcuSequesteredArchived.toLocaleString() },
-            { k: 'Evidence packets', v: String(dashboard.evidencePackets) },
-            { k: 'Public verification records', v: String(dashboard.publicRecords) },
-          ].map((card) => (
-            <div key={card.k} className="rounded-xl px-3 py-2 border dpal-border-subtle" style={{ background: 'var(--dpal-surface-alt)' }}>
-              <div className="text-[10px] font-bold uppercase tracking-wide dpal-text-muted">{card.k}</div>
-              <div className="text-[11px] mt-0.5 font-semibold" style={{ color: 'var(--dpal-text-primary)' }}>
-                {card.v}
-              </div>
+        <div className="space-y-3">
+          <div>
+            <h2 className="text-[11px] font-black uppercase tracking-wider dpal-text-muted mb-2">Program Scale</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              <StatCard label="Total pilot projects" value={dashboard.totalPilotProjects.toLocaleString()} />
+              <StatCard label="Baseline AF under review" value={`${dashboard.baselineAFUnderReview.toLocaleString()} AF`} />
+              <StatCard label="Estimated conserved AF" value={`${dashboard.estimatedConservedAF.toLocaleString()} AF`} />
+              <StatCard label="Net verified conservation" value={`${dashboard.netVerifiedConservationAF.toLocaleString()} AF`} />
             </div>
-          ))}
+          </div>
+          <div>
+            <h2 className="text-[11px] font-black uppercase tracking-wider dpal-text-muted mb-2">VWCU Allocation</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              <StatCard label="Pilot VWCUs eligible" value={`${dashboard.pilotVWcuEligible.toLocaleString()} units`} />
+              <StatCard label="Resale" value={`${dashboard.vwcuResale.toLocaleString()} VWCUs`} />
+              <StatCard label="System enhancement" value={`${dashboard.vwcuSystemEnhancement.toLocaleString()} VWCUs`} />
+              <StatCard label="Sequestered / archived" value={`${dashboard.vwcuSequesteredArchived.toLocaleString()} VWCUs`} />
+            </div>
+          </div>
+          <div>
+            <h2 className="text-[11px] font-black uppercase tracking-wider dpal-text-muted mb-2">Evidence & Trust</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+              <StatCard label="Evidence packets" value={dashboard.evidencePackets.toLocaleString()} />
+              <StatCard label="Public verification records" value={dashboard.publicRecords.toLocaleString()} />
+              <StatCard label="Human verified" value={humanVerifiedAsserted ? 'Asserted' : 'Not asserted'} />
+              <StatCard label="Blockchain anchored" value={blockchainAnchoredAsserted ? 'Asserted' : 'Not asserted'} />
+            </div>
+          </div>
         </div>
       </header>
 

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import DataSourceBadge from './components/DataSourceBadge';
 import { formatTransactionCategory } from './services/waterIntelligenceLabels';
 import { waterIntelligenceService } from './services/waterIntelligenceService';
+import RouteBreadcrumbHeader from './components/RouteBreadcrumbHeader';
 
 export default function PublicWaterVerificationView(): React.ReactElement {
   const { recordId = '' } = useParams();
@@ -21,6 +22,7 @@ export default function PublicWaterVerificationView(): React.ReactElement {
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
+      <RouteBreadcrumbHeader title="Public water verification" currentPageLabel="Public Verification" />
       <div className="rounded-xl p-3 border border-amber-400/30 bg-amber-500/10 text-[11px] text-amber-100">
         Public-safe view — no private water-right documents, party contacts, confidential terms, or internal validator
         notes unless explicitly marked public elsewhere.
@@ -82,7 +84,7 @@ export default function PublicWaterVerificationView(): React.ReactElement {
       </p>
 
       <Link to="/water-intelligence/colorado-river" className="text-[11px] font-semibold text-cyan-300 hover:underline inline-block">
-        ← Colorado pilot
+        Return to Colorado pilot
       </Link>
     </div>
   );

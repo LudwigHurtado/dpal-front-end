@@ -1,15 +1,13 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import WaterRightsCard from './components/WaterRightsCard';
 import { listWaterRightProfiles } from './services/waterRightsService';
+import RouteBreadcrumbHeader from './components/RouteBreadcrumbHeader';
 
 export default function WaterRightsProtectionView(): React.ReactElement {
   const profiles = listWaterRightProfiles();
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
-        Water-rights protection (informational)
-      </h1>
+      <RouteBreadcrumbHeader title="Water-rights protection" currentPageLabel="Water Rights" />
       <div className="rounded-xl p-4 border dpal-border-subtle text-[11px] leading-relaxed space-y-2" style={{ background: 'var(--dpal-card)' }}>
         <p className="dpal-text-secondary">
           DPAL does not transfer legal water rights by itself. DPAL documents conservation performance and evidence so
@@ -27,9 +25,6 @@ export default function WaterRightsProtectionView(): React.ReactElement {
           <WaterRightsCard key={r.id} r={r} />
         ))}
       </div>
-      <Link to="/water-intelligence/colorado-river" className="text-[11px] font-semibold text-cyan-300 hover:underline inline-block">
-        ← Colorado pilot
-      </Link>
     </div>
   );
 }

@@ -1,14 +1,13 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { listEvidencePackets } from './services/waterEvidencePacketService';
+import RouteBreadcrumbHeader from './components/RouteBreadcrumbHeader';
 
 export default function WaterEvidencePacketView(): React.ReactElement {
   const packets = listEvidencePackets();
   return (
     <div className="space-y-4">
-      <h1 className="text-lg font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
-        Water conservation evidence packets
-      </h1>
+      <RouteBreadcrumbHeader title="Water conservation evidence packets" currentPageLabel="Evidence" />
       <p className="text-[11px] dpal-text-secondary">Pilot / Demonstration Mode · placeholder actions only.</p>
       <div className="space-y-3">
         {packets.map((p) => (
@@ -46,9 +45,6 @@ export default function WaterEvidencePacketView(): React.ReactElement {
           Open Situation Room Placeholder
         </Link>
       </div>
-      <Link to="/water-intelligence/colorado-river" className="text-[11px] font-semibold text-cyan-300 hover:underline inline-block">
-        ← Colorado pilot
-      </Link>
     </div>
   );
 }

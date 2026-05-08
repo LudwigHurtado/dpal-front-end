@@ -12,6 +12,7 @@ export interface ColoradoExchangeWorkflowStep {
   title: string;
   purpose: string;
   checklist: string[];
+  successLooksLike?: string;
   /** Path after /water-intelligence */
   path: string;
   /** Optional search string including ? */
@@ -35,6 +36,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
       'Confirm data source labels are visible',
       'Confirm mock/fallback/live labels are clear',
     ],
+    successLooksLike:
+      'The basin map shows the Colorado River pilot geography, reservoirs, conservation zones, and source labels clearly.',
     path: '/basin-map',
     openLabel: 'Open Basin Map',
     continueLabel: 'Mark reviewed & continue',
@@ -52,6 +55,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
       'Review baseline confidence',
       'Review missing documents',
     ],
+    successLooksLike:
+      'Each project has a clear before-condition with baseline acre-feet, source notes, and known documentation gaps.',
     path: '/colorado-river',
     search: '?focus=baseline',
     openLabel: 'Open Baseline / Project Details',
@@ -70,6 +75,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
       'Review monitoring period',
       'Review evidence gaps',
     ],
+    successLooksLike:
+      'After-condition monitoring records are understandable and evidence gaps are explicitly listed for review.',
     path: '/colorado-river',
     search: '?focus=monitoring',
     openLabel: 'Open Conservation Monitoring',
@@ -89,6 +96,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
       'Confirm uncertainty buffer',
       'Confirm eligible VWCUs',
     ],
+    successLooksLike:
+      'The calculator shows gross saved AF, adjustments, uncertainty buffer, net conservation, and eligible pilot VWCUs.',
     path: '/calculator',
     openLabel: 'Open Calculator',
     continueLabel: 'Mark reviewed & continue',
@@ -106,6 +115,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
       'Confirm calculation output',
       'Confirm private info is hidden',
     ],
+    successLooksLike:
+      'Evidence packets include project context, source labels, calculator output, and public-safe summaries with pilot labels.',
     path: '/evidence',
     openLabel: 'Generate Evidence Packet',
     continueLabel: 'Mark complete & continue',
@@ -122,6 +133,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
       'Review authority approval needs',
       'Review compensation notes',
     ],
+    successLooksLike:
+      'Each project has a proposed category and clear notes about authority review, compensation, and transfer limitations.',
     path: '/exchange',
     openLabel: 'Open Exchange / Transactions',
     continueLabel: 'Mark complete & continue',
@@ -133,6 +146,8 @@ export const COLORADO_EXCHANGE_WORKFLOW_STEPS: ColoradoExchangeWorkflowStep[] = 
     title: 'Step 7 — Prepare Club 20 Proposal',
     purpose: 'Generate a stakeholder-ready explanation of the pilot.',
     checklist: ['Problem', 'Opportunity', 'Agriculture protection', 'DPAL technology role', 'Pilot geography', 'Next steps'],
+    successLooksLike:
+      'A stakeholder-ready Club 20 proposal summary is generated with honest pilot labeling.',
     path: '/club20',
     openLabel: 'Open Club 20 Builder',
     continueLabel: 'Finish Workflow',

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { computeConservation } from './services/waterConservationCalculator';
+import RouteBreadcrumbHeader from './components/RouteBreadcrumbHeader';
 
 export default function ConservationCalculatorView(): React.ReactElement {
   const [baseline, setBaseline] = useState(1000);
@@ -27,14 +27,7 @@ export default function ConservationCalculatorView(): React.ReactElement {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
-          Conservation calculator (pilot)
-        </h1>
-        <Link to="/water-intelligence/colorado-river" className="text-[11px] font-semibold text-cyan-300 hover:underline">
-          ← Colorado pilot
-        </Link>
-      </div>
+      <RouteBreadcrumbHeader title="Conservation calculator" currentPageLabel="Calculator" />
       <p className="text-[11px] dpal-text-secondary">
         Pilot / Demonstration Mode · 1 VWCU = 1 acre-foot of verified conserved consumptive water use in this demo rule
         set.

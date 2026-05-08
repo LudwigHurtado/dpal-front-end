@@ -78,6 +78,22 @@ function RussWaterMarketAssistant({ context }: { context: RussAssistantContext }
     return out;
   }, [context]);
 
+  const sectionedColorado = useMemo(() => {
+    if (context.screen !== 'colorado_exchange') return null;
+    return {
+      currentFocus:
+        'Start with the basin map and baseline records. A water-conservation claim needs a clear geography and before-condition before it can support any unit or transaction.',
+      missingEvidence:
+        'Mock/demo projects still need live source connections, water-right documentation, authority review, and human validation before any formal claim.',
+      suggestedNextStep:
+        'Review the Grand Valley Agricultural Conservation Pilot first because it best demonstrates Russ Freeman’s idea: agriculture conserves water and receives value instead of being punished by restrictions.',
+      claimSafetyWarning:
+        'Do not present VWCUs as certified credits or legal water rights. They are DPAL pilot demonstration units unless accepted by an authority or contract program.',
+      investorExplanation:
+        'DPAL is not claiming to own the water market. DPAL provides the evidence, workflow, ledger, and verification infrastructure that a water exchange or authority could use.',
+    };
+  }, [context]);
+
   return (
     <div
       className="rounded-2xl p-4 border dpal-border-subtle space-y-2 sticky top-4"
@@ -93,11 +109,36 @@ function RussWaterMarketAssistant({ context }: { context: RussAssistantContext }
         Contextual guidance for operators — not legal advice, not an emergency notification, and not a substitute for
         agency alerts or water-authority decisions.
       </p>
-      <ul className="text-[11px] dpal-text-secondary space-y-1.5 list-disc pl-4">
-        {bullets.map((b) => (
-          <li key={b}>{b}</li>
-        ))}
-      </ul>
+      {sectionedColorado ? (
+        <div className="space-y-2 text-[11px]">
+          <div className="rounded-lg p-2 border dpal-border-subtle" style={{ background: 'var(--dpal-surface-alt)' }}>
+            <div className="font-bold dpal-text-muted">Current focus</div>
+            <div className="dpal-text-secondary mt-0.5">{sectionedColorado.currentFocus}</div>
+          </div>
+          <div className="rounded-lg p-2 border dpal-border-subtle" style={{ background: 'var(--dpal-surface-alt)' }}>
+            <div className="font-bold dpal-text-muted">Missing evidence</div>
+            <div className="dpal-text-secondary mt-0.5">{sectionedColorado.missingEvidence}</div>
+          </div>
+          <div className="rounded-lg p-2 border dpal-border-subtle" style={{ background: 'var(--dpal-surface-alt)' }}>
+            <div className="font-bold dpal-text-muted">Suggested next step</div>
+            <div className="dpal-text-secondary mt-0.5">{sectionedColorado.suggestedNextStep}</div>
+          </div>
+          <div className="rounded-lg p-2 border border-amber-400/30 bg-amber-500/10">
+            <div className="font-bold text-amber-200">Claim-safety warning</div>
+            <div className="text-amber-100 mt-0.5">{sectionedColorado.claimSafetyWarning}</div>
+          </div>
+          <div className="rounded-lg p-2 border dpal-border-subtle" style={{ background: 'var(--dpal-surface-alt)' }}>
+            <div className="font-bold dpal-text-muted">Investor explanation</div>
+            <div className="dpal-text-secondary mt-0.5">{sectionedColorado.investorExplanation}</div>
+          </div>
+        </div>
+      ) : (
+        <ul className="text-[11px] dpal-text-secondary space-y-1.5 list-disc pl-4">
+          {bullets.map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

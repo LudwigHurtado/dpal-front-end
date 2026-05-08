@@ -95,6 +95,12 @@ function WaterIntelligenceWorkflowPanel<T extends string>({
                     <span className="font-bold uppercase tracking-wide dpal-text-muted">AI suggestion · </span>
                     <span className="dpal-text-secondary">{step.aiHint}</span>
                   </div>
+                  {step.successLooksLike && (
+                    <p className="text-[11px] dpal-text-secondary leading-snug">
+                      <span className="font-semibold dpal-text-muted">What success looks like: </span>
+                      {step.successLooksLike}
+                    </p>
+                  )}
                   <div className="text-[10px] font-bold uppercase tracking-wide dpal-text-muted pt-1">
                     Checklist
                   </div>

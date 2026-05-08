@@ -1,20 +1,29 @@
 import React, { useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import Club20SectionCard from './components/Club20SectionCard';
 import { buildClub20ProposalDraft } from './services/club20ProposalService';
 import RussWaterMarketAssistant from './RussWaterMarketAssistant';
+import RouteBreadcrumbHeader from './components/RouteBreadcrumbHeader';
 
 export default function Club20ProposalBuilder(): React.ReactElement {
   const draft = useMemo(() => buildClub20ProposalDraft(), []);
   return (
     <div className="space-y-4">
-      <div className="flex justify-between flex-wrap gap-2">
-        <h1 className="text-lg font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
-          Club 20 / stakeholder proposal builder
-        </h1>
-        <Link to="/water-intelligence" className="text-[11px] font-semibold text-cyan-300 hover:underline">
-          Home
-        </Link>
+      <RouteBreadcrumbHeader title="Club 20 / stakeholder proposal builder" currentPageLabel="Club 20" />
+      <div className="rounded-xl p-3 border dpal-border-subtle" style={{ background: 'var(--dpal-card)' }}>
+        <div className="text-[11px] font-bold" style={{ color: 'var(--dpal-text-primary)' }}>
+          Club 20 Review Draft — Pilot / Demonstration
+        </div>
+        <p className="text-[11px] dpal-text-secondary mt-1">
+          Stakeholder memo preview for discussion. This is not a legal filing or approved authority instrument.
+        </p>
+        <div className="flex flex-wrap gap-2 mt-2">
+          <button type="button" className="rounded-lg px-3 py-1.5 text-[11px] font-semibold border dpal-border-subtle" disabled>
+            Copy Proposal Draft
+          </button>
+          <button type="button" className="rounded-lg px-3 py-1.5 text-[11px] font-semibold border dpal-border-subtle" disabled>
+            Export PDF Placeholder
+          </button>
+        </div>
       </div>
       <p className="text-[11px] dpal-text-secondary">Pilot / Demonstration Mode · editable-looking preview panels.</p>
 

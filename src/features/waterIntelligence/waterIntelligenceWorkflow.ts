@@ -5,6 +5,7 @@ export interface WaterIntelWorkflowStepBase {
   title: string;
   purpose: string;
   checklist: string[];
+  successLooksLike?: string;
   openTabLabel: string;
   continueLabel: string;
   aiHint: string;
