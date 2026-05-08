@@ -272,46 +272,80 @@ export class FloodGuardStore {
     try {
       if (fs.existsSync(STORE_FILE)) {
         const raw = fs.readFileSync(STORE_FILE, 'utf8');
-        const parsed = JSON.parse(raw) as PersistedShape;
+        const parsed = JSON.parse(raw) as Partial<PersistedShape>;
+        // Heal stale shapes: any version (1..5) loads, missing top-level fields
+        // are filled with safe defaults so write paths don't trip on undefined.
         if (
           parsed &&
-          parsed.alerts &&
-          parsed.detections &&
+          typeof parsed === 'object' &&
           (parsed.version === 1 ||
             parsed.version === 2 ||
             parsed.version === 3 ||
             parsed.version === 4 ||
             parsed.version === 5)
         ) {
-          this.data = {
-            ...parsed,
+          const healed: PersistedShape = {
             version: 5,
+            detections: this.healMap(parsed.detections),
+            reports: this.healMap(parsed.reports),
+            weather: this.healMap(parsed.weather),
+            alerts: this.healMap(parsed.alerts),
+            activeByZone: this.healMap(parsed.activeByZone),
+            situationRooms: this.healMap(parsed.situationRooms),
+            evidenceByAlert: this.healMap(parsed.evidenceByAlert),
+            anchors: this.healMap(parsed.anchors),
             dispatchedMissions: Array.isArray(parsed.dispatchedMissions) ? parsed.dispatchedMissions : [],
             dpalMissions: Array.isArray(parsed.dpalMissions) ? parsed.dpalMissions : [],
-            routingByAlert:
-              parsed.routingByAlert && typeof parsed.routingByAlert === 'object' ? parsed.routingByAlert : {},
-            ledgerRecords:
-              parsed.ledgerRecords && typeof parsed.ledgerRecords === 'object' ? parsed.ledgerRecords : {},
-            ledgerByAlert:
-              parsed.ledgerByAlert && typeof parsed.ledgerByAlert === 'object' ? parsed.ledgerByAlert : {},
+            routingByAlert: this.healMap(parsed.routingByAlert),
+            ledgerRecords: this.healMap(parsed.ledgerRecords),
+            ledgerByAlert: this.healMap(parsed.ledgerByAlert),
           };
+          this.data = healed;
+          // If the loaded store is missing seed alerts (older shape, empty after
+          // an interrupted run, or new deploy with empty Volume), reseed weather
+          // and detections so the write paths have something to work with.
+          if (Object.keys(this.data.alerts).length === 0) {
+            const seed = seedPersisted();
+            this.data.weather = { ...seed.weather, ...this.data.weather };
+            this.data.detections = { ...seed.detections, ...this.data.detections };
+            this.data.reports = { ...seed.reports, ...this.data.reports };
+          }
           return;
         }
+        console.warn(
+          `[FloodGuard][schema] store.json present but version "${String(parsed?.version)}" is unrecognised; re-seeding.`,
+        );
       }
     } catch (e) {
-      console.warn('[FloodGuard] Could not load store, re-seeding:', (e as Error).message);
+      console.warn(`[FloodGuard][storage] could not load store, re-seeding: ${(e as Error).message}`);
     }
     this.data = seedPersisted();
     this.recomputeAllZones();
     this.persist();
   }
 
-  persist(): void {
+  /** Internal helper for `loadOrSeed`: tolerate missing/non-object map fields. */
+  private healMap<T>(value: unknown): T {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value as T;
+    return {} as T;
+  }
+
+  /**
+   * Persist the in-memory store to JSON. Returns a structured status so callers
+   * can distinguish "saved" from "in-memory only" without crashing the request.
+   * Production note: Railway containers are ephemeral by default; if no Volume
+   * is mounted, writes may fail with EROFS / EACCES. This swallows those errors
+   * and reports them via the return value + `[FloodGuard][storage]` log line.
+   */
+  persist(): { persisted: boolean; reason?: string } {
     try {
       if (!fs.existsSync(STORE_DIR)) fs.mkdirSync(STORE_DIR, { recursive: true });
       fs.writeFileSync(STORE_FILE, JSON.stringify(this.data, null, 2), 'utf8');
+      return { persisted: true };
     } catch (e) {
-      console.warn('[FloodGuard] Persist failed:', (e as Error).message);
+      const reason = (e as Error).message;
+      console.warn(`[FloodGuard][storage] persist failed: ${reason}`);
+      return { persisted: false, reason };
     }
   }
 
@@ -1045,6 +1079,488 @@ export class FloodGuardStore {
       createdAt: record.createdAt,
       anchoredAt: record.anchoredAt,
       verificationUrl: record.verificationUrl,
+    };
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────────
+   * Safe write wrappers — never throw. Each wraps the existing builder calls
+   * with try/catch so a degraded result is returned instead of bubbling a 500
+   * to Express. Errors are logged with classified prefixes:
+   *   [FloodGuard][storage] / [schema] / [missing_env] / [alert_lookup]
+   *   [FloodGuard][route_preview_logic] / [evidence_packet_generation]
+   *   [FloodGuard][ledger_anchoring]
+   * ────────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Safe wrapper for `POST /api/floodguard/generate-evidence-packet`.
+   * Always returns a structured shape — never throws.
+   */
+  safeGenerateEvidencePacket(
+    alertId: string,
+    generatedBy: string,
+  ):
+    | {
+        ok: true;
+        packet: FloodEvidencePacket;
+        packetStatus: 'generated_unanchored' | 'generated_anchored';
+        persistenceStatus: 'persisted' | 'not_persisted';
+        blockchainAnchored: boolean;
+        warnings: string[];
+      }
+    | { ok: false; code: 'not_found' | 'validation_error' | 'internal'; reason: string; warnings: string[] } {
+    const warnings: string[] = [];
+    if (!alertId || typeof alertId !== 'string') {
+      return { ok: false, code: 'validation_error', reason: 'alertId required.', warnings };
+    }
+    const alert = this.data.alerts[alertId];
+    if (!alert) {
+      console.warn(`[FloodGuard][alert_lookup] generate-evidence: alert "${alertId}" not found.`);
+      return { ok: false, code: 'not_found', reason: 'Alert not found.', warnings };
+    }
+    try {
+      this.recomputeZone(alert.zoneId);
+    } catch (e) {
+      const reason = (e as Error).message;
+      warnings.push(`recompute: ${reason}`);
+      console.warn(`[FloodGuard][evidence_packet_generation] recompute threw: ${reason}`);
+    }
+    const fresh = this.data.alerts[alertId];
+    if (!fresh) {
+      console.warn(
+        `[FloodGuard][alert_lookup] generate-evidence: alert "${alertId}" disappeared after recompute (risk dropped).`,
+      );
+      return {
+        ok: false,
+        code: 'not_found',
+        reason: 'Alert disappeared after recompute (risk dropped below threshold).',
+        warnings,
+      };
+    }
+
+    const weather = this.data.weather[fresh.zoneId] ?? null;
+    const cameras = this.data.detections[fresh.zoneId] ?? [];
+    const citizenReports = this.data.reports[fresh.zoneId] ?? [];
+    const zone = getZoneById(fresh.zoneId);
+    if (!zone) {
+      console.warn(`[FloodGuard][schema] zone "${fresh.zoneId}" referenced by alert is not registered.`);
+      return { ok: false, code: 'not_found', reason: 'Zone for alert not found.', warnings };
+    }
+
+    let riskScore;
+    try {
+      riskScore = computeFloodRiskScore({ zone, cameras, citizenReports, weather });
+    } catch (e) {
+      const reason = (e as Error).message;
+      console.warn(`[FloodGuard][evidence_packet_generation] risk score threw: ${reason}`);
+      warnings.push(`risk_score: ${reason}`);
+      return {
+        ok: false,
+        code: 'internal',
+        reason: `Risk score builder threw: ${reason}`,
+        warnings,
+      };
+    }
+
+    let agentEvaluation: ReturnType<typeof evaluateZoneForAgents> | null = null;
+    try {
+      agentEvaluation = evaluateZoneForAgents(this, zone);
+    } catch (e) {
+      const reason = (e as Error).message;
+      warnings.push(`agent_evaluation: ${reason}`);
+      console.warn(`[FloodGuard][evidence_packet_generation] agent eval threw: ${reason}`);
+    }
+
+    let linkedMissions = this.getLinkedMissionsSummary(fresh.zoneId, fresh.alertId);
+    let routingPreview: ReturnType<FloodGuardStore['getLatestRoutingPreview']> = null;
+    try {
+      routingPreview = this.getLatestRoutingPreview(alertId);
+    } catch (e) {
+      warnings.push(`routing_preview_lookup: ${(e as Error).message}`);
+      routingPreview = null;
+    }
+
+    let packet: FloodEvidencePacket;
+    try {
+      packet = buildFloodEvidencePacket({
+        alert: fresh,
+        riskScore,
+        generatedBy,
+        agentEvaluation,
+        linkedMissions,
+        routingPreview,
+      });
+    } catch (e) {
+      const reason = (e as Error).message;
+      console.warn(`[FloodGuard][evidence_packet_generation] builder threw: ${reason}`);
+      warnings.push(`builder: ${reason}`);
+      return {
+        ok: false,
+        code: 'internal',
+        reason: `Evidence packet builder threw: ${reason}`,
+        warnings,
+      };
+    }
+
+    // Best-effort digest folding — if any digest builder throws (e.g. missing
+    // provenance metadata after a stale store load), we continue with whatever
+    // succeeded and surface the failure as a warning.
+    try {
+      packet.rainfallDigest = buildRainfallDigest(weather);
+    } catch (e) {
+      warnings.push(`rainfall_digest: ${(e as Error).message}`);
+    }
+    try {
+      packet.satelliteDigest = buildSatelliteDigest(weather);
+    } catch (e) {
+      warnings.push(`satellite_digest: ${(e as Error).message}`);
+    }
+    try {
+      packet.waterLevelDigest = buildWaterLevelDigest(weather);
+    } catch (e) {
+      warnings.push(`water_level_digest: ${(e as Error).message}`);
+    }
+    try {
+      packet.agentFindingsDigest = buildAgentFindingsDigest(agentEvaluation);
+    } catch (e) {
+      warnings.push(`agent_findings_digest: ${(e as Error).message}`);
+    }
+    try {
+      packet.routingPreviewDigest = buildRoutingDigest(routingPreview);
+    } catch (e) {
+      warnings.push(`routing_preview_digest: ${(e as Error).message}`);
+    }
+
+    let blockchainAnchored = false;
+    try {
+      const latestLedgerId = (this.data.ledgerByAlert ?? {})[alertId]?.[0];
+      const latestLedger = latestLedgerId ? (this.data.ledgerRecords ?? {})[latestLedgerId] : undefined;
+      if (latestLedger) {
+        packet.anchoringHash = latestLedger.anchoringHash;
+        packet.ledgerAnchor = latestLedger;
+        blockchainAnchored = !latestLedger.isMock && latestLedger.anchorStatus === 'anchored_live';
+      }
+    } catch (e) {
+      warnings.push(`ledger_lookup: ${(e as Error).message}`);
+    }
+
+    let persistenceStatus: 'persisted' | 'not_persisted' = 'persisted';
+    try {
+      this.data.evidenceByAlert[alertId] = packet;
+      fresh.evidencePacketId = packet.packetId;
+      fresh.lifecycle = fresh.lifecycle === 'ai_detected' ? 'evidence_assembled' : fresh.lifecycle;
+      fresh.updatedAt = new Date().toISOString();
+      this.data.alerts[alertId] = fresh;
+      this.linkEvidenceToMissions(packet.packetId, alertId, fresh.zoneId);
+      const persistResult = this.persist();
+      if (!persistResult.persisted) {
+        persistenceStatus = 'not_persisted';
+        warnings.push(`storage: ${persistResult.reason ?? 'unknown'}`);
+      }
+    } catch (e) {
+      persistenceStatus = 'not_persisted';
+      const reason = (e as Error).message;
+      warnings.push(`storage: ${reason}`);
+      console.warn(`[FloodGuard][storage] evidence save threw: ${reason}`);
+    }
+
+    return {
+      ok: true,
+      packet,
+      packetStatus: blockchainAnchored ? 'generated_anchored' : 'generated_unanchored',
+      persistenceStatus,
+      blockchainAnchored,
+      warnings,
+    };
+  }
+
+  /**
+   * Safe wrapper for `POST /api/floodguard/alerts/:alertId/route-preview`.
+   * Always returns a structured shape — never throws. Even if persistence
+   * fails, the dry-run preview body is still returned with
+   * `persistenceStatus: "not_persisted"`.
+   */
+  safePreviewRouting(args: { alertId: string; generatedBy: string; mode?: string }):
+    | {
+        ok: true;
+        preview: FloodRoutingPreviewSummary;
+        previewStatus: 'generated';
+        mode: FloodRoutingMode;
+        persistenceStatus: 'persisted' | 'not_persisted';
+        warnings: string[];
+      }
+    | { ok: false; code: 'not_found' | 'validation_error' | 'internal'; reason: string; warnings: string[] } {
+    const warnings: string[] = [];
+    if (!args.alertId || typeof args.alertId !== 'string') {
+      return { ok: false, code: 'validation_error', reason: 'alertId required.', warnings };
+    }
+    if (!args.generatedBy || typeof args.generatedBy !== 'string' || !args.generatedBy.trim()) {
+      return { ok: false, code: 'validation_error', reason: 'generatedBy is required.', warnings };
+    }
+
+    const alert = this.data.alerts[args.alertId];
+    if (!alert) {
+      console.warn(`[FloodGuard][alert_lookup] route-preview: alert "${args.alertId}" not found.`);
+      return { ok: false, code: 'not_found', reason: 'Alert not found.', warnings };
+    }
+    const zone = getZoneById(alert.zoneId);
+    if (!zone) {
+      console.warn(`[FloodGuard][schema] zone "${alert.zoneId}" not registered.`);
+      return { ok: false, code: 'not_found', reason: 'Zone for alert not found.', warnings };
+    }
+
+    const mode: FloodRoutingMode = isValidRoutingMode(args.mode ?? '')
+      ? (args.mode as FloodRoutingMode)
+      : 'dry_run';
+
+    try {
+      this.recomputeZone(alert.zoneId);
+    } catch (e) {
+      const reason = (e as Error).message;
+      warnings.push(`recompute: ${reason}`);
+      console.warn(`[FloodGuard][route_preview_logic] recompute threw: ${reason}`);
+    }
+    const fresh = this.data.alerts[args.alertId] ?? alert;
+
+    let agentEvaluation: ReturnType<typeof evaluateZoneForAgents> | null = null;
+    try {
+      agentEvaluation = evaluateZoneForAgents(this, zone);
+    } catch (e) {
+      const reason = (e as Error).message;
+      warnings.push(`agent_evaluation: ${reason}`);
+      console.warn(`[FloodGuard][route_preview_logic] agent eval threw: ${reason}`);
+    }
+
+    const linkedMissions = (this.data.dpalMissions ?? []).filter(
+      (m) => m.sourceAlertId === args.alertId || m.sourceZoneId === alert.zoneId,
+    );
+    const hasSituationRoom = Boolean(this.data.situationRooms[args.alertId]);
+
+    let preview: FloodRoutingPreviewSummary;
+    try {
+      preview = buildFloodRoutingPreview({
+        alert: fresh,
+        zone,
+        agentEvaluation,
+        linkedMissions,
+        evidencePacketId: fresh.evidencePacketId ?? null,
+        hasSituationRoom,
+        generatedBy: args.generatedBy.trim(),
+        mode,
+      });
+    } catch (e) {
+      const reason = (e as Error).message;
+      console.warn(`[FloodGuard][route_preview_logic] preview builder threw: ${reason}`);
+      warnings.push(`builder: ${reason}`);
+      return {
+        ok: false,
+        code: 'internal',
+        reason: `Routing preview builder threw: ${reason}`,
+        warnings,
+      };
+    }
+
+    let persistenceStatus: 'persisted' | 'not_persisted' = 'persisted';
+    try {
+      const map = this.data.routingByAlert ?? {};
+      const existing = Array.isArray(map[args.alertId]) ? map[args.alertId] : [];
+      map[args.alertId] = [preview, ...existing].slice(0, 25);
+      this.data.routingByAlert = map;
+      const persistResult = this.persist();
+      if (!persistResult.persisted) {
+        persistenceStatus = 'not_persisted';
+        warnings.push(`storage: ${persistResult.reason ?? 'unknown'}`);
+      }
+    } catch (e) {
+      persistenceStatus = 'not_persisted';
+      const reason = (e as Error).message;
+      warnings.push(`storage: ${reason}`);
+      console.warn(`[FloodGuard][storage] route preview save threw: ${reason}`);
+    }
+
+    return {
+      ok: true,
+      preview,
+      previewStatus: 'generated',
+      mode,
+      persistenceStatus,
+      warnings,
+    };
+  }
+
+  /**
+   * Safe wrapper for `POST /api/floodguard/anchor-alert`.
+   * Always returns a structured shape — never throws. With the default mock
+   * provider, returns `anchorStatus: "pending_anchor"`, `blockchainAnchored:
+   * false`, and `ledgerMode: "mock"`. Live anchoring requires an explicit
+   * non-mock chain provider configuration, which is out of scope for this
+   * patch.
+   */
+  safeAnchorAlert(
+    alertId: string,
+    options: { createdBy?: string } = {},
+  ):
+    | {
+        ok: true;
+        record?: FloodLedgerRecord;
+        contentHash?: string;
+        ledgerRecordId?: string;
+        anchorStatus: 'anchored' | 'pending_anchor';
+        blockchainAnchored: boolean;
+        ledgerMode: 'mock' | 'live' | 'unavailable';
+        persistenceStatus: 'persisted' | 'not_persisted';
+        warnings: string[];
+      }
+    | {
+        ok: false;
+        code: 'not_found' | 'validation_error' | 'missing_evidence_packet' | 'internal';
+        reason: string;
+        warnings: string[];
+      } {
+    const warnings: string[] = [];
+    if (!alertId || typeof alertId !== 'string') {
+      return { ok: false, code: 'validation_error', reason: 'alertId required.', warnings };
+    }
+    const packet = this.data.evidenceByAlert[alertId];
+    if (!packet) {
+      console.warn(`[FloodGuard][alert_lookup] anchor: evidence packet for "${alertId}" not present.`);
+      return {
+        ok: false,
+        code: 'missing_evidence_packet',
+        reason: 'Evidence packet must be generated before anchoring.',
+        warnings,
+      };
+    }
+    const alert = this.data.alerts[alertId];
+    if (!alert) {
+      console.warn(`[FloodGuard][alert_lookup] anchor: alert "${alertId}" not found.`);
+      return { ok: false, code: 'not_found', reason: 'Alert not found.', warnings };
+    }
+    const zone = getZoneById(alert.zoneId);
+    if (!zone) {
+      console.warn(`[FloodGuard][schema] anchor: zone "${alert.zoneId}" not registered.`);
+      return { ok: false, code: 'not_found', reason: 'Zone for alert not found.', warnings };
+    }
+
+    const weather = this.data.weather[alert.zoneId] ?? null;
+
+    let agentEvaluation: ReturnType<typeof evaluateZoneForAgents> | null = null;
+    try {
+      agentEvaluation = evaluateZoneForAgents(this, zone);
+    } catch (e) {
+      const reason = (e as Error).message;
+      warnings.push(`agent_evaluation: ${reason}`);
+      console.warn(`[FloodGuard][ledger_anchoring] agent eval threw: ${reason}`);
+    }
+
+    let routingPreview: ReturnType<FloodGuardStore['getLatestRoutingPreview']> = null;
+    try {
+      routingPreview = this.getLatestRoutingPreview(alertId);
+    } catch (e) {
+      warnings.push(`routing_preview_lookup: ${(e as Error).message}`);
+    }
+
+    const linkedMissionIds = (this.data.dpalMissions ?? [])
+      .filter((m) => m.sourceAlertId === alertId || m.sourceZoneId === alert.zoneId)
+      .map((m) => m.missionId);
+
+    let record: FloodLedgerRecord;
+    try {
+      record = anchorEvidenceFull({
+        alert,
+        packet,
+        weather,
+        agentEvaluation,
+        routingPreview,
+        linkedMissionIds,
+        createdBy: options.createdBy ?? 'DPAL Operator',
+      });
+    } catch (e) {
+      const reason = (e as Error).message;
+      console.warn(`[FloodGuard][ledger_anchoring] anchor builder threw: ${reason}`);
+      // Per spec: ledger unavailable → degraded response with pending_anchor.
+      return {
+        ok: true,
+        anchorStatus: 'pending_anchor',
+        blockchainAnchored: false,
+        ledgerMode: 'unavailable',
+        persistenceStatus: 'not_persisted',
+        warnings: [...warnings, `anchor_builder: ${reason}`],
+      };
+    }
+
+    let persistenceStatus: 'persisted' | 'not_persisted' = 'persisted';
+    try {
+      const records = { ...(this.data.ledgerRecords ?? {}) };
+      const previousIds = [...((this.data.ledgerByAlert ?? {})[alertId] ?? [])];
+      for (const oldId of previousIds) {
+        const old = records[oldId];
+        if (old && old.anchorStatus !== 'superseded' && old.anchorStatus !== 'failed') {
+          records[oldId] = { ...old, anchorStatus: 'superseded' };
+        }
+      }
+      records[record.ledgerRecordId] = record;
+      this.data.ledgerRecords = records;
+      this.data.ledgerByAlert = {
+        ...(this.data.ledgerByAlert ?? {}),
+        [alertId]: [record.ledgerRecordId, ...previousIds].slice(0, 25),
+      };
+      this.data.anchors[alertId] = {
+        contentHash: record.contentHash,
+        ledgerRecordId: record.ledgerRecordId,
+        anchoredAt: record.anchoredAt,
+      };
+      alert.ledgerAnchorHash = record.anchoringHash;
+      alert.lifecycle = 'human_verified';
+      alert.updatedAt = new Date().toISOString();
+      this.data.alerts[alertId] = alert;
+      const updatedPacket: FloodEvidencePacket = {
+        ...packet,
+        anchoringHash: record.anchoringHash,
+        ledgerAnchor: record,
+        ledgerRecordId: record.ledgerRecordId,
+        rainfallDigest: record.rainfallDigest,
+        satelliteDigest: record.satelliteDigest,
+        waterLevelDigest: record.waterLevelDigest,
+        agentFindingsDigest: record.agentFindingsDigest,
+        routingPreviewDigest: record.routingPreviewDigest,
+      };
+      this.data.evidenceByAlert[alertId] = updatedPacket;
+      const persistResult = this.persist();
+      if (!persistResult.persisted) {
+        persistenceStatus = 'not_persisted';
+        warnings.push(`storage: ${persistResult.reason ?? 'unknown'}`);
+      }
+    } catch (e) {
+      persistenceStatus = 'not_persisted';
+      const reason = (e as Error).message;
+      warnings.push(`storage: ${reason}`);
+      console.warn(`[FloodGuard][storage] anchor save threw: ${reason}`);
+    }
+
+    // Public-anchor honesty:
+    //  - Mock provider → record exists locally but is NOT a public chain TX,
+    //    so blockchainAnchored=false and anchorStatus='pending_anchor'.
+    //  - Live provider w/ anchored_live → blockchainAnchored=true, status='anchored'.
+    //  - Anything else → 'pending_anchor', blockchainAnchored=false.
+    const isLive = !record.isMock && record.anchorStatus === 'anchored_live';
+    const ledgerMode: 'mock' | 'live' | 'unavailable' = record.isMock
+      ? 'mock'
+      : isLive
+        ? 'live'
+        : 'unavailable';
+    const blockchainAnchored = isLive;
+    const anchorStatus: 'anchored' | 'pending_anchor' = blockchainAnchored ? 'anchored' : 'pending_anchor';
+
+    return {
+      ok: true,
+      record,
+      contentHash: record.contentHash,
+      ledgerRecordId: record.ledgerRecordId,
+      anchorStatus,
+      blockchainAnchored,
+      ledgerMode,
+      persistenceStatus,
+      warnings,
     };
   }
 }

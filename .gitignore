@@ -25,3 +25,8 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Backend runtime / local smoke artifacts
+backend/data/floodguard/
+backend/smoke-body.json
+evidence-resp.json

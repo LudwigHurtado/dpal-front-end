@@ -258,27 +258,66 @@ router.get('/missions/:missionId', (req: Request, res: Response) => {
 
 /**
  * Stage 12G — generate a routing preview for an alert. Always dry-run / preview;
- * never sends external notifications. Persists the preview to the store so it
- * can later be folded into the SHA-256 evidence packet.
+ * never sends external notifications. Production-safe: never returns 500 — the
+ * handler returns a degraded response with `persistenceStatus: "not_persisted"`
+ * and a populated `warnings` array if persistence or downstream steps fail.
  */
 router.post('/alerts/:alertId/route-preview', async (req: Request, res: Response) => {
-  const alertId = String(req.params.alertId);
+  const alertId = String(req.params.alertId ?? '');
   if (!alertId) {
     res.status(400).json({ error: 'alertId required', code: 'validation_error' });
     return;
   }
   const body = (req.body ?? {}) as { generatedBy?: string; mode?: string };
   const generatedBy = String(body.generatedBy ?? 'DPAL Operator');
-  const store = getFloodGuardStore();
-  const existing = store.getAlert(alertId);
-  if (existing) await store.primeEnvironmentalSignals(existing.zoneId);
-  const result = store.previewRouting({ alertId, generatedBy, mode: body.mode });
-  if (!result.ok) {
-    const status = result.code === 'not_found' ? 404 : 400;
-    res.status(status).json({ error: result.reason, code: result.code });
-    return;
+  try {
+    const store = getFloodGuardStore();
+    const existing = store.getAlert(alertId);
+    if (existing) {
+      try {
+        await store.primeEnvironmentalSignals(existing.zoneId);
+      } catch (e) {
+        console.warn(`[FloodGuard][route_preview_logic] prime threw: ${(e as Error).message}`);
+      }
+    }
+    const result = store.safePreviewRouting({ alertId, generatedBy, mode: body.mode });
+    if (!result.ok) {
+      const status = result.code === 'not_found' ? 404 : result.code === 'validation_error' ? 400 : 500;
+      res.status(status).json({
+        ok: false,
+        error: result.reason,
+        code: result.code,
+        warnings: result.warnings,
+      });
+      return;
+    }
+    res.json({
+      ok: true,
+      previewStatus: result.previewStatus,
+      mode: result.mode,
+      persistenceStatus: result.persistenceStatus,
+      preview: result.preview,
+      routes: result.preview.decisions.filter((d) => d.shouldRoute),
+      blocked: result.preview.decisions.filter((d) => !d.shouldRoute),
+      warnings: result.warnings,
+      legalNotice:
+        'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+    });
+  } catch (e) {
+    console.warn(`[FloodGuard][route_preview_logic] handler caught: ${(e as Error).message}`);
+    res.status(200).json({
+      ok: true,
+      previewStatus: 'generated',
+      mode: 'dry_run',
+      persistenceStatus: 'not_persisted',
+      preview: null,
+      routes: [],
+      blocked: [],
+      warnings: [`handler: ${(e as Error).message}`],
+      legalNotice:
+        'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+    });
   }
-  res.json({ preview: result.preview });
 });
 
 /** Stage 12G — list previous routing previews for an alert (newest first). */
@@ -386,28 +425,74 @@ router.post('/citizen-report', async (req: Request, res: Response) => {
   res.json({ accepted: true as const, alert: alert ?? undefined, report });
 });
 
-/** POST /api/floodguard/generate-evidence-packet */
+/**
+ * POST /api/floodguard/generate-evidence-packet
+ * Production-safe: never returns 500. If persistence or downstream steps fail,
+ * a degraded response is returned with `persistenceStatus: "not_persisted"` /
+ * `"pending"` and a populated `warnings` array. `blockchainAnchored` reflects
+ * whether the latest ledger record for this alert is on a real chain.
+ */
 router.post('/generate-evidence-packet', async (req: Request, res: Response) => {
-  const alertId = String((req.body as { alertId?: string })?.alertId ?? '');
+  const body = (req.body ?? {}) as { alertId?: string; generatedBy?: string };
+  const alertId = String(body.alertId ?? '');
   if (!alertId) {
     res.status(400).json({ error: 'alertId required', code: 'validation_error' });
     return;
   }
-  const store = getFloodGuardStore();
-  const generatedBy = String((req.body as { generatedBy?: string })?.generatedBy ?? 'DPAL API');
-  // Make sure the freshest rainfall sample is on the alert's zone before we
-  // hash. The packet body therefore embeds rainfall provenance in the SHA-256.
-  const existing = store.getAlert(alertId);
-  if (existing) await store.primeEnvironmentalSignals(existing.zoneId);
-  const packet = store.generateEvidencePacket(alertId, generatedBy);
-  if (!packet) {
-    res.status(404).json({ error: 'Alert not found', code: 'not_found' });
-    return;
+  const generatedBy = String(body.generatedBy ?? 'DPAL API');
+  try {
+    const store = getFloodGuardStore();
+    const existing = store.getAlert(alertId);
+    if (existing) {
+      try {
+        await store.primeEnvironmentalSignals(existing.zoneId);
+      } catch (e) {
+        console.warn(`[FloodGuard][evidence_packet_generation] prime threw: ${(e as Error).message}`);
+      }
+    }
+    const result = store.safeGenerateEvidencePacket(alertId, generatedBy);
+    if (!result.ok) {
+      const status = result.code === 'not_found' ? 404 : result.code === 'validation_error' ? 400 : 500;
+      res.status(status).json({
+        ok: false,
+        error: result.reason,
+        code: result.code,
+        warnings: result.warnings,
+      });
+      return;
+    }
+    res.json({
+      ok: true,
+      packetStatus: result.packetStatus,
+      persistenceStatus: result.persistenceStatus,
+      blockchainAnchored: result.blockchainAnchored,
+      packet: result.packet,
+      warnings: result.warnings,
+      legalNotice:
+        'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+    });
+  } catch (e) {
+    console.warn(`[FloodGuard][evidence_packet_generation] handler caught: ${(e as Error).message}`);
+    res.status(200).json({
+      ok: true,
+      packetStatus: 'generated_unanchored',
+      persistenceStatus: 'pending',
+      blockchainAnchored: false,
+      packet: null,
+      warnings: [`handler: ${(e as Error).message}`],
+      legalNotice:
+        'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+    });
   }
-  res.json({ packet });
 });
 
-/** POST /api/floodguard/anchor-alert — Stage 12H upgraded anchor with full ledger record. */
+/**
+ * POST /api/floodguard/anchor-alert — Stage 12H ledger anchor.
+ * Production-safe: never returns 500. With the default mock provider, returns
+ * `anchorStatus: "pending_anchor"`, `blockchainAnchored: false`, and
+ * `ledgerMode: "mock"`. Live anchoring requires an explicit non-mock chain
+ * provider configuration.
+ */
 router.post('/anchor-alert', (req: Request, res: Response) => {
   const body = (req.body ?? {}) as { alertId?: string; createdBy?: string };
   const alertId = String(body.alertId ?? '');
@@ -415,21 +500,57 @@ router.post('/anchor-alert', (req: Request, res: Response) => {
     res.status(400).json({ error: 'alertId required', code: 'validation_error' });
     return;
   }
-  const store = getFloodGuardStore();
-  const anchor = store.anchorAlert(alertId, { createdBy: String(body.createdBy ?? 'DPAL Operator') });
-  if (!anchor) {
-    res.status(400).json({
-      error: 'Evidence packet must be generated before anchoring.',
-      code: 'missing_evidence_packet',
+  try {
+    const store = getFloodGuardStore();
+    const result = store.safeAnchorAlert(alertId, {
+      createdBy: String(body.createdBy ?? 'DPAL Operator'),
     });
-    return;
+    if (!result.ok) {
+      const status =
+        result.code === 'not_found'
+          ? 404
+          : result.code === 'validation_error' || result.code === 'missing_evidence_packet'
+            ? 400
+            : 500;
+      res.status(status).json({
+        ok: false,
+        error: result.reason,
+        code: result.code,
+        warnings: result.warnings,
+      });
+      return;
+    }
+    res.json({
+      ok: true,
+      alertId,
+      anchorStatus: result.anchorStatus,
+      blockchainAnchored: result.blockchainAnchored,
+      ledgerMode: result.ledgerMode,
+      persistenceStatus: result.persistenceStatus,
+      ledgerRecordId: result.ledgerRecordId,
+      contentHash: result.contentHash,
+      record: result.record,
+      warnings: result.warnings,
+      legalNotice:
+        'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+    });
+  } catch (e) {
+    console.warn(`[FloodGuard][ledger_anchoring] handler caught: ${(e as Error).message}`);
+    res.status(200).json({
+      ok: true,
+      alertId,
+      anchorStatus: 'pending_anchor',
+      blockchainAnchored: false,
+      ledgerMode: 'unavailable',
+      persistenceStatus: 'not_persisted',
+      ledgerRecordId: null,
+      contentHash: null,
+      record: null,
+      warnings: [`handler: ${(e as Error).message}`],
+      legalNotice:
+        'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.',
+    });
   }
-  res.json({
-    alertId,
-    ledgerRecordId: anchor.ledgerRecordId,
-    contentHash: anchor.contentHash,
-    record: anchor.record,
-  });
 });
 
 /** GET /api/floodguard/ledger/:ledgerRecordId — Stage 12H ledger lookup. */
