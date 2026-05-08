@@ -26,6 +26,7 @@ import situationRouter from './routes/situation';
 import goodWheelsRouter from './routes/goodWheels';
 import signalsRouter from './routes/signals';
 import floodGuardRouter from './routes/floodGuardRoutes';
+import dpalIntegrationsRoutes from './routes/dpalIntegrations.routes.js';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
 import path from 'path';
@@ -128,6 +129,7 @@ app.use('/api/signals', signalsRouter);
 app.use('/api/situation', situationRouter);
 app.use('/api/good-wheels', goodWheelsRouter);
 app.use('/api/floodguard', floodGuardRouter);
+app.use('/api/integrations', dpalIntegrationsRoutes);
 
 // Legacy /api/reports feed (compatibility with existing enterprise dashboard probe)
 app.get('/api/reports', async (_req, res) => {
