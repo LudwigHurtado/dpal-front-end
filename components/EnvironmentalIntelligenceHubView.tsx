@@ -4,6 +4,7 @@ import type { View } from '../App';
 import { API_ROUTES, apiUrl } from '../constants';
 import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
+import DpalIntegrationCommandCenter from '../src/components/DpalIntegrationCommandCenter';
 
 const CONNECTIVITY_REFRESH_MS = 60_000;
 
@@ -325,6 +326,16 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           </span>
           <span className="text-slate-500">Last check: {refreshedLabel}</span>
         </div>
+      </section>
+
+      <section className="mb-10 rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-5 md:p-6">
+        <div className="mb-4">
+          <h2 className="text-base md:text-lg font-bold text-cyan-200">Public API Intelligence Layer</h2>
+          <p className="mt-1 text-[11px] text-slate-400 max-w-5xl">
+            Connect weather, radar, air quality, geocoding, carbon estimates, blockchain verification, and evidence packet previews into DPAL&apos;s live accountability system.
+          </p>
+        </div>
+        <DpalIntegrationCommandCenter />
       </section>
 
       <section className="mb-10">
