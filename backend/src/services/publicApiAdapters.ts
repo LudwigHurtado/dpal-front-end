@@ -103,7 +103,6 @@ export async function getOpenMeteoForecast({ lat, lng }: Coordinates) {
       "precipitation",
       "rain",
       "showers",
-      "surface_runoff",
       "soil_moisture_0_to_1cm",
       "soil_moisture_1_to_3cm",
       "relative_humidity_2m",
@@ -138,19 +137,36 @@ export async function getRainViewerRadar() {
 }
 
 function scoreFloodRisk(hourly: any) {
-  const precipitation: number[] = hourly?.precipitation ?? [];
-  const rain: number[] = hourly?.rain ?? [];
-  const runoff: number[] = hourly?.surface_runoff ?? [];
+  const precipitation: number[] = Array.isArray(hourly?.precipitation) ? hourly.precipitation : [];
+  const rain: number[] = Array.isArray(hourly?.rain) ? hourly.rain : [];
+  const showers: number[] = Array.isArray(hourly?.showers) ? hourly.showers : [];
+  // Keep surface runoff as optional legacy input. If absent, treat as 0.
+  const runoff: number[] = Array.isArray(hourly?.surface_runoff) ? hourly.surface_runoff : [];
+  const soilMoistureTop: number[] = Array.isArray(hourly?.soil_moisture_0_to_1cm) ? hourly.soil_moisture_0_to_1cm : [];
+  const soilMoistureShallow: number[] = Array.isArray(hourly?.soil_moisture_1_to_3cm) ? hourly.soil_moisture_1_to_3cm : [];
 
   const next24Precip = precipitation.slice(0, 24).reduce((a, b) => a + Number(b || 0), 0);
   const next24Rain = rain.slice(0, 24).reduce((a, b) => a + Number(b || 0), 0);
+  const next24Showers = showers.slice(0, 24).reduce((a, b) => a + Number(b || 0), 0);
   const next24Runoff = runoff.slice(0, 24).reduce((a, b) => a + Number(b || 0), 0);
   const maxHourlyRain = Math.max(0, ...rain.slice(0, 24).map(Number));
+  const avgSoilTop =
+    soilMoistureTop.length > 0
+      ? soilMoistureTop.slice(0, 24).reduce((a, b) => a + Number(b || 0), 0) / Math.min(24, soilMoistureTop.length)
+      : 0;
+  const avgSoilShallow =
+    soilMoistureShallow.length > 0
+      ? soilMoistureShallow.slice(0, 24).reduce((a, b) => a + Number(b || 0), 0) / Math.min(24, soilMoistureShallow.length)
+      : 0;
+  const saturationFactor = Math.max(0, Math.min(1, (avgSoilTop + avgSoilShallow) / 2));
 
   let score = 0;
   score += Math.min(35, next24Precip * 1.2);
   score += Math.min(25, next24Rain * 1.1);
-  score += Math.min(25, next24Runoff * 5);
+  score += Math.min(15, next24Showers * 1.0);
+  score += Math.min(10, saturationFactor * 10);
+  // Optional legacy runoff signal: keep contribution if available, otherwise zero.
+  score += Math.min(15, next24Runoff * 3);
   score += Math.min(15, maxHourlyRain * 2);
 
   const normalized = Math.max(0, Math.min(100, Math.round(score)));
@@ -167,7 +183,7 @@ function scoreFloodRisk(hourly: any) {
     next24RainMm: Number(next24Rain.toFixed(2)),
     next24RunoffMm: Number(next24Runoff.toFixed(2)),
     maxHourlyRainMm: Number(maxHourlyRain.toFixed(2)),
-    method: "DPAL FloodGuard v0.1 = precipitation + rain + surface runoff + max hourly rain. Advisory only until calibrated locally.",
+    method: "DPAL FloodGuard v0.2 = precipitation + rain + showers + soil moisture saturation. Advisory only until calibrated locally.",
   };
 }
 
