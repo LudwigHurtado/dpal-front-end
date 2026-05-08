@@ -364,8 +364,8 @@ const MainMenu: React.FC<MainMenuProps> = ({
 
                 <PrimaryNavModule
                     icon={<Waves className="w-8 h-8" />}
-                    label="DPAL FloodGuard"
-                    subLabel="Verified flood intelligence for cities — cameras, satellites, citizen reports, evidence packets."
+                    label="DPAL Water Intelligence"
+                    subLabel="Basin pilots, FloodGuard city demos, evidence packets, routing previews, and ledger-ready records — labeled mock/live/fallback."
                     status="Beta"
                     colorClass="cyan"
                     bgImageUrl="/main-screen/water-project-monitoring.png"

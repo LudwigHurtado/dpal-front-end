@@ -67,11 +67,19 @@ import FloodGuardStartPanel, {
   type FloodGuardSessionStatus,
   type FloodGuardWorkflowStepId,
 } from './FloodGuardStartPanel';
+import WaterIntelligenceWorkflowPanel from '../../waterIntelligence/components/WaterIntelligenceWorkflowPanel';
+import WaterIntelligenceAssistant from '../../waterIntelligence/components/WaterIntelligenceAssistant';
+import MapSourceGuidanceCard from '../../waterIntelligence/components/MapSourceGuidanceCard';
+import { CITY_FLOODGUARD_WORKFLOW_PANEL_STEPS } from '../../waterIntelligence/waterIntelligenceWorkflow';
 
 interface FloodGuardDashboardProps {
   onReturn?: () => void;
   actorName?: string;
   actorRole?: FloodSituationParticipantRole;
+  /** Return to Water Intelligence launcher (`/floodguard` without query). */
+  waterIntelligenceHome?: () => void;
+  /** Auto-start session for investor walkthrough of the city demo. */
+  investorDemoMode?: boolean;
 }
 
 type FloodGuardTab =
@@ -162,6 +170,8 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
   onReturn,
   actorName = 'DPAL Operator',
   actorRole = 'city_official',
+  waterIntelligenceHome,
+  investorDemoMode = false,
 }) => {
   const [activeTab, setActiveTab] = useState<FloodGuardTab>('overview');
   const [city, setCity] = useState<FloodCity>(SANTA_CRUZ_CITY);
@@ -201,6 +211,21 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
       return feedSource.zones === 'api' ? 'active' : 'demo_mode';
     });
   }, [feedSource.zones]);
+
+  useEffect(() => {
+    if (!investorDemoMode) return;
+    setSessionStartedAt((prev) => prev ?? new Date().toISOString());
+    setSessionStatus('demo_mode');
+  }, [investorDemoMode]);
+
+  const openCityWorkflowTab = useCallback((stepId: FloodGuardWorkflowStepId) => {
+    const step = CITY_FLOODGUARD_WORKFLOW_PANEL_STEPS.find((s) => s.id === stepId);
+    if (!step) return;
+    if (step.relatedTab === 'overview') setActiveTab('overview');
+    else if (step.relatedTab === 'agent_monitor') setActiveTab('agent_monitor');
+    else if (step.relatedTab === 'evidence') setActiveTab('evidence');
+    else setActiveTab('settings');
+  }, []);
 
   // Auto-mark workflow steps based on what tabs the operator visits.
   useEffect(() => {
@@ -515,6 +540,34 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
   const startPanelLegal =
     'DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.';
 
+  const cityGuidedWorkflow =
+    sessionStatus !== 'not_started' ? (
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="xl:col-span-2">
+          <WaterIntelligenceWorkflowPanel
+            heading="FloodGuard City Demo workflow"
+            subheading="Santa Cruz de la Sierra pilot — preview routing only, mock ledger capable, remote-first screening before missions."
+            steps={CITY_FLOODGUARD_WORKFLOW_PANEL_STEPS}
+            completedIds={completedWorkflowSteps}
+            onOpenRelated={openCityWorkflowTab}
+            onMarkComplete={markWorkflowStep}
+          />
+        </div>
+        <WaterIntelligenceAssistant
+          context={{
+            screen: 'city',
+            completedCitySteps: completedWorkflowSteps.length,
+            totalCitySteps: CITY_FLOODGUARD_WORKFLOW_PANEL_STEPS.length,
+            mockLedger: true,
+            fallbackLayers: modeChips.some((c) => {
+              const x = c.toLowerCase();
+              return x.includes('mock') || x.includes('fallback') || x.includes('synthetic');
+            }),
+          }}
+        />
+      </div>
+    ) : null;
+
   return (
     <div className="space-y-4">
       <FloodGuardStartPanel
@@ -532,6 +585,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
         onStartSession={handleStartSession}
         onJumpToTab={(tab) => setActiveTab(tab)}
         legalDisclaimer={startPanelLegal}
+        guidedWorkflowSlot={cityGuidedWorkflow}
       />
 
       <header
@@ -540,7 +594,17 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
       >
         <div className="flex flex-col md:flex-row md:items-center gap-3">
           <div className="flex-1">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {waterIntelligenceHome && (
+                <button
+                  type="button"
+                  onClick={waterIntelligenceHome}
+                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold dpal-text-muted hover:opacity-80"
+                  style={{ background: 'var(--dpal-surface-alt)', border: '1px solid var(--dpal-border)' }}
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" /> Water Intelligence
+                </button>
+              )}
               {onReturn && (
                 <button
                   type="button"
@@ -548,7 +612,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
                   className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-semibold dpal-text-muted hover:opacity-80"
                   style={{ background: 'var(--dpal-surface-alt)', border: '1px solid var(--dpal-border)' }}
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" /> Back
+                  <ArrowLeft className="w-3.5 h-3.5" /> Main menu
                 </button>
               )}
               <span className="text-[10px] font-black uppercase tracking-[0.2em] dpal-text-muted">
@@ -632,6 +696,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
                 if (alert) setSelectedAlertId(alert.alertId);
               }}
             />
+            <MapSourceGuidanceCard variant="city" />
             {selectedZone && (
               <FloodZoneDetailPanel
                 zone={selectedZone}

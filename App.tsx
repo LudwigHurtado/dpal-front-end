@@ -658,8 +658,13 @@ const App: React.FC = () => {
     /** Keep Super Agent deep link when syncing URL for Field OS. */
     const preserveFieldOsSuperAgent =
       currentView === 'fieldOS' && location.hash === FIELD_OS_SUPER_AGENT_HASH;
+    /** Keep `/floodguard?p=...` when switching views so Water Intelligence launcher vs pilots stay addressable. */
+    const preserveFloodGuardQuery = currentView === 'floodGuard' && location.search.length > 0;
     const full =
-      preserveDeepLink || preserveMissionsHubSection || preserveFieldOsSuperAgent
+      preserveDeepLink ||
+      preserveMissionsHubSection ||
+      preserveFieldOsSuperAgent ||
+      preserveFloodGuardQuery
         ? `${path}${location.search}${location.hash}`
         : path;
     const cur = `${location.pathname}${location.search}${location.hash}`;

@@ -141,6 +141,8 @@ export interface FloodGuardStartPanelProps {
   onJumpToTab?: (tab: 'overview' | 'agent_monitor' | 'evidence' | 'settings') => void;
   legalDisclaimer: string;
   className?: string;
+  /** When set (after session starts), replaces the default numbered FloodGuard checklist — same disclaimers apply. */
+  guidedWorkflowSlot?: React.ReactNode;
 }
 
 const MODE_LABEL: Record<FloodGuardDataMode, string> = {
@@ -204,6 +206,7 @@ const FloodGuardStartPanel: React.FC<FloodGuardStartPanelProps> = ({
   onJumpToTab,
   legalDisclaimer,
   className = '',
+  guidedWorkflowSlot,
 }) => {
   const sessionLine = sessionStartedAt
     ? `${SESSION_LABEL[sessionStatus]} · started ${new Date(sessionStartedAt).toLocaleString()}`
@@ -312,67 +315,68 @@ const FloodGuardStartPanel: React.FC<FloodGuardStartPanelProps> = ({
       </div>
 
       {/* Guided workflow checklist (only after session starts) */}
-      {sessionStatus !== 'not_started' && (
-        <div
-          className="rounded-2xl p-5 border dpal-border-subtle space-y-3"
-          style={{ background: 'var(--dpal-card)' }}
-        >
-          <div className="flex items-center gap-2">
-            <FileText className="w-4 h-4" style={{ color: 'var(--dpal-primary)' }} />
-            <span className="text-[10px] font-black uppercase tracking-widest dpal-text-muted">
-              Guided FloodGuard Workflow
-            </span>
-          </div>
-          <div className="text-xs dpal-text-secondary">
-            Follow the steps in order. Each step lists the related tab and the result you should
-            see.
-          </div>
-          <ol className="space-y-2">
-            {FLOODGUARD_WORKFLOW_STEPS.map((step) => {
-              const done = completedSteps.includes(step.id);
-              return (
-                <li
-                  key={step.id}
-                  className="rounded-xl p-3 flex items-start gap-2"
-                  style={{
-                    background: done
-                      ? 'rgba(34,197,94,0.08)'
-                      : 'var(--dpal-surface-alt)',
-                    border: `1px solid ${done ? 'rgba(34,197,94,0.35)' : 'var(--dpal-border)'}`,
-                  }}
-                >
-                  <div className="mt-0.5 shrink-0">
-                    {done ? (
-                      <CheckCircle className="w-4 h-4" style={{ color: '#86efac' }} />
-                    ) : (
-                      <span
-                        className="inline-block w-3.5 h-3.5 rounded-full"
-                        style={{
-                          background: 'var(--dpal-surface)',
-                          border: '1px solid var(--dpal-border)',
-                        }}
-                      />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div
-                      className="text-xs font-semibold"
-                      style={{ color: 'var(--dpal-text-primary)' }}
-                    >
-                      {step.title}
+      {sessionStatus !== 'not_started' &&
+        (guidedWorkflowSlot ?? (
+          <div
+            className="rounded-2xl p-5 border dpal-border-subtle space-y-3"
+            style={{ background: 'var(--dpal-card)' }}
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="w-4 h-4" style={{ color: 'var(--dpal-primary)' }} />
+              <span className="text-[10px] font-black uppercase tracking-widest dpal-text-muted">
+                Guided FloodGuard Workflow
+              </span>
+            </div>
+            <div className="text-xs dpal-text-secondary">
+              Follow the steps in order. Each step lists the related tab and the result you should
+              see.
+            </div>
+            <ol className="space-y-2">
+              {FLOODGUARD_WORKFLOW_STEPS.map((step) => {
+                const done = completedSteps.includes(step.id);
+                return (
+                  <li
+                    key={step.id}
+                    className="rounded-xl p-3 flex items-start gap-2"
+                    style={{
+                      background: done
+                        ? 'rgba(34,197,94,0.08)'
+                        : 'var(--dpal-surface-alt)',
+                      border: `1px solid ${done ? 'rgba(34,197,94,0.35)' : 'var(--dpal-border)'}`,
+                    }}
+                  >
+                    <div className="mt-0.5 shrink-0">
+                      {done ? (
+                        <CheckCircle className="w-4 h-4" style={{ color: '#86efac' }} />
+                      ) : (
+                        <span
+                          className="inline-block w-3.5 h-3.5 rounded-full"
+                          style={{
+                            background: 'var(--dpal-surface)',
+                            border: '1px solid var(--dpal-border)',
+                          }}
+                        />
+                      )}
                     </div>
-                    <div className="text-[11px] mt-0.5 dpal-text-secondary">{step.description}</div>
-                    <div className="text-[10px] mt-1 dpal-text-muted">
-                      Tab: <span className="font-semibold">{step.relatedTab}</span> · Expected:{' '}
-                      {step.expectedResult}
+                    <div className="flex-1 min-w-0">
+                      <div
+                        className="text-xs font-semibold"
+                        style={{ color: 'var(--dpal-text-primary)' }}
+                      >
+                        {step.title}
+                      </div>
+                      <div className="text-[11px] mt-0.5 dpal-text-secondary">{step.description}</div>
+                      <div className="text-[10px] mt-1 dpal-text-muted">
+                        Tab: <span className="font-semibold">{step.relatedTab}</span> · Expected:{' '}
+                        {step.expectedResult}
+                      </div>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ol>
-        </div>
-      )}
+                  </li>
+                );
+              })}
+            </ol>
+          </div>
+        ))}
 
       {/* How to get real results */}
       <div
