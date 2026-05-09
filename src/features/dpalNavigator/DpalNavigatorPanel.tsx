@@ -163,6 +163,32 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
     [flow, flowId, rawInputFromStore, close, navigate],
   );
 
+  /**
+   * Visible Autopilot launcher — same target as the regular guided flow but
+   * appends the autopilot query params so the destination module renders the
+   * cursor + spotlight + control bar and runs the scripted safe-check
+   * sequence. Currently wired only for the water_flood scenario.
+   */
+  const handleStartAutopilot = React.useCallback(() => {
+    if (!flow) return;
+    const module = flow.recommendedModule;
+    if (!module.routeTarget) return;
+    const params: Record<string, string> = {
+      ...flow.queryParams,
+      autopilot: "true",
+      autoRun: "true",
+      autopilotMode: "visible-safe-checks",
+      showCursor: "true",
+    };
+    const search = buildSearchString(params);
+    if (flowId) persistHelperContext(flow, flowId, rawInputFromStore);
+    close();
+    navigate(`${module.routeTarget}${search}`);
+  }, [flow, flowId, rawInputFromStore, close, navigate]);
+
+  /** Whether the recommended module supports the visible autopilot. */
+  const autopilotSupported = !!flow && flow.scenarioType === "water_flood" && !!flow.recommendedModule.routeTarget;
+
   if (!isOpen) return null;
 
   const hasFlow = !!flow && !!interpretation;
@@ -317,14 +343,37 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
 
               <ActionGateWarning warnings={flow.safetyWarnings} />
 
-              <button
-                type="button"
-                onClick={() => handleStart()}
-                disabled={!flow.recommendedModule.routeTarget}
-                className="w-full rounded-lg bg-amber-400 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                Start Guided Flow
-              </button>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={() => handleStart()}
+                  disabled={!flow.recommendedModule.routeTarget}
+                  className="w-full rounded-lg bg-amber-400 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Open Guided Flow
+                </button>
+                {autopilotSupported ? (
+                  <button
+                    type="button"
+                    onClick={handleStartAutopilot}
+                    className="w-full rounded-lg border border-cyan-400/60 bg-cyan-950/30 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-cyan-100 hover:text-white"
+                  >
+                    Watch DPAL Run Safe Checks
+                  </button>
+                ) : null}
+                <p className="text-[10px] leading-snug text-slate-400">
+                  <span className="font-semibold text-slate-300">Open Guided Flow</span> opens the
+                  module with a checklist.{" "}
+                  {autopilotSupported ? (
+                    <>
+                      <span className="font-semibold text-slate-300">Watch DPAL Run Safe Checks</span>{" "}
+                      walks you through the same module step-by-step using a visible cursor and
+                      runs only read-only checks. No publication, anchoring, payments, or
+                      escalation.
+                    </>
+                  ) : null}
+                </p>
+              </div>
 
               {flow.alternateModules && flow.alternateModules.length > 0 ? (
                 <div className="space-y-2">

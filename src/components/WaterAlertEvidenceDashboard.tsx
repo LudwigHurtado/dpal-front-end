@@ -2,9 +2,16 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import { getWaterAlertEvidencePacket } from "../services/dpalIntegrationsApi";
 import {
+  AutopilotControlBar,
+  AutopilotSpotlight,
+  AutopilotStatusCard,
   NavigatorHelperCard,
+  VisibleAutopilotCursor,
+  WATER_ALERT_AUTOPILOT_STEPS,
   useNavigatorOutcomeTracking,
+  useVisibleAutopilot,
 } from "../features/dpalNavigator";
+import type { ProviderProgressStatus } from "../features/dpalNavigator";
 
 type PacketRecord = Record<string, any>;
 
@@ -14,6 +21,8 @@ const DEFAULT_FORM = {
   label: "Potomac Little Falls",
   usgsSite: "01646500",
 };
+
+const AUTOPILOT_PROVIDERS = ["FloodGuard", "USGS", "NWS", "GeoLedger"] as const;
 
 /** Validate latitude/longitude before treating query params as authoritative. */
 function isUsableLatLng(lat: number, lng: number): boolean {
@@ -36,9 +45,20 @@ function Chip({ label, value }: { label: string; value: unknown }) {
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+function Panel({
+  title,
+  children,
+  dataTarget,
+}: {
+  title: string;
+  children: React.ReactNode;
+  dataTarget?: string;
+}) {
   return (
-    <section className="rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4">
+    <section
+      className="rounded-2xl border border-slate-700/80 bg-slate-950/70 p-4"
+      data-dpal-target={dataTarget}
+    >
       <h2 className="text-sm font-bold text-white">{title}</h2>
       <div className="mt-3">{children}</div>
     </section>
@@ -64,6 +84,20 @@ function getPacketRoot(data: PacketRecord | null): PacketRecord | null {
   return data;
 }
 
+/**
+ * Map a `moduleHealth` field (free-form string from backend) to a safe
+ * autopilot status word. We intentionally only have two outcomes — observed
+ * or unavailable — to avoid implying verification.
+ */
+function moduleHealthToProviderStatus(value: unknown): ProviderProgressStatus {
+  if (value == null) return "unavailable";
+  const s = String(value).toLowerCase();
+  if (!s || s === "n/a" || s.includes("unavailable") || s.includes("error") || s.includes("offline")) {
+    return "unavailable";
+  }
+  return "observed";
+}
+
 export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   const location = useLocation();
   const navOutcome = useNavigatorOutcomeTracking("water_flood");
@@ -74,7 +108,50 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   const [showRaw, setShowRaw] = React.useState(false);
   const [navigatorPrefilled, setNavigatorPrefilled] = React.useState(false);
 
-  /** Track that the user opened the Water Alert dashboard via the Navigator. */
+  /* ----------------------- Navigator URL params ----------------------- */
+  const params = React.useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const autopilotEnabled =
+    params.get("autopilot") === "true" && params.get("autopilotMode") === "visible-safe-checks";
+  const autopilotShowCursor = params.get("showCursor") !== "false";
+
+  /**
+   * The dashboard exposes `runWaterEvidenceScan({ source })` so both manual
+   * clicks and the autopilot drive the same backend call. Manual mode is
+   * unchanged — autopilot only adds an outcome-tracking metadata flag.
+   */
+  const runWaterEvidenceScanRef = React.useRef<((opts: { source: "manual" | "visible-autopilot" }) => Promise<void>) | null>(null);
+
+  /* ------------------------- autopilot wiring ------------------------- */
+  const autopilot = useVisibleAutopilot({
+    enabled: autopilotEnabled,
+    steps: WATER_ALERT_AUTOPILOT_STEPS,
+    onPrefillCoordinates: () => {
+      /** Coordinates are already prefilled in the form by the URL effect below.
+       * This callback exists so the user *visibly* sees the cursor land on the
+       * coordinate inputs at step 1. We re-affirm form state from the URL in
+       * case the user has typed something else manually before pressing
+       * "Resume". */
+      const latStr = params.get("lat");
+      const lngStr = params.get("lng");
+      if (!latStr || !lngStr) return;
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+      if (!isUsableLatLng(lat, lng)) return;
+      setForm((prev) => ({
+        ...prev,
+        lat: String(lat),
+        lng: String(lng),
+        label: prev.label || `Navigator focus ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
+      }));
+    },
+    onTriggerScan: () => {
+      const fn = runWaterEvidenceScanRef.current;
+      if (fn) void fn({ source: "visible-autopilot" });
+    },
+  });
+
+  /* ----------------------- outcome tracking (Phase 3) ----------------------- */
+
   React.useEffect(() => {
     if (!navOutcome.hasActiveNavigatorSession) return;
     navOutcome.trackOutcomeOnce({
@@ -85,15 +162,8 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
     });
   }, [navOutcome]);
 
-  /**
-   * Read DPAL Navigator query params (lat / lng / label / source / navigatorFlow)
-   * once on mount and pre-fill the form. We do not auto-run the scan unless
-   * `source === "dpal-navigator"` and lat/lng are valid — this keeps existing
-   * deep-link behavior intact.
-   */
   React.useEffect(() => {
     if (!location.search) return;
-    const params = new URLSearchParams(location.search);
     const source = params.get("source");
     const navigatorFlow = params.get("navigatorFlow");
     const latStr = params.get("lat");
@@ -107,12 +177,8 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
     const label = params.get("label") || `Navigator focus ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
     const usgsSite = params.get("usgsSite") || "";
 
-    setForm({
-      lat: String(lat),
-      lng: String(lng),
-      label,
-      usgsSite,
-    });
+    setForm({ lat: String(lat), lng: String(lng), label, usgsSite });
+
     const fromNavigator = source === "dpal-navigator" || navigatorFlow === "water-alert";
     setNavigatorPrefilled(fromNavigator);
     if (fromNavigator) {
@@ -124,7 +190,25 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         coordinates: { lat, lng },
       });
     }
-  }, [location.search, navOutcome]);
+  }, [location.search, navOutcome, params]);
+
+  /**
+   * Auto-start the autopilot once the form has been pre-filled and the
+   * `autopilot=true` URL flag is present. Idempotent — runs once per
+   * dashboard mount thanks to the ref guard.
+   */
+  const autopilotStartedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!autopilotEnabled) return;
+    if (autopilotStartedRef.current) return;
+    if (!isUsableLatLng(Number(form.lat), Number(form.lng))) return;
+    autopilotStartedRef.current = true;
+    /** Small delay so the user sees the page lay out before the cursor moves. */
+    const t = window.setTimeout(() => autopilot.start(), 600);
+    return () => window.clearTimeout(t);
+  }, [autopilotEnabled, autopilot, form.lat, form.lng]);
+
+  /* --------------------------- packet readouts --------------------------- */
 
   const packet = getPacketRoot(packetData);
   const summary = (packet?.summary || packet?.waterAlertSummary || {}) as PacketRecord;
@@ -153,58 +237,109 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       : claimSafety.warning || claimSafety.status || claimSafety.level || "Claim guidance available"
     : "n/a";
 
-  async function runScan() {
-    const lat = Number(form.lat);
-    const lng = Number(form.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      setError("Latitude and longitude must be valid numbers.");
-      return;
-    }
-    setLoading(true);
-    setError("");
-    navOutcome.trackOutcome({
-      moduleId: "water_alert_evidence",
-      eventType: "scan_started",
-      label: "Started water evidence scan",
-      status: "started",
-      coordinates: { lat, lng },
-      requiresHumanReview: true,
-    });
-    try {
-      const result = await getWaterAlertEvidencePacket({
-        lat,
-        lng,
-        label: form.label,
-        usgsSite: form.usgsSite,
-      });
-      setPacketData(result as PacketRecord);
-      const packetStatus = (result as PacketRecord)?.packet?.status ?? (result as PacketRecord)?.status;
+  /* --------------------------- scan handler --------------------------- */
+
+  const runWaterEvidenceScan = React.useCallback(
+    async ({ source: scanSource }: { source: "manual" | "visible-autopilot" }) => {
+      const lat = Number(form.lat);
+      const lng = Number(form.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setError("Latitude and longitude must be valid numbers.");
+        return;
+      }
+      setLoading(true);
+      setError("");
       navOutcome.trackOutcome({
         moduleId: "water_alert_evidence",
-        eventType: "draft_packet_generated",
+        eventType: "scan_started",
         label:
-          packetStatus === "degraded"
-            ? "Draft packet generated (degraded — review required)"
-            : "Draft packet generated",
-        status: packetStatus === "degraded" ? "review_required" : "draft_created",
+          scanSource === "visible-autopilot"
+            ? "Started water evidence scan (visible autopilot)"
+            : "Started water evidence scan",
+        status: "started",
         coordinates: { lat, lng },
+        metadata: { scanSource },
         requiresHumanReview: true,
-        metadata: { packetStatus: typeof packetStatus === "string" ? packetStatus : undefined },
       });
-    } catch (err) {
-      const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
-      const isOpenMeteoRateLimit =
-        /429/.test(rawMessage) && /open-meteo|Daily API request limit exceeded/i.test(rawMessage);
-      setPacketData(null);
-      setError(
-        isOpenMeteoRateLimit
-          ? "Live provider rate limit reached for FloodGuard weather input (Open-Meteo). This is a temporary upstream limit; retry later or use backend fallback/provider failover for uninterrupted operations."
-          : rawMessage,
-      );
-    } finally {
-      setLoading(false);
-    }
-  }
+      try {
+        const result = await getWaterAlertEvidencePacket({
+          lat,
+          lng,
+          label: form.label,
+          usgsSite: form.usgsSite,
+        });
+        setPacketData(result as PacketRecord);
+        const packetStatusRaw =
+          (result as PacketRecord)?.packet?.status ?? (result as PacketRecord)?.status;
+        const packetStatus: "ok" | "degraded" | "error" | null =
+          packetStatusRaw === "degraded" || packetStatusRaw === "error" || packetStatusRaw === "ok"
+            ? packetStatusRaw
+            : null;
+        navOutcome.trackOutcome({
+          moduleId: "water_alert_evidence",
+          eventType: "draft_packet_generated",
+          label:
+            packetStatus === "degraded"
+              ? "Draft packet generated (degraded — review required)"
+              : "Draft packet generated",
+          status: packetStatus === "degraded" ? "review_required" : "draft_created",
+          coordinates: { lat, lng },
+          requiresHumanReview: true,
+          metadata: { packetStatus: packetStatus ?? undefined, scanSource },
+        });
+        /** Feed result into the autopilot if it's the one that triggered this scan. */
+        if (scanSource === "visible-autopilot") {
+          const mh = ((result as PacketRecord)?.packet?.moduleHealth ||
+            (result as PacketRecord)?.moduleHealth ||
+            {}) as PacketRecord;
+          const providerProgress: Record<string, ProviderProgressStatus> = {
+            FloodGuard: moduleHealthToProviderStatus(mh.floodguard),
+            USGS: moduleHealthToProviderStatus(mh.usgsWater),
+            NWS: moduleHealthToProviderStatus(mh.nwsAlerts),
+            GeoLedger: moduleHealthToProviderStatus(mh.geoLedger),
+          };
+          autopilot.markScanComplete({ packetStatus, providerProgress });
+        }
+      } catch (err) {
+        const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
+        const isOpenMeteoRateLimit =
+          /429/.test(rawMessage) && /open-meteo|Daily API request limit exceeded/i.test(rawMessage);
+        setPacketData(null);
+        setError(
+          isOpenMeteoRateLimit
+            ? "Live provider rate limit reached for FloodGuard weather input (Open-Meteo). This is a temporary upstream limit; retry later or use backend fallback/provider failover for uninterrupted operations."
+            : rawMessage,
+        );
+        if (scanSource === "visible-autopilot") {
+          autopilot.markScanComplete({
+            packetStatus: "error",
+            providerProgress: AUTOPILOT_PROVIDERS.reduce(
+              (acc, p) => {
+                acc[p] = "unavailable";
+                return acc;
+              },
+              {} as Record<string, ProviderProgressStatus>,
+            ),
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    },
+    [form.lat, form.lng, form.label, form.usgsSite, navOutcome, autopilot],
+  );
+
+  /** Keep the ref in sync so autopilot can call the latest version. */
+  React.useEffect(() => {
+    runWaterEvidenceScanRef.current = runWaterEvidenceScan;
+  }, [runWaterEvidenceScan]);
+
+  /** Manual click — preserves the original UX exactly. */
+  const onClickRunScan = React.useCallback(() => {
+    void runWaterEvidenceScan({ source: "manual" });
+  }, [runWaterEvidenceScan]);
+
+  /* ------------------------------ render ------------------------------ */
 
   return (
     <div className="space-y-4">
@@ -237,7 +372,10 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       </header>
 
       <Panel title="Input Panel">
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        <div
+          className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4"
+          data-dpal-target="water-coordinates"
+        >
           <label className="text-xs text-slate-300">
             Latitude
             <input
@@ -274,8 +412,9 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         <div className="mt-3 flex items-center gap-3">
           <button
             type="button"
-            onClick={runScan}
+            onClick={onClickRunScan}
             disabled={loading}
+            data-dpal-target="run-water-evidence-scan"
             className="rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? "Running..." : "Run Water Evidence Scan"}
@@ -285,10 +424,19 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         {error ? <p className="mt-3 rounded-lg bg-rose-950/40 p-3 text-xs text-rose-200">{error}</p> : null}
       </Panel>
 
+      {autopilot.status !== "idle" && autopilot.status !== "aborted" ? (
+        <AutopilotStatusCard
+          status={autopilot.status}
+          providers={[...AUTOPILOT_PROVIDERS]}
+          providerProgress={autopilot.providerProgress}
+          packetStatus={autopilot.packetStatus}
+        />
+      ) : null}
+
       {packet ? (
         <>
           {packet?.moduleHealth ? (
-            <Panel title="Module Health">
+            <Panel title="Module Health" dataTarget="module-health-panel">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <ReadRow label="FloodGuard" value={moduleHealth.floodguard || "n/a"} />
                 <ReadRow label="USGS" value={moduleHealth.usgsWater || "n/a"} />
@@ -443,7 +591,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
               <ReadRow label="validationStatus" value={geoLedger.validationStatus} />
             </Panel>
 
-            <Panel title="Evidence Integrity Panel">
+            <Panel title="Evidence Integrity Panel" dataTarget="human-approval-gate">
               <ReadRow label="evidenceHash" value={packet.evidenceHash || evidence.evidenceHash} />
               <ReadRow label="anchorPreview.anchorStatus" value={anchorPreview.anchorStatus} />
               <ReadRow label="anchorPreview.chainTarget" value={anchorPreview.chainTarget} />
@@ -471,6 +619,33 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
           </section>
         </>
       ) : null}
+
+      {/* Visible Autopilot overlays */}
+      {autopilot.isActive ? (
+        <>
+          <AutopilotSpotlight
+            visible={autopilotShowCursor}
+            targetRect={autopilot.targetRect}
+            reduceMotion={autopilot.reduceMotion}
+          />
+          <VisibleAutopilotCursor
+            visible={autopilotShowCursor}
+            targetRect={autopilot.targetRect}
+            bubble={autopilot.currentStep?.bubble ?? ""}
+            reduceMotion={autopilot.reduceMotion}
+          />
+        </>
+      ) : null}
+      <AutopilotControlBar
+        status={autopilot.status}
+        stepIndex={autopilot.stepIndex}
+        totalSteps={autopilot.totalSteps}
+        bubble={autopilot.currentStep?.bubble ?? ""}
+        onPause={autopilot.pause}
+        onResume={autopilot.resume}
+        onStop={autopilot.stop}
+        onTakeControl={autopilot.takeControl}
+      />
     </div>
   );
 }

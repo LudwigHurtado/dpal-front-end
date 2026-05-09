@@ -707,3 +707,52 @@ table.dpal-table {
     animation: none;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* DPAL Visible Autopilot — virtual cursor + spotlight ring (Phase 4).        */
+/* `.dpal-autopilot-cursor-ring` pulses around the dot so the user can track  */
+/* DPAL even when it is stationary. `.dpal-autopilot-spotlight` traces the    */
+/* current target. Respects `prefers-reduced-motion`.                         */
+/* -------------------------------------------------------------------------- */
+@keyframes dpal-autopilot-cursor-ring-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.35;
+  }
+}
+
+.dpal-autopilot-cursor-ring {
+  animation: dpal-autopilot-cursor-ring-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes dpal-autopilot-spotlight-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.85),
+      0 0 0 8px rgba(34, 211, 238, 0.2),
+      0 0 24px 6px rgba(34, 211, 238, 0.18);
+  }
+  50% {
+    box-shadow:
+      0 0 0 2px rgba(34, 211, 238, 0.95),
+      0 0 0 14px rgba(34, 211, 238, 0.05),
+      0 0 36px 10px rgba(34, 211, 238, 0.28);
+  }
+}
+
+.dpal-autopilot-spotlight {
+  animation: dpal-autopilot-spotlight-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dpal-autopilot-cursor-ring,
+  .dpal-autopilot-spotlight {
+    animation: none;
+  }
+}

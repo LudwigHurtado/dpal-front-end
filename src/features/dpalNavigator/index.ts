@@ -29,6 +29,20 @@ export {
   OUTCOME_LATEST_STORAGE_KEY,
 } from "./dpalNavigatorOutcomeService";
 export { useNavigatorOutcomeTracking } from "./useNavigatorOutcomeTracking";
+/** Phase 4 — visible autopilot */
+export { default as VisibleAutopilotCursor } from "./VisibleAutopilotCursor";
+export { default as AutopilotSpotlight } from "./AutopilotSpotlight";
+export { default as AutopilotControlBar } from "./AutopilotControlBar";
+export { default as AutopilotStatusCard } from "./AutopilotStatusCard";
+export { useVisibleAutopilot } from "./useVisibleAutopilot";
+export type { VisibleAutopilotApi } from "./useVisibleAutopilot";
+export {
+  WATER_ALERT_AUTOPILOT_STEPS,
+  AUTOPILOT_TARGETS,
+  AUTOPILOT_MODES,
+  getAutopilotStepsForMode,
+} from "./autopilotSteps";
+export type { AutopilotMode } from "./autopilotSteps";
 export type {
   ScenarioType,
   ScenarioDetection,
@@ -43,4 +57,9 @@ export type {
   OutcomeEventInput,
   OutcomeEventStatus,
   OutcomeSafetyFlags,
+  AutopilotIntent,
+  AutopilotStep,
+  AutopilotStatus,
+  ProviderProgressStatus,
+  AutopilotPacketStatus,
 } from "./types";

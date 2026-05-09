@@ -183,3 +183,64 @@ export interface OutcomeEventInput {
   /** Override only when the milestone *requires* human review next. */
   requiresHumanReview?: boolean;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Visible Autopilot — Phase 4                                                */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Autopilot intents are the *only* actions a step can ask the dashboard to
+ * perform. Anything not in this list is intentionally not allowed —
+ * publication, anchoring, certification, payments, or alerts must never be
+ * possible from the autopilot.
+ */
+export type AutopilotIntent =
+  | "highlight"
+  | "fill_coordinates"
+  | "trigger_scan"
+  | "wait_for_scan"
+  | "show_progress"
+  | "show_packet_status"
+  | "human_approval_gate";
+
+/**
+ * One visible step in an autopilot sequence. Steps are scripted ahead of time
+ * (`autopilotSteps.ts`) so the user can see exactly what DPAL will and will
+ * not do before pressing "Watch DPAL Run Safe Checks".
+ */
+export interface AutopilotStep {
+  id: string;
+  intent: AutopilotIntent;
+  /** Plain-language explanation shown above the cursor and in the control bar. */
+  bubble: string;
+  /**
+   * CSS selector for the element to spotlight + move the virtual cursor to.
+   * Prefer `[data-dpal-target="..."]` selectors for stability.
+   */
+  targetSelector?: string;
+  /**
+   * How long to dwell on this step before advancing. `wait_for_scan` ignores
+   * this and waits for `markScanComplete(...)` instead.
+   */
+  dwellMs?: number;
+  /** Optional list of provider names for `show_progress` steps. */
+  progressItems?: string[];
+}
+
+/** Top-level autopilot state machine status. */
+export type AutopilotStatus =
+  | "idle"
+  | "running"
+  | "paused"
+  | "completed"
+  | "aborted";
+
+/** Per-provider progress used by `show_progress` and `show_packet_status` steps. */
+export type ProviderProgressStatus =
+  | "pending"
+  | "checking"
+  | "observed"
+  | "unavailable";
+
+/** Final packet status the dashboard reports back to the autopilot. */
+export type AutopilotPacketStatus = "ok" | "degraded" | "error" | null;
