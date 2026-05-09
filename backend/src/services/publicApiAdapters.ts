@@ -1677,6 +1677,13 @@ export type UsgsWaterSiteSnapshotInput = {
   parameters?: string;
 };
 
+export type WaterAlertEvidencePacketInput = {
+  lat: number;
+  lng: number;
+  label?: string;
+  usgsSite?: string;
+};
+
 /** Decode common WaterML / USGS HTML entities for human-readable labels (parameterName, unit). */
 function decodeBasicHtmlEntities(s: string): string {
   let out = String(s || "");
@@ -2057,6 +2064,163 @@ export async function getUsgsWaterSiteSnapshot(input: UsgsWaterSiteSnapshotInput
       claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
     };
   }
+}
+
+function isNwsTestAlert(alert: Record<string, unknown>): boolean {
+  const status = String(alert.status ?? "").trim().toLowerCase();
+  const event = String(alert.event ?? "").trim().toLowerCase();
+  const headline = String(alert.headline ?? "").trim().toLowerCase();
+  const messageType = String(alert.messageType ?? "").trim().toLowerCase();
+  if (status === "test") return true;
+  if (messageType === "test") return true;
+  return (
+    event.includes("test message") ||
+    event.includes("test") ||
+    headline.includes("test message")
+  );
+}
+
+/**
+ * DPAL Water Alert Evidence Packet:
+ * combines FloodGuard, USGS site snapshot, NWS active alerts, and GeoLedger reverse identity.
+ */
+export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePacketInput) {
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+  const label =
+    typeof input.label === "string" && input.label.trim() ? input.label.trim() : undefined;
+  const usgsSite =
+    typeof input.usgsSite === "string" && input.usgsSite.trim() ? input.usgsSite.trim() : undefined;
+  const generatedAt = new Date().toISOString();
+
+  const [floodguard, usgsWater, nwsAlerts, geoLedger] = await Promise.all([
+    getFloodRisk({ lat, lng }),
+    getUsgsWaterSiteSnapshot(usgsSite ? { site: usgsSite, lat, lng } : { lat, lng }),
+    getNwsActiveAlertsPacket({ lat, lng, label }),
+    getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }),
+  ]);
+
+  const activeAlerts = Array.isArray((nwsAlerts as any)?.activeAlerts)
+    ? ((nwsAlerts as any).activeAlerts as Array<Record<string, unknown>>)
+    : [];
+  const officialAlerts = activeAlerts.filter((a) => !isNwsTestAlert(a));
+  const highestOfficialSeverity = computeHighestNwsSeverity(
+    officialAlerts.map((a) => ({ severity: a.severity as string | null | undefined }))
+  );
+  const hasOfficialAlert = officialAlerts.length > 0;
+  const floodRiskLevel = String((floodguard as any)?.floodRisk?.level ?? "unknown").toLowerCase();
+  const floodRiskScoreRaw = Number((floodguard as any)?.floodRisk?.score);
+  const floodRiskScore = Number.isFinite(floodRiskScoreRaw) ? floodRiskScoreRaw : null;
+  const usgsStatus = String((usgsWater as any)?.status ?? "unknown");
+  const nwsStatus = String((nwsAlerts as any)?.status ?? "unknown");
+
+  const isUrgentByFlood = floodRiskLevel === "high" || floodRiskLevel === "critical";
+  const isUrgentByNws =
+    hasOfficialAlert &&
+    (highestOfficialSeverity === "Severe" || highestOfficialSeverity === "Extreme");
+
+  const recommendedReviewStatus =
+    isUrgentByFlood || isUrgentByNws
+      ? ("urgent_review" as const)
+      : floodRiskLevel === "moderate" || usgsStatus === "ok" || hasOfficialAlert
+        ? ("review" as const)
+        : ("monitor" as const);
+
+  const canonicalSummary = {
+    packetType: "DPAL_WATER_ALERT_EVIDENCE_PACKET_V0_1",
+    coordinates: { lat, lng },
+    ...(label ? { label } : {}),
+    sourceModules: [
+      "FloodGuard",
+      "USGS Water Services",
+      "NOAA/National Weather Service",
+      "GeoLedger",
+    ],
+    floodguard: {
+      source: (floodguard as any)?.source ?? null,
+      floodRisk: (floodguard as any)?.floodRisk ?? null,
+      forecastSummary: (floodguard as any)?.forecastSummary ?? null,
+      radarFrameTime: (floodguard as any)?.radar?.latestFrame?.time ?? null,
+      radarFramePath: (floodguard as any)?.radar?.latestFrame?.path ?? null,
+      evidenceHash: (floodguard as any)?.evidenceHash ?? null,
+    },
+    usgsWater: {
+      site: (usgsWater as any)?.site ?? null,
+      status: (usgsWater as any)?.status ?? null,
+      siteName: (usgsWater as any)?.siteName ?? null,
+      waterSignals: (usgsWater as any)?.waterSignals ?? null,
+      readings: (usgsWater as any)?.readings ?? [],
+      evidenceHash: (usgsWater as any)?.evidenceHash ?? null,
+    },
+    nwsAlerts: {
+      status: (nwsAlerts as any)?.status ?? null,
+      alertCount: (nwsAlerts as any)?.alertCount ?? 0,
+      highestSeverity: (nwsAlerts as any)?.highestSeverity ?? null,
+      activeAlerts: activeAlerts,
+      officialAlerts,
+      evidenceHash: (nwsAlerts as any)?.evidenceHash ?? null,
+    },
+    geoLedger: {
+      status: (geoLedger as any)?.status ?? null,
+      validationStatus: (geoLedger as any)?.validationStatus ?? null,
+      geoLedgerId: (geoLedger as any)?.geoLedgerId ?? null,
+      formattedAddress: (geoLedger as any)?.formattedAddress ?? null,
+      confidenceScore: (geoLedger as any)?.confidenceScore ?? null,
+      evidenceHash: (geoLedger as any)?.evidenceHash ?? null,
+    },
+    summary: {
+      floodRiskLevel,
+      floodRiskScore,
+      usgsStatus,
+      nwsStatus,
+      nwsAlertCount: officialAlerts.length,
+      highestNwsSeverity: highestOfficialSeverity,
+      hasOfficialAlert,
+      recommendedReviewStatus,
+    },
+  };
+
+  const evidenceHash = sha256(JSON.stringify(canonicalSummary));
+
+  const anchorPreviewRaw = buildBlockchainAnchorPreview({
+    evidenceHash,
+    packetType: "DPAL_WATER_ALERT_EVIDENCE_PACKET_V0_1",
+    sourceModule: "Water Alert Evidence Packet",
+    location: { lat, lng, ...(label ? { label } : {}) },
+    validatorStatus: "pending_review",
+  });
+
+  return {
+    packetType: "DPAL_WATER_ALERT_EVIDENCE_PACKET_V0_1" as const,
+    sourceModules: [
+      "FloodGuard",
+      "USGS Water Services",
+      "NOAA/National Weather Service",
+      "GeoLedger",
+    ],
+    coordinates: { lat, lng },
+    ...(label ? { label } : {}),
+    generatedAt,
+    floodguard,
+    usgsWater,
+    nwsAlerts,
+    geoLedger,
+    summary: canonicalSummary.summary,
+    evidenceHash,
+    anchorPreview: {
+      anchorStatus: "preview_only" as const,
+      chainTarget: "not_selected" as const,
+      anchorPayloadHash: anchorPreviewRaw.anchorPayloadHash,
+    },
+    method:
+      "DPAL Water Alert Evidence Packet v0.1 = forecast/radar risk, USGS gauge readings, NWS alerts, and GeoLedger location identity combined into one advisory evidence packet.",
+    claimSafety: {
+      validatorReviewed: false,
+      publicClaimAllowed: false,
+      warning:
+        "Advisory evidence packet only. DPAL does not replace USGS, NOAA/NWS, or local emergency authorities.",
+    },
+  };
 }
 
 /**

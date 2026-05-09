@@ -16,6 +16,7 @@ import {
   buildBlockchainAnchorPreview,
   getUsgsWaterSiteSnapshot,
   getNwsActiveAlertsPacket,
+  buildWaterAlertEvidencePacket,
 } from "../services/publicApiAdapters.js";
 
 const router = Router();
@@ -77,6 +78,34 @@ router.get("/water/usgs/site-snapshot", async (req: Request, res: Response) => {
     res.json({ ok: true, packet });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "usgs site-snapshot failed" });
+  }
+});
+
+/**
+ * GET /api/integrations/water/alert-evidence-packet?lat=38.949&lng=-77.127&label=Potomac&usgsSite=01646500
+ * Unified DPAL Water Alert Evidence Packet (FloodGuard + USGS + NWS + GeoLedger + anchor preview readiness).
+ */
+router.get("/water/alert-evidence-packet", async (req: Request, res: Response) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ ok: false, error: "lat and lng query parameters are required." });
+    }
+
+    const label =
+      req.query.label != null && String(req.query.label).trim() !== ""
+        ? String(req.query.label)
+        : undefined;
+    const usgsSite =
+      req.query.usgsSite != null && String(req.query.usgsSite).trim() !== ""
+        ? String(req.query.usgsSite)
+        : undefined;
+
+    const packet = await buildWaterAlertEvidencePacket({ lat, lng, label, usgsSite });
+    res.json({ ok: true, packet });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "water alert evidence packet failed" });
   }
 });
 
