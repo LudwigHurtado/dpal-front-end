@@ -253,8 +253,19 @@ export async function getAirQuality({ lat, lng }: Coordinates) {
     { headers: { "X-API-Key": apiKey } }
   );
 
-  const readings = Array.isArray(latest?.results) ? latest.results : [];
-  const pm25 = readings.find((r: any) => String(r.parameter?.name || r.parameter || "").toLowerCase().includes("pm2"));
+  const readingsRaw = Array.isArray(latest?.results) ? latest.results : [];
+  const sensorMetadataMap = await buildOpenAqSensorMetadataMap([Number(first.id)], apiKey);
+  const locCtx = first as Record<string, unknown>;
+  const readings: Record<string, unknown>[] = readingsRaw.map((r: unknown) =>
+    stripParameterMatchKey([
+      buildSatelliteOpenAqRow(locCtx, r as Record<string, unknown>, sensorMetadataMap),
+    ])[0]
+  );
+
+  const pm25 = readings.find((r) => {
+    const id = extractOpenAqParameterIdentifier(r);
+    return id != null && openAqParameterMatches(id, "pm25");
+  });
 
   const value = Number(pm25?.value ?? NaN);
   const risk =
@@ -334,13 +345,182 @@ function extractOpenAqParameterIdentifier(r: Record<string, unknown>): string | 
     const po = p as Record<string, unknown>;
     candidates.push(po.name, po.displayName, po.id);
   }
-  candidates.push(r.parameterId, r.parameterName, r.name);
+  candidates.push(
+    r.parameterId,
+    r.parameterName,
+    r.parameterDisplayName,
+    r.sensorParameterName,
+    r.name
+  );
   for (const c of candidates) {
     if (c == null) continue;
     const s = String(c).trim();
     if (s) return s;
   }
   return null;
+}
+
+type OpenAqSensorMetaEntry = {
+  parameter: {
+    id?: unknown;
+    name?: unknown;
+    units?: unknown;
+    displayName?: unknown;
+  };
+  datetimeFirst: unknown;
+  datetimeLast: unknown;
+};
+
+function normalizeOpenAqReadingSensorId(reading: Record<string, unknown>): string | null {
+  const v =
+    reading.sensorId ??
+    reading.sensorsId ??
+    reading.sensor_id ??
+    reading.sensors_id;
+  if (v == null) return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
+async function fetchOpenAqLocationSensors(locationId: number, apiKey: string): Promise<any[]> {
+  try {
+    const data = await fetchJson<any>(
+      `https://api.openaq.org/v3/locations/${locationId}/sensors`,
+      { headers: { "X-API-Key": apiKey } }
+    );
+    return Array.isArray(data?.results) ? data.results : [];
+  } catch (err: any) {
+    dlog("OpenAQ sensors failed", locationId, err?.message);
+    return [];
+  }
+}
+
+/**
+ * sensorId -> parameter metadata from GET /locations/{id}/sensors (max 5 location ids).
+ */
+async function buildOpenAqSensorMetadataMap(
+  locationIds: number[],
+  apiKey: string
+): Promise<Map<string, OpenAqSensorMetaEntry>> {
+  const map = new Map<string, OpenAqSensorMetaEntry>();
+  const unique = [...new Set(locationIds.filter((id) => Number.isFinite(id)))].slice(0, 5);
+  for (const lid of unique) {
+    const sensors = await fetchOpenAqLocationSensors(lid, apiKey);
+    for (const s of sensors) {
+      const sid = s?.id ?? s?.sensorId;
+      if (sid == null) continue;
+      const key = String(sid);
+      const paramRaw = s?.parameter;
+      let parameter: OpenAqSensorMetaEntry["parameter"] = {};
+      if (paramRaw && typeof paramRaw === "object" && !Array.isArray(paramRaw)) {
+        const po = paramRaw as Record<string, unknown>;
+        parameter = {
+          id: po.id,
+          name: po.name,
+          units: po.units,
+          displayName: po.displayName,
+        };
+      }
+      map.set(key, {
+        parameter,
+        datetimeFirst: s?.datetimeFirst ?? s?.datetime_first ?? null,
+        datetimeLast: s?.datetimeLast ?? s?.datetime_last ?? null,
+      });
+    }
+  }
+  return map;
+}
+
+type SatelliteOpenAqReadingRowInternal = {
+  locationId: unknown;
+  locationName: unknown;
+  locality: unknown;
+  country: unknown;
+  coordinates: unknown;
+  parameter: unknown;
+  value: unknown;
+  unit: unknown;
+  datetime: unknown;
+  parameterName?: unknown;
+  parameterDisplayName?: unknown;
+  sensorDatetimeFirst?: unknown;
+  sensorDatetimeLast?: unknown;
+  parameterMatchKey: string | null;
+};
+
+function stripParameterMatchKey(rows: SatelliteOpenAqReadingRowInternal[]): Record<string, unknown>[] {
+  return rows.map(({ parameterMatchKey: _pmk, ...rest }) => rest as Record<string, unknown>);
+}
+
+function buildSatelliteOpenAqRow(
+  loc: Record<string, unknown>,
+  reading: Record<string, unknown>,
+  sensorMap: Map<string, OpenAqSensorMetaEntry>
+): SatelliteOpenAqReadingRowInternal {
+  const sid = normalizeOpenAqReadingSensorId(reading);
+  const meta = sid ? sensorMap.get(sid) : undefined;
+
+  let parameter: unknown = reading.parameter ?? null;
+  let unit: unknown = reading.unit ?? null;
+  let parameterName: unknown;
+  let parameterDisplayName: unknown;
+  let sensorDatetimeFirst: unknown;
+  let sensorDatetimeLast: unknown;
+
+  if (meta?.parameter) {
+    const p = meta.parameter;
+    const hasAny = ["id", "name", "units", "displayName"].some(
+      (k) => p[k as keyof typeof p] != null && String(p[k as keyof typeof p]).trim() !== ""
+    );
+    if (hasAny) {
+      parameter = {
+        id: p.id,
+        name: p.name,
+        units: p.units,
+        displayName: p.displayName,
+      };
+      if (p.name != null && String(p.name).trim() !== "") parameterName = p.name;
+      if (p.displayName != null && String(p.displayName).trim() !== "") parameterDisplayName = p.displayName;
+      unit = unit ?? p.units ?? null;
+      sensorDatetimeFirst = meta.datetimeFirst;
+      sensorDatetimeLast = meta.datetimeLast;
+    }
+  }
+
+  const enriched: Record<string, unknown> = {
+    locationId: loc.id,
+    locationName: loc.name ?? null,
+    locality: loc.locality ?? null,
+    country: loc.country ?? null,
+    coordinates: loc.coordinates ?? null,
+    parameter,
+    value: reading.value,
+    unit,
+    datetime: reading.datetime ?? null,
+  };
+  if (parameterName !== undefined) enriched.parameterName = parameterName;
+  if (parameterDisplayName !== undefined) enriched.parameterDisplayName = parameterDisplayName;
+  if (sensorDatetimeFirst !== undefined) enriched.sensorDatetimeFirst = sensorDatetimeFirst;
+  if (sensorDatetimeLast !== undefined) enriched.sensorDatetimeLast = sensorDatetimeLast;
+
+  const parameterMatchKey = extractOpenAqParameterIdentifier(enriched);
+
+  return {
+    locationId: enriched.locationId,
+    locationName: enriched.locationName,
+    locality: enriched.locality,
+    country: enriched.country,
+    coordinates: enriched.coordinates,
+    parameter: enriched.parameter,
+    value: enriched.value,
+    unit: enriched.unit,
+    datetime: enriched.datetime,
+    parameterName: enriched.parameterName,
+    parameterDisplayName: enriched.parameterDisplayName,
+    sensorDatetimeFirst: enriched.sensorDatetimeFirst,
+    sensorDatetimeLast: enriched.sensorDatetimeLast,
+    parameterMatchKey,
+  };
 }
 
 const OPENAQ_READING_FRESH_DAYS = 30;
@@ -373,23 +553,6 @@ function openAqReadingFreshness(datetimeField: unknown): "fresh" | "stale" | "un
   if (!d) return "unknown";
   const ageDays = (Date.now() - d.getTime()) / 86_400_000;
   return ageDays > OPENAQ_READING_FRESH_DAYS ? "stale" : "fresh";
-}
-
-type SatelliteOpenAqReadingRowInternal = {
-  locationId: unknown;
-  locationName: unknown;
-  locality: unknown;
-  country: unknown;
-  coordinates: unknown;
-  parameter: unknown;
-  value: unknown;
-  unit: unknown;
-  datetime: unknown;
-  parameterMatchKey: string | null;
-};
-
-function stripParameterMatchKey(rows: SatelliteOpenAqReadingRowInternal[]): Record<string, unknown>[] {
-  return rows.map(({ parameterMatchKey: _pmk, ...rest }) => rest as Record<string, unknown>);
 }
 
 export type SatelliteValidationInput = Coordinates & {
@@ -481,6 +644,13 @@ export async function getSatelliteValidation(input: SatelliteValidationInput) {
   const openAqReadingsInternal: SatelliteOpenAqReadingRowInternal[] = [];
 
   const maxLocations = Math.min(5, locResults.length);
+  const locationIdsForSensors: number[] = [];
+  for (let i = 0; i < maxLocations; i++) {
+    const loc = locResults[i];
+    if (loc?.id != null && Number.isFinite(Number(loc.id))) locationIdsForSensors.push(Number(loc.id));
+  }
+  const sensorMetadataMap = await buildOpenAqSensorMetadataMap(locationIdsForSensors, apiKey);
+
   for (let i = 0; i < maxLocations; i++) {
     const loc = locResults[i];
     if (!loc?.id) continue;
@@ -490,25 +660,11 @@ export async function getSatelliteValidation(input: SatelliteValidationInput) {
         { headers: { "X-API-Key": apiKey } }
       );
       const readings = Array.isArray(latest?.results) ? latest.results : [];
+      const locCtx = loc as Record<string, unknown>;
       for (const r of readings) {
-        const raw = r as Record<string, unknown>;
-        const parameterMatchKey = extractOpenAqParameterIdentifier(raw);
-        const paramDisplay =
-          r.parameter != null && typeof r.parameter === "object"
-            ? (r.parameter as { name?: string }).name ?? r.parameter
-            : r.parameter ?? parameterMatchKey;
-        openAqReadingsInternal.push({
-          locationId: loc.id,
-          locationName: loc.name ?? null,
-          locality: loc.locality ?? null,
-          country: loc.country ?? null,
-          coordinates: loc.coordinates ?? null,
-          parameter: paramDisplay ?? null,
-          value: r.value,
-          unit: r.unit ?? null,
-          datetime: r.datetime ?? null,
-          parameterMatchKey,
-        });
+        openAqReadingsInternal.push(
+          buildSatelliteOpenAqRow(locCtx, r as Record<string, unknown>, sensorMetadataMap)
+        );
       }
     } catch (err: any) {
       dlog("OpenAQ latest failed", loc.id, err?.message);
