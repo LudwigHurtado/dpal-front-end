@@ -13,7 +13,7 @@ import {
   searchRcraFacilities,
   updateHazardousWasteAudit,
 } from '../../../services/hazardousWasteAuditService';
-import { NavigatorHelperCard } from '../dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../dpalNavigator';
 
 type Props = { onReturn: () => void };
 type RiskLevel = 'Low' | 'Medium' | 'High' | 'Needs More Data';
@@ -123,6 +123,18 @@ const packetHistoryBadgeClass = (status: PacketHistoryStatus): string => {
 
 const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
   const auth = useAuth();
+  const navOutcome = useNavigatorOutcomeTracking('pollution_waste');
+
+  /** Module-opened milestone for active Navigator session. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'hazardous_waste_audit',
+      eventType: 'module_opened',
+      label: 'Opened Hazardous Waste Integrity Audit',
+      status: 'observed',
+    });
+  }, [navOutcome]);
   const [facilitySearch, setFacilitySearch] = useState({
     q: '',
     epaId: '',
@@ -178,6 +190,20 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
 
   const facilityRecords = useMemo(() => (!selected ? [] : facilities.filter((row) => row.epaId === selected.epaId)), [facilities, selected]);
   const availableYears = useMemo(() => Array.from(new Set(facilityRecords.map((row) => row.reportingYear))).sort((a, b) => b - a), [facilityRecords]);
+
+  /** Track when a facility is selected — the audit-draft starting line. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (!selected) return;
+    navOutcome.trackOutcome({
+      moduleId: 'hazardous_waste_audit',
+      eventType: 'audit_draft_started',
+      label: 'Selected facility for hazardous-waste audit draft',
+      status: 'draft_created',
+      metadata: { epaId: selected.epaId },
+      requiresHumanReview: true,
+    });
+  }, [navOutcome, selected]);
 
   useEffect(() => {
     if (!availableYears.length) return;

@@ -28,7 +28,7 @@ import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { GibsTileViewer } from './GibsTileViewer';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
 
 interface SnapshotMapProps {
   lat: number;
@@ -841,8 +841,34 @@ function CreateProjectForm({ hero, onCreated, onCancel }: {
 type DashView = 'dashboard' | 'create' | 'project' | 'validator';
 
 const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero, onGoToMarket, initialTab }) => {
+  const navOutcome = useNavigatorOutcomeTracking('carbon_land');
   const [view, setView] = useState<DashView>('dashboard');
   const [activeTab, setActiveTab] = useState<'myprojects' | 'marketplace' | 'ledger' | 'airquality' | 'minerals'>(initialTab ?? 'myprojects');
+
+  /** Module-opened milestone for an active Navigator session. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'carbon_mrv',
+      eventType: 'module_opened',
+      label: 'Opened Carbon MRV Engine',
+      status: 'observed',
+    });
+  }, [navOutcome]);
+
+  /** Track when the user enters a project draft / create flow. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (view !== 'create') return;
+    navOutcome.trackOutcome({
+      moduleId: 'carbon_mrv',
+      eventType: 'mrv_draft_started',
+      label: 'Started a carbon project draft',
+      status: 'draft_created',
+      metadata: { claimStatus: 'draft_only' },
+      requiresHumanReview: true,
+    });
+  }, [navOutcome, view]);
 
   // Data
   const [projects, setProjects] = useState<CarbonProject[]>([]);

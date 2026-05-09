@@ -9,7 +9,7 @@ import EnvirofactsEvidenceImportPanel from './EnvirofactsEvidenceImportPanel';
 import EnvirofactsApiStatusCard, { type ApiConnectionStatus } from './EnvirofactsApiStatusCard';
 import EnvirofactsDataSourcesPanel from './EnvirofactsDataSourcesPanel';
 import { searchEnvirofacts } from '../../services/envirofactsService';
-import { NavigatorHelperCard } from '../../features/dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../../features/dpalNavigator';
 import type {
   EnvirofactsEvidencePacket,
   EnvirofactsFilters,
@@ -122,6 +122,7 @@ type InvestigationItem = {
 
 const EnvirofactsGeoDashboard: React.FC = () => {
   const navigate = useNavigate();
+  const navOutcome = useNavigatorOutcomeTracking('pollution_waste');
   const [filters, setFilters] = React.useState(DEFAULT_FILTERS);
   const [rows, setRows] = React.useState<EnvirofactsRecord[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -143,6 +144,43 @@ const EnvirofactsGeoDashboard: React.FC = () => {
   const [investigationQueue, setInvestigationQueue] = React.useState<InvestigationItem[]>([]);
 
   const drawerRecord = React.useMemo(() => rows.find((entry) => entry.id === drawerId) ?? null, [rows, drawerId]);
+
+  /** Module-opened milestone for active Navigator session. */
+  React.useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'envirofacts',
+      eventType: 'module_opened',
+      label: 'Opened Envirofacts Geo Intelligence',
+      status: 'observed',
+    });
+  }, [navOutcome]);
+
+  /** Track when the user actually runs a search and we receive rows. */
+  React.useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (!hasSearched) return;
+    navOutcome.trackOutcome({
+      moduleId: 'envirofacts',
+      eventType: 'facility_search_started',
+      label: 'Ran Envirofacts facility search',
+      status: 'started',
+      metadata: { rowCount: rows.length, source },
+    });
+  }, [navOutcome, hasSearched, rows.length, source]);
+
+  /** Track when a user opens a facility drawer. */
+  React.useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (!drawerId) return;
+    navOutcome.trackOutcome({
+      moduleId: 'envirofacts',
+      eventType: 'facility_selected',
+      label: 'Opened a facility record',
+      status: 'observed',
+      metadata: { facilityId: drawerId },
+    });
+  }, [navOutcome, drawerId]);
 
   const layerFiltered = React.useMemo(
     () => rows.filter((row) => activeLayers.some((layer) => rowMatchesLayer(row, layer))),

@@ -17,6 +17,18 @@ export {
   readNavigatorHelperContext,
   clearNavigatorHelperContext,
 } from "./DpalNavigatorPanel";
+/** Phase 3 — outcome tracking */
+export {
+  getActiveNavigatorContext,
+  hasActiveNavigatorSession,
+  trackNavigatorOutcome,
+  getNavigatorOutcomes,
+  getLatestNavigatorOutcome,
+  clearNavigatorOutcomes,
+  OUTCOME_EVENTS_STORAGE_KEY,
+  OUTCOME_LATEST_STORAGE_KEY,
+} from "./dpalNavigatorOutcomeService";
+export { useNavigatorOutcomeTracking } from "./useNavigatorOutcomeTracking";
 export type {
   ScenarioType,
   ScenarioDetection,
@@ -27,4 +39,8 @@ export type {
   RecommendedModule,
   SafetyWarning,
   NavigatorHelperContext,
+  DpalNavigatorOutcomeEvent,
+  OutcomeEventInput,
+  OutcomeEventStatus,
+  OutcomeSafetyFlags,
 } from "./types";

@@ -42,7 +42,10 @@ import {
 } from '../constants';
 
 import type { Hero } from '../types';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import {
+  NavigatorHelperCard,
+  useNavigatorOutcomeTracking,
+} from '../src/features/dpalNavigator';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -3302,8 +3305,46 @@ function Dashboard({
 type SubView = 'dashboard' | 'create' | 'project' | 'validator' | 'credits';
 
 export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMonitorViewProps) {
+  const navOutcome = useNavigatorOutcomeTracking('water_flood');
   const [subView, setSubView] = useState<SubView>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string>('');
+
+  /** Module-opened milestone — recorded once per active Navigator session. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'water_operations_engine',
+      eventType: 'module_opened',
+      label: 'Opened Water Operations Engine',
+      status: 'observed',
+    });
+  }, [navOutcome]);
+
+  /**
+   * Track when the user enters a meaningful sub-view (validator queue or
+   * credits view) — both are "review_started" workflow signals. Deduped.
+   */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (subView === 'validator') {
+      navOutcome.trackOutcome({
+        moduleId: 'water_operations_engine',
+        eventType: 'water_review_started',
+        label: 'Opened validator queue',
+        status: 'started',
+        metadata: { subView },
+        requiresHumanReview: true,
+      });
+    } else if (subView === 'credits') {
+      navOutcome.trackOutcome({
+        moduleId: 'water_operations_engine',
+        eventType: 'water_review_started',
+        label: 'Opened water impact credits view',
+        status: 'started',
+        metadata: { subView },
+      });
+    }
+  }, [navOutcome, subView]);
 
   function goProject(id: string) {
     setActiveProjectId(id);

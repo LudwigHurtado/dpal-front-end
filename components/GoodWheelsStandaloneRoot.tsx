@@ -1,7 +1,10 @@
-import React, { useLayoutEffect, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useRef } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import GoodWheelsApp from '../src/good-wheels/app/GoodWheelsApp';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import {
+  NavigatorHelperCard,
+  useNavigatorOutcomeTracking,
+} from '../src/features/dpalNavigator';
 
 /**
  * Good Wheels uses react-router's RouterProvider (a Router), which cannot nest inside the
@@ -17,6 +20,27 @@ import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 const GoodWheelsStandaloneRoot: React.FC = () => {
   const hostRef = useRef<HTMLDivElement>(null);
   const rootRef = useRef<Root | null>(null);
+  const navOutcome = useNavigatorOutcomeTracking('transport_help');
+
+  /**
+   * Module-opened milestone. We intentionally do not track the inner ride
+   * request draft from here because Good Wheels runs in a separate React
+   * root — deeper instrumentation would require coupling we want to avoid.
+   * The standalone-root level only records that the user opened the module.
+   */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'good_wheels',
+      eventType: 'module_opened',
+      label: 'Opened DPAL Good Wheels',
+      status: 'observed',
+      metadata: {
+        rideConfirmedAutomatic: false,
+        paymentProcessedAutomatic: false,
+      },
+    });
+  }, [navOutcome]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;

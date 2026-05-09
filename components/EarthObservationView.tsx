@@ -8,7 +8,7 @@ import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
 import type { ChatMessage } from '../types';
 import type { DpalProjectGuideSnapshot } from './dpal-assistant/projectGuideTypes';
 import {
@@ -346,6 +346,7 @@ type EarthObservationViewProps = {
 };
 
 const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, actorName, onOpenSituationRoomFromScan }) => {
+  const navOutcome = useNavigatorOutcomeTracking('carbon_land');
   const toDateInputValue = (date: Date): string => date.toISOString().slice(0, 10);
   const initialEnd = new Date();
   const initialStart = new Date(initialEnd);
@@ -384,6 +385,8 @@ const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, a
    * automatic scan trigger.
    */
   useEffect(() => {
+    let prefilledLat: number | null = null;
+    let prefilledLng: number | null = null;
     try {
       const params = new URLSearchParams(window.location.search);
       const source = params.get('source');
@@ -403,11 +406,33 @@ const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, a
         exists: true,
         isSaved: false,
       }));
+      prefilledLat = lat;
+      prefilledLng = lng;
     } catch {
       /** Window/URL access can fail in non-browser test envs — safe to ignore. */
     }
+    if (prefilledLat != null && prefilledLng != null) {
+      navOutcome.trackOutcomeOnce({
+        moduleId: 'earth_observation',
+        eventType: 'location_prefilled',
+        label: 'Scan location pre-filled from DPAL Navigator',
+        status: 'started',
+        coordinates: { lat: prefilledLat, lng: prefilledLng },
+      });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Module-opened milestone for active Navigator session. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'earth_observation',
+      eventType: 'module_opened',
+      label: 'Opened Earth Observation workspace',
+      status: 'observed',
+    });
+  }, [navOutcome]);
 
   const selectedUse = USE_CASES.find((item) => item.id === observationType) ?? USE_CASES[0];
   const calculatedProgress = useMemo(() => {
@@ -558,6 +583,15 @@ const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, a
     setSituationRoomSent(false);
     setSituationRoomId(null);
     setLastRoomPackage(null);
+    navOutcome.trackOutcome({
+      moduleId: 'earth_observation',
+      eventType: 'analysis_started',
+      label: 'Started Earth Observation scan',
+      status: 'started',
+      coordinates: { lat: scanLocation.lat, lng: scanLocation.lng },
+      metadata: { observationType, radiusKm: scanRadius, claimStatus: 'screening_only' },
+      requiresHumanReview: true,
+    });
     try {
       const res = await fetch(apiUrl(API_ROUTES.EARTH_OBSERVATION_SCAN), {
         method: 'POST',

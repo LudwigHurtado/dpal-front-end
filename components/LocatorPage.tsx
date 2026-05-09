@@ -4,7 +4,7 @@ import { Category } from '../types';
 import { ArrowLeft, MapPin, Mic, Search, Upload, X, QrCode } from './icons';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import QrCodeDisplay from './QrCodeDisplay';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
 
 type LocatorMode = 'find' | 'report';
 type LocatorType = 'person' | 'pet' | 'item';
@@ -198,8 +198,40 @@ interface LocatorDonation {
 }
 
 const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, setHero }) => {
+  const navOutcome = useNavigatorOutcomeTracking('locator');
   const [mode, setMode] = useState<LocatorMode>('find');
   const [type, setType] = useState<LocatorType>('person');
+
+  /** Module-opened milestone for active Navigator session. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'dpal_locator',
+      eventType: 'module_opened',
+      label: 'Opened DPAL Locator',
+      status: 'observed',
+      metadata: {
+        publicAlertingAutomatic: false,
+      },
+    });
+  }, [navOutcome]);
+
+  /** Track when user enters report mode — that is the alert-draft starting line. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (mode !== 'report') return;
+    navOutcome.trackOutcome({
+      moduleId: 'dpal_locator',
+      eventType: 'locator_alert_draft_started',
+      label: 'Started a Locator alert draft',
+      status: 'draft_created',
+      metadata: {
+        type,
+        publicAlertingAutomatic: false,
+      },
+      requiresHumanReview: true,
+    });
+  }, [navOutcome, mode, type]);
   const [heroImageOk, setHeroImageOk] = useState(true);
   const [showSplash, setShowSplash] = useState(true);
   const [showHeroCopy, setShowHeroCopy] = useState(true);

@@ -7,7 +7,7 @@ import ReportCard from './ReportCard';
 import OperationalConfidencePanel from './OperationalConfidencePanel';
 import LiveTransparencyMetricsCard from './LiveTransparencyMetricsCard';
 import VerifierConfidenceCard from './VerifierConfidenceCard';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
 
 interface TransparencyDatabaseViewProps {
   onReturn: () => void;
@@ -27,8 +27,39 @@ interface TransparencyDatabaseViewProps {
 }
 
 const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onReturn, reports, filters, setFilters, onJoinReportChat, onEnterMissionV2 }) => {
+  const navOutcome = useNavigatorOutcomeTracking('public_report');
   const [showIntro, setShowIntro] = useState(true);
   const [showOnlyActionable, setShowOnlyActionable] = useState(false);
+
+  /** Module-opened milestone. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'transparency_database',
+      eventType: 'module_opened',
+      label: 'Opened Evidence Ledger',
+      status: 'observed',
+    });
+  }, [navOutcome]);
+
+  /** Track when the user types a meaningful keyword filter — search milestone. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    const keyword = filters.keyword?.trim();
+    if (!keyword || keyword.length < 3) return;
+    navOutcome.trackOutcome({
+      moduleId: 'transparency_database',
+      eventType: 'ledger_search_started',
+      label: 'Ran an Evidence Ledger search',
+      status: 'started',
+      metadata: { keywordLength: keyword.length },
+    });
+    /**
+     * We intentionally only depend on `filters.keyword` and dedupe via the
+     * service so we don't record per-keystroke events.
+     */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.keyword]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowIntro(false), 800);

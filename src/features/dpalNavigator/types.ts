@@ -111,3 +111,75 @@ export interface NavigatorHelperContext {
   coordinates?: { lat: number; lng: number };
   rawInput: string;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Outcome tracking — Phase 3                                                 */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Status of a single workflow milestone observed inside a target module.
+ *
+ * These are intentionally weak / honest words. They never imply the user's
+ * action was published, anchored, verified, certified, paid, or filed.
+ */
+export type OutcomeEventStatus =
+  | "observed"
+  | "started"
+  | "draft_created"
+  | "completed"
+  | "blocked"
+  | "review_required";
+
+/**
+ * Safety flags attached to every outcome event. The defaults are explicit and
+ * inverted — `autoPublished: false` etc. — so a downstream consumer cannot
+ * accidentally treat an outcome event as a public claim.
+ */
+export interface OutcomeSafetyFlags {
+  autoPublished: false;
+  autoVerified: false;
+  autoAnchored: false;
+  /** Set true when the milestone *requires* validator/human review next. */
+  requiresHumanReview?: boolean;
+}
+
+/**
+ * A single workflow milestone observed inside a DPAL module after the user
+ * arrived from the Navigator. Stored locally only (sessionStorage) — never
+ * uploaded, anchored, or treated as official record by Phase 3.
+ */
+export interface DpalNavigatorOutcomeEvent {
+  id: string;
+  /** Active Navigator flow id (mirrors `NavigatorHelperContext.flowId`). */
+  sessionId: string;
+  scenario: ScenarioType;
+  moduleId: string;
+  eventType: string;
+  label: string;
+  status: OutcomeEventStatus;
+  createdAt: string;
+  route?: string;
+  coordinates?: {
+    lat?: number;
+    lng?: number;
+  };
+  /** Free-form, non-PII module metadata (e.g. tab id, draft id). */
+  metadata?: Record<string, unknown>;
+  safetyFlags: OutcomeSafetyFlags;
+}
+
+/**
+ * Input shape callers pass to `trackNavigatorOutcome`. The service fills in
+ * `id`, `sessionId`, `scenario`, `createdAt`, and the safety-flag defaults.
+ */
+export interface OutcomeEventInput {
+  moduleId: string;
+  eventType: string;
+  label: string;
+  status?: OutcomeEventStatus;
+  route?: string;
+  coordinates?: { lat?: number; lng?: number };
+  metadata?: Record<string, unknown>;
+  /** Override only when the milestone *requires* human review next. */
+  requiresHumanReview?: boolean;
+}

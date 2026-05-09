@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Category, Report, EducationRole } from '../types';
 import { CATEGORIES_WITH_ICONS, EDUCATION_ROLES } from '../constants';
 import SubmissionPanel from './SubmissionPanel';
@@ -10,7 +10,7 @@ import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
 import { pickCivicQuote } from '../utils/civicQuotes';
 import { getCategoryReportImage } from '../utils/reportImages';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
 
 interface ReportSubmissionViewProps {
     category: Category;
@@ -30,8 +30,22 @@ const fadeStyle = `
 
 const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, role, onReturn, addReport, totalReports, prefilledDescription, onJoinMission }) => {
     const { t } = useTranslations();
+    const navOutcome = useNavigatorOutcomeTracking('public_report');
     const categoryInfo = CATEGORIES_WITH_ICONS.find(c => c.value === category)!;
     const roleInfo = role ? EDUCATION_ROLES.find(r => r.value === role) : null;
+
+    /** Module-opened milestone for active Navigator session. */
+    useEffect(() => {
+        if (!navOutcome.hasActiveNavigatorSession) return;
+        navOutcome.trackOutcomeOnce({
+            moduleId: 'report_builder',
+            eventType: 'module_opened',
+            label: 'Opened Report Builder',
+            status: 'observed',
+            metadata: { category: String(category) },
+            requiresHumanReview: true,
+        });
+    }, [navOutcome, category]);
     const civicInspiration = useMemo(() => pickCivicQuote(`${category}-${role ?? 'community'}`), [category, role]);
     const imageUrl = getCategoryReportImage(category);
 

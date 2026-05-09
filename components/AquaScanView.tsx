@@ -53,7 +53,10 @@ import AquaScanIntelligenceReader, {
   formatCalculationHistoryHeadline,
   type AquaScanCalculationHistoryEntry,
 } from './aquascan/AquaScanIntelligenceReader';
-import { NavigatorHelperCard } from '../src/features/dpalNavigator';
+import {
+  NavigatorHelperCard,
+  useNavigatorOutcomeTracking,
+} from '../src/features/dpalNavigator';
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
@@ -644,6 +647,7 @@ export default function AquaScanView({
   hero,
   onOpenWaterOperations,
 }: AquaScanViewProps) {
+  const navOutcome = useNavigatorOutcomeTracking('water_flood');
   const [projects, setProjects] = useState<AquaScanProject[]>([]);
   const [helpersExpanded, setHelpersExpanded] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('AQ-DRAFT');
@@ -942,6 +946,8 @@ export default function AquaScanView({
    * click "Locate on Map" / draw AOI / run scan — this is just a pre-fill, never an auto-action.
    */
   useEffect(() => {
+    let prefilledLat: number | null = null;
+    let prefilledLng: number | null = null;
     try {
       const params = new URLSearchParams(window.location.search);
       const source = params.get('source');
@@ -956,12 +962,51 @@ export default function AquaScanView({
       if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
       setSearchQuery(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
       setMapCenter([lat, lng]);
+      prefilledLat = lat;
+      prefilledLng = lng;
     } catch {
       /** Window/URL access can fail in non-browser test envs — safe to ignore. */
+    }
+
+    if (prefilledLat != null && prefilledLng != null) {
+      navOutcome.trackOutcomeOnce({
+        moduleId: 'aquascan',
+        eventType: 'location_prefilled',
+        label: 'Focus Location pre-filled from DPAL Navigator',
+        status: 'started',
+        coordinates: { lat: prefilledLat, lng: prefilledLng },
+      });
     }
     // run once on mount only
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Track that the user landed on AquaScan from a Navigator session. */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: 'aquascan',
+      eventType: 'module_opened',
+      label: 'Opened AquaScan MRV',
+      status: 'observed',
+    });
+  }, [navOutcome]);
+
+  /**
+   * Lightweight AOI milestone — fires once per session when the saved AOI
+   * polygon reaches the minimum 3 vertices. Deduped via the service.
+   */
+  useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    if (savedAoiPoints.length < 3) return;
+    navOutcome.trackOutcome({
+      moduleId: 'aquascan',
+      eventType: 'aoi_selected',
+      label: 'AOI boundary saved',
+      status: 'draft_created',
+      metadata: { vertexCount: savedAoiPoints.length },
+    });
+  }, [navOutcome, savedAoiPoints.length]);
 
   useEffect(() => {
     if (!aoiStorageKey) {

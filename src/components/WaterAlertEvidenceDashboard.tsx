@@ -1,7 +1,10 @@
 import React from "react";
 import { useLocation } from "react-router-dom";
 import { getWaterAlertEvidencePacket } from "../services/dpalIntegrationsApi";
-import { NavigatorHelperCard } from "../features/dpalNavigator";
+import {
+  NavigatorHelperCard,
+  useNavigatorOutcomeTracking,
+} from "../features/dpalNavigator";
 
 type PacketRecord = Record<string, any>;
 
@@ -63,12 +66,24 @@ function getPacketRoot(data: PacketRecord | null): PacketRecord | null {
 
 export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   const location = useLocation();
+  const navOutcome = useNavigatorOutcomeTracking("water_flood");
   const [form, setForm] = React.useState(DEFAULT_FORM);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [packetData, setPacketData] = React.useState<PacketRecord | null>(null);
   const [showRaw, setShowRaw] = React.useState(false);
   const [navigatorPrefilled, setNavigatorPrefilled] = React.useState(false);
+
+  /** Track that the user opened the Water Alert dashboard via the Navigator. */
+  React.useEffect(() => {
+    if (!navOutcome.hasActiveNavigatorSession) return;
+    navOutcome.trackOutcomeOnce({
+      moduleId: "water_alert_evidence",
+      eventType: "module_opened",
+      label: "Opened Water Alert Evidence dashboard",
+      status: "observed",
+    });
+  }, [navOutcome]);
 
   /**
    * Read DPAL Navigator query params (lat / lng / label / source / navigatorFlow)
@@ -98,8 +113,18 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       label,
       usgsSite,
     });
-    setNavigatorPrefilled(source === "dpal-navigator" || navigatorFlow === "water-alert");
-  }, [location.search]);
+    const fromNavigator = source === "dpal-navigator" || navigatorFlow === "water-alert";
+    setNavigatorPrefilled(fromNavigator);
+    if (fromNavigator) {
+      navOutcome.trackOutcomeOnce({
+        moduleId: "water_alert_evidence",
+        eventType: "location_prefilled",
+        label: "Coordinates and label pre-filled from DPAL Navigator",
+        status: "started",
+        coordinates: { lat, lng },
+      });
+    }
+  }, [location.search, navOutcome]);
 
   const packet = getPacketRoot(packetData);
   const summary = (packet?.summary || packet?.waterAlertSummary || {}) as PacketRecord;
@@ -137,6 +162,14 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
     }
     setLoading(true);
     setError("");
+    navOutcome.trackOutcome({
+      moduleId: "water_alert_evidence",
+      eventType: "scan_started",
+      label: "Started water evidence scan",
+      status: "started",
+      coordinates: { lat, lng },
+      requiresHumanReview: true,
+    });
     try {
       const result = await getWaterAlertEvidencePacket({
         lat,
@@ -145,6 +178,19 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         usgsSite: form.usgsSite,
       });
       setPacketData(result as PacketRecord);
+      const packetStatus = (result as PacketRecord)?.packet?.status ?? (result as PacketRecord)?.status;
+      navOutcome.trackOutcome({
+        moduleId: "water_alert_evidence",
+        eventType: "draft_packet_generated",
+        label:
+          packetStatus === "degraded"
+            ? "Draft packet generated (degraded — review required)"
+            : "Draft packet generated",
+        status: packetStatus === "degraded" ? "review_required" : "draft_created",
+        coordinates: { lat, lng },
+        requiresHumanReview: true,
+        metadata: { packetStatus: typeof packetStatus === "string" ? packetStatus : undefined },
+      });
     } catch (err) {
       const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
       const isOpenMeteoRateLimit =
