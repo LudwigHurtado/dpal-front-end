@@ -325,6 +325,73 @@ function openAqParameterMatches(parameterRaw: unknown, key: string): boolean {
   }
 }
 
+/** OpenAQ reading shapes vary; only treat as a pollutant match when an identifier is present. */
+function extractOpenAqParameterIdentifier(r: Record<string, unknown>): string | null {
+  const candidates: unknown[] = [];
+  const p = r.parameter;
+  if (typeof p === "string") candidates.push(p);
+  else if (p && typeof p === "object" && !Array.isArray(p)) {
+    const po = p as Record<string, unknown>;
+    candidates.push(po.name, po.displayName, po.id);
+  }
+  candidates.push(r.parameterId, r.parameterName, r.name);
+  for (const c of candidates) {
+    if (c == null) continue;
+    const s = String(c).trim();
+    if (s) return s;
+  }
+  return null;
+}
+
+const OPENAQ_READING_FRESH_DAYS = 30;
+
+function parseOpenAqReadingInstant(datetimeField: unknown): Date | null {
+  if (datetimeField == null) return null;
+  if (typeof datetimeField === "string") {
+    const d = new Date(datetimeField);
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  if (typeof datetimeField === "object" && !Array.isArray(datetimeField)) {
+    const o = datetimeField as Record<string, unknown>;
+    const utc = o.utc ?? o.UTC;
+    const local = o.local ?? o.LOCAL;
+    const s =
+      utc != null && String(utc).trim() !== ""
+        ? String(utc)
+        : local != null && String(local).trim() !== ""
+          ? String(local)
+          : "";
+    if (!s) return null;
+    const d = new Date(s);
+    return Number.isFinite(d.getTime()) ? d : null;
+  }
+  return null;
+}
+
+function openAqReadingFreshness(datetimeField: unknown): "fresh" | "stale" | "unknown" {
+  const d = parseOpenAqReadingInstant(datetimeField);
+  if (!d) return "unknown";
+  const ageDays = (Date.now() - d.getTime()) / 86_400_000;
+  return ageDays > OPENAQ_READING_FRESH_DAYS ? "stale" : "fresh";
+}
+
+type SatelliteOpenAqReadingRowInternal = {
+  locationId: unknown;
+  locationName: unknown;
+  locality: unknown;
+  country: unknown;
+  coordinates: unknown;
+  parameter: unknown;
+  value: unknown;
+  unit: unknown;
+  datetime: unknown;
+  parameterMatchKey: string | null;
+};
+
+function stripParameterMatchKey(rows: SatelliteOpenAqReadingRowInternal[]): Record<string, unknown>[] {
+  return rows.map(({ parameterMatchKey: _pmk, ...rest }) => rest as Record<string, unknown>);
+}
+
 export type SatelliteValidationInput = Coordinates & {
   signalType: string;
   /** Parsed numeric satellite measurement when comparable to µg/m³-style ground stats; NaN if not numeric. */
@@ -411,8 +478,7 @@ export async function getSatelliteValidation(input: SatelliteValidationInput) {
   }
 
   const locResults: any[] = Array.isArray(locations?.results) ? locations.results : [];
-  const openAqReadings: Record<string, unknown>[] = [];
-  const numericGround: number[] = [];
+  const openAqReadingsInternal: SatelliteOpenAqReadingRowInternal[] = [];
 
   const maxLocations = Math.min(5, locResults.length);
   for (let i = 0; i < maxLocations; i++) {
@@ -425,59 +491,167 @@ export async function getSatelliteValidation(input: SatelliteValidationInput) {
       );
       const readings = Array.isArray(latest?.results) ? latest.results : [];
       for (const r of readings) {
-        const param = r.parameter?.name ?? r.parameter;
-        openAqReadings.push({
+        const raw = r as Record<string, unknown>;
+        const parameterMatchKey = extractOpenAqParameterIdentifier(raw);
+        const paramDisplay =
+          r.parameter != null && typeof r.parameter === "object"
+            ? (r.parameter as { name?: string }).name ?? r.parameter
+            : r.parameter ?? parameterMatchKey;
+        openAqReadingsInternal.push({
           locationId: loc.id,
           locationName: loc.name ?? null,
           locality: loc.locality ?? null,
           country: loc.country ?? null,
           coordinates: loc.coordinates ?? null,
-          parameter: param,
+          parameter: paramDisplay ?? null,
           value: r.value,
           unit: r.unit ?? null,
           datetime: r.datetime ?? null,
+          parameterMatchKey,
         });
-        if (openAqParameterMatches(param, pollutantKey)) {
-          const v = Number(r.value);
-          if (Number.isFinite(v)) numericGround.push(v);
-        }
       }
     } catch (err: any) {
       dlog("OpenAQ latest failed", loc.id, err?.message);
     }
   }
 
-  const canCompare = Number.isFinite(satelliteNumeric) && numericGround.length > 0;
-  const groundMean =
-    numericGround.length > 0
-      ? numericGround.reduce((a, b) => a + b, 0) / numericGround.length
-      : NaN;
+  const openAqReadings = stripParameterMatchKey(openAqReadingsInternal);
+  const matchingParameterReadingsRows = openAqReadingsInternal.filter(
+    (row) => row.parameterMatchKey != null && openAqParameterMatches(row.parameterMatchKey, pollutantKey)
+  );
+  const matchingParameterReadings = stripParameterMatchKey(matchingParameterReadingsRows);
 
-  let validationStatus: "confirmed" | "partial" | "conflicting" | "no_nearby_sensor" =
-    "no_nearby_sensor";
+  const MSG_NO_SENSOR = "No nearby OpenAQ sensor readings found within the search radius.";
+  const MSG_NO_POLLUTANT_MATCH =
+    "OpenAQ readings were found nearby, but no matching pollutant reading could be confirmed for the requested signalType.";
+  const MSG_STALE_MATCH =
+    "Matching OpenAQ readings were found, but they are stale and should not be treated as current ground validation.";
+  const MSG_NON_NUM_SAT =
+    "Ground readings found, but satelliteValue was not numeric enough for comparison.";
+  const MSG_UNKNOWN_TS =
+    "Matching readings were found, but observation timestamps could not be parsed; freshness is unknown.";
+
+  let validationStatus: "confirmed" | "partial" | "conflicting" | "no_nearby_sensor";
   let confidenceScore = 0;
+  let message: string | undefined;
+  let freshnessStatus: "fresh" | "stale" | "mixed" | "unknown" | undefined;
+  let groundSampleCount: number | undefined;
+  let comparison:
+    | { satelliteNumeric: number; groundMean: number; groundSampleCount: number }
+    | undefined;
 
-  if (numericGround.length === 0) {
+  const numericMatchingRows = matchingParameterReadingsRows.filter((row) =>
+    Number.isFinite(Number(row.value))
+  );
+  let withFreshness: { numeric: number; freshness: "fresh" | "stale" | "unknown" }[] = [];
+
+  if (openAqReadingsInternal.length === 0) {
     validationStatus = "no_nearby_sensor";
-    confidenceScore = openAqReadings.length > 0 ? 0.12 : 0;
-  } else if (!Number.isFinite(satelliteNumeric)) {
+    confidenceScore = 0;
+    message = MSG_NO_SENSOR;
+  } else if (matchingParameterReadingsRows.length === 0) {
     validationStatus = "partial";
-    confidenceScore = Math.min(0.45, 0.2 + numericGround.length * 0.06);
+    confidenceScore = 0.12;
+    message = MSG_NO_POLLUTANT_MATCH;
+  } else if (numericMatchingRows.length === 0) {
+    validationStatus = "partial";
+    confidenceScore = 0.12;
+    message =
+      "Matching pollutant rows were identified, but no numeric ground concentration values were available.";
   } else {
-    const denom = Math.max(Math.abs(satelliteNumeric), Math.abs(groundMean), 1e-6);
-    const relDiff = Math.abs(satelliteNumeric - groundMean) / denom;
+    withFreshness = numericMatchingRows.map((row) => ({
+      numeric: Number(row.value),
+      freshness: openAqReadingFreshness(row.datetime),
+    }));
 
-    if (relDiff <= 0.28) validationStatus = "confirmed";
-    else if (relDiff <= 0.55) validationStatus = "partial";
-    else validationStatus = "conflicting";
+    const freshNums = withFreshness.filter((x) => x.freshness === "fresh").map((x) => x.numeric);
+    const staleNums = withFreshness.filter((x) => x.freshness === "stale").map((x) => x.numeric);
+    const unknownNums = withFreshness.filter((x) => x.freshness === "unknown").map((x) => x.numeric);
 
-    const agreement = Math.max(0, 1 - Math.min(1, relDiff));
-    const breadth = Math.min(1, numericGround.length / 4);
-    let score = 0.5 * agreement + 0.35 * breadth;
-    if (validationStatus === "confirmed") score += 0.1;
-    if (validationStatus === "conflicting") score *= 0.45;
-    confidenceScore = Math.round(Math.min(1, Math.max(0, score)) * 1000) / 1000;
+    const hasFresh = freshNums.length > 0;
+    const hasStale = staleNums.length > 0;
+    const hasUnknown = unknownNums.length > 0;
+
+    if (!hasFresh && hasStale && !hasUnknown) {
+      validationStatus = "partial";
+      freshnessStatus = "stale";
+      groundSampleCount = staleNums.length;
+      confidenceScore = Math.min(0.25, 0.14 + Math.min(staleNums.length, 6) * 0.018);
+      message = MSG_STALE_MATCH;
+    } else if (!hasFresh && !hasStale && hasUnknown) {
+      validationStatus = "partial";
+      freshnessStatus = "unknown";
+      groundSampleCount = unknownNums.length;
+      confidenceScore = Math.min(0.22, 0.12 + Math.min(unknownNums.length, 6) * 0.015);
+      message = MSG_UNKNOWN_TS;
+    } else if (!hasFresh && hasStale && hasUnknown) {
+      validationStatus = "partial";
+      freshnessStatus = "mixed";
+      groundSampleCount = staleNums.length + unknownNums.length;
+      confidenceScore = Math.min(0.25, 0.13 + Math.min(staleNums.length + unknownNums.length, 8) * 0.014);
+      message = `${MSG_STALE_MATCH} Some observation timestamps could not be parsed.`;
+    } else if (hasFresh) {
+      freshnessStatus =
+        hasStale || hasUnknown ? "mixed" : ("fresh" as const);
+
+      const groundMeanFresh =
+        freshNums.reduce((a, b) => a + b, 0) / Math.max(1, freshNums.length);
+      groundSampleCount = freshNums.length;
+
+      if (!Number.isFinite(satelliteNumeric)) {
+        validationStatus = "partial";
+        confidenceScore = Math.min(0.38, 0.16 + freshNums.length * 0.05);
+        message = MSG_NON_NUM_SAT;
+      } else {
+        const denom = Math.max(Math.abs(satelliteNumeric), Math.abs(groundMeanFresh), 1e-6);
+        const relDiff = Math.abs(satelliteNumeric - groundMeanFresh) / denom;
+
+        if (relDiff <= 0.25) validationStatus = "confirmed";
+        else if (relDiff <= 0.6) validationStatus = "partial";
+        else validationStatus = "conflicting";
+
+        const agreement = Math.max(0, 1 - Math.min(1, relDiff));
+        const breadth = Math.min(1, freshNums.length / 4);
+        let score = 0.5 * agreement + 0.35 * breadth;
+        if (validationStatus === "confirmed") score += 0.1;
+        if (validationStatus === "conflicting") score *= 0.45;
+        if (hasStale || hasUnknown) score *= 0.82;
+        confidenceScore = Math.round(Math.min(1, Math.max(0, score)) * 1000) / 1000;
+
+        comparison = {
+          satelliteNumeric,
+          groundMean: Number(groundMeanFresh.toFixed(4)),
+          groundSampleCount: freshNums.length,
+        };
+
+        if (hasStale || hasUnknown) {
+          message =
+            hasStale && hasUnknown
+              ? "Fresh ground readings were used for comparison; additional stale or undated readings were ignored for the numeric match."
+              : hasStale
+                ? "Fresh ground readings were used for comparison; stale readings were retained for context only."
+                : "Fresh ground readings were used for comparison; some readings had unparsed timestamps.";
+        }
+      }
+    } else {
+      validationStatus = "partial";
+      confidenceScore = 0.12;
+      freshnessStatus = "unknown";
+      message = MSG_UNKNOWN_TS;
+    }
   }
+
+  let groundMeanForHash: number | null = comparison?.groundMean ?? null;
+  if (groundMeanForHash == null && freshnessStatus === "stale" && withFreshness.length > 0) {
+    const staleVals = withFreshness.filter((x) => x.freshness === "stale").map((x) => x.numeric);
+    if (staleVals.length > 0) {
+      groundMeanForHash = Number(
+        (staleVals.reduce((a, b) => a + b, 0) / staleVals.length).toFixed(4)
+      );
+    }
+  }
+
+  const canCompare = Boolean(comparison);
 
   const payloadForHash = {
     type: SATELLITE_VALIDATION_PACKET_TYPE,
@@ -485,9 +659,11 @@ export async function getSatelliteValidation(input: SatelliteValidationInput) {
     signalType: pollutantKey,
     satelliteValue: satelliteRaw,
     validationStatus,
-    groundSampleCount: numericGround.length,
-    groundMean: Number.isFinite(groundMean) ? Number(groundMean.toFixed(4)) : null,
+    groundSampleCount: groundSampleCount ?? 0,
+    groundMean: groundMeanForHash,
     openAqReadingCount: openAqReadings.length,
+    matchingParameterCount: matchingParameterReadings.length,
+    freshnessStatus: freshnessStatus ?? null,
     comparable: canCompare,
     generatedAtHour: new Date().toISOString().slice(0, 13),
   };
@@ -504,15 +680,11 @@ export async function getSatelliteValidation(input: SatelliteValidationInput) {
     evidenceHash: sha256(JSON.stringify(payloadForHash)),
     advisoryNotice,
     claimSafety: { validatorReviewed: false, publicClaimAllowed: false },
-    ...(Number.isFinite(satelliteNumeric) && numericGround.length > 0
-      ? {
-          comparison: {
-            satelliteNumeric,
-            groundMean: Number(groundMean.toFixed(4)),
-            groundSampleCount: numericGround.length,
-          },
-        }
-      : {}),
+    ...(message ? { message } : {}),
+    ...(comparison ? { comparison } : {}),
+    ...(freshnessStatus ? { freshnessStatus } : {}),
+    ...(groundSampleCount !== undefined ? { groundSampleCount } : {}),
+    ...(matchingParameterReadings.length > 0 ? { matchingParameterReadings } : {}),
   };
 }
 
