@@ -1518,14 +1518,44 @@ export type UsgsWaterSiteSnapshotInput = {
   parameters?: string;
 };
 
+/** Decode common WaterML / USGS HTML entities for human-readable labels (parameterName, unit). */
 function decodeBasicHtmlEntities(s: string): string {
-  return String(s || "")
-    .replace(/&#176;/g, "°")
-    .replace(/&deg;/g, "°")
-    .replace(/&#8206;/g, "")
-    .replace(/&amp;/g, "&")
+  let out = String(s || "");
+
+  out = out.replace(/&#(\d{1,7});/g, (match, numStr: string) => {
+    const code = Number(numStr);
+    if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return match;
+    try {
+      return String.fromCodePoint(code);
+    } catch {
+      return match;
+    }
+  });
+
+  out = out.replace(/&#x([0-9a-f]{1,6});/gi, (match, hex: string) => {
+    const code = parseInt(hex, 16);
+    if (!Number.isFinite(code) || code < 0 || code > 0x10ffff) return match;
+    try {
+      return String.fromCodePoint(code);
+    } catch {
+      return match;
+    }
+  });
+
+  out = out.replace(/\u200e/g, "");
+
+  out = out
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&deg;/gi, "°")
+    .replace(/&sup3;/gi, "³")
+    .replace(/&sup2;/gi, "²")
     .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&");
+
+  return out;
 }
 
 function parseIvTimeSeriesRoot(data: unknown): unknown[] {
@@ -1610,7 +1640,8 @@ function collectLatestReadingsPerParameter(timeSeries: unknown[]): UsgsNormalize
     if (!firstCode) continue;
 
     const parameterName = decodeBasicHtmlEntities(String(s?.variable?.variableName || firstCode));
-    const unit = String(s?.variable?.unit?.unitCode || "").trim() || "unknown";
+    const unit =
+      decodeBasicHtmlEntities(String(s?.variable?.unit?.unitCode || "").trim()) || "unknown";
 
     const valueBlocks = Array.isArray(s?.values) ? s.values : [];
     for (const block of valueBlocks) {
