@@ -638,6 +638,12 @@ const PassengerPriceOfferPage: React.FC = () => {
             </div>
           ) : null}
 
+          {selectedImpactCategory ? (
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>
+              Selected impact: {selectedImpactCategory.title}
+            </div>
+          ) : null}
+
           {error ? <div className="gw-error">{error}</div> : null}
 
           <button
