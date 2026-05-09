@@ -663,3 +663,47 @@ table.dpal-table {
     opacity: 1;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* DPAL Navigator — subtle pulsing outline for the recommended next step.    */
+/* Used as `.dpal-nav-pulse` on cards and `.dpal-nav-dot` on the launcher.    */
+/* Respects `prefers-reduced-motion` for accessibility.                       */
+/* -------------------------------------------------------------------------- */
+@keyframes dpal-nav-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.28);
+  }
+  60% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0);
+  }
+}
+
+.dpal-nav-pulse {
+  animation: dpal-nav-pulse-ring 2.4s ease-out infinite;
+}
+
+@keyframes dpal-nav-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+}
+
+.dpal-nav-dot {
+  animation: dpal-nav-dot-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dpal-nav-pulse,
+  .dpal-nav-dot {
+    animation: none;
+  }
+}

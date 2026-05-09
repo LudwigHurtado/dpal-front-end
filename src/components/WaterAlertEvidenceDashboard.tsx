@@ -1,5 +1,7 @@
 import React from "react";
+import { useLocation } from "react-router-dom";
 import { getWaterAlertEvidencePacket } from "../services/dpalIntegrationsApi";
+import { NavigatorHelperCard } from "../features/dpalNavigator";
 
 type PacketRecord = Record<string, any>;
 
@@ -9,6 +11,18 @@ const DEFAULT_FORM = {
   label: "Potomac Little Falls",
   usgsSite: "01646500",
 };
+
+/** Validate latitude/longitude before treating query params as authoritative. */
+function isUsableLatLng(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
 
 function Chip({ label, value }: { label: string; value: unknown }) {
   return (
@@ -48,11 +62,44 @@ function getPacketRoot(data: PacketRecord | null): PacketRecord | null {
 }
 
 export default function WaterAlertEvidenceDashboard(): React.ReactElement {
+  const location = useLocation();
   const [form, setForm] = React.useState(DEFAULT_FORM);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState("");
   const [packetData, setPacketData] = React.useState<PacketRecord | null>(null);
   const [showRaw, setShowRaw] = React.useState(false);
+  const [navigatorPrefilled, setNavigatorPrefilled] = React.useState(false);
+
+  /**
+   * Read DPAL Navigator query params (lat / lng / label / source / navigatorFlow)
+   * once on mount and pre-fill the form. We do not auto-run the scan unless
+   * `source === "dpal-navigator"` and lat/lng are valid — this keeps existing
+   * deep-link behavior intact.
+   */
+  React.useEffect(() => {
+    if (!location.search) return;
+    const params = new URLSearchParams(location.search);
+    const source = params.get("source");
+    const navigatorFlow = params.get("navigatorFlow");
+    const latStr = params.get("lat");
+    const lngStr = params.get("lng");
+    if (!latStr || !lngStr) return;
+
+    const lat = Number(latStr);
+    const lng = Number(lngStr);
+    if (!isUsableLatLng(lat, lng)) return;
+
+    const label = params.get("label") || `Navigator focus ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    const usgsSite = params.get("usgsSite") || "";
+
+    setForm({
+      lat: String(lat),
+      lng: String(lng),
+      label,
+      usgsSite,
+    });
+    setNavigatorPrefilled(source === "dpal-navigator" || navigatorFlow === "water-alert");
+  }, [location.search]);
 
   const packet = getPacketRoot(packetData);
   const summary = (packet?.summary || packet?.waterAlertSummary || {}) as PacketRecord;
@@ -115,6 +162,14 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
 
   return (
     <div className="space-y-4">
+      <NavigatorHelperCard expectedScenario="water_flood" />
+      {navigatorPrefilled ? (
+        <div className="rounded-xl border border-cyan-700/40 bg-cyan-950/25 px-3 py-2 text-[11px] leading-snug text-cyan-100">
+          <span className="font-semibold text-cyan-200">Started from DPAL Navigator.</span>{" "}
+          Coordinates and label were passed forward. Review module health and packet status before treating
+          anything as verified — DPAL Navigator never publishes or anchors automatically.
+        </div>
+      ) : null}
       <header className="rounded-2xl border border-cyan-700/40 bg-slate-950/70 p-5">
         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Operator Dashboard</p>
         <h1 className="mt-2 text-xl font-extrabold text-white">DPAL Water Alert Evidence Packet</h1>

@@ -12,6 +12,7 @@ import ProfilePage from "./pages/auth/ProfilePage";
 import AdminDashboardPage from "./pages/auth/AdminDashboardPage";
 import FloodLedgerVerificationPage from "./src/features/floodGuard/components/FloodLedgerVerificationPage";
 import WaterIntelligenceRoutes from "./src/features/waterIntelligence/waterIntelligenceRoutes";
+import { DpalNavigatorProvider } from "./src/features/dpalNavigator";
 
 /**
  * Auth routes are mounted ahead of the main `App` catch-all so URLs like `/login`
@@ -36,6 +37,12 @@ export default function AppBootstrap() {
         <Route path="/water-intelligence/*" element={<WaterIntelligenceRoutes />} />
         <Route path="*" element={<App />} />
       </Routes>
+      {/**
+       * DPAL Navigator — floating guided-intelligence layer. Mounted once at the
+       * shell level so it persists across route changes. Never auto-publishes,
+       * auto-anchors, or auto-marks anything as verified.
+       */}
+      <DpalNavigatorProvider />
     </AuthProvider>
   );
 }
