@@ -15,6 +15,7 @@ import {
   buildCarbonEstimatePacket,
   buildBlockchainAnchorPreview,
   getUsgsWaterSiteSnapshot,
+  getNwsActiveAlertsPacket,
 } from "../services/publicApiAdapters.js";
 
 const router = Router();
@@ -76,6 +77,25 @@ router.get("/water/usgs/site-snapshot", async (req: Request, res: Response) => {
     res.json({ ok: true, packet });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "usgs site-snapshot failed" });
+  }
+});
+
+/**
+ * GET /api/integrations/weather/nws/alerts?lat=38.949&lng=-77.127&label=Potomac%20Little%20Falls
+ */
+router.get("/weather/nws/alerts", async (req: Request, res: Response) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ ok: false, error: "lat and lng query parameters are required." });
+    }
+
+    const label = req.query.label != null ? String(req.query.label) : undefined;
+    const packet = await getNwsActiveAlertsPacket({ lat, lng, label });
+    res.json({ ok: true, packet });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "nws alerts failed" });
   }
 });
 

@@ -94,7 +94,166 @@ export function getProviderStatus(): ProviderStatus[] {
       purpose: "NWIS instantaneous values for streamflow, gage height, and water temperature.",
       mode: "live",
     },
+    {
+      key: "nws_alerts",
+      label: "NOAA/NWS Alerts",
+      configured: true,
+      purpose: "Official U.S. weather alerts for alert cross-checking and evidence packets.",
+      mode: "live",
+    },
   ];
+}
+
+const NWS_ACTIVE_ALERTS_PACKET_TYPE = "DPAL_NWS_ACTIVE_ALERTS_PACKET_V0_1" as const;
+const NWS_ACTIVE_ALERTS_METHOD =
+  "DPAL NWS Alerts v0.1 = official NWS active alerts normalized into a DPAL advisory packet.";
+const NWS_ALERTS_CLAIM_SAFETY = {
+  validatorReviewed: false,
+  publicClaimAllowed: false,
+  warning:
+    "NWS alert content is official source data. DPAL packet is advisory packaging and does not replace official emergency instructions.",
+} as const;
+
+export type NwsActiveAlertsInput = {
+  lat: number;
+  lng: number;
+  label?: string;
+};
+
+type NwsSeverity = "Extreme" | "Severe" | "Moderate" | "Minor" | "Unknown";
+
+const NWS_SEVERITY_RANK: Record<NwsSeverity, number> = {
+  Unknown: 0,
+  Minor: 1,
+  Moderate: 2,
+  Severe: 3,
+  Extreme: 4,
+};
+
+function normalizeNwsSeverity(raw: unknown): NwsSeverity {
+  const s = String(raw ?? "").trim().toLowerCase();
+  if (s === "extreme") return "Extreme";
+  if (s === "severe") return "Severe";
+  if (s === "moderate") return "Moderate";
+  if (s === "minor") return "Minor";
+  return "Unknown";
+}
+
+function computeHighestNwsSeverity(
+  alerts: Array<{ severity: string | null | undefined }>
+): NwsSeverity | null {
+  if (alerts.length === 0) return null;
+  let highest: NwsSeverity = "Unknown";
+  for (const alert of alerts) {
+    const normalized = normalizeNwsSeverity(alert.severity);
+    if (NWS_SEVERITY_RANK[normalized] > NWS_SEVERITY_RANK[highest]) highest = normalized;
+  }
+  return highest;
+}
+
+/**
+ * NOAA/NWS active weather alerts by point, normalized into a DPAL advisory packet.
+ */
+export async function getNwsActiveAlertsPacket(input: NwsActiveAlertsInput) {
+  const lat = Number(input.lat);
+  const lng = Number(input.lng);
+  const coordinates = { lat, lng };
+  const label = typeof input.label === "string" && input.label.trim() ? input.label.trim() : undefined;
+  const generatedAt = new Date().toISOString();
+
+  const hashPacket = (payload: Record<string, unknown>) =>
+    sha256(
+      JSON.stringify({
+        type: NWS_ACTIVE_ALERTS_PACKET_TYPE,
+        generatedAt,
+        ...payload,
+      })
+    );
+
+  try {
+    const params = new URLSearchParams({ point: `${lat},${lng}` });
+    const data = await fetchJson<any>(`https://api.weather.gov/alerts/active?${params.toString()}`, {
+      headers: {
+        "User-Agent": "DPAL/1.0 (contact: admin@dpal.local)",
+        Accept: "application/geo+json",
+      },
+    });
+
+    const features = Array.isArray(data?.features) ? data.features : [];
+    const activeAlerts = features.map((feature: any) => {
+      const p = feature?.properties ?? {};
+      return {
+        id: feature?.id ?? null,
+        event: p?.event ?? null,
+        headline: p?.headline ?? null,
+        description: p?.description ?? null,
+        instruction: p?.instruction ?? null,
+        severity: p?.severity ?? null,
+        urgency: p?.urgency ?? null,
+        certainty: p?.certainty ?? null,
+        effective: p?.effective ?? null,
+        expires: p?.expires ?? null,
+        senderName: p?.senderName ?? null,
+        areaDesc: p?.areaDesc ?? null,
+        status: p?.status ?? null,
+        messageType: p?.messageType ?? null,
+        category: p?.category ?? null,
+        response: p?.response ?? null,
+      };
+    });
+
+    const alertCount = activeAlerts.length;
+    const highestSeverity = computeHighestNwsSeverity(activeAlerts);
+    const status = alertCount > 0 ? ("ok" as const) : ("no_active_alerts" as const);
+
+    return {
+      packetType: NWS_ACTIVE_ALERTS_PACKET_TYPE,
+      source: "NOAA/National Weather Service",
+      coordinates,
+      ...(label ? { label } : {}),
+      generatedAt,
+      alertCount,
+      highestSeverity,
+      activeAlerts,
+      status,
+      method: NWS_ACTIVE_ALERTS_METHOD,
+      evidenceHash: hashPacket({
+        coordinates,
+        ...(label ? { label } : {}),
+        alertCount,
+        highestSeverity,
+        activeAlerts,
+        status,
+      }),
+      claimSafety: { ...NWS_ALERTS_CLAIM_SAFETY },
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "NWS active alerts request failed.";
+    const status = "error" as const;
+    return {
+      packetType: NWS_ACTIVE_ALERTS_PACKET_TYPE,
+      source: "NOAA/National Weather Service",
+      coordinates,
+      ...(label ? { label } : {}),
+      generatedAt,
+      alertCount: 0,
+      highestSeverity: null,
+      activeAlerts: [],
+      status,
+      message,
+      method: NWS_ACTIVE_ALERTS_METHOD,
+      evidenceHash: hashPacket({
+        coordinates,
+        ...(label ? { label } : {}),
+        alertCount: 0,
+        highestSeverity: null,
+        activeAlerts: [],
+        status,
+        message,
+      }),
+      claimSafety: { ...NWS_ALERTS_CLAIM_SAFETY },
+    };
+  }
 }
 
 /**
