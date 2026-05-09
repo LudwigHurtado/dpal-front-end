@@ -186,6 +186,7 @@ export const goodWheelsRideApi = {
             : undefined,
         routeSummary: draft.routeSummaryPreview,
         attachedCause: draft.attachedCause,
+        notes: draft.notes?.trim() ? draft.notes.trim().slice(0, 4000) : undefined,
         passengerOfferCents: passengerCents,
         recommendedFareCents: recommendedCents,
         totalFareCents: passengerCents,

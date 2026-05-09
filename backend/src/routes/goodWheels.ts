@@ -149,6 +149,8 @@ type GoodWheelsTrip = {
     city: string;
     country: string;
   };
+  /** Passenger-facing notes (e.g. charity impact summary); optional. */
+  notes?: string;
   chatThreadId?: string;
   broadcastId?: string;
   completedAtIso?: string;
@@ -811,6 +813,10 @@ router.post('/trips/request', async (req: Request, res: Response): Promise<void>
             city: String((body.attachedCause as { city?: unknown }).city || ''),
             country: String((body.attachedCause as { country?: unknown }).country || ''),
           }
+        : undefined,
+    notes:
+      typeof body.notes === 'string' && body.notes.trim()
+        ? String(body.notes).trim().slice(0, 4000)
         : undefined,
     timeline: [
       { id: mkId('evt'), atIso: now, label: 'Ride requested', detail: 'Passenger created a new ride request.' },

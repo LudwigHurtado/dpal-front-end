@@ -1,10 +1,9 @@
 import type { Trip } from '../tripTypes';
 
 /**
- * Good Wheels fare split policy:
- * - Driver: 90% of gross fare
- * - Charity/community: 5% of gross fare
- * - Admin: 5% of gross fare
+ * Good Wheels fare split policy (matches `backend/src/utils/goodWheelsFareSplit.ts`):
+ * - Platform fee: 5% of gross fare
+ * - Remaining 95% split: 90% driver, 10% community/charity cause
  *
  * Optional passenger add-ons/donations are separate and do not reduce driver payout.
  */
@@ -12,14 +11,14 @@ import type { Trip } from '../tripTypes';
 export type FareSplit = {
   totalFareCents: number;
   adminCostCents: number;
-  /** Compatibility field retained for existing UI payloads. */
+  /** Gross fare minus platform fee (the pool split 90/10 between driver and community). */
   netFareCents: number;
   driverPayoutCents: number;
-  /** Compatibility field name retained; now represents charity/community share. */
+  /** Charity/community share (10% of net); field name kept for API compatibility. */
   platformShareCents: number;
   adminPercent: 5;
   driverPercentOfNet: 90;
-  platformPercentOfNet: 5;
+  platformPercentOfNet: 10;
 };
 
 /** Nested shape returned by API / persisted on trip estimate */
@@ -28,7 +27,7 @@ export type FareSplitPayload = Omit<FareSplit, 'totalFareCents'>;
 const PERCENTS = {
   adminPercent: 5 as const,
   driverPercentOfNet: 90 as const,
-  platformPercentOfNet: 5 as const,
+  platformPercentOfNet: 10 as const,
 };
 
 function emptySplit(): FareSplit {
@@ -52,9 +51,9 @@ export function calculateGoodWheelsFareSplit(totalFareCents: number): FareSplit 
   }
   const total = Math.round(raw);
   const adminCostCents = Math.round(total * 0.05);
-  const driverPayoutCents = Math.round(total * 0.9);
-  const platformShareCents = total - adminCostCents - driverPayoutCents;
   const netFareCents = total - adminCostCents;
+  const driverPayoutCents = Math.round(netFareCents * 0.9);
+  const platformShareCents = netFareCents - driverPayoutCents;
   return {
     totalFareCents: total,
     adminCostCents,

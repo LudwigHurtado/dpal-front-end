@@ -1,5 +1,5 @@
 /**
- * Mirrors frontend Good Wheels fare split (see src/good-wheels/features/trips/utils/fareSplit.ts).
+ * Good Wheels fare split — shared policy with `src/good-wheels/features/trips/utils/fareSplit.ts`.
  */
 
 export type GoodWheelsFareSplit = {
