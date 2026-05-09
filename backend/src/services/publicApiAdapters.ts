@@ -12,6 +12,16 @@ type ProviderStatus = {
 };
 
 const DEBUG = process.env.DPAL_API_DEBUG === "true";
+const FLOODGUARD_CACHE_TTL_MS = 30 * 60 * 1000;
+const FLOODGUARD_CACHE_TTL_MINUTES = 30;
+
+type FloodGuardCacheEntry = {
+  value: any;
+  storedAt: number;
+  expiresAt: number;
+};
+
+const floodGuardCache = new Map<string, FloodGuardCacheEntry>();
 
 function dlog(...args: unknown[]) {
   if (DEBUG) console.warn("[DPAL integrations]", ...args);
@@ -19,6 +29,50 @@ function dlog(...args: unknown[]) {
 
 function sha256(input: string): string {
   return crypto.createHash("sha256").update(input).digest("hex");
+}
+
+function getFloodGuardCacheKey(lat: number, lng: number): string {
+  const roundedLat = Number(lat).toFixed(3);
+  const roundedLng = Number(lng).toFixed(3);
+  return `floodguard:${roundedLat}:${roundedLng}`;
+}
+
+function getFloodGuardCacheEntry(lat: number, lng: number): FloodGuardCacheEntry | null {
+  const key = getFloodGuardCacheKey(lat, lng);
+  return floodGuardCache.get(key) ?? null;
+}
+
+function getCachedFloodGuard(lat: number, lng: number): FloodGuardCacheEntry | null {
+  const entry = getFloodGuardCacheEntry(lat, lng);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) return null;
+  return entry;
+}
+
+function setCachedFloodGuard(lat: number, lng: number, value: unknown): FloodGuardCacheEntry {
+  const now = Date.now();
+  const entry: FloodGuardCacheEntry = {
+    value,
+    storedAt: now,
+    expiresAt: now + FLOODGUARD_CACHE_TTL_MS,
+  };
+  floodGuardCache.set(getFloodGuardCacheKey(lat, lng), entry);
+  return entry;
+}
+
+function isRateLimitError(err: unknown): boolean {
+  const msg = String(err instanceof Error ? err.message : err ?? "").toLowerCase();
+  return (
+    msg.includes("429") ||
+    msg.includes("rate limit") ||
+    msg.includes("daily api request limit exceeded") ||
+    msg.includes("too many requests")
+  );
+}
+
+function sanitizeProviderError(err: unknown): string {
+  const raw = String(err instanceof Error ? err.message : err ?? "provider error");
+  return raw.replace(/\s+/g, " ").trim().slice(0, 220);
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit, timeoutMs = 12_000): Promise<T> {
@@ -375,6 +429,65 @@ export async function getFloodRisk(coords: Coordinates) {
       hourlyCount: forecast.hourly?.time?.length ?? 0,
     },
   };
+}
+
+async function getFloodGuardForWaterPacket(coords: Coordinates) {
+  const freshCached = getCachedFloodGuard(coords.lat, coords.lng);
+  if (freshCached) {
+    return {
+      ...(freshCached.value as Record<string, unknown>),
+      status: "ok" as const,
+      cacheStatus: "hit" as const,
+      cachedAt: new Date(freshCached.storedAt).toISOString(),
+      cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+    };
+  }
+
+  try {
+    const fresh = await getFloodRisk(coords);
+    const stored = setCachedFloodGuard(coords.lat, coords.lng, fresh);
+    return {
+      ...fresh,
+      status: "ok" as const,
+      cacheStatus: "fresh" as const,
+      cachedAt: new Date(stored.storedAt).toISOString(),
+      cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+    };
+  } catch (err: unknown) {
+    const stale = getFloodGuardCacheEntry(coords.lat, coords.lng);
+    if (stale) {
+      return {
+        ...(stale.value as Record<string, unknown>),
+        status: "ok" as const,
+        cacheStatus: "stale_fallback" as const,
+        cachedAt: new Date(stale.storedAt).toISOString(),
+        cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+        warning: "FloodGuard provider failed; using cached result.",
+      };
+    }
+
+    return {
+      status: "unavailable" as const,
+      source: "Open-Meteo + RainViewer",
+      errorType: isRateLimitError(err) ? ("rate_limited" as const) : ("provider_error" as const),
+      message:
+        "FloodGuard provider temporarily unavailable. Water packet generated with remaining sources.",
+      originalError: sanitizeProviderError(err),
+      floodRisk: {
+        score: null,
+        level: "unavailable",
+        next24PrecipMm: null,
+        next24RainMm: null,
+        next24RunoffMm: null,
+        maxHourlyRainMm: null,
+        method: "FloodGuard unavailable for this packet due to provider error.",
+      },
+      radar: null,
+      forecastSummary: null,
+      cacheStatus: "miss" as const,
+      cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+    };
+  }
 }
 
 /**
@@ -2093,12 +2206,68 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
     typeof input.usgsSite === "string" && input.usgsSite.trim() ? input.usgsSite.trim() : undefined;
   const generatedAt = new Date().toISOString();
 
-  const [floodguard, usgsWater, nwsAlerts, geoLedger] = await Promise.all([
-    getFloodRisk({ lat, lng }),
-    getUsgsWaterSiteSnapshot(usgsSite ? { site: usgsSite, lat, lng } : { lat, lng }),
-    getNwsActiveAlertsPacket({ lat, lng, label }),
-    getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }),
-  ]);
+  const floodguard = await getFloodGuardForWaterPacket({ lat, lng });
+  const usgsWater = await getUsgsWaterSiteSnapshot(usgsSite ? { site: usgsSite, lat, lng } : { lat, lng })
+    .catch((err: unknown) => ({
+      source: "USGS Water Services",
+      status: "error" as const,
+      message: sanitizeProviderError(err),
+      readings: [],
+      waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+    }));
+  const nwsAlerts = await getNwsActiveAlertsPacket({ lat, lng, label }).catch((err: unknown) => ({
+    source: "NOAA/National Weather Service",
+    status: "error" as const,
+    message: sanitizeProviderError(err),
+    alertCount: 0,
+    highestSeverity: null,
+    activeAlerts: [],
+  }));
+  const geoLedger = await getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }).catch((err: unknown) => ({
+    source: "GeoLedger",
+    status: "error" as const,
+    validationStatus: "error" as const,
+    message: sanitizeProviderError(err),
+    geoLedgerId: null,
+    formattedAddress: null,
+  }));
+
+  const moduleHealth = {
+    floodguard:
+      (floodguard as any)?.status === "unavailable"
+        ? ("unavailable" as const)
+        : (floodguard as any)?.cacheStatus === "stale_fallback"
+          ? ("stale_fallback" as const)
+          : (floodguard as any)?.cacheStatus === "hit"
+            ? ("cached" as const)
+            : (floodguard as any)?.cacheStatus === "fresh"
+              ? ("ok" as const)
+              : ("error" as const),
+    usgsWater:
+      (usgsWater as any)?.status === "ok"
+        ? ("ok" as const)
+        : (usgsWater as any)?.status === "error"
+          ? ("error" as const)
+          : ("unavailable" as const),
+    nwsAlerts:
+      (nwsAlerts as any)?.status === "ok" || (nwsAlerts as any)?.status === "no_active_alerts"
+        ? ("ok" as const)
+        : (nwsAlerts as any)?.status === "error"
+          ? ("error" as const)
+          : ("unavailable" as const),
+    geoLedger:
+      (geoLedger as any)?.status === "matched" || (geoLedger as any)?.validationStatus === "advisory"
+        ? ("ok" as const)
+        : (geoLedger as any)?.status === "error" || (geoLedger as any)?.validationStatus === "error"
+          ? ("error" as const)
+          : ("unavailable" as const),
+  };
+
+  const healthyCount = Object.values(moduleHealth).filter((v) =>
+    v === "ok" || v === "cached" || v === "stale_fallback"
+  ).length;
+  const packetStatus =
+    healthyCount === 0 ? ("error" as const) : healthyCount === 4 ? ("ok" as const) : ("degraded" as const);
 
   const activeAlerts = Array.isArray((nwsAlerts as any)?.activeAlerts)
     ? ((nwsAlerts as any).activeAlerts as Array<Record<string, unknown>>)
@@ -2110,7 +2279,12 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
   const hasOfficialAlert = officialAlerts.length > 0;
   const floodRiskLevel = String((floodguard as any)?.floodRisk?.level ?? "unknown").toLowerCase();
   const floodRiskScoreRaw = Number((floodguard as any)?.floodRisk?.score);
-  const floodRiskScore = Number.isFinite(floodRiskScoreRaw) ? floodRiskScoreRaw : null;
+  const floodRiskScore =
+    floodRiskLevel === "unavailable"
+      ? null
+      : Number.isFinite(floodRiskScoreRaw)
+        ? floodRiskScoreRaw
+        : null;
   const usgsStatus = String((usgsWater as any)?.status ?? "unknown");
   const nwsStatus = String((nwsAlerts as any)?.status ?? "unknown");
 
@@ -2119,12 +2293,15 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
     hasOfficialAlert &&
     (highestOfficialSeverity === "Severe" || highestOfficialSeverity === "Extreme");
 
-  const recommendedReviewStatus =
+  let recommendedReviewStatus =
     isUrgentByFlood || isUrgentByNws
       ? ("urgent_review" as const)
       : floodRiskLevel === "moderate" || usgsStatus === "ok" || hasOfficialAlert
         ? ("review" as const)
         : ("monitor" as const);
+  if (packetStatus === "degraded" && recommendedReviewStatus === "monitor") {
+    recommendedReviewStatus = "review";
+  }
 
   const canonicalSummary = {
     packetType: "DPAL_WATER_ALERT_EVIDENCE_PACKET_V0_1",
@@ -2169,7 +2346,7 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
       evidenceHash: (geoLedger as any)?.evidenceHash ?? null,
     },
     summary: {
-      floodRiskLevel,
+      floodRiskLevel: floodRiskLevel === "unavailable" ? "unavailable" : floodRiskLevel,
       floodRiskScore,
       usgsStatus,
       nwsStatus,
@@ -2178,6 +2355,8 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
       hasOfficialAlert,
       recommendedReviewStatus,
     },
+    status: packetStatus,
+    moduleHealth,
   };
 
   const evidenceHash = sha256(JSON.stringify(canonicalSummary));
@@ -2201,6 +2380,8 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
     coordinates: { lat, lng },
     ...(label ? { label } : {}),
     generatedAt,
+    status: packetStatus,
+    moduleHealth,
     floodguard,
     usgsWater,
     nwsAlerts,

@@ -59,6 +59,10 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   const floodGuard = (packet?.floodguard || packet?.floodGuard || packet?.modules?.floodguard || {}) as PacketRecord;
   const floodRisk = (floodGuard?.floodRisk || {}) as PacketRecord;
   const floodRadar = (floodGuard?.radar || {}) as PacketRecord;
+  const moduleHealth = (packet?.moduleHealth || {}) as PacketRecord;
+  const isDegraded = packet?.status === "degraded";
+  const isFloodGuardUnavailable =
+    floodGuard?.status === "unavailable" || String(floodRisk?.level || "").toLowerCase() === "unavailable";
   const usgs = (packet?.usgsWater || packet?.usgs || packet?.waterGauge || packet?.modules?.usgs || {}) as PacketRecord;
   const usgsWaterSignals = (usgs?.waterSignals || {}) as PacketRecord;
   const nws = (packet?.nwsAlerts || packet?.nws || packet?.modules?.nws || {}) as PacketRecord;
@@ -95,8 +99,15 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       });
       setPacketData(result as PacketRecord);
     } catch (err) {
+      const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
+      const isOpenMeteoRateLimit =
+        /429/.test(rawMessage) && /open-meteo|Daily API request limit exceeded/i.test(rawMessage);
       setPacketData(null);
-      setError(err instanceof Error ? err.message : "Water evidence scan failed.");
+      setError(
+        isOpenMeteoRateLimit
+          ? "Live provider rate limit reached for FloodGuard weather input (Open-Meteo). This is a temporary upstream limit; retry later or use backend fallback/provider failover for uninterrupted operations."
+          : rawMessage,
+      );
     } finally {
       setLoading(false);
     }
@@ -116,10 +127,11 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
           instruction.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
-          <Chip label="Packet status" value={packet?.packetStatus || summary.packetStatus || packet?.packetType || "idle"} />
+          <Chip label="Packet status" value={packet?.status || packet?.packetStatus || summary.packetStatus || packet?.packetType || "idle"} />
           <Chip label="Review recommendation" value={summary.recommendedReviewStatus || packet?.recommendedReviewStatus || "n/a"} />
           <Chip label="Claim safety" value={claimSafetyChipValue} />
           <Chip label="Anchor status" value={anchorPreview.anchorStatus || packet?.anchorStatus || "n/a"} />
+          {isDegraded ? <Chip label="System state" value="Degraded — one or more providers unavailable" /> : null}
         </div>
       </header>
 
@@ -174,6 +186,17 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
 
       {packet ? (
         <>
+          {packet?.moduleHealth ? (
+            <Panel title="Module Health">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                <ReadRow label="FloodGuard" value={moduleHealth.floodguard || "n/a"} />
+                <ReadRow label="USGS" value={moduleHealth.usgsWater || "n/a"} />
+                <ReadRow label="NWS" value={moduleHealth.nwsAlerts || "n/a"} />
+                <ReadRow label="GeoLedger" value={moduleHealth.geoLedger || "n/a"} />
+              </div>
+            </Panel>
+          ) : null}
+
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Panel title="Summary Panel">
               <ReadRow label="floodRiskLevel" value={summary.floodRiskLevel || floodRisk.level} />
@@ -190,13 +213,40 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
             </Panel>
 
             <Panel title="FloodGuard Panel">
-              <ReadRow label="score" value={floodRisk.score} />
-              <ReadRow label="level" value={floodRisk.level} />
-              <ReadRow label="next24PrecipMm" value={floodRisk.next24PrecipMm} />
-              <ReadRow label="next24RainMm" value={floodRisk.next24RainMm} />
-              <ReadRow label="maxHourlyRainMm" value={floodRisk.maxHourlyRainMm} />
-              <ReadRow label="method" value={floodRisk.method} />
-              <ReadRow label="radar frame count" value={floodRadar.frameCount} />
+              {isFloodGuardUnavailable ? (
+                <div className="space-y-2">
+                  <p className="rounded-md border border-amber-500/50 bg-amber-950/30 px-2 py-1 text-xs font-semibold text-amber-100">
+                    FloodGuard temporarily unavailable
+                  </p>
+                  {floodGuard.errorType === "rate_limited" ? (
+                    <p className="text-xs text-amber-200">
+                      Open-Meteo rate limit reached. Packet generated using remaining sources.
+                    </p>
+                  ) : null}
+                  <ReadRow label="status" value={floodGuard.status || "unavailable"} />
+                  <ReadRow label="message" value={floodGuard.message || "Provider unavailable"} />
+                  <ReadRow label="originalError" value={floodGuard.originalError || "n/a"} />
+                  <ReadRow label="cacheStatus" value={floodGuard.cacheStatus || "n/a"} />
+                  <ReadRow label="cachedAt" value={floodGuard.cachedAt || "n/a"} />
+                  <ReadRow label="cacheTtlMinutes" value={floodGuard.cacheTtlMinutes || "n/a"} />
+                </div>
+              ) : (
+                <>
+                  <ReadRow label="score" value={floodRisk.score} />
+                  <ReadRow label="level" value={floodRisk.level} />
+                  <ReadRow label="next24PrecipMm" value={floodRisk.next24PrecipMm} />
+                  <ReadRow label="next24RainMm" value={floodRisk.next24RainMm} />
+                  <ReadRow label="maxHourlyRainMm" value={floodRisk.maxHourlyRainMm} />
+                  <ReadRow label="method" value={floodRisk.method} />
+                  <ReadRow label="radar frame count" value={floodRadar.frameCount} />
+                  {floodGuard.cacheStatus ? <ReadRow label="cacheStatus" value={floodGuard.cacheStatus} /> : null}
+                  {floodGuard.cachedAt ? <ReadRow label="cachedAt" value={floodGuard.cachedAt} /> : null}
+                  {floodGuard.cacheTtlMinutes ? (
+                    <ReadRow label="cacheTtlMinutes" value={floodGuard.cacheTtlMinutes} />
+                  ) : null}
+                  {floodGuard.warning ? <ReadRow label="warning" value={floodGuard.warning} /> : null}
+                </>
+              )}
             </Panel>
           </div>
 
