@@ -14,6 +14,7 @@ import {
   buildEvidencePacketPreview,
   buildCarbonEstimatePacket,
   buildBlockchainAnchorPreview,
+  getUsgsWaterSiteSnapshot,
 } from "../services/publicApiAdapters.js";
 
 const router = Router();
@@ -50,6 +51,34 @@ router.get("/city-intelligence", async (req: Request, res: Response) => {
 /**
  * GET /api/integrations/flood-risk?lat=-17.78&lng=-63.18
  */
+/**
+ * GET /api/integrations/water/usgs/site-snapshot?site=01646500
+ * GET /api/integrations/water/usgs/site-snapshot?lat=38.95&lng=-77.13
+ * Optional: parameters=00060,00065,00010
+ */
+router.get("/water/usgs/site-snapshot", async (req: Request, res: Response) => {
+  try {
+    const siteRaw = req.query.site != null ? String(req.query.site).trim() : "";
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    const parameters =
+      req.query.parameters != null && String(req.query.parameters).trim() !== ""
+        ? String(req.query.parameters)
+        : undefined;
+
+    if (!siteRaw && (!Number.isFinite(lat) || !Number.isFinite(lng))) {
+      return res.status(400).json({ ok: false, error: "Provide either site or lat/lng." });
+    }
+
+    const packet = await getUsgsWaterSiteSnapshot(
+      siteRaw ? { site: siteRaw, parameters } : { lat, lng, parameters }
+    );
+    res.json({ ok: true, packet });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "usgs site-snapshot failed" });
+  }
+});
+
 router.get("/flood-risk", async (req: Request, res: Response) => {
   try {
     const lat = Number(req.query.lat);

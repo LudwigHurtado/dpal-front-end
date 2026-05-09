@@ -87,6 +87,13 @@ export function getProviderStatus(): ProviderStatus[] {
       purpose: "External chain transaction verification for anchored evidence hashes.",
       mode: process.env.ETHERSCAN_API_KEY ? "live" : "needs_key",
     },
+    {
+      key: "usgs_water",
+      label: "USGS Water Services",
+      configured: true,
+      purpose: "NWIS instantaneous values for streamflow, gage height, and water temperature.",
+      mode: "live",
+    },
   ];
 }
 
@@ -1489,6 +1496,377 @@ export function buildBlockchainAnchorPreview(input: BlockchainAnchorPreviewInput
       warning: "Anchor preview only. No blockchain transaction has been broadcast.",
     },
   };
+}
+
+const USGS_WATER_SNAPSHOT_PACKET_TYPE = "DPAL_USGS_WATER_SITE_SNAPSHOT_V0_1" as const;
+const USGS_IV_BASE = "https://waterservices.usgs.gov/nwis/iv/";
+const DEFAULT_USGS_PARAMETERS = "00060,00065,00010";
+const USGS_WATER_SNAPSHOT_METHOD =
+  "DPAL USGS Water Snapshot v0.1 = USGS stream gauge readings normalized into a water intelligence packet.";
+
+const USGS_WATER_CLAIM_SAFETY = {
+  validatorReviewed: false,
+  publicClaimAllowed: false,
+  warning:
+    "USGS water data packet is advisory until reviewed. Do not treat as official flood determination by DPAL.",
+} as const;
+
+export type UsgsWaterSiteSnapshotInput = {
+  site?: string;
+  lat?: number;
+  lng?: number;
+  parameters?: string;
+};
+
+function decodeBasicHtmlEntities(s: string): string {
+  return String(s || "")
+    .replace(/&#176;/g, "°")
+    .replace(/&deg;/g, "°")
+    .replace(/&#8206;/g, "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">");
+}
+
+function parseIvTimeSeriesRoot(data: unknown): unknown[] {
+  const root = data as { value?: { timeSeries?: unknown } };
+  const ts = root?.value?.timeSeries;
+  return Array.isArray(ts) ? ts : [];
+}
+
+function extractSiteCandidatesFromIv(timeSeries: unknown[]): Array<{
+  site: string;
+  lat: number;
+  lng: number;
+  siteName: string;
+}> {
+  const bySite = new Map<string, { site: string; lat: number; lng: number; siteName: string }>();
+  for (const row of timeSeries) {
+    const r = row as {
+      sourceInfo?: {
+        siteName?: string;
+        siteCode?: Array<{ value?: string }>;
+        geoLocation?: { geogLocation?: { latitude?: number; longitude?: number } };
+      };
+    };
+    const rawCode = r?.sourceInfo?.siteCode?.[0]?.value;
+    if (rawCode == null || String(rawCode).trim() === "") continue;
+    const site = String(rawCode).trim();
+    const geo = r?.sourceInfo?.geoLocation?.geogLocation;
+    const lat = Number(geo?.latitude);
+    const lng = Number(geo?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
+    const siteName = String(r?.sourceInfo?.siteName || "").trim() || site;
+    if (!bySite.has(site)) bySite.set(site, { site, lat, lng, siteName });
+  }
+  return [...bySite.values()];
+}
+
+function pickNearestSiteCandidate(
+  candidates: Array<{ site: string; lat: number; lng: number; siteName: string }>,
+  lat: number,
+  lng: number
+): { site: string; lat: number; lng: number; siteName: string } | null {
+  if (candidates.length === 0) return null;
+  let best = candidates[0]!;
+  let bestD = Infinity;
+  for (const c of candidates) {
+    const dx = c.lng - lng;
+    const dy = c.lat - lat;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD) {
+      bestD = d2;
+      best = c;
+    }
+  }
+  return best;
+}
+
+type UsgsNormalizedReading = {
+  parameterCode: string;
+  parameterName: string;
+  value: number | null;
+  unit: string;
+  dateTime: string;
+  qualifiers: string[];
+};
+
+function collectLatestReadingsPerParameter(timeSeries: unknown[]): UsgsNormalizedReading[] {
+  type Agg = UsgsNormalizedReading & { t: number };
+  const latest = new Map<string, Agg>();
+
+  for (const series of timeSeries) {
+    const s = series as {
+      variable?: {
+        variableCode?: Array<{ value?: string }>;
+        variableName?: string;
+        unit?: { unitCode?: string };
+      };
+      values?: Array<{ value?: Array<{ value?: string | number; qualifiers?: unknown; dateTime?: string }> }>;
+    };
+    const paramCodes = s?.variable?.variableCode;
+    const firstCode =
+      Array.isArray(paramCodes) && paramCodes[0]?.value != null ? String(paramCodes[0].value).trim() : "";
+    if (!firstCode) continue;
+
+    const parameterName = decodeBasicHtmlEntities(String(s?.variable?.variableName || firstCode));
+    const unit = String(s?.variable?.unit?.unitCode || "").trim() || "unknown";
+
+    const valueBlocks = Array.isArray(s?.values) ? s.values : [];
+    for (const block of valueBlocks) {
+      const points = Array.isArray(block?.value) ? block.value : [];
+      for (const pt of points) {
+        const dtStr = pt?.dateTime != null ? String(pt.dateTime) : "";
+        const t = Date.parse(dtStr);
+        if (!Number.isFinite(t) || dtStr === "") continue;
+
+        const rawVal = pt?.value;
+        let num: number | null = null;
+        if (rawVal != null && rawVal !== "") {
+          const n = Number(rawVal);
+          num = Number.isFinite(n) ? n : null;
+        }
+
+        const qualifiers = Array.isArray(pt?.qualifiers)
+          ? pt.qualifiers.map((q: unknown) => String(q))
+          : [];
+
+        const prev = latest.get(firstCode);
+        if (!prev || t > prev.t) {
+          latest.set(firstCode, {
+            parameterCode: firstCode,
+            parameterName,
+            unit,
+            value: num,
+            dateTime: dtStr,
+            qualifiers,
+            t,
+          });
+        }
+      }
+    }
+  }
+
+  const rows: UsgsNormalizedReading[] = [...latest.values()].map(({ t: _t, ...rest }) => rest);
+  rows.sort((a, b) => a.parameterCode.localeCompare(b.parameterCode));
+  return rows;
+}
+
+function buildUsgsWaterSignals(readings: UsgsNormalizedReading[]) {
+  const byCode = new Map(readings.map((r) => [r.parameterCode, r.value]));
+  return {
+    dischargeCfs: byCode.get("00060") ?? null,
+    gageHeightFt: byCode.get("00065") ?? null,
+    waterTempC: byCode.get("00010") ?? null,
+  };
+}
+
+/**
+ * USGS NWIS instantaneous values → DPAL water intelligence packet (advisory).
+ * Site discovery uses a small IV bBox query (stream sites with discharge); USGS Site Service JSON is not used.
+ */
+export async function getUsgsWaterSiteSnapshot(input: UsgsWaterSiteSnapshotInput) {
+  const generatedAt = new Date().toISOString();
+  const parameterCd =
+    input.parameters != null && String(input.parameters).trim() !== ""
+      ? String(input.parameters).trim()
+      : DEFAULT_USGS_PARAMETERS;
+
+  let site: string | null = null;
+  let coordinates: Coordinates | null = null;
+  let siteName: string | null = null;
+
+  const hashEvidence = (payload: Record<string, unknown>) =>
+    sha256(
+      JSON.stringify({
+        type: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+        generatedAt,
+        ...payload,
+      })
+    );
+
+  const siteTrimmed = input.site != null ? String(input.site).trim() : "";
+
+  try {
+    if (siteTrimmed) {
+      site = siteTrimmed;
+    } else {
+      const lat = Number(input.lat);
+      const lng = Number(input.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return {
+          packetType: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+          source: "USGS Water Services",
+          site: null,
+          coordinates: null,
+          siteName: null,
+          generatedAt,
+          readings: [] as UsgsNormalizedReading[],
+          waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+          status: "error" as const,
+          message: "Provide either site or lat/lng.",
+          method: USGS_WATER_SNAPSHOT_METHOD,
+          evidenceHash: hashEvidence({ status: "error", reason: "missing_input" }),
+          claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
+        };
+      }
+
+      const delta = 0.03;
+      const bBox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`;
+      const discoveryParams = new URLSearchParams({
+        format: "json",
+        bBox,
+        parameterCd: "00060",
+        siteType: "ST",
+        siteStatus: "active",
+      });
+      const discoveryData = await fetchJson<unknown>(`${USGS_IV_BASE}?${discoveryParams.toString()}`);
+      const candidates = extractSiteCandidatesFromIv(parseIvTimeSeriesRoot(discoveryData));
+      const picked = pickNearestSiteCandidate(candidates, lat, lng);
+      if (!picked) {
+        return {
+          packetType: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+          source: "USGS Water Services",
+          site: null,
+          coordinates: { lat, lng },
+          siteName: null,
+          generatedAt,
+          readings: [] as UsgsNormalizedReading[],
+          waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+          status: "no_data" as const,
+          method: USGS_WATER_SNAPSHOT_METHOD,
+          evidenceHash: hashEvidence({
+            status: "no_data",
+            coordinates: { lat, lng },
+            reason: "no_stream_site_in_bbox",
+          }),
+          claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
+        };
+      }
+      site = picked.site;
+      coordinates = { lat: picked.lat, lng: picked.lng };
+      siteName = picked.siteName;
+    }
+
+    const ivParams = new URLSearchParams({
+      format: "json",
+      sites: site,
+      parameterCd,
+      siteStatus: "all",
+    });
+    const ivData = await fetchJson<unknown>(`${USGS_IV_BASE}?${ivParams.toString()}`);
+    const series = parseIvTimeSeriesRoot(ivData);
+
+    if (series.length > 0) {
+      const first = series[0] as {
+        sourceInfo?: {
+          siteName?: string;
+          geoLocation?: { geogLocation?: { latitude?: number; longitude?: number } };
+        };
+      };
+      const geo = first?.sourceInfo?.geoLocation?.geogLocation;
+      const lat = Number(geo?.latitude);
+      const lng = Number(geo?.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) coordinates = { lat, lng };
+      const nm = String(first?.sourceInfo?.siteName || "").trim();
+      if (nm) siteName = nm;
+    }
+
+    if (series.length === 0) {
+      return {
+        packetType: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+        source: "USGS Water Services",
+        site,
+        coordinates,
+        siteName,
+        generatedAt,
+        readings: [] as UsgsNormalizedReading[],
+        waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+        status: "no_data" as const,
+        method: USGS_WATER_SNAPSHOT_METHOD,
+        evidenceHash: hashEvidence({
+          status: "no_data",
+          site,
+          coordinates,
+          parameterCd,
+        }),
+        claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
+      };
+    }
+
+    const readings = collectLatestReadingsPerParameter(series);
+    if (readings.length === 0) {
+      return {
+        packetType: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+        source: "USGS Water Services",
+        site,
+        coordinates,
+        siteName,
+        generatedAt,
+        readings: [] as UsgsNormalizedReading[],
+        waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+        status: "no_data" as const,
+        method: USGS_WATER_SNAPSHOT_METHOD,
+        evidenceHash: hashEvidence({
+          status: "no_data",
+          site,
+          coordinates,
+          parameterCd,
+        }),
+        claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
+      };
+    }
+
+    const waterSignals = buildUsgsWaterSignals(readings);
+
+    return {
+      packetType: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+      source: "USGS Water Services",
+      site,
+      coordinates,
+      siteName,
+      generatedAt,
+      readings,
+      waterSignals,
+      status: "ok" as const,
+      method: USGS_WATER_SNAPSHOT_METHOD,
+      evidenceHash: hashEvidence({
+        status: "ok",
+        site,
+        coordinates,
+        readings: readings.map((r) => ({
+          parameterCode: r.parameterCode,
+          value: r.value,
+          unit: r.unit,
+          dateTime: r.dateTime,
+        })),
+        waterSignals,
+      }),
+      claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : "USGS request failed.";
+    return {
+      packetType: USGS_WATER_SNAPSHOT_PACKET_TYPE,
+      source: "USGS Water Services",
+      site,
+      coordinates,
+      siteName,
+      generatedAt,
+      readings: [] as UsgsNormalizedReading[],
+      waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+      status: "error" as const,
+      message: msg,
+      method: USGS_WATER_SNAPSHOT_METHOD,
+      evidenceHash: hashEvidence({
+        status: "error",
+        site,
+        coordinates,
+        error: msg,
+      }),
+      claimSafety: { ...USGS_WATER_CLAIM_SAFETY },
+    };
+  }
 }
 
 /**
