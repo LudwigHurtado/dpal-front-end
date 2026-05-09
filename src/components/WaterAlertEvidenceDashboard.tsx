@@ -56,8 +56,11 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
 
   const packet = getPacketRoot(packetData);
   const summary = (packet?.summary || packet?.waterAlertSummary || {}) as PacketRecord;
-  const floodGuard = (packet?.floodGuard || packet?.floodguard || packet?.modules?.floodguard || {}) as PacketRecord;
-  const usgs = (packet?.usgs || packet?.waterGauge || packet?.modules?.usgs || {}) as PacketRecord;
+  const floodGuard = (packet?.floodguard || packet?.floodGuard || packet?.modules?.floodguard || {}) as PacketRecord;
+  const floodRisk = (floodGuard?.floodRisk || {}) as PacketRecord;
+  const floodRadar = (floodGuard?.radar || {}) as PacketRecord;
+  const usgs = (packet?.usgsWater || packet?.usgs || packet?.waterGauge || packet?.modules?.usgs || {}) as PacketRecord;
+  const usgsWaterSignals = (usgs?.waterSignals || {}) as PacketRecord;
   const nws = (packet?.nwsAlerts || packet?.nws || packet?.modules?.nws || {}) as PacketRecord;
   const geoLedger = (packet?.geoLedger || packet?.geo || packet?.modules?.geoLedger || {}) as PacketRecord;
   const evidence = (packet?.evidenceIntegrity || packet?.integrity || {}) as PacketRecord;
@@ -66,6 +69,13 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
 
   const activeAlerts = asArray<PacketRecord>(nws.activeAlerts || nws.alerts || []);
   const usgsReadings = asArray<PacketRecord>(usgs.readings || usgs.latestReadings || []);
+  const claimSafetyChipValue = claimSafety
+    ? claimSafety.publicClaimAllowed === false
+      ? "Public claim blocked"
+      : claimSafety.validatorReviewed === false
+      ? "Validator review required"
+      : claimSafety.warning || claimSafety.status || claimSafety.level || "Claim guidance available"
+    : "n/a";
 
   async function runScan() {
     const lat = Number(form.lat);
@@ -108,7 +118,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         <div className="mt-3 flex flex-wrap gap-2">
           <Chip label="Packet status" value={packet?.packetStatus || summary.packetStatus || packet?.packetType || "idle"} />
           <Chip label="Review recommendation" value={summary.recommendedReviewStatus || packet?.recommendedReviewStatus || "n/a"} />
-          <Chip label="Claim safety" value={claimSafety?.status || claimSafety?.level || packet?.claimSafetyStatus || "n/a"} />
+          <Chip label="Claim safety" value={claimSafetyChipValue} />
           <Chip label="Anchor status" value={anchorPreview.anchorStatus || packet?.anchorStatus || "n/a"} />
         </div>
       </header>
@@ -166,12 +176,12 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Panel title="Summary Panel">
-              <ReadRow label="floodRiskLevel" value={summary.floodRiskLevel || floodGuard.level} />
-              <ReadRow label="floodRiskScore" value={summary.floodRiskScore || floodGuard.score} />
+              <ReadRow label="floodRiskLevel" value={summary.floodRiskLevel || floodRisk.level} />
+              <ReadRow label="floodRiskScore" value={summary.floodRiskScore || floodRisk.score} />
               <ReadRow label="usgsStatus" value={summary.usgsStatus || usgs.status} />
               <ReadRow label="nwsStatus" value={summary.nwsStatus || nws.status} />
               <ReadRow label="nwsAlertCount" value={summary.nwsAlertCount ?? nws.alertCount ?? activeAlerts.length} />
-              <ReadRow label="highestNwsSeverity" value={summary.highestNwsSeverity || nws.highestSeverity} />
+              <ReadRow label="highestNwsSeverity" value={summary.highestNwsSeverity ?? "None"} />
               <ReadRow label="hasOfficialAlert" value={String(summary.hasOfficialAlert ?? nws.hasOfficialAlert ?? false)} />
               <ReadRow
                 label="recommendedReviewStatus"
@@ -180,26 +190,23 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
             </Panel>
 
             <Panel title="FloodGuard Panel">
-              <ReadRow label="score" value={floodGuard.score} />
-              <ReadRow label="level" value={floodGuard.level} />
-              <ReadRow label="next24PrecipMm" value={floodGuard.next24PrecipMm} />
-              <ReadRow label="next24RainMm" value={floodGuard.next24RainMm} />
-              <ReadRow label="maxHourlyRainMm" value={floodGuard.maxHourlyRainMm} />
-              <ReadRow label="method" value={floodGuard.method} />
-              <ReadRow
-                label="radar frame count"
-                value={floodGuard.radarFrameCount ?? asArray(floodGuard.radarFrames).length}
-              />
+              <ReadRow label="score" value={floodRisk.score} />
+              <ReadRow label="level" value={floodRisk.level} />
+              <ReadRow label="next24PrecipMm" value={floodRisk.next24PrecipMm} />
+              <ReadRow label="next24RainMm" value={floodRisk.next24RainMm} />
+              <ReadRow label="maxHourlyRainMm" value={floodRisk.maxHourlyRainMm} />
+              <ReadRow label="method" value={floodRisk.method} />
+              <ReadRow label="radar frame count" value={floodRadar.frameCount} />
             </Panel>
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <Panel title="USGS Water Gauge Panel">
               <ReadRow label="siteName" value={usgs.siteName} />
-              <ReadRow label="site number" value={usgs.siteNumber || usgs.siteNo} />
-              <ReadRow label="dischargeCfs" value={usgs.dischargeCfs} />
-              <ReadRow label="gageHeightFt" value={usgs.gageHeightFt} />
-              <ReadRow label="waterTempC" value={usgs.waterTempC} />
+              <ReadRow label="site number" value={usgs.site} />
+              <ReadRow label="dischargeCfs" value={usgsWaterSignals.dischargeCfs} />
+              <ReadRow label="gageHeightFt" value={usgsWaterSignals.gageHeightFt} />
+              <ReadRow label="waterTempC" value={usgsWaterSignals.waterTempC} />
               <div className="mt-3">
                 <p className="mb-2 text-xs font-semibold text-slate-200">Readings table</p>
                 <div className="overflow-auto rounded-lg border border-slate-800">
