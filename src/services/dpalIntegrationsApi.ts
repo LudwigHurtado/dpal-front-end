@@ -1,7 +1,7 @@
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL ||
   import.meta.env.VITE_BACKEND_URL ||
-  "http://localhost:8080";
+  "https://web-production-a27b.up.railway.app";
 
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`);
@@ -53,4 +53,23 @@ export function estimateDpalEmissions(body: {
 
 export function createDpalEvidencePacketPreview(body: Record<string, unknown>) {
   return postJson<{ ok: boolean; packet: any }>("/api/integrations/evidence/packet-preview", body);
+}
+
+export type WaterAlertEvidencePacketParams = {
+  lat: number;
+  lng: number;
+  label?: string;
+  usgsSite?: string;
+};
+
+export function getWaterAlertEvidencePacket(params: WaterAlertEvidencePacketParams) {
+  const q = new URLSearchParams({
+    lat: String(params.lat),
+    lng: String(params.lng),
+  });
+  if (params.label?.trim()) q.set("label", params.label.trim());
+  if (params.usgsSite?.trim()) q.set("usgsSite", params.usgsSite.trim());
+  return getJson<{ ok?: boolean; packet?: any; [key: string]: any }>(
+    `/api/integrations/water/alert-evidence-packet?${q.toString()}`,
+  );
 }

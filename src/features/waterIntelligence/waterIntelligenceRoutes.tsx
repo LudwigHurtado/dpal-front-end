@@ -16,6 +16,7 @@ import PublicWaterVerificationView from './PublicWaterVerificationView';
 import WaterSituationRoomPlaceholder from './WaterSituationRoomPlaceholder';
 import CreateProjectPlaceholder from './CreateProjectPlaceholder';
 import InvestorDemoPlaceholder from './InvestorDemoPlaceholder';
+import WaterAlertEvidenceDashboard from '../../components/WaterAlertEvidenceDashboard';
 
 /** Route config metadata for documentation / tests — paths are relative to `/water-intelligence`. */
 export const waterIntelligenceRouteObjects = [
@@ -34,6 +35,7 @@ export const waterIntelligenceRouteObjects = [
   { path: 'situation/:projectId', label: 'Situation room placeholder' },
   { path: 'create-project', label: 'Create project placeholder' },
   { path: 'investor', label: 'Investor demo placeholder' },
+  { path: 'water-alert-evidence', label: 'Water alert evidence packet dashboard' },
 ] as const;
 
 export default function WaterIntelligenceRoutes(): React.ReactElement {
@@ -55,6 +57,7 @@ export default function WaterIntelligenceRoutes(): React.ReactElement {
         <Route path="situation/:projectId" element={<WaterSituationRoomPlaceholder />} />
         <Route path="create-project" element={<CreateProjectPlaceholder />} />
         <Route path="investor" element={<InvestorDemoPlaceholder />} />
+        <Route path="water-alert-evidence" element={<WaterAlertEvidenceDashboard />} />
       </Route>
     </Routes>
   );

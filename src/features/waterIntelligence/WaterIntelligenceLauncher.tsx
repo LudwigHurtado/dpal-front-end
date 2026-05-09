@@ -213,6 +213,24 @@ export default function WaterIntelligenceLauncher({
 
         <article className="rounded-2xl p-5 border dpal-border-subtle space-y-3" style={{ background: 'var(--dpal-card)' }}>
           <h2 className="text-base font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
+            Water Alert Evidence Packet
+          </h2>
+          <p className="text-xs dpal-text-secondary leading-relaxed">
+            Run a live evidence scan combining FloodGuard, USGS gauges, NWS alerts, GeoLedger, and anchor preview.
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/water-intelligence/water-alert-evidence')}
+            className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold"
+            style={{ background: 'var(--dpal-primary)', color: 'var(--md-sys-color-on-primary, #00201a)' }}
+          >
+            Open Water Alert Evidence Packet
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </article>
+
+        <article className="rounded-2xl p-5 border dpal-border-subtle space-y-3" style={{ background: 'var(--dpal-card)' }}>
+          <h2 className="text-base font-extrabold" style={{ color: 'var(--dpal-text-primary)' }}>
             Create New Water Project
           </h2>
           <p className="text-xs dpal-text-secondary leading-relaxed">
