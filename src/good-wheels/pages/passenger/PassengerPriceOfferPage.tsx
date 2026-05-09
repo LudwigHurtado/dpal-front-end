@@ -664,7 +664,7 @@ const PassengerPriceOfferPage: React.FC = () => {
               ? 'Sending…'
               : selectedImpactCategory
                 ? 'Continue to Payment'
-                : 'Choose a community cause'}
+                : 'Choose a community cause to continue'}
           </button>
 
           <button
