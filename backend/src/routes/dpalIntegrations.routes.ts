@@ -12,6 +12,7 @@ import {
   verifyChainHash,
   buildEvidencePacketPreview,
   buildCarbonEstimatePacket,
+  buildBlockchainAnchorPreview,
 } from "../services/publicApiAdapters.js";
 
 const router = Router();
@@ -196,6 +197,38 @@ router.get("/blockchain/verify", async (req: Request, res: Response) => {
     res.json({ ok: true, result });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "blockchain verify failed" });
+  }
+});
+
+/**
+ * POST /api/integrations/blockchain/anchor-preview
+ * Preview-only anchor envelope for a DPAL evidenceHash (no transaction broadcast).
+ */
+router.post("/blockchain/anchor-preview", async (req: Request, res: Response) => {
+  try {
+    const body = req.body && typeof req.body === "object" ? req.body : {};
+    const evidenceHash =
+      body.evidenceHash != null && String(body.evidenceHash).trim() !== ""
+        ? String(body.evidenceHash).trim()
+        : "";
+    if (!evidenceHash) {
+      return res.status(400).json({
+        ok: false,
+        error: "evidenceHash is required in the JSON body",
+      });
+    }
+
+    const packet = buildBlockchainAnchorPreview({
+      evidenceHash,
+      packetType: body.packetType,
+      sourceModule: body.sourceModule,
+      location: body.location,
+      projectId: body.projectId,
+      validatorStatus: body.validatorStatus,
+    });
+    res.json({ ok: true, packet });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "blockchain anchor preview failed" });
   }
 });
 

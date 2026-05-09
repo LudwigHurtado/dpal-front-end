@@ -959,6 +959,98 @@ export async function buildCarbonEstimatePacket(input: unknown) {
   };
 }
 
+const BLOCKCHAIN_ANCHOR_PREVIEW_PACKET_TYPE = "DPAL_BLOCKCHAIN_ANCHOR_PREVIEW_V0_1" as const;
+const DEFAULT_ANCHOR_SOURCE_PACKET_TYPE = "UNKNOWN_DPAL_PACKET";
+const DEFAULT_ANCHOR_SOURCE_MODULE = "unknown";
+const DEFAULT_ANCHOR_VALIDATOR_STATUS = "pending_review";
+
+export type BlockchainAnchorPreviewLocation = {
+  label?: string;
+  lat?: number;
+  lng?: number;
+};
+
+export type BlockchainAnchorPreviewInput = {
+  evidenceHash: string;
+  packetType?: string;
+  sourceModule?: string;
+  location?: BlockchainAnchorPreviewLocation | null;
+  projectId?: string;
+  validatorStatus?: string;
+};
+
+function normalizeAnchorPreviewLocation(raw: unknown): BlockchainAnchorPreviewLocation | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const o = raw as Record<string, unknown>;
+  const out: BlockchainAnchorPreviewLocation = {};
+  if (typeof o.label === "string" && o.label.trim()) out.label = o.label.trim();
+  const lat = typeof o.lat === "number" ? o.lat : Number(o.lat);
+  const lng = typeof o.lng === "number" ? o.lng : Number(o.lng);
+  if (Number.isFinite(lat)) out.lat = lat;
+  if (Number.isFinite(lng)) out.lng = lng;
+  if (out.label === undefined && out.lat === undefined && out.lng === undefined) return undefined;
+  return out;
+}
+
+/**
+ * Preview-only envelope: prepares a DPAL evidenceHash for future public-chain anchoring
+ * without broadcasting a transaction or using private keys.
+ *
+ * anchorPayloadHash omits generatedAt so the same source fields yield the same digest on
+ * repeat previews — safer than a time-varying hash that could be mistaken for a rotating
+ * on-chain commitment while still in preview-only mode.
+ */
+export function buildBlockchainAnchorPreview(input: BlockchainAnchorPreviewInput) {
+  const evidenceHash = String(input.evidenceHash ?? "").trim();
+  const sourcePacketType =
+    String(input.packetType ?? "").trim() || DEFAULT_ANCHOR_SOURCE_PACKET_TYPE;
+  const sourceModule = String(input.sourceModule ?? "").trim() || DEFAULT_ANCHOR_SOURCE_MODULE;
+  const validatorStatus =
+    String(input.validatorStatus ?? "").trim() || DEFAULT_ANCHOR_VALIDATOR_STATUS;
+  const projectIdRaw = input.projectId != null ? String(input.projectId).trim() : "";
+  const projectId = projectIdRaw !== "" ? projectIdRaw : undefined;
+  const location = normalizeAnchorPreviewLocation(input.location);
+
+  const anchorStatus = "preview_only" as const;
+  const chainTarget = "not_selected" as const;
+  const generatedAt = new Date().toISOString();
+
+  const hashPayload: Record<string, unknown> = {
+    schema: "DPAL_BLOCKCHAIN_ANCHOR_PREVIEW_HASH_V0_1",
+    evidenceHash,
+    sourcePacketType,
+    sourceModule,
+    validatorStatus,
+    anchorStatus,
+    chainTarget,
+  };
+  if (location) hashPayload.location = location;
+  if (projectId !== undefined) hashPayload.projectId = projectId;
+
+  const anchorPayloadHash = sha256(JSON.stringify(hashPayload));
+
+  return {
+    packetType: BLOCKCHAIN_ANCHOR_PREVIEW_PACKET_TYPE,
+    evidenceHash,
+    sourcePacketType,
+    sourceModule,
+    ...(location ? { location } : {}),
+    ...(projectId !== undefined ? { projectId } : {}),
+    validatorStatus,
+    anchorStatus,
+    chainTarget,
+    generatedAt,
+    anchorPayloadHash,
+    method:
+      "DPAL Blockchain Anchor Preview v0.1 = evidence hash prepared for public-chain anchoring without broadcasting a transaction.",
+    claimSafety: {
+      validatorReviewed: false,
+      publicClaimAllowed: false,
+      warning: "Anchor preview only. No blockchain transaction has been broadcast.",
+    },
+  };
+}
+
 /**
  * Etherscan V2 transaction status lookup.
  */
