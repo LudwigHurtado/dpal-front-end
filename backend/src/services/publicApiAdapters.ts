@@ -781,24 +781,16 @@ const emissionsRequestSchema = z.object({
   parameters: z.record(z.any()),
 });
 
-export async function estimateEmissions(input: unknown) {
-  const apiKey = process.env.CLIMATIQ_API_KEY;
-  if (!apiKey) {
-    return {
-      configured: false,
-      source: "Climatiq",
-      status: "needs_key",
-      message: "Set CLIMATIQ_API_KEY in Railway to enable kgCO2e activity estimates.",
-    };
-  }
-
-  const parsed = emissionsRequestSchema.parse(input);
-  const data = await fetchJson<any>(
+async function fetchClimatiqEstimateWithKey(
+  parsed: z.infer<typeof emissionsRequestSchema>,
+  apiKey: string
+): Promise<any> {
+  return fetchJson<any>(
     "https://api.climatiq.io/data/v1/estimate",
     {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
+        Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -811,6 +803,21 @@ export async function estimateEmissions(input: unknown) {
     },
     18_000
   );
+}
+
+export async function estimateEmissions(input: unknown) {
+  const apiKey = process.env.CLIMATIQ_API_KEY;
+  if (!apiKey) {
+    return {
+      configured: false,
+      source: "Climatiq",
+      status: "needs_key",
+      message: "Set CLIMATIQ_API_KEY in Railway to enable kgCO2e activity estimates.",
+    };
+  }
+
+  const parsed = emissionsRequestSchema.parse(input);
+  const data = await fetchClimatiqEstimateWithKey(parsed, apiKey);
 
   return {
     configured: true,
@@ -822,6 +829,133 @@ export async function estimateEmissions(input: unknown) {
     notices: data.notices ?? [],
     raw: data,
     dpalWarning: "Use for MRV pre-screening/support. Do not market as certified carbon offset issuance without approved methodology and validation.",
+  };
+}
+
+const CARBON_ESTIMATE_PACKET_TYPE = "DPAL_CARBON_ESTIMATE_PACKET_V0_1";
+
+const carbonEstimatePacketBodySchema = z.object({
+  subject: z.string().min(1),
+  activity_id: z.string().min(1),
+  data_version: z.string().default("^21"),
+  parameters: z.record(z.any()),
+  location: z.object({
+    label: z.string().optional(),
+    lat: z.number(),
+    lng: z.number(),
+  }),
+  projectId: z.string().optional(),
+});
+
+function noticesIncludeWarnings(notices: unknown): boolean {
+  if (!Array.isArray(notices)) return false;
+  for (const n of notices) {
+    if (typeof n === "string") {
+      if (n.toLowerCase().includes("warn")) return true;
+      continue;
+    }
+    if (n && typeof n === "object") {
+      const o = n as Record<string, unknown>;
+      const t = String(o.type ?? o.severity ?? o.level ?? o.category ?? "").toLowerCase();
+      if (t.includes("warn") || t.includes("caution")) return true;
+    }
+  }
+  return false;
+}
+
+function mapClimatiqToPacketEstimate(data: any) {
+  const ef = data?.emission_factor;
+  return {
+    kgCO2e: data?.co2e ?? null,
+    co2eUnit: data?.co2e_unit ?? null,
+    calculationMethod: data?.calculation_method ?? ef?.calculation_method ?? null,
+    calculationOrigin: data?.calculation_origin ?? ef?.source ?? ef?.source_link ?? null,
+    emissionFactor: data?.emission_factor ?? null,
+    notices: data?.notices ?? [],
+    raw: data,
+  };
+}
+
+/**
+ * DPAL Carbon Estimate Packet — Climatiq-backed MRV pre-screening envelope (advisory).
+ */
+export async function buildCarbonEstimatePacket(input: unknown) {
+  const body = carbonEstimatePacketBodySchema.parse(input);
+
+  if (!process.env.CLIMATIQ_API_KEY) {
+    const payloadForHash = {
+      type: CARBON_ESTIMATE_PACKET_TYPE,
+      validationStatus: "needs_key" as const,
+      status: "needs_key" as const,
+      subject: body.subject,
+      activity_id: body.activity_id,
+      data_version: body.data_version,
+      parameters: body.parameters,
+      location: body.location,
+      projectId: body.projectId ?? null,
+    };
+    return {
+      status: "needs_key" as const,
+      validationStatus: "needs_key" as const,
+      message: "Set CLIMATIQ_API_KEY in Railway to enable carbon estimate packets.",
+      confidenceScore: 0,
+      evidenceHash: sha256(JSON.stringify(payloadForHash)),
+      claimSafety: { validatorReviewed: false, publicClaimAllowed: false },
+    };
+  }
+
+  const apiKey = process.env.CLIMATIQ_API_KEY;
+  const parsedEmissions = emissionsRequestSchema.parse({
+    activity_id: body.activity_id,
+    data_version: body.data_version,
+    parameters: body.parameters,
+  });
+
+  const data = await fetchClimatiqEstimateWithKey(parsedEmissions, apiKey);
+  const estimate = mapClimatiqToPacketEstimate(data);
+  const hasWarnings = noticesIncludeWarnings(estimate.notices);
+  const confidenceScore = hasWarnings ? 0.45 : 0.6;
+
+  const packetBase = {
+    packetType: CARBON_ESTIMATE_PACKET_TYPE,
+    subject: body.subject,
+    ...(body.projectId != null && String(body.projectId).trim() !== ""
+      ? { projectId: body.projectId }
+      : {}),
+    location: body.location,
+    activityId: body.activity_id,
+    dataVersion: body.data_version,
+    parameters: body.parameters,
+    estimate,
+    validationStatus: "advisory" as const,
+    confidenceScore,
+    method:
+      "DPAL Carbon Estimate v0.1 = activity data converted into kgCO2e using Climatiq emission factors for MRV pre-screening.",
+    validatorStatus: "pending_review" as const,
+    claimSafety: {
+      validatorReviewed: false,
+      publicClaimAllowed: false,
+      warning:
+        "Advisory pre-screening only. Not a certified carbon credit, offset, or verified VIU unless separately validated under an approved methodology.",
+    },
+  };
+
+  const payloadForHash = {
+    ...packetBase,
+    estimate: {
+      kgCO2e: estimate.kgCO2e,
+      co2eUnit: estimate.co2eUnit,
+      calculationMethod: estimate.calculationMethod,
+      calculationOrigin: estimate.calculationOrigin,
+      emissionFactor: estimate.emissionFactor,
+      notices: estimate.notices,
+    },
+    generatedAtHour: new Date().toISOString().slice(0, 13),
+  };
+
+  return {
+    ...packetBase,
+    evidenceHash: sha256(JSON.stringify(payloadForHash)),
   };
 }
 

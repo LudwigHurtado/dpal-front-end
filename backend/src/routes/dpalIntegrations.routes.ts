@@ -1,4 +1,5 @@
 import { Router, type Request, type Response } from "express";
+import { ZodError } from "zod";
 import {
   getProviderStatus,
   getCityIntelligence,
@@ -10,6 +11,7 @@ import {
   estimateEmissions,
   verifyChainHash,
   buildEvidencePacketPreview,
+  buildCarbonEstimatePacket,
 } from "../services/publicApiAdapters.js";
 
 const router = Router();
@@ -158,6 +160,26 @@ router.post("/emissions/estimate", async (req: Request, res: Response) => {
     res.json({ ok: true, result });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "emissions estimate failed" });
+  }
+});
+
+/**
+ * POST /api/integrations/carbon/estimate-packet
+ * DPAL carbon/MRV pre-screening packet from Climatiq estimate data (advisory).
+ */
+router.post("/carbon/estimate-packet", async (req: Request, res: Response) => {
+  try {
+    const packet = await buildCarbonEstimatePacket(req.body);
+    res.json({ ok: true, packet });
+  } catch (err: unknown) {
+    if (err instanceof ZodError) {
+      return res.status(400).json({
+        ok: false,
+        error: err.flatten ? err.flatten() : err.message,
+      });
+    }
+    const msg = err instanceof Error ? err.message : "carbon estimate packet failed";
+    res.status(500).json({ ok: false, error: msg });
   }
 });
 
