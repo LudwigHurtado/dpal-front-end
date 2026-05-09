@@ -7,6 +7,7 @@ import ReportCard from './ReportCard';
 import OperationalConfidencePanel from './OperationalConfidencePanel';
 import LiveTransparencyMetricsCard from './LiveTransparencyMetricsCard';
 import VerifierConfidenceCard from './VerifierConfidenceCard';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 
 interface TransparencyDatabaseViewProps {
   onReturn: () => void;
@@ -52,6 +53,9 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
 
   return (
     <div className="relative flex flex-col min-h-[70vh] bg-[var(--dpal-surface)] text-[var(--dpal-text-primary)] rounded-[2.5rem] border border-[var(--dpal-border)] shadow-xl font-sans overflow-hidden">
+      <div className="px-6 pt-4">
+        <NavigatorHelperCard expectedScenario="public_report" />
+      </div>
       {showIntro && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[var(--dpal-background)] z-10 rounded-[2.5rem]">
           <Database className="w-16 h-16 text-[var(--dpal-accent)] animate-pulse mb-4" />

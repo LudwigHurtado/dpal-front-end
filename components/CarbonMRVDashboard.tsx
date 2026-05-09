@@ -28,6 +28,7 @@ import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { GibsTileViewer } from './GibsTileViewer';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 
 interface SnapshotMapProps {
   lat: number;
@@ -1826,6 +1827,11 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950 text-white">
+
+      {/* DPAL Navigator helper card — only renders when arriving from the Navigator. */}
+      <div className="px-5 pt-3">
+        <NavigatorHelperCard expectedScenario="carbon_land" />
+      </div>
 
       {/* Hero banner */}
       <div className="relative bg-gradient-to-br from-slate-900 via-emerald-950 to-teal-950 px-5 pt-12 pb-6 overflow-hidden">

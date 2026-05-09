@@ -9,6 +9,7 @@ import EnvirofactsEvidenceImportPanel from './EnvirofactsEvidenceImportPanel';
 import EnvirofactsApiStatusCard, { type ApiConnectionStatus } from './EnvirofactsApiStatusCard';
 import EnvirofactsDataSourcesPanel from './EnvirofactsDataSourcesPanel';
 import { searchEnvirofacts } from '../../services/envirofactsService';
+import { NavigatorHelperCard } from '../../features/dpalNavigator';
 import type {
   EnvirofactsEvidencePacket,
   EnvirofactsFilters,
@@ -322,6 +323,8 @@ const EnvirofactsGeoDashboard: React.FC = () => {
             Official EPA environmental records mapped into DPAL evidence review.
           </p>
         </header>
+
+        <NavigatorHelperCard expectedScenario="pollution_waste" className="mt-4" />
 
         <section className="mt-6 rounded-xl border border-slate-800 bg-slate-900/60 px-4 py-4 text-sm leading-relaxed text-slate-300 md:px-5">
           <p className="font-medium text-slate-100">{BANNER_LEGAL}</p>

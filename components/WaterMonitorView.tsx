@@ -42,6 +42,7 @@ import {
 } from '../constants';
 
 import type { Hero } from '../types';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -3370,6 +3371,7 @@ export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMoni
 
       {/* Content */}
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6">
+        <NavigatorHelperCard expectedScenario="water_flood" className="mb-4" />
         <div className="mb-4 rounded-xl border border-slate-700 bg-slate-900/60 px-4 py-2 text-xs text-slate-200">
           <span className="font-semibold text-teal-200">Source status:</span> Water Operations Engine uses API-backed routes when available and can fall back to demo/showcase states when endpoints are unavailable.
         </div>

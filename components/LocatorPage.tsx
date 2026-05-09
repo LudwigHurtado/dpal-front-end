@@ -4,6 +4,7 @@ import { Category } from '../types';
 import { ArrowLeft, MapPin, Mic, Search, Upload, X, QrCode } from './icons';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import QrCodeDisplay from './QrCodeDisplay';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 
 type LocatorMode = 'find' | 'report';
 type LocatorType = 'person' | 'pet' | 'item';
@@ -862,6 +863,9 @@ const LocatorPage: React.FC<LocatorPageProps> = ({ onReturn, addReport, hero, se
 
   return (
     <div className="animate-fade-in pb-24">
+      <div className="px-4 pt-3">
+        <NavigatorHelperCard expectedScenario="locator" />
+      </div>
       {qrOpenId && (
         <QrCodeDisplay
           type="report"

@@ -13,6 +13,7 @@ import {
   searchRcraFacilities,
   updateHazardousWasteAudit,
 } from '../../../services/hazardousWasteAuditService';
+import { NavigatorHelperCard } from '../dpalNavigator';
 
 type Props = { onReturn: () => void };
 type RiskLevel = 'Low' | 'Medium' | 'High' | 'Needs More Data';
@@ -654,6 +655,9 @@ const HazardousWasteAuditPage: React.FC<Props> = ({ onReturn }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 px-3 pb-10 pt-4 xl:px-6">
+      <div className="mx-auto max-w-[1600px]">
+        <NavigatorHelperCard expectedScenario="pollution_waste" className="mb-4" />
+      </div>
       <div className="mx-auto grid max-w-[1600px] grid-cols-1 gap-4 xl:grid-cols-[330px_1fr]">
         <aside className="rounded-2xl border border-slate-800 bg-slate-950 p-4 text-slate-100 shadow-xl">
           <div className="mb-4 flex items-center justify-between">

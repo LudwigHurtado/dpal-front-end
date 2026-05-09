@@ -8,6 +8,7 @@ import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 import type { ChatMessage } from '../types';
 import type { DpalProjectGuideSnapshot } from './dpal-assistant/projectGuideTypes';
 import {
@@ -376,6 +377,38 @@ const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, a
   const [assistantQuestion, setAssistantQuestion] = useState<string | null>(null);
   const [assistantResponse, setAssistantResponse] = useState<string>('');
 
+  /**
+   * DPAL Navigator handoff: when arriving with `?lat=&lng=&source=dpal-navigator`,
+   * pre-populate the scan location and AOI center so the user only has to confirm
+   * radius / observation type and click Run scan. This is a pre-fill, never an
+   * automatic scan trigger.
+   */
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const source = params.get('source');
+      const navigatorFlow = params.get('navigatorFlow');
+      if (source !== 'dpal-navigator' && navigatorFlow !== 'carbon-land') return;
+      const latStr = params.get('lat');
+      const lngStr = params.get('lng');
+      if (!latStr || !lngStr) return;
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+      setScanLocation({ lat, lng });
+      setSavedAoi((prev) => ({
+        ...prev,
+        center: { lat, lng },
+        exists: true,
+        isSaved: false,
+      }));
+    } catch {
+      /** Window/URL access can fail in non-browser test envs — safe to ignore. */
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const selectedUse = USE_CASES.find((item) => item.id === observationType) ?? USE_CASES[0];
   const calculatedProgress = useMemo(() => {
     let steps = 0;
@@ -663,6 +696,9 @@ const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, a
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto max-w-7xl px-4 pt-4">
+        <NavigatorHelperCard expectedScenario="carbon_land" />
+      </div>
       <div className="border-b border-sky-500/20 bg-sky-950/20">
         <div className="mx-auto max-w-7xl px-4 py-6">
           <button onClick={onReturn} className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-slate-400 hover:text-white"><ArrowLeft className="h-4 w-4" />Back</button>

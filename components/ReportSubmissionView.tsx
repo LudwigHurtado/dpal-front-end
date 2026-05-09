@@ -10,6 +10,7 @@ import { ArrowLeft, Database, ShieldCheck } from './icons';
 import { useTranslations } from '../i18n';
 import { pickCivicQuote } from '../utils/civicQuotes';
 import { getCategoryReportImage } from '../utils/reportImages';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 
 interface ReportSubmissionViewProps {
     category: Category;
@@ -133,6 +134,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
         return (
             <div className="report-submission-fade font-sans text-[var(--dpal-text-primary)] max-w-7xl mx-auto pb-32 px-4">
                 <style>{fadeStyle}</style>
+                <NavigatorHelperCard expectedScenario="public_report" className="mt-3" />
                 {reportHero}
                 <CaseboardReport
                     key={category}
@@ -148,6 +150,7 @@ const ReportSubmissionView: React.FC<ReportSubmissionViewProps> = ({ category, r
     return (
         <div className="report-submission-fade font-sans text-[var(--dpal-text-primary)] max-w-7xl mx-auto pb-32 px-4">
             <style>{fadeStyle}</style>
+            <NavigatorHelperCard expectedScenario="public_report" className="mt-3" />
             {reportHero}
             <div className="mt-2 md:mt-4">
                 <SubmissionPanel

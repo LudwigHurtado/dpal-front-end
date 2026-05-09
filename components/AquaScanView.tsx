@@ -53,6 +53,7 @@ import AquaScanIntelligenceReader, {
   formatCalculationHistoryHeadline,
   type AquaScanCalculationHistoryEntry,
 } from './aquascan/AquaScanIntelligenceReader';
+import { NavigatorHelperCard } from '../src/features/dpalNavigator';
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
@@ -934,6 +935,33 @@ export default function AquaScanView({
       setMapCenter([selectedFocusLocation.latitude, selectedFocusLocation.longitude]);
     }
   }, [selectedFocusLocation]);
+
+  /**
+   * DPAL Navigator handoff: when AquaScan is opened with `?lat=&lng=&source=dpal-navigator`,
+   * pre-populate the Focus Location search box and recenter the map. The user still has to
+   * click "Locate on Map" / draw AOI / run scan — this is just a pre-fill, never an auto-action.
+   */
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const source = params.get('source');
+      const navigatorFlow = params.get('navigatorFlow');
+      if (source !== 'dpal-navigator' && navigatorFlow !== 'water-alert') return;
+      const latStr = params.get('lat');
+      const lngStr = params.get('lng');
+      if (!latStr || !lngStr) return;
+      const lat = Number(latStr);
+      const lng = Number(lngStr);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+      setSearchQuery(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      setMapCenter([lat, lng]);
+    } catch {
+      /** Window/URL access can fail in non-browser test envs — safe to ignore. */
+    }
+    // run once on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!aoiStorageKey) {
@@ -2576,6 +2604,11 @@ export default function AquaScanView({
           </div>
         </div>
       </header>
+
+      {/* -- DPAL Navigator helper card (only renders when arriving from the Navigator) -- */}
+      <div className="px-4 pt-3 sm:px-6">
+        <NavigatorHelperCard expectedScenario="water_flood" />
+      </div>
 
       {/* -- 2. Focus Location Command Bar -- */}
       <div className="border-b border-slate-800 bg-slate-900/80 px-4 py-2.5 sm:px-6">
