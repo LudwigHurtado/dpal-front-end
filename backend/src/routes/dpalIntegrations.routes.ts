@@ -6,6 +6,7 @@ import {
   getAirQuality,
   getSatelliteValidation,
   geocodeLocation,
+  getGeoLedgerReverseLocation,
   estimateEmissions,
   verifyChainHash,
   buildEvidencePacketPreview,
@@ -119,6 +120,26 @@ router.get("/geocode", async (req: Request, res: Response) => {
     res.json({ ok: true, result });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "geocode failed" });
+  }
+});
+
+/**
+ * GET /api/integrations/geoledger/reverse?lat=&lng=&label=
+ * DPAL GeoLedger Location Validator: reverse-geocode coordinates via Geoapify into a structured packet.
+ */
+router.get("/geoledger/reverse", async (req: Request, res: Response) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ ok: false, error: "lat and lng query parameters are required" });
+    }
+
+    const label = String(req.query.label ?? "");
+    const packet = await getGeoLedgerReverseLocation({ lat, lng, label });
+    res.json({ ok: true, packet });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "geoledger reverse failed" });
   }
 });
 

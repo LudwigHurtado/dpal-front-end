@@ -574,6 +574,203 @@ export async function geocodeLocation(text: string) {
   };
 }
 
+const GEOLEDGER_REVERSE_PACKET_TYPE = "DPAL_GEOLEDGER_REVERSE_V0_1";
+
+const GEOLEDGER_REVERSE_METHOD =
+  "DPAL GeoLedger v0.1 = coordinate reverse-geocoded and converted into a tamper-evident location identity.";
+
+const GEOLEDGER_CLAIM_SAFETY = { validatorReviewed: false, publicClaimAllowed: false } as const;
+
+export type GeoLedgerReverseInput = Coordinates & { label: string };
+
+/**
+ * Reverse-geocode coordinates into a structured DPAL GeoLedger location packet (Geoapify).
+ * Advisory only until a DPAL validator completes review.
+ */
+export async function getGeoLedgerReverseLocation({ lat, lng, label }: GeoLedgerReverseInput) {
+  const coordinates = { lat, lng };
+  const labelTrimmed = String(label || "").trim();
+
+  const apiKey = process.env.GEOAPIFY_API_KEY;
+  if (!apiKey) {
+    const payloadForHash = {
+      type: GEOLEDGER_REVERSE_PACKET_TYPE,
+      coordinates,
+      label: labelTrimmed,
+      validationStatus: "needs_key" as const,
+      status: "needs_key" as const,
+    };
+    return {
+      status: "needs_key" as const,
+      validationStatus: "needs_key" as const,
+      message: "Set GEOAPIFY_API_KEY in Railway to enable GeoLedger location validation.",
+      coordinates,
+      label: labelTrimmed || null,
+      confidenceScore: 0,
+      evidenceHash: sha256(JSON.stringify(payloadForHash)),
+      claimSafety: { ...GEOLEDGER_CLAIM_SAFETY },
+    };
+  }
+
+  const params = new URLSearchParams({
+    lat: String(lat),
+    lon: String(lng),
+    format: "json",
+    apiKey,
+  });
+
+  let data: any;
+  try {
+    data = await fetchJson<any>(`https://api.geoapify.com/v1/geocode/reverse?${params.toString()}`);
+  } catch (err: any) {
+    dlog("Geoapify reverse failed", err?.message);
+    const validationStatus = "error" as const;
+    const payloadForHash = {
+      type: GEOLEDGER_REVERSE_PACKET_TYPE,
+      coordinates,
+      label: labelTrimmed,
+      validationStatus,
+      error: String(err?.message || "geoapify_error"),
+    };
+    return {
+      status: "error" as const,
+      validationStatus,
+      message: err?.message || "Geoapify reverse geocoding request failed.",
+      coordinates,
+      label: labelTrimmed || null,
+      formattedAddress: null,
+      city: null,
+      county: null,
+      state: null,
+      country: null,
+      countryCode: null,
+      postcode: null,
+      distanceMeters: null,
+      confidenceScore: 0,
+      geoLedgerId: null,
+      evidenceHash: sha256(JSON.stringify(payloadForHash)),
+      method: GEOLEDGER_REVERSE_METHOD,
+      claimSafety: { ...GEOLEDGER_CLAIM_SAFETY },
+    };
+  }
+
+  const first = data?.results?.[0];
+  if (!first) {
+    const validationStatus = "no_match" as const;
+    const payloadForHash = {
+      type: GEOLEDGER_REVERSE_PACKET_TYPE,
+      coordinates,
+      label: labelTrimmed,
+      validationStatus,
+    };
+    return {
+      status: "no_match" as const,
+      validationStatus,
+      message: "No reverse-geocode match for these coordinates.",
+      coordinates,
+      label: labelTrimmed || null,
+      formattedAddress: null,
+      city: null,
+      county: null,
+      state: null,
+      country: null,
+      countryCode: null,
+      postcode: null,
+      distanceMeters: null,
+      confidenceScore: 0,
+      geoLedgerId: null,
+      evidenceHash: sha256(JSON.stringify(payloadForHash)),
+      method: GEOLEDGER_REVERSE_METHOD,
+      claimSafety: { ...GEOLEDGER_CLAIM_SAFETY },
+    };
+  }
+
+  const formattedAddress =
+    typeof first.formatted === "string" && first.formatted.trim()
+      ? first.formatted.trim()
+      : null;
+  const city = first.city ?? null;
+  const county = first.county ?? null;
+  const state = first.state ?? null;
+  const country = first.country ?? null;
+  const countryCode = first.country_code ?? null;
+  const postcode = first.postcode ?? null;
+
+  const resolvedLat = Number(first.lat ?? lat);
+  const resolvedLng = Number(first.lon ?? lng);
+  const resolvedCoords = {
+    lat: Number.isFinite(resolvedLat) ? resolvedLat : lat,
+    lng: Number.isFinite(resolvedLng) ? resolvedLng : lng,
+  };
+
+  let distanceMeters: number | null = null;
+  const dRaw = first.distance ?? first.distance_meters;
+  const dNum = Number(dRaw);
+  if (Number.isFinite(dNum) && dNum >= 0) distanceMeters = dNum;
+
+  let confidenceScore: number | null = null;
+  const confRaw = first.rank?.confidence ?? first.confidence;
+  const confNum = Number(confRaw);
+  if (Number.isFinite(confNum)) {
+    confidenceScore = confNum > 1 ? Math.min(1, confNum / 100) : Math.min(1, Math.max(0, confNum));
+  }
+
+  const geoLedgerId = sha256(
+    [
+      "DPAL-GEOLEDGER-v0.1-reverse",
+      resolvedCoords.lat,
+      resolvedCoords.lng,
+      countryCode,
+      state,
+      city,
+      county,
+      formattedAddress,
+    ]
+      .filter((v) => v != null && v !== "")
+      .join("|")
+  );
+
+  const validationStatus = "advisory" as const;
+  const payloadForHash = {
+    type: GEOLEDGER_REVERSE_PACKET_TYPE,
+    coordinates: resolvedCoords,
+    queryCoordinates: coordinates,
+    label: labelTrimmed,
+    validationStatus,
+    formattedAddress,
+    city,
+    county,
+    state,
+    country,
+    countryCode,
+    postcode,
+    distanceMeters,
+    confidenceScore,
+    geoLedgerId,
+    generatedAtHour: new Date().toISOString().slice(0, 13),
+  };
+
+  return {
+    status: "matched" as const,
+    validationStatus,
+    coordinates: resolvedCoords,
+    label: labelTrimmed || null,
+    formattedAddress,
+    city,
+    county,
+    state,
+    country,
+    countryCode,
+    postcode,
+    distanceMeters,
+    confidenceScore,
+    geoLedgerId,
+    evidenceHash: sha256(JSON.stringify(payloadForHash)),
+    method: GEOLEDGER_REVERSE_METHOD,
+    claimSafety: { ...GEOLEDGER_CLAIM_SAFETY },
+  };
+}
+
 /**
  * Climatiq emission estimate. This is for pre-screening and MRV support,
  * not a final certified offset calculation.
