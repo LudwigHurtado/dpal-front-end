@@ -295,6 +295,118 @@ export async function getAirQuality({ lat, lng }: Coordinates) {
   };
 }
 
+const SECRET_KEY_PATTERN = /^(authorization|cookie|apikey|api_key|x-api-key|token|secret|password|bearer)$/i;
+
+function stripSecretLikeKeysFromSample(value: unknown): unknown {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) return value.map(stripSecretLikeKeysFromSample);
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (SECRET_KEY_PATTERN.test(k)) continue;
+    out[k] =
+      v != null && typeof v === "object"
+        ? stripSecretLikeKeysFromSample(v)
+        : v;
+  }
+  return out;
+}
+
+function collectOpenAqReadingNestedKeyMap(reading: Record<string, unknown> | null): {
+  nestedKeys: Record<string, string[]>;
+  secondLevelNestedKeys: Record<string, Record<string, string[]>>;
+} {
+  const nestedKeys: Record<string, string[]> = {};
+  const secondLevelNestedKeys: Record<string, Record<string, string[]>> = {};
+  if (!reading) return { nestedKeys, secondLevelNestedKeys };
+
+  for (const [k, v] of Object.entries(reading)) {
+    if (v != null && typeof v === "object" && !Array.isArray(v)) {
+      nestedKeys[k] = Object.keys(v as object);
+      const inner: Record<string, string[]> = {};
+      for (const [ik, iv] of Object.entries(v as Record<string, unknown>)) {
+        if (iv != null && typeof iv === "object" && !Array.isArray(iv)) {
+          inner[ik] = Object.keys(iv as object);
+        }
+      }
+      if (Object.keys(inner).length > 0) secondLevelNestedKeys[k] = inner;
+    }
+  }
+  return { nestedKeys, secondLevelNestedKeys };
+}
+
+/**
+ * Temporary debug helper: inspect OpenAQ v3 JSON shapes for locations + latest (no API key in response).
+ * Remove when satellite-validation mapping is stable.
+ */
+export async function getOpenAqDebugSnapshot(lat: number, lng: number) {
+  const apiKey = process.env.OPENAQ_API_KEY;
+  if (!apiKey) {
+    return {
+      ok: true as const,
+      status: "needs_key" as const,
+      message: "Set OPENAQ_API_KEY in Railway.",
+    };
+  }
+
+  const locationParams = new URLSearchParams({
+    coordinates: `${lat},${lng}`,
+    radius: "25000",
+    limit: "3",
+  });
+
+  const locations = await fetchJson<any>(
+    `https://api.openaq.org/v3/locations?${locationParams.toString()}`,
+    { headers: { "X-API-Key": apiKey } }
+  );
+
+  const results: any[] = Array.isArray(locations?.results) ? locations.results : [];
+  const firstWithId = results.find((r) => r?.id != null);
+
+  if (!firstWithId) {
+    return {
+      ok: true as const,
+      status: "ok" as const,
+      message: "No location with id in OpenAQ results.",
+      locationKeys: [] as string[],
+      firstLocationSample: null,
+      latestTopLevelKeys: [] as string[],
+      latestResultCount: 0,
+      latestFirstResultKeys: [] as string[],
+      latestFirstResultRaw: null,
+      latestFirstResultNestedKeys: {} as Record<string, string[]>,
+      latestFirstResultSecondLevelNestedKeys: {} as Record<string, Record<string, string[]>>,
+    };
+  }
+
+  const firstLocation = firstWithId;
+  const latest = await fetchJson<any>(
+    `https://api.openaq.org/v3/locations/${firstLocation.id}/latest`,
+    { headers: { "X-API-Key": apiKey } }
+  );
+
+  const latestResults: any[] = Array.isArray(latest?.results) ? latest.results : [];
+  const firstReading =
+    latestResults.length > 0 && latestResults[0] != null && typeof latestResults[0] === "object"
+      ? (latestResults[0] as Record<string, unknown>)
+      : null;
+
+  const { nestedKeys, secondLevelNestedKeys } = collectOpenAqReadingNestedKeyMap(firstReading);
+
+  return {
+    ok: true as const,
+    status: "ok" as const,
+    locationIdUsed: firstLocation.id,
+    locationKeys: Object.keys(firstLocation),
+    firstLocationSample: stripSecretLikeKeysFromSample(firstLocation),
+    latestTopLevelKeys: latest != null && typeof latest === "object" ? Object.keys(latest as object) : [],
+    latestResultCount: latestResults.length,
+    latestFirstResultKeys: firstReading ? Object.keys(firstReading) : [],
+    latestFirstResultRaw: firstReading,
+    latestFirstResultNestedKeys: nestedKeys,
+    latestFirstResultSecondLevelNestedKeys: secondLevelNestedKeys,
+  };
+}
+
 const SATELLITE_VALIDATION_PACKET_TYPE = "DPAL_SATELLITE_VALIDATION_V0_1";
 
 function normalizePollutantKey(signalType: string): string {

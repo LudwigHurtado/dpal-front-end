@@ -5,6 +5,7 @@ import {
   getCityIntelligence,
   getFloodRisk,
   getAirQuality,
+  getOpenAqDebugSnapshot,
   getSatelliteValidation,
   geocodeLocation,
   getGeoLedgerReverseLocation,
@@ -79,6 +80,25 @@ router.get("/air-quality", async (req: Request, res: Response) => {
     res.json({ ok: true, result });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "air-quality failed" });
+  }
+});
+
+/**
+ * GET /api/integrations/openaq-debug?lat=&lng=
+ * Temporary: inspect raw OpenAQ v3 shapes (no API key in response). Remove when mapping is stable.
+ */
+router.get("/openaq-debug", async (req: Request, res: Response) => {
+  try {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ ok: false, error: "lat and lng query parameters are required" });
+    }
+
+    const snapshot = await getOpenAqDebugSnapshot(lat, lng);
+    res.json(snapshot);
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err?.message || "openaq-debug failed" });
   }
 });
 
