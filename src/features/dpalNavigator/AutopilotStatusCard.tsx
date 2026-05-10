@@ -66,6 +66,7 @@ export default function AutopilotStatusCard({
       role="region"
       aria-label="DPAL Autopilot — provider check status"
       data-dpal-autopilot-status-card
+      data-dpal-target="module-health-panel"
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-300">

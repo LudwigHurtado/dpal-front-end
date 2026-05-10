@@ -43,6 +43,13 @@ export {
   getAutopilotStepsForMode,
 } from "./autopilotSteps";
 export type { AutopilotMode } from "./autopilotSteps";
+export {
+  logAutopilotEvent,
+  getAutopilotTimeline,
+  clearAutopilotTimeline,
+  subscribeAutopilotTimeline,
+} from "./autopilotDiagnostics";
+export type { AutopilotDiagnosticEvent, AutopilotDiagnosticEventName } from "./autopilotDiagnostics";
 export type {
   ScenarioType,
   ScenarioDetection,

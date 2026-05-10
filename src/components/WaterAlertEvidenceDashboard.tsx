@@ -8,6 +8,9 @@ import {
   NavigatorHelperCard,
   VisibleAutopilotCursor,
   WATER_ALERT_AUTOPILOT_STEPS,
+  getAutopilotTimeline,
+  logAutopilotEvent,
+  subscribeAutopilotTimeline,
   useNavigatorOutcomeTracking,
   useVisibleAutopilot,
 } from "../features/dpalNavigator";
@@ -113,6 +116,39 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   const autopilotEnabled =
     params.get("autopilot") === "true" && params.get("autopilotMode") === "visible-safe-checks";
   const autopilotShowCursor = params.get("showCursor") !== "false";
+  const autopilotAutoRun = params.get("autoRun") === "true";
+
+  const [autopilotDiagTick, setAutopilotDiagTick] = React.useState(0);
+  const [autopilotDiagOpen, setAutopilotDiagOpen] = React.useState(false);
+  const [scanDiag, setScanDiag] = React.useState({
+    triggered: false,
+    requestStarted: false,
+    requestCompleted: false,
+    requestFailed: false,
+  });
+  const humanGateLoggedRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return () => undefined;
+    return subscribeAutopilotTimeline(() => setAutopilotDiagTick((n) => n + 1));
+  }, []);
+
+  React.useEffect(() => {
+    if (!import.meta.env.DEV || !autopilotEnabled) return;
+    logAutopilotEvent({
+      eventName: "autopilot_dashboard_loaded",
+      details: { autoRun: autopilotAutoRun, showCursor: autopilotShowCursor },
+    });
+  }, [autopilotEnabled, autopilotAutoRun, autopilotShowCursor]);
+
+  React.useEffect(() => {
+    if (!autopilotEnabled) {
+      humanGateLoggedRef.current = false;
+      if (import.meta.env.DEV) {
+        setScanDiag({ triggered: false, requestStarted: false, requestCompleted: false, requestFailed: false });
+      }
+    }
+  }, [autopilotEnabled]);
 
   /**
    * The dashboard exposes `runWaterEvidenceScan({ source })` so both manual
@@ -193,20 +229,33 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   }, [location.search, navOutcome, params]);
 
   /**
-   * Auto-start the autopilot once the form has been pre-filled and the
-   * `autopilot=true` URL flag is present. Idempotent — runs once per
-   * dashboard mount thanks to the ref guard.
+   * Auto-start the autopilot once URL coordinates are applied to the form and
+   * `autopilot=true` is present. Ref is set only when `start()` runs so React
+   * Strict Mode (effect cleanup clearing the timer) cannot strand the run in
+   * a "started but never started" state.
    */
   const autopilotStartedRef = React.useRef(false);
   React.useEffect(() => {
-    if (!autopilotEnabled) return;
-    if (autopilotStartedRef.current) return;
+    if (!autopilotEnabled) {
+      autopilotStartedRef.current = false;
+      return;
+    }
     if (!isUsableLatLng(Number(form.lat), Number(form.lng))) return;
-    autopilotStartedRef.current = true;
+    const latStr = params.get("lat");
+    const lngStr = params.get("lng");
+    if (!latStr || !lngStr) return;
+    if (Math.abs(Number(form.lat) - Number(latStr)) > 1e-4 || Math.abs(Number(form.lng) - Number(lngStr)) > 1e-4) {
+      return;
+    }
+    if (autopilotStartedRef.current) return;
     /** Small delay so the user sees the page lay out before the cursor moves. */
-    const t = window.setTimeout(() => autopilot.start(), 600);
+    const t = window.setTimeout(() => {
+      autopilot.start();
+      autopilotStartedRef.current = true;
+    }, 600);
     return () => window.clearTimeout(t);
-  }, [autopilotEnabled, autopilot, form.lat, form.lng]);
+    /** `autopilot.start` is stable (useCallback); avoid `autopilot` object — new ref each render would cancel this timer. */
+  }, [autopilotEnabled, autopilot.start, form.lat, form.lng, params]);
 
   /* --------------------------- packet readouts --------------------------- */
 
@@ -247,6 +296,18 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         setError("Latitude and longitude must be valid numbers.");
         return;
       }
+      if (import.meta.env.DEV) {
+        logAutopilotEvent({
+          eventName: "scan_request_started",
+          details: { source: scanSource, endpoint: "GET /api/integrations/water/alert-evidence-packet" },
+        });
+        if (scanSource === "visible-autopilot") {
+          logAutopilotEvent({ eventName: "scan_triggered", details: { source: scanSource } });
+          setScanDiag((d) => ({ ...d, triggered: true, requestStarted: true, requestCompleted: false, requestFailed: false }));
+        } else {
+          setScanDiag((d) => ({ ...d, requestStarted: true, requestCompleted: false, requestFailed: false }));
+        }
+      }
       setLoading(true);
       setError("");
       navOutcome.trackOutcome({
@@ -275,6 +336,33 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
           packetStatusRaw === "degraded" || packetStatusRaw === "error" || packetStatusRaw === "ok"
             ? packetStatusRaw
             : null;
+        if (import.meta.env.DEV) {
+          const mhRoot =
+            ((result as PacketRecord)?.packet?.moduleHealth || (result as PacketRecord)?.moduleHealth || {}) as PacketRecord;
+          console.info("[DPAL water alert evidence] scan completed", {
+            source: scanSource,
+            packetStatus: packetStatus ?? packetStatusRaw ?? null,
+            moduleHealthKeys: Object.keys(mhRoot),
+          });
+          logAutopilotEvent({
+            eventName: "scan_request_completed",
+            details: { source: scanSource, packetStatus: packetStatus ?? String(packetStatusRaw ?? "") },
+          });
+          logAutopilotEvent({
+            eventName: "packet_received",
+            details: {
+              packetStatus: packetStatus ?? String(packetStatusRaw ?? ""),
+              moduleHealthKeys: Object.keys(mhRoot),
+            },
+          });
+          if (Object.keys(mhRoot).length) {
+            logAutopilotEvent({
+              eventName: "module_health_rendered",
+              details: { keys: Object.keys(mhRoot) },
+            });
+          }
+          setScanDiag((d) => ({ ...d, requestCompleted: true, requestFailed: false }));
+        }
         navOutcome.trackOutcome({
           moduleId: "water_alert_evidence",
           eventType: "draft_packet_generated",
@@ -302,6 +390,18 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         }
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
+        if (import.meta.env.DEV) {
+          const m = rawMessage.match(/\b(\d{3})\b/);
+          console.warn("[DPAL water alert evidence] scan failed", {
+            source: scanSource,
+            httpStatus: m?.[1] ?? "unknown",
+          });
+          logAutopilotEvent({
+            eventName: "scan_request_failed",
+            details: { source: scanSource, httpStatus: m?.[1] ?? "unknown" },
+          });
+          setScanDiag((d) => ({ ...d, requestCompleted: false, requestFailed: true }));
+        }
         const isOpenMeteoRateLimit =
           /429/.test(rawMessage) && /open-meteo|Daily API request limit exceeded/i.test(rawMessage);
         setPacketData(null);
@@ -329,6 +429,18 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
     [form.lat, form.lng, form.label, form.usgsSite, navOutcome, autopilot],
   );
 
+  React.useEffect(() => {
+    if (!import.meta.env.DEV || !autopilotEnabled) return;
+    if (autopilot.currentStep?.intent !== "human_approval_gate") return;
+    if (humanGateLoggedRef.current) return;
+    humanGateLoggedRef.current = true;
+    logAutopilotEvent({
+      eventName: "human_approval_gate_reached",
+      stepIndex: autopilot.stepIndex,
+      stepId: autopilot.currentStep?.id,
+    });
+  }, [autopilotEnabled, autopilot.currentStep, autopilot.stepIndex]);
+
   /** Keep the ref in sync so autopilot can call the latest version. */
   React.useEffect(() => {
     runWaterEvidenceScanRef.current = runWaterEvidenceScan;
@@ -344,6 +456,47 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   return (
     <div className="space-y-4">
       <NavigatorHelperCard expectedScenario="water_flood" />
+      {import.meta.env.DEV && autopilotEnabled ? (
+        <div className="rounded-xl border border-dashed border-slate-600 bg-slate-900/80 px-3 py-2 text-[11px] text-slate-200">
+          <button
+            type="button"
+            onClick={() => setAutopilotDiagOpen((o) => !o)}
+            className="flex w-full items-center justify-between font-bold text-cyan-200 hover:text-white"
+          >
+            <span>Autopilot Diagnostics</span>
+            <span className="text-[10px] text-slate-400">{autopilotDiagOpen ? "Hide" : "Show"}</span>
+          </button>
+          {autopilotDiagOpen ? (
+            <div className="mt-2 space-y-1.5 font-mono text-[10px] leading-relaxed text-slate-300">
+              <p>autoRun param: {autopilotAutoRun ? "true" : "false (or missing)"}</p>
+              <p>current step id: {autopilot.currentStep?.id ?? "—"}</p>
+              <p>cursor target selector: {autopilot.currentStep?.targetSelector ?? "—"}</p>
+              <p>target element found (rect): {autopilot.targetRect ? "yes" : "no"}</p>
+              <p>scan triggered (autopilot): {scanDiag.triggered ? "yes" : "no"}</p>
+              <p>API request started: {scanDiag.requestStarted ? "yes" : "no"}</p>
+              <p>API request completed: {scanDiag.requestCompleted ? "yes" : "no"}</p>
+              <p>API request failed: {scanDiag.requestFailed ? "yes" : "no"}</p>
+              <p>packet status (autopilot): {autopilot.packetStatus ?? "null"}</p>
+              <p>packet status (dashboard): {String(packet?.status ?? packet?.packetStatus ?? summary.packetStatus ?? "—")}</p>
+              <p>moduleHealth keys: {Object.keys(moduleHealth).length ? Object.keys(moduleHealth).join(", ") : "—"}</p>
+              <p>human approval gate reached: {autopilot.currentStep?.intent === "human_approval_gate" ? "yes" : "no"}</p>
+              <p>autopilot status: {autopilot.status}</p>
+              <p className="pt-1 text-slate-500">timeline tick #{autopilotDiagTick}</p>
+              <ul className="max-h-40 overflow-auto border-t border-slate-700 pt-1 text-slate-500">
+                {getAutopilotTimeline()
+                  .slice(-12)
+                  .map((e, i) => (
+                    <li key={`${e.timestamp}-${i}`}>
+                      {e.eventName}
+                      {e.stepId ? ` · ${e.stepId}` : ""}
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {navigatorPrefilled ? (
         <div className="rounded-xl border border-cyan-700/40 bg-cyan-950/25 px-3 py-2 text-[11px] leading-snug text-cyan-100">
           <span className="font-semibold text-cyan-200">Started from DPAL Navigator.</span>{" "}
@@ -433,10 +586,23 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         />
       ) : null}
 
+      {autopilotEnabled && !packet ? (
+        <section
+          className="rounded-2xl border border-amber-500/45 bg-amber-950/20 p-4"
+          data-dpal-target="human-approval-gate"
+        >
+          <h2 className="text-sm font-bold text-amber-100">Human approval gate</h2>
+          <p className="mt-2 text-[11px] leading-snug text-amber-50">
+            When no draft packet is on screen yet, DPAL still stops here: publication, verification, anchoring, payments,
+            and escalation require explicit human decisions — nothing below is auto-finalized.
+          </p>
+        </section>
+      ) : null}
+
       {packet ? (
         <>
           {packet?.moduleHealth ? (
-            <Panel title="Module Health" dataTarget="module-health-panel">
+            <Panel title="Module Health" dataTarget="module-health-readouts">
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 <ReadRow label="FloodGuard" value={moduleHealth.floodguard || "n/a"} />
                 <ReadRow label="USGS" value={moduleHealth.usgsWater || "n/a"} />

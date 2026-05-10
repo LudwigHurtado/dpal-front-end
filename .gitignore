@@ -30,3 +30,7 @@ dist-ssr
 backend/data/floodguard/
 backend/smoke-body.json
 evidence-resp.json
+
+# Playwright
+test-results/
+playwright-report/

@@ -19,6 +19,7 @@ import GuidedStepCard from "./GuidedStepCard";
 import ActionGateWarning from "./ActionGateWarning";
 import SmartTooltip from "./SmartTooltip";
 import type { GuidedFlow, NavigatorHelperContext, RecommendedModule } from "./types";
+import { logAutopilotEvent } from "./autopilotDiagnostics";
 
 const NAVIGATOR_HELPER_STORAGE_KEY = "dpal_navigator_helper_context_v1";
 
@@ -142,7 +143,13 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
       if (e) e.preventDefault();
       const trimmed = draft.trim();
       if (!trimmed) return;
-      submit(trimmed);
+      const planned = submit(trimmed);
+      if (import.meta.env.DEV) {
+        logAutopilotEvent({
+          eventName: "navigator_planned",
+          details: { scenarioType: planned.flow.scenarioType, flowId: planned.flowId },
+        });
+      }
     },
     [draft, submit],
   );
@@ -173,6 +180,12 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
     if (!flow) return;
     const module = flow.recommendedModule;
     if (!module.routeTarget) return;
+    if (import.meta.env.DEV) {
+      logAutopilotEvent({
+        eventName: "autopilot_route_started",
+        details: { routeTarget: module.routeTarget, autopilotMode: "visible-safe-checks" },
+      });
+    }
     const params: Record<string, string> = {
       ...flow.queryParams,
       autopilot: "true",

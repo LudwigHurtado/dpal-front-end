@@ -16,18 +16,21 @@
  * spotlight, bubble, provider progress.
  *
  * The dashboard reports the scan result back through `markScanComplete(...)`
- * so the autopilot can advance from `wait_for_scan` to `show_packet_status`.
+ * so the autopilot can advance from `trigger_scan` / `wait_for_scan` to the
+ * post-scan steps (for example `show_packet_status`).
  *
  * Pause/Resume/Stop/Take Control are implemented by clearing the pending
  * timer and toggling status — no network, no DOM cleanup of completed work.
  */
 import React from "react";
 import type {
+  AutopilotIntent,
   AutopilotPacketStatus,
   AutopilotStatus,
   AutopilotStep,
   ProviderProgressStatus,
 } from "./types";
+import { logAutopilotEvent } from "./autopilotDiagnostics";
 
 interface UseVisibleAutopilotOptions {
   /** When false the hook is dormant — no timers, no targets. */
@@ -90,6 +93,13 @@ export interface VisibleAutopilotApi {
 
 const ZERO_PROGRESS: Record<string, ProviderProgressStatus> = {};
 
+/** Intents that wait for `markScanComplete` before advancing (no dwell advance). */
+const WAIT_FOR_SCAN_INTENTS: ReadonlyArray<AutopilotIntent> = [
+  "wait_for_scan",
+  "show_progress",
+  "trigger_scan",
+];
+
 /** Default dwell when a step does not specify one. */
 const DEFAULT_DWELL_MS = 1500;
 /** How long to wait after a target rect is set before firing the intent's
@@ -113,6 +123,9 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
   const sideEffectFiredRef = React.useRef<Set<string>>(new Set());
   /** Snapshot of the "auto" providers we mark unavailable if no scan return. */
   const providersForSequenceRef = React.useRef<string[]>([]);
+  const lastDevStepLogRef = React.useRef<number>(-999);
+  const completedEventLoggedRef = React.useRef(false);
+  const skipCompletedDiagnosticRef = React.useRef(false);
 
   /* --------------------------- accessibility --------------------------- */
 
@@ -256,7 +269,7 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
      * `wait_for_scan` and `show_progress` (when scan hasn't returned yet) and
      * `human_approval_gate` (final) do not auto-advance.
      */
-    const isWaitingForScan = step.intent === "wait_for_scan" || step.intent === "show_progress";
+    const isWaitingForScan = WAIT_FOR_SCAN_INTENTS.includes(step.intent);
     const isFinal = step.intent === "human_approval_gate";
 
     if (!isWaitingForScan && !isFinal) {
@@ -314,6 +327,8 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
     sideEffectFiredRef.current = new Set();
     setProviderProgress(ZERO_PROGRESS);
     setPacketStatus(null);
+    lastDevStepLogRef.current = -999;
+    completedEventLoggedRef.current = false;
     setStepIndex(0);
     setStatus("running");
   }, [enabled, steps]);
@@ -328,6 +343,7 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
 
   const stop = React.useCallback(() => {
     clearTimers();
+    if (import.meta.env.DEV) logAutopilotEvent({ eventName: "autopilot_stopped" });
     setStatus("aborted");
     setStepIndex(-1);
     setTargetRect(null);
@@ -344,6 +360,10 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
      * the run as "ended by user, results preserved".
      */
     clearTimers();
+    if (import.meta.env.DEV) {
+      skipCompletedDiagnosticRef.current = true;
+      logAutopilotEvent({ eventName: "autopilot_take_control" });
+    }
     setStatus("completed");
     setTargetRect(null);
   }, [clearTimers]);
@@ -362,8 +382,8 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
       setStepIndex((idx) => {
         const step = steps[idx];
         if (!step) return idx;
-        /** Only auto-advance from a waiting step. */
-        if (step.intent === "wait_for_scan" || step.intent === "show_progress") return idx + 1;
+        /** Advance past scan-driving intents once the dashboard reports completion. */
+        if (WAIT_FOR_SCAN_INTENTS.includes(step.intent)) return idx + 1;
         return idx;
       });
     },
@@ -374,6 +394,69 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
 
   const isActive = status === "running" || status === "paused";
   const currentStep = stepIndex >= 0 && stepIndex < steps.length ? steps[stepIndex] : null;
+
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (status !== "running" && status !== "paused") return;
+    if (!currentStep) return;
+    if (stepIndex === lastDevStepLogRef.current) return;
+    lastDevStepLogRef.current = stepIndex;
+    logAutopilotEvent({
+      eventName: "step_started",
+      stepId: currentStep.id,
+      stepIndex,
+      details: { intent: currentStep.intent },
+    });
+  }, [status, stepIndex, currentStep]);
+
+  /** One-shot target presence log per step (avoids spam from locate interval). */
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (status !== "running" && status !== "paused") return;
+    const step = steps[stepIndex];
+    if (!step?.targetSelector) return;
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      if (cancelled) return;
+      const el = document.querySelector<HTMLElement>(step.targetSelector!);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        logAutopilotEvent({
+          eventName: "target_found",
+          stepId: step.id,
+          stepIndex,
+          details: { selector: step.targetSelector, w: Math.round(r.width), h: Math.round(r.height) },
+        });
+      } else {
+        logAutopilotEvent({
+          eventName: "target_missing",
+          stepId: step.id,
+          stepIndex,
+          details: { selector: step.targetSelector },
+        });
+      }
+    }, CURSOR_TRAVEL_DELAY_MS + 50);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [status, stepIndex, steps]);
+
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (status !== "completed") {
+      completedEventLoggedRef.current = false;
+      return;
+    }
+    if (skipCompletedDiagnosticRef.current) {
+      skipCompletedDiagnosticRef.current = false;
+      completedEventLoggedRef.current = true;
+      return;
+    }
+    if (completedEventLoggedRef.current) return;
+    completedEventLoggedRef.current = true;
+    logAutopilotEvent({ eventName: "autopilot_completed" });
+  }, [status]);
 
   return {
     status,

@@ -39,17 +39,10 @@ export const WATER_ALERT_AUTOPILOT_STEPS: AutopilotStep[] = [
   {
     id: "trigger_scan",
     intent: "trigger_scan",
-    bubble: "Running the safe scan now.",
+    bubble: "Running the safe scan now — checking FloodGuard, USGS, NWS, and GeoLedger.",
     targetSelector: `[data-dpal-target="${AUTOPILOT_TARGETS.runWaterEvidenceScan}"]`,
-    dwellMs: 900,
-  },
-  {
-    id: "show_progress",
-    intent: "show_progress",
-    bubble: "DPAL is checking FloodGuard, USGS, NWS, and GeoLedger.",
-    targetSelector: `[data-dpal-target="${AUTOPILOT_TARGETS.moduleHealthPanel}"]`,
+    /** Waits for `markScanComplete` from the dashboard (same API as manual scan). */
     progressItems: ["FloodGuard", "USGS", "NWS", "GeoLedger"],
-    /** Step waits for the scan callback before advancing. */
   },
   {
     id: "show_packet",
