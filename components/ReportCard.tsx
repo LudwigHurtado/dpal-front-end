@@ -4,7 +4,7 @@ import type { Report } from '../types';
 import { MapPin, Tag, Clock, Hash, Link, Pencil, Camera, Loader, ChevronLeft, ChevronRight, QrCode, ShieldCheck, Zap, Broadcast, Target, Scale, AlertTriangle, FileText, Fingerprint, Activity } from './icons';
 import { CATEGORIES_WITH_ICONS } from '../constants';
 import { useTranslations } from '../i18n';
-import { getReportImage } from '../utils/reportImages';
+import { collectReportVisualUrls, getReportImage } from '../utils/reportImages';
 import QrCodeDisplay from './QrCodeDisplay';
 
 interface ReportCardProps {
@@ -24,10 +24,10 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat,
   useEffect(() => {
     let objectUrls: string[] = [];
 
-    const rawImageUrls = Array.isArray((report as any).imageUrls) ? (report as any).imageUrls : [];
+    const collected = collectReportVisualUrls(report);
     const attachments = Array.isArray((report as any).attachments) ? (report as any).attachments : [];
 
-    if (rawImageUrls.length === 0 && attachments.length > 0) {
+    if (collected.length === 0 && attachments.length > 0) {
         const imageFiles = attachments.filter((f: any) => f && typeof f.type === 'string' && f.type.startsWith('image/'));
         if (imageFiles.length > 0) {
             objectUrls = imageFiles.map((file: File) => URL.createObjectURL(file));
@@ -36,8 +36,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat,
             setImageUrlsToDisplay([]);
         }
     } else {
-        const normalizedImageUrls = rawImageUrls.filter((u: any) => typeof u === 'string' && u.trim().length > 0);
-        setImageUrlsToDisplay(normalizedImageUrls.length > 0 ? normalizedImageUrls : [getReportImage(report)]);
+        setImageUrlsToDisplay(collected.length > 0 ? collected : [getReportImage(report)]);
     }
 
     return () => objectUrls.forEach(url => URL.revokeObjectURL(url));

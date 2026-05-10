@@ -47,3 +47,42 @@ export function getReportImage(report?: Partial<Pick<Report, 'category' | 'image
   const rawImage = report?.imageUrls?.find((url) => typeof url === 'string' && url.trim().length > 0)?.trim();
   return encodeURI(rawImage || getCategoryReportImage(report?.category));
 }
+
+/**
+ * All image URLs to show for a report in hub / feed cards (matches Situation Room filing sources).
+ * Includes imageUrls, structuredData galleries, and append-only filingImageHistory (e.g. room uploads).
+ */
+export function collectReportVisualUrls(report: Report): string[] {
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  const add = (u: unknown) => {
+    if (typeof u !== 'string') return;
+    const s = u.trim();
+    if (!s || seen.has(s)) return;
+    seen.add(s);
+    ordered.push(s);
+  };
+
+  if (Array.isArray(report.imageUrls)) {
+    report.imageUrls.forEach(add);
+  }
+
+  const sd = report.structuredData;
+  if (sd && typeof sd === 'object') {
+    const o = sd as Record<string, unknown>;
+    for (const key of ['photos', 'images', 'imageUrls', 'filingImages', 'attachmentUrls'] as const) {
+      const v = o[key];
+      if (!Array.isArray(v)) continue;
+      for (const item of v) {
+        if (typeof item === 'string') add(item);
+        else if (item && typeof item === 'object' && 'url' in item) add((item as { url: string }).url);
+      }
+    }
+  }
+
+  if (Array.isArray(report.filingImageHistory)) {
+    report.filingImageHistory.forEach(add);
+  }
+
+  return ordered;
+}
