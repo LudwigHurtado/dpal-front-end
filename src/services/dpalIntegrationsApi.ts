@@ -1,16 +1,34 @@
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ||
-  import.meta.env.VITE_BACKEND_URL ||
-  "https://web-production-a27b.up.railway.app";
+function integrationsApiOrigin(): string {
+  const raw =
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.VITE_BACKEND_URL ||
+    "https://web-production-a27b.up.railway.app";
+  return raw.replace(/\/+$/, "");
+}
+
+/**
+ * Build fetch URL without duplicating `/api` when the env base already ends with `/api`
+ * and paths are written as `/api/...` (same pitfall as Verifier UI + VITE_API_BASE_URL).
+ */
+function integrationRequestUrl(path: string): string {
+  const base = integrationsApiOrigin();
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (base.endsWith("/api") && (p === "/api" || p.startsWith("/api/"))) {
+    const tail = p === "/api" ? "/" : p.replace(/^\/api/, "") || "/";
+    const normalized = tail.startsWith("/") ? tail : `/${tail}`;
+    return `${base}${normalized}`;
+  }
+  return `${base}${p}`;
+}
 
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(integrationRequestUrl(path));
   if (!res.ok) throw new Error(`DPAL API ${res.status}: ${await res.text()}`);
   return res.json() as Promise<T>;
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
+  const res = await fetch(integrationRequestUrl(path), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

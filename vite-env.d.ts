@@ -9,6 +9,10 @@ interface ImportMetaEnv {
   /** Default: gpt-4o-mini */
   readonly VITE_OPENAI_MODEL?: string;
   readonly VITE_API_BASE?: string;
+  /** Integrations client (`dpalIntegrationsApi.ts`). Origin only or ending in `/api`; `/api/api` is deduped. Not the Verifier UI build (that lives in dpal-reviewer-node). */
+  readonly VITE_API_BASE_URL?: string;
+  /** Legacy alias for integrations API origin (same semantics as `VITE_API_BASE_URL`). */
+  readonly VITE_BACKEND_URL?: string;
   readonly VITE_DPAL_API_BASE_URL?: string;
   readonly VITE_DPAL_AI_SERVER_URL?: string;
   readonly VITE_DPAL_MEDIA_BASE_URL?: string;
@@ -33,6 +37,10 @@ interface ImportMetaEnv {
   readonly VITE_GAME_URL_TAKE_THE_WALK_SHARE_MOMENT?: string;
   readonly VITE_GAME_URL_KITTY_COMFORT_VISITS?: string;
   readonly VITE_GAME_URL_SILENT_OBSERVER?: string;
+  /** Reviewer Node API base for Field OS Super Agent (e.g. `https://…railway.app/api`). */
+  readonly VITE_REVIEWER_NODE_API_BASE?: string;
+  /** Validator / Verifier portal URL opened from the main menu (static app, often Vercel). */
+  readonly VITE_VALIDATOR_PORTAL_URL?: string;
 }
 
 interface ImportMeta {

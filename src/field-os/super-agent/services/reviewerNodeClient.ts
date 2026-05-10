@@ -66,12 +66,21 @@ function toArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
-export async function getReviewerNodeHealth(): Promise<{ ok: boolean; service?: string }> {
+export async function getReviewerNodeHealth(): Promise<{
+  ok: boolean;
+  service?: string;
+  upstreamConfigured?: boolean;
+}> {
   const url = `${reviewerApiBase()}/reviewer/v1/health`;
   const res = await fetch(url, { headers: { Accept: 'application/json' } });
   const data = await parseJson(res);
   if (!res.ok) throw new Error(`Reviewer node health failed (${res.status})`);
-  return { ok: Boolean(data.ok), service: typeof data.service === 'string' ? data.service : undefined };
+  return {
+    ok: Boolean(data.ok),
+    service: typeof data.service === 'string' ? data.service : undefined,
+    upstreamConfigured:
+      typeof data.upstreamConfigured === 'boolean' ? data.upstreamConfigured : undefined,
+  };
 }
 
 export async function submitCaseForReview(caseSnapshot: ReviewerCaseSnapshot): Promise<ReviewerSubmissionResponse> {
