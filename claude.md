@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-04-29 (Earth Observation AOI-source-of-truth hardening + assistant handoff/evidence integration; AquaScan live-only hardening + map clarity; Envirofacts layout/drawer fixes; CARB three-workflow split: MRR + Pollution Map + Satellite Scan Center; historical-loader guidance; run-investigation fallback messaging; Good Wheels backend contract and publish-readiness review)
+Last updated: 2026-05-10 (Verifier / Reviewer Node production architecture docs; upstream feed fallback for `report_not_found`; clarify `dpal-reviewer-node` vs main filing API vs legacy `dpal-ai-server` wording)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -25,8 +25,120 @@ This file summarizes how the **dpal-front-end** app is built, how it talks to ba
 | Reports feed (dashboards) | `GET {API_BASE}/api/reports/feed` |
 | Enterprise dashboard | `https://dpal-enterprise-dashboard.vercel.app` — uses `NEXT_PUBLIC_DPAL_API_BASE` |
 | Nexus console | `https://dpal-nexus-console-vercel.vercel.app` — same API base pattern |
+| **Reviewer Node API (Verifier backend)** | `https://dpal-reviewer-node-production.up.railway.app` — routes under **`/api/reviewer/v1/*`**. This is **`dpal-reviewer-node`** (Express **`server/index.mjs`**), **not** the main filing API and **not** “the Verifier backend = `dpal-ai-server`” (see below). |
 
 **Local dev server:** Vite runs on **port 3000** (`vite.config.ts`), `host: 0.0.0.0` for LAN access.
+
+---
+
+## DPAL Verifier / Reviewer Node (production architecture)
+
+### Current architecture
+
+```text
+Verifier UI (Vercel — front-end from dpal-reviewer-node repo)
+    +
+Field OS (dpal-front-end) — Reviewer bridge via VITE_REVIEWER_NODE_API_BASE
+    |
+    v
+dpal-reviewer-node — Railway Express (server/index.mjs)
+    Base path: /api/reviewer/v1/*
+    |
+    v
+Main DPAL filing API — upstream data source only (DPAL_UPSTREAM_URL)
+    Example: https://web-production-a27b.up.railway.app
+    |
+    v
+Report feed / detail (/api/reports/feed, /api/reports/:reportId, …)
+```
+
+- **`dpal-reviewer-node`** is the **active backend** for **`/api/reviewer/v1/*`** (verifier / reviewer HTTP API).  
+- **Railway start:** `node server/index.mjs`.  
+- The **main filing API** (`DPAL_UPSTREAM_URL`) is **upstream report data**, not the peer the Verifier UI should call directly.  
+- **Verifier UI** on Vercel must use **`VITE_API_BASE_URL=https://dpal-reviewer-node-production.up.railway.app/api`** (Reviewer Node **`/api`** prefix), not the filing API origin.
+
+**Legacy wording:** **`dpal-ai-server`** often names the repo/deployment that **implements** the main filing API (`VITE_API_BASE`). For the **Verifier / Reviewer** workflow, describing **`dpal-ai-server`** as the Verifier backend is **outdated / wrong** — use **`dpal-reviewer-node`**.
+
+### Production services
+
+**Reviewer Node (Railway)**
+
+| Item | Value |
+|------|--------|
+| Repo | `LudwigHurtado/dpal-reviewer-node` |
+| Start | `node server/index.mjs` |
+| Health | `GET https://dpal-reviewer-node-production.up.railway.app/api/reviewer/v1/health` |
+| Report detail | `GET https://dpal-reviewer-node-production.up.railway.app/api/reviewer/v1/verifier/reports/:reportId` |
+| Report queue | `GET https://dpal-reviewer-node-production.up.railway.app/api/reviewer/v1/verifier/reports` |
+
+**Main filing API (upstream)**
+
+| Item | Value |
+|------|--------|
+| Env on Reviewer Node | **`DPAL_UPSTREAM_URL`** |
+| Example | `https://web-production-a27b.up.railway.app` |
+| Feed used by Reviewer Node | `/api/reports/feed` |
+| Detail tried first | `/api/reports/:reportId` |
+
+### Environment variables (Reviewer Node + Verifier)
+
+**Railway — `dpal-reviewer-node`**
+
+**Required**
+
+- `DPAL_UPSTREAM_URL=https://web-production-a27b.up.railway.app` (main filing API origin; **never** the Reviewer Node URL)
+- `NODE_ENV=production`
+
+**Optional** (see `dpal-reviewer-node` repo): `DPAL_UPSTREAM_AUTH_HEADER`, `DPAL_UPSTREAM_REPORTS_PATH`, `DPAL_UPSTREAM_REPORTS_LIMIT`, `DPAL_PUBLIC_REPORT_BASE`, `REVIEWER_SSE_INTERVAL_MS`, `REVIEWER_API_PORT` (local dev only).
+
+**Vercel — Verifier UI**
+
+- `VITE_API_BASE_URL=https://dpal-reviewer-node-production.up.railway.app/api`
+
+**dpal-front-end — Field OS**
+
+- `VITE_REVIEWER_NODE_API_BASE=https://dpal-reviewer-node-production.up.railway.app/api`
+
+**Do not:** point **`VITE_API_BASE_URL`** (Verifier UI) at the main filing API; set **`DPAL_UPSTREAM_URL`** to the Reviewer Node host (self-loop).
+
+### Resolved issue — `report_not_found` (404)
+
+- **Symptom:** `GET …/verifier/reports/:reportId` → **`report_not_found`**.  
+- **Cause:** Upstream **`/api/reports/feed`** exposed an id **`/api/reports/:reportId`** did not resolve (**404**).  
+- **Mitigation (Reviewer Node):** `fetchUpstreamReportById`: try detail → on **404**, fetch **`/api/reports/feed?limit=120`**, match **`id` / `reportId` / `report_id` / `uuid` / `public_id` / `_id`**, return normalized doc with **`fallback: "feed"`** and **`feedUrl`**. Verifier returns **200** when the feed contains the report.
+
+**Test**
+
+```bash
+curl.exe -i "https://dpal-reviewer-node-production.up.railway.app/api/reviewer/v1/verifier/reports/cmox4h3t90002z6fn0ifdno0h"
+```
+
+Expect **200 OK**, **`"ok": true`**, **`"upstreamFallback": "feed"`** when served via feed fallback.
+
+### Health check
+
+```bash
+curl.exe -i "https://dpal-reviewer-node-production.up.railway.app/api/reviewer/v1/health"
+```
+
+Healthy payload should include **`service`: `dpal-reviewer-node`**, **`upstreamConfigured`: true**, **`upstreamOrigin`** indicating configured state, **`verifierPortal`: true** (per deployed version).
+
+### Known technical debt
+
+- Main filing API **feed vs detail id mismatch** remains the **root** issue; fix belongs on the **filing API** (detail should resolve **`reportId`** and **`_id`** consistently).  
+- Reviewer Node **feed fallback** is intentional resilience — **do not remove** until upstream is verified fixed.
+
+### Local development (Reviewer Node)
+
+```bash
+npm install && npm start
+curl.exe -i "http://localhost:8787/api/reviewer/v1/health"
+curl.exe -i "http://localhost:8787/api/reviewer/v1/verifier/reports/cmox4h3t90002z6fn0ifdno0h"
+```
+
+### Future programmer warning
+
+> **Do not** point the Verifier UI at **`dpal-ai-server`** or the **main filing API** directly. Verifier calls **`dpal-reviewer-node`** with **`VITE_API_BASE_URL=…/api`**. Do **not** strip the feed fallback until filing API detail behavior is fixed. Do **not** swap live upstream logic for mock/demo data on these routes.
 
 ---
 
@@ -38,7 +150,7 @@ All Vite-exposed vars must be prefixed with **`VITE_`**. Copy `.env.example` →
 |----------|---------|
 | **`VITE_API_BASE`** | Backend origin (no trailing slash). **Required** for predictable API routing; if unset, dev falls back to `http://localhost:3001`, prod to the default Railway URL in `constants.ts`. |
 | **`VITE_GEMINI_API_KEY`** | **Optional if using server AI:** client-side Gemini (`services/geminiService.ts`). **Public in bundle** — prefer **`VITE_USE_SERVER_AI`** + Railway **`GEMINI_API_KEY`** for production. |
-| **`VITE_USE_SERVER_AI`** | Set to **`true`** on Vercel when AI runs only via **`POST /api/ai/gemini`** (no browser key). **`isAiEnabled()`** is true if this **or** `VITE_GEMINI_API_KEY` is set. Requires **`GEMINI_API_KEY`** on **`VITE_API_BASE`** host and deployed **`/api/ai/gemini`** route (`dpal-ai-server`). |
+| **`VITE_USE_SERVER_AI`** | Set to **`true`** on Vercel when AI runs only via **`POST /api/ai/gemini`** (no browser key). **`isAiEnabled()`** is true if this **or** `VITE_GEMINI_API_KEY` is set. Requires **`GEMINI_API_KEY`** on the **`VITE_API_BASE`** (**main filing API**) host and **`/api/ai/gemini`** there. *Not related to the Reviewer Node Verifier API.* |
 | **`VITE_OPENAI_API_KEY`** | Politician Transparency: query refine + evidence draft (`services/politicianOpenAiService.ts`). In **dev**, Vite injects the key via **`/openai-proxy`** so the browser bundle does not need the secret. **Production** may need a same-origin proxy if CORS blocks direct OpenAI calls. |
 | **`VITE_OPENAI_MODEL`** | Optional; default `gpt-4o-mini`. |
 | **`VITE_BRAVE_SEARCH_API_KEY`** | Live web search (`services/braveSearchService.ts`). |
@@ -47,7 +159,8 @@ All Vite-exposed vars must be prefixed with **`VITE_`**. Copy `.env.example` →
 | **`VITE_FEATURE_*`** | `REPUTATION`, `AUDIT_TRAIL`, `BLOCKCHAIN_ANCHOR`, `GOVERNANCE` — see `features/featureFlags.ts`. |
 | **`VITE_GAME_URL_*`** | Society Game Hub — external URLs per game id (`societyGames.ts`). |
 | **`VITE_ADSENSE_*`** | Optional AdSense slots (`MainMenu.tsx`). |
-| **`VITE_VALIDATOR_PORTAL_URL`** | Optional Validator Node destination used by `getValidatorPortalUrl()` in `constants.ts` and the "Validator Node" card in `MainMenu.tsx`. If unset, production host `dpal-front-end.vercel.app` defaults to `https://dpal-reviewer-node.vercel.app`; non-prod host shows a setup warning. |
+| **`VITE_VALIDATOR_PORTAL_URL`** | Optional Verifier / Validator **portal** URL (often Vercel static app from **`dpal-reviewer-node`**). Used by `getValidatorPortalUrl()` and `MainMenu.tsx`. That UI should call the **Reviewer Node Railway API** via its own **`VITE_API_BASE_URL`**, not the main filing API. If unset, production host `dpal-front-end.vercel.app` defaults to `https://dpal-reviewer-node.vercel.app`; non-prod shows a setup warning. |
+| **`VITE_REVIEWER_NODE_API_BASE`** | Field OS → Reviewer Node HTTP API base (e.g. `https://dpal-reviewer-node-production.up.railway.app/api`). See **`src/field-os/super-agent/services/reviewerNodeClient.ts`**. |
 
 See **`vite-env.d.ts`** for the full typed list.
 
@@ -71,10 +184,13 @@ To make local dev behave like production, use the same backend and AI path:
 
 ## Backend Landscape (Important Distinction)
 
+**Verifier / Reviewer:** The HTTP server for **`/api/reviewer/v1/*`** is **`dpal-reviewer-node`** (Railway, **`server/index.mjs`**). It uses **`DPAL_UPSTREAM_URL`** to read reports from the **main filing API**. It is **incorrect** to describe **`dpal-ai-server`** (or the filing API deployment) as the “Verifier UI backend” — that phrase refers to **`dpal-reviewer-node`**. See **[DPAL Verifier / Reviewer Node](#dpal-verifier--reviewer-node-production-architecture)**.
+
 1. **Production / main app API (Railway)**  
    - URL: **`VITE_API_BASE`** → typically `https://web-production-a27b.up.railway.app`.  
    - Described in code as **MongoDB**-backed for reports, NFT, escrow, AI routes, etc.  
-   - **`constants.ts` → `API_ROUTES`** documents expected paths: `/api/reports`, `/api/ai/ask`, **`/api/ai/gemini`**, **`/api/ai/status`**, `/api/nft/*`, `/api/escrow/*`, `/api/beacons`, etc.
+   - **`constants.ts` → `API_ROUTES`** documents expected paths: `/api/reports`, `/api/ai/ask`, **`/api/ai/gemini`**, **`/api/ai/status`**, `/api/nft/*`, `/api/escrow/*`, `/api/beacons`, etc.  
+   - **Upstream for Reviewer Node only:** this service supplies **`/api/reports/feed`** and **`/api/reports/:reportId`** to **`dpal-reviewer-node`**; the SPA’s **`VITE_API_BASE`** and the Verifier’s **`VITE_API_BASE_URL`** are **different** concerns.
 
 2. **Repo folder `backend/`** (Express + **Prisma**)  
    - Separate **local / auxiliary** service: help-center style **`/api/help-reports`**, **`/api/admin/*`**, plus optional **`GET /api/ai/status`** + **`POST /api/ai/gemini`** (`routes/geminiProxy.ts`) for local server-AI testing.  
@@ -86,15 +202,16 @@ To make local dev behave like production, use the same backend and AI path:
    - Default port **3001** (`backend/src/index.ts`).  
    - **Not** the same deployment as production **`dpal-ai-server`** on Railway unless you point **`VITE_API_BASE`** here — do not assume all `API_ROUTES` exist in this folder. **Earth Observation + DPAL Assistant routes must exist on whatever host `VITE_API_BASE` points to** (often Railway); mirror the same routes there or proxy to this service for the SPA to succeed.
 
-3. **`dpal-ai-server`** (separate GitHub repo, **not** this tree)  
-   - **`LudwigHurtado/dpal-ai-server`** — this is what usually backs **`https://web-production-a27b.up.railway.app`**.  
-   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, carbon MRV, offsets, **water monitor**, **ecology**, etc.
+3. **`dpal-ai-server`** (separate GitHub repo, **not** this tree) — **main filing API implementation (legacy name in docs)**  
+   - **`LudwigHurtado/dpal-ai-server`** — common deployment behind **`https://web-production-a27b.up.railway.app`** (**`VITE_API_BASE`**).  
+   - Implements **`/api/ai/ask`**, **`/api/ai/health`**, **`/api/ai/status`**, **`/api/ai/gemini`**, NFT, persona, reports, situation room uploads, carbon MRV, offsets, **water monitor**, **ecology**, etc.  
+   - **Does not** implement the Verifier’s **`/api/reviewer/v1/*`** surface; those routes are on **`dpal-reviewer-node`**.
    - **Water Monitor routes** (`/api/water/*`) added in `src/routes/water.routes.ts` — registered in `src/index.ts`. Models in `src/models/Water*.ts`. Satellite adapters in `src/services/adapters/*.adapter.ts`.
    - **Carbon MRV routes** (`/api/carbon/*`) in `src/routes/carbon.routes.ts`.
    - **Offsets routes** (`/api/offsets/*`) in `src/routes/offsets.routes.ts`.
    - **Ecology routes** (`/api/ecology/*`) in `src/routes/ecology.routes.ts` — Landsat 9 foliage scan via Microsoft Planetary Computer STAC. Adapter: `src/services/adapters/landsatEcology.adapter.ts`.
 
-When debugging “API issues,” confirm whether the app is pointed at Railway **`dpal-ai-server`** or local `3001` Prisma backend.
+When debugging “API issues,” confirm whether the app is pointed at Railway **main filing API** vs local `3001` Prisma backend — and whether the issue is **Reviewer Node** (**`dpal-reviewer-node`**) vs **filing API** (**`VITE_API_BASE`**).
 
 ---
 
