@@ -1,6 +1,6 @@
 # DPAL Front-End — Reference for AI & Developers
 
-Last updated: 2026-05-10 (Verifier / Reviewer Node production architecture docs; upstream feed fallback for `report_not_found`; clarify `dpal-reviewer-node` vs main filing API vs legacy `dpal-ai-server` wording)
+Last updated: 2026-05-10 (DPAL Navigator + Visible Autopilot; FloodGuard doc index + stages 12F–12J; public API adapters note; Verifier / Reviewer Node architecture; `claude.md` → **`CLAUDE.md`** casing)
 
 This file summarizes how the **dpal-front-end** app is built, how it talks to backends, env vars, routing, and notable product/code areas so future sessions stay aligned.
 
@@ -244,6 +244,10 @@ Backend should accept both **`FRONTEND_ORIGIN`** and **`CORS_ORIGINS`** naming.
 - **`API_ROUTES`** — central list of path constants for the main backend, including **`EARTH_OBSERVATION_SCAN`** (`/api/earth-observation/scan`) and **`DPAL_ASSISTANT_PROJECT_GUIDE`** (`/api/dpal-assistant/project-guide`).  
 - **Enterprise / Nexus:** may use `NEXT_PUBLIC_DPAL_API_BASE` (Next.js) — same Railway URL pattern.
 
+### Public API integration adapters
+
+DPAL **public API / integration** clients (for example **`src/services/dpalIntegrationsApi.ts`**) call routes such as **`/api/integrations/*`**. **`VITE_API_BASE`** is not proof that every integration route is deployed on that host — confirm which backend serves **`/api/integrations/*`** (and related prefixes) before debugging “missing route” issues.
+
 ### localStorage override (debugging)
 
 If a dashboard shows “disconnected” or wrong API:
@@ -288,6 +292,8 @@ If a dashboard shows “disconnected” or wrong API:
 | `earthObservation` | `/earth-observation` | **Earth Observation** — LEO screening workspace: map AOI, **date range + presets**, `POST` scan to **`/api/earth-observation/scan`**, metrics + scan status (**Auto · preset** vs **Custom dates** badge on comparison basis), DPAL Project Guide panel |
 | `gameHub` | `/games` | **Play & Learn / DPAL Mission Ops** embedded Phaser game |
 | `emissionsIntegrityAudit` | `/emissions-integrity-audit` | **EIAS** — facility intake, audit scope, ADI / evidence packet; live hints via **`/api/carbon/*`** when pointed at Railway; **save/list** needs **`/api/emissions-audit/*`** on the same host (implemented on Prisma **`backend/`** + `DpalUser` JWT, not default Mongo Railway) |
+| *(standalone route)* | `/floodguard` | **FloodGuard** dashboard — see **`docs/FLOODGUARD_*.md`** and [FloodGuard documentation (index)](#floodguard-documentation-index) |
+| *(standalone route)* | `/floodguard/verify/:ledgerRecordId` | **FloodGuard** public verification page — mounted in **`AppBootstrap.tsx`** |
 
 ### Accounts & authentication (MongoDB users on `dpal-ai-server`)
 
@@ -300,12 +306,32 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 
 ---
 
+## FloodGuard documentation (index)
+
+| Doc | Purpose |
+|-----|---------|
+| **`docs/FLOODGUARD_USER_MANUAL.md`** | Operator manual |
+| **`docs/FLOODGUARD_DEVELOPER_GUIDE.md`** | Programmer onboarding and extension guide |
+| **`docs/FLOODGUARD_ARCHITECTURE.md`** | Pipeline, ledger digest, routing, mission bridge architecture |
+| **`docs/FLOODGUARD_PRODUCTION_STATUS.md`** | Smoke checks, known Railway issues, triage steps |
+
+**Recent stages (12F–12J):** Mission-to-DPAL Missions bridge (**12F**); alert routing preview / dry run (**12G**); ledger anchoring upgrade with composite **`anchoringHash`** and mock-chain provider (**12H**); public verification page (**12I**); operator onboarding / start wizard (**12J**). Details and file anchors are in the developer guide and architecture doc.
+
+> **DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.**
+
+> **Local DPAL mock ledger record - not a public blockchain transaction.**
+
+---
+
 ## Notable Product Areas (Code Anchors)
 
 | Area | Where to look |
 |------|----------------|
 | Main shell & view switching | `App.tsx` |
 | Auth pages, login URL | `AppBootstrap.tsx`, `pages/auth/*`, `auth/AuthContext.tsx` |
+| **DPAL Navigator** | **`src/features/dpalNavigator/*`**, **`AppBootstrap.tsx`** — floating guided-intelligence layer. Interprets user input, recommends DPAL modules, passes helper context via **`sessionStorage`** and query params, shows helper cards in target modules, tracks safe workflow milestones. Does **not** auto-publish, auto-verify, auto-anchor, auto-route, or auto-escalate. |
+| **Visible Autopilot** | **`src/features/dpalNavigator/*`**, **`src/features/WaterAlertEvidenceDashboard.tsx`** — visible safe-check flow for water alerts: cursor/spotlight, provider status (FloodGuard, USGS, NWS, GeoLedger), pause/resume/stop/take-control; uses **`autopilot=true`**, **`autopilotMode=visible-safe-checks`**, **`showCursor=true`**. Guided assistance only — human approval gates remain. |
+| **FloodGuard** | **`src/features/floodGuard/*`**, **`docs/FLOODGUARD_*.md`** — civic flood intelligence UI and pipelines (stages through **12J**); public verify route in **`AppBootstrap.tsx`**. Does not replace government alerts; mock ledger disclaimers apply — see architecture / production status docs. |
 | Main menu tiles | `components/MainMenu.tsx` — 20 `PrimaryNavModule` tiles; images live in `public/main-screen/` |
 | Category / sector “Next view” | `CategorySelectionView.tsx`, `components/sectors/*`, `sectorDefinitions.ts` — sectors named (Safety, Financial, Health, Government, Property, Digital, Community), `SectorGatewayGrid`, `CategoryMappingPanel` |
 | Politician Transparency | `PoliticianTransparencyView.tsx` — **Public Accountability Engine** workflow: target fields → accountability focus grid → evidence query + source filters → DuckDuckGo search; OpenAI refine; evidence lab + localStorage draft |
@@ -343,6 +369,16 @@ Longer cross-repo notes: **`dpal-reviewer-node`** root **`claude.md`** section *
 ---
 
 ## Recent Front-End Work (Session History)
+
+### 2026-05-09 — DPAL Navigator + visible safe-check autopilot
+
+- Added app-wide **DPAL Navigator** mounted in **`AppBootstrap.tsx`** (`DpalNavigatorProvider`).
+- Added scenario interpretation for water/flood, carbon land review, pollution/waste, public accountability reports, locator cases, and transport / Good Wheels help.
+- Added helper cards inside destination modules when the user arrives from Navigator.
+- Added query-param handoff for coordinates and labels.
+- Added outcome tracking so modules can show **safe workflow status** without implying verification or publication.
+- Added **Visible Autopilot** safe checks on the **Water Alert Evidence Dashboard**: cursor/spotlight movement, provider progress checks, pause/resume/stop/take-control controls, module health panel targeting, and emphasis on evidence integrity / human approval gates.
+- Autopilot is intentionally limited: it may **guide**, **prefill**, **scan**, and **summarize** — it does **not** publish, verify, anchor, route, dispatch, pay, or escalate without human approval.
 
 ### 2026-04-29 — Earth Observation workspace hardening + in-page assistant
 

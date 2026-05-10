@@ -106,6 +106,96 @@ After changing Railway variables, redeploy or restart the backend service.
 
 **API routes this SPA expects on `VITE_API_BASE`:** Among others, **`POST /api/earth-observation/scan`** and **`POST /api/dpal-assistant/project-guide`** are implemented in this repo under **`backend/src/routes/`** and must be deployed on whatever backend you point the front-end at (often the same Railway service as `dpal-ai-server`), or proxied there.
 
+**Public API integration adapters:** Client modules (for example **`src/services/dpalIntegrationsApi.ts`**) call integration-style routes such as **`/api/integrations/*`**. Those routes may be deployed on a **different** host or rollout than core **`VITE_API_BASE`** paths — confirm which backend exposes each route before assuming one Railway URL satisfies every adapter.
+
+---
+
+## DPAL Navigator + Visible Autopilot
+
+**DPAL Navigator** is the cross-app guided intelligence layer mounted globally in **`AppBootstrap.tsx`** (`DpalNavigatorProvider`). It accepts free-form descriptions, coordinates, addresses, and scenario language, then **recommends** (does not force) the appropriate DPAL module.
+
+**Currently supported scenarios** include:
+
+- Water / flood alerts  
+- Carbon land / MRV review  
+- Pollution / waste investigations  
+- Public accountability reports  
+- Locator cases  
+- Transportation / Good Wheels help  
+
+**Navigator behavior**
+
+- Detects likely scenario and confidence  
+- Parses coordinates when the user supplies them  
+- Recommends a primary module and alternate paths  
+- Writes temporary helper context to **`sessionStorage`**  
+- Opens target modules using query params  
+- Shows a helper card inside the destination module  
+- Tracks **safe workflow milestones** (progress cues — not verification outcomes)  
+- **Never** auto-publishes, auto-verifies, auto-anchors, auto-routes, or auto-escalates  
+
+**Code anchors:** `src/features/dpalNavigator/*`, **`AppBootstrap.tsx`**.
+
+### Visible Autopilot
+
+The **Water Alert Evidence Dashboard** (`src/features/WaterAlertEvidenceDashboard.tsx`) supports **visible safe-check autopilot** using query params such as:
+
+- `autopilot=true`  
+- `autopilotMode=visible-safe-checks`  
+- `showCursor=true`  
+
+**Visible Autopilot can**
+
+- Show a cursor / spotlight over the active UI target  
+- Pre-fill coordinates from Navigator query params  
+- Trigger the same water evidence scan used in manual mode  
+- Show provider progress for FloodGuard, USGS, NWS, and GeoLedger  
+- Display packet status and module health  
+- Let the user **pause**, **resume**, **stop**, or **take control**  
+
+**Visible Autopilot cannot**
+
+- Publish reports  
+- Mark claims verified  
+- Anchor evidence as final  
+- Send emergency alerts  
+- Dispatch real missions  
+- Process payments  
+- Replace official government alerts  
+
+**Safety statement**
+
+> DPAL Navigator and Visible Autopilot are guided operator-assistance tools. They can help the user see what DPAL is checking and which module should be used next, but all final public claims, verification decisions, evidence anchoring, emergency routing, mission dispatch, payment, or escalation actions remain subject to human approval and validator review.
+
+---
+
+## FloodGuard documentation (index)
+
+Deep dives live under **`docs/`**:
+
+| Doc | Purpose |
+|-----|---------|
+| [`docs/FLOODGUARD_USER_MANUAL.md`](docs/FLOODGUARD_USER_MANUAL.md) | Operator manual |
+| [`docs/FLOODGUARD_DEVELOPER_GUIDE.md`](docs/FLOODGUARD_DEVELOPER_GUIDE.md) | Programmer onboarding and extension guide |
+| [`docs/FLOODGUARD_ARCHITECTURE.md`](docs/FLOODGUARD_ARCHITECTURE.md) | Pipeline, ledger digest, routing, mission bridge architecture |
+| [`docs/FLOODGUARD_PRODUCTION_STATUS.md`](docs/FLOODGUARD_PRODUCTION_STATUS.md) | Smoke checks, known Railway issues, triage steps |
+
+**Recent FloodGuard stages (summary)**
+
+- **Stage 12F:** Mission-to-DPAL Missions integration (bridge + missions endpoints).  
+- **Stage 12G:** Alert routing preview / dry run.  
+- **Stage 12H:** Ledger anchoring upgrade with composite **`anchoringHash`** and mock-chain ledger provider (`dpal_local_mock`). Details and disclaimers are in the architecture docs.  
+- **Stage 12I:** Public QR-friendly verification page (`/floodguard/verify/:ledgerRecordId`).  
+- **Stage 12J:** Operator onboarding / start wizard UI.
+
+**Disclaimers**
+
+> **DPAL FloodGuard provides verified civic flood intelligence and does not replace official government emergency alerts.**
+
+Where the UI or docs reference ledger demos:
+
+> **Local DPAL mock ledger record - not a public blockchain transaction.**
+
 ---
 
 ## Field OS -> Reviewer verification bridge
@@ -368,6 +458,7 @@ Good Wheels module docs live at `src/good-wheels/README.md`.
 | `/escrow` | Trusted Escrow |
 | `/ledger` | Public Blockchain Ledger |
 | `/help` | Help Center |
+| `/floodguard` | **FloodGuard** flood intelligence dashboard — see [FloodGuard documentation (index)](#floodguard-documentation-index); companion docs in `docs/FLOODGUARD_*.md` |
 | `/login` `/signup` | Auth (MongoDB users on `dpal-ai-server`) |
 | `/emissions-integrity-audit` | **EIAS** — emissions integrity audit (facility intake, scope, ADI, production unit for intensity); carbon adapter reads use Railway; server save needs `/api/emissions-audit/*` (see `CLAUDE.md`); workspace also **auto-saves in the browser** (`dpal_eias_workspace_v1`) |
 
