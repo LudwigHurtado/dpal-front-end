@@ -37,6 +37,13 @@ const HUMAN_APPROVAL_GATE_IDS = [
   'viu_draft_issuance',
 ] as const;
 
+const EVIDENCE_PACKAGE_PILLAR_LABELS = {
+  water: 'Water (AquaScan)',
+  earthObservation: 'Earth observation',
+  pollution: 'Pollution / CARB',
+  carbonViu: 'Carbon / VIU',
+} as const;
+
 const CLAIM_TRUTH_ROWS: { key: string; label: string }[] = [
   { key: 'observed', label: 'Observed' },
   { key: 'calculated', label: 'Calculated' },
@@ -979,61 +986,131 @@ const DpalFieldOSPage: React.FC = () => {
     const eoOutput = outputByAgent('EarthObservationAgent');
     const pollutionOutput = outputByAgent('CarbEmissionsAgent');
     const viuOutput = outputByAgent('ValidatorAgent') ?? outputByAgent('ReportAgent');
+    const wfIds = mappedExecutionPlan?.mappedWorkflowIds ?? [];
+    const agents = plan.subAgentsNeeded;
+
+    const findingBlurb = (o?: { findings?: string[] } | null, wfNext?: string | undefined, idle: string = 'Dry Run preview recorded — open Plan & safety for full sub-agent output.') => {
+      const joined = o?.findings?.filter(Boolean).join(' ')?.trim();
+      if (joined) return joined.length > 280 ? `${joined.slice(0, 277)}…` : joined;
+      if (wfNext?.trim()) return wfNext.trim();
+      return o ? idle : '';
+    };
+
+    const waterRich = waterOutput || byWorkflow('aquascan-investigation');
+    const eoRich = eoOutput || byWorkflow('earth-observation-audit');
+    const pollutionRich = pollutionOutput || byWorkflow('carb-emissions-audit');
+    const carbonViuRich = byWorkflow('carbon-viu-project') || viuOutput;
+
+    const waterInScope = agents.includes('AquaScanAgent') || wfIds.includes('aquascan-investigation');
+    const eoInScope = agents.includes('EarthObservationAgent') || wfIds.includes('earth-observation-audit');
+    const pollutionInScope = agents.includes('CarbEmissionsAgent') || wfIds.includes('carb-emissions-audit');
+    const carbonViuInScope = wfIds.includes('carbon-viu-project');
+
+    const mergePillar = (title: string, inScope: boolean, rich: boolean, richPayload: Record<string, unknown>) => {
+      if (rich) {
+        return {
+          ...richPayload,
+          pillarScope: 'in_scope' as const,
+          pillarPhase: 'preview' as const,
+        };
+      }
+      if (inScope) {
+        return {
+          title,
+          summary:
+            'This pillar is in your plan. Run Planned Workflow Preview (Dry Run) to populate preview lines here. Live connectors stay optional.',
+          pillarScope: 'in_scope' as const,
+          pillarPhase: 'awaiting_preview' as const,
+          status: 'awaiting_preview',
+        };
+      }
+      return {
+        title,
+        summary: 'Not assigned for this investigation. Regenerate the plan if you need this pillar.',
+        pillarScope: 'out_of_scope' as const,
+        pillarPhase: 'not_applicable' as const,
+        status: 'not_applicable',
+      };
+    };
+
     const analysisSummaries = {
-      water: waterOutput || byWorkflow('aquascan-investigation')
-        ? {
-            title: 'Water analysis',
-            summary: waterOutput?.findings?.[0] ?? byWorkflow('aquascan-investigation')?.nextRecommendedAction ?? 'Pending water analysis details.',
-            findings: waterOutput?.findings ?? [],
-            artifacts: waterOutput?.artifacts ?? [],
-            confidence: waterOutput?.confidence ?? byWorkflow('aquascan-investigation')?.confidence ?? 'medium',
-            limitations: waterOutput?.limitations ?? [],
-            sourceWorkflowIds: ['aquascan-investigation'],
-            status: waterOutput?.status ?? byWorkflow('aquascan-investigation')?.status ?? 'pending',
-          }
-        : undefined,
-      earthObservation: eoOutput || byWorkflow('earth-observation-audit')
-        ? {
-            title: 'Vegetation / canopy analysis',
-            summary: eoOutput?.findings?.[0] ?? byWorkflow('earth-observation-audit')?.nextRecommendedAction ?? 'Pending vegetation/canopy analysis.',
-            vegetationHealth: eoOutput?.findings ?? [],
-            canopyChange: eoOutput?.findings ?? [],
-            ndviNotes: eoOutput?.limitations ?? [],
-            biomassRelevance: eoOutput?.findings ?? [],
-            artifacts: eoOutput?.artifacts ?? [],
-            confidence: eoOutput?.confidence ?? byWorkflow('earth-observation-audit')?.confidence ?? 'medium',
-            limitations: eoOutput?.limitations ?? [],
-            sourceWorkflowIds: ['earth-observation-audit'],
-            status: eoOutput?.status ?? byWorkflow('earth-observation-audit')?.status ?? 'pending',
-          }
-        : undefined,
-      pollution: pollutionOutput || byWorkflow('carb-emissions-audit')
-        ? {
-            title: 'Pollution / emissions analysis',
-            summary: pollutionOutput?.findings?.[0] ?? byWorkflow('carb-emissions-audit')?.nextRecommendedAction ?? 'Pending pollution/emissions analysis.',
-            carbOrEmissionsNotes: pollutionOutput?.findings ?? [],
-            sourceReconciliationNotes: pollutionOutput?.limitations ?? [],
-            artifacts: pollutionOutput?.artifacts ?? [],
-            confidence: pollutionOutput?.confidence ?? byWorkflow('carb-emissions-audit')?.confidence ?? 'medium',
-            limitations: pollutionOutput?.limitations ?? [],
-            sourceWorkflowIds: ['carb-emissions-audit'],
-            status: pollutionOutput?.status ?? byWorkflow('carb-emissions-audit')?.status ?? 'pending',
-          }
-        : undefined,
-      carbonViu: byWorkflow('carbon-viu-project') || viuOutput
-        ? {
-            title: 'Carbon / VIU analysis',
-            summary: byWorkflow('carbon-viu-project')?.nextRecommendedAction ?? viuOutput?.findings?.[0] ?? 'Pending VIU analysis.',
-            viuReadiness: byWorkflow('carbon-viu-project')?.status ?? 'pending',
-            biomassOrCO2eNotes: viuOutput?.findings ?? [],
-            issuanceStatus: 'Draft only (Dry Run)',
-            artifacts: viuOutput?.artifacts ?? [],
-            confidence: viuOutput?.confidence ?? byWorkflow('carbon-viu-project')?.confidence ?? 'medium',
-            limitations: viuOutput?.limitations ?? ['Pending live service adapter'],
-            sourceWorkflowIds: ['carbon-viu-project'],
-            status: byWorkflow('carbon-viu-project')?.status ?? viuOutput?.status ?? 'pending',
-          }
-        : undefined,
+      water: mergePillar(
+        'Water analysis',
+        waterInScope,
+        Boolean(waterRich),
+        {
+          title: 'Water analysis',
+          summary:
+            findingBlurb(waterOutput, byWorkflow('aquascan-investigation')?.nextRecommendedAction, 'Dry Run water preview — see assigned agents for details.') ||
+            'Pending water analysis details.',
+          findings: waterOutput?.findings ?? [],
+          artifacts: waterOutput?.artifacts ?? [],
+          confidence: waterOutput?.confidence ?? byWorkflow('aquascan-investigation')?.confidence ?? 'medium',
+          limitations: waterOutput?.limitations ?? [],
+          sourceWorkflowIds: ['aquascan-investigation'],
+          status: waterOutput?.status ?? byWorkflow('aquascan-investigation')?.status ?? 'pending',
+        }
+      ),
+      earthObservation: mergePillar(
+        'Vegetation / canopy analysis',
+        eoInScope,
+        Boolean(eoRich),
+        {
+          title: 'Vegetation / canopy analysis',
+          summary:
+            findingBlurb(eoOutput, byWorkflow('earth-observation-audit')?.nextRecommendedAction, 'Dry Run Earth Observation preview — see Plan & safety for details.') ||
+            'Pending vegetation/canopy analysis.',
+          vegetationHealth: eoOutput?.findings ?? [],
+          canopyChange: eoOutput?.findings ?? [],
+          ndviNotes: eoOutput?.limitations ?? [],
+          biomassRelevance: eoOutput?.findings ?? [],
+          artifacts: eoOutput?.artifacts ?? [],
+          confidence: eoOutput?.confidence ?? byWorkflow('earth-observation-audit')?.confidence ?? 'medium',
+          limitations: eoOutput?.limitations ?? [],
+          sourceWorkflowIds: ['earth-observation-audit'],
+          status: eoOutput?.status ?? byWorkflow('earth-observation-audit')?.status ?? 'pending',
+        }
+      ),
+      pollution: mergePillar(
+        'Pollution / emissions analysis',
+        pollutionInScope,
+        Boolean(pollutionRich),
+        {
+          title: 'Pollution / emissions analysis',
+          summary:
+            findingBlurb(pollutionOutput, byWorkflow('carb-emissions-audit')?.nextRecommendedAction, 'Dry Run emissions audit preview — see Plan & safety for details.') ||
+            'Pending pollution/emissions analysis.',
+          carbOrEmissionsNotes: pollutionOutput?.findings ?? [],
+          sourceReconciliationNotes: pollutionOutput?.limitations ?? [],
+          artifacts: pollutionOutput?.artifacts ?? [],
+          confidence: pollutionOutput?.confidence ?? byWorkflow('carb-emissions-audit')?.confidence ?? 'medium',
+          limitations: pollutionOutput?.limitations ?? [],
+          sourceWorkflowIds: ['carb-emissions-audit'],
+          status: pollutionOutput?.status ?? byWorkflow('carb-emissions-audit')?.status ?? 'pending',
+        }
+      ),
+      carbonViu: mergePillar(
+        'Carbon / VIU analysis',
+        carbonViuInScope,
+        Boolean(carbonViuRich),
+        {
+          title: 'Carbon / VIU analysis',
+          summary:
+            findingBlurb(
+              viuOutput,
+              byWorkflow('carbon-viu-project')?.nextRecommendedAction,
+              'Dry Run carbon / VIU preview — see Plan & safety for details.'
+            ) || 'Pending VIU analysis.',
+          viuReadiness: byWorkflow('carbon-viu-project')?.status ?? 'pending',
+          biomassOrCO2eNotes: viuOutput?.findings ?? [],
+          issuanceStatus: 'Draft only (Dry Run)',
+          artifacts: viuOutput?.artifacts ?? [],
+          confidence: viuOutput?.confidence ?? byWorkflow('carbon-viu-project')?.confidence ?? 'medium',
+          limitations: viuOutput?.limitations ?? ['Pending live service adapter'],
+          sourceWorkflowIds: ['carbon-viu-project'],
+          status: byWorkflow('carbon-viu-project')?.status ?? viuOutput?.status ?? 'pending',
+        }
+      ),
     };
     const parsedEvidenceRefs = superAgentEvidenceRefs
       .split(/\r?\n|,|;/)
@@ -1593,26 +1670,52 @@ const DpalFieldOSPage: React.FC = () => {
                       <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">Investigation workspace</p>
                       <h3 className="mt-1 text-xl font-bold text-slate-900 sm:text-2xl">Super Agent output</h3>
                       <p className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-                        Preview and Dry Run only — Pending live service adapter for production connectors. “Verified” language applies only when Human-verified is explicitly true on the plan.
+                        Dry Run / preview friendly — production connectors stay optional. Say “verified” only when Human-verified is explicitly true on the plan or from the reviewer.
                       </p>
                       <div ref={evidencePackagePanelRef} className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
                         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Evidence package for reviewer</p>
+                        <p className="mt-1 text-[11px] leading-snug text-slate-500">
+                          Four pillars mirror Field OS workflows. “Awaiting preview” means the pillar is in scope but Planned Workflow Preview has not filled this row yet.
+                        </p>
                         <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {(['water', 'earthObservation', 'pollution', 'carbonViu'] as const).map((key) => {
                             const summary = (reviewerEvidencePackage.analysisSummaries as Record<string, any>)[key];
+                            const scope = summary?.pillarScope as string | undefined;
+                            const phase = summary?.pillarPhase as string | undefined;
+                            const chipClass =
+                              scope === 'out_of_scope'
+                                ? 'bg-slate-100 text-slate-600 ring-slate-200'
+                                : phase === 'awaiting_preview'
+                                  ? 'bg-amber-50 text-amber-950 ring-amber-200'
+                                  : 'bg-teal-50 text-teal-950 ring-teal-700/25';
+                            const chipLabel =
+                              scope === 'out_of_scope'
+                                ? 'Not in plan'
+                                : phase === 'awaiting_preview'
+                                  ? 'Awaiting preview'
+                                  : 'Preview';
                             return (
-                              <div key={key} className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
-                                <p className="font-semibold text-slate-900">{key}</p>
-                                <p className="text-slate-600">
-                                  {summary?.summary ??
-                                    'No analysis summary yet. Run Planned Workflow Preview (Dry Run) or connect a live service adapter.'}
-                                </p>
+                              <div
+                                key={key}
+                                className={`rounded-xl border border-slate-200 bg-white p-3 text-xs ${
+                                  scope === 'out_of_scope' ? 'opacity-[0.88]' : ''
+                                }`}
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                  <p className="font-semibold text-slate-900">{EVIDENCE_PACKAGE_PILLAR_LABELS[key]}</p>
+                                  <span
+                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ring-1 ${chipClass}`}
+                                  >
+                                    {chipLabel}
+                                  </span>
+                                </div>
+                                <p className="mt-2 leading-relaxed text-slate-600">{summary?.summary ?? '—'}</p>
                               </div>
                             );
                           })}
-                          <div className="rounded-xl border border-slate-200 bg-white p-2 text-xs">
+                          <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs">
                             <p className="font-semibold text-slate-900">Attachments / screenshots</p>
-                            <p className="text-slate-600">{reviewerEvidencePackage.evidenceAttachments.length} attachment(s) prepared</p>
+                            <p className="mt-2 text-slate-600">{reviewerEvidencePackage.evidenceAttachments.length} prepared for export</p>
                           </div>
                         </div>
                         {screenshotCaptureError && (
