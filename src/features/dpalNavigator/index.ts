@@ -50,6 +50,18 @@ export {
   subscribeAutopilotTimeline,
 } from "./autopilotDiagnostics";
 export type { AutopilotDiagnosticEvent, AutopilotDiagnosticEventName } from "./autopilotDiagnostics";
+/** Shared provider-status mapping — backend `moduleHealth.*` → UI label / tone / kind. */
+export {
+  moduleHealthToProviderStatus,
+  providerStatusLabel,
+  providerStatusShortLabel,
+  providerStatusToneClasses,
+  providerStatusKind,
+  isProviderStatusSkipped,
+  isProviderStatusHealthy,
+  providerStatusSkipReason,
+} from "./providerStatusMapping";
+export type { ProviderStatusKind } from "./providerStatusMapping";
 export type {
   ScenarioType,
   ScenarioDetection,

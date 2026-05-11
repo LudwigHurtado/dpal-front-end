@@ -235,12 +235,35 @@ export type AutopilotStatus =
   | "completed"
   | "aborted";
 
-/** Per-provider progress used by `show_progress` and `show_packet_status` steps. */
+/**
+ * Per-provider progress used by `show_progress` and `show_packet_status` steps.
+ *
+ * Mirrors the backend `moduleHealth.*` value set produced by Global Provider Routing.
+ * Importantly, "not_applicable", "not_configured", and "needs_key" are **honest skip**
+ * outcomes — they MUST NOT be rendered as a check that happened (would imply observation
+ * the user didn't actually get), and they MUST NOT be rendered as a failure (would imply
+ * something went wrong when nothing did).
+ */
 export type ProviderProgressStatus =
+  /** UI states the autopilot owns while a sequence is in flight. */
   | "pending"
   | "checking"
+  /** Provider ran and returned a usable live result. */
   | "observed"
-  | "unavailable";
+  /** Provider returned a cached result (e.g. FloodGuard cache hit). */
+  | "cached"
+  /** Provider returned a stale cached result while live fetch is in cooldown. */
+  | "stale_fallback"
+  /** Provider was reachable but produced no usable data for this coordinate. */
+  | "unavailable"
+  /** Provider call failed (network, 5xx, parse, etc.). */
+  | "error"
+  /** Provider intentionally skipped because it does not apply to this region. */
+  | "not_applicable"
+  /** Provider intentionally skipped because it is not configured on this server. */
+  | "not_configured"
+  /** Provider intentionally skipped because it requires an API key that is not set. */
+  | "needs_key";
 
 /** Final packet status the dashboard reports back to the autopilot. */
 export type AutopilotPacketStatus = "ok" | "degraded" | "error" | null;

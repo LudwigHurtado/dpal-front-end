@@ -10,6 +10,10 @@ import {
   WATER_ALERT_AUTOPILOT_STEPS,
   getAutopilotTimeline,
   logAutopilotEvent,
+  moduleHealthToProviderStatus,
+  providerStatusKind,
+  providerStatusLabel,
+  providerStatusToneClasses,
   subscribeAutopilotTimeline,
   useNavigatorOutcomeTracking,
   useVisibleAutopilot,
@@ -127,17 +131,90 @@ function getPacketRoot(data: PacketRecord | null): PacketRecord | null {
 }
 
 /**
- * Map a `moduleHealth` field (free-form string from backend) to a safe
- * autopilot status word. We intentionally only have two outcomes — observed
- * or unavailable — to avoid implying verification.
+ * Renders a single provider row in the "Module Health" panel using the shared
+ * status mapping. Skipped providers (not_applicable / not_configured / needs_key)
+ * are rendered in a neutral slate tone so they do NOT look like a successful check
+ * and do NOT look like a failure.
  */
-function moduleHealthToProviderStatus(value: unknown): ProviderProgressStatus {
-  if (value == null) return "unavailable";
-  const s = String(value).toLowerCase();
-  if (!s || s === "n/a" || s.includes("unavailable") || s.includes("error") || s.includes("offline")) {
-    return "unavailable";
+function ProviderHealthTile({ name, raw }: { name: string; raw: unknown }): React.ReactElement {
+  const status = moduleHealthToProviderStatus(raw);
+  const kind = providerStatusKind(status);
+  const tone = providerStatusToneClasses(status);
+  const label = providerStatusLabel(status);
+  return (
+    <div
+      className={`rounded-xl border px-3 py-2 ${tone}`}
+      data-dpal-provider-tile={name}
+      data-dpal-provider-status={status}
+      data-dpal-provider-kind={kind}
+      data-dpal-provider-raw={raw == null ? "" : String(raw)}
+      title={label}
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wide opacity-80">{name}</p>
+      <p className="mt-0.5 text-[11px] font-semibold leading-snug">{label}</p>
+      {kind === "skipped" ? (
+        <p className="mt-0.5 text-[10px] leading-snug opacity-80">
+          No request was made to the provider.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Renders the backend `providerRouting` summary inline below the module health tiles.
+ * Surfaces the same plain-English explanation the backend emits so the user understands
+ * *why* USGS / NWS / GeoLedger were skipped for this coordinate.
+ */
+function ProviderRoutingNotes({ packet }: { packet: PacketRecord }): React.ReactElement | null {
+  const routing = (packet?.providerRouting || {}) as PacketRecord;
+  const skippedRegional = asArray<PacketRecord>(routing.skippedRegional);
+  const skippedNotConfigured = asArray<PacketRecord>(routing.skippedNotConfigured);
+  const summary = (packet?.summary || {}) as PacketRecord;
+  const notes = asArray<unknown>(summary.providerRoutingNotes);
+
+  if (skippedRegional.length === 0 && skippedNotConfigured.length === 0 && notes.length === 0) {
+    return null;
   }
-  return "observed";
+
+  return (
+    <div
+      className="mt-3 rounded-xl border border-slate-700/70 bg-slate-900/60 p-3"
+      data-dpal-target="provider-routing-notes"
+    >
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300">
+        Provider routing
+      </p>
+      <ul className="mt-2 space-y-1.5 text-[11px] leading-snug text-slate-200">
+        {skippedRegional.map((entry, i) => (
+          <li key={`regional-${i}`} className="flex gap-2">
+            <span className="mt-0.5 inline-block h-1.5 w-1.5 flex-none rounded-full bg-slate-400" aria-hidden />
+            <span>
+              <span className="font-semibold">{String(entry.provider ?? "Provider")}</span>{" "}
+              skipped — {String(entry.message ?? entry.reason ?? "not applicable for this region")}
+            </span>
+          </li>
+        ))}
+        {skippedNotConfigured.map((entry, i) => (
+          <li key={`config-${i}`} className="flex gap-2">
+            <span className="mt-0.5 inline-block h-1.5 w-1.5 flex-none rounded-full bg-slate-400" aria-hidden />
+            <span>
+              <span className="font-semibold">{String(entry.provider ?? "Provider")}</span>{" "}
+              skipped — {String(entry.message ?? entry.reason ?? "provider not configured")}
+            </span>
+          </li>
+        ))}
+        {skippedRegional.length === 0 && skippedNotConfigured.length === 0
+          ? notes.map((n, i) => (
+              <li key={`note-${i}`} className="flex gap-2">
+                <span className="mt-0.5 inline-block h-1.5 w-1.5 flex-none rounded-full bg-slate-400" aria-hidden />
+                <span>{String(n ?? "")}</span>
+              </li>
+            ))
+          : null}
+      </ul>
+    </div>
+  );
 }
 
 export default function WaterAlertEvidenceDashboard(): React.ReactElement {
@@ -823,12 +900,16 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         <>
           {packet?.moduleHealth ? (
             <Panel title="Module Health" dataTarget="module-health-readouts">
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <ReadRow label="FloodGuard" value={moduleHealth.floodguard || "n/a"} />
-                <ReadRow label="USGS" value={moduleHealth.usgsWater || "n/a"} />
-                <ReadRow label="NWS" value={moduleHealth.nwsAlerts || "n/a"} />
-                <ReadRow label="GeoLedger" value={moduleHealth.geoLedger || "n/a"} />
+              <div
+                className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4"
+                data-dpal-target="module-health-tiles"
+              >
+                <ProviderHealthTile name="FloodGuard" raw={moduleHealth.floodguard} />
+                <ProviderHealthTile name="USGS" raw={moduleHealth.usgsWater} />
+                <ProviderHealthTile name="NWS" raw={moduleHealth.nwsAlerts} />
+                <ProviderHealthTile name="GeoLedger" raw={moduleHealth.geoLedger} />
               </div>
+              <ProviderRoutingNotes packet={packet as PacketRecord} />
             </Panel>
           ) : null}
 
