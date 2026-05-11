@@ -1,5 +1,5 @@
 import React from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { getWaterAlertEvidencePacket } from "../services/dpalIntegrationsApi";
 import {
   AutopilotControlBar,
@@ -26,6 +26,45 @@ const DEFAULT_FORM = {
 };
 
 const AUTOPILOT_PROVIDERS = ["FloodGuard", "USGS", "NWS", "GeoLedger"] as const;
+
+/** Session-scoped: at most one URL-driven autoRun per pathname + coords + mode per browser tab. */
+export function buildVisibleAutopilotConsumedStorageKey(
+  pathname: string,
+  lat: string,
+  lng: string,
+  autopilotMode: string,
+): string {
+  return `dpal_visible_autopilot_consumed:${pathname}:${lat}:${lng}:${autopilotMode}`;
+}
+
+/** Cross-tab: last time URL-driven autopilot was claimed for this route + coords + mode (localStorage). */
+export function buildVisibleAutopilotUrlClaimStorageKey(
+  pathname: string,
+  lat: string,
+  lng: string,
+  autopilotMode: string,
+): string {
+  return `dpal_visible_autopilot_url_claim:${pathname}:${lat}:${lng}:${autopilotMode}`;
+}
+
+/** Ignore stale URL autorun claims older than this (ms). */
+const VISIBLE_AUTOPILOT_URL_CLAIM_MAX_AGE_MS = 120_000;
+
+/** Dev-only safe param snapshot — redacts obvious secret-like keys (values still omit raw tokens). */
+function stripSensitiveSearchParamsForDevLog(search: string): Record<string, string> {
+  const usp = new URLSearchParams(search);
+  const out: Record<string, string> = {};
+  const denyKey = /^(token|access_token|refresh_token|id_token|key|apikey|api_key|secret|password|auth|authorization|jwt)$/i;
+  usp.forEach((v, k) => {
+    if (denyKey.test(k)) out[k] = "[redacted]";
+    else out[k] = v.length > 120 ? `${v.slice(0, 120)}…` : v;
+  });
+  return out;
+}
+
+function autopilotUiSettled(status: string): boolean {
+  return status === "idle" || status === "completed" || status === "aborted";
+}
 
 /** Validate latitude/longitude before treating query params as authoritative. */
 function isUsableLatLng(lat: number, lng: number): boolean {
@@ -103,6 +142,7 @@ function moduleHealthToProviderStatus(value: unknown): ProviderProgressStatus {
 
 export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   const location = useLocation();
+  const navigate = useNavigate();
   const navOutcome = useNavigatorOutcomeTracking("water_flood");
   const [form, setForm] = React.useState(DEFAULT_FORM);
   const [loading, setLoading] = React.useState(false);
@@ -127,6 +167,29 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
     requestFailed: false,
   });
   const humanGateLoggedRef = React.useRef(false);
+  const waterEvidenceScanBusyRef = React.useRef(false);
+  const [sessionConsumedForAutopilot, setSessionConsumedForAutopilot] = React.useState(false);
+  const [pendingUrlAutoStart, setPendingUrlAutoStart] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!autopilotEnabled) {
+      setSessionConsumedForAutopilot(false);
+      return;
+    }
+    const latStr = params.get("lat");
+    const lngStr = params.get("lng");
+    const mode = params.get("autopilotMode") || "visible-safe-checks";
+    if (!latStr || !lngStr) {
+      setSessionConsumedForAutopilot(false);
+      return;
+    }
+    try {
+      const key = buildVisibleAutopilotConsumedStorageKey(location.pathname, latStr, lngStr, mode);
+      setSessionConsumedForAutopilot(sessionStorage.getItem(key) === "1");
+    } catch {
+      setSessionConsumedForAutopilot(false);
+    }
+  }, [autopilotEnabled, location.pathname, location.search, params]);
 
   React.useEffect(() => {
     if (!import.meta.env.DEV) return () => undefined;
@@ -232,10 +295,10 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   }, [location.search, navOutcome, params]);
 
   /**
-   * Auto-start the visible autopilot only when `autoRun=true` (Navigator sets
-   * this for “Watch DPAL Run Safe Checks”). `autopilot=true` alone does not
-   * start the sequence — that avoids accidental provider scans from bookmarks
-   * or shared links. Users without autoRun can press “Begin visible safe checks”.
+   * Auto-start visible autopilot only when `autoRun=true` and this pathname +
+   * coords + mode have not already consumed a URL-driven run in sessionStorage.
+   * On consume: strip `autoRun` from the URL (replace) so refresh/bookmarks do not
+   * imply another automatic scan.
    */
   const autopilotStartedRef = React.useRef(false);
   React.useEffect(() => {
@@ -244,22 +307,124 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       return;
     }
     if (!autopilotAutoRun) return;
-    if (!isUsableLatLng(Number(form.lat), Number(form.lng))) return;
+
     const latStr = params.get("lat");
     const lngStr = params.get("lng");
-    if (!latStr || !lngStr) return;
+    const mode = params.get("autopilotMode") || "visible-safe-checks";
+    if (!latStr || !lngStr || !isUsableLatLng(Number(latStr), Number(lngStr))) return;
+
+    let consumed = false;
+    try {
+      const key = buildVisibleAutopilotConsumedStorageKey(location.pathname, latStr, lngStr, mode);
+      consumed = sessionStorage.getItem(key) === "1";
+    } catch {
+      consumed = false;
+    }
+
+    if (consumed) {
+      if (import.meta.env.DEV) {
+        console.info("[DPAL visible autopilot] duplicate autoRun blocked — session already consumed", {
+          pathname: location.pathname,
+          searchParams: stripSensitiveSearchParamsForDevLog(location.search),
+        });
+      }
+      return;
+    }
+
+    if (!isUsableLatLng(Number(form.lat), Number(form.lng))) return;
     if (Math.abs(Number(form.lat) - Number(latStr)) > 1e-4 || Math.abs(Number(form.lng) - Number(lngStr)) > 1e-4) {
       return;
     }
+
     if (autopilotStartedRef.current) return;
-    /** Small delay so the user sees the page lay out before the cursor moves. */
+
+    const searchAtSchedule = location.search;
+    setPendingUrlAutoStart(true);
+
+    /**
+     * Claim + cross-tab check run inside the delayed callback (not before scheduling).
+     * React Strict Mode runs effect cleanup before the timer fires; writing localStorage
+     * synchronously before the timer left a stale claim and the second mount skipped
+     * autorun entirely (no scan, Playwright scanCount stayed 0).
+     */
     const t = window.setTimeout(() => {
+      const claimKey = buildVisibleAutopilotUrlClaimStorageKey(location.pathname, latStr, lngStr, mode);
+      const nowMs = Date.now();
+      let crossTabSkip = false;
+      try {
+        const prevClaim = localStorage.getItem(claimKey);
+        const prevTs = prevClaim ? Number(prevClaim) : 0;
+        if (prevTs && Number.isFinite(prevTs) && nowMs - prevTs < VISIBLE_AUTOPILOT_URL_CLAIM_MAX_AGE_MS) {
+          crossTabSkip = true;
+          if (import.meta.env.DEV) {
+            console.info("[DPAL visible autopilot] URL autorun skipped — cross-tab claim active", {
+              pathname: location.pathname,
+              claimAgeMs: nowMs - prevTs,
+            });
+          }
+        } else {
+          localStorage.setItem(claimKey, String(nowMs));
+        }
+      } catch {
+        /* private mode — still allow single-tab autorun */
+      }
+
+      const storeKey = buildVisibleAutopilotConsumedStorageKey(location.pathname, latStr, lngStr, mode);
+      if (crossTabSkip) {
+        try {
+          sessionStorage.setItem(storeKey, "1");
+        } catch {
+          /* quota */
+        }
+        const uspEarly = new URLSearchParams(searchAtSchedule);
+        uspEarly.delete("autoRun");
+        const nextEarly = uspEarly.toString();
+        navigate({ pathname: location.pathname, search: nextEarly ? `?${nextEarly}` : "" }, { replace: true });
+        setSessionConsumedForAutopilot(true);
+        setPendingUrlAutoStart(false);
+        return;
+      }
+
+      try {
+        sessionStorage.setItem(storeKey, "1");
+      } catch {
+        /* private mode / quota */
+      }
+
+      if (import.meta.env.DEV) {
+        console.info("[DPAL visible autopilot] autoRun consumed (session marked)", {
+          pathname: location.pathname,
+          searchParamsBeforeStrip: stripSensitiveSearchParamsForDevLog(searchAtSchedule),
+        });
+      }
+
+      const usp = new URLSearchParams(searchAtSchedule);
+      usp.delete("autoRun");
+      const nextSearch = usp.toString();
+      navigate({ pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "" }, { replace: true });
+
+      setSessionConsumedForAutopilot(true);
+      setPendingUrlAutoStart(false);
       autopilot.start();
       autopilotStartedRef.current = true;
     }, 600);
-    return () => window.clearTimeout(t);
+
+    return () => {
+      window.clearTimeout(t);
+      setPendingUrlAutoStart(false);
+    };
     /** `autopilot.start` is stable (useCallback); avoid `autopilot` object — new ref each render would cancel this timer. */
-  }, [autopilotEnabled, autopilotAutoRun, autopilot.start, form.lat, form.lng, params]);
+  }, [
+    autopilotEnabled,
+    autopilotAutoRun,
+    autopilot.start,
+    form.lat,
+    form.lng,
+    params,
+    location.pathname,
+    location.search,
+    navigate,
+  ]);
 
   /* --------------------------- packet readouts --------------------------- */
 
@@ -300,6 +465,15 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         setError("Latitude and longitude must be valid numbers.");
         return;
       }
+      if (waterEvidenceScanBusyRef.current) {
+        if (import.meta.env.DEV) {
+          console.info("[DPAL water alert evidence] skipped overlapping scan — request already in flight", {
+            source: scanSource,
+          });
+        }
+        return;
+      }
+      waterEvidenceScanBusyRef.current = true;
       if (import.meta.env.DEV) {
         logAutopilotEvent({
           eventName: "scan_request_started",
@@ -434,6 +608,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
           });
         }
       } finally {
+        waterEvidenceScanBusyRef.current = false;
         setLoading(false);
       }
     },
@@ -467,20 +642,38 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   return (
     <div className="space-y-4">
       <NavigatorHelperCard expectedScenario="water_flood" />
-      {autopilotEnabled && !autopilotAutoRun && autopilot.status === "idle" ? (
+      {autopilotEnabled && autopilotUiSettled(autopilot.status) ? (
         <div className="rounded-xl border border-cyan-500/45 bg-cyan-950/25 px-4 py-3 text-[11px] leading-snug text-cyan-50">
           <p className="font-semibold text-cyan-200">Visible safe checks</p>
-          <p className="mt-1 text-slate-200">
-            Autopilot mode is on, but automatic run is off (no <span className="font-mono text-cyan-100">autoRun=true</span> in the
-            URL). Start when you want one read-only provider packet — DPAL will not scan until you begin.
-          </p>
-          <button
-            type="button"
-            onClick={() => autopilot.start()}
-            className="mt-3 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300"
-          >
-            Begin visible safe checks
-          </button>
+          {sessionConsumedForAutopilot ? (
+            <p className="mt-1 text-slate-200">
+              Visible Autopilot already ran for this location in this session. Click Begin visible safe checks to run it
+              again.
+            </p>
+          ) : !autopilotAutoRun ? (
+            <p className="mt-1 text-slate-200">
+              Autopilot mode is on, but automatic run is off (no{" "}
+              <span className="font-mono text-cyan-100">autoRun=true</span> in the URL). Start when you want one read-only
+              provider packet — DPAL will not scan until you begin.
+            </p>
+          ) : pendingUrlAutoStart ? (
+            <p className="mt-1 text-slate-400">Starting visible safe checks from URL…</p>
+          ) : (
+            <p className="mt-1 text-slate-200">
+              <span className="font-mono text-cyan-100">autoRun=true</span> is set, but automatic start is waiting for
+              matching coordinates from the URL and form. Use Begin when ready — DPAL will not scan until then.
+            </p>
+          )}
+          {sessionConsumedForAutopilot || !autopilotAutoRun || !pendingUrlAutoStart ? (
+            <button
+              type="button"
+              data-dpal-target="begin-visible-safe-checks"
+              onClick={() => autopilot.start()}
+              className="mt-3 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300"
+            >
+              Begin visible safe checks
+            </button>
+          ) : null}
         </div>
       ) : null}
       {import.meta.env.DEV && autopilotEnabled ? (

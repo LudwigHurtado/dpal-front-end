@@ -152,6 +152,9 @@ export type WaterAlertEvidencePacketParams = {
   usgsSite?: string;
 };
 
+/** Same-query concurrent GETs share one network request (tabs, refresh races, Strict Mode). */
+const waterAlertPacketInflight = new Map<string, Promise<{ ok?: boolean; packet?: any; [key: string]: any }>>();
+
 export function getWaterAlertEvidencePacket(params: WaterAlertEvidencePacketParams) {
   const q = new URLSearchParams({
     lat: String(params.lat),
@@ -159,7 +162,21 @@ export function getWaterAlertEvidencePacket(params: WaterAlertEvidencePacketPara
   });
   if (params.label?.trim()) q.set("label", params.label.trim());
   if (params.usgsSite?.trim()) q.set("usgsSite", params.usgsSite.trim());
-  return getJson<{ ok?: boolean; packet?: any; [key: string]: any }>(
-    `/api/integrations/water/alert-evidence-packet?${q.toString()}`,
-  );
+  const dedupeKey = q.toString();
+  const existing = waterAlertPacketInflight.get(dedupeKey);
+  if (existing) {
+    if (import.meta.env.DEV) {
+      console.info("[DPAL water alert evidence] deduped concurrent packet request", {
+        lat: params.lat,
+        lng: params.lng,
+      });
+    }
+    return existing;
+  }
+  const path = `/api/integrations/water/alert-evidence-packet?${dedupeKey}`;
+  const p = getJson<{ ok?: boolean; packet?: any; [key: string]: any }>(path).finally(() => {
+    waterAlertPacketInflight.delete(dedupeKey);
+  });
+  waterAlertPacketInflight.set(dedupeKey, p);
+  return p;
 }
