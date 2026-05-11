@@ -71,8 +71,12 @@ app.use(cors({
     if (/^https:\/\/dpal-front-end(?:-[a-z0-9-]+)?\.vercel\.app$/i.test(normalizedOrigin)) {
       return cb(null, true);
     }
-    // In development allow any localhost
-    if (process.env.NODE_ENV !== 'production' && /^https?:\/\/localhost/.test(origin)) return cb(null, true);
+    // In development allow localhost and loopback (Vite default host / LAN URLs)
+    if (process.env.NODE_ENV !== 'production') {
+      if (/^https?:\/\/localhost(?::\d+)?$/i.test(normalizedOrigin)) return cb(null, true);
+      if (/^https?:\/\/127\.0\.0\.1(?::\d+)?$/i.test(normalizedOrigin)) return cb(null, true);
+      if (/^https?:\/\/192\.168\.\d{1,3}\.\d{1,3}(?::\d+)?$/i.test(normalizedOrigin)) return cb(null, true);
+    }
     console.warn(`[CORS] Blocked origin: ${origin}`);
     return cb(new Error(`CORS: origin ${origin} not allowed`));
   },

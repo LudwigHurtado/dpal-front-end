@@ -10,6 +10,12 @@ export default defineConfig(({ mode }) => {
         host: '0.0.0.0', // accessible as http://192.168.0.10:3000 on local network
         /** Dev-only: forward OpenAI calls without exposing the key in the browser (see services/politicianOpenAiService.ts). */
         proxy: {
+          /** Dev-only: same-origin `/api/*` → local Express backend (integrations, copernicus, etc.). */
+          '/api': {
+            target: 'http://127.0.0.1:3001',
+            changeOrigin: true,
+            secure: false,
+          },
           '/openai-proxy': {
             target: 'https://api.openai.com',
             changeOrigin: true,

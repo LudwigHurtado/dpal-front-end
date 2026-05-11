@@ -1,6 +1,9 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { getWaterAlertEvidencePacket } from "../services/dpalIntegrationsApi";
+import {
+  DPAL_INTEGRATIONS_BACKEND_UNREACHABLE_MESSAGE,
+  getWaterAlertEvidencePacket,
+} from "../services/dpalIntegrationsApi";
 import {
   AutopilotControlBar,
   AutopilotSpotlight,
@@ -651,7 +654,10 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
           autopilotMarkScanCompleteRef.current?.({ packetStatus, providerProgress });
         }
       } catch (err) {
-        const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
+        let rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
+        if (/failed to fetch/i.test(rawMessage) && !rawMessage.includes("VITE_DPAL_API_BASE_URL")) {
+          rawMessage = DPAL_INTEGRATIONS_BACKEND_UNREACHABLE_MESSAGE;
+        }
         if (import.meta.env.DEV) {
           const m = rawMessage.match(/\b(\d{3})\b/);
           console.warn("[DPAL water alert evidence] scan failed", {

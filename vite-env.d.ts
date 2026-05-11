@@ -14,6 +14,8 @@ interface ImportMetaEnv {
   /** Legacy alias for integrations API origin (same semantics as `VITE_API_BASE_URL`). */
   readonly VITE_BACKEND_URL?: string;
   readonly VITE_DPAL_API_BASE_URL?: string;
+  /** When `true`, logs integrations request URL / path / lifecycle (no secrets, no full provider bodies). */
+  readonly VITE_DPAL_API_DEBUG?: string;
   readonly VITE_DPAL_AI_SERVER_URL?: string;
   readonly VITE_DPAL_MEDIA_BASE_URL?: string;
   readonly VITE_DPAL_PUBLIC_FRONTEND_URL?: string;
