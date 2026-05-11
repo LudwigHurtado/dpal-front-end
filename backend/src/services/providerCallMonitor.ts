@@ -12,7 +12,25 @@ export type ProviderCallStatus =
   | "coalesced"
   | "skipped_cooldown"
   | "rate_limited"
-  | "unavailable";
+  | "unavailable"
+  /**
+   * Provider was intentionally not called because it does not apply to this coordinate
+   * (e.g. USGS / NWS for a non-U.S. point). This is NOT a system failure.
+   */
+  | "skipped_not_applicable"
+  /**
+   * Provider was intentionally not called because its API key is not configured
+   * (e.g. GEOAPIFY_API_KEY missing for GeoLedger). No external HTTP call was made.
+   */
+  | "skipped_missing_key"
+  /** Provider call completed but returned a structured `error` status (without throwing). */
+  | "completed_with_provider_error"
+  /** Provider call completed but returned a structured `unavailable` status. */
+  | "completed_unavailable"
+  /** Provider call completed but returned a structured `not_configured` status. */
+  | "completed_not_configured"
+  /** Provider call completed but returned a structured `needs_key` status. */
+  | "completed_needs_key";
 
 export interface ProviderCallEvent {
   id: string;

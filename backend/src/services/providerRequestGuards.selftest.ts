@@ -9,14 +9,15 @@ import {
   clearProviderCallEventsForTests,
   getTotalsByStatus,
   recordProviderCallEvent,
-} from "./providerCallMonitor.js";
+} from "./providerCallMonitor";
 import {
   buildProviderRequestKey,
   clearProviderGuardsForTests,
   getProviderCooldownStatus,
+  recordProviderSkip,
   runGuardedProviderCall,
   setProviderCooldown,
-} from "./providerRequestGuards.js";
+} from "./providerRequestGuards";
 
 async function testCoalesce(): Promise<void> {
   clearProviderGuardsForTests();
@@ -126,11 +127,77 @@ async function test429SetsCooldown(): Promise<void> {
   assert.equal(st.reason, "rate_limited");
 }
 
+async function testResultAwareMonitorStatus(): Promise<void> {
+  /**
+   * runGuardedProviderCall must surface structured provider result statuses to the monitor
+   * (so /api/debug/provider-usage reflects what the provider actually reported), and must
+   * NOT install a cooldown for non-failure result statuses (not_applicable / not_configured
+   * / needs_key) — those are configuration/region outcomes, not provider failures.
+   */
+  const cases = [
+    { resultStatus: "error", monitorStatus: "completed_with_provider_error", cooldownAllowed: false },
+    { resultStatus: "unavailable", monitorStatus: "completed_unavailable", cooldownAllowed: false },
+    { resultStatus: "needs_key", monitorStatus: "completed_needs_key", cooldownAllowed: false },
+    { resultStatus: "not_applicable", monitorStatus: "skipped_not_applicable", cooldownAllowed: false },
+    { resultStatus: "not_configured", monitorStatus: "completed_not_configured", cooldownAllowed: false },
+  ] as const;
+
+  for (const c of cases) {
+    clearProviderGuardsForTests();
+    clearProviderCallEventsForTests();
+    const key = buildProviderRequestKey("TestProvider", `result_${c.resultStatus}`, { v: c.resultStatus });
+    await runGuardedProviderCall<{ status: string }>({
+      key,
+      providerName: "TestProvider",
+      operation: `result_${c.resultStatus}`,
+      fn: async () => ({ status: c.resultStatus }),
+      onCooldown: async () => ({ status: "cooldown" }),
+      rateLimitCooldownMs: 60_000,
+      errorCooldownMs: 60_000,
+      perMinuteLimit: 0,
+    });
+    const totals = getTotalsByStatus();
+    assert.ok(
+      (totals[c.monitorStatus] ?? 0) >= 1,
+      `result status ${c.resultStatus} should produce monitor status ${c.monitorStatus}`,
+    );
+    const cd = getProviderCooldownStatus("TestProvider", key);
+    if (!c.cooldownAllowed) {
+      assert.equal(cd.active, false, `result status ${c.resultStatus} must NOT install a cooldown`);
+    }
+  }
+}
+
+function testRecordProviderSkipEmitsNewStatuses(): void {
+  clearProviderCallEventsForTests();
+  recordProviderSkip({
+    providerName: "USGS",
+    operation: "water_packet_snapshot",
+    requestKey: "k_not_applicable",
+    status: "skipped_not_applicable",
+    reason: "outside_region",
+    source: "selftest",
+  });
+  recordProviderSkip({
+    providerName: "GeoLedger",
+    operation: "water_packet_reverse",
+    requestKey: "k_missing_key",
+    status: "skipped_missing_key",
+    reason: "missing_api_key",
+    source: "selftest",
+  });
+  const totals = getTotalsByStatus();
+  assert.equal(totals.skipped_not_applicable ?? 0, 1);
+  assert.equal(totals.skipped_missing_key ?? 0, 1);
+}
+
 async function main(): Promise<void> {
   testMonitorStatusCounts();
   await testCoalesce();
   await testCooldownSkipsFn();
   await test429SetsCooldown();
+  await testResultAwareMonitorStatus();
+  testRecordProviderSkipEmitsNewStatuses();
   console.log("providerRequestGuards.selftest: all passed");
 }
 

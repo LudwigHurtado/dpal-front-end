@@ -8,7 +8,8 @@ import {
   getTotalsByStatus,
   recordProviderCallEvent,
   type ProviderCallEvent,
-} from "./providerCallMonitor.js";
+  type ProviderCallStatus,
+} from "./providerCallMonitor";
 
 /** Composite cooldown key in maps */
 function compositeKey(providerName: string, requestKey: string): string {
@@ -118,6 +119,69 @@ function recordMinuteTick(providerName: string): void {
   const arr = minuteWindows.get(providerName) ?? [];
   arr.push(now);
   minuteWindows.set(providerName, arr);
+}
+
+/**
+ * Map a structured provider result `status` field to a monitor event status.
+ *
+ * Providers commonly return `{ status: "ok" | "error" | "unavailable" | "needs_key" | ... }`
+ * instead of throwing. We surface those as specialized monitor statuses so the debug
+ * `/api/debug/provider-usage` view reflects what actually happened.
+ */
+const RESULT_STATUS_TO_MONITOR_STATUS: Readonly<Record<string, ProviderCallStatus>> = {
+  error: "completed_with_provider_error",
+  unavailable: "completed_unavailable",
+  needs_key: "completed_needs_key",
+  not_applicable: "skipped_not_applicable",
+  not_configured: "completed_not_configured",
+};
+
+function inspectResultStatusForMonitor(out: unknown): {
+  monitorStatus: ProviderCallStatus;
+  errorType: string | null;
+} {
+  if (out && typeof out === "object" && !Array.isArray(out)) {
+    const raw = (out as { status?: unknown }).status;
+    if (typeof raw === "string") {
+      const mapped = RESULT_STATUS_TO_MONITOR_STATUS[raw];
+      if (mapped) return { monitorStatus: mapped, errorType: raw };
+    }
+  }
+  return { monitorStatus: "completed", errorType: null };
+}
+
+/**
+ * Emit a synthetic monitor event for a provider that was intentionally skipped
+ * before any external HTTP call (e.g. region not applicable, API key missing).
+ *
+ * Skipping is NOT a system failure. No cooldown is set. Subsequent requests can
+ * re-evaluate applicability immediately (so flipping an env var, or moving the
+ * pin to a different region, takes effect on the next packet build).
+ */
+export function recordProviderSkip(opts: {
+  providerName: string;
+  operation: string;
+  requestKey: string;
+  status: "skipped_not_applicable" | "skipped_missing_key";
+  reason: string;
+  source?: string | null;
+  latRounded3?: string | null;
+  lngRounded3?: string | null;
+}): void {
+  const now = new Date().toISOString();
+  recordProviderCallEvent({
+    providerName: opts.providerName,
+    operation: opts.operation,
+    requestKey: opts.requestKey,
+    startedAt: now,
+    completedAt: now,
+    durationMs: 0,
+    status: opts.status,
+    errorType: opts.reason,
+    source: opts.source ?? null,
+    latRounded3: opts.latRounded3 ?? null,
+    lngRounded3: opts.lngRounded3 ?? null,
+  });
 }
 
 export interface RunGuardedProviderCallOptions<T> {
@@ -231,6 +295,7 @@ export async function runGuardedProviderCall<T>(opts: RunGuardedProviderCallOpti
       recordMinuteTick(providerName);
       const out = await fn();
       const done = Date.now();
+      const { monitorStatus, errorType } = inspectResultStatusForMonitor(out);
       recordProviderCallEvent({
         providerName,
         operation,
@@ -238,12 +303,21 @@ export async function runGuardedProviderCall<T>(opts: RunGuardedProviderCallOpti
         startedAt: startedIso,
         completedAt: new Date(done).toISOString(),
         durationMs: done - startedWall,
-        status: "completed",
-        errorType: null,
+        status: monitorStatus,
+        errorType,
         source,
         latRounded3,
         lngRounded3,
       });
+      /**
+       * No cooldown is applied for not_applicable / not_configured / needs_key — those
+       * outcomes are configuration / region decisions, not provider failures.
+       *
+       * No cooldown is applied here for structured `error` / `unavailable` either, because
+       * providers that return those statuses (e.g. FloodGuard) manage their own cooldowns
+       * internally. The throw-based cooldown path below is unchanged and still protects
+       * against real network errors and rate-limit exceptions.
+       */
       return out;
     } catch (err: unknown) {
       const msg = String(err instanceof Error ? err.message : err ?? "error");

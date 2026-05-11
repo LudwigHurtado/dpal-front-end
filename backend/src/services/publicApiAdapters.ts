@@ -1,13 +1,15 @@
 import crypto from "crypto";
 import { z } from "zod";
-import { recordProviderCallEvent } from "./providerCallMonitor.js";
+import { recordProviderCallEvent } from "./providerCallMonitor";
 import {
   buildProviderRequestKey,
   DEFAULT_COOLDOWN_MS,
+  recordProviderSkip,
   runGuardedProviderCall,
   roundCoord3,
   setProviderCooldown,
-} from "./providerRequestGuards.js";
+} from "./providerRequestGuards";
+import { getProviderApplicability } from "./providerApplicability";
 
 type Coordinates = { lat: number; lng: number };
 
@@ -2287,139 +2289,323 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
     typeof input.usgsSite === "string" && input.usgsSite.trim() ? input.usgsSite.trim() : undefined;
   const generatedAt = new Date().toISOString();
 
+  const latR = roundCoord3(lat);
+  const lngR = roundCoord3(lng);
+  const coords = { lat, lng };
+
+  /**
+   * Global Provider Routing — decide which providers apply to this coordinate BEFORE
+   * making any external HTTP calls. Skipping a non-applicable provider is intentional
+   * and is recorded in the monitor so /api/debug/provider-usage reflects reality.
+   */
+  const usgsApplicability = getProviderApplicability("USGS", coords, { usgsSite });
+  const nwsApplicability = getProviderApplicability("NWS", coords);
+  const geoApplicability = getProviderApplicability("GeoLedger", coords);
+
   const floodguard = await getFloodGuardForWaterPacket({ lat, lng });
 
-  const usgsInput = usgsSite ? { site: usgsSite, lat, lng } : { lat, lng };
+  // ── USGS Water Services (U.S. + territories only, unless explicit usgsSite is given)
   const usgsKey = buildProviderRequestKey("USGS", "water_packet_snapshot", {
-    latRounded3: roundCoord3(lat),
-    lngRounded3: roundCoord3(lng),
+    latRounded3: latR,
+    lngRounded3: lngR,
     site: usgsSite ?? "",
   });
-  const usgsWater = await runGuardedProviderCall<any>({
-    key: usgsKey,
-    providerName: "USGS",
-    operation: "water_packet_snapshot",
-    latRounded3: roundCoord3(lat),
-    lngRounded3: roundCoord3(lng),
-    source: "water_alert_evidence_packet",
-    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.USGS_rate,
-    errorCooldownMs: DEFAULT_COOLDOWN_MS.USGS_error,
-    onCooldown: async () => ({
+  let usgsWater: any;
+  if (!usgsApplicability.applicable) {
+    recordProviderSkip({
+      providerName: "USGS",
+      operation: "water_packet_snapshot",
+      requestKey: usgsKey,
+      status: "skipped_not_applicable",
+      reason: usgsApplicability.reason,
+      source: "water_alert_evidence_packet",
+      latRounded3: latR,
+      lngRounded3: lngR,
+    });
+    usgsWater = {
       source: "USGS Water Services",
-      status: "error" as const,
-      message: "USGS request skipped (server provider cooldown). Retry later.",
+      status: "not_applicable" as const,
+      reason: usgsApplicability.reason,
+      message: usgsApplicability.message,
       readings: [],
       waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
-    }),
-    fn: () => getUsgsWaterSiteSnapshot(usgsInput),
-  }).catch((err: unknown) => ({
-    source: "USGS Water Services",
-    status: "error" as const,
-    message: sanitizeProviderError(err),
-    readings: [],
-    waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
-  }));
+    };
+  } else {
+    const usgsInput = usgsSite ? { site: usgsSite, lat, lng } : { lat, lng };
+    usgsWater = await runGuardedProviderCall<any>({
+      key: usgsKey,
+      providerName: "USGS",
+      operation: "water_packet_snapshot",
+      latRounded3: latR,
+      lngRounded3: lngR,
+      source: "water_alert_evidence_packet",
+      rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.USGS_rate,
+      errorCooldownMs: DEFAULT_COOLDOWN_MS.USGS_error,
+      onCooldown: async () => ({
+        source: "USGS Water Services",
+        status: "error" as const,
+        message: "USGS request skipped (server provider cooldown). Retry later.",
+        readings: [],
+        waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+      }),
+      fn: () => getUsgsWaterSiteSnapshot(usgsInput),
+    }).catch((err: unknown) => ({
+      source: "USGS Water Services",
+      status: "error" as const,
+      message: sanitizeProviderError(err),
+      readings: [],
+      waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+    }));
+  }
 
+  // ── NOAA / NWS Active Alerts (U.S. + territories only)
   const nwsKey = buildProviderRequestKey("NWS", "water_packet_alerts", {
-    latRounded3: roundCoord3(lat),
-    lngRounded3: roundCoord3(lng),
+    latRounded3: latR,
+    lngRounded3: lngR,
     labelKey: (label ?? "").slice(0, 120),
   });
-  const nwsAlerts = await runGuardedProviderCall<any>({
-    key: nwsKey,
-    providerName: "NWS",
-    operation: "water_packet_alerts",
-    latRounded3: roundCoord3(lat),
-    lngRounded3: roundCoord3(lng),
-    source: "water_alert_evidence_packet",
-    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.NWS_rate,
-    errorCooldownMs: DEFAULT_COOLDOWN_MS.NWS_error,
-    onCooldown: async () => ({
+  let nwsAlerts: any;
+  if (!nwsApplicability.applicable) {
+    recordProviderSkip({
+      providerName: "NWS",
+      operation: "water_packet_alerts",
+      requestKey: nwsKey,
+      status: "skipped_not_applicable",
+      reason: nwsApplicability.reason,
+      source: "water_alert_evidence_packet",
+      latRounded3: latR,
+      lngRounded3: lngR,
+    });
+    nwsAlerts = {
       source: "NOAA/National Weather Service",
-      status: "error" as const,
-      message: "NWS request skipped (server provider cooldown). Retry later.",
+      status: "not_applicable" as const,
+      reason: nwsApplicability.reason,
+      message: nwsApplicability.message,
       alertCount: 0,
       highestSeverity: null,
       activeAlerts: [],
-    }),
-    fn: () => getNwsActiveAlertsPacket({ lat, lng, label }),
-  }).catch((err: unknown) => ({
-    source: "NOAA/National Weather Service",
-    status: "error" as const,
-    message: sanitizeProviderError(err),
-    alertCount: 0,
-    highestSeverity: null,
-    activeAlerts: [],
-  }));
+    };
+  } else {
+    nwsAlerts = await runGuardedProviderCall<any>({
+      key: nwsKey,
+      providerName: "NWS",
+      operation: "water_packet_alerts",
+      latRounded3: latR,
+      lngRounded3: lngR,
+      source: "water_alert_evidence_packet",
+      rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.NWS_rate,
+      errorCooldownMs: DEFAULT_COOLDOWN_MS.NWS_error,
+      onCooldown: async () => ({
+        source: "NOAA/National Weather Service",
+        status: "error" as const,
+        message: "NWS request skipped (server provider cooldown). Retry later.",
+        alertCount: 0,
+        highestSeverity: null,
+        activeAlerts: [],
+      }),
+      fn: () => getNwsActiveAlertsPacket({ lat, lng, label }),
+    }).catch((err: unknown) => ({
+      source: "NOAA/National Weather Service",
+      status: "error" as const,
+      message: sanitizeProviderError(err),
+      alertCount: 0,
+      highestSeverity: null,
+      activeAlerts: [],
+    }));
+  }
 
+  // ── GeoLedger / Geoapify (requires GEOAPIFY_API_KEY)
   const geoKey = buildProviderRequestKey("GeoLedger", "water_packet_reverse", {
-    latRounded3: roundCoord3(lat),
-    lngRounded3: roundCoord3(lng),
+    latRounded3: latR,
+    lngRounded3: lngR,
     labelKey: (label ?? "").slice(0, 120),
   });
-  const geoLedger = await runGuardedProviderCall<any>({
-    key: geoKey,
-    providerName: "GeoLedger",
-    operation: "water_packet_reverse",
-    latRounded3: roundCoord3(lat),
-    lngRounded3: roundCoord3(lng),
-    source: "water_alert_evidence_packet",
-    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.GeoLedger_rate,
-    errorCooldownMs: DEFAULT_COOLDOWN_MS.GeoLedger_error,
-    onCooldown: async () => ({
+  let geoLedger: any;
+  if (!geoApplicability.applicable) {
+    recordProviderSkip({
+      providerName: "GeoLedger",
+      operation: "water_packet_reverse",
+      requestKey: geoKey,
+      status: "skipped_missing_key",
+      reason: geoApplicability.reason,
+      source: "water_alert_evidence_packet",
+      latRounded3: latR,
+      lngRounded3: lngR,
+    });
+    geoLedger = {
+      source: "GeoLedger",
+      status: "not_configured" as const,
+      validationStatus: "not_configured" as const,
+      reason: geoApplicability.reason,
+      message: geoApplicability.message,
+      geoLedgerId: null,
+      formattedAddress: null,
+      confidenceScore: 0,
+    };
+  } else {
+    geoLedger = await runGuardedProviderCall<any>({
+      key: geoKey,
+      providerName: "GeoLedger",
+      operation: "water_packet_reverse",
+      latRounded3: latR,
+      lngRounded3: lngR,
+      source: "water_alert_evidence_packet",
+      rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.GeoLedger_rate,
+      errorCooldownMs: DEFAULT_COOLDOWN_MS.GeoLedger_error,
+      onCooldown: async () => ({
+        source: "GeoLedger",
+        status: "error" as const,
+        validationStatus: "error" as const,
+        message: "GeoLedger request skipped (server provider cooldown). Retry later.",
+        geoLedgerId: null,
+        formattedAddress: null,
+      }),
+      fn: () => getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }),
+    }).catch((err: unknown) => ({
       source: "GeoLedger",
       status: "error" as const,
       validationStatus: "error" as const,
-      message: "GeoLedger request skipped (server provider cooldown). Retry later.",
+      message: sanitizeProviderError(err),
       geoLedgerId: null,
       formattedAddress: null,
-    }),
-    fn: () => getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }),
-  }).catch((err: unknown) => ({
-    source: "GeoLedger",
-    status: "error" as const,
-    validationStatus: "error" as const,
-    message: sanitizeProviderError(err),
-    geoLedgerId: null,
-    formattedAddress: null,
-  }));
+    }));
+  }
+
+  /**
+   * moduleHealth values:
+   *   "ok"               — provider returned a healthy result for this packet
+   *   "cached"           — provider returned a cache hit
+   *   "stale_fallback"   — provider returned a stale-cache fallback (provider in cooldown)
+   *   "unavailable"      — provider was reachable but returned no usable data
+   *   "error"            — provider call failed (network / 5xx / etc.)
+   *   "not_applicable"   — provider does not apply to this coordinate (e.g. USGS outside U.S.)
+   *   "not_configured"   — provider requires an API key that is not set on this server
+   */
+  const floodguardHealth: "ok" | "cached" | "stale_fallback" | "unavailable" | "error" =
+    (floodguard as any)?.status === "unavailable"
+      ? "unavailable"
+      : (floodguard as any)?.cacheStatus === "stale_fallback"
+        ? "stale_fallback"
+        : (floodguard as any)?.cacheStatus === "hit"
+          ? "cached"
+          : (floodguard as any)?.cacheStatus === "fresh"
+            ? "ok"
+            : "error";
+
+  const usgsHealth: "ok" | "error" | "unavailable" | "not_applicable" =
+    (usgsWater as any)?.status === "not_applicable"
+      ? "not_applicable"
+      : (usgsWater as any)?.status === "ok"
+        ? "ok"
+        : (usgsWater as any)?.status === "error"
+          ? "error"
+          : "unavailable";
+
+  const nwsHealth: "ok" | "error" | "unavailable" | "not_applicable" =
+    (nwsAlerts as any)?.status === "not_applicable"
+      ? "not_applicable"
+      : (nwsAlerts as any)?.status === "ok" || (nwsAlerts as any)?.status === "no_active_alerts"
+        ? "ok"
+        : (nwsAlerts as any)?.status === "error"
+          ? "error"
+          : "unavailable";
+
+  const geoLedgerHealth: "ok" | "error" | "unavailable" | "not_configured" =
+    (geoLedger as any)?.status === "not_configured" ||
+    (geoLedger as any)?.validationStatus === "not_configured" ||
+    (geoLedger as any)?.status === "needs_key" ||
+    (geoLedger as any)?.validationStatus === "needs_key"
+      ? "not_configured"
+      : (geoLedger as any)?.status === "matched" ||
+          (geoLedger as any)?.validationStatus === "advisory"
+        ? "ok"
+        : (geoLedger as any)?.status === "error" ||
+            (geoLedger as any)?.validationStatus === "error"
+          ? "error"
+          : "unavailable";
 
   const moduleHealth = {
-    floodguard:
-      (floodguard as any)?.status === "unavailable"
-        ? ("unavailable" as const)
-        : (floodguard as any)?.cacheStatus === "stale_fallback"
-          ? ("stale_fallback" as const)
-          : (floodguard as any)?.cacheStatus === "hit"
-            ? ("cached" as const)
-            : (floodguard as any)?.cacheStatus === "fresh"
-              ? ("ok" as const)
-              : ("error" as const),
-    usgsWater:
-      (usgsWater as any)?.status === "ok"
-        ? ("ok" as const)
-        : (usgsWater as any)?.status === "error"
-          ? ("error" as const)
-          : ("unavailable" as const),
-    nwsAlerts:
-      (nwsAlerts as any)?.status === "ok" || (nwsAlerts as any)?.status === "no_active_alerts"
-        ? ("ok" as const)
-        : (nwsAlerts as any)?.status === "error"
-          ? ("error" as const)
-          : ("unavailable" as const),
-    geoLedger:
-      (geoLedger as any)?.status === "matched" || (geoLedger as any)?.validationStatus === "advisory"
-        ? ("ok" as const)
-        : (geoLedger as any)?.status === "error" || (geoLedger as any)?.validationStatus === "error"
-          ? ("error" as const)
-          : ("unavailable" as const),
+    floodguard: floodguardHealth,
+    usgsWater: usgsHealth,
+    nwsAlerts: nwsHealth,
+    geoLedger: geoLedgerHealth,
   };
 
-  const healthyCount = Object.values(moduleHealth).filter((v) =>
-    v === "ok" || v === "cached" || v === "stale_fallback"
+  /**
+   * Packet status policy:
+   *   - "ok"        when every *applicable* provider succeeded (and any other providers were
+   *                 skipped only because they are not_applicable / not_configured).
+   *   - "degraded"  when at least one applicable provider failed (or returned unavailable),
+   *                 but DPAL still produced a useful packet from the remaining providers.
+   *   - "error"     when NO provider produced a useful result for this packet.
+   *
+   * Importantly: a packet is NOT marked "error" merely because U.S.-specific providers were
+   * not applicable for an international coordinate, and NOT marked "error" merely because
+   * GeoLedger requires a key that isn't configured.
+   */
+  const moduleValues = Object.values(moduleHealth);
+  const applicableValues = moduleValues.filter(
+    (v) => v !== "not_applicable" && v !== "not_configured",
+  );
+  const applicableHealthyCount = applicableValues.filter(
+    (v) => v === "ok" || v === "cached" || v === "stale_fallback",
   ).length;
-  const packetStatus =
-    healthyCount === 0 ? ("error" as const) : healthyCount === 4 ? ("ok" as const) : ("degraded" as const);
+  const applicableFailureCount = applicableValues.length - applicableHealthyCount;
+
+  let packetStatus: "ok" | "degraded" | "error";
+  if (applicableValues.length === 0) {
+    packetStatus = "error";
+  } else if (applicableFailureCount === 0) {
+    packetStatus = "ok";
+  } else {
+    packetStatus = applicableHealthyCount > 0 ? "degraded" : "degraded";
+  }
+
+  /**
+   * providerRouting describes WHY each provider ran or did not run for this coordinate.
+   * Frontends can use this to render an accurate "U.S. providers skipped (not applicable)"
+   * badge instead of a misleading "USGS failed" red dot.
+   */
+  const providerRouting = {
+    usedGlobal: [
+      "FloodGuard",
+      ...(usgsApplicability.applicable ? ["USGS"] : []),
+      ...(nwsApplicability.applicable ? ["NWS"] : []),
+      ...(geoApplicability.applicable ? ["GeoLedger"] : []),
+    ].filter((p, i, arr) => arr.indexOf(p) === i),
+    skippedRegional: [
+      ...(usgsApplicability.applicable
+        ? []
+        : [{ provider: "USGS", reason: usgsApplicability.reason, message: usgsApplicability.message }]),
+      ...(nwsApplicability.applicable
+        ? []
+        : [{ provider: "NWS", reason: nwsApplicability.reason, message: nwsApplicability.message }]),
+    ],
+    skippedNotConfigured: geoApplicability.applicable
+      ? []
+      : [
+          {
+            provider: "GeoLedger",
+            reason: geoApplicability.reason,
+            message: geoApplicability.message,
+          },
+        ],
+  };
+
+  const isInternationalCoord = !usgsApplicability.applicable && !nwsApplicability.applicable;
+  const providerRoutingNotes: string[] = [];
+  if (isInternationalCoord) {
+    providerRoutingNotes.push(
+      "DPAL used global water/flood providers for this location. U.S.-specific providers were marked not applicable and were not called.",
+    );
+  } else if (!usgsApplicability.applicable && usgsApplicability.message) {
+    providerRoutingNotes.push(usgsApplicability.message);
+  } else if (!nwsApplicability.applicable && nwsApplicability.message) {
+    providerRoutingNotes.push(nwsApplicability.message);
+  }
+  if (!geoApplicability.applicable && geoApplicability.message) {
+    providerRoutingNotes.push(geoApplicability.message);
+  }
 
   const activeAlerts = Array.isArray((nwsAlerts as any)?.activeAlerts)
     ? ((nwsAlerts as any).activeAlerts as Array<Record<string, unknown>>)
@@ -2506,9 +2692,11 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
       highestNwsSeverity: highestOfficialSeverity,
       hasOfficialAlert,
       recommendedReviewStatus,
+      providerRoutingNotes,
     },
     status: packetStatus,
     moduleHealth,
+    providerRouting,
   };
 
   const evidenceHash = sha256(JSON.stringify(canonicalSummary));
@@ -2534,6 +2722,7 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
     generatedAt,
     status: packetStatus,
     moduleHealth,
+    providerRouting,
     floodguard,
     usgsWater,
     nwsAlerts,

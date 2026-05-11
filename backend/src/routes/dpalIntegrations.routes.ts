@@ -17,9 +17,9 @@ import {
   getUsgsWaterSiteSnapshot,
   getNwsActiveAlertsPacket,
   buildWaterAlertEvidencePacket,
-} from "../services/publicApiAdapters.js";
-import { recordProviderCallEvent } from "../services/providerCallMonitor.js";
-import { buildWaterAlertPacketRequestKey } from "../services/providerRequestGuards.js";
+} from "../services/publicApiAdapters";
+import { recordProviderCallEvent } from "../services/providerCallMonitor";
+import { buildWaterAlertPacketRequestKey } from "../services/providerRequestGuards";
 
 const router = Router();
 
