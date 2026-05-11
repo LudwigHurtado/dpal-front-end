@@ -109,6 +109,16 @@ const CURSOR_TRAVEL_DELAY_MS = 600;
 export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAutopilotApi {
   const { enabled, steps, onPrefillCoordinates, onTriggerScan } = opts;
 
+  /** Latest callbacks without forcing the step-driver effect to reset timers every parent render. */
+  const onPrefillRef = React.useRef(onPrefillCoordinates);
+  const onTriggerScanRef = React.useRef(onTriggerScan);
+  React.useEffect(() => {
+    onPrefillRef.current = onPrefillCoordinates;
+  }, [onPrefillCoordinates]);
+  React.useEffect(() => {
+    onTriggerScanRef.current = onTriggerScan;
+  }, [onTriggerScan]);
+
   const [status, setStatus] = React.useState<AutopilotStatus>("idle");
   const [stepIndex, setStepIndex] = React.useState<number>(-1);
   const [providerProgress, setProviderProgress] =
@@ -231,7 +241,7 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
 
       switch (step.intent) {
         case "fill_coordinates":
-          if (onPrefillCoordinates) onPrefillCoordinates();
+          onPrefillRef.current?.();
           break;
         case "trigger_scan":
           /** Mark all providers as "checking" right before triggering scan. */
@@ -244,7 +254,7 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
             providersForSequenceRef.current.forEach((p) => (init[p] = "checking"));
             setProviderProgress(init);
           }
-          if (onTriggerScan) onTriggerScan();
+          onTriggerScanRef.current?.();
           break;
         case "show_progress":
           /** Animate providers from "pending" → "checking" while we wait. */
@@ -285,15 +295,7 @@ export function useVisibleAutopilot(opts: UseVisibleAutopilotOptions): VisibleAu
     }
 
     return () => clearTimers();
-  }, [
-    status,
-    stepIndex,
-    steps,
-    reduceMotion,
-    onPrefillCoordinates,
-    onTriggerScan,
-    clearTimers,
-  ]);
+  }, [status, stepIndex, steps, reduceMotion, clearTimers]);
 
   /** Pause clears timers; resume rebuilds them by toggling status. */
   React.useEffect(() => {

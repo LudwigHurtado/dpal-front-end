@@ -14,7 +14,7 @@ import {
   useNavigatorOutcomeTracking,
   useVisibleAutopilot,
 } from "../features/dpalNavigator";
-import type { ProviderProgressStatus } from "../features/dpalNavigator";
+import type { ProviderProgressStatus, VisibleAutopilotApi } from "../features/dpalNavigator";
 
 type PacketRecord = Record<string, any>;
 
@@ -156,12 +156,13 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
    * unchanged — autopilot only adds an outcome-tracking metadata flag.
    */
   const runWaterEvidenceScanRef = React.useRef<((opts: { source: "manual" | "visible-autopilot" }) => Promise<void>) | null>(null);
+  const autopilotMarkScanCompleteRef = React.useRef<VisibleAutopilotApi["markScanComplete"] | null>(null);
 
   /* ------------------------- autopilot wiring ------------------------- */
   const autopilot = useVisibleAutopilot({
     enabled: autopilotEnabled,
     steps: WATER_ALERT_AUTOPILOT_STEPS,
-    onPrefillCoordinates: () => {
+    onPrefillCoordinates: React.useCallback(() => {
       /** Coordinates are already prefilled in the form by the URL effect below.
        * This callback exists so the user *visibly* sees the cursor land on the
        * coordinate inputs at step 1. We re-affirm form state from the URL in
@@ -179,12 +180,14 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         lng: String(lng),
         label: prev.label || `Navigator focus ${lat.toFixed(4)}, ${lng.toFixed(4)}`,
       }));
-    },
-    onTriggerScan: () => {
+    }, [params]),
+    onTriggerScan: React.useCallback(() => {
       const fn = runWaterEvidenceScanRef.current;
       if (fn) void fn({ source: "visible-autopilot" });
-    },
+    }, []),
   });
+
+  autopilotMarkScanCompleteRef.current = autopilot.markScanComplete;
 
   /* ----------------------- outcome tracking (Phase 3) ----------------------- */
 
@@ -229,10 +232,10 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   }, [location.search, navOutcome, params]);
 
   /**
-   * Auto-start the autopilot once URL coordinates are applied to the form and
-   * `autopilot=true` is present. Ref is set only when `start()` runs so React
-   * Strict Mode (effect cleanup clearing the timer) cannot strand the run in
-   * a "started but never started" state.
+   * Auto-start the visible autopilot only when `autoRun=true` (Navigator sets
+   * this for “Watch DPAL Run Safe Checks”). `autopilot=true` alone does not
+   * start the sequence — that avoids accidental provider scans from bookmarks
+   * or shared links. Users without autoRun can press “Begin visible safe checks”.
    */
   const autopilotStartedRef = React.useRef(false);
   React.useEffect(() => {
@@ -240,6 +243,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       autopilotStartedRef.current = false;
       return;
     }
+    if (!autopilotAutoRun) return;
     if (!isUsableLatLng(Number(form.lat), Number(form.lng))) return;
     const latStr = params.get("lat");
     const lngStr = params.get("lng");
@@ -255,7 +259,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
     }, 600);
     return () => window.clearTimeout(t);
     /** `autopilot.start` is stable (useCallback); avoid `autopilot` object — new ref each render would cancel this timer. */
-  }, [autopilotEnabled, autopilot.start, form.lat, form.lng, params]);
+  }, [autopilotEnabled, autopilotAutoRun, autopilot.start, form.lat, form.lng, params]);
 
   /* --------------------------- packet readouts --------------------------- */
 
@@ -310,6 +314,13 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
       }
       setLoading(true);
       setError("");
+      if (import.meta.env.DEV) {
+        const g = window as Window & { __DPAL_WATER_ALERT_SCAN_COUNT?: number };
+        g.__DPAL_WATER_ALERT_SCAN_COUNT = (g.__DPAL_WATER_ALERT_SCAN_COUNT ?? 0) + 1;
+        console.info("[DPAL water alert evidence] scan invocation #", g.__DPAL_WATER_ALERT_SCAN_COUNT, {
+          source: scanSource,
+        });
+      }
       navOutcome.trackOutcome({
         moduleId: "water_alert_evidence",
         eventType: "scan_started",
@@ -386,7 +397,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
             NWS: moduleHealthToProviderStatus(mh.nwsAlerts),
             GeoLedger: moduleHealthToProviderStatus(mh.geoLedger),
           };
-          autopilot.markScanComplete({ packetStatus, providerProgress });
+          autopilotMarkScanCompleteRef.current?.({ packetStatus, providerProgress });
         }
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "Water evidence scan failed.";
@@ -411,7 +422,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
             : rawMessage,
         );
         if (scanSource === "visible-autopilot") {
-          autopilot.markScanComplete({
+          autopilotMarkScanCompleteRef.current?.({
             packetStatus: "error",
             providerProgress: AUTOPILOT_PROVIDERS.reduce(
               (acc, p) => {
@@ -426,7 +437,7 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
         setLoading(false);
       }
     },
-    [form.lat, form.lng, form.label, form.usgsSite, navOutcome, autopilot],
+    [form.lat, form.lng, form.label, form.usgsSite, navOutcome.trackOutcome, navOutcome.trackOutcomeOnce],
   );
 
   React.useEffect(() => {
@@ -456,6 +467,22 @@ export default function WaterAlertEvidenceDashboard(): React.ReactElement {
   return (
     <div className="space-y-4">
       <NavigatorHelperCard expectedScenario="water_flood" />
+      {autopilotEnabled && !autopilotAutoRun && autopilot.status === "idle" ? (
+        <div className="rounded-xl border border-cyan-500/45 bg-cyan-950/25 px-4 py-3 text-[11px] leading-snug text-cyan-50">
+          <p className="font-semibold text-cyan-200">Visible safe checks</p>
+          <p className="mt-1 text-slate-200">
+            Autopilot mode is on, but automatic run is off (no <span className="font-mono text-cyan-100">autoRun=true</span> in the
+            URL). Start when you want one read-only provider packet — DPAL will not scan until you begin.
+          </p>
+          <button
+            type="button"
+            onClick={() => autopilot.start()}
+            className="mt-3 rounded-lg bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-cyan-300"
+          >
+            Begin visible safe checks
+          </button>
+        </div>
+      ) : null}
       {import.meta.env.DEV && autopilotEnabled ? (
         <div className="rounded-xl border border-dashed border-slate-600 bg-slate-900/80 px-3 py-2 text-[11px] text-slate-200">
           <button
