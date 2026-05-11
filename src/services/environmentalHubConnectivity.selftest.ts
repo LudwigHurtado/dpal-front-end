@@ -7,7 +7,9 @@ import {
   computeCooldownSecondsAfter429,
   apply429ToPersisted,
   applySuccessToPersisted,
+  summarizePillarHubConnectivity,
 } from './environmentalHubConnectivity';
+import type { HubConnectivityRow } from './environmentalHubConnectivity';
 
 function hdr(init: Record<string, string>) {
   return new Headers(init);
@@ -33,5 +35,45 @@ const s1 = apply429ToPersisted(s0, null);
 assert.equal(s1.consecutive429, 1);
 assert.ok(s1.lastSuccessEpochMs != null);
 assert.equal(s1.lastSuccessDetail, 'ok');
+
+const row = (partial: Partial<HubConnectivityRow>): HubConnectivityRow => ({
+  id: 'carb',
+  label: 'CARB',
+  status: 'ok',
+  detail: 'Reachable',
+  lastCheckedAt: new Date(),
+  nextRetryAt: null,
+  retryAfterSeconds: null,
+  lastSuccessfulAt: new Date(),
+  lastError: null,
+  usingCachedResult: false,
+  ...partial,
+});
+
+const emptyPillar = summarizePillarHubConnectivity('pollution', []);
+assert.match(emptyPillar.adapterStatus, /not loaded/i);
+assert.equal(emptyPillar.rateLimitStatus, 'unknown');
+
+const rateLimited: HubConnectivityRow[] = [
+  row({ id: 'health', status: 'ok' }),
+  row({ id: 'carb', status: 'rate_limited', nextRetryAt: new Date(Date.now() + 60_000), retryAfterSeconds: 60 }),
+];
+const rl = summarizePillarHubConnectivity('pollution', rateLimited);
+assert.equal(rl.rateLimitStatus, 'rate_limited');
+assert.match(rl.adapterStatus, /Rate limited/i);
+assert.ok(rl.nextRetryAt);
+
+const cooldownRows: HubConnectivityRow[] = [
+  row({
+    id: 'carb',
+    status: 'rate_limited',
+    detail: 'Rate limited — waiting before retry. Retry after: 42s',
+    nextRetryAt: new Date(Date.now() + 42_000),
+    retryAfterSeconds: 42,
+  }),
+];
+const cd = summarizePillarHubConnectivity('pollution', cooldownRows);
+assert.equal(cd.rateLimitStatus, 'cooldown');
+assert.match(cd.adapterStatus, /cooldown|Dry Run/i);
 
 console.log('environmentalHubConnectivity.selftest: all passed');

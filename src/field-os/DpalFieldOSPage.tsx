@@ -25,6 +25,14 @@ import {
   submitCaseForReview,
   type ReviewerStatusResponse,
 } from './super-agent/services/reviewerNodeClient';
+import {
+  getHubConnectivityLoadingRows,
+  HUB_AUTO_REFRESH_MS,
+  runEnvironmentalHubProbes,
+  summarizePillarHubConnectivity,
+  type HubConnectivityRow,
+  type SuperAgentEvidencePillarKey,
+} from '../services/environmentalHubConnectivity';
 
 const runner = new WorkflowRunner();
 
@@ -103,7 +111,41 @@ type SuperAgentCaseSnapshot = {
   evidenceAttachments?: ReviewerEvidenceAttachment[];
   subAgentOutputs?: unknown[];
   workflowPreviewArtifacts?: unknown[];
+  /** Last Environmental Hub connectivity strip snapshot (JSON-safe) for Reviewer Node. */
+  environmentalHubConnectivity?: {
+    probedAt: string | null;
+    rows: Array<{
+      id: string;
+      label: string;
+      status: string;
+      detail: string;
+      usingCachedResult: boolean;
+      nextRetryAt: string | null;
+      lastSuccessfulAt: string | null;
+      lastError: string | null;
+    }>;
+  };
 };
+
+function serializeEnvironmentalHubConnectivityForSnapshot(
+  rows: HubConnectivityRow[],
+  probedAt: string | null,
+): SuperAgentCaseSnapshot['environmentalHubConnectivity'] {
+  if (!rows.length) return undefined;
+  return {
+    probedAt,
+    rows: rows.map((r) => ({
+      id: r.id,
+      label: r.label,
+      status: r.status,
+      detail: r.detail,
+      usingCachedResult: r.usingCachedResult,
+      nextRetryAt: r.nextRetryAt?.toISOString() ?? null,
+      lastSuccessfulAt: r.lastSuccessfulAt?.toISOString() ?? null,
+      lastError: r.lastError,
+    })),
+  };
+}
 
 type ReviewStatusUi = {
   submitted: boolean;
@@ -461,6 +503,8 @@ const DpalFieldOSPage: React.FC = () => {
   const [manualEvidenceAttachments, setManualEvidenceAttachments] = useState<ReviewerEvidenceAttachment[]>([]);
   const [isScreenshotCaptureBusy, setIsScreenshotCaptureBusy] = useState(false);
   const [screenshotCaptureError, setScreenshotCaptureError] = useState<string | null>(null);
+  const [hubConnectivityRows, setHubConnectivityRows] = useState<HubConnectivityRow[]>(() => getHubConnectivityLoadingRows());
+  const [hubConnectivityProbedAt, setHubConnectivityProbedAt] = useState<string | null>(null);
 
   const caseWorkspaceRef = useRef<CaseWorkspace | null>(null);
   const executionTraceRef = useRef<ExecutionTraceService | null>(null);
@@ -485,6 +529,35 @@ const DpalFieldOSPage: React.FC = () => {
     }, 100);
     return () => window.clearTimeout(t);
   }, [location.pathname, location.hash]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const { rows } = await runEnvironmentalHubProbes({ bypassCache: false });
+        if (!cancelled) {
+          setHubConnectivityRows(rows);
+          setHubConnectivityProbedAt(new Date().toISOString());
+        }
+      } catch {
+        if (!cancelled) {
+          setHubConnectivityRows((prev) =>
+            prev.map((r) => ({
+              ...r,
+              status: r.status === 'loading' ? 'offline' : r.status,
+              detail: r.status === 'loading' ? 'Connectivity refresh failed' : r.detail,
+            })),
+          );
+        }
+      }
+    };
+    void refresh();
+    const id = window.setInterval(() => void refresh(), HUB_AUTO_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
 
   const timelineEntries = useMemo(() => {
     if (!superAgentPlan) return [];
@@ -905,26 +978,6 @@ const DpalFieldOSPage: React.FC = () => {
     setPersistVersion((v) => v + 1);
   };
 
-  const exportCaseSnapshot = () => {
-    const completionStatus = checkCompletionStatusLocal();
-    const approvalStatus = superAgentPlan
-      ? Object.fromEntries(superAgentPlan.humanApprovalCheckpoints.map((id) => [id, Boolean(gateApprovals[id])]))
-      : {};
-    const snapshot: SuperAgentCaseSnapshot = {
-      currentPlan: superAgentPlan,
-      currentCaseWorkspace: caseWorkspaceRef.current?.getState() ?? null,
-      evidenceTimeline: timelineEntries,
-      executionTraces: executionTraceRows,
-      completionStatus,
-      approvalStatus,
-      finalActionsBlocked: finalActionsBlockedUi,
-      humanApprovalRequired: humanApprovalRequiredUi,
-      mappedExecutionPlan,
-      planExecutionResult,
-    };
-    setExportSnapshotJson(JSON.stringify(snapshot, null, 2));
-  };
-
   const addManualEvidenceAttachment = () => {
     if (!manualEvidenceUrl.trim() && !manualScreenshotUrl.trim() && !manualReviewerNote.trim()) return;
     const now = new Date().toISOString();
@@ -1033,83 +1086,107 @@ const DpalFieldOSPage: React.FC = () => {
       };
     };
 
+    const withHub = (pillar: SuperAgentEvidencePillarKey, payload: Record<string, unknown>) => {
+      const h = summarizePillarHubConnectivity(pillar, hubConnectivityRows);
+      return {
+        ...payload,
+        adapterStatus: h.adapterStatus,
+        rateLimitStatus: h.rateLimitStatus,
+        nextRetryAt: h.nextRetryAt,
+        cachedStatus: h.cachedStatus,
+        hubAdapterDetails: h.hubAdapterDetails,
+      };
+    };
+
     const analysisSummaries = {
-      water: mergePillar(
-        'Water analysis',
-        waterInScope,
-        Boolean(waterRich),
-        {
-          title: 'Water analysis',
-          summary:
-            findingBlurb(waterOutput, byWorkflow('aquascan-investigation')?.nextRecommendedAction, 'Dry Run water preview — see assigned agents for details.') ||
-            'Pending water analysis details.',
-          findings: waterOutput?.findings ?? [],
-          artifacts: waterOutput?.artifacts ?? [],
-          confidence: waterOutput?.confidence ?? byWorkflow('aquascan-investigation')?.confidence ?? 'medium',
-          limitations: waterOutput?.limitations ?? [],
-          sourceWorkflowIds: ['aquascan-investigation'],
-          status: waterOutput?.status ?? byWorkflow('aquascan-investigation')?.status ?? 'pending',
-        }
+      water: withHub(
+        'water',
+        mergePillar(
+          'Water analysis',
+          waterInScope,
+          Boolean(waterRich),
+          {
+            title: 'Water analysis',
+            summary:
+              findingBlurb(waterOutput, byWorkflow('aquascan-investigation')?.nextRecommendedAction, 'Dry Run water preview — see assigned agents for details.') ||
+              'Pending water analysis details.',
+            findings: waterOutput?.findings ?? [],
+            artifacts: waterOutput?.artifacts ?? [],
+            confidence: waterOutput?.confidence ?? byWorkflow('aquascan-investigation')?.confidence ?? 'medium',
+            limitations: waterOutput?.limitations ?? [],
+            sourceWorkflowIds: ['aquascan-investigation'],
+            status: waterOutput?.status ?? byWorkflow('aquascan-investigation')?.status ?? 'pending',
+          }
+        ) as Record<string, unknown>
       ),
-      earthObservation: mergePillar(
-        'Vegetation / canopy analysis',
-        eoInScope,
-        Boolean(eoRich),
-        {
-          title: 'Vegetation / canopy analysis',
-          summary:
-            findingBlurb(eoOutput, byWorkflow('earth-observation-audit')?.nextRecommendedAction, 'Dry Run Earth Observation preview — see Plan & safety for details.') ||
-            'Pending vegetation/canopy analysis.',
-          vegetationHealth: eoOutput?.findings ?? [],
-          canopyChange: eoOutput?.findings ?? [],
-          ndviNotes: eoOutput?.limitations ?? [],
-          biomassRelevance: eoOutput?.findings ?? [],
-          artifacts: eoOutput?.artifacts ?? [],
-          confidence: eoOutput?.confidence ?? byWorkflow('earth-observation-audit')?.confidence ?? 'medium',
-          limitations: eoOutput?.limitations ?? [],
-          sourceWorkflowIds: ['earth-observation-audit'],
-          status: eoOutput?.status ?? byWorkflow('earth-observation-audit')?.status ?? 'pending',
-        }
+      earthObservation: withHub(
+        'earthObservation',
+        mergePillar(
+          'Vegetation / canopy analysis',
+          eoInScope,
+          Boolean(eoRich),
+          {
+            title: 'Vegetation / canopy analysis',
+            summary:
+              findingBlurb(eoOutput, byWorkflow('earth-observation-audit')?.nextRecommendedAction, 'Dry Run Earth Observation preview — see Plan & safety for details.') ||
+              'Pending vegetation/canopy analysis.',
+            vegetationHealth: eoOutput?.findings ?? [],
+            canopyChange: eoOutput?.findings ?? [],
+            ndviNotes: eoOutput?.limitations ?? [],
+            biomassRelevance: eoOutput?.findings ?? [],
+            artifacts: eoOutput?.artifacts ?? [],
+            confidence: eoOutput?.confidence ?? byWorkflow('earth-observation-audit')?.confidence ?? 'medium',
+            limitations: eoOutput?.limitations ?? [],
+            sourceWorkflowIds: ['earth-observation-audit'],
+            status: eoOutput?.status ?? byWorkflow('earth-observation-audit')?.status ?? 'pending',
+          }
+        ) as Record<string, unknown>
       ),
-      pollution: mergePillar(
-        'Pollution / emissions analysis',
-        pollutionInScope,
-        Boolean(pollutionRich),
-        {
-          title: 'Pollution / emissions analysis',
-          summary:
-            findingBlurb(pollutionOutput, byWorkflow('carb-emissions-audit')?.nextRecommendedAction, 'Dry Run emissions audit preview — see Plan & safety for details.') ||
-            'Pending pollution/emissions analysis.',
-          carbOrEmissionsNotes: pollutionOutput?.findings ?? [],
-          sourceReconciliationNotes: pollutionOutput?.limitations ?? [],
-          artifacts: pollutionOutput?.artifacts ?? [],
-          confidence: pollutionOutput?.confidence ?? byWorkflow('carb-emissions-audit')?.confidence ?? 'medium',
-          limitations: pollutionOutput?.limitations ?? [],
-          sourceWorkflowIds: ['carb-emissions-audit'],
-          status: pollutionOutput?.status ?? byWorkflow('carb-emissions-audit')?.status ?? 'pending',
-        }
+      pollution: withHub(
+        'pollution',
+        mergePillar(
+          'Pollution / emissions analysis',
+          pollutionInScope,
+          Boolean(pollutionRich),
+          {
+            title: 'Pollution / emissions analysis',
+            summary:
+              findingBlurb(pollutionOutput, byWorkflow('carb-emissions-audit')?.nextRecommendedAction, 'Dry Run emissions audit preview — see Plan & safety for details.') ||
+              'Pending pollution/emissions analysis.',
+            carbOrEmissionsNotes: pollutionOutput?.findings ?? [],
+            sourceReconciliationNotes: pollutionOutput?.limitations ?? [],
+            artifacts: pollutionOutput?.artifacts ?? [],
+            confidence: pollutionOutput?.confidence ?? byWorkflow('carb-emissions-audit')?.confidence ?? 'medium',
+            limitations: pollutionOutput?.limitations ?? [],
+            sourceWorkflowIds: ['carb-emissions-audit'],
+            status: pollutionOutput?.status ?? byWorkflow('carb-emissions-audit')?.status ?? 'pending',
+          }
+        ) as Record<string, unknown>
       ),
-      carbonViu: mergePillar(
-        'Carbon / VIU analysis',
-        carbonViuInScope,
-        Boolean(carbonViuRich),
-        {
-          title: 'Carbon / VIU analysis',
-          summary:
-            findingBlurb(
-              viuOutput,
-              byWorkflow('carbon-viu-project')?.nextRecommendedAction,
-              'Dry Run carbon / VIU preview — see Plan & safety for details.'
-            ) || 'Pending VIU analysis.',
-          viuReadiness: byWorkflow('carbon-viu-project')?.status ?? 'pending',
-          biomassOrCO2eNotes: viuOutput?.findings ?? [],
-          issuanceStatus: 'Draft only (Dry Run)',
-          artifacts: viuOutput?.artifacts ?? [],
-          confidence: viuOutput?.confidence ?? byWorkflow('carbon-viu-project')?.confidence ?? 'medium',
-          limitations: viuOutput?.limitations ?? ['Pending live service adapter'],
-          sourceWorkflowIds: ['carbon-viu-project'],
-          status: byWorkflow('carbon-viu-project')?.status ?? viuOutput?.status ?? 'pending',
-        }
+      carbonViu: withHub(
+        'carbonViu',
+        mergePillar(
+          'Carbon / VIU analysis',
+          carbonViuInScope,
+          Boolean(carbonViuRich),
+          {
+            title: 'Carbon / VIU analysis',
+            summary:
+              findingBlurb(
+                viuOutput,
+                byWorkflow('carbon-viu-project')?.nextRecommendedAction,
+                'Dry Run carbon / VIU preview — see Plan & safety for details.'
+              ) || 'Pending VIU analysis.',
+            viuReadiness: byWorkflow('carbon-viu-project')?.status ?? 'pending',
+            biomassOrCO2eNotes: viuOutput?.findings ?? [],
+            issuanceStatus: 'Draft only (Dry Run)',
+            artifacts: viuOutput?.artifacts ?? [],
+            confidence: viuOutput?.confidence ?? byWorkflow('carbon-viu-project')?.confidence ?? 'medium',
+            limitations: viuOutput?.limitations ?? ['Pending live service adapter'],
+            sourceWorkflowIds: ['carbon-viu-project'],
+            status: byWorkflow('carbon-viu-project')?.status ?? viuOutput?.status ?? 'pending',
+          }
+        ) as Record<string, unknown>
       ),
     };
     const parsedEvidenceRefs = superAgentEvidenceRefs
@@ -1177,7 +1254,14 @@ const DpalFieldOSPage: React.FC = () => {
 
   const reviewerEvidencePackage = useMemo(
     () => buildReviewerEvidencePackage(),
-    [superAgentPlan, mappedExecutionPlan, planExecutionResult, superAgentEvidenceRefs, manualEvidenceAttachments]
+    [
+      superAgentPlan,
+      mappedExecutionPlan,
+      planExecutionResult,
+      superAgentEvidenceRefs,
+      manualEvidenceAttachments,
+      hubConnectivityRows,
+    ]
   );
 
   const captureScreenshotAttachment = async (
@@ -1263,7 +1347,15 @@ const DpalFieldOSPage: React.FC = () => {
       evidenceAttachments: reviewerEvidencePackage.evidenceAttachments,
       subAgentOutputs: superAgentPlan?.subAgentOutputs ?? [],
       workflowPreviewArtifacts: planExecutionResult?.allArtifacts ?? [],
+      environmentalHubConnectivity: serializeEnvironmentalHubConnectivityForSnapshot(
+        hubConnectivityRows,
+        hubConnectivityProbedAt,
+      ),
     };
+  };
+
+  const exportCaseSnapshot = () => {
+    setExportSnapshotJson(JSON.stringify(buildCaseSnapshot(), null, 2));
   };
 
   const applyReviewerStatus = (status: ReviewerStatusResponse) => {
@@ -1677,6 +1769,29 @@ const DpalFieldOSPage: React.FC = () => {
                         <p className="mt-1 text-[11px] leading-snug text-slate-500">
                           Four pillars mirror Field OS workflows. “Awaiting preview” means the pillar is in scope but Planned Workflow Preview has not filled this row yet.
                         </p>
+                        {(() => {
+                          const summaries = reviewerEvidencePackage.analysisSummaries as Record<
+                            string,
+                            { rateLimitStatus?: string; adapterStatus?: string } | undefined
+                          >;
+                          const throttled = (['water', 'earthObservation', 'pollution', 'carbonViu'] as const)
+                            .map((k) => {
+                              const s = summaries[k];
+                              if (!s) return null;
+                              if (s.rateLimitStatus === 'rate_limited' || s.rateLimitStatus === 'cooldown') {
+                                return s.adapterStatus ?? k;
+                              }
+                              return null;
+                            })
+                            .filter(Boolean) as string[];
+                          if (!throttled.length) return null;
+                          return (
+                            <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-2 text-[11px] leading-snug text-amber-950">
+                              Hub rate limit or cooldown: {throttled.join(' · ')} Planned Workflow Preview (Dry Run) stays
+                              available; defer hub-backed live scans until retry.
+                            </p>
+                          );
+                        })()}
                         <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                           {(['water', 'earthObservation', 'pollution', 'carbonViu'] as const).map((key) => {
                             const summary = (reviewerEvidencePackage.analysisSummaries as Record<string, any>)[key];
@@ -1710,6 +1825,39 @@ const DpalFieldOSPage: React.FC = () => {
                                   </span>
                                 </div>
                                 <p className="mt-2 leading-relaxed text-slate-600">{summary?.summary ?? '—'}</p>
+                                {summary?.adapterStatus ? (
+                                  <div className="mt-2 border-t border-slate-100 pt-2 text-[10px] leading-snug text-slate-600">
+                                    <p className="font-semibold text-slate-700">Environmental Hub</p>
+                                    <p className="mt-0.5">{summary.adapterStatus}</p>
+                                    {summary.rateLimitStatus &&
+                                      summary.rateLimitStatus !== 'none' &&
+                                      summary.rateLimitStatus !== 'ok' && (
+                                        <p className="mt-0.5 font-medium uppercase tracking-wide text-slate-500">
+                                          {String(summary.rateLimitStatus).replace(/_/g, ' ')}
+                                        </p>
+                                      )}
+                                    {summary.cachedStatus === true && (
+                                      <p className="mt-0.5 text-slate-500">Using cached connectivity status</p>
+                                    )}
+                                    {summary.nextRetryAt && (
+                                      <p className="mt-0.5 text-slate-500">
+                                        Next retry: {new Date(summary.nextRetryAt).toLocaleString()}
+                                      </p>
+                                    )}
+                                    {Array.isArray(summary.hubAdapterDetails) && summary.hubAdapterDetails.length > 0 && (
+                                      <ul className="mt-1 list-inside list-disc text-slate-500">
+                                        {summary.hubAdapterDetails.map(
+                                          (d: { id: string; status: string; usingCachedResult?: boolean }) => (
+                                            <li key={d.id}>
+                                              {d.id}: {d.status}
+                                              {d.usingCachedResult ? ' · cached strip' : ''}
+                                            </li>
+                                          )
+                                        )}
+                                      </ul>
+                                    )}
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}

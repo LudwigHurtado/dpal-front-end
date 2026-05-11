@@ -508,3 +508,135 @@ export function isHubConnectivityLikelyRateLimited(rows: HubConnectivityRow[]): 
   const limited = critical.filter((r) => r.status === 'rate_limited').length;
   return limited >= Math.ceil(critical.length / 2) || rows.some((r) => r.id === 'health' && r.status === 'rate_limited');
 }
+
+/** Super Agent evidence pillars → Environmental Hub probe ids (shared cooldown/cache). */
+export type SuperAgentEvidencePillarKey = 'water' | 'earthObservation' | 'pollution' | 'carbonViu';
+
+export const SUPER_AGENT_PILLAR_HUB_ADAPTERS: Record<SuperAgentEvidencePillarKey, readonly HubAdapterId[]> = {
+  /** API host + Copernicus proxy cover AquaScan / server-backed water compares. */
+  water: ['health', 'copernicus'],
+  earthObservation: ['copernicus'],
+  pollution: ['carb'],
+  /** Carbon / VIU intelligence uses server AI + global signals feed when live. */
+  carbonViu: ['ai', 'signals'],
+};
+
+export type PillarRateLimitStatus =
+  | 'none'
+  | 'rate_limited'
+  | 'cooldown'
+  | 'cached'
+  | 'ok'
+  | 'degraded'
+  | 'offline'
+  | 'loading'
+  | 'unknown';
+
+export interface PillarHubAdapterDetail {
+  id: HubAdapterId;
+  status: HubAdapterDisplayStatus;
+  usingCachedResult: boolean;
+  nextRetryAt: string | null;
+}
+
+/** Fields embedded in Super Agent `analysisSummaries` per pillar for Reviewer Node + UI. */
+export interface PillarHubConnectivityReviewFields {
+  adapterStatus: string;
+  rateLimitStatus: PillarRateLimitStatus;
+  nextRetryAt: string | null;
+  cachedStatus: boolean;
+  hubAdapterDetails: PillarHubAdapterDetail[];
+}
+
+export function summarizePillarHubConnectivity(
+  pillar: SuperAgentEvidencePillarKey,
+  rows: HubConnectivityRow[],
+): PillarHubConnectivityReviewFields {
+  const ids = SUPER_AGENT_PILLAR_HUB_ADAPTERS[pillar];
+  const picked = ids
+    .map((id) => rows.find((r) => r.id === id))
+    .filter((r): r is HubConnectivityRow => Boolean(r));
+
+  const hubAdapterDetails: PillarHubAdapterDetail[] = picked.map((r) => ({
+    id: r.id,
+    status: r.status,
+    usingCachedResult: r.usingCachedResult,
+    nextRetryAt: r.nextRetryAt ? r.nextRetryAt.toISOString() : null,
+  }));
+
+  if (picked.length === 0) {
+    return {
+      adapterStatus:
+        'Environmental Hub connectivity not loaded yet — open Environmental Intelligence Hub or wait for Field OS refresh. Dry Run preview remains available.',
+      rateLimitStatus: 'unknown',
+      nextRetryAt: null,
+      cachedStatus: false,
+      hubAdapterDetails: [],
+    };
+  }
+
+  const isCooldownRow = (r: HubConnectivityRow) =>
+    r.status === 'rate_limited' && /waiting before retry/i.test(r.detail);
+  const isFresh429Row = (r: HubConnectivityRow) =>
+    r.status === 'rate_limited' && !isCooldownRow(r);
+
+  const anyRateLimited = picked.some((r) => r.status === 'rate_limited');
+  const anyCooldownOnly = picked.some(isCooldownRow);
+  const anyFresh429 = picked.some(isFresh429Row);
+  const anyCached = picked.some((r) => r.usingCachedResult);
+  const allOk = picked.every((r) => r.status === 'ok');
+  const anyOk = picked.some((r) => r.status === 'ok');
+  const anyOffline = picked.some((r) => r.status === 'offline');
+  const anyDegraded = picked.some((r) => r.status === 'degraded');
+  const anyLoading = picked.some((r) => r.status === 'loading');
+
+  const retryTimes = picked
+    .map((r) => r.nextRetryAt?.getTime() ?? 0)
+    .filter((t) => t > Date.now());
+  const soonestRetryMs = retryTimes.length ? Math.min(...retryTimes) : 0;
+  const nextRetryAt = soonestRetryMs ? new Date(soonestRetryMs).toISOString() : null;
+  const retrySuffix = nextRetryAt ? ` Next retry at ${new Date(nextRetryAt).toLocaleString()}.` : '';
+
+  let rateLimitStatus: PillarRateLimitStatus = 'none';
+  if (anyFresh429) rateLimitStatus = 'rate_limited';
+  else if (anyCooldownOnly) rateLimitStatus = 'cooldown';
+  else if (anyCached) rateLimitStatus = 'cached';
+  else if (anyLoading) rateLimitStatus = 'loading';
+  else if (allOk) rateLimitStatus = 'ok';
+  else if (anyOffline) rateLimitStatus = 'offline';
+  else if (anyDegraded) rateLimitStatus = 'degraded';
+  else rateLimitStatus = 'unknown';
+
+  let adapterStatus: string;
+  if (anyFresh429) {
+    adapterStatus = `Rate limited — Dry Run preview available.${retrySuffix}`;
+  } else if (anyCooldownOnly && anyOk) {
+    const okLabels = picked
+      .filter((r) => r.status === 'ok')
+      .map((r) => r.label)
+      .join(', ');
+    adapterStatus = `Partial live: ${okLabels} reachable; other hub adapter(s) in cooldown — Dry Run preview available.${retrySuffix} Defer hub-backed live scans until cooldown ends.`;
+  } else if (anyCooldownOnly) {
+    adapterStatus = `Adapter in cooldown — Dry Run preview available.${retrySuffix}`;
+  } else if (anyCached) {
+    adapterStatus = 'Using cached connectivity status — hub strip TTL; Dry Run preview remains available.';
+  } else if (allOk) {
+    adapterStatus = 'Live adapter reachable.';
+  } else if (anyOffline) {
+    adapterStatus = 'Pending live service adapter — route unreachable or probe failed; Dry Run preview available.';
+  } else if (anyDegraded) {
+    adapterStatus = 'Adapters reachable with configuration caveats — see hub probe detail; Dry Run preview still available.';
+  } else if (anyLoading) {
+    adapterStatus = 'Hub connectivity still loading for this pillar.';
+  } else {
+    adapterStatus = 'Connectivity mixed — see Environmental Intelligence Hub API strip.';
+  }
+
+  return {
+    adapterStatus,
+    rateLimitStatus,
+    nextRetryAt,
+    cachedStatus: anyCached,
+    hubAdapterDetails,
+  };
+}

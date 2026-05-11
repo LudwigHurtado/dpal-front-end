@@ -27,6 +27,20 @@ export type ReviewerCaseSnapshot = {
   evidenceAttachments?: unknown[];
   subAgentOutputs?: unknown[];
   workflowPreviewArtifacts?: unknown[];
+  /** Environmental Intelligence Hub probe strip (optional; forwarded to Reviewer Node payload). */
+  environmentalHubConnectivity?: {
+    probedAt: string | null;
+    rows: Array<{
+      id: string;
+      label: string;
+      status: string;
+      detail: string;
+      usingCachedResult: boolean;
+      nextRetryAt: string | null;
+      lastSuccessfulAt: string | null;
+      lastError: string | null;
+    }>;
+  };
 };
 
 export type ReviewerSubmissionResponse = {
@@ -106,6 +120,7 @@ export async function submitCaseForReview(caseSnapshot: ReviewerCaseSnapshot): P
     workflowPreviewArtifacts: toArray(caseSnapshot.workflowPreviewArtifacts),
     subAgentOutputs: toArray(caseSnapshot.subAgentOutputs),
     analysisSummaries: caseSnapshot.analysisSummaries || {},
+    environmentalHubConnectivity: caseSnapshot.environmentalHubConnectivity ?? null,
     evidenceAttachments: toArray(caseSnapshot.evidenceAttachments),
     approvalStatus: caseSnapshot.approvalStatus || {},
     finalActionsBlocked: Boolean(caseSnapshot.finalActionsBlocked),
