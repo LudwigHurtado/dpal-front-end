@@ -18,8 +18,13 @@ import {
   getNwsActiveAlertsPacket,
   buildWaterAlertEvidencePacket,
 } from "../services/publicApiAdapters.js";
+import { recordProviderCallEvent } from "../services/providerCallMonitor.js";
+import { buildWaterAlertPacketRequestKey } from "../services/providerRequestGuards.js";
 
 const router = Router();
+
+/** Same rounded lat/lng + site + label → one in-flight packet build (concurrent requests share work). */
+const waterAlertPacketInflight = new Map<string, Promise<unknown>>();
 
 /**
  * GET /api/integrations/status
@@ -102,7 +107,30 @@ router.get("/water/alert-evidence-packet", async (req: Request, res: Response) =
         ? String(req.query.usgsSite)
         : undefined;
 
-    const packet = await buildWaterAlertEvidencePacket({ lat, lng, label, usgsSite });
+    const dedupeKey = buildWaterAlertPacketRequestKey({ lat, lng, label, usgsSite });
+    let packetPromise = waterAlertPacketInflight.get(dedupeKey) as Promise<unknown> | undefined;
+    if (packetPromise) {
+      recordProviderCallEvent({
+        providerName: "WaterAlertPacket",
+        operation: "build_packet",
+        requestKey: dedupeKey,
+        startedAt: new Date().toISOString(),
+        completedAt: new Date().toISOString(),
+        durationMs: 0,
+        status: "coalesced",
+        errorType: null,
+        source: "route:/water/alert-evidence-packet",
+        latRounded3: null,
+        lngRounded3: null,
+      });
+    } else {
+      packetPromise = buildWaterAlertEvidencePacket({ lat, lng, label, usgsSite }).finally(() => {
+        waterAlertPacketInflight.delete(dedupeKey);
+      });
+      waterAlertPacketInflight.set(dedupeKey, packetPromise);
+    }
+
+    const packet = await packetPromise;
     res.json({ ok: true, packet });
   } catch (err: any) {
     res.status(500).json({ ok: false, error: err?.message || "water alert evidence packet failed" });

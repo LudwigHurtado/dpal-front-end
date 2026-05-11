@@ -1,5 +1,13 @@
 import crypto from "crypto";
 import { z } from "zod";
+import { recordProviderCallEvent } from "./providerCallMonitor.js";
+import {
+  buildProviderRequestKey,
+  DEFAULT_COOLDOWN_MS,
+  runGuardedProviderCall,
+  roundCoord3,
+  setProviderCooldown,
+} from "./providerRequestGuards.js";
 
 type Coordinates = { lat: number; lng: number };
 
@@ -434,6 +442,19 @@ export async function getFloodRisk(coords: Coordinates) {
 async function getFloodGuardForWaterPacket(coords: Coordinates) {
   const freshCached = getCachedFloodGuard(coords.lat, coords.lng);
   if (freshCached) {
+    recordProviderCallEvent({
+      providerName: "FloodGuard",
+      operation: "water_packet_forecast",
+      requestKey: getFloodGuardCacheKey(coords.lat, coords.lng),
+      startedAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+      durationMs: 0,
+      status: "cache_hit",
+      errorType: null,
+      source: "water_alert_evidence_packet",
+      latRounded3: roundCoord3(coords.lat),
+      lngRounded3: roundCoord3(coords.lng),
+    });
     return {
       ...(freshCached.value as Record<string, unknown>),
       status: "ok" as const,
@@ -443,51 +464,111 @@ async function getFloodGuardForWaterPacket(coords: Coordinates) {
     };
   }
 
-  try {
-    const fresh = await getFloodRisk(coords);
-    const stored = setCachedFloodGuard(coords.lat, coords.lng, fresh);
-    return {
-      ...fresh,
-      status: "ok" as const,
-      cacheStatus: "fresh" as const,
-      cachedAt: new Date(stored.storedAt).toISOString(),
-      cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
-    };
-  } catch (err: unknown) {
-    const stale = getFloodGuardCacheEntry(coords.lat, coords.lng);
-    if (stale) {
-      return {
-        ...(stale.value as Record<string, unknown>),
-        status: "ok" as const,
-        cacheStatus: "stale_fallback" as const,
-        cachedAt: new Date(stale.storedAt).toISOString(),
-        cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
-        warning: "FloodGuard provider failed; using cached result.",
-      };
-    }
+  const latR = roundCoord3(coords.lat);
+  const lngR = roundCoord3(coords.lng);
+  const fgKey = buildProviderRequestKey("FloodGuard", "water_packet_forecast", {
+    latRounded3: latR,
+    lngRounded3: lngR,
+  });
 
-    return {
-      status: "unavailable" as const,
-      source: "Open-Meteo + RainViewer",
-      errorType: isRateLimitError(err) ? ("rate_limited" as const) : ("provider_error" as const),
-      message:
-        "FloodGuard provider temporarily unavailable. Water packet generated with remaining sources.",
-      originalError: sanitizeProviderError(err),
-      floodRisk: {
-        score: null,
-        level: "unavailable",
-        next24PrecipMm: null,
-        next24RainMm: null,
-        next24RunoffMm: null,
-        maxHourlyRainMm: null,
-        method: "FloodGuard unavailable for this packet due to provider error.",
-      },
-      radar: null,
-      forecastSummary: null,
-      cacheStatus: "miss" as const,
-      cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
-    };
-  }
+  const floodCooldownUnavailable = () => ({
+    status: "unavailable" as const,
+    source: "Open-Meteo + RainViewer",
+    errorType: "provider_error" as const,
+    message:
+      "FloodGuard live fetch skipped (server provider cooldown). Water packet continues with other modules where available.",
+    originalError: "cooldown",
+    floodRisk: {
+      score: null,
+      level: "unavailable",
+      next24PrecipMm: null,
+      next24RainMm: null,
+      next24RunoffMm: null,
+      maxHourlyRainMm: null,
+      method: "FloodGuard unavailable for this packet — live fetch in cooldown.",
+    },
+    radar: null,
+    forecastSummary: null,
+    cacheStatus: "miss" as const,
+    cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+  });
+
+  return runGuardedProviderCall({
+    key: fgKey,
+    providerName: "FloodGuard",
+    operation: "water_packet_forecast",
+    latRounded3: latR,
+    lngRounded3: lngR,
+    source: "water_alert_evidence_packet",
+    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.FloodGuard_rate,
+    errorCooldownMs: DEFAULT_COOLDOWN_MS.FloodGuard_error,
+    onCooldown: async () => {
+      const stale = getFloodGuardCacheEntry(coords.lat, coords.lng);
+      if (stale) {
+        return {
+          ...(stale.value as Record<string, unknown>),
+          status: "ok" as const,
+          cacheStatus: "stale_fallback" as const,
+          cachedAt: new Date(stale.storedAt).toISOString(),
+          cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+          warning: "FloodGuard live fetch in cooldown; using cached result.",
+        };
+      }
+      return floodCooldownUnavailable();
+    },
+    fn: async () => {
+      try {
+        const fresh = await getFloodRisk(coords);
+        const stored = setCachedFloodGuard(coords.lat, coords.lng, fresh);
+        return {
+          ...fresh,
+          status: "ok" as const,
+          cacheStatus: "fresh" as const,
+          cachedAt: new Date(stored.storedAt).toISOString(),
+          cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+        };
+      } catch (err: unknown) {
+        if (isRateLimitError(err)) {
+          setProviderCooldown("FloodGuard", fgKey, "rate_limited", DEFAULT_COOLDOWN_MS.FloodGuard_rate);
+        } else {
+          setProviderCooldown("FloodGuard", fgKey, "provider_error", DEFAULT_COOLDOWN_MS.FloodGuard_error);
+        }
+        const stale = getFloodGuardCacheEntry(coords.lat, coords.lng);
+        if (stale) {
+          return {
+            ...(stale.value as Record<string, unknown>),
+            status: "ok" as const,
+            cacheStatus: "stale_fallback" as const,
+            cachedAt: new Date(stale.storedAt).toISOString(),
+            cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+            warning: "FloodGuard provider failed; using cached result.",
+          };
+        }
+
+        return {
+          status: "unavailable" as const,
+          source: "Open-Meteo + RainViewer",
+          errorType: isRateLimitError(err) ? ("rate_limited" as const) : ("provider_error" as const),
+          message:
+            "FloodGuard provider temporarily unavailable. Water packet generated with remaining sources.",
+          originalError: sanitizeProviderError(err),
+          floodRisk: {
+            score: null,
+            level: "unavailable",
+            next24PrecipMm: null,
+            next24RainMm: null,
+            next24RunoffMm: null,
+            maxHourlyRainMm: null,
+            method: "FloodGuard unavailable for this packet due to provider error.",
+          },
+          radar: null,
+          forecastSummary: null,
+          cacheStatus: "miss" as const,
+          cacheTtlMinutes: FLOODGUARD_CACHE_TTL_MINUTES,
+        };
+      }
+    },
+  });
 }
 
 /**
@@ -2207,15 +2288,62 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
   const generatedAt = new Date().toISOString();
 
   const floodguard = await getFloodGuardForWaterPacket({ lat, lng });
-  const usgsWater = await getUsgsWaterSiteSnapshot(usgsSite ? { site: usgsSite, lat, lng } : { lat, lng })
-    .catch((err: unknown) => ({
+
+  const usgsInput = usgsSite ? { site: usgsSite, lat, lng } : { lat, lng };
+  const usgsKey = buildProviderRequestKey("USGS", "water_packet_snapshot", {
+    latRounded3: roundCoord3(lat),
+    lngRounded3: roundCoord3(lng),
+    site: usgsSite ?? "",
+  });
+  const usgsWater = await runGuardedProviderCall<any>({
+    key: usgsKey,
+    providerName: "USGS",
+    operation: "water_packet_snapshot",
+    latRounded3: roundCoord3(lat),
+    lngRounded3: roundCoord3(lng),
+    source: "water_alert_evidence_packet",
+    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.USGS_rate,
+    errorCooldownMs: DEFAULT_COOLDOWN_MS.USGS_error,
+    onCooldown: async () => ({
       source: "USGS Water Services",
       status: "error" as const,
-      message: sanitizeProviderError(err),
+      message: "USGS request skipped (server provider cooldown). Retry later.",
       readings: [],
       waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
-    }));
-  const nwsAlerts = await getNwsActiveAlertsPacket({ lat, lng, label }).catch((err: unknown) => ({
+    }),
+    fn: () => getUsgsWaterSiteSnapshot(usgsInput),
+  }).catch((err: unknown) => ({
+    source: "USGS Water Services",
+    status: "error" as const,
+    message: sanitizeProviderError(err),
+    readings: [],
+    waterSignals: { dischargeCfs: null, gageHeightFt: null, waterTempC: null },
+  }));
+
+  const nwsKey = buildProviderRequestKey("NWS", "water_packet_alerts", {
+    latRounded3: roundCoord3(lat),
+    lngRounded3: roundCoord3(lng),
+    labelKey: (label ?? "").slice(0, 120),
+  });
+  const nwsAlerts = await runGuardedProviderCall<any>({
+    key: nwsKey,
+    providerName: "NWS",
+    operation: "water_packet_alerts",
+    latRounded3: roundCoord3(lat),
+    lngRounded3: roundCoord3(lng),
+    source: "water_alert_evidence_packet",
+    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.NWS_rate,
+    errorCooldownMs: DEFAULT_COOLDOWN_MS.NWS_error,
+    onCooldown: async () => ({
+      source: "NOAA/National Weather Service",
+      status: "error" as const,
+      message: "NWS request skipped (server provider cooldown). Retry later.",
+      alertCount: 0,
+      highestSeverity: null,
+      activeAlerts: [],
+    }),
+    fn: () => getNwsActiveAlertsPacket({ lat, lng, label }),
+  }).catch((err: unknown) => ({
     source: "NOAA/National Weather Service",
     status: "error" as const,
     message: sanitizeProviderError(err),
@@ -2223,7 +2351,31 @@ export async function buildWaterAlertEvidencePacket(input: WaterAlertEvidencePac
     highestSeverity: null,
     activeAlerts: [],
   }));
-  const geoLedger = await getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }).catch((err: unknown) => ({
+
+  const geoKey = buildProviderRequestKey("GeoLedger", "water_packet_reverse", {
+    latRounded3: roundCoord3(lat),
+    lngRounded3: roundCoord3(lng),
+    labelKey: (label ?? "").slice(0, 120),
+  });
+  const geoLedger = await runGuardedProviderCall<any>({
+    key: geoKey,
+    providerName: "GeoLedger",
+    operation: "water_packet_reverse",
+    latRounded3: roundCoord3(lat),
+    lngRounded3: roundCoord3(lng),
+    source: "water_alert_evidence_packet",
+    rateLimitCooldownMs: DEFAULT_COOLDOWN_MS.GeoLedger_rate,
+    errorCooldownMs: DEFAULT_COOLDOWN_MS.GeoLedger_error,
+    onCooldown: async () => ({
+      source: "GeoLedger",
+      status: "error" as const,
+      validationStatus: "error" as const,
+      message: "GeoLedger request skipped (server provider cooldown). Retry later.",
+      geoLedgerId: null,
+      formattedAddress: null,
+    }),
+    fn: () => getGeoLedgerReverseLocation({ lat, lng, label: label ?? "" }),
+  }).catch((err: unknown) => ({
     source: "GeoLedger",
     status: "error" as const,
     validationStatus: "error" as const,
