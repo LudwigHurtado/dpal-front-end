@@ -1,31 +1,17 @@
 import React from 'react';
 import { ArrowRight, Activity, Globe, ShieldCheck, Waves, Database, Layout, Sparkles } from './icons';
 import type { View } from '../App';
-import { API_ROUTES, apiUrl } from '../constants';
 import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
 import DpalIntegrationCommandCenter from '../src/components/DpalIntegrationCommandCenter';
+import {
+  runEnvironmentalHubProbes,
+  getHubConnectivityLoadingRows,
+  HUB_AUTO_REFRESH_MS,
+  type HubConnectivityRow,
+} from '../src/services/environmentalHubConnectivity';
 
-const CONNECTIVITY_REFRESH_MS = 60_000;
-
-type ProbeLevel = 'loading' | 'ok' | 'degraded' | 'offline';
-
-type ConnectivityProbe = {
-  id: string;
-  label: string;
-  level: ProbeLevel;
-  detail: string;
-};
-
-async function readJsonUnknown(res: Response): Promise<unknown | null> {
-  const text = await res.text();
-  if (!text.trim()) return null;
-  try {
-    return JSON.parse(text) as unknown;
-  } catch {
-    return null;
-  }
-}
+type ProbeToneLevel = HubConnectivityRow['status'];
 
 const HubCard: React.FC<{
   icon: React.ReactNode;
@@ -88,11 +74,35 @@ const latestPackets = [
 
 const workflowSteps = ['Monitor', 'Analyze', 'Audit', 'Verify', 'Export'];
 
-function probeTone(level: ProbeLevel): { chip: string; dot: string } {
+function probeTone(level: ProbeToneLevel): { chip: string; dot: string } {
   if (level === 'ok') return { chip: 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200', dot: 'bg-emerald-400' };
   if (level === 'degraded') return { chip: 'border-amber-500/40 bg-amber-900/20 text-amber-200', dot: 'bg-amber-400' };
+  if (level === 'rate_limited')
+    return { chip: 'border-violet-500/45 bg-violet-950/35 text-violet-200', dot: 'bg-violet-400 animate-pulse' };
   if (level === 'offline') return { chip: 'border-rose-500/40 bg-rose-900/20 text-rose-200', dot: 'bg-rose-400' };
   return { chip: 'border-slate-500/40 bg-slate-800/40 text-slate-200', dot: 'bg-slate-400 animate-pulse' };
+}
+
+function formatProbeDetail(row: HubConnectivityRow): string {
+  if (row.status === 'rate_limited' && row.nextRetryAt) {
+    const rem = Math.max(0, Math.ceil((row.nextRetryAt.getTime() - Date.now()) / 1000));
+    const cacheNote = row.usingCachedResult ? ' Using cached result.' : '';
+    const lastOk =
+      row.lastSuccessfulAt != null ? ` Last successful check: ${row.lastSuccessfulAt.toLocaleString()}.` : '';
+    return `Rate limited HTTP 429 — Retry after: ${rem}s.${cacheNote}${lastOk}`;
+  }
+  if (row.usingCachedResult && row.lastSuccessfulAt) {
+    return `${row.detail} Last successful check: ${row.lastSuccessfulAt.toLocaleString()}.`;
+  }
+  return row.detail;
+}
+
+function levelLabel(row: HubConnectivityRow): string {
+  if (row.status === 'ok') return 'OK';
+  if (row.status === 'degraded') return 'Degraded';
+  if (row.status === 'rate_limited') return 'Rate limited';
+  if (row.status === 'offline') return 'Offline';
+  return '…';
 }
 
 const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubViewProps> = ({ onReturn, onNavigate }) => {
@@ -105,96 +115,33 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
     }
   });
 
-  const [connectivity, setConnectivity] = React.useState<ConnectivityProbe[]>(() => [
-    { id: 'health', label: 'API host', level: 'loading', detail: 'Checking…' },
-    { id: 'copernicus', label: 'Copernicus proxy', level: 'loading', detail: 'Checking…' },
-    { id: 'carb', label: 'CARB data module', level: 'loading', detail: 'Checking…' },
-    { id: 'signals', label: 'Global signals API', level: 'loading', detail: 'Checking…' },
-    { id: 'ai', label: 'Server AI', level: 'loading', detail: 'Checking…' },
-  ]);
+  const [connectivity, setConnectivity] = React.useState<HubConnectivityRow[]>(() => getHubConnectivityLoadingRows());
   const [lastProbeAt, setLastProbeAt] = React.useState<Date | null>(null);
+  const [refreshNotice, setRefreshNotice] = React.useState<string | null>(null);
+  const [, setCooldownTick] = React.useState(0);
 
-  const runConnectivityProbes = React.useCallback(async () => {
-    const labels: Record<string, string> = {
-      health: 'API host',
-      copernicus: 'Copernicus proxy',
-      carb: 'CARB data module',
-      signals: 'Global signals API',
-      ai: 'Server AI',
-    };
-
-    async function probeOne(
-      id: keyof typeof labels,
-      url: string,
-      interpret: (res: Response, json: unknown) => Pick<ConnectivityProbe, 'level' | 'detail'>,
-    ): Promise<ConnectivityProbe> {
-      const label = labels[id];
-      try {
-        const ctrl = new AbortController();
-        const timer = window.setTimeout(() => ctrl.abort(), 14_000);
-        const res = await fetch(url, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
-        window.clearTimeout(timer);
-        const json = await readJsonUnknown(res);
-        const { level, detail } = interpret(res, json);
-        return { id, label, level, detail };
-      } catch {
-        return { id, label, level: 'offline', detail: 'Unreachable or timed out' };
-      }
-    }
-
-    const rows = await Promise.all([
-      probeOne('health', apiUrl('/health'), (res, json) => {
-        if (!res.ok) return { level: 'offline', detail: `HTTP ${res.status}` };
-        const o = json as { ok?: boolean } | null;
-        if (o?.ok === false) return { level: 'degraded', detail: 'Host responded but reports not ready' };
-        return { level: 'ok', detail: 'Reachable' };
-      }),
-      probeOne('copernicus', apiUrl(API_ROUTES.COPERNICUS_STATUS), (res, json) => {
-        if (!res.ok) return { level: 'offline', detail: `HTTP ${res.status}` };
-        const o = json as { ok?: boolean; configured?: boolean; message?: string } | null;
-        if (o?.ok === false) return { level: 'degraded', detail: o.message ?? 'Proxy error' };
-        if (o?.configured === false) {
-          return {
-            level: 'degraded',
-            detail: 'Proxy up — add Copernicus OAuth credentials on the API server for live Sentinel compares',
-          };
-        }
-        return { level: 'ok', detail: o?.message ?? 'Reachable' };
-      }),
-      probeOne('carb', apiUrl(API_ROUTES.CARB_DATA_HEALTH), (res, json) => {
-        if (!res.ok) return { level: 'offline', detail: `HTTP ${res.status}` };
-        const o = json as { ok?: boolean } | null;
-        if (o?.ok === false) return { level: 'degraded', detail: 'Module reachable but not healthy' };
-        return { level: 'ok', detail: 'Reachable' };
-      }),
-      probeOne('signals', apiUrl(API_ROUTES.SIGNALS_STATS), (res, json) => {
-        if (!res.ok) return { level: 'offline', detail: `HTTP ${res.status}` };
-        const o = json as { ok?: boolean; mode?: string } | null;
-        if (o?.ok === false) return { level: 'degraded', detail: 'Signals route error' };
-        const stub = o?.mode === 'in_memory_stub';
-        return {
-          level: 'ok',
-          detail: stub ? 'Reachable (demo seed — wire feeds for production)' : 'Reachable',
-        };
-      }),
-      probeOne('ai', apiUrl(API_ROUTES.AI_STATUS), (res, json) => {
-        if (!res.ok) return { level: 'offline', detail: `HTTP ${res.status}` };
-        const o = json as { ok?: boolean; gemini?: boolean } | null;
-        if (o?.ok === false) return { level: 'degraded', detail: 'AI status unavailable' };
-        if (o?.gemini === false) return { level: 'degraded', detail: 'Reachable — GEMINI_API_KEY not set on server' };
-        return { level: 'ok', detail: 'Gemini proxy ready' };
-      }),
-    ]);
-
+  const runConnectivityProbes = React.useCallback(async (opts?: { bypassCache?: boolean; bypassCooldown?: boolean }) => {
+    const { rows, meta } = await runEnvironmentalHubProbes({
+      bypassCache: opts?.bypassCache ?? false,
+      bypassCooldown: opts?.bypassCooldown ?? false,
+    });
     setConnectivity(rows);
+    setRefreshNotice(meta.refreshNotice);
     setLastProbeAt(new Date());
   }, []);
 
   React.useEffect(() => {
-    void runConnectivityProbes();
-    const interval = window.setInterval(() => void runConnectivityProbes(), CONNECTIVITY_REFRESH_MS);
+    void runConnectivityProbes({ bypassCache: false });
+    const interval = window.setInterval(() => void runConnectivityProbes({ bypassCache: false }), HUB_AUTO_REFRESH_MS);
     return () => window.clearInterval(interval);
   }, [runConnectivityProbes]);
+
+  React.useEffect(() => {
+    const active = connectivity.some((r) => r.status === 'rate_limited' && r.nextRetryAt);
+    if (!active) return;
+    const id = window.setInterval(() => setCooldownTick((t) => t + 1), 1000);
+    return () => window.clearInterval(id);
+  }, [connectivity]);
 
   const dismissEntryModal = React.useCallback(() => {
     setShowEntryModal(false);
@@ -209,9 +156,10 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
     ? lastProbeAt.toLocaleTimeString([], { hour12: false })
     : '—';
 
-  const okCount = connectivity.filter((c) => c.level === 'ok').length;
-  const degradedCount = connectivity.filter((c) => c.level === 'degraded').length;
-  const offlineCount = connectivity.filter((c) => c.level === 'offline').length;
+  const okCount = connectivity.filter((c) => c.status === 'ok').length;
+  const degradedCount = connectivity.filter((c) => c.status === 'degraded').length;
+  const offlineCount = connectivity.filter((c) => c.status === 'offline').length;
+  const rateLimitedCount = connectivity.filter((c) => c.status === 'rate_limited').length;
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
@@ -280,30 +228,52 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             <h2 className="text-base md:text-lg font-bold text-cyan-200">API connectivity</h2>
             <p className="text-[11px] text-slate-400 mt-1">
               Uses your configured API base (<span className="text-slate-300">VITE_DPAL_API_BASE_URL</span> /{' '}
-              <span className="text-slate-300">VITE_API_BASE</span>). Refreshes about every minute.
+              <span className="text-slate-300">VITE_API_BASE</span>). Staggered probes; cache TTL (host 2m, adapters 10m).
+              Auto-refresh every 5 minutes — skips adapters in cooldown.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => void runConnectivityProbes()}
-            className="rounded-lg border border-slate-500/60 bg-black/30 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-black/50 shrink-0"
-          >
-            Refresh now
-          </button>
+          <div className="flex flex-wrap gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setRefreshNotice(null);
+                void runConnectivityProbes({ bypassCache: true });
+              }}
+              className="rounded-lg border border-slate-500/60 bg-black/30 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-black/50"
+            >
+              Refresh now
+            </button>
+            {import.meta.env.DEV ? (
+              <button
+                type="button"
+                title="Bypass cooldown and cache (development only)"
+                onClick={() => {
+                  setRefreshNotice(null);
+                  void runConnectivityProbes({ bypassCache: true, bypassCooldown: true });
+                }}
+                className="rounded-lg border border-amber-600/50 bg-amber-950/40 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-950/60"
+              >
+                Dev: force probes
+              </button>
+            ) : null}
+          </div>
         </div>
+        {refreshNotice ? (
+          <p className="mb-3 rounded-lg border border-violet-600/40 bg-violet-950/30 px-3 py-2 text-[11px] text-violet-100">
+            {refreshNotice}
+          </p>
+        ) : null}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
           {connectivity.map((row) => {
-            const tone = probeTone(row.level);
-            const levelLabel =
-              row.level === 'ok' ? 'OK' : row.level === 'degraded' ? 'Degraded' : row.level === 'offline' ? 'Offline' : '…';
+            const tone = probeTone(row.status);
             return (
               <article key={row.id} className={`rounded-xl border px-3 py-3 ${tone.chip}`}>
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[10px] uppercase tracking-widest font-bold">{row.label}</p>
                   <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${tone.dot}`} />
                 </div>
-                <p className="mt-2 text-xs font-black">{levelLabel}</p>
-                <p className="mt-1 text-[10px] leading-snug opacity-90">{row.detail}</p>
+                <p className="mt-2 text-xs font-black">{levelLabel(row)}</p>
+                <p className="mt-1 text-[10px] leading-snug opacity-90">{formatProbeDetail(row)}</p>
               </article>
             );
           })}
@@ -315,6 +285,12 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
               <>
                 {' · '}
                 <span className="text-amber-300">{degradedCount} degraded</span>
+              </>
+            ) : null}
+            {rateLimitedCount ? (
+              <>
+                {' · '}
+                <span className="text-violet-300">{rateLimitedCount} rate limited</span>
               </>
             ) : null}
             {offlineCount ? (
@@ -335,7 +311,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             Connect weather, radar, air quality, geocoding, carbon estimates, blockchain verification, and evidence packet previews into DPAL&apos;s live accountability system.
           </p>
         </div>
-        <DpalIntegrationCommandCenter />
+        <DpalIntegrationCommandCenter hubConnectivityRows={connectivity} />
       </section>
 
       <section className="mb-10">

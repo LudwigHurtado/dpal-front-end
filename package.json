@@ -9,6 +9,7 @@
     "lint": "tsc --noEmit",
     "test:e2e": "playwright test",
     "test:super-agent-loop": "tsx src/field-os/super-agent/dev/runSuperAgentLoopE2e.ts",
+    "test:hub-connectivity": "tsx src/services/environmentalHubConnectivity.selftest.ts",
     "check:quality": "npm run test:super-agent-loop && npm run lint && npm run build",
     "preview": "vite preview",
     "vercel:env": "echo Run: vercel env add VITE_API_BASE production then paste https://web-production-a27b.up.railway.app",

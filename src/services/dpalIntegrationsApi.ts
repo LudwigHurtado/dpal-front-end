@@ -1,3 +1,5 @@
+import { parseRetryAfterSeconds } from "./environmentalHubConnectivity";
+
 function integrationsApiOrigin(): string {
   const raw =
     import.meta.env.VITE_API_BASE_URL ||
@@ -10,7 +12,7 @@ function integrationsApiOrigin(): string {
  * Build fetch URL without duplicating `/api` when the env base already ends with `/api`
  * and paths are written as `/api/...` (same pitfall as Verifier UI + VITE_API_BASE_URL).
  */
-function integrationRequestUrl(path: string): string {
+export function integrationRequestUrl(path: string): string {
   const base = integrationsApiOrigin();
   const p = path.startsWith("/") ? path : `/${path}`;
   if (base.endsWith("/api") && (p === "/api" || p.startsWith("/api/"))) {
@@ -21,10 +23,66 @@ function integrationRequestUrl(path: string): string {
   return `${base}${p}`;
 }
 
+export class DpalIntegrationHttpError extends Error {
+  readonly status: number;
+  readonly retryAfterSeconds: number | null;
+  readonly bodySnippet: string;
+
+  constructor(message: string, status: number, retryAfterSeconds: number | null, bodySnippet: string) {
+    super(message);
+    this.name = "DpalIntegrationHttpError";
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+    this.bodySnippet = bodySnippet;
+  }
+
+  get isRateLimited(): boolean {
+    return this.status === 429;
+  }
+}
+
+/** Preview-only packet — no live environmental measurements (honest labeling). */
+export function buildDryRunCityIntelligencePacket(lat: number, lng: number, city: string) {
+  return {
+    ok: true as const,
+    mode: "dry_run_preview" as const,
+    packet: {
+      disclaimer:
+        "Dry Run preview only — no live integration adapters were called. Do not treat as verified environmental truth.",
+      coordinates: { lat, lng, city },
+      modules: {
+        floodguard: {
+          floodRisk: { level: "dry_run_preview", score: null as number | null },
+          note: "No live FloodGuard request executed.",
+        },
+        airQuality: {
+          risk: "dry_run_preview",
+          note: "No live air-quality request executed.",
+        },
+      },
+      evidenceHash: `dry-run-preview-${Math.round(lat * 1000)}-${Math.round(lng * 1000)}`,
+    },
+  };
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(integrationRequestUrl(path));
-  if (!res.ok) throw new Error(`DPAL API ${res.status}: ${await res.text()}`);
-  return res.json() as Promise<T>;
+  const retryAfter = res.status === 429 ? parseRetryAfterSeconds(res.headers) : null;
+  const text = await res.text();
+  if (!res.ok) {
+    throw new DpalIntegrationHttpError(
+      `DPAL API ${res.status}: ${text.slice(0, 240)}`,
+      res.status,
+      retryAfter,
+      text.slice(0, 600),
+    );
+  }
+  if (!text.trim()) return {} as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new DpalIntegrationHttpError("Invalid JSON from DPAL API", res.status, null, text.slice(0, 200));
+  }
 }
 
 async function postJson<T>(path: string, body: unknown): Promise<T> {
@@ -33,8 +91,22 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`DPAL API ${res.status}: ${await res.text()}`);
-  return res.json() as Promise<T>;
+  const retryAfter = res.status === 429 ? parseRetryAfterSeconds(res.headers) : null;
+  const text = await res.text();
+  if (!res.ok) {
+    throw new DpalIntegrationHttpError(
+      `DPAL API ${res.status}: ${text.slice(0, 240)}`,
+      res.status,
+      retryAfter,
+      text.slice(0, 600),
+    );
+  }
+  if (!text.trim()) return {} as T;
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new DpalIntegrationHttpError("Invalid JSON from DPAL API", res.status, null, text.slice(0, 200));
+  }
 }
 
 export function getDpalIntegrationStatus() {
