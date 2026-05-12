@@ -9,6 +9,7 @@ import { COMMAND_CENTER_INVESTOR_PRESETS } from './data/commandCenterInvestorPre
 import { COMMAND_CENTER_MODULE_REGISTRY, recommendModulesForInvestigation } from './registry/commandCenterModuleRegistry';
 import { buildEvidencePacketPreview, evidenceDraftToPreviewText } from './services/commandCenterEvidenceBuilder';
 import { runCommandCenterOrchestration } from './services/commandCenterOrchestrator';
+import { CommandCenterMapPanel } from './map/CommandCenterMapPanel';
 import type {
   CommandCenterModuleKey,
   CommandCenterOrchestrationResult,
@@ -197,6 +198,29 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     () => ALL_MODULE_KEYS.filter((k) => manualModules[k]),
     [manualModules],
   );
+
+  const commandCenterMapCenter = React.useMemo(() => {
+    if (!Number.isFinite(ctx.latitude) || !Number.isFinite(ctx.longitude)) return undefined;
+    if (Math.abs(ctx.latitude) > 90 || Math.abs(ctx.longitude) > 180) return undefined;
+    return { lat: ctx.latitude, lng: ctx.longitude };
+  }, [ctx.latitude, ctx.longitude]);
+
+  const commandCenterEvidenceMarkers = React.useMemo(() => {
+    if (!orchestration?.results?.length || !commandCenterMapCenter) return [];
+    const { lat, lng } = commandCenterMapCenter;
+    const n = orchestration.results.length;
+    return orchestration.results.map((r, i) => {
+      const step = 0.0014;
+      const ang = (i * 2 * Math.PI) / Math.max(1, n);
+      return {
+        id: `${r.moduleKey}-${i}`,
+        label: r.headline,
+        lat: lat + step * Math.cos(ang),
+        lng: lng + step * Math.sin(ang),
+        type: r.moduleKey,
+      };
+    });
+  }, [orchestration, commandCenterMapCenter]);
 
   const runPreview = React.useCallback(
     async (modules: CommandCenterModuleKey[]) => {
@@ -728,6 +752,22 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
           </div>
         </div>
       </div>
+
+      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-base font-bold text-slate-900">Command Center Map</h2>
+        <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-600">
+          Leaflet + OpenStreetMap for this control panel. Google Maps remains the engine for Locator / Lost &amp; Found; Good
+          Wheels keeps its own React-Leaflet maps. WRI MapBuilder is scoped as a future Environmental Atlas layer — not the
+          core map here.
+        </p>
+        <div className="mt-4">
+          <CommandCenterMapPanel
+            center={commandCenterMapCenter}
+            radiusKm={ctx.radiusKm}
+            evidenceMarkers={commandCenterEvidenceMarkers}
+          />
+        </div>
+      </section>
 
       {orchestration ? (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
