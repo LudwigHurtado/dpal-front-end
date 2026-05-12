@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "npx prisma db push --schema=./prisma/schema.prisma && node dist/index.js",
     "smoke:carb": "npm run build && node dist/scripts/checkCarbLiveHealth.js",
+    "smoke:forest-integrity": "npm run build && node dist/scripts/smokeForestIntegrity.js",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",

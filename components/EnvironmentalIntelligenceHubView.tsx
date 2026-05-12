@@ -22,7 +22,8 @@ const HubCard: React.FC<{
   bgImageUrl: string;
   onClick: () => void;
   children?: React.ReactNode;
-}> = ({ icon, label, subLabel, status, colorClass, bgImageUrl, onClick, children }) => {
+  ctaLabel?: string;
+}> = ({ icon, label, subLabel, status, colorClass, bgImageUrl, onClick, children, ctaLabel = 'Open' }) => {
   return (
     <article className="relative flex flex-col items-start p-6 rounded-[1.8rem] dpal-bg-panel border-2 dpal-border-subtle hover:border-[var(--dpal-border-strong)] transition-all group overflow-hidden h-full text-left shadow-xl">
       <div className={`absolute top-0 right-0 w-32 h-32 bg-${colorClass}-500/10 blur-3xl group-hover:bg-${colorClass}-500/20 transition-colors`} />
@@ -54,7 +55,7 @@ const HubCard: React.FC<{
         onClick={onClick}
         className="relative mt-4 inline-flex items-center gap-2 rounded-lg border border-slate-500/60 bg-black/35 px-3 py-1.5 text-xs font-semibold text-white hover:bg-black/55"
       >
-        Open
+        {ctaLabel}
         <ArrowRight className="w-3.5 h-3.5" />
       </button>
     </article>
@@ -385,7 +386,27 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             </button>
           </HubCard>
           <HubCard icon={<Activity className="w-8 h-8" />} label="Air Quality Control" subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings." status="Workspace" colorClass="sky" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('airQualityMonitor')} />
-          <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Forest Integrity" subLabel="AFOLU projects, monitoring, mission evidence, and buyer-grade reports." status="Workspace" colorClass="emerald" bgImageUrl="/environmental-intelligence/forest-integrity-main.png" onClick={() => onNavigate('afoluEngine')} />
+          <HubCard
+            icon={<ShieldCheck className="w-8 h-8" />}
+            label="Forest Integrity"
+            subLabel="Forestry Protection + satellite monitoring — visible Watch DPAL Work automation and honest provider status."
+            status="Workspace"
+            colorClass="emerald"
+            bgImageUrl="/environmental-intelligence/forest-integrity-main.png"
+            onClick={() => onNavigate('forestIntegrity')}
+            ctaLabel="Open Forest Integrity"
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('afoluEngine');
+              }}
+              className="rounded-md border border-emerald-500/50 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-100"
+            >
+              AFOLU command center
+            </button>
+          </HubCard>
         </div>
       </section>
 
