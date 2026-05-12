@@ -177,7 +177,39 @@ async function stubAllProviders(page: Page): Promise<ScanCounters> {
             aoiGeoJson: null,
           },
           providers: {
-            pace: { status: "not_enabled", message: "PACE disabled (e2e stub).", scenes: [] },
+            pace: {
+              status: "available",
+              message: "NASA CMR returned 2 PACE granules — metadata only (e2e stub).",
+              sceneDate: "2025-11-15T00:00:00.000Z",
+              spectralRange: "PACE OCI (narrow-band products — indices not extracted here)",
+              limitations: ["e2e stub: granule metadata does not prove plastic presence."],
+              scenes: [
+                {
+                  provider: "PACE",
+                  collection: "C2700000000-TEST",
+                  conceptId: "G1",
+                  title: "PACE granule stub A",
+                  startTime: "2025-11-10T12:00:00.000Z",
+                  endTime: "2025-11-10T12:05:00.000Z",
+                  cloudCover: 12,
+                  spatial: {},
+                  links: [{ href: "https://example.invalid/browse", rel: "http://esipfed.org/ns/fedsearch/1.1/metadata#" }],
+                  source: "NASA CMR",
+                },
+                {
+                  provider: "PACE",
+                  collection: "C2700000000-TEST",
+                  conceptId: "G2",
+                  title: "PACE granule stub B",
+                  startTime: "2025-11-20T12:00:00.000Z",
+                  endTime: "2025-11-20T12:05:00.000Z",
+                  cloudCover: null,
+                  spatial: {},
+                  links: [],
+                  source: "NASA CMR",
+                },
+              ],
+            },
             emit: { status: "not_enabled", message: "EMIT disabled (e2e stub).", scenes: [] },
             sentinelLandsatFallback: {
               status: "not_enabled",
@@ -204,15 +236,15 @@ async function stubAllProviders(page: Page): Promise<ScanCounters> {
             notes: ["e2e stub spectral notes"],
           },
           plasticRiskScore: null,
-          riskLevel: "not_computed",
+          riskLevel: "pending_index_extraction",
           plasticRisk: {
             score: null,
-            status: "not_computed",
-            message: "Narrow-band scoring not computed in e2e stub.",
+            status: "pending_index_extraction",
+            message: "Narrow-band metadata stub — scoring not computed in e2e.",
           },
           evidencePacket: {
             status: "preview",
-            claimsLevel: "metadata_only",
+            claimsLevel: "narrow_band_metadata",
             limitations: ["e2e stub limitation"],
             nextActions: ["e2e stub next action"],
           },
@@ -238,24 +270,9 @@ async function stubAllProviders(page: Page): Promise<ScanCounters> {
             label: "Plastic Watch AOI",
             generatedAt: new Date().toISOString(),
             plasticRiskScore: null,
-            riskLevel: "not_computed",
+            riskLevel: "pending_index_extraction",
           },
           packet: { kind: "dpal_hyperspectral_plastic_watch_evidence_v1", generatedAt: new Date().toISOString(), scan: {} },
-        }),
-      });
-      return;
-    }
-
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({
-          ok: true,
-          configured: false,
-          missing: [],
-          enabled: true,
-          source: "backend_proxy",
-          message: "demo stub",
         }),
       });
       return;

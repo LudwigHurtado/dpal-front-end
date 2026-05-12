@@ -12,6 +12,7 @@ import {
   Settings,
 } from '../../../components/icons';
 import PlasticEvidencePacketPanel from './components/PlasticEvidencePacketPanel';
+import PaceSatelliteMetadataCard from './components/PaceSatelliteMetadataCard';
 import PlasticLayerControl from './components/PlasticLayerControl';
 import PlasticRiskSummaryCards from './components/PlasticRiskSummaryCards';
 import PlasticWatchAutomationPanel from './components/PlasticWatchAutomationPanel';
@@ -391,6 +392,56 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       },
     ];
   }, [googleMapsFrontendConfigured, lastScan, providerStatus]);
+
+  const plasticInvestorExplainerEl = useMemo(() => {
+    const scenario = getDemoScenarioById('demo-plastic-manila-bay');
+    if (!scenario) return null;
+
+    const afterScan = lastScan?.ok === true;
+    const pace = lastScan?.providers.pace;
+    const paceGranules = pace?.scenes?.length ?? 0;
+
+    const whatYouAreSeeing = afterScan
+      ? `Live scan response loaded (${lastScan.scanId}). PACE lane reports ${pace?.status ?? '—'}. ${
+          paceGranules > 0
+            ? `NASA CMR lists ${paceGranules} PACE granule metadata record(s) for this AOI — satellite observations found, not plastic classification.`
+            : (pace?.message ?? 'See the PACE Satellite Metadata card for lane details.')
+        }`
+      : 'A Hyperspectral Plastic Watch workspace ready for AOI review. Map, AOI controls, environment type, and the Watch DPAL Work panel are visible — run Watch DPAL Work or Manual scan to retrieve NASA CMR metadata for PACE / EMIT.';
+
+    const signalSummary = afterScan
+      ? `${lastScan.plasticRisk.message} (${lastScan.plasticRisk.status.replace(/_/g, ' ')}). Spectral extraction is not implemented in this build — field validation is required before attribution.`
+      : 'No scan has run yet — PACE, EMIT, and Sentinel / Landsat fallback lanes will report scene availability after Watch DPAL Work.';
+
+    const confidenceNote = afterScan
+      ? 'Plastic-risk score is not computed from imagery in this build when indices are pending. Narrow-band metadata confirms catalog hits, not plastic presence.'
+      : 'Plastic-risk evidence score (0–100) is withheld until narrow-band processing is wired. Narrow-band confirmation requires configured EMIT / PACE plus field validation.';
+
+    return (
+      <InvestorDemoExplainer
+        title={scenario.title}
+        moduleLabel={scenario.moduleLabel}
+        whatYouAreSeeing={whatYouAreSeeing}
+        whyItMatters={scenario.investorExplanation}
+        honestyNote={scenario.limitationNote}
+        nextAction={scenario.recommendedNextAction}
+        accent={scenario.accent}
+        evidencePreview={{
+          location: scenario.locationLabel,
+          timestampLabel: afterScan
+            ? `Scan window: ${lastScan.aoi.baselineDate.slice(0, 10)} → ${lastScan.aoi.currentDate.slice(0, 10)}`
+            : 'Baseline / current window — set in the side panel before scan.',
+          providerSources: scenario.providerSources,
+          signalSummary,
+          confidenceNote,
+          fieldValidationStatus:
+            'Field sampling, drone validation, and water-quality context are required to escalate any anomaly.',
+          qrHashStatus: 'SHA-256 integrity hash is issued after the evidence packet is accepted server-side.',
+          recommendedAction: scenario.recommendedNextAction,
+        }}
+      />
+    );
+  }, [lastScan]);
 
   const pushLog = useCallback((line: string) => {
     const ts = new Date().toISOString().slice(11, 19);
@@ -1092,34 +1143,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
           ) : null}
 
-          {(() => {
-            const scenario = getDemoScenarioById('demo-plastic-manila-bay');
-            if (!scenario) return null;
-            return (
-              <InvestorDemoExplainer
-                title={scenario.title}
-                moduleLabel={scenario.moduleLabel}
-                whatYouAreSeeing="A Hyperspectral Plastic Watch workspace ready for AOI review. Map, AOI controls, environment type, and the Watch DPAL Work panel are visible — no PACE / EMIT calls have fired yet."
-                whyItMatters="Plastic pollution claims need narrow-band hyperspectral evidence and confounder screening. DPAL stays honest about what satellite can and cannot prove without field sampling."
-                honestyNote={scenario.limitationNote}
-                nextAction={scenario.recommendedNextAction}
-                accent={scenario.accent}
-                evidencePreview={{
-                  location: scenario.locationLabel,
-                  timestampLabel: 'Baseline / current window — set in the side panel before scan.',
-                  providerSources: scenario.providerSources,
-                  signalSummary:
-                    'No scan has run yet — PACE, EMIT, and Sentinel / Landsat fallback lanes will report scene availability after Watch DPAL Work.',
-                  confidenceNote:
-                    'Plastic-risk evidence score (0–100) is composite. Narrow-band confirmation requires configured EMIT / PACE products.',
-                  fieldValidationStatus:
-                    'Field sampling, drone validation, and water-quality context are required to escalate any anomaly.',
-                  qrHashStatus: 'SHA-256 integrity hash is issued after the evidence packet is accepted server-side.',
-                  recommendedAction: scenario.recommendedNextAction,
-                }}
-              />
-            );
-          })()}
+          {plasticInvestorExplainerEl}
 
           {!googleMapsFrontendConfigured ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
@@ -1275,6 +1299,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           </div>
 
           <PlasticRiskSummaryCards scan={lastScan} />
+          <PaceSatelliteMetadataCard scan={lastScan} />
           <SpectralSignaturePanel scan={lastScan} />
           <PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />
         </main>

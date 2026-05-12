@@ -76,9 +76,30 @@ const PlasticRiskSummaryCards: React.FC<Props> = ({ scan }) => {
         <p className="mt-1 text-[11px] text-slate-500">Context-only — not a calibrated detection probability.</p>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">PACE status</p>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">PACE (NASA CMR)</p>
+        <p className="mt-1 text-[10px] font-medium text-sky-900">
+          {scan?.providers.pace.status === 'available' ? 'PACE metadata available' : 'PACE lane status'}
+        </p>
         <p className="mt-2 text-sm font-mono font-semibold text-slate-800">{scan?.providers.pace.status ?? '—'}</p>
+        {scan?.providers.pace.scenes?.length ? (
+          <p className="mt-1 text-[11px] text-slate-700">
+            Satellite observations found:{' '}
+            <span className="font-semibold tabular-nums">{scan.providers.pace.scenes.length}</span> granule
+            {scan.providers.pace.scenes.length === 1 ? '' : 's'} (metadata)
+          </p>
+        ) : null}
+        {scan?.providers.pace.sceneDate ? (
+          <p className="mt-0.5 text-[10px] text-slate-600">
+            Latest reference date: <span className="font-mono">{String(scan.providers.pace.sceneDate).slice(0, 10)}</span>
+          </p>
+        ) : null}
+        {scan?.providers.pace.spectralRange ? (
+          <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2">Range: {scan.providers.pace.spectralRange}</p>
+        ) : null}
         <p className="mt-1 text-[10px] text-slate-500 line-clamp-3">{scan?.providers.pace.message ?? 'Awaiting scan'}</p>
+        <p className="mt-1.5 text-[9px] text-slate-400 leading-snug">
+          Not plastic classification — spectral extraction not implemented in this build; field validation required.
+        </p>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">EMIT status</p>
