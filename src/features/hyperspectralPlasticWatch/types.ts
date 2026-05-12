@@ -23,13 +23,27 @@ export type DpalHyperspectralScene = {
   source: 'NASA CMR';
 };
 
+/** Compact CMR scene row (optional `compact=true` scan responses). */
+export type DpalHyperspectralCompactScene = {
+  provider: 'PACE' | 'EMIT';
+  collection: string;
+  conceptId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  cloudCover: number | null;
+  source: 'NASA CMR';
+  browseUrl?: string | null;
+  dataUrl?: string | null;
+};
+
 export type PlasticSpectralProviderBlock = {
   status: PlasticProviderState;
   message: string;
   sceneDate?: string | null;
   spectralRange?: string | null;
   limitations?: string[];
-  scenes?: DpalHyperspectralScene[];
+  scenes?: Array<DpalHyperspectralScene | DpalHyperspectralCompactScene>;
 };
 
 export type PlasticDroneProviderBlock = {

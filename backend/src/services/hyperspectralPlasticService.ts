@@ -2,7 +2,11 @@ import { createHash } from 'crypto';
 import { earthObservationService } from './earthObservationService';
 import { queryEmitL2aScenes } from './hyperspectral/emitProvider';
 import { queryPaceScenes } from './hyperspectral/paceProvider';
-import type { DpalHyperspectralScene } from './hyperspectral/nasaCmrClient';
+import {
+  sceneToCompact,
+  type DpalHyperspectralCompactScene,
+  type DpalHyperspectralScene,
+} from './hyperspectral/nasaCmrClient';
 import { buildPlasticWatchProviderReadinessPayload, type PlasticWatchProviderReadinessPayload } from './hyperspectral/providerStatus';
 import {
   buildDroneValidationAcknowledgment,
@@ -29,7 +33,7 @@ export type PlasticSpectralProviderBlock = {
   sceneDate?: string | null;
   spectralRange?: string | null;
   limitations?: string[];
-  scenes?: DpalHyperspectralScene[];
+  scenes?: Array<DpalHyperspectralScene | DpalHyperspectralCompactScene>;
 };
 
 export type PlasticDroneProviderBlock = {
@@ -62,13 +66,9 @@ export type PlasticSpectralSignals = {
   notes: string[];
 };
 
-export type PlasticEnvironmentType =
-  | 'river'
-  | 'lake'
-  | 'coast'
-  | 'ocean'
-  | 'landfill_dumping'
-  | 'flood_debris';
+import type { PlasticEnvironmentType } from './hyperspectral/plasticEnvironment';
+
+export type { PlasticEnvironmentType };
 
 export type PlasticRiskBlock = {
   score: number | null;
@@ -129,6 +129,9 @@ export type PlasticScanInput = {
   polygon?: unknown;
   quickPreset?: string | null;
   aoiGeoJson?: unknown;
+  /** When true and includeFullSceneLinks is not true, PACE/EMIT scenes omit full CMR link arrays. */
+  compactScenes?: boolean;
+  includeFullSceneLinks?: boolean;
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -139,15 +142,16 @@ function newScanId(): string {
   return `hpw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function normalizeEnv(raw: string): PlasticEnvironmentType {
-  const v = raw.trim().toLowerCase().replace(/[\s-]+/g, '_');
-  if (v === 'river') return 'river';
-  if (v === 'lake') return 'lake';
-  if (v === 'coast') return 'coast';
-  if (v === 'ocean') return 'ocean';
-  if (v === 'landfill_dumping' || v === 'landfill' || v === 'dumping_area') return 'landfill_dumping';
-  if (v === 'flood_debris' || v === 'flood_debris_zone') return 'flood_debris';
-  return 'river';
+function isFullHyperspectralScene(s: DpalHyperspectralScene | DpalHyperspectralCompactScene): s is DpalHyperspectralScene {
+  return Array.isArray((s as DpalHyperspectralScene).links);
+}
+
+function compactSpectralBlock(block: PlasticSpectralProviderBlock, useCompact: boolean): PlasticSpectralProviderBlock {
+  if (!useCompact || !block.scenes?.length) return block;
+  return {
+    ...block,
+    scenes: block.scenes.map((s) => (isFullHyperspectralScene(s) ? sceneToCompact(s) : s)),
+  };
 }
 
 function eoAnalysisForEnv(env: PlasticEnvironmentType): 'water' | 'pollution' | 'flood_fire' {
@@ -383,6 +387,12 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
     }),
   ]);
 
+  const narrowBandSceneCount = (pace.scenes?.length ?? 0) + (emit.scenes?.length ?? 0);
+  const narrowBandMetadata = narrowBandSceneCount > 0;
+  const useCompact = input.compactScenes === true && input.includeFullSceneLinks !== true;
+  const paceOut = compactSpectralBlock(pace, useCompact);
+  const emitOut = compactSpectralBlock(emit, useCompact);
+
   const analysisType = eoAnalysisForEnv(env);
   const eo = await earthObservationService.scan({
     analysisType,
@@ -444,9 +454,6 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
             sceneDate: afterDate,
             limitations: eo.limitations,
           };
-
-  const narrowBandSceneCount = (pace.scenes?.length ?? 0) + (emit.scenes?.length ?? 0);
-  const narrowBandMetadata = narrowBandSceneCount > 0;
 
   const spectralNotes: string[] = [
     'Broadband Landsat change metrics (if present) are environmental context only — not proof of plastic pollution.',
@@ -527,8 +534,8 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
     `Environment type: ${env}`,
     `Center: ${input.lat.toFixed(5)}, ${input.lng.toFixed(5)}; radius ${input.radiusKm} km`,
     `Window: ${start.toISOString()} → ${end.toISOString()}`,
-    `PACE status: ${pace.status} — ${pace.message}`,
-    `EMIT status: ${emit.status} — ${emit.message}`,
+    `PACE status: ${paceOut.status} — ${paceOut.message}`,
+    `EMIT status: ${emitOut.status} — ${emitOut.message}`,
     `Landsat / EO fallback: ${sentinelLandsatFallback.status} — ${sentinelLandsatFallback.message}`,
     `Drone validation connector: ${drone.status} (${drone.mode}) — ${drone.message}`,
     `Plastic-risk score: not computed (narrow-band indices not extracted in this build)`,
@@ -554,7 +561,7 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
       quickPreset: input.quickPreset ?? null,
       aoiGeoJson: input.aoiGeoJson ?? null,
     },
-    providers: { pace, emit, sentinelLandsatFallback, drone },
+    providers: { pace: paceOut, emit: emitOut, sentinelLandsatFallback, drone },
     spectralSignals,
     plasticRiskScore: null,
     riskLevel: plasticRisk.status,
@@ -566,9 +573,7 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
   };
 }
 
-export function normalizePlasticEnvironmentType(raw: string): PlasticEnvironmentType {
-  return normalizeEnv(raw);
-}
+export { normalizePlasticEnvironmentType } from './hyperspectral/plasticEnvironment';
 
 export function hashPlasticEvidencePayload(payload: unknown): string {
   const json = JSON.stringify(payload);

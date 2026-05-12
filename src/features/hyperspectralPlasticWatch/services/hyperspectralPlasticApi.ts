@@ -94,6 +94,10 @@ export type PlasticScanParams = {
   quickPreset?: string | null;
   aoiGeoJson?: unknown;
   bypassCache?: boolean;
+  /** Request smaller scan JSON (PACE/EMIT scenes omit full CMR link arrays). */
+  compact?: boolean;
+  /** Force full CMR scene link arrays (overrides compact). */
+  includeLinks?: boolean;
 };
 
 export async function getHyperspectralPlasticScan(
@@ -124,6 +128,8 @@ export async function getHyperspectralPlasticScan(
       polygon: params.polygon ?? null,
       quickPreset: params.quickPreset ?? null,
       aoiGeoJson: params.aoiGeoJson ?? null,
+      ...(params.compact ? { compact: true } : {}),
+      ...(params.includeLinks ? { includeLinks: true } : {}),
     }),
   });
   const body = (await res.json().catch(() => null)) as

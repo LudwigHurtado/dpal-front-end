@@ -13,6 +13,53 @@ export type DpalHyperspectralScene = {
   source: 'NASA CMR';
 };
 
+/** Reduced CMR scene payload for large scan responses (no link arrays). */
+export type DpalHyperspectralCompactScene = {
+  provider: 'PACE' | 'EMIT';
+  collection: string;
+  conceptId: string;
+  title: string;
+  startTime: string;
+  endTime: string;
+  cloudCover: number | null;
+  source: 'NASA CMR';
+  browseUrl?: string | null;
+  dataUrl?: string | null;
+};
+
+export function sceneToCompact(s: DpalHyperspectralScene): DpalHyperspectralCompactScene {
+  let browseUrl: string | null = null;
+  let dataUrl: string | null = null;
+  for (const l of s.links) {
+    const href = typeof l.href === 'string' ? l.href : '';
+    if (!href) continue;
+    const rel = (l.rel ?? '').toLowerCase();
+    if (!dataUrl && (rel.includes('data#') || rel.includes('/data#') || rel.endsWith('/data'))) {
+      dataUrl = href;
+    } else if (!browseUrl && (rel.includes('browse') || rel.includes('metadata#'))) {
+      browseUrl = href;
+    }
+  }
+  const httpsLinks = s.links
+    .map((x) => x.href)
+    .filter((h): h is string => typeof h === 'string' && /^https?:\/\//i.test(h));
+  if (!dataUrl) dataUrl = httpsLinks[0] ?? null;
+  if (!browseUrl) browseUrl = httpsLinks.find((h) => h !== dataUrl) ?? null;
+
+  return {
+    provider: s.provider,
+    collection: s.collection,
+    conceptId: s.conceptId,
+    title: s.title,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    cloudCover: s.cloudCover,
+    source: s.source,
+    browseUrl,
+    dataUrl,
+  };
+}
+
 export function getCmrBaseUrl(): string {
   const raw = process.env.NASA_CMR_BASE_URL?.trim();
   if (raw) return raw.replace(/\/+$/, '');
