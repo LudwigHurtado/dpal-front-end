@@ -7,9 +7,9 @@ import {
 
 const router = Router();
 
-router.get('/provider-status', (_req, res) => {
+router.get('/provider-status', async (_req, res) => {
   try {
-    const payload = getForestProviderStatus();
+    const payload = await getForestProviderStatus();
     return res.json(payload);
   } catch (error) {
     console.error('Forest integrity provider-status error:', error);
