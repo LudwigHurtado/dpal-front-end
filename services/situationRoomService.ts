@@ -1,6 +1,7 @@
 import { loadLocalSituationMessages, mergeSituationMessages, saveLocalSituationMessages } from './situationLocalStore';
 import type { ChatMessage, Report } from '../types';
 import { buildApiUrl, getDpalApiConfig, logSituationRoomDiagnostics } from '../src/config/api';
+import { parseSituationResponseJson, situationApiErrorMessage } from './situationFetchJson';
 
 export type SituationRoomSourceType =
   | 'public_report'
@@ -88,8 +89,11 @@ function normalizeRoomRecord(raw: any): SituationRoomRecord {
 
 async function getJson(path: string): Promise<any> {
   const res = await fetch(buildApiUrl(path));
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const data = await parseSituationResponseJson(res);
+  if (!res.ok) {
+    throw new Error(`Situation API ${path}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  }
+  return data;
 }
 
 export async function getSituationRoomByReportId(reportId: string): Promise<SituationRoomRecord | null> {
@@ -108,8 +112,9 @@ export async function createSituationRoomForReport(payload: Record<string, unkno
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return normalizeRoomRecord((await res.json())?.room ?? {});
+  const data = (await parseSituationResponseJson(res)) as { room?: unknown };
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  return normalizeRoomRecord(data?.room ?? {});
 }
 
 export async function createSituationRoomForProject(payload: Record<string, unknown>): Promise<SituationRoomRecord> {
@@ -118,8 +123,9 @@ export async function createSituationRoomForProject(payload: Record<string, unkn
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return normalizeRoomRecord((await res.json())?.room ?? {});
+  const data = (await parseSituationResponseJson(res)) as { room?: unknown };
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  return normalizeRoomRecord(data?.room ?? {});
 }
 
 export async function getMessages(roomId: string): Promise<ChatMessage[]> {
@@ -150,8 +156,9 @@ export async function sendMessage(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(message),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const row = (await res.json())?.message ?? {};
+  const data = (await parseSituationResponseJson(res)) as { message?: unknown };
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  const row = (data?.message ?? {}) as Record<string, unknown>;
   return {
     id: String(row?.id || row?._id || `msg-${Date.now()}`),
     sender: String(row?.sender || message.sender),
@@ -172,15 +179,17 @@ export async function uploadRoomMedia(roomId: string, fileOrDataUrl: File | stri
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ roomId, type, dataUrl: fileOrDataUrl }),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return res.json();
+    const data = await parseSituationResponseJson(res);
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+    return data;
   }
   const payload = new FormData();
   payload.append('roomId', roomId);
   payload.append('file', fileOrDataUrl);
   const res = await fetch(buildApiUrl('/api/situation/media/upload'), { method: 'POST', body: payload });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  const data = await parseSituationResponseJson(res);
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  return data;
 }
 
 export async function setMainRoomImage(roomId: string, mediaId: string): Promise<void> {

@@ -1066,10 +1066,11 @@ const App: React.FC = () => {
         console.warn('Situation messages fetch failed:', error);
         const local = loadLocalSituationMessages(roomId);
         setSituationMessages(local);
+        const detail = error instanceof Error ? error.message : String(error);
         setSituationError(
           local.length
-            ? 'Chat sync failed; showing messages stored on this device for this report (same ID as your QR link).'
-            : 'Chat sync failed. Check API/media persistence configuration.'
+            ? `Chat sync failed (${detail}). Showing messages stored on this device for this report (same ID as your QR link).`
+            : `Chat sync failed: ${detail}. Check API base, rate limits, or media persistence configuration.`,
         );
       }
     };

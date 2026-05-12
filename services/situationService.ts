@@ -1,6 +1,7 @@
 import type { ChatMessage } from '../types';
 import { buildApiUrl } from '../src/config/api';
 import { emitSituationDiagnostics } from './situationRoomService';
+import { parseSituationResponseJson, situationApiErrorMessage } from './situationFetchJson';
 
 export interface SituationRoomSummary {
   roomId: string;
@@ -26,8 +27,12 @@ const normalizeMessage = (m: any): ChatMessage => ({
 export async function fetchSituationMessages(roomId: string): Promise<ChatMessage[]> {
   emitSituationDiagnostics({ roomId });
   const res = await fetch(buildApiUrl(`/api/situation/${encodeURIComponent(roomId)}/messages?limit=200`));
-  if (!res.ok) throw new Error(`Failed to fetch messages (${res.status})`);
-  const data = await res.json();
+  const data = (await parseSituationResponseJson(res)) as { messages?: unknown };
+  if (!res.ok) {
+    throw new Error(
+      `Failed to fetch messages: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+    );
+  }
   const list = Array.isArray(data?.messages) ? data.messages : [];
   return list.map(normalizeMessage);
 }
@@ -43,8 +48,8 @@ export async function uploadSituationMedia(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ roomId, type, dataUrl }),
   });
-  if (!res.ok) throw new Error(`Failed to upload media (${res.status})`);
-  const data = await res.json();
+  const data = (await parseSituationResponseJson(res)) as Record<string, unknown>;
+  if (!res.ok) throw new Error(`Failed to upload media: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
   return {
     url: String(data?.url || ''),
     path: String(data?.path || ''),
@@ -57,8 +62,10 @@ export async function uploadSituationMedia(
 
 export async function fetchSituationRooms(): Promise<SituationRoomSummary[]> {
   const res = await fetch(buildApiUrl('/api/situation/rooms'));
-  if (!res.ok) throw new Error(`Failed to fetch rooms (${res.status})`);
-  const data = await res.json();
+  const data = (await parseSituationResponseJson(res)) as { rooms?: unknown };
+  if (!res.ok) {
+    throw new Error(`Failed to fetch rooms: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  }
   const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
   return rooms.map((room: any) => ({
     roomId: String(room?.roomId || ''),
@@ -81,7 +88,9 @@ export async function sendSituationMessage(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error(`Failed to send message (${res.status})`);
-  const data = await res.json();
+  const data = (await parseSituationResponseJson(res)) as { message?: unknown };
+  if (!res.ok) {
+    throw new Error(`Failed to send message: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  }
   return normalizeMessage(data?.message);
 }

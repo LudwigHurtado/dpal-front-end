@@ -12,6 +12,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, AlertTriangle, Activity, ChevronDown, ChevronRight, ExternalLink } from './icons';
 import { apiUrl, API_ROUTES } from '../constants';
+import { parseJsonResponseBody } from '../services/situationFetchJson';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,18 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
     setErr('');
     try {
       const res = await fetch(apiUrl(API_ROUTES.DISASTERS_FEED));
-      const json = await res.json() as { ok: boolean; events: DisasterEvent[]; error?: string };
+      const json = (await parseJsonResponseBody(res, 'Disasters feed')) as {
+        ok: boolean;
+        events: DisasterEvent[];
+        error?: string;
+      };
+      if (!res.ok) {
+        throw new Error(
+          typeof json === 'object' && json && typeof (json as { error?: string }).error === 'string'
+            ? (json as { error: string }).error
+            : `HTTP ${res.status}`,
+        );
+      }
       if (!json.ok) throw new Error(json.error ?? 'Feed error');
       setEvents(json.events);
       setLastFetch(new Date());
@@ -214,7 +226,10 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
           {err && (
             <div className="flex items-center gap-2 bg-rose-950/30 border border-rose-800/40 rounded-xl px-3 py-2 text-[9px] text-rose-400 font-mono">
               <AlertTriangle className="w-3 h-3 shrink-0" />
-              {err} — Railway backend may be starting up
+              <span>
+                {err}
+                <span className="ml-1 text-rose-500/90">— Retry later if rate limited; confirm VITE_API_BASE.</span>
+              </span>
             </div>
           )}
 
