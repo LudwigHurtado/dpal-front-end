@@ -15,9 +15,12 @@ import ForestEvidencePacketPanel from './components/ForestEvidencePacketPanel';
 import ForestLayerControl, { type ForestMapLayers } from './components/ForestLayerControl';
 import ForestRiskSummaryCards from './components/ForestRiskSummaryCards';
 import ForestWatchAutomationPanel from './components/ForestWatchAutomationPanel';
+import { WATCH_DEEP_LINK_HASH } from '../../../utils/appRoutes';
 import EnvironmentalDashboardShell from '../environmentalIntelligence/shared/EnvironmentalDashboardShell';
 import EnvironmentalDisclaimerBar from '../environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
 import EnvironmentalProviderStatusStrip from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import InvestorDemoExplainer from '../environmentalIntelligence/shared/InvestorDemoExplainer';
+import { getDemoScenarioById } from '../environmentalIntelligence/shared/demoScenarios';
 import type { EnvironmentalProviderStripItem } from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
 import type { EnvironmentalProviderUiState } from '../environmentalIntelligence/shared/environmentalServiceStatus';
 import {
@@ -208,6 +211,7 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
 
   const watchRunIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const watchCtaRef = useRef<HTMLButtonElement | null>(null);
 
   const baselineIso = useMemo(() => isoFromDateInput(baselineDay, false), [baselineDay]);
   const currentIso = useMemo(() => isoFromDateInput(currentDay, true), [currentDay]);
@@ -241,6 +245,27 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [settingsOpen, layerMenuOpen]);
+
+  /**
+   * `#watch` deep-link handler.
+   * Opens the Watch DPAL Work side panel and scrolls the Watch CTA into view so the
+   * operator can review the plan and click Restart/Run themselves. Does NOT auto-run
+   * any scan or provider call — preserves the "honest labels" / operator-consent model.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== WATCH_DEEP_LINK_HASH) return;
+    setWatchOpen(true);
+    const id = window.requestAnimationFrame(() => {
+      try {
+        watchCtaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        watchCtaRef.current?.focus({ preventScroll: true });
+      } catch {
+        /* ignore — graceful no-op when element is absent */
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
 
   const patchStep = useCallback((id: string, patch: Partial<ForestWatchStep>) => {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -700,6 +725,7 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
               ) : null}
             </div>
             <button
+              ref={watchCtaRef}
               type="button"
               disabled={isRunning}
               onClick={() => void executeWatch()}
@@ -899,6 +925,34 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
           {cacheNotice ? (
             <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
           ) : null}
+
+          {(() => {
+            const scenario = getDemoScenarioById('demo-forest-amazon-aoi');
+            if (!scenario) return null;
+            return (
+              <InvestorDemoExplainer
+                title={scenario.title}
+                moduleLabel={scenario.moduleLabel}
+                whatYouAreSeeing="A Forest Integrity workspace prepared for an AOI investigation. The map, AOI controls, date window, and Watch DPAL Work panel are all visible — no provider call has fired yet."
+                whyItMatters="Verified forest evidence depends on combining GFW alerts, NASA FIRMS hotspots, and Landsat indices. DPAL surfaces honest lane states so frontline communities and validators can trust the result."
+                honestyNote={scenario.limitationNote}
+                nextAction={scenario.recommendedNextAction}
+                accent={scenario.accent}
+                evidencePreview={{
+                  location: scenario.locationLabel,
+                  timestampLabel: 'Baseline / current window — set in the side panel before scan.',
+                  providerSources: scenario.providerSources,
+                  signalSummary:
+                    'No scan has run yet — provider lanes will report GFW alerts, FIRMS rows, and Landsat index status when the operator clicks Watch DPAL Work.',
+                  confidenceNote:
+                    'Forest integrity score is withheld until configured lanes return enough usable evidence (transparent weighted model).',
+                  fieldValidationStatus: 'Field validation is operator-led — DPAL never auto-publishes a forest claim.',
+                  qrHashStatus: 'SHA-256 integrity hash is issued after the evidence packet is accepted server-side.',
+                  recommendedAction: scenario.recommendedNextAction,
+                }}
+              />
+            );
+          })()}
 
           <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-[320px]">
             <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">

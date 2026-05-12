@@ -32,7 +32,10 @@ import type {
   SatelliteEvidencePacket,
 } from '../services/copernicus/types';
 import { apiUrl, API_ROUTES } from '../constants';
+import { AQUASCAN_WORKFLOW_RAIL_ANCHOR_ID, WATCH_DEEP_LINK_HASH } from '../utils/appRoutes';
 import { reverseGeocodeLatLng } from '../services/geocodingService';
+import InvestorDemoExplainer from '../src/features/environmentalIntelligence/shared/InvestorDemoExplainer';
+import { getDemoScenarioById } from '../src/features/environmentalIntelligence/shared/demoScenarios';
 import { lookupNearbyEntities, type NearbyEntity } from '../services/entityLookupService';
 import {
   fetchFloodWetOverlay,
@@ -997,6 +1000,28 @@ export default function AquaScanView({
       status: 'observed',
     });
   }, [navOutcome]);
+
+  /**
+   * `#watch` deep-link handler.
+   * When the user arrives via the Environmental Intelligence Hub "Watch DPAL Work" CTA,
+   * focus the AquaScan workflow rail (the closest analog to a Watch panel here) so the
+   * operator sees the step plan first. NEVER auto-runs a comparison, overlay, or scan.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== WATCH_DEEP_LINK_HASH) return;
+    const id = window.requestAnimationFrame(() => {
+      try {
+        const el = document.getElementById(AQUASCAN_WORKFLOW_RAIL_ANCHOR_ID);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      } catch {
+        /* ignore — graceful no-op when the rail is not mounted (small viewports) */
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
 
   /**
    * Lightweight AOI milestone — fires once per session when the saved AOI
@@ -2898,7 +2923,11 @@ export default function AquaScanView({
       <div className="mx-auto flex w-full max-w-[1400px] flex-1">
 
         {/* Left: Workflow Rail */}
-        <nav className="hidden w-[180px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-slate-800 p-3 lg:flex">
+        <nav
+          id={AQUASCAN_WORKFLOW_RAIL_ANCHOR_ID}
+          aria-label="AquaScan workflow rail"
+          className="hidden w-[180px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-slate-800 p-3 lg:flex"
+        >
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Workflow</p>
           {workflowSteps.map((step) => (
             <button
@@ -3534,6 +3563,38 @@ export default function AquaScanView({
           </p>
         </aside>
       </div>
+
+      {/* -- 4b. Investor Demo Explainer (light card, sits between workspace and bottom tabs) -- */}
+      {(() => {
+        const scenario = getDemoScenarioById('demo-aquascan-cedar-river');
+        if (!scenario) return null;
+        return (
+          <div className="mx-auto w-full max-w-[1400px] px-4 pt-4">
+            <InvestorDemoExplainer
+              title={scenario.title}
+              moduleLabel={scenario.moduleLabel}
+              whatYouAreSeeing="An AquaScan command center prepared for a water-quality investigation. Focus Location, workflow rail, map, intelligence panel, and bottom tabs are visible — no Copernicus call has fired yet."
+              whyItMatters="Community water concerns become defensible when location, AOI, Copernicus comparison, and validator status are all captured in one evidence packet."
+              honestyNote={scenario.limitationNote}
+              nextAction={scenario.recommendedNextAction}
+              accent={scenario.accent}
+              evidencePreview={{
+                location: scenario.locationLabel,
+                timestampLabel: 'Before / after window — set in MRV Compare before calculating.',
+                providerSources: scenario.providerSources,
+                signalSummary:
+                  'No comparison has run yet — NDWI / NDVI / NDMI deltas will be reported after the operator runs MRV Compare.',
+                confidenceNote:
+                  'AquaScan readings are indicative MRV — they do not certify carbon credits or replace lab results.',
+                fieldValidationStatus:
+                  'Field sampling, lab tests, or validator review are required to escalate any anomaly.',
+                qrHashStatus: 'Evidence packet hash is issued when the packet is generated in the Evidence Packet tab.',
+                recommendedAction: scenario.recommendedNextAction,
+              }}
+            />
+          </div>
+        );
+      })()}
 
       {/* -- 5. Bottom Workspace Tabs -- */}
       <div className="border-t border-slate-800 bg-slate-950">

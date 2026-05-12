@@ -16,9 +16,12 @@ import PlasticLayerControl from './components/PlasticLayerControl';
 import PlasticRiskSummaryCards from './components/PlasticRiskSummaryCards';
 import PlasticWatchAutomationPanel from './components/PlasticWatchAutomationPanel';
 import SpectralSignaturePanel from './components/SpectralSignaturePanel';
+import { WATCH_DEEP_LINK_HASH } from '../../../utils/appRoutes';
 import EnvironmentalDashboardShell from '../environmentalIntelligence/shared/EnvironmentalDashboardShell';
 import EnvironmentalDisclaimerBar from '../environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
 import EnvironmentalProviderStatusStrip from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import InvestorDemoExplainer from '../environmentalIntelligence/shared/InvestorDemoExplainer';
+import { getDemoScenarioById } from '../environmentalIntelligence/shared/demoScenarios';
 import type { EnvironmentalProviderStripItem } from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
 import type { EnvironmentalProviderUiState } from '../environmentalIntelligence/shared/environmentalServiceStatus';
 import {
@@ -246,6 +249,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
   const watchRunIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const watchCtaRef = useRef<HTMLButtonElement | null>(null);
 
   const baselineIso = useMemo(() => isoFromDateInput(baselineDay, false), [baselineDay]);
   const currentIso = useMemo(() => isoFromDateInput(currentDay, true), [currentDay]);
@@ -342,6 +346,27 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [settingsOpen, layerMenuOpen]);
+
+  /**
+   * `#watch` deep-link handler.
+   * Opens the Watch DPAL Work side panel and scrolls the Watch CTA into view so the
+   * operator can review the plan and click Restart/Run themselves. Does NOT auto-run
+   * any scan or provider call — preserves the "honest labels" / operator-consent model.
+   */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (window.location.hash !== WATCH_DEEP_LINK_HASH) return;
+    setWatchOpen(true);
+    const id = window.requestAnimationFrame(() => {
+      try {
+        watchCtaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        watchCtaRef.current?.focus({ preventScroll: true });
+      } catch {
+        /* ignore — graceful no-op when element is absent */
+      }
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, []);
 
   const patchStep = useCallback((id: string, patch: Partial<PlasticWatchStep>) => {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -681,6 +706,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
               ) : null}
             </div>
             <button
+              ref={watchCtaRef}
               type="button"
               disabled={isRunning}
               onClick={() => void executeWatch()}
@@ -895,6 +921,36 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           {cacheNotice ? (
             <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
           ) : null}
+
+          {(() => {
+            const scenario = getDemoScenarioById('demo-plastic-manila-bay');
+            if (!scenario) return null;
+            return (
+              <InvestorDemoExplainer
+                title={scenario.title}
+                moduleLabel={scenario.moduleLabel}
+                whatYouAreSeeing="A Hyperspectral Plastic Watch workspace ready for AOI review. Map, AOI controls, environment type, and the Watch DPAL Work panel are visible — no PACE / EMIT calls have fired yet."
+                whyItMatters="Plastic pollution claims need narrow-band hyperspectral evidence and confounder screening. DPAL stays honest about what satellite can and cannot prove without field sampling."
+                honestyNote={scenario.limitationNote}
+                nextAction={scenario.recommendedNextAction}
+                accent={scenario.accent}
+                evidencePreview={{
+                  location: scenario.locationLabel,
+                  timestampLabel: 'Baseline / current window — set in the side panel before scan.',
+                  providerSources: scenario.providerSources,
+                  signalSummary:
+                    'No scan has run yet — PACE, EMIT, and Sentinel / Landsat fallback lanes will report scene availability after Watch DPAL Work.',
+                  confidenceNote:
+                    'Plastic-risk evidence score (0–100) is composite. Narrow-band confirmation requires configured EMIT / PACE products.',
+                  fieldValidationStatus:
+                    'Field sampling, drone validation, and water-quality context are required to escalate any anomaly.',
+                  qrHashStatus: 'SHA-256 integrity hash is issued after the evidence packet is accepted server-side.',
+                  recommendedAction: scenario.recommendedNextAction,
+                }}
+              />
+            );
+          })()}
+
           {!googleMapsFrontendConfigured ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
               Google Maps key not configured. Use coordinates or fallback map tiles; API keys are never shown in the UI.

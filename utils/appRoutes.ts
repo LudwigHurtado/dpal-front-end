@@ -17,6 +17,17 @@ export const FIELD_OS_SUPER_AGENT_HASH = '#super-agent';
 /** `sessionStorage` key: set before navigating to Field OS to scroll to Super Agent on arrival. */
 export const FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY = 'dpal_field_os_scroll_super_agent';
 
+/**
+ * Deep-link fragment used by Environmental Intelligence Hub CTAs to open a module's
+ * "Watch DPAL Work" / workflow panel without auto-running any scan or live API calls.
+ *
+ * Honored by Forest Integrity, Hyperspectral Plastic Watch, and AquaScan (workflow rail).
+ */
+export const WATCH_DEEP_LINK_HASH = '#watch';
+
+/** DOM id of the AquaScan workflow rail — used by deep-link scroll behavior. */
+export const AQUASCAN_WORKFLOW_RAIL_ANCHOR_ID = 'aquascan-workflow-rail';
+
 export function marketplaceMissionDetailPath(listingId: string): string {
   return `${MARKETPLACE_MISSION_DETAIL_PREFIX}/${encodeURIComponent(listingId)}`;
 }
@@ -178,6 +189,8 @@ export const VIEW_PATHS: Record<string, string> = {
   previewFuelStorageAudit: '/preview/fuel-storage-audit',
   previewEvidencePacket: '/preview/evidence-packet',
   previewModule: '/preview/module-preview',
+  /** Investor-facing pitch / walkthrough page. Shareable meeting link. */
+  investorDemo: '/investor-demo',
 };
 
 export function viewToPath(view: string): string {

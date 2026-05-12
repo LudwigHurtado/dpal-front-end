@@ -3,11 +3,11 @@ import { ArrowRight } from '../../../../components/icons';
 import type { HubServiceBadge } from './environmentalServiceStatus';
 
 const badgeClass: Record<HubServiceBadge, string> = {
-  Live: 'border-emerald-300 bg-emerald-50 text-emerald-900',
-  Partial: 'border-amber-300 bg-amber-50 text-amber-900',
-  Preview: 'border-sky-300 bg-sky-50 text-sky-900',
-  'Not configured': 'border-slate-300 bg-slate-100 text-slate-700',
-  'Coming soon': 'border-slate-300 bg-white text-slate-600',
+  Live: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+  Partial: 'border-amber-200 bg-amber-50 text-amber-800',
+  Preview: 'border-sky-200 bg-sky-50 text-sky-800',
+  'Not configured': 'border-slate-200 bg-slate-50 text-slate-700',
+  'Coming soon': 'border-slate-200 bg-white text-slate-600',
 };
 
 type Props = {
@@ -18,6 +18,14 @@ type Props = {
   watchHint?: string;
   onOpenWorkspace: () => void;
   openWorkspaceLabel?: string;
+  /**
+   * Optional "Watch DPAL Work" CTA. When provided, renders a secondary button next to
+   * "Open workspace" that should route into the module's Watch / workflow panel
+   * (e.g. via the `#watch` deep-link hash). Must NOT auto-run a scan — opens or
+   * focuses the workflow panel only.
+   */
+  onWatchDpalWork?: () => void;
+  watchDpalWorkLabel?: string;
   accent?: 'emerald' | 'sky' | 'teal' | 'amber';
   children?: React.ReactNode;
 };
@@ -37,6 +45,8 @@ const EnvironmentalServiceCard: React.FC<Props> = ({
   watchHint,
   onOpenWorkspace,
   openWorkspaceLabel = 'Open workspace',
+  onWatchDpalWork,
+  watchDpalWorkLabel = 'Watch DPAL Work',
   accent = 'emerald',
   children,
 }) => {
@@ -65,6 +75,17 @@ const EnvironmentalServiceCard: React.FC<Props> = ({
             {openWorkspaceLabel}
             <ArrowRight className="h-3.5 w-3.5" />
           </button>
+          {onWatchDpalWork ? (
+            <button
+              type="button"
+              onClick={onWatchDpalWork}
+              title="Opens the module workflow panel without running a scan."
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50"
+            >
+              {watchDpalWorkLabel}
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
         </div>
       </div>
     </article>

@@ -151,8 +151,9 @@ import DpalFieldOSPage from './src/field-os/DpalFieldOSPage';
 import FloodGuardPage from './src/features/floodGuard/FloodGuardPage';
 import ForestIntegrityPage from './src/features/forestIntegrity/ForestIntegrityPage';
 import HyperspectralPlasticWatchPage from './src/features/hyperspectralPlasticWatch/HyperspectralPlasticWatchPage';
+import InvestorDemoPage from './src/features/investorDemo/InvestorDemoPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -662,12 +663,34 @@ const App: React.FC = () => {
       currentView === 'fieldOS' && location.hash === FIELD_OS_SUPER_AGENT_HASH;
     /** Keep `/floodguard?p=...` when switching views so Water Intelligence launcher vs pilots stay addressable. */
     const preserveFloodGuardQuery = currentView === 'floodGuard' && location.search.length > 0;
+    /**
+     * Keep `#watch` deep-link for modules that honor it. Lets investor-demo CTAs from
+     * the Environmental Intelligence Hub open the destination module's Watch / workflow
+     * panel without losing the hash during the view-to-URL resync.
+     *
+     * IMPORTANT: investor-demo CTAs add `#watch` via `history.replaceState` so the
+     * destination page's mount effect can read `window.location.hash` immediately.
+     * react-router's `useLocation()` does NOT observe `replaceState`, so we must
+     * also consult `window.location.hash` here — otherwise the URL sync below
+     * would strip the hash on the same render that introduces it.
+     */
+    const liveWindowHash = typeof window !== 'undefined' ? window.location.hash : '';
+    const effectiveHash = location.hash || liveWindowHash;
+    const preserveWatchHash =
+      effectiveHash === '#watch' &&
+      (currentView === 'forestIntegrity' ||
+        currentView === 'hyperspectralPlasticWatch' ||
+        currentView === 'aquaScanWater' ||
+        currentView === 'waterMonitor' ||
+        currentView === 'aqualandWell');
     const full =
       preserveDeepLink ||
       preserveMissionsHubSection ||
       preserveFieldOsSuperAgent ||
       preserveFloodGuardQuery
         ? `${path}${location.search}${location.hash}`
+        : preserveWatchHash
+        ? `${path}${location.search}${effectiveHash}`
         : path;
     const cur = `${location.pathname}${location.search}${location.hash}`;
     if (full === cur) return;
@@ -2655,6 +2678,13 @@ const App: React.FC = () => {
         {currentView === 'environmentalIntelligenceHub' && (
           <EnvironmentalIntelligenceHubView
             onReturn={() => goBack('mainMenu')}
+            onNavigate={(view) => setCurrentView(view)}
+          />
+        )}
+
+        {currentView === 'investorDemo' && (
+          <InvestorDemoPage
+            onReturn={() => goBack('environmentalIntelligenceHub')}
             onNavigate={(view) => setCurrentView(view)}
           />
         )}

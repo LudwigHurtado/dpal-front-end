@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowRight, Activity, Globe, ShieldCheck, Database, Layout, Sparkles } from './icons';
 import type { View } from '../App';
-import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
+import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, WATCH_DEEP_LINK_HASH } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
 import DpalIntegrationCommandCenter from '../src/components/DpalIntegrationCommandCenter';
 import {
@@ -12,6 +12,12 @@ import {
 } from '../src/services/environmentalHubConnectivity';
 import EnvironmentalServiceCard from '../src/features/environmentalIntelligence/shared/EnvironmentalServiceCard';
 import type { HubServiceBadge } from '../src/features/environmentalIntelligence/shared/environmentalServiceStatus';
+import {
+  DEMO_SCENARIOS,
+  demoSourceToneClass,
+  demoSourceToneLabel,
+  type DemoScenario,
+} from '../src/features/environmentalIntelligence/shared/demoScenarios';
 
 type ProbeToneLevel = HubConnectivityRow['status'];
 
@@ -78,12 +84,14 @@ const latestPackets = [
 const workflowSteps = ['Monitor', 'Analyze', 'Audit', 'Verify', 'Export'];
 
 function probeTone(level: ProbeToneLevel): { chip: string; dot: string } {
-  if (level === 'ok') return { chip: 'border-emerald-500/40 bg-emerald-900/20 text-emerald-200', dot: 'bg-emerald-400' };
-  if (level === 'degraded') return { chip: 'border-amber-500/40 bg-amber-900/20 text-amber-200', dot: 'bg-amber-400' };
+  // Lightened to match the investor-style light hub UI (chips sit inside a
+  // white / slate-50 connectivity panel). Honest labels are unchanged.
+  if (level === 'ok') return { chip: 'border-emerald-200 bg-emerald-50 text-emerald-800', dot: 'bg-emerald-500' };
+  if (level === 'degraded') return { chip: 'border-amber-200 bg-amber-50 text-amber-800', dot: 'bg-amber-500' };
   if (level === 'rate_limited')
-    return { chip: 'border-violet-500/45 bg-violet-950/35 text-violet-200', dot: 'bg-violet-400 animate-pulse' };
-  if (level === 'offline') return { chip: 'border-rose-500/40 bg-rose-900/20 text-rose-200', dot: 'bg-rose-400' };
-  return { chip: 'border-slate-500/40 bg-slate-800/40 text-slate-200', dot: 'bg-slate-400 animate-pulse' };
+    return { chip: 'border-violet-200 bg-violet-50 text-violet-800', dot: 'bg-violet-500 animate-pulse' };
+  if (level === 'offline') return { chip: 'border-rose-200 bg-rose-50 text-rose-800', dot: 'bg-rose-500' };
+  return { chip: 'border-slate-200 bg-white text-slate-600', dot: 'bg-slate-400 animate-pulse' };
 }
 
 function formatProbeDetail(row: HubConnectivityRow): string {
@@ -107,6 +115,85 @@ function levelLabel(row: HubConnectivityRow): string {
   if (row.status === 'offline') return 'Offline';
   return '…';
 }
+
+const demoAccentBar: Record<NonNullable<DemoScenario['accent']>, string> = {
+  emerald: 'bg-emerald-600',
+  sky: 'bg-sky-600',
+  teal: 'bg-teal-600',
+  amber: 'bg-amber-500',
+};
+
+/**
+ * Investor-facing demo scenario card. Renders the demo module label, title, short
+ * description, location, provider chips (with honest tone), an Open Demo CTA, and
+ * — when the destination module honors `#watch` — a Watch DPAL Work CTA.
+ *
+ * Pure presentational. Never triggers a scan or provider call on its own.
+ */
+const DemoScenarioCard: React.FC<{
+  scenario: DemoScenario;
+  onOpenDemo: () => void;
+  onWatchDpalWork?: () => void;
+}> = ({ scenario, onOpenDemo, onWatchDpalWork }) => {
+  const accent = scenario.accent ?? 'emerald';
+  return (
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
+      <div className={`h-1 w-full ${demoAccentBar[accent]}`} aria-hidden />
+      <div className="flex flex-1 flex-col p-5">
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{scenario.moduleLabel}</p>
+            <h3 className="mt-0.5 text-sm font-semibold tracking-tight text-slate-900">{scenario.title}</h3>
+          </div>
+          <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+            Demo
+          </span>
+        </div>
+        <p className="mt-2 text-xs leading-relaxed text-slate-600">{scenario.investorExplanation}</p>
+        <p className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
+          <span className="font-semibold text-slate-800">Location:</span> {scenario.locationLabel}
+        </p>
+        <div className="mt-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Provider sources</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {scenario.providerSources.map((src) => (
+              <span
+                key={src.id}
+                className={demoSourceToneClass(src.tone)}
+                title={`${src.label} — ${demoSourceToneLabel(src.tone)}`}
+              >
+                {src.label}
+                <span className="ml-1 opacity-70">· {demoSourceToneLabel(src.tone)}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+        <p className="mt-3 text-[10px] leading-relaxed text-slate-500">{scenario.limitationNote}</p>
+        <div className="mt-auto pt-4 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={onOpenDemo}
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-900"
+          >
+            Open Demo
+            <ArrowRight className="h-3.5 w-3.5" />
+          </button>
+          {onWatchDpalWork ? (
+            <button
+              type="button"
+              onClick={onWatchDpalWork}
+              title="Opens the module Watch / workflow panel without running a scan."
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50"
+            >
+              Watch DPAL Work
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </article>
+  );
+};
 
 const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubViewProps> = ({ onReturn, onNavigate }) => {
   const ENTRY_MODAL_STORAGE_KEY = 'dpal-environmental-hub-entry-seen';
@@ -174,6 +261,29 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
   const earthObsBadge: HubServiceBadge = lineOk(hubHealth) ? 'Live' : 'Partial';
   const aquaScanBadge: HubServiceBadge = lineOk(hubCop) ? 'Live' : 'Partial';
   const carbAuditBadge: HubServiceBadge = lineOk(hubCarb) ? 'Live' : 'Partial';
+
+  /**
+   * Navigate to a target view with the `#watch` hash so the destination module can
+   * open its Watch / workflow panel on arrival WITHOUT auto-running any scan.
+   * Honored by Forest Integrity, Hyperspectral Plastic Watch, and AquaScan today.
+   */
+  const openWithWatchHash = React.useCallback(
+    (view: View) => {
+      try {
+        if (typeof window !== 'undefined' && window.location.hash !== WATCH_DEEP_LINK_HASH) {
+          window.history.replaceState(
+            window.history.state,
+            '',
+            `${window.location.pathname}${window.location.search}${WATCH_DEEP_LINK_HASH}`,
+          );
+        }
+      } catch {
+        /* ignore — hash is a soft hint, navigation still proceeds */
+      }
+      onNavigate(view);
+    },
+    [onNavigate],
+  );
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-sans text-slate-900">
@@ -264,7 +374,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
                   setRefreshNotice(null);
                   void runConnectivityProbes({ bypassCache: true, bypassCooldown: true });
                 }}
-                className="rounded-lg border border-amber-600/50 bg-amber-950/40 px-3 py-1.5 text-xs font-semibold text-amber-100 hover:bg-amber-950/60"
+                className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
               >
                 Dev: force probes
               </button>
@@ -272,7 +382,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           </div>
         </div>
         {refreshNotice ? (
-          <p className="mb-3 rounded-lg border border-violet-600/40 bg-violet-950/30 px-3 py-2 text-[11px] text-violet-100">
+          <p className="mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-800">
             {refreshNotice}
           </p>
         ) : null}
@@ -374,7 +484,9 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge={aquaScanBadge}
             providerSummary={lineLabel(hubCop)}
             accent="sky"
+            watchHint="Watch DPAL Work focuses the AquaScan workflow rail — no scan auto-runs."
             onOpenWorkspace={() => onNavigate('aquaScanWater')}
+            onWatchDpalWork={() => openWithWatchHash('aquaScanWater')}
           >
             <button
               type="button"
@@ -404,9 +516,10 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Live"
             providerSummary="Watch DPAL Work available inside — honest GFW / FIRMS / Landsat / GEDI lane states."
             accent="emerald"
-            watchHint="Watch DPAL Work runs only on click inside the workspace."
+            watchHint="Watch DPAL Work opens the workflow panel — scan still starts only on click."
             onOpenWorkspace={() => onNavigate('forestIntegrity')}
             openWorkspaceLabel="Open Forest Integrity"
+            onWatchDpalWork={() => openWithWatchHash('forestIntegrity')}
           >
             <button
               type="button"
@@ -422,9 +535,10 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Preview"
             providerSummary="PACE/EMIT lanes remain preview until narrow-band products are wired; no plastic detection claims."
             accent="sky"
-            watchHint="Evidence-support only — field validation required."
+            watchHint="Evidence-support only — Watch DPAL Work opens the workflow panel without auto-running a scan."
             onOpenWorkspace={() => onNavigate('hyperspectralPlasticWatch')}
             openWorkspaceLabel="Open Plastic Watch"
+            onWatchDpalWork={() => openWithWatchHash('hyperspectralPlasticWatch')}
           />
           <EnvironmentalServiceCard
             title="Air Quality Control"
@@ -596,6 +710,44 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           />
         </div>
       </section>
+
+      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-base md:text-lg font-bold text-slate-800">Investor Demo Scenarios</h2>
+            <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
+              Prebuilt walkthroughs showing how DPAL moves from location → signal → verification → evidence packet → response.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate('investorDemo')}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50"
+              title="One-page investor pitch with scenario selector, business value, and revenue tracks."
+            >
+              Open Investor Pitch Page
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+              Demo Mode
+            </span>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {DEMO_SCENARIOS.map((scenario) => (
+            <DemoScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              onOpenDemo={() => onNavigate(scenario.view)}
+              onWatchDpalWork={
+                scenario.supportsWatchDeepLink ? () => openWithWatchHash(scenario.view) : undefined
+              }
+            />
+          ))}
+        </div>
+      </section>
+
       <section className="mb-8 rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-5 md:p-6">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>
