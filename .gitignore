@@ -34,3 +34,11 @@ evidence-resp.json
 # Playwright
 test-results/
 playwright-report/
+
+# Real env files - never commit secrets
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
