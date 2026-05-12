@@ -114,6 +114,10 @@ export const API_ROUTES = {
   ECOLOGY_LANDSAT_SCAN: '/api/ecology/landsat-scan',
   /** LEO satellite Earth Observation */
   EARTH_OBSERVATION_SCAN: '/api/earth-observation/scan',
+  /** Forestry Protection — Forest Integrity + satellite monitoring (Prisma backend) */
+  FOREST_INTEGRITY_SCAN: '/api/forest-integrity/scan',
+  FOREST_INTEGRITY_PROVIDER_STATUS: '/api/forest-integrity/provider-status',
+  FOREST_INTEGRITY_EVIDENCE_PACKET: '/api/forest-integrity/evidence-packet',
   /** Persistent project workflow assistant */
   DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
   /** DPAL Water Monitor + Verified Water Impact Credits */

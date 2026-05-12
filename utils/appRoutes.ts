@@ -118,6 +118,8 @@ export const VIEW_PATHS: Record<string, string> = {
   carbonMRV: '/carbon',
   ecologicalConservation: '/ecology',
   earthObservation: '/earth-observation',
+  /** Forestry Protection — Forest Integrity + satellite monitoring */
+  forestIntegrity: '/forest-integrity',
   /** DPAL Carbon Credit Platform — headquarters for all carbon categories */
   dpalCarbon: '/carbon-hub',
   /** DPAL AFOLU / Forest Integrity proof engine */
@@ -187,6 +189,9 @@ export function pathToView(pathname: string): string | null {
   if (normalized === '/field-missions') return 'missionMarketplace';
   if (normalized === '/environmental/epa-live') return 'epaGhgLive';
   if (normalized === '/environmental/envirofacts-map') return 'envirofactsGeoIntelligence';
+  if (normalized === '/forestry-protection' || normalized === '/environmental-intelligence/forest-integrity') {
+    return 'forestIntegrity';
+  }
   /** Legacy AFOLU paths kept for backwards-compatible deep links/bookmarks. */
   if (normalized === '/aflu' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
   if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
