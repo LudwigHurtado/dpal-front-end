@@ -17,6 +17,8 @@ const ROWS: { key: RowKey; label: string; hint: string; Icon: React.FC<{ classNa
   { key: 'chlorophyllAlgae', label: 'Chlorophyll / algae', hint: 'Confounder context', Icon: Activity },
   { key: 'floatingDebrisCandidate', label: 'Floating debris candidate', hint: 'Visual screening context only', Icon: MapPin },
   { key: 'fieldValidationPoints', label: 'Field validation points', hint: 'Planned sampling / QA locations', Icon: Layout },
+  { key: 'cleanupMissionPins', label: 'Cleanup mission pins', hint: 'Legend only — no live mission layer yet', Icon: MapPin },
+  { key: 'droneValidationPoints', label: 'Drone validation points', hint: 'Coming soon', Icon: Satellite },
   { key: 'satellite', label: 'Satellite base map', hint: 'Controls base map tiles', Icon: Satellite },
 ];
 
@@ -29,7 +31,7 @@ function Switch({ on, onToggle, id }: { on: boolean; onToggle: () => void; id: s
       aria-checked={on}
       onClick={onToggle}
       className={`relative h-6 w-10 shrink-0 rounded-full border transition-colors ${
-        on ? 'border-indigo-600 bg-indigo-600' : 'border-slate-300 bg-slate-200'
+        on ? 'border-emerald-700 bg-emerald-700' : 'border-slate-300 bg-slate-200'
       }`}
     >
       <span
@@ -59,7 +61,7 @@ const PlasticLayerControl: React.FC<Props> = ({ layers, onChange }) => {
             className="flex items-center justify-between gap-3 border-b border-slate-100 py-2.5 last:border-0"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <Icon className="h-4 w-4 shrink-0 text-indigo-700 opacity-90" />
+              <Icon className="h-4 w-4 shrink-0 text-emerald-800 opacity-90" />
               <div className="min-w-0">
                 <p className="text-xs font-medium text-slate-800 leading-tight">{label}</p>
                 <p className="text-[10px] text-slate-400 truncate">{hint}</p>

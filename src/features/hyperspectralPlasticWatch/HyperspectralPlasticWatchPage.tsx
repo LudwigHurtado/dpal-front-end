@@ -16,6 +16,11 @@ import PlasticLayerControl from './components/PlasticLayerControl';
 import PlasticRiskSummaryCards from './components/PlasticRiskSummaryCards';
 import PlasticWatchAutomationPanel from './components/PlasticWatchAutomationPanel';
 import SpectralSignaturePanel from './components/SpectralSignaturePanel';
+import EnvironmentalDashboardShell from '../environmentalIntelligence/shared/EnvironmentalDashboardShell';
+import EnvironmentalDisclaimerBar from '../environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
+import EnvironmentalProviderStatusStrip from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import type { EnvironmentalProviderStripItem } from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import type { EnvironmentalProviderUiState } from '../environmentalIntelligence/shared/environmentalServiceStatus';
 import {
   clearHyperspectralPlasticScanCache,
   getHyperspectralPlasticProviderStatus,
@@ -61,8 +66,8 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 }
 
 function stepTone(status: PlasticWatchStep['status']): string {
-  if (status === 'complete') return 'bg-indigo-500';
-  if (status === 'running') return 'bg-violet-500 animate-pulse';
+  if (status === 'complete') return 'bg-emerald-500';
+  if (status === 'running') return 'bg-emerald-600 animate-pulse';
   if (status === 'warning') return 'bg-amber-500';
   if (status === 'failed') return 'bg-rose-500';
   if (status === 'skipped') return 'bg-slate-400';
@@ -78,16 +83,72 @@ function providerStepStatus(s: PlasticProviderState): PlasticWatchStep['status']
 
 function initialSteps(): PlasticWatchStep[] {
   return [
-    { id: 'aoi', title: 'Confirm AOI / coordinates', status: 'pending', explanation: 'Lock map center, radius, and dates.' },
-    { id: 'pace', title: 'Check PACE scene availability', status: 'pending', provider: 'NASA PACE', explanation: 'Ocean color lane status from API host.' },
-    { id: 'emit', title: 'Check EMIT scene availability', status: 'pending', provider: 'NASA EMIT', explanation: 'Hyperspectral VNIR/SWIR lane status from API host.' },
-    { id: 'fallback', title: 'Pull Sentinel / Landsat context if available', status: 'pending', provider: 'Earth Observation', explanation: 'Broadband context only — not plastic-specific.' },
-    { id: 'spectral', title: 'Analyze spectral anomaly indicators', status: 'pending', provider: 'DPAL screening', explanation: 'Possible plastic spectral anomaly vs generic change context.' },
-    { id: 'bands', title: 'Compare plastic spectral-risk band references', status: 'pending', explanation: 'Requires EMIT/PACE narrow bands when configured.' },
-    { id: 'confounders', title: 'Check water quality confounders', status: 'pending', explanation: 'Algae, turbidity, sediment, foam, clouds / glint.' },
-    { id: 'score', title: 'Generate plastic-risk evidence score', status: 'pending', explanation: '0–100 evidence-support composite.' },
-    { id: 'packet', title: 'Prepare evidence packet', status: 'pending', provider: 'DPAL API', explanation: 'POST normalized scan payload.' },
-    { id: 'finalize', title: 'Create QR/hash-ready audit summary', status: 'pending', provider: 'SHA-256', explanation: 'Integrity hash for audit workflows.' },
+    {
+      id: 'aoi',
+      title: 'Confirm AOI on map',
+      status: 'pending',
+      explanation: 'Lock map center, radius, date window, and environment context.',
+    },
+    {
+      id: 'pace',
+      title: 'Check PACE scene availability',
+      status: 'pending',
+      provider: 'NASA PACE',
+      explanation: 'Ocean color lane status from API host.',
+    },
+    {
+      id: 'emit',
+      title: 'Check EMIT scene availability',
+      status: 'pending',
+      provider: 'NASA EMIT',
+      explanation: 'Hyperspectral VNIR/SWIR lane status from API host.',
+    },
+    {
+      id: 'fallback',
+      title: 'Pull Sentinel/Landsat fallback context',
+      status: 'pending',
+      provider: 'Earth Observation',
+      explanation: 'Broadband context only — not plastic-specific proof.',
+    },
+    {
+      id: 'spectral',
+      title: 'Analyze spectral-risk indicators',
+      status: 'pending',
+      provider: 'DPAL screening',
+      explanation: 'Possible plastic-risk anomaly vs generic change context.',
+    },
+    {
+      id: 'confounders',
+      title: 'Check confounders: algae, turbidity, sediment, foam, cloud/glint',
+      status: 'pending',
+      explanation: 'Qualitative confounder screening only.',
+    },
+    {
+      id: 'score',
+      title: 'Generate plastic-risk evidence score',
+      status: 'pending',
+      explanation: '0–100 evidence-support composite.',
+    },
+    {
+      id: 'packet',
+      title: 'Prepare evidence packet',
+      status: 'pending',
+      provider: 'DPAL API',
+      explanation: 'POST normalized scan payload.',
+    },
+    {
+      id: 'mission',
+      title: 'Create field validation mission',
+      status: 'pending',
+      explanation: 'Manual validation workflow — automated queue not connected.',
+    },
+    {
+      id: 'finalize',
+      title: 'Create QR/hash-ready audit summary',
+      status: 'pending',
+      provider: 'SHA-256',
+      explanation: 'Integrity hash for audit workflows.',
+    },
   ];
 }
 
@@ -162,6 +223,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     chlorophyllAlgae: true,
     floatingDebrisCandidate: true,
     fieldValidationPoints: true,
+    cleanupMissionPins: false,
+    droneValidationPoints: false,
   });
   const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -186,6 +249,69 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
   const baselineIso = useMemo(() => isoFromDateInput(baselineDay, false), [baselineDay]);
   const currentIso = useMemo(() => isoFromDateInput(currentDay, true), [currentDay]);
+
+  const googleMapsFrontendConfigured = useMemo(
+    () =>
+      Boolean(
+        typeof import.meta.env.VITE_GOOGLE_MAPS_API_KEY === 'string' &&
+          import.meta.env.VITE_GOOGLE_MAPS_API_KEY.trim().length > 0,
+      ),
+    [],
+  );
+
+  const mapPlasticLane = (s: PlasticProviderState | undefined): EnvironmentalProviderUiState => {
+    if (!s) return 'unavailable';
+    if (s === 'available') return 'available';
+    if (s === 'not_configured') return 'not_configured';
+    if (s === 'no_scene') return 'unavailable';
+    if (s === 'auth_error') return 'auth_error';
+    if (s === 'rate_limited') return 'rate_limited';
+    if (s === 'failed') return 'failed';
+    return 'unavailable';
+  };
+
+  const providerStripItems = useMemo((): EnvironmentalProviderStripItem[] => {
+    const ps = providerStatus;
+    const scan = lastScan;
+
+    let pace: EnvironmentalProviderUiState = ps?.paceConfigured ? 'preview' : 'not_configured';
+    let emit: EnvironmentalProviderUiState = ps?.emitConfigured ? 'preview' : 'not_configured';
+    let fallback: EnvironmentalProviderUiState = ps?.earthObservationLive ? 'available' : 'unavailable';
+
+    if (scan) {
+      pace = mapPlasticLane(scan.providers.pace.status);
+      emit = mapPlasticLane(scan.providers.emit.status);
+      fallback = mapPlasticLane(scan.providers.sentinelLandsatFallback.status);
+    }
+
+    const notesHint = ps?.notes?.length ? ps.notes.join(' · ').slice(0, 160) : undefined;
+
+    return [
+      {
+        id: 'gmaps',
+        label: 'Google Maps',
+        state: googleMapsFrontendConfigured ? 'configured' : 'not_configured',
+        hint: googleMapsFrontendConfigured
+          ? 'Browser map UI key present (value never shown)'
+          : 'Google Maps key not configured. Use coordinates or fallback map.',
+      },
+      { id: 'pace', label: 'PACE', state: pace, hint: scan?.providers.pace.message ?? notesHint },
+      { id: 'emit', label: 'EMIT', state: emit, hint: scan?.providers.emit.message ?? notesHint },
+      {
+        id: 'sentinel',
+        label: 'Sentinel / Landsat fallback',
+        state: fallback,
+        hint: scan?.providers.sentinelLandsatFallback.message ?? 'Broadband context only',
+      },
+      {
+        id: 'field',
+        label: 'Field validation',
+        state: 'partial',
+        hint: 'Manual sampling workflow — evidence-support only',
+      },
+      { id: 'drone', label: 'Drone validation', state: 'coming_soon', hint: 'Planned upload / flight plan hooks' },
+    ];
+  }, [googleMapsFrontendConfigured, lastScan, providerStatus]);
 
   const pushLog = useCallback((line: string) => {
     const ts = new Date().toISOString().slice(11, 19);
@@ -362,16 +488,11 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       patchStep('spectral', {
         status: 'complete',
         explanation: data.spectralSignals.notes.join(' ') || 'Spectral context summarized.',
-        detail: `signal=${data.spectralSignals.plasticRiskSignal}`,
-        at: new Date().toISOString(),
-      });
-
-      patchStep('bands', {
-        status: em.status === 'not_configured' || em.status === 'unavailable' ? 'warning' : 'complete',
-        explanation:
+        detail: `signal=${data.spectralSignals.plasticRiskSignal}${
           em.status === 'not_configured' || em.status === 'unavailable'
-            ? 'Plastic-specific SWIR band comparison requires EMIT (or equivalent) — lane not available.'
-            : 'Band comparison lane ready when EMIT returns granule statistics.',
+            ? ' · narrow-band confirmation requires EMIT/PACE when configured'
+            : ''
+        }`,
         at: new Date().toISOString(),
       });
 
@@ -399,6 +520,13 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         at: new Date().toISOString(),
       });
       pushLog('Evidence packet prepared (server-side hash).');
+
+      patchStep('mission', {
+        status: 'warning',
+        explanation: 'Field validation is operator-led; automated mission queue hooks are not enabled in this build.',
+        at: new Date().toISOString(),
+      });
+      pushLog('Field validation mission: draft locally or use DPAL Missions when your deployment links the queue.');
 
       patchStep('finalize', {
         status: 'complete',
@@ -476,21 +604,23 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
   const legendRows = useMemo(() => {
     const rows: { key: keyof PlasticMapLayers; label: string; color: string }[] = [
-      { key: 'aoiCircle', label: 'AOI', color: 'bg-indigo-500' },
+      { key: 'aoiCircle', label: 'AOI', color: 'bg-emerald-600' },
       { key: 'paceOceanColor', label: 'PACE (legend)', color: 'bg-sky-500' },
       { key: 'emitHyperspectral', label: 'EMIT (legend)', color: 'bg-violet-500' },
       { key: 'plasticRiskAnomaly', label: 'Plastic-risk anomaly', color: 'bg-fuchsia-500' },
       { key: 'turbiditySediment', label: 'Turbidity / sediment', color: 'bg-amber-600' },
       { key: 'chlorophyllAlgae', label: 'Chlorophyll / algae', color: 'bg-lime-600' },
       { key: 'floatingDebrisCandidate', label: 'Floating debris candidate', color: 'bg-orange-500' },
-      { key: 'fieldValidationPoints', label: 'Field validation points', color: 'bg-emerald-600' },
+      { key: 'fieldValidationPoints', label: 'Field validation points', color: 'bg-emerald-700' },
+      { key: 'cleanupMissionPins', label: 'Cleanup mission pins', color: 'bg-teal-600' },
+      { key: 'droneValidationPoints', label: 'Drone validation points', color: 'bg-slate-500' },
       { key: 'satellite', label: 'Satellite base', color: 'bg-slate-600' },
     ];
     return rows.filter((row) => (row.key === 'aoiCircle' ? layers.aoiCircle : layers[row.key]));
   }, [layers]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <EnvironmentalDashboardShell>
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -503,7 +633,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
               Back
             </button>
             <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-900 text-[10px] font-bold text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-800 text-[10px] font-bold text-white">
                 DP
               </div>
               <div className="min-w-0">
@@ -554,7 +684,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
               type="button"
               disabled={isRunning}
               onClick={() => void executeWatch()}
-              className="rounded-lg bg-indigo-900 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-indigo-950 disabled:opacity-50"
+              className="rounded-lg bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-900 disabled:opacity-50"
             >
               Watch DPAL Work
             </button>
@@ -562,10 +692,12 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         </div>
       </header>
 
+      <EnvironmentalProviderStatusStrip items={providerStripItems} />
+
       <div className="mx-auto flex w-full max-w-[1920px] flex-1 min-h-0 flex-col gap-3 px-4 py-4 lg:flex-row">
         <aside className="w-full shrink-0 space-y-3 lg:w-[320px] lg:max-w-[360px]">
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">Area of interest</h2>
+            <h2 className="text-sm font-semibold text-slate-900">Define Area of Interest</h2>
 
             <div className="mt-3">
               <label className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Search</label>
@@ -647,7 +779,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             </div>
 
             <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="text-[10px] font-medium text-slate-500">Draw AOI</span>
+              <span className="text-[10px] font-medium text-slate-500">or Draw AOI</span>
               <button
                 type="button"
                 disabled
@@ -697,7 +829,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                     onClick={() => applyPreset(id)}
                     className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border ${
                       activePreset === id
-                        ? 'border-indigo-900 bg-indigo-900 text-white'
+                        ? 'border-emerald-800 bg-emerald-800 text-white'
                         : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                     }`}
                   >
@@ -731,7 +863,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                 type="button"
                 disabled={isRunning}
                 onClick={() => void runManualScan()}
-                className="w-full rounded-lg bg-indigo-800 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-900 disabled:opacity-50"
+                className="w-full rounded-lg bg-emerald-800 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900 disabled:opacity-50"
               >
                 Run scan
               </button>
@@ -739,7 +871,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                 type="button"
                 disabled={isRunning}
                 onClick={() => void executeWatch()}
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 text-sm font-semibold text-indigo-900 hover:bg-slate-50 disabled:opacity-50"
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 text-sm font-semibold text-emerald-900 hover:bg-slate-50 disabled:opacity-50"
               >
                 Watch DPAL Work
               </button>
@@ -762,6 +894,11 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           ) : null}
           {cacheNotice ? (
             <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
+          ) : null}
+          {!googleMapsFrontendConfigured ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+              Google Maps key not configured. Use coordinates or fallback map tiles; API keys are never shown in the UI.
+            </div>
           ) : null}
 
           <div className="flex flex-col xl:flex-row gap-3 flex-1 min-h-0">
@@ -798,7 +935,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                       <Circle
                         center={[center.lat, center.lng]}
                         radius={radiusKm * 1000}
-                        pathOptions={{ color: '#312e81', weight: 2, fillOpacity: 0.06 }}
+                        pathOptions={{ color: '#047857', weight: 2, fillOpacity: 0.06 }}
                       />
                     ) : null}
                     <MapPicker onPick={handleMapPick} />
@@ -808,7 +945,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                 </div>
 
                 <div className="pointer-events-none absolute inset-0 z-[400] flex items-center justify-center">
-                  <Crosshair className="h-8 w-8 text-indigo-700/50 drop-shadow-sm" strokeWidth={2.5} />
+                  <Crosshair className="h-8 w-8 text-emerald-700/50 drop-shadow-sm" strokeWidth={2.5} />
                 </div>
 
                 <div className="pointer-events-auto absolute left-3 top-3 z-[450] flex flex-col gap-1">
@@ -880,8 +1017,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             </div>
 
             <aside className="w-full shrink-0 xl:w-[300px] xl:max-w-[320px] space-y-2">
-              <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-3 shadow-sm">
-                <p className="text-xs font-semibold text-indigo-950">Watch DPAL Work</p>
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 shadow-sm">
+                <p className="text-xs font-semibold text-emerald-950">Watch DPAL Work</p>
                 <p className="text-[10px] text-slate-600 mt-1 leading-snug">
                   Starts only when you press the button. Opens the step log panel while the workflow runs.
                 </p>
@@ -889,7 +1026,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                   type="button"
                   disabled={isRunning}
                   onClick={() => void executeWatch()}
-                  className="mt-2 w-full rounded-lg bg-indigo-900 py-2 text-[11px] font-semibold text-white hover:bg-indigo-950 disabled:opacity-50"
+                  className="mt-2 w-full rounded-lg bg-emerald-800 py-2 text-[11px] font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
                 >
                   Start Watch workflow
                 </button>
@@ -917,13 +1054,11 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         </main>
       </div>
 
-      <footer className="mt-auto shrink-0 border-t border-amber-200/80 bg-amber-50/90 px-4 py-2.5">
-        <p className="mx-auto max-w-[1920px] text-center text-[11px] leading-snug text-amber-950/90">
-          DPAL Hyperspectral Plastic Watch provides evidence-support signals only. Satellite spectral anomalies are not final
-          proof of plastic pollution and must be reviewed with field sampling, drone imagery, water-quality context, and
-          independent validation.
-        </p>
-      </footer>
+      <EnvironmentalDisclaimerBar tone="amber">
+        DPAL Hyperspectral Plastic Watch provides evidence-support signals only. Satellite spectral anomalies are not final
+        proof of plastic pollution and must be reviewed with field sampling, drone imagery, water-quality context, and
+        independent validation.
+      </EnvironmentalDisclaimerBar>
 
       <PlasticWatchAutomationPanel
         open={watchOpen}
@@ -937,7 +1072,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         onStop={stopWatch}
         onRestart={restartWatch}
       />
-    </div>
+    </EnvironmentalDashboardShell>
   );
 };
 

@@ -15,6 +15,11 @@ import ForestEvidencePacketPanel from './components/ForestEvidencePacketPanel';
 import ForestLayerControl, { type ForestMapLayers } from './components/ForestLayerControl';
 import ForestRiskSummaryCards from './components/ForestRiskSummaryCards';
 import ForestWatchAutomationPanel from './components/ForestWatchAutomationPanel';
+import EnvironmentalDashboardShell from '../environmentalIntelligence/shared/EnvironmentalDashboardShell';
+import EnvironmentalDisclaimerBar from '../environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
+import EnvironmentalProviderStatusStrip from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import type { EnvironmentalProviderStripItem } from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import type { EnvironmentalProviderUiState } from '../environmentalIntelligence/shared/environmentalServiceStatus';
 import {
   clearForestIntegrityScanCache,
   getForestIntegrityProviderStatus,
@@ -73,35 +78,35 @@ function initialSteps(): ForestWatchStep[] {
     },
     {
       id: 'gfw_disturbance',
-      title: 'Checking Disturbance Alerts (GFW)',
+      title: 'Checking RADD Disturbance Alerts',
       status: 'pending',
       provider: 'Global Forest Watch',
       explanation: 'Awaiting scan response for disturbance / RADD-style lanes when returned.',
     },
     {
       id: 'firms',
-      title: 'Checking Active Fires (FIRMS)',
+      title: 'Checking Active Fires',
       status: 'pending',
       provider: 'NASA FIRMS VIIRS SNPP NRT',
       explanation: 'Awaiting hotspot CSV row counts for the AOI window.',
     },
     {
       id: 'landsat',
-      title: 'Analyzing Satellite Imagery (Landsat)',
+      title: 'Analyzing Satellite Imagery',
       status: 'pending',
       provider: 'Microsoft Planetary Computer / Landsat C2 L2',
       explanation: 'Scene statistics for NDVI / NDMI / NBR when Earth Observation is live.',
     },
     {
       id: 'gedi',
-      title: 'Checking Canopy Height (GEDI)',
+      title: 'Checking GEDI Biomass / Canopy Status',
       status: 'pending',
       provider: 'NASA GEDI',
-      explanation: 'Canopy / biomass lane status from the API host.',
+      explanation: 'Biomass / canopy lane status from the API host (not implemented until adapter is live).',
     },
     {
       id: 'score',
-      title: 'Calculating Risk Scores',
+      title: 'Calculating Forest Integrity Score',
       status: 'pending',
       provider: 'DPAL Forest Integrity model',
       explanation: 'Transparent weighted score when configured lanes return usable evidence.',
@@ -115,7 +120,7 @@ function initialSteps(): ForestWatchStep[] {
     },
     {
       id: 'finalize',
-      title: 'Finalizing Scan Results',
+      title: 'Finalizing QR / Hash-ready Record',
       status: 'pending',
       provider: 'SHA-256 integrity hash',
       explanation: 'Anchoring the evidence packet for audit workflows.',
@@ -361,6 +366,12 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
       pushLog('Forest integrity scan response received from API.');
 
       const gfw = data.providers.gfw;
+      const gfwMeta: string[] = [];
+      if (Array.isArray(gfw.datasetVersionsUsed) && gfw.datasetVersionsUsed.length) {
+        gfwMeta.push(`datasets: ${gfw.datasetVersionsUsed.join('; ')}`);
+      }
+      if (gfw.queriedAt) gfwMeta.push(`queriedAt: ${gfw.queriedAt}`);
+      const gfwMetaLine = gfwMeta.length ? gfwMeta.join(' · ') : undefined;
       const intMsg =
         typeof gfw.integratedAlerts === 'number'
           ? `GFW integrated alerts returned ${gfw.integratedAlerts} alert(s).`
@@ -391,8 +402,8 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         explanation: gfw.message,
         detail:
           typeof gfw.integratedAlerts === 'number'
-            ? `integrated=${gfw.integratedAlerts}`
-            : `status=${gfw.status}`,
+            ? `integrated=${gfw.integratedAlerts}${gfwMetaLine ? ` · ${gfwMetaLine}` : ''}`
+            : `status=${gfw.status}${gfwMetaLine ? ` · ${gfwMetaLine}` : ''}`,
         at: new Date().toISOString(),
       });
 
@@ -407,8 +418,8 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         explanation: gfw.message,
         detail:
           typeof gfw.disturbanceAlerts === 'number'
-            ? `disturbance=${gfw.disturbanceAlerts}`
-            : undefined,
+            ? `disturbance=${gfw.disturbanceAlerts}${gfwMetaLine ? ` · ${gfwMetaLine}` : ''}`
+            : gfwMetaLine,
         at: new Date().toISOString(),
       });
 
@@ -433,17 +444,25 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
 
       const gedi = data.providers.gedi;
       patchStep('gedi', {
-        status: 'warning',
+        status: providerStatus?.gediImplemented ? 'warning' : 'skipped',
         explanation: gedi.message,
+        detail: providerStatus?.gediImplemented
+          ? 'GEDI lane present — biomass products may still be unavailable for this AOI.'
+          : 'GEDI biomass / canopy adapter not implemented on this API host.',
         at: new Date().toISOString(),
       });
 
+      const limShort =
+        Array.isArray(data.limitations) && data.limitations.length
+          ? data.limitations.join(' | ').slice(0, 360)
+          : undefined;
       patchStep('score', {
         status: data.forestIntegrityScore != null ? 'complete' : 'warning',
         explanation:
           data.forestIntegrityScore != null
             ? `Score ${data.forestIntegrityScore} — ${data.riskLevel.replace(/_/g, ' ')}`
             : 'Score withheld when configured lanes do not return enough usable evidence.',
+        detail: limShort,
         at: new Date().toISOString(),
       });
 
@@ -490,7 +509,7 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         abortRef.current = null;
       }
     }
-  }, [baselineIso, center.lat, center.lng, currentIso, label, patchStep, pushLog, radiusKm, resetSteps]);
+  }, [baselineIso, center.lat, center.lng, currentIso, label, patchStep, providerStatus, pushLog, radiusKm, resetSteps]);
 
   const restartWatch = useCallback(() => {
     if (isRunning) return;
@@ -548,8 +567,78 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
     [layers],
   );
 
+  const providerStripItems = useMemo((): EnvironmentalProviderStripItem[] => {
+    const ps = providerStatus;
+    const scan = lastScan;
+    const gfw = scan?.providers.gfw;
+    const firms = scan?.providers.firms;
+
+    let earthObs: EnvironmentalProviderUiState = ps?.earthObservationLive ? 'live' : 'unavailable';
+
+    let gfwState: EnvironmentalProviderUiState = 'not_configured';
+    if (gfw?.status === 'available') gfwState = 'available';
+    else if (gfw?.status === 'auth_error') gfwState = 'auth_error';
+    else if (gfw?.status === 'rate_limited') gfwState = 'rate_limited';
+    else if (gfw?.status === 'failed') gfwState = 'failed';
+    else if (gfw?.status === 'unavailable') gfwState = 'unavailable';
+    else if (ps?.gfwConfigured) gfwState = 'configured';
+
+    let firmsState: EnvironmentalProviderUiState = ps?.nasaFirmsConfigured ? 'configured' : 'not_configured';
+    if (firms?.status === 'failed') firmsState = 'failed';
+    if (firms?.status === 'available' && typeof firms.activeFires === 'number') firmsState = 'available';
+
+    const cop: EnvironmentalProviderUiState = ps?.copernicusConfigured ? 'configured' : 'not_configured';
+
+    const gediState: EnvironmentalProviderUiState = ps?.gediImplemented ? 'partial' : 'coming_soon';
+
+    if (!ps && !scan) {
+      return [
+        { id: 'eo', label: 'Earth Observation', state: 'unavailable', hint: 'Loading host status…' },
+        { id: 'gfw', label: 'Global Forest Watch', state: 'not_configured', hint: 'Awaiting status' },
+        { id: 'firms', label: 'NASA FIRMS', state: 'not_configured', hint: 'Awaiting status' },
+        { id: 'cop', label: 'Copernicus', state: 'not_configured', hint: 'Awaiting status' },
+        { id: 'gedi', label: 'GEDI', state: 'coming_soon', hint: 'Canopy / biomass lane' },
+      ];
+    }
+
+    if (ps?.earthObservationLive === false) earthObs = 'unavailable';
+
+    return [
+      {
+        id: 'eo',
+        label: 'Earth Observation',
+        state: earthObs,
+        hint: ps?.earthObservationLive ? 'Landsat / index lane when scenes resolve' : 'Disabled or unavailable on API host',
+      },
+      {
+        id: 'gfw',
+        label: 'Global Forest Watch',
+        state: gfwState,
+        hint: gfw?.message ?? (ps?.gfwConfigured ? 'Credentials configured — run a scan for live counts' : 'Not configured'),
+      },
+      {
+        id: 'firms',
+        label: 'NASA FIRMS',
+        state: firmsState,
+        hint: firms?.message ?? (ps?.nasaFirmsConfigured ? 'Key configured — run a scan for fire rows' : 'Not configured'),
+      },
+      {
+        id: 'cop',
+        label: 'Copernicus',
+        state: cop,
+        hint: ps?.copernicusConfigured ? 'Adapter configured on API host' : 'Not configured',
+      },
+      {
+        id: 'gedi',
+        label: 'GEDI',
+        state: gediState,
+        hint: ps?.gediImplemented ? 'Lane present — may return partial context' : 'Not implemented',
+      },
+    ];
+  }, [providerStatus, lastScan]);
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <EnvironmentalDashboardShell>
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -621,6 +710,8 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
           </div>
         </div>
       </header>
+
+      <EnvironmentalProviderStatusStrip items={providerStripItems} />
 
       <div className="mx-auto flex w-full max-w-[1920px] flex-1 min-h-0 flex-col gap-3 px-4 py-4 lg:flex-row">
         <aside className="w-full shrink-0 space-y-3 lg:w-[320px] lg:max-w-[360px]">
@@ -929,12 +1020,10 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         </main>
       </div>
 
-      <footer className="mt-auto shrink-0 border-t border-amber-200/80 bg-amber-50/90 px-4 py-2.5">
-        <p className="mx-auto max-w-[1920px] text-center text-[11px] leading-snug text-amber-950/90">
-          Disclaimer: Data is provided by third-party sources. DPAL does not treat this information alone as a final legal
-          finding or certified carbon-credit determination. Always conduct on-ground verification and independent review.
-        </p>
-      </footer>
+      <EnvironmentalDisclaimerBar tone="amber">
+        Disclaimer: Data is provided by third-party sources. DPAL does not treat this information alone as a final legal
+        finding or certified carbon-credit determination. Always conduct on-ground verification and independent review.
+      </EnvironmentalDisclaimerBar>
 
       <ForestWatchAutomationPanel
         open={watchOpen}
@@ -948,7 +1037,7 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         onStop={stopWatch}
         onRestart={restartWatch}
       />
-    </div>
+    </EnvironmentalDashboardShell>
   );
 };
 

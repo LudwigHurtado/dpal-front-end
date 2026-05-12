@@ -2786,6 +2786,7 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+            onOpenPlasticWatch={() => setCurrentView('hyperspectralPlasticWatch')}
           />
         )}
 
@@ -2794,6 +2795,7 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+            onOpenPlasticWatch={() => setCurrentView('hyperspectralPlasticWatch')}
           />
         )}
 
@@ -2802,6 +2804,7 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             hero={hero}
             onOpenWaterOperations={() => setCurrentView('waterOperationsEngine')}
+            onOpenPlasticWatch={() => setCurrentView('hyperspectralPlasticWatch')}
           />
         )}
 

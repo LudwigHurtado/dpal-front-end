@@ -33,14 +33,14 @@ function StepIcon({ status }: { status: PlasticWatchStep['status'] }) {
   const wrap = 'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-slate-600';
   if (status === 'complete') {
     return (
-      <div className={`${wrap} border-indigo-200 bg-indigo-50 text-indigo-800`}>
+      <div className={`${wrap} border-emerald-200 bg-emerald-50 text-emerald-800`}>
         <Check className="h-4 w-4" />
       </div>
     );
   }
   if (status === 'running') {
     return (
-      <div className={`${wrap} border-violet-200 bg-violet-50 text-violet-800`}>
+      <div className={`${wrap} border-cyan-200 bg-cyan-50 text-cyan-800`}>
         <Loader className="h-4 w-4 animate-spin" />
       </div>
     );

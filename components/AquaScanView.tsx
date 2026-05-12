@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, GeoJSON, MapContainer, Polygon, Polyline, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, CheckCircle, Plus, Waves } from './icons';
+import { ArrowLeft, CheckCircle, ChevronRight, Plus, Waves } from './icons';
 import type { Hero } from '../types';
 import { GIBS_LAYERS, gibsDefaultDate, gibsTileUrl } from '../services/gibsService';
 import {
@@ -57,10 +57,15 @@ import {
   NavigatorHelperCard,
   useNavigatorOutcomeTracking,
 } from '../src/features/dpalNavigator';
+import EnvironmentalProviderStatusStrip from '../src/features/environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import type { EnvironmentalProviderStripItem } from '../src/features/environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
+import type { EnvironmentalProviderUiState } from '../src/features/environmentalIntelligence/shared/environmentalServiceStatus';
+import EnvironmentalDisclaimerBar from '../src/features/environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
   onOpenWaterOperations?: () => void;
+  onOpenPlasticWatch?: () => void;
 }
 
 interface FocusLocation {
@@ -646,6 +651,7 @@ export default function AquaScanView({
   onReturn,
   hero,
   onOpenWaterOperations,
+  onOpenPlasticWatch,
 }: AquaScanViewProps) {
   const navOutcome = useNavigatorOutcomeTracking('water_flood');
   const [projects, setProjects] = useState<AquaScanProject[]>([]);
@@ -1458,6 +1464,47 @@ export default function AquaScanView({
         : waterApiLoading
           ? 'Running satellite analysis...'
           : null;
+
+  const aquascanProviderStrip = useMemo((): EnvironmentalProviderStripItem[] => {
+    const cop: EnvironmentalProviderUiState = copernicusSetup.configured ? 'configured' : 'not_configured';
+    let water: EnvironmentalProviderUiState = 'partial';
+    if (waterApiLoading) water = 'partial';
+    else if (waterData) water = 'live';
+    else if (waterApiError || liveDataRequired) water = 'unavailable';
+    return [
+      {
+        id: 'cop',
+        label: 'Copernicus MRV',
+        state: cop,
+        hint: copernicusSetup.configured ? 'AOI statistics adapter reachable' : 'Configure Copernicus proxy on API host',
+      },
+      {
+        id: 'water',
+        label: 'Water intelligence API',
+        state: water,
+        hint: waterApiError ?? liveDataReason ?? '/api/water snapshot and history',
+      },
+      {
+        id: 'ndwi',
+        label: 'NDWI / extent overlays',
+        state: 'available',
+        hint: 'Layer-driven screening — not lab proof',
+      },
+      {
+        id: 'flood',
+        label: 'Flood / hazard overlays',
+        state: 'partial',
+        hint: 'USGS / NWS / DPAL FloodGuard overlays when enabled in workflow',
+      },
+    ];
+  }, [
+    copernicusSetup.configured,
+    liveDataReason,
+    liveDataRequired,
+    waterApiError,
+    waterApiLoading,
+    waterData,
+  ]);
 
   const focusAoiStatus = drawingAoi
     ? `Drawing (${aoiPoints.length} pts)`
@@ -2600,7 +2647,7 @@ export default function AquaScanView({
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       {/* -- 1. Premium Header -- */}
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
-        <div className="mx-auto flex h-12 max-w-[1400px] items-center gap-3 px-4 sm:px-6">
+        <div className="mx-auto flex min-h-12 max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 sm:px-6">
           <button
             onClick={onReturn}
             className="rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-800 hover:text-slate-200"
@@ -2608,11 +2655,20 @@ export default function AquaScanView({
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Waves className="h-4 w-4 shrink-0 text-cyan-300" />
-            <span className="text-sm font-bold">DPAL AquaScan MRV</span>
-            <span className="hidden text-[10px] text-slate-500 lg:block">
-              Environmental Intelligence / DPAL Water Command Center / AquaScan MRV
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <Waves className="h-4 w-4 shrink-0 text-cyan-300" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-500 flex flex-wrap items-center gap-1">
+                  <span>Monitoring &amp; Remote Sensing</span>
+                  <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />
+                  <span className="font-semibold text-slate-200">AquaScan Water Intelligence</span>
+                </p>
+                <p className="text-sm font-bold text-slate-100">DPAL AquaScan MRV</p>
+              </div>
+            </div>
+            <span className="hidden text-[10px] text-slate-500 lg:inline">
+              Environmental Intelligence · Water Command Center
             </span>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-1.5">
@@ -2646,9 +2702,20 @@ export default function AquaScanView({
                 Open Water Operations Engine
               </button>
             ) : null}
+            {onOpenPlasticWatch ? (
+              <button
+                type="button"
+                onClick={onOpenPlasticWatch}
+                className="rounded-lg border border-emerald-500/50 bg-emerald-900/25 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100 hover:bg-emerald-900/45"
+              >
+                Open Plastic Watch
+              </button>
+            ) : null}
           </div>
         </div>
       </header>
+
+      <EnvironmentalProviderStatusStrip items={aquascanProviderStrip} variant="dark" />
 
       {/* -- DPAL Navigator helper card (only renders when arriving from the Navigator) -- */}
       <div className="px-4 pt-3 sm:px-6">
@@ -4408,6 +4475,11 @@ export default function AquaScanView({
           </div>
         </div>
       </div>
+
+      <EnvironmentalDisclaimerBar tone="deep">
+        DPAL AquaScan provides screening indicators from satellite and workflow evidence. It does not replace laboratory
+        testing, regulatory determinations, or field validation. Indicative MRV estimates are not certified carbon credits.
+      </EnvironmentalDisclaimerBar>
     </div>
   );
 }

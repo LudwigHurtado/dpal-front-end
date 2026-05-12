@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Activity, Globe, ShieldCheck, Waves, Database, Layout, Sparkles, Monitor } from './icons';
+import { ArrowRight, Activity, Globe, ShieldCheck, Database, Layout, Sparkles } from './icons';
 import type { View } from '../App';
 import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
@@ -10,6 +10,8 @@ import {
   HUB_AUTO_REFRESH_MS,
   type HubConnectivityRow,
 } from '../src/services/environmentalHubConnectivity';
+import EnvironmentalServiceCard from '../src/features/environmentalIntelligence/shared/EnvironmentalServiceCard';
+import type { HubServiceBadge } from '../src/features/environmentalIntelligence/shared/environmentalServiceStatus';
 
 type ProbeToneLevel = HubConnectivityRow['status'];
 
@@ -162,8 +164,19 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
   const offlineCount = connectivity.filter((c) => c.status === 'offline').length;
   const rateLimitedCount = connectivity.filter((c) => c.status === 'rate_limited').length;
 
+  const hubCop = connectivity.find((c) => c.id === 'copernicus');
+  const hubCarb = connectivity.find((c) => c.id === 'carb');
+  const hubHealth = connectivity.find((c) => c.id === 'health');
+  const lineOk = (row: HubConnectivityRow | undefined) => row?.status === 'ok';
+  const lineLabel = (row: HubConnectivityRow | undefined) =>
+    !row ? 'Probe pending' : row.status === 'ok' ? 'API path responding' : row.detail;
+
+  const earthObsBadge: HubServiceBadge = lineOk(hubHealth) ? 'Live' : 'Partial';
+  const aquaScanBadge: HubServiceBadge = lineOk(hubCop) ? 'Live' : 'Partial';
+  const carbAuditBadge: HubServiceBadge = lineOk(hubCarb) ? 'Live' : 'Partial';
+
   return (
-    <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-mono">
+    <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-sans text-slate-900">
       {showEntryModal ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 p-4">
           <div className="w-full max-w-5xl rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-3 md:p-4">
@@ -202,14 +215,14 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         <button
           type="button"
           onClick={onReturn}
-          className="mb-4 rounded-lg border dpal-border-subtle bg-black/20 px-3 py-1.5 text-xs text-slate-200 hover:bg-black/35"
+          className="mb-4 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50"
         >
           Back to Home
         </button>
       </div>
 
       <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-cyan-200">{DPAL_INFOGRAPHIC_CATEGORY}</h2>
+        <h2 className="text-base md:text-lg font-bold text-slate-800">{DPAL_INFOGRAPHIC_CATEGORY}</h2>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <HubCard
             icon={<Layout className="w-8 h-8" />}
@@ -223,13 +236,12 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </div>
       </section>
 
-      <section className="mb-8 rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-5 md:p-6">
+      <section className="mb-8 rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base md:text-lg font-bold text-cyan-200">API connectivity</h2>
-            <p className="text-[11px] text-slate-400 mt-1">
-              Uses your configured API base (<span className="text-slate-300">VITE_DPAL_API_BASE_URL</span> /{' '}
-              <span className="text-slate-300">VITE_API_BASE</span>). Staggered probes; cache TTL (host 2m, adapters 10m).
+            <h2 className="text-base md:text-lg font-bold text-slate-800">API connectivity</h2>
+            <p className="text-[11px] text-slate-600 mt-1">
+              Uses your configured API base (VITE_DPAL_API_BASE_URL / VITE_API_BASE). Staggered probes; cache TTL (host 2m, adapters 10m).
               Auto-refresh every 5 minutes — skips adapters in cooldown.
             </p>
           </div>
@@ -240,7 +252,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
                 setRefreshNotice(null);
                 void runConnectivityProbes({ bypassCache: true });
               }}
-              className="rounded-lg border border-slate-500/60 bg-black/30 px-3 py-1.5 text-xs font-semibold text-slate-100 hover:bg-black/50"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-100"
             >
               Refresh now
             </button>
@@ -279,25 +291,25 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             );
           })}
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-400 border-t dpal-border-subtle pt-3">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 border-t border-slate-200 pt-3">
           <span>
-            Summary: <span className="text-emerald-300">{okCount} OK</span>
+            Summary: <span className="text-emerald-700 font-semibold">{okCount} OK</span>
             {degradedCount ? (
               <>
                 {' · '}
-                <span className="text-amber-300">{degradedCount} degraded</span>
+                <span className="text-amber-700 font-semibold">{degradedCount} degraded</span>
               </>
             ) : null}
             {rateLimitedCount ? (
               <>
                 {' · '}
-                <span className="text-violet-300">{rateLimitedCount} rate limited</span>
+                <span className="text-violet-700 font-semibold">{rateLimitedCount} rate limited</span>
               </>
             ) : null}
             {offlineCount ? (
               <>
                 {' · '}
-                <span className="text-rose-300">{offlineCount} offline</span>
+                <span className="text-rose-700 font-semibold">{offlineCount} offline</span>
               </>
             ) : null}
           </span>
@@ -305,10 +317,10 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </div>
       </section>
 
-      <section className="mb-10 rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-5 md:p-6">
+      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
         <div className="mb-4">
-          <h2 className="text-base md:text-lg font-bold text-cyan-200">Public API Intelligence Layer</h2>
-          <p className="mt-1 text-[11px] text-slate-400 max-w-5xl">
+          <h2 className="text-base md:text-lg font-bold text-slate-800">Public API Intelligence Layer</h2>
+          <p className="mt-1 text-[11px] text-slate-600 max-w-5xl">
             Connect weather, radar, air quality, geocoding, carbon estimates, blockchain verification, and evidence packet previews into DPAL&apos;s live accountability system.
           </p>
         </div>
@@ -316,8 +328,8 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
       </section>
 
       <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-cyan-200">Agentic investigations</h2>
-        <p className="mt-1 max-w-3xl text-[11px] text-slate-400">
+        <h2 className="text-base md:text-lg font-bold text-slate-800">Agentic investigations</h2>
+        <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
           One place to describe an environmental accountability goal, get a multi-tool plan (water, Earth Observation,
           CARB, evidence), run previews, and queue review — without hunting through the workflow list first.
         </p>
@@ -341,156 +353,249 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-cyan-200">Monitoring &amp; Remote Sensing</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-3">
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Earth Observation" subLabel="LEO satellite analysis for environment and civic signals." status="Workspace" colorClass="sky" bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png" onClick={() => onNavigate('earthObservation')} />
-          <HubCard
-            icon={<Waves className="w-8 h-8" />}
-            label="DPAL Water Command Center"
-            subLabel="Satellite MRV, water evidence packets, validator review, and operations dashboard."
-            status="Workspace"
-            colorClass="sky"
-            bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png"
-            onClick={() => onNavigate('waterMonitor')}
-          >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate('aquaScanWater');
-              }}
-              className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100"
-            >
-              Open AquaScan MRV
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate('waterOperationsEngine');
-              }}
-              className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100"
-            >
-              Open Water Operations Engine
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate('aqualandWell');
-              }}
-              className="rounded-md border border-cyan-400/60 bg-cyan-950/35 px-2.5 py-1 text-[10px] font-semibold text-cyan-100"
-            >
-              Open Aqualand Well
-            </button>
-          </HubCard>
-          <HubCard icon={<Activity className="w-8 h-8" />} label="Air Quality Control" subLabel="OpenAQ-based CO2, CH4, NO2, and AQI live readings." status="Workspace" colorClass="sky" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('airQualityMonitor')} />
-          <HubCard
-            icon={<ShieldCheck className="w-8 h-8" />}
-            label="Forest Integrity"
-            subLabel="Forestry Protection + satellite monitoring — visible Watch DPAL Work automation and honest provider status."
-            status="Workspace"
-            colorClass="emerald"
-            bgImageUrl="/environmental-intelligence/forest-integrity-main.png"
-            onClick={() => onNavigate('forestIntegrity')}
-            ctaLabel="Open Forest Integrity"
-          >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate('afoluEngine');
-              }}
-              className="rounded-md border border-emerald-500/50 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-100"
-            >
-              AFOLU command center
-            </button>
-          </HubCard>
-          <HubCard
-            icon={<Monitor className="w-8 h-8" />}
-            label="Hyperspectral Plastic Watch"
-            subLabel="EMIT + PACE spectral intelligence for possible plastic-risk anomalies."
-            status="Workspace"
-            colorClass="sky"
-            bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png"
-            onClick={() => onNavigate('hyperspectralPlasticWatch')}
-            ctaLabel="Open Plastic Watch"
-          >
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNavigate('aquaScanWater');
-              }}
-              className="rounded-md border border-cyan-400/60 bg-cyan-950/35 px-2.5 py-1 text-[10px] font-semibold text-cyan-100"
-            >
-              Open from Water Intelligence
-            </button>
-          </HubCard>
-        </div>
-      </section>
-
-      <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-emerald-200">Carbon &amp; MRV</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Carbon Intelligence & MRV" subLabel="Includes Carbon Overview, MRV Calculations, Verification, and VIU / Impact Units." status="MRV" colorClass="teal" bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png" onClick={() => onNavigate('dpalCarbon')} />
-        </div>
-      </section>
-
-      <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-emerald-200">Compliance &amp; Audits</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard
-            icon={<Database className="w-8 h-8" />}
-            label="EPA Live GHG Intelligence"
-            subLabel="Official U.S. EPA Envirofacts / GHGRP reported facility data baseline for DPAL investigations."
-            status="Official Data"
-            colorClass="sky"
-            bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png"
-            onClick={() => onNavigate('epaGhgLive')}
+      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">A · Monitoring &amp; Remote Sensing</h2>
+        <p className="mt-1 text-xs text-slate-600 max-w-4xl">
+          Satellite lanes, water intelligence, forest-risk evidence, and spectral screening — provider summaries reflect hub probes and configured routes (never fabricated counts).
+        </p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <EnvironmentalServiceCard
+            title="Earth Observation"
+            subtitle="LEO screening workspace for AOI metrics, comparison basis, limitations, and situation-room handoff."
+            badge={earthObsBadge}
+            providerSummary={lineLabel(hubHealth)}
+            accent="sky"
+            watchHint="Watch-style automation runs only after you open the workspace and start a flow."
+            onOpenWorkspace={() => onNavigate('earthObservation')}
           />
-          <HubCard
-            icon={<Database className="w-8 h-8" />}
-            label="Envirofacts Geo Intelligence"
-            subLabel="Live EPA Envirofacts geographic search and map dashboard for public-data baseline investigations."
-            status="Official Data"
-            colorClass="sky"
-            bgImageUrl="/environmental-intelligence/air-quality-control-main.png"
-            onClick={() => onNavigate('envirofactsGeoIntelligence')}
-          />
-          <HubCard
-            icon={<ShieldCheck className="w-8 h-8" />}
-            label="Emissions Audit"
-            subLabel="General emissions integrity checks with CARB California deep-link mode."
-            status="Audit"
-            colorClass="emerald"
-            bgImageUrl="/environmental-intelligence/emissions-audit-main.png"
-            onClick={() => onNavigate('emissionsIntegrityAudit')}
+          <EnvironmentalServiceCard
+            title="AquaScan Water Intelligence"
+            subtitle="Water extent, flood-risk context, Copernicus MRV compare, and evidence-packet monitoring."
+            badge={aquaScanBadge}
+            providerSummary={lineLabel(hubCop)}
+            accent="sky"
+            onOpenWorkspace={() => onNavigate('aquaScanWater')}
           >
-            <button type="button" onClick={(e) => { e.stopPropagation(); onNavigate('emissionsIntegrityAudit'); }} className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100">General</button>
-            <button type="button" onClick={(e) => { e.stopPropagation(); onNavigate('carbEmissionsAudit'); }} className="rounded-md border border-slate-500/60 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-slate-100">CARB California</button>
-          </HubCard>
-          <HubCard icon={<ShieldCheck className="w-8 h-8" />} label="Hazardous Waste Integrity Audit" subLabel="RCRA facility reporting, permit, compliance, and waste activity review." status="Audit" colorClass="emerald" bgImageUrl="/environmental-intelligence/emissions-audit-carb-main.png" onClick={() => onNavigate('hazardousWasteAudit')} />
-          <HubCard icon={<Database className="w-8 h-8" />} label="Fuel Storage Integrity Audit" subLabel="Preview workspace for storage-throughput reconciliation and leak risk signals." status="Preview" colorClass="amber" bgImageUrl="/environmental-intelligence/emissions-audit-carb-main.png" onClick={() => onNavigate('previewFuelStorageAudit')} />
+            <button
+              type="button"
+              onClick={() => onNavigate('waterMonitor')}
+              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+            >
+              Water Command Center
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('waterOperationsEngine')}
+              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+            >
+              Water Operations Engine
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('aqualandWell')}
+              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+            >
+              Aqualand Well
+            </button>
+          </EnvironmentalServiceCard>
+          <EnvironmentalServiceCard
+            title="Forest Integrity"
+            subtitle="Live GFW + FIRMS + satellite monitoring for forest-risk evidence packets."
+            badge="Live"
+            providerSummary="Watch DPAL Work available inside — honest GFW / FIRMS / Landsat / GEDI lane states."
+            accent="emerald"
+            watchHint="Watch DPAL Work runs only on click inside the workspace."
+            onOpenWorkspace={() => onNavigate('forestIntegrity')}
+            openWorkspaceLabel="Open Forest Integrity"
+          >
+            <button
+              type="button"
+              onClick={() => onNavigate('afoluEngine')}
+              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+            >
+              AFOLU / Forest Carbon
+            </button>
+          </EnvironmentalServiceCard>
+          <EnvironmentalServiceCard
+            title="Hyperspectral Plastic Watch"
+            subtitle="EMIT + PACE-ready workflow for possible plastic-risk anomaly review."
+            badge="Preview"
+            providerSummary="PACE/EMIT lanes remain preview until narrow-band products are wired; no plastic detection claims."
+            accent="sky"
+            watchHint="Evidence-support only — field validation required."
+            onOpenWorkspace={() => onNavigate('hyperspectralPlasticWatch')}
+            openWorkspaceLabel="Open Plastic Watch"
+          />
+          <EnvironmentalServiceCard
+            title="Air Quality Control"
+            subtitle="OpenAQ-based CO₂, CH₄, NO₂, and AQI readings for regional context."
+            badge="Partial"
+            providerSummary="OpenAQ availability varies by region and upstream health."
+            accent="sky"
+            onOpenWorkspace={() => onNavigate('airQualityMonitor')}
+          />
+          <EnvironmentalServiceCard
+            title="Ecological Conservation"
+            subtitle="Landsat 9 OLI-2 foliage and habitat monitoring with explicit demo/live labeling."
+            badge="Partial"
+            providerSummary="Uses /api/ecology when available on your configured API host."
+            accent="emerald"
+            onOpenWorkspace={() => onNavigate('ecologicalConservation')}
+          />
+          <EnvironmentalServiceCard
+            title="Global Environmental Signals"
+            subtitle="USGS, NASA EONET, OpenAQ, hazard feeds, and mission conversion entry points."
+            badge="Partial"
+            providerSummary={lineLabel(connectivity.find((c) => c.id === 'signals'))}
+            accent="amber"
+            onOpenWorkspace={() => onNavigate('globalSignals')}
+          />
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-emerald-200">Ecosystem &amp; Impact</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Ecological Conservation" subLabel="Landsat 9 OLI-2 foliage and habitat monitoring." status="Impact" colorClass="emerald" bgImageUrl="/environmental-intelligence/forest-integrity-main.png" onClick={() => onNavigate('ecologicalConservation')} />
-          <HubCard icon={<Globe className="w-8 h-8" />} label="Impact Dashboard" subLabel="Climate projects and outcomes you can follow with confidence." status="Impact" colorClass="emerald" bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png" onClick={() => onNavigate('offsetMarketplace')} />
+      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">B · Carbon &amp; MRV</h2>
+        <p className="mt-1 text-xs text-slate-600 max-w-4xl">Carbon intelligence, AFOLU workflows, impact units, and AOI tools — each module keeps its own validator gates.</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <EnvironmentalServiceCard
+            title="Carbon Intelligence &amp; MRV"
+            subtitle="Carbon overview, satellite reads, validator queue, and marketplace handoff when live."
+            badge="Partial"
+            providerSummary="Requires live /api/carbon routes on your configured API host for full depth."
+            accent="teal"
+            onOpenWorkspace={() => onNavigate('dpalCarbon')}
+          />
+          <EnvironmentalServiceCard
+            title="AFOLU / Forest Carbon"
+            subtitle="Investor-facing forest carbon command center and mission launch flows (local-first drafts)."
+            badge="Partial"
+            providerSummary="Project records may be browser-local until synced to a configured backend."
+            accent="emerald"
+            onOpenWorkspace={() => onNavigate('afoluEngine')}
+          />
+          <EnvironmentalServiceCard
+            title="Verified Impact Units · VIU readiness"
+            subtitle="Offsets, retirement flows, and buyer education — demo-safe when APIs are cold."
+            badge="Partial"
+            providerSummary="Portfolio views may combine API + local demo purchases per module rules."
+            accent="teal"
+            onOpenWorkspace={() => onNavigate('offsetMarketplace')}
+          />
+          <EnvironmentalServiceCard
+            title="Project boundary / baseline tools"
+            subtitle="Earth Observation AOI presets, date windows, and scan status for boundary context."
+            badge={earthObsBadge}
+            providerSummary="Use the Earth Observation workspace for geospatial baseline framing."
+            accent="sky"
+            onOpenWorkspace={() => onNavigate('earthObservation')}
+            openWorkspaceLabel="Open Earth Observation"
+          />
         </div>
       </section>
 
-      <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-amber-200">Signals &amp; Intelligence</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
-          <HubCard icon={<Activity className="w-8 h-8" />} label="Global Environmental Signals" subLabel="USGS, NASA EONET, OpenAQ, live hazard feeds, and mission conversion." status="Signals" colorClass="amber" bgImageUrl="/environmental-intelligence/air-quality-control-main.png" onClick={() => onNavigate('globalSignals')} />
+      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">C · Compliance &amp; Audits</h2>
+        <p className="mt-1 text-xs text-slate-600 max-w-4xl">Regulatory-grade audit workspaces — always disclose dataset mode (live vs imported vs preview).</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <EnvironmentalServiceCard
+            title="CARB Emissions Audit"
+            subtitle="Facility emissions comparison, pollutant reconciliation, and audit packet drafting."
+            badge={carbAuditBadge}
+            providerSummary={lineLabel(hubCarb)}
+            accent="emerald"
+            onOpenWorkspace={() => onNavigate('carbEmissionsAudit')}
+          />
+          <EnvironmentalServiceCard
+            title="Emissions Integrity Audit (EIAS)"
+            subtitle="Facility intake, scope periods, ADI, and evidence packet with Prisma-backed save when deployed."
+            badge="Partial"
+            providerSummary="Save/list requires /api/emissions-audit on a host with DpalUser JWT unless ported."
+            accent="emerald"
+            onOpenWorkspace={() => onNavigate('emissionsIntegrityAudit')}
+          />
+          <EnvironmentalServiceCard
+            title="Hazardous Waste Integrity Audit"
+            subtitle="EPA/RCRA-linked compliance audit and discrepancy evidence."
+            badge="Partial"
+            providerSummary="Dataset readiness depends on imported or live hazardous-waste adapters."
+            accent="emerald"
+            onOpenWorkspace={() => onNavigate('hazardousWasteAudit')}
+          />
+          <EnvironmentalServiceCard
+            title="EPA Live GHG Intelligence"
+            subtitle="Official U.S. EPA Envirofacts / GHGRP facility baselines for investigations."
+            badge="Live"
+            providerSummary="Public EPA feeds — not DPAL-authored facility claims."
+            accent="sky"
+            onOpenWorkspace={() => onNavigate('epaGhgLive')}
+          />
+          <EnvironmentalServiceCard
+            title="EPA / Envirofacts Geo Intelligence"
+            subtitle="Geographic search and map dashboard for public-data baselines."
+            badge="Live"
+            providerSummary="Envirofacts queries are rate-sensitive; respect upstream limits."
+            accent="sky"
+            onOpenWorkspace={() => onNavigate('envirofactsGeoIntelligence')}
+          />
+          <EnvironmentalServiceCard
+            title="Fuel Storage Integrity Audit"
+            subtitle="Preview workspace for storage-throughput reconciliation and leak-risk signals."
+            badge="Preview"
+            providerSummary="Preview-safe — not a certified tank inspection."
+            accent="amber"
+            onOpenWorkspace={() => onNavigate('previewFuelStorageAudit')}
+          />
         </div>
       </section>
 
+      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">D · Evidence &amp; Response</h2>
+        <p className="mt-1 text-xs text-slate-600 max-w-4xl">Export, anchor, and operationalize environmental evidence without bypassing human review gates.</p>
+        <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <EnvironmentalServiceCard
+            title="Evidence Packets"
+            subtitle="Structured exports, hashes, and preview viewers for audit-ready bundles."
+            badge="Partial"
+            providerSummary="Open the packet viewer or finish packets inside each environmental workspace."
+            accent="teal"
+            onOpenWorkspace={() => onNavigate('previewEvidencePacket')}
+            openWorkspaceLabel="Open packet viewer"
+          />
+          <EnvironmentalServiceCard
+            title="Situation Room"
+            subtitle="Collaborative incident rooms with media controls and handoff from Earth Observation and water flows."
+            badge="Live"
+            providerSummary="Uses your configured filing API for authenticated rooms."
+            accent="sky"
+            onOpenWorkspace={() => onNavigate('situationRoom')}
+          />
+          <EnvironmentalServiceCard
+            title="Field Validation · Field OS"
+            subtitle="Super Agent planning, dry runs, and field workflows with explicit safe-automation limits."
+            badge="Partial"
+            providerSummary="Navigator + Field OS — no auto-publish or auto-verify."
+            accent="emerald"
+            onOpenWorkspace={() => {
+              try {
+                sessionStorage.setItem(FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, '1');
+              } catch {
+                /* ignore */
+              }
+              onNavigate('fieldOS');
+            }}
+            openWorkspaceLabel="Open Field OS"
+          />
+          <EnvironmentalServiceCard
+            title="Cleanup / Mission Creation"
+            subtitle="Missions hub for marketplace, emergency, and validator-aligned work."
+            badge="Partial"
+            providerSummary="Missions V2 routes — separate from live filing API unless bridged."
+            accent="amber"
+            onOpenWorkspace={() => onNavigate('missionMarketplace')}
+            openWorkspaceLabel="Open missions hub"
+          />
+        </div>
+      </section>
       <section className="mb-8 rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-5 md:p-6">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div>

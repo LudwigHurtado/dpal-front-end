@@ -126,4 +126,8 @@ export type PlasticMapLayers = {
   chlorophyllAlgae: boolean;
   floatingDebrisCandidate: boolean;
   fieldValidationPoints: boolean;
+  /** Legend-only until mission pins are wired to live data */
+  cleanupMissionPins: boolean;
+  /** Legend-only — drone validation workflow coming soon */
+  droneValidationPoints: boolean;
 };
