@@ -27,10 +27,13 @@ function confounderRiskLabel(scan: HyperspectralPlasticScanResponse | null): str
 function validationReadiness(scan: HyperspectralPlasticScanResponse | null): string {
   if (!scan) return 'Awaiting scan';
   if (scan.providers.emit.status === 'available' || scan.providers.pace.status === 'available') {
-    return 'Spectral lanes returned data — still requires field validation';
+    return 'Narrow-band CMR metadata present — field + drone validation still required';
   }
-  if (scan.providers.emit.status === 'not_configured' && scan.providers.pace.status === 'not_configured') {
-    return 'Hyperspectral lanes not configured — validation deferred';
+  if (
+    (scan.providers.emit.status === 'not_enabled' || scan.providers.emit.status === 'not_configured') &&
+    (scan.providers.pace.status === 'not_enabled' || scan.providers.pace.status === 'not_configured')
+  ) {
+    return 'Hyperspectral lanes not active — validation deferred until PACE/EMIT are enabled with credentials';
   }
   return 'Requires field validation before enforcement use';
 }
@@ -40,12 +43,18 @@ const PlasticRiskSummaryCards: React.FC<Props> = ({ scan }) => {
     if (!scan) return 'Awaiting scan';
     const c = scan.spectralSignals.confidence;
     if (typeof c !== 'number' || Number.isNaN(c)) return 'Not reported';
-    return `${Math.round(c * 100)}% model confidence (evidence-support)`;
+    return `${Math.round(c * 100)}% model confidence (bounded context)`;
   }, [scan]);
 
   const signalLine = useMemo(() => {
     if (!scan) return 'Awaiting scan';
     return band(scan.spectralSignals.plasticRiskSignal);
+  }, [scan]);
+
+  const scoreLine = useMemo(() => {
+    if (!scan) return '—';
+    if (scan.plasticRisk.score == null) return 'Not computed';
+    return String(scan.plasticRisk.score);
   }, [scan]);
 
   return (
@@ -54,15 +63,17 @@ const PlasticRiskSummaryCards: React.FC<Props> = ({ scan }) => {
         <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800">Plastic-risk signal</p>
         <p className="mt-2 text-sm font-semibold text-slate-900 leading-snug">{signalLine}</p>
         <p className="mt-1 text-2xl font-bold text-slate-900 tabular-nums">
-          {scan?.plasticRiskScore != null ? scan.plasticRiskScore : '—'}
+          {scoreLine}
           <span className="ml-1 text-xs font-semibold text-slate-500"> / 100</span>
         </p>
-        <p className="mt-1 text-[11px] text-slate-600 leading-snug">Plastic-risk evidence score — possible anomaly context only.</p>
+        <p className="mt-1 text-[11px] text-slate-600 leading-snug">
+          {scan?.plasticRisk.message ?? 'Plastic-risk evidence score is withheld until narrow-band indices are extracted.'}
+        </p>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Confidence</p>
         <p className="mt-2 text-lg font-bold text-slate-900 tabular-nums">{confidenceLine}</p>
-        <p className="mt-1 text-[11px] text-slate-500">Candidate spectral signal strength context.</p>
+        <p className="mt-1 text-[11px] text-slate-500">Context-only — not a calibrated detection probability.</p>
       </div>
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">PACE status</p>

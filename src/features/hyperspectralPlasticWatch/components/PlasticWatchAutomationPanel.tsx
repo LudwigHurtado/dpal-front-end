@@ -97,7 +97,7 @@ const PlasticWatchAutomationPanel: React.FC<Props> = ({
               Watch DPAL Work
             </p>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              EMIT + PACE readiness, Landsat context, and evidence packet steps (manual start only).
+              EMIT + PACE readiness, Landsat context, drone connector, and evidence packet steps (manual start only).
             </p>
           </div>
           <button

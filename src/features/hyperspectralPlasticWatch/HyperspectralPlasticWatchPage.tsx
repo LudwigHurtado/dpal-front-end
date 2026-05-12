@@ -26,11 +26,14 @@ import type { EnvironmentalProviderStripItem } from '../environmentalIntelligenc
 import type { EnvironmentalProviderUiState } from '../environmentalIntelligence/shared/environmentalServiceStatus';
 import {
   clearHyperspectralPlasticScanCache,
+  getDroneValidationStatus,
   getHyperspectralPlasticProviderStatus,
   getHyperspectralPlasticScan,
+  postDroneValidationPrepare,
   postHyperspectralPlasticEvidencePacket,
 } from './services/hyperspectralPlasticApi';
 import type {
+  DroneValidationPrepareResponse,
   HyperspectralPlasticProviderStatusResponse,
   HyperspectralPlasticScanResponse,
   PlasticEnvironmentType,
@@ -38,6 +41,7 @@ import type {
   PlasticMapLayers,
   PlasticProviderState,
   PlasticWatchStep,
+  ProviderReadinessCard,
 } from './types';
 
 type Props = {
@@ -78,10 +82,63 @@ function stepTone(status: PlasticWatchStep['status']): string {
 }
 
 function providerStepStatus(s: PlasticProviderState): PlasticWatchStep['status'] {
-  if (s === 'available') return 'complete';
+  if (s === 'available' || s === 'ready') return 'complete';
   if (s === 'auth_error' || s === 'failed') return 'failed';
   if (s === 'rate_limited') return 'warning';
+  if (s === 'needs_credentials' || s === 'not_enabled' || s === 'no_scene' || s === 'unavailable' || s === 'not_configured')
+    return 'warning';
   return 'warning';
+}
+
+function mapReadinessCardToUi(
+  card: ProviderReadinessCard | undefined,
+): EnvironmentalProviderUiState {
+  if (!card) return 'unavailable';
+  switch (card.status) {
+    case 'not_enabled':
+      return 'not_enabled';
+    case 'needs_credentials':
+      return 'needs_credentials';
+    case 'ready':
+      return 'ready';
+    case 'error':
+      return 'failed';
+    case 'available':
+      return 'available';
+    case 'partial':
+      return 'partial';
+    case 'unavailable':
+      return 'unavailable';
+    case 'ready_to_connect':
+      return 'ready_to_connect';
+    case 'provider_api_missing':
+      return 'provider_api_missing';
+    case 'provider_api_ready':
+      return 'provider_api_ready';
+    default:
+      return 'preview';
+  }
+}
+
+function mapPlasticLane(s: PlasticProviderState | undefined): EnvironmentalProviderUiState {
+  if (!s) return 'unavailable';
+  if (s === 'available' || s === 'ready') return 'available';
+  if (s === 'not_enabled') return 'not_enabled';
+  if (s === 'not_configured') return 'not_configured';
+  if (s === 'needs_credentials') return 'needs_credentials';
+  if (s === 'no_scene') return 'unavailable';
+  if (s === 'auth_error') return 'auth_error';
+  if (s === 'rate_limited') return 'rate_limited';
+  if (s === 'failed') return 'failed';
+  return 'unavailable';
+}
+
+function mapFallbackScanState(s: PlasticProviderState | undefined): EnvironmentalProviderUiState {
+  if (!s) return 'unavailable';
+  if (s === 'available') return 'available';
+  if (s === 'no_scene') return 'partial';
+  if (s === 'not_enabled' || s === 'not_configured') return 'unavailable';
+  return mapPlasticLane(s);
 }
 
 function initialSteps(): PlasticWatchStep[] {
@@ -91,6 +148,20 @@ function initialSteps(): PlasticWatchStep[] {
       title: 'Confirm AOI on map',
       status: 'pending',
       explanation: 'Lock map center, radius, date window, and environment context.',
+    },
+    {
+      id: 'providerReadiness',
+      title: 'Check provider readiness snapshot',
+      status: 'pending',
+      provider: 'DPAL API',
+      explanation: 'PACE/EMIT/Sentinel-Landsat gates from provider-status endpoint.',
+    },
+    {
+      id: 'droneReadiness',
+      title: 'Check drone validation connector',
+      status: 'pending',
+      provider: 'Drone connector',
+      explanation: 'Manual, upload, API, or flight-plan hook mode — no dispatch without provider confirmation.',
     },
     {
       id: 'pace',
@@ -128,9 +199,9 @@ function initialSteps(): PlasticWatchStep[] {
     },
     {
       id: 'score',
-      title: 'Generate plastic-risk evidence score',
+      title: 'Plastic-risk score status',
       status: 'pending',
-      explanation: '0–100 evidence-support composite.',
+      explanation: 'Narrow-band index extraction required before a numeric plastic-risk score can be emitted.',
     },
     {
       id: 'packet',
@@ -246,6 +317,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [lastScan, setLastScan] = useState<HyperspectralPlasticScanResponse | null>(null);
   const [evidence, setEvidence] = useState<PlasticEvidencePacketResponse | null>(null);
   const [cacheNotice, setCacheNotice] = useState<string | null>(null);
+  const [dronePrepare, setDronePrepare] = useState<DroneValidationPrepareResponse | null>(null);
+  const [droneBusy, setDroneBusy] = useState(false);
 
   const watchRunIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -263,32 +336,29 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     [],
   );
 
-  const mapPlasticLane = (s: PlasticProviderState | undefined): EnvironmentalProviderUiState => {
-    if (!s) return 'unavailable';
-    if (s === 'available') return 'available';
-    if (s === 'not_configured') return 'not_configured';
-    if (s === 'no_scene') return 'unavailable';
-    if (s === 'auth_error') return 'auth_error';
-    if (s === 'rate_limited') return 'rate_limited';
-    if (s === 'failed') return 'failed';
-    return 'unavailable';
-  };
-
   const providerStripItems = useMemo((): EnvironmentalProviderStripItem[] => {
     const ps = providerStatus;
     const scan = lastScan;
 
-    let pace: EnvironmentalProviderUiState = ps?.paceConfigured ? 'preview' : 'not_configured';
-    let emit: EnvironmentalProviderUiState = ps?.emitConfigured ? 'preview' : 'not_configured';
-    let fallback: EnvironmentalProviderUiState = ps?.earthObservationLive ? 'available' : 'unavailable';
+    let pace: EnvironmentalProviderUiState = ps ? mapReadinessCardToUi(ps.pace) : 'unavailable';
+    let emit: EnvironmentalProviderUiState = ps ? mapReadinessCardToUi(ps.emit) : 'unavailable';
+    let fallback: EnvironmentalProviderUiState = ps ? mapReadinessCardToUi(ps.sentinelLandsat) : 'unavailable';
+    let drone: EnvironmentalProviderUiState = ps ? mapReadinessCardToUi(ps.drone) : 'unavailable';
 
     if (scan) {
       pace = mapPlasticLane(scan.providers.pace.status);
       emit = mapPlasticLane(scan.providers.emit.status);
-      fallback = mapPlasticLane(scan.providers.sentinelLandsatFallback.status);
+      fallback = mapFallbackScanState(scan.providers.sentinelLandsatFallback.status);
+      drone = mapReadinessCardToUi({
+        enabled: true,
+        configured: true,
+        status: scan.providers.drone.status,
+        label: 'Drone Validation',
+        message: scan.providers.drone.message,
+      } as ProviderReadinessCard);
     }
 
-    const notesHint = ps?.notes?.length ? ps.notes.join(' · ').slice(0, 160) : undefined;
+    const notesHint = ps?.notes?.length ? ps.notes.join(' · ').slice(0, 200) : undefined;
 
     return [
       {
@@ -299,21 +369,26 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           ? 'Browser map UI key present (value never shown)'
           : 'Google Maps key not configured. Use coordinates or fallback map.',
       },
-      { id: 'pace', label: 'PACE', state: pace, hint: scan?.providers.pace.message ?? notesHint },
-      { id: 'emit', label: 'EMIT', state: emit, hint: scan?.providers.emit.message ?? notesHint },
+      { id: 'pace', label: 'PACE', state: pace, hint: scan?.providers.pace.message ?? ps?.pace.message ?? notesHint },
+      { id: 'emit', label: 'EMIT', state: emit, hint: scan?.providers.emit.message ?? ps?.emit.message ?? notesHint },
       {
         id: 'sentinel',
         label: 'Sentinel / Landsat fallback',
         state: fallback,
-        hint: scan?.providers.sentinelLandsatFallback.message ?? 'Broadband context only',
+        hint: scan?.providers.sentinelLandsatFallback.message ?? ps?.sentinelLandsat.message ?? 'Broadband context only',
       },
       {
         id: 'field',
         label: 'Field validation',
         state: 'partial',
-        hint: 'Manual sampling workflow — evidence-support only',
+        hint: 'Manual sampling workflow — required before escalation or enforcement use',
       },
-      { id: 'drone', label: 'Drone validation', state: 'coming_soon', hint: 'Planned upload / flight plan hooks' },
+      {
+        id: 'drone',
+        label: 'Drone validation',
+        state: drone,
+        hint: scan?.providers.drone.message ?? ps?.drone.message ?? 'Connector-ready — configure server env for API dispatch',
+      },
     ];
   }, [googleMapsFrontendConfigured, lastScan, providerStatus]);
 
@@ -421,8 +496,9 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       baselineDate: baselineIso,
       currentDate: currentIso,
       environmentType,
+      quickPreset: activePreset,
     }),
-    [baselineIso, center.lat, center.lng, currentIso, environmentType, label, radiusKm],
+    [activePreset, baselineIso, center.lat, center.lng, currentIso, environmentType, label, radiusKm],
   );
 
   const runManualScan = useCallback(async () => {
@@ -474,22 +550,50 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       });
       pushLog(`AOI confirmed (${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}), radius ${radiusKm} km.`);
 
+      patchStep('providerReadiness', { status: 'running', at: new Date().toISOString() });
+      const freshStatus = await getHyperspectralPlasticProviderStatus(ac.signal);
+      if (!assertRun()) return;
+      setProviderStatus(freshStatus);
+      patchStep('providerReadiness', {
+        status: 'complete',
+        explanation: 'Provider readiness snapshot refreshed from API.',
+        detail: `PACE=${freshStatus.pace.status} · EMIT=${freshStatus.emit.status} · Fallback=${freshStatus.sentinelLandsat.status} · Drone=${freshStatus.drone.status}`,
+        at: new Date().toISOString(),
+      });
+      pushLog(`Provider readiness: PACE ${freshStatus.pace.status}, EMIT ${freshStatus.emit.status}, Landsat fallback ${freshStatus.sentinelLandsat.status}.`);
+
+      patchStep('droneReadiness', { status: 'running', at: new Date().toISOString() });
+      const droneSnap = await getDroneValidationStatus(ac.signal);
+      if (!assertRun()) return;
+      patchStep('droneReadiness', {
+        status: 'complete',
+        explanation: droneSnap.message,
+        detail: `mode=${droneSnap.mode} · connector=${droneSnap.status}`,
+        at: new Date().toISOString(),
+      });
+      pushLog(`Drone connector: ${droneSnap.status} (${droneSnap.mode}) — ${droneSnap.message}`);
+
       patchStep('pace', { status: 'running', at: new Date().toISOString() });
       patchStep('emit', { status: 'running', at: new Date().toISOString() });
       patchStep('fallback', { status: 'running', at: new Date().toISOString() });
 
-      const { data, fromCache } = await getHyperspectralPlasticScan({ ...scanParams }, ac.signal);
+      const { data, fromCache } = await getHyperspectralPlasticScan({ ...scanParams, bypassCache: true }, ac.signal);
       if (!assertRun()) return;
 
       setLastScan(data);
       setCacheNotice(fromCache ? 'Scan result: short client cache hit for identical AOI/window.' : null);
-      pushLog('Hyperspectral plastic watch scan response received from API.');
+      pushLog('Hyperspectral plastic watch scan response received from API (POST).');
 
       const p = data.providers.pace;
       patchStep('pace', {
         status: providerStepStatus(p.status),
         explanation: p.message,
-        detail: p.sceneDate ? `sceneDate=${p.sceneDate}` : `status=${p.status}`,
+        detail:
+          p.scenes?.length != null && p.scenes.length > 0
+            ? `NASA CMR scenes=${p.scenes.length} (metadata only)`
+            : p.sceneDate
+              ? `sceneDate=${p.sceneDate}`
+              : `status=${p.status}`,
         at: new Date().toISOString(),
       });
       pushLog(`PACE: ${p.status} — ${p.message}`);
@@ -498,6 +602,10 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       patchStep('emit', {
         status: providerStepStatus(em.status),
         explanation: em.message,
+        detail:
+          em.scenes?.length != null && em.scenes.length > 0
+            ? `NASA CMR scenes=${em.scenes.length} (metadata only)`
+            : `status=${em.status}`,
         at: new Date().toISOString(),
       });
       pushLog(`EMIT: ${em.status} — ${em.message}`);
@@ -513,11 +621,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       patchStep('spectral', {
         status: 'complete',
         explanation: data.spectralSignals.notes.join(' ') || 'Spectral context summarized.',
-        detail: `signal=${data.spectralSignals.plasticRiskSignal}${
-          em.status === 'not_configured' || em.status === 'unavailable'
-            ? ' · narrow-band confirmation requires EMIT/PACE when configured'
-            : ''
-        }`,
+        detail: `plasticRiskSignal=${data.spectralSignals.plasticRiskSignal} · claims=${data.evidencePacket.claimsLevel}`,
         at: new Date().toISOString(),
       });
 
@@ -529,11 +633,16 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         at: new Date().toISOString(),
       });
 
+      const pr = data.plasticRisk;
       patchStep('score', {
-        status: 'complete',
-        explanation: `Plastic-risk evidence score ${data.plasticRiskScore} — ${data.riskLevel.replace(/_/g, ' ')}`,
+        status: pr.score == null ? 'warning' : 'complete',
+        explanation:
+          pr.score == null
+            ? `${pr.message} (${pr.status})`
+            : `Plastic-risk score ${pr.score} — ${data.riskLevel.replace(/_/g, ' ')}`,
         at: new Date().toISOString(),
       });
+      pushLog(`Plastic-risk: ${pr.status} — ${pr.message}`);
 
       patchStep('packet', { status: 'running', explanation: 'Posting evidence packet…', at: new Date().toISOString() });
       const ev = await postHyperspectralPlasticEvidencePacket(data, ac.signal);
@@ -584,6 +693,31 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       }
     }
   }, [baselineIso, center.lat, center.lng, currentIso, environmentType, label, patchStep, pushLog, radiusKm, resetSteps, scanParams]);
+
+  const handlePrepareDroneValidation = useCallback(async () => {
+    setDroneBusy(true);
+    setDronePrepare(null);
+    try {
+      const res = await postDroneValidationPrepare({
+        lat: center.lat,
+        lng: center.lng,
+        radiusKm,
+        siteLabel: label,
+        reason: 'Possible plastic-risk anomaly review',
+        requestedValidationTypes: [
+          'photo',
+          'video',
+          'water-surface-observation',
+          'shoreline-plastic-survey',
+        ],
+      });
+      setDronePrepare(res);
+    } catch (e) {
+      setLastError(e instanceof Error ? e.message : 'Drone validation prepare failed');
+    } finally {
+      setDroneBusy(false);
+    }
+  }, [center.lat, center.lng, label, radiusKm]);
 
   const restartWatch = useCallback(() => {
     if (isRunning) return;
@@ -694,10 +828,11 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                   {providerStatusError ? (
                     <p className="text-rose-600">{providerStatusError}</p>
                   ) : providerStatus ? (
-                    <ul className="space-y-1 text-slate-600">
-                      <li>PACE configured: {providerStatus.paceConfigured ? 'Yes' : 'No'}</li>
-                      <li>EMIT configured: {providerStatus.emitConfigured ? 'Yes' : 'No'}</li>
-                      <li>Earth Observation live: {providerStatus.earthObservationLive ? 'Yes' : 'No'}</li>
+                    <ul className="space-y-2 text-slate-600">
+                      <li className="font-mono text-[10px] text-slate-500">{providerStatus.pace.label}: {providerStatus.pace.status}</li>
+                      <li className="font-mono text-[10px] text-slate-500">{providerStatus.emit.label}: {providerStatus.emit.status}</li>
+                      <li className="font-mono text-[10px] text-slate-500">{providerStatus.sentinelLandsat.label}: {providerStatus.sentinelLandsat.status}</li>
+                      <li className="font-mono text-[10px] text-slate-500">{providerStatus.drone.label}: {providerStatus.drone.status} ({providerStatus.drone.configured ? 'configured' : 'not configured'})</li>
                     </ul>
                   ) : (
                     <p className="text-slate-500">Loading…</p>
@@ -719,6 +854,22 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       </header>
 
       <EnvironmentalProviderStatusStrip items={providerStripItems} />
+
+      {providerStatus ? (
+        <div className="shrink-0 border-b border-cyan-200 bg-cyan-50/90">
+          <div className="mx-auto max-w-[1920px] px-4 py-2 text-[11px] leading-snug text-cyan-950">
+            <span className="font-semibold">Next steps: </span>
+            PACE/EMIT are connection-ready but stay inactive until you set{' '}
+            <span className="font-mono">NASA_EARTHDATA_TOKEN</span> and enable{' '}
+            <span className="font-mono">DPAL_PACE_SPECTRAL_ENABLED</span> /{' '}
+            <span className="font-mono">DPAL_EMIT_L2A_ENABLED</span> on the API host to retrieve narrow-band CMR granule
+            metadata. Drone validation is ready to connect through manual/upload mode or provider API configuration (
+            <span className="font-mono">DPAL_DRONE_VALIDATION_ENABLED</span>,{' '}
+            <span className="font-mono">DPAL_DRONE_PROVIDER_MODE</span>
+            ). No live drone dispatch is implied until a provider confirms.
+          </div>
+        </div>
+      ) : null}
 
       <div className="mx-auto flex w-full max-w-[1920px] flex-1 min-h-0 flex-col gap-3 px-4 py-4 lg:flex-row">
         <aside className="w-full shrink-0 space-y-3 lg:w-[320px] lg:max-w-[360px]">
@@ -901,6 +1052,25 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
               >
                 Watch DPAL Work
               </button>
+              <button
+                type="button"
+                disabled={droneBusy || isRunning}
+                onClick={() => void handlePrepareDroneValidation()}
+                className="w-full rounded-lg border border-cyan-300 bg-cyan-50 py-2 text-xs font-semibold text-cyan-950 hover:bg-cyan-100 disabled:opacity-50"
+              >
+                Prepare Drone Validation
+              </button>
+              {dronePrepare ? (
+                <div className="rounded-lg border border-cyan-200 bg-white p-2 text-[10px] text-slate-700 space-y-1">
+                  <p className="font-semibold text-cyan-950">Request {dronePrepare.requestId}</p>
+                  <p>
+                    Status: <span className="font-mono">{dronePrepare.status}</span> · Mode:{' '}
+                    <span className="font-mono">{dronePrepare.mode}</span>
+                  </p>
+                  <p className="text-slate-600">{dronePrepare.message}</p>
+                  <p className="text-slate-500">Dispatched: {String(dronePrepare.dispatched)} (prepare-only endpoint)</p>
+                </div>
+              ) : null}
             </div>
 
             <label className="mt-3 block text-[10px] text-slate-500">

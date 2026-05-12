@@ -118,10 +118,12 @@ export const API_ROUTES = {
   FOREST_INTEGRITY_SCAN: '/api/forest-integrity/scan',
   FOREST_INTEGRITY_PROVIDER_STATUS: '/api/forest-integrity/provider-status',
   FOREST_INTEGRITY_EVIDENCE_PACKET: '/api/forest-integrity/evidence-packet',
-  /** Hyperspectral Plastic Watch — EMIT/PACE evidence-support (honest provider gates) */
-  HYPERSPECTRAL_PLASTIC_PROVIDER_STATUS: '/api/hyperspectral-plastic/provider-status',
-  HYPERSPECTRAL_PLASTIC_SCAN: '/api/hyperspectral-plastic/scan',
-  HYPERSPECTRAL_PLASTIC_EVIDENCE_PACKET: '/api/hyperspectral-plastic/evidence-packet',
+  /** Hyperspectral Plastic Watch — PACE/EMIT CMR + Landsat fallback (dual-mounted as hyperspectral-plastic) */
+  HYPERSPECTRAL_PLASTIC_PROVIDER_STATUS: '/api/hyperspectral-plastic-watch/provider-status',
+  HYPERSPECTRAL_PLASTIC_SCAN: '/api/hyperspectral-plastic-watch/scan',
+  HYPERSPECTRAL_PLASTIC_EVIDENCE_PACKET: '/api/hyperspectral-plastic-watch/evidence-packet',
+  HYPERSPECTRAL_PLASTIC_DRONE_STATUS: '/api/hyperspectral-plastic-watch/drone/status',
+  HYPERSPECTRAL_PLASTIC_DRONE_VALIDATION_REQUEST: '/api/hyperspectral-plastic-watch/drone/validation-request',
   /** Persistent project workflow assistant */
   DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
   /** DPAL Water Monitor + Verified Water Impact Credits */

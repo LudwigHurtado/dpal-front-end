@@ -18,7 +18,7 @@ const ROWS: { key: RowKey; label: string; hint: string; Icon: React.FC<{ classNa
   { key: 'floatingDebrisCandidate', label: 'Floating debris candidate', hint: 'Visual screening context only', Icon: MapPin },
   { key: 'fieldValidationPoints', label: 'Field validation points', hint: 'Planned sampling / QA locations', Icon: Layout },
   { key: 'cleanupMissionPins', label: 'Cleanup mission pins', hint: 'Legend only — no live mission layer yet', Icon: MapPin },
-  { key: 'droneValidationPoints', label: 'Drone validation points', hint: 'Coming soon', Icon: Satellite },
+  { key: 'droneValidationPoints', label: 'Drone validation connector', hint: 'Manual / API / flight-plan hook (prepare-only)', Icon: Satellite },
   { key: 'satellite', label: 'Satellite base map', hint: 'Controls base map tiles', Icon: Satellite },
 ];
 

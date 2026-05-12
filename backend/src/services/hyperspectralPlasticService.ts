@@ -1,9 +1,22 @@
 import { createHash } from 'crypto';
 import { earthObservationService } from './earthObservationService';
+import { queryEmitL2aScenes } from './hyperspectral/emitProvider';
+import { queryPaceScenes } from './hyperspectral/paceProvider';
+import type { DpalHyperspectralScene } from './hyperspectral/nasaCmrClient';
+import { buildPlasticWatchProviderReadinessPayload, type PlasticWatchProviderReadinessPayload } from './hyperspectral/providerStatus';
+import {
+  buildDroneValidationAcknowledgment,
+  computeDroneReadiness,
+  validateDroneRequestBody,
+  type DroneProviderMode,
+} from './hyperspectral/droneValidationProvider';
 
 export type PlasticProviderState =
   | 'available'
   | 'not_configured'
+  | 'not_enabled'
+  | 'needs_credentials'
+  | 'ready'
   | 'no_scene'
   | 'unavailable'
   | 'auth_error'
@@ -16,6 +29,13 @@ export type PlasticSpectralProviderBlock = {
   sceneDate?: string | null;
   spectralRange?: string | null;
   limitations?: string[];
+  scenes?: DpalHyperspectralScene[];
+};
+
+export type PlasticDroneProviderBlock = {
+  status: string;
+  mode: DroneProviderMode;
+  message: string;
 };
 
 export type PlasticFallbackBlock = {
@@ -50,6 +70,19 @@ export type PlasticEnvironmentType =
   | 'landfill_dumping'
   | 'flood_debris';
 
+export type PlasticRiskBlock = {
+  score: number | null;
+  status: 'not_computed' | 'metadata_only' | 'pending_index_extraction';
+  message: string;
+};
+
+export type ScanEvidencePacketBlock = {
+  status: 'preview';
+  claimsLevel: 'metadata_only' | 'narrow_band_metadata';
+  limitations: string[];
+  nextActions: string[];
+};
+
 export type HyperspectralPlasticScanResponse = {
   ok: true;
   scanId: string;
@@ -63,28 +96,27 @@ export type HyperspectralPlasticScanResponse = {
     currentDate: string;
     environmentType: PlasticEnvironmentType;
     polygon?: unknown;
+    quickPreset?: string | null;
+    aoiGeoJson?: unknown;
   };
   providers: {
     pace: PlasticSpectralProviderBlock;
     emit: PlasticSpectralProviderBlock;
     sentinelLandsatFallback: PlasticFallbackBlock;
+    drone: PlasticDroneProviderBlock;
   };
   spectralSignals: PlasticSpectralSignals;
-  plasticRiskScore: number;
+  /** @deprecated Use plasticRisk — kept for older UI branches */
+  plasticRiskScore: number | null;
   riskLevel: string;
+  plasticRisk: PlasticRiskBlock;
+  evidencePacket: ScanEvidencePacketBlock;
   evidenceItems: string[];
   limitations: string[];
   generatedAt: string;
 };
 
-export type HyperspectralPlasticProviderStatusResponse = {
-  ok: true;
-  generatedAt: string;
-  paceConfigured: boolean;
-  emitConfigured: boolean;
-  earthObservationLive: boolean;
-  notes: string[];
-};
+export type HyperspectralPlasticProviderStatusResponse = PlasticWatchProviderReadinessPayload;
 
 export type PlasticScanInput = {
   lat: number;
@@ -95,6 +127,8 @@ export type PlasticScanInput = {
   currentDate: string;
   environmentType: PlasticEnvironmentType;
   polygon?: unknown;
+  quickPreset?: string | null;
+  aoiGeoJson?: unknown;
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -122,93 +156,203 @@ function eoAnalysisForEnv(env: PlasticEnvironmentType): 'water' | 'pollution' | 
   return 'water';
 }
 
-function isPaceConfigured(): boolean {
-  return process.env.DPAL_PACE_SPECTRAL_ENABLED === 'true' && Boolean(process.env.NASA_EARTHDATA_TOKEN?.trim());
+function paceFeatureEnabled(): boolean {
+  return process.env.DPAL_PACE_SPECTRAL_ENABLED === 'true';
 }
 
-function isEmitConfigured(): boolean {
-  return process.env.DPAL_EMIT_L2A_ENABLED === 'true' && Boolean(process.env.NASA_EARTHDATA_TOKEN?.trim());
+function emitFeatureEnabled(): boolean {
+  return process.env.DPAL_EMIT_L2A_ENABLED === 'true';
 }
 
-/**
- * Evidence-oriented 0–100 score. Does not assert plastic presence.
- * EMIT / PACE lanes are scored only when explicitly enabled on the host.
- */
-function computePlasticEvidenceScore(args: {
-  pace: PlasticSpectralProviderBlock;
-  emit: PlasticSpectralProviderBlock;
-  fallback: PlasticFallbackBlock;
-  confounderPenalty: number;
-  env: PlasticEnvironmentType;
-  genericSpectralProxy: number;
-}): { score: number; riskLevel: string; signal: PlasticSpectralSignals['plasticRiskSignal']; confidence: number } {
-  let spectral = 0;
-  if (args.emit.status === 'available') {
-    spectral = clamp(Math.round(args.genericSpectralProxy * 30), 0, 30);
-  } else {
-    spectral = clamp(Math.round(args.genericSpectralProxy * 8), 0, 8);
-  }
-
-  let provider = 0;
-  if (args.pace.status === 'available') provider += 10;
-  else if (args.pace.status === 'no_scene') provider += 4;
-  if (args.emit.status === 'available') provider += 10;
-  else if (args.emit.status === 'no_scene') provider += 4;
-  if (args.fallback.status === 'available') provider += 10;
-  else if (args.fallback.status === 'no_scene' || args.fallback.status === 'unavailable') provider += 3;
-
-  let context = 8;
-  if (['ocean', 'coast', 'lake', 'river'].includes(args.env)) context = 12;
-  if (args.env === 'landfill_dumping') context = 14;
-  if (args.env === 'flood_debris') context = 13;
-  context = clamp(context, 0, 15);
-
-  const confounder = clamp(15 - args.confounderPenalty, 0, 15);
-
-  const lanesOk = [args.pace.status, args.emit.status, args.fallback.status].filter((s) => s === 'available').length;
-  const evidence = clamp(Math.round((lanesOk / 3) * 10), 2, 10);
-
-  const validation = 8;
-
-  const score = clamp(Math.round(spectral + provider + context + confounder + evidence + validation), 0, 100);
-
-  let riskLevel = 'low_confidence_no_clear_signal';
-  if (score >= 85) riskLevel = 'strong_candidate_for_review';
-  else if (score >= 65) riskLevel = 'elevated_plastic_risk_signal';
-  else if (score >= 40) riskLevel = 'watchlist';
-
-  let signal: PlasticSpectralSignals['plasticRiskSignal'] = 'none';
-  if (args.emit.status === 'available' && args.genericSpectralProxy > 0.45) signal = 'elevated_plastic_risk_signal';
-  else if (args.emit.status === 'available' && args.genericSpectralProxy > 0.2) signal = 'possible_spectral_anomaly';
-  else if (args.genericSpectralProxy > 0.08) signal = 'weak_context';
-
-  const confidence = clamp(
-    0.15 + (args.emit.status === 'available' ? 0.35 : 0) + (args.fallback.status === 'available' ? 0.25 : 0.08),
-    0.05,
-    0.85,
-  );
-
-  return { score, riskLevel, signal, confidence };
+function earthdataToken(): string {
+  return process.env.NASA_EARTHDATA_TOKEN?.trim() ?? '';
 }
 
 export async function getHyperspectralPlasticProviderStatus(): Promise<HyperspectralPlasticProviderStatusResponse> {
-  const notes: string[] = [
-    'NASA PACE and EMIT product pulls are not enabled unless DPAL_PACE_SPECTRAL_ENABLED / DPAL_EMIT_L2A_ENABLED and NASA_EARTHDATA_TOKEN are configured.',
-    'Plastic-risk language is evidence-support only; field validation is required before any enforcement or legal use.',
-  ];
-  const paceConfigured = isPaceConfigured();
-  const emitConfigured = isEmitConfigured();
-  const earthObservationLive = process.env.EARTH_OBSERVATION_LIVE_ENABLED === 'true';
-  if (!earthObservationLive) {
-    notes.push('Landsat / multispectral fallback uses Earth Observation scan when EARTH_OBSERVATION_LIVE_ENABLED=true.');
+  return buildPlasticWatchProviderReadinessPayload();
+}
+
+async function buildPaceScanBlock(args: {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  start: Date;
+  end: Date;
+}): Promise<PlasticSpectralProviderBlock> {
+  if (!paceFeatureEnabled()) {
+    return {
+      status: 'not_enabled',
+      message:
+        'PACE spectral pulls are disabled. Set DPAL_PACE_SPECTRAL_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve narrow-band ocean-color context from NASA CMR.',
+      sceneDate: null,
+      spectralRange: null,
+      limitations: [
+        'PACE lane off — no NASA CMR query was performed for PACE.',
+        'Coastal glint and adjacency effects can mimic bright floating materials; field validation remains required.',
+      ],
+      scenes: [],
+    };
   }
+  const token = earthdataToken();
+  if (!token) {
+    return {
+      status: 'needs_credentials',
+      message: 'PACE is enabled but NASA_EARTHDATA_TOKEN is missing on the API host.',
+      sceneDate: null,
+      spectralRange: null,
+      limitations: ['Add NASA_EARTHDATA_TOKEN server-side, then rerun the scan.'],
+      scenes: [],
+    };
+  }
+
+  const cmr = await queryPaceScenes({
+    lat: args.lat,
+    lng: args.lng,
+    radiusKm: args.radiusKm,
+    start: args.start,
+    end: args.end,
+    token,
+  });
+
+  if (cmr.errorCode === 'auth_error') {
+    return {
+      status: 'auth_error',
+      message: cmr.safeMessage ?? 'NASA CMR authentication failed.',
+      limitations: ['Verify NASA_EARTHDATA_TOKEN and Earthdata permissions.'],
+      scenes: [],
+    };
+  }
+  if (cmr.errorCode === 'rate_limited') {
+    return {
+      status: 'rate_limited',
+      message: cmr.safeMessage ?? 'NASA CMR rate limited.',
+      scenes: [],
+    };
+  }
+  if (cmr.errorCode === 'failed') {
+    return {
+      status: 'failed',
+      message: cmr.safeMessage ?? 'NASA CMR request failed.',
+      scenes: [],
+    };
+  }
+
+  if (!cmr.scenes.length) {
+    return {
+      status: 'no_scene',
+      message: 'No matching PACE granules were returned for this AOI and date window (NASA CMR metadata search).',
+      sceneDate: null,
+      limitations: [
+        'Try widening the date window or verifying collection short name (DPAL_PACE_CMR_SHORT_NAME).',
+        'Granule listings are metadata only — no spectral plastic indices were computed.',
+      ],
+      scenes: [],
+    };
+  }
+
+  const first = cmr.scenes[0];
   return {
-    ok: true,
-    generatedAt: new Date().toISOString(),
-    paceConfigured,
-    emitConfigured,
-    earthObservationLive,
-    notes,
+    status: 'available',
+    message: `NASA CMR returned ${cmr.scenes.length} PACE granule(s) — metadata only (no spectral index extraction in this build).`,
+    sceneDate: first.startTime || null,
+    spectralRange: 'PACE OCI (narrow-band products — indices not extracted here)',
+    limitations: [
+      'CMR granule metadata does not prove plastic presence.',
+      'Plastic-relevant interpretation requires calibrated narrow-band processing and field validation.',
+    ],
+    scenes: cmr.scenes,
+  };
+}
+
+async function buildEmitScanBlock(args: {
+  lat: number;
+  lng: number;
+  radiusKm: number;
+  start: Date;
+  end: Date;
+}): Promise<PlasticSpectralProviderBlock> {
+  if (!emitFeatureEnabled()) {
+    return {
+      status: 'not_enabled',
+      message:
+        'EMIT L2A pulls are disabled. Set DPAL_EMIT_L2A_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve EMIT hyperspectral granule metadata from NASA CMR.',
+      sceneDate: null,
+      spectralRange: null,
+      limitations: [
+        'EMIT lane off — no NASA CMR query was performed for EMIT.',
+        'SWIR plastic-relevant features are not inferred from broadband Landsat alone.',
+      ],
+      scenes: [],
+    };
+  }
+  const token = earthdataToken();
+  if (!token) {
+    return {
+      status: 'needs_credentials',
+      message: 'EMIT is enabled but NASA_EARTHDATA_TOKEN is missing on the API host.',
+      sceneDate: null,
+      spectralRange: null,
+      limitations: ['Add NASA_EARTHDATA_TOKEN server-side, then rerun the scan.'],
+      scenes: [],
+    };
+  }
+
+  const cmr = await queryEmitL2aScenes({
+    lat: args.lat,
+    lng: args.lng,
+    radiusKm: args.radiusKm,
+    start: args.start,
+    end: args.end,
+    token,
+  });
+
+  if (cmr.errorCode === 'auth_error') {
+    return {
+      status: 'auth_error',
+      message: cmr.safeMessage ?? 'NASA CMR authentication failed.',
+      limitations: ['Verify NASA_EARTHDATA_TOKEN and Earthdata permissions.'],
+      scenes: [],
+    };
+  }
+  if (cmr.errorCode === 'rate_limited') {
+    return {
+      status: 'rate_limited',
+      message: cmr.safeMessage ?? 'NASA CMR rate limited.',
+      scenes: [],
+    };
+  }
+  if (cmr.errorCode === 'failed') {
+    return {
+      status: 'failed',
+      message: cmr.safeMessage ?? 'NASA CMR request failed.',
+      scenes: [],
+    };
+  }
+
+  if (!cmr.scenes.length) {
+    return {
+      status: 'no_scene',
+      message: 'No matching EMIT L2A granules were returned for this AOI and date window (NASA CMR metadata search).',
+      sceneDate: null,
+      limitations: [
+        'Try widening the date window or verifying collection short name (DPAL_EMIT_CMR_SHORT_NAME).',
+        'Granule listings are metadata only — no SWIR plastic indices were computed.',
+      ],
+      scenes: [],
+    };
+  }
+
+  const first = cmr.scenes[0];
+  return {
+    status: 'available',
+    message: `NASA CMR returned ${cmr.scenes.length} EMIT L2A granule(s) — metadata only (no spectral index extraction in this build).`,
+    sceneDate: first.startTime || null,
+    spectralRange: 'EMIT VNIR/SWIR (indices not extracted here)',
+    limitations: [
+      'CMR granule metadata does not prove plastic presence.',
+      'Confounders include vegetation, soils, and moisture — independent validation is required.',
+    ],
+    scenes: cmr.scenes,
   };
 }
 
@@ -221,6 +365,23 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
   if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime()) || start >= end) {
     throw new Error('Invalid baselineDate / currentDate range');
   }
+
+  const [pace, emit] = await Promise.all([
+    buildPaceScanBlock({
+      lat: input.lat,
+      lng: input.lng,
+      radiusKm: input.radiusKm,
+      start,
+      end,
+    }),
+    buildEmitScanBlock({
+      lat: input.lat,
+      lng: input.lng,
+      radiusKm: input.radiusKm,
+      start,
+      end,
+    }),
+  ]);
 
   const analysisType = eoAnalysisForEnv(env);
   const eo = await earthObservationService.scan({
@@ -238,7 +399,6 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
   const absNdwi = eo.metrics.ndwiChange != null ? Math.abs(eo.metrics.ndwiChange) : 0;
   const absNdvi = eo.metrics.ndviChange != null ? Math.abs(eo.metrics.ndviChange) : 0;
   const absNdmi = eo.metrics.ndmiChange != null ? Math.abs(eo.metrics.ndmiChange) : 0;
-  const genericSpectralProxy = clamp((absNdwi * 1.4 + absNdvi * 0.9 + absNdmi * 0.8) / 1.6, 0, 1);
 
   let confounderPenalty = 0;
   if (absNdmi > 0.12) confounderPenalty += 4;
@@ -254,46 +414,10 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
     cloudsGlint: cloudCov != null && cloudCov > 25 ? 'moderate' : 'low',
   };
 
-  const pace: PlasticSpectralProviderBlock = !isPaceConfigured()
-    ? {
-        status: 'not_configured',
-        message:
-          'NASA PACE ocean color integration is not enabled on this API host. Set DPAL_PACE_SPECTRAL_ENABLED=true and NASA_EARTHDATA_TOKEN for future wiring.',
-        sceneDate: null,
-        spectralRange: null,
-        limitations: [
-          'PACE hyperspectral/ocean-color products are not queried in this build.',
-          'Coastal glint and adjacency effects can mimic bright floating materials; requires field validation.',
-        ],
-      }
-    : {
-        status: 'unavailable',
-        message: 'PACE lane is flagged enabled but reader is not implemented yet.',
-        limitations: ['No PACE L2 granule reader is implemented; status reserved for a future adapter.'],
-      };
-
-  const emit: PlasticSpectralProviderBlock = !isEmitConfigured()
-    ? {
-        status: 'not_configured',
-        message:
-          'NASA EMIT L2A VNIR/SWIR integration is not enabled on this API host. Set DPAL_EMIT_L2A_ENABLED=true and NASA_EARTHDATA_TOKEN for future wiring.',
-        sceneDate: null,
-        spectralRange: null,
-        limitations: [
-          'Plastic-relevant SWIR absorption features require EMIT or comparable hyperspectral coverage.',
-          'Without EMIT, DPAL does not infer plastic-specific absorption from broadband Landsat alone.',
-        ],
-      }
-    : {
-        status: 'unavailable',
-        message: 'EMIT lane is flagged enabled but granule reader is not implemented yet.',
-        limitations: ['No EMIT granule reader is implemented; status reserved for a future adapter.'],
-      };
-
   const afterDate = eo.afterScene?.acquisitionDate ?? null;
   const sentinelLandsatFallback: PlasticFallbackBlock = !live
     ? {
-        status: 'not_configured',
+        status: 'not_enabled',
         message: 'Earth Observation live adapter is disabled (EARTH_OBSERVATION_LIVE_ENABLED).',
         limitations: ['Enable Earth Observation on the API host for Landsat C2 L2 screening context.'],
       }
@@ -321,37 +445,81 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
             limitations: eo.limitations,
           };
 
-  const { score, riskLevel, signal, confidence } = computePlasticEvidenceScore({
-    pace,
-    emit,
-    fallback: sentinelLandsatFallback,
-    confounderPenalty,
-    env,
-    genericSpectralProxy: eoUsable ? genericSpectralProxy : 0,
-  });
+  const narrowBandSceneCount = (pace.scenes?.length ?? 0) + (emit.scenes?.length ?? 0);
+  const narrowBandMetadata = narrowBandSceneCount > 0;
 
   const spectralNotes: string[] = [
-    'Possible plastic spectral anomaly requires EMIT / comparable hyperspectral coverage plus field validation.',
-    'Broadband change metrics below are evidence-support context only, not final proof of plastic pollution.',
+    'Broadband Landsat change metrics (if present) are environmental context only — not proof of plastic pollution.',
+    'Plastic-specific claims require calibrated narrow-band processing plus field and drone validation.',
   ];
   if (!eoUsable) {
     spectralNotes.push('Insufficient multispectral context from Landsat for this AOI and date window.');
   }
 
   const spectralSignals: PlasticSpectralSignals = {
-    plasticRiskSignal: signal,
-    confidence,
+    plasticRiskSignal: 'none',
+    confidence: narrowBandMetadata ? 0.12 : eoUsable ? 0.1 : 0.05,
     swirAnomaly: null,
-    visibleAnomaly: eoUsable ? clamp(genericSpectralProxy * 0.35, 0, 0.25) : null,
+    visibleAnomaly: null,
     waterConfounders,
     notes: spectralNotes,
   };
 
+  const droneR = computeDroneReadiness();
+  const drone: PlasticDroneProviderBlock = {
+    status: droneR.status,
+    mode: droneR.mode,
+    message: droneR.message,
+  };
+
+  const plasticRisk: PlasticRiskBlock = narrowBandMetadata
+    ? {
+        score: null,
+        status: 'pending_index_extraction',
+        message:
+          'Narrow-band product metadata was retrieved from NASA CMR. Plastic-risk scoring is not computed until index extraction and validation logic run against real spectral products.',
+      }
+    : {
+        score: null,
+        status: 'not_computed',
+        message:
+          'Narrow-band plastic anomaly scoring requires configured PACE or EMIT CMR hits (or future product readers). No plastic-risk score is emitted from broadband context alone.',
+      };
+
+  const evidencePacket: ScanEvidencePacketBlock = narrowBandMetadata
+    ? {
+        status: 'preview',
+        claimsLevel: 'narrow_band_metadata',
+        limitations: [
+          'Narrow-band granule metadata was retrieved; this packet is not a confirmed plastic detection.',
+          'Index extraction, radiometric QA, and field validation are still required before escalation.',
+          'Drone and field validation remain mandatory for enforcement-grade evidence.',
+        ],
+        nextActions: [
+          'Run field sampling and independent lab ID where appropriate.',
+          'Prepare drone validation using manual/upload mode or connect DPAL_DRONE_PROVIDER_API_URL when ready.',
+          'Complete narrow-band index extraction in a future pipeline release before interpreting plastic-risk scores.',
+        ],
+      }
+    : {
+        status: 'preview',
+        claimsLevel: 'metadata_only',
+        limitations: [
+          'No PACE/EMIT spectral products with usable granule metadata were retrieved for this AOI and window.',
+          'Plastic-risk score remains unavailable until narrow-band provider data and processing are connected.',
+          'Field or drone validation is required before escalation.',
+        ],
+        nextActions: [
+          'Enable DPAL_PACE_SPECTRAL_ENABLED / DPAL_EMIT_L2A_ENABLED and NASA_EARTHDATA_TOKEN, then rerun the scan.',
+          'Widen the date window if CMR returned zero granules.',
+          'Enable EARTH_OBSERVATION_LIVE_ENABLED for Landsat broadband context while hyperspectral lanes are brought online.',
+        ],
+      };
+
   const limitations: string[] = [
     ...eo.limitations,
-    'Satellite spectral anomalies are not final proof of plastic pollution.',
-    'PACE and EMIT product access is not implemented unless explicitly enabled and wired on this host.',
-    'Interpret plastic-risk score as an evidence-support composite, not a legal finding.',
+    ...evidencePacket.limitations,
+    'Satellite data are evidence-support only; they are not final proof of plastic pollution.',
   ];
 
   const evidenceItems: string[] = [
@@ -362,9 +530,9 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
     `PACE status: ${pace.status} — ${pace.message}`,
     `EMIT status: ${emit.status} — ${emit.message}`,
     `Landsat / EO fallback: ${sentinelLandsatFallback.status} — ${sentinelLandsatFallback.message}`,
-    `Plastic-risk evidence score (0–100): ${score} (${riskLevel})`,
-    `Plastic-risk signal label: ${spectralSignals.plasticRiskSignal}`,
-    `Confidence (model): ${confidence.toFixed(2)} (capped; requires field validation)`,
+    `Drone validation connector: ${drone.status} (${drone.mode}) — ${drone.message}`,
+    `Plastic-risk score: not computed (narrow-band indices not extracted in this build)`,
+    `Evidence claims level: ${evidencePacket.claimsLevel}`,
     eo.metrics.ndwiChange != null ? `NDWI change (context): ${eo.metrics.ndwiChange}` : 'NDWI change: unavailable',
     eo.metrics.ndviChange != null ? `NDVI change (context): ${eo.metrics.ndviChange}` : 'NDVI change: unavailable',
     'Field validation recommendation: collect grab samples, drone close-ups, and lab ID where appropriate.',
@@ -383,11 +551,15 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
       currentDate: end.toISOString(),
       environmentType: env,
       polygon: input.polygon,
+      quickPreset: input.quickPreset ?? null,
+      aoiGeoJson: input.aoiGeoJson ?? null,
     },
-    providers: { pace, emit, sentinelLandsatFallback: sentinelLandsatFallback },
+    providers: { pace, emit, sentinelLandsatFallback, drone },
     spectralSignals,
-    plasticRiskScore: score,
-    riskLevel,
+    plasticRiskScore: null,
+    riskLevel: plasticRisk.status,
+    plasticRisk,
+    evidencePacket,
     evidenceItems,
     limitations,
     generatedAt: new Date().toISOString(),
@@ -401,4 +573,18 @@ export function normalizePlasticEnvironmentType(raw: string): PlasticEnvironment
 export function hashPlasticEvidencePayload(payload: unknown): string {
   const json = JSON.stringify(payload);
   return createHash('sha256').update(json).digest('hex');
+}
+
+export function getDroneValidationStatusPayload(): {
+  ok: true;
+  generatedAt: string;
+} & ReturnType<typeof computeDroneReadiness> {
+  const d = computeDroneReadiness();
+  return { ok: true, generatedAt: new Date().toISOString(), ...d };
+}
+
+export function postDroneValidationRequestParsed(body: unknown) {
+  const parsed = validateDroneRequestBody(body);
+  if (!parsed.ok) return { ok: false as const, error: parsed.error };
+  return { ok: true as const, body: buildDroneValidationAcknowledgment(parsed.value) };
 }

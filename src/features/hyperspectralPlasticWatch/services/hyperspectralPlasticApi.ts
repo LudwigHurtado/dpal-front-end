@@ -1,5 +1,7 @@
 import { API_ROUTES, apiUrl } from '../../../../constants';
 import type {
+  DroneValidationPrepareResponse,
+  DroneValidationStatusResponse,
   HyperspectralPlasticProviderStatusResponse,
   HyperspectralPlasticScanResponse,
   PlasticEvidencePacketResponse,
@@ -44,6 +46,42 @@ export async function getHyperspectralPlasticProviderStatus(
   return body;
 }
 
+export async function getDroneValidationStatus(signal?: AbortSignal): Promise<DroneValidationStatusResponse> {
+  const url = apiUrl(API_ROUTES.HYPERSPECTRAL_PLASTIC_DRONE_STATUS);
+  const res = await fetch(url, { signal, method: 'GET', headers: { Accept: 'application/json' } });
+  const body = (await res.json().catch(() => null)) as DroneValidationStatusResponse | null;
+  if (!res.ok || !body || body.ok !== true) {
+    throw new Error(`Drone status failed (${res.status})`);
+  }
+  return body;
+}
+
+export async function postDroneValidationPrepare(
+  body: {
+    lat: number;
+    lng: number;
+    radiusKm: number;
+    siteLabel?: string;
+    reason?: string;
+    requestedValidationTypes?: string[];
+  },
+  signal?: AbortSignal,
+): Promise<DroneValidationPrepareResponse> {
+  const url = apiUrl(API_ROUTES.HYPERSPECTRAL_PLASTIC_DRONE_VALIDATION_REQUEST);
+  const res = await fetch(url, {
+    signal,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = (await res.json().catch(() => null)) as DroneValidationPrepareResponse | { ok?: false; error?: string } | null;
+  if (!res.ok || !json || (json as DroneValidationPrepareResponse).ok !== true) {
+    const err = (json as { error?: string } | null)?.error;
+    throw new Error(err ?? `Drone validation prepare failed (${res.status})`);
+  }
+  return json as DroneValidationPrepareResponse;
+}
+
 export type PlasticScanParams = {
   lat: number;
   lng: number;
@@ -53,6 +91,8 @@ export type PlasticScanParams = {
   currentDate: string;
   environmentType: PlasticEnvironmentType;
   polygon?: unknown;
+  quickPreset?: string | null;
+  aoiGeoJson?: unknown;
   bypassCache?: boolean;
 };
 
@@ -68,18 +108,24 @@ export async function getHyperspectralPlasticScan(
     }
   }
 
-  const q = new URLSearchParams();
-  q.set('lat', String(params.lat));
-  q.set('lng', String(params.lng));
-  q.set('radiusKm', String(params.radiusKm));
-  q.set('baselineDate', params.baselineDate);
-  q.set('currentDate', params.currentDate);
-  q.set('environmentType', params.environmentType);
-  if (params.label) q.set('label', params.label);
-  if (params.polygon != null) q.set('polygon', JSON.stringify(params.polygon));
-
-  const url = `${apiUrl(API_ROUTES.HYPERSPECTRAL_PLASTIC_SCAN)}?${q.toString()}`;
-  const res = await fetch(url, { signal, method: 'GET', headers: { Accept: 'application/json' } });
+  const url = apiUrl(API_ROUTES.HYPERSPECTRAL_PLASTIC_SCAN);
+  const res = await fetch(url, {
+    signal,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      lat: params.lat,
+      lng: params.lng,
+      radiusKm: params.radiusKm,
+      label: params.label,
+      baselineDate: params.baselineDate,
+      currentDate: params.currentDate,
+      environmentType: params.environmentType,
+      polygon: params.polygon ?? null,
+      quickPreset: params.quickPreset ?? null,
+      aoiGeoJson: params.aoiGeoJson ?? null,
+    }),
+  });
   const body = (await res.json().catch(() => null)) as
     | HyperspectralPlasticScanResponse
     | { ok?: false; error?: string }

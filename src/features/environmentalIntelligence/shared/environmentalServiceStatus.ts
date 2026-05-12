@@ -9,6 +9,12 @@ export type EnvironmentalProviderUiState =
   | 'partial'
   | 'preview'
   | 'not_configured'
+  | 'not_enabled'
+  | 'needs_credentials'
+  | 'ready'
+  | 'ready_to_connect'
+  | 'provider_api_missing'
+  | 'provider_api_ready'
   | 'unavailable'
   | 'auth_error'
   | 'rate_limited'
@@ -28,8 +34,16 @@ export function providerChipClasses(state: EnvironmentalProviderUiState): string
     case 'preview':
       return `${base} border-amber-200 bg-amber-50 text-amber-900`;
     case 'not_configured':
+    case 'not_enabled':
     case 'unavailable':
       return `${base} border-slate-200 bg-slate-100 text-slate-700`;
+    case 'needs_credentials':
+    case 'provider_api_missing':
+      return `${base} border-amber-200 bg-amber-50 text-amber-950`;
+    case 'ready':
+    case 'ready_to_connect':
+    case 'provider_api_ready':
+      return `${base} border-cyan-200 bg-cyan-50 text-cyan-950`;
     case 'auth_error':
     case 'failed':
       return `${base} border-rose-200 bg-rose-50 text-rose-900`;

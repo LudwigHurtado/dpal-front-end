@@ -98,7 +98,12 @@ Backend-only satellite credentials live on Railway, not in Vercel:
 | `COPERNICUS_CLIENT_ID` | Sentinel Hub / Copernicus OAuth client id |
 | `COPERNICUS_CLIENT_SECRET` | Sentinel Hub / Copernicus OAuth client secret |
 | `EARTH_OBSERVATION_LIVE_ENABLED` | When `true`, enables live Earth Observation adapter paths on the API host (see `backend/.env.example`) |
-| `NASA_EARTHDATA_TOKEN` | Optional Earthdata token for NASA catalog flows used by EO adapters |
+| `NASA_EARTHDATA_TOKEN` | Optional Earthdata token for NASA catalog flows (Earth Observation, **Hyperspectral Plastic Watch** PACE/EMIT CMR metadata) |
+| `NASA_CMR_BASE_URL` | Optional override for NASA CMR Search API base (default `https://cmr.earthdata.nasa.gov/search`) |
+| `DPAL_PACE_SPECTRAL_ENABLED` / `DPAL_EMIT_L2A_ENABLED` | When `true` with `NASA_EARTHDATA_TOKEN`, Plastic Watch queries NASA CMR for granule metadata (no fabricated spectra) |
+| `DPAL_PACE_CMR_SHORT_NAME` / `DPAL_EMIT_CMR_SHORT_NAME` | Optional CMR `short_name` overrides (defaults `PACE_OCI_L2_BGC`, `EMITL2ARFL`) |
+| `DPAL_DRONE_VALIDATION_ENABLED` | When `true`, exposes drone connector status + prepare-only validation request routes |
+| `DPAL_DRONE_PROVIDER_MODE` | `manual` \| `upload` \| `api` \| `flight_plan_hook` — API mode also needs `DPAL_DRONE_PROVIDER_API_URL` + `DPAL_DRONE_PROVIDER_API_KEY` server-side |
 | `NASA_FIRMS_MAP_KEY` | Optional NASA FIRMS map key where FIRMS integration is used |
 | `GEMINI_API_KEY` | Used by `POST /api/dpal-assistant/project-guide` for optional AI-enriched project guidance (same key pattern as other server Gemini routes) |
 

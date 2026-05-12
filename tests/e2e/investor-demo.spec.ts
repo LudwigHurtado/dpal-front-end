@@ -26,8 +26,10 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 const SCAN_ENDPOINTS = [
   "/api/forest-integrity/scan",
   "/api/forest-integrity/evidence-packet",
-  "/api/hyperspectral-plastic/scan",
-  "/api/hyperspectral-plastic/evidence-packet",
+  "/api/hyperspectral-plastic-watch/scan",
+  "/api/hyperspectral-plastic-watch/evidence-packet",
+  "/api/hyperspectral-plastic-watch/drone/status",
+  "/api/hyperspectral-plastic-watch/drone/validation-request",
   "/api/copernicus/statistics",
   "/api/copernicus/process",
   "/api/water/snapshot",
@@ -72,13 +74,41 @@ async function stubAllProviders(page: Page): Promise<ScanCounters> {
       return;
     }
 
-    if (url.includes("/api/hyperspectral-plastic/provider-status")) {
+    if (url.includes("/api/hyperspectral-plastic") && url.includes("provider-status")) {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           ok: true,
           generatedAt: new Date().toISOString(),
+          pace: {
+            enabled: false,
+            configured: false,
+            status: "not_enabled",
+            label: "NASA PACE",
+            message: "PACE disabled (e2e stub).",
+          },
+          emit: {
+            enabled: false,
+            configured: false,
+            status: "not_enabled",
+            label: "NASA EMIT",
+            message: "EMIT disabled (e2e stub).",
+          },
+          sentinelLandsat: {
+            enabled: true,
+            configured: false,
+            status: "unavailable",
+            label: "Sentinel / Landsat fallback",
+            message: "EO off in stub.",
+          },
+          drone: {
+            enabled: false,
+            configured: false,
+            status: "not_enabled",
+            label: "Drone Validation",
+            message: "Drone connector off in stub.",
+          },
           paceConfigured: false,
           emitConfigured: false,
           earthObservationLive: false,
@@ -88,7 +118,134 @@ async function stubAllProviders(page: Page): Promise<ScanCounters> {
       return;
     }
 
-    if (url.includes("/api/copernicus/status")) {
+    if (url.includes("/api/hyperspectral-plastic") && url.includes("/drone/status")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          generatedAt: new Date().toISOString(),
+          enabled: false,
+          configured: false,
+          status: "not_enabled",
+          label: "Drone Validation",
+          message: "Drone validation disabled (e2e stub).",
+          mode: "manual",
+        }),
+      });
+      return;
+    }
+
+    if (
+      url.includes("/api/hyperspectral-plastic") &&
+      url.includes("/drone/validation-request") &&
+      route.request().method() === "POST"
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          status: "not_enabled",
+          mode: "manual",
+          message: "Stub — no dispatch.",
+          requestId: "dvr_e2e_stub",
+          dispatched: false,
+          payloadEcho: { lat: 0, lng: 0, radiusKm: 1 },
+        }),
+      });
+      return;
+    }
+
+    if (url.includes("/api/hyperspectral-plastic") && url.includes("/scan")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          scanId: "hpw_e2e_stub",
+          label: "Plastic Watch AOI",
+          aoi: {
+            lat: 14.5995,
+            lng: 120.9842,
+            radiusKm: 12,
+            label: "Plastic Watch AOI",
+            baselineDate: "2025-06-01T12:00:00.000Z",
+            currentDate: "2026-01-01T23:59:59.999Z",
+            environmentType: "coast",
+            quickPreset: null,
+            aoiGeoJson: null,
+          },
+          providers: {
+            pace: { status: "not_enabled", message: "PACE disabled (e2e stub).", scenes: [] },
+            emit: { status: "not_enabled", message: "EMIT disabled (e2e stub).", scenes: [] },
+            sentinelLandsatFallback: {
+              status: "not_enabled",
+              message: "EO off (e2e stub).",
+            },
+            drone: {
+              status: "not_enabled",
+              mode: "manual",
+              message: "Drone off (e2e stub).",
+            },
+          },
+          spectralSignals: {
+            plasticRiskSignal: "none",
+            confidence: 0.05,
+            swirAnomaly: null,
+            visibleAnomaly: null,
+            waterConfounders: {
+              algae: "low",
+              turbidity: "low",
+              sediment: "low",
+              foam: "unknown",
+              cloudsGlint: "low",
+            },
+            notes: ["e2e stub spectral notes"],
+          },
+          plasticRiskScore: null,
+          riskLevel: "not_computed",
+          plasticRisk: {
+            score: null,
+            status: "not_computed",
+            message: "Narrow-band scoring not computed in e2e stub.",
+          },
+          evidencePacket: {
+            status: "preview",
+            claimsLevel: "metadata_only",
+            limitations: ["e2e stub limitation"],
+            nextActions: ["e2e stub next action"],
+          },
+          evidenceItems: ["e2e stub evidence line"],
+          limitations: ["e2e stub scan limitation"],
+          generatedAt: new Date().toISOString(),
+        }),
+      });
+      return;
+    }
+
+    if (url.includes("/api/hyperspectral-plastic") && url.includes("/evidence-packet")) {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          integrityHash: "e2e_stub_hash",
+          qrPayloadPreview: {
+            type: "dpal_hyperspectral_plastic_watch",
+            integrityHash: "e2e_stub_hash",
+            scanId: "hpw_e2e_stub",
+            label: "Plastic Watch AOI",
+            generatedAt: new Date().toISOString(),
+            plasticRiskScore: null,
+            riskLevel: "not_computed",
+          },
+          packet: { kind: "dpal_hyperspectral_plastic_watch_evidence_v1", generatedAt: new Date().toISOString(), scan: {} },
+        }),
+      });
+      return;
+    }
+
       await route.fulfill({
         status: 200,
         contentType: "application/json",
