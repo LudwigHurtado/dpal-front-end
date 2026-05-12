@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Activity, Globe, ShieldCheck, Database, Layout, Sparkles } from './icons';
+import { ArrowRight, Activity, Globe, ShieldCheck, Database, Layout, Sparkles, Monitor } from './icons';
 import type { View } from '../App';
 import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, WATCH_DEEP_LINK_HASH } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
@@ -444,6 +444,16 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           CARB, evidence), run previews, and queue review — without hunting through the workflow list first.
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-3">
+          <HubCard
+            icon={<Monitor className="w-8 h-8" />}
+            label="DPAL Command Center"
+            subLabel="Pick how you want to run DPAL today — manual scan, guided flow, watch mode, evidence builder, investor presets, or optional Super Agent handoff."
+            status="Modes"
+            colorClass="sky"
+            bgImageUrl="/main-screen/satellite-water-analysis.png"
+            onClick={() => onNavigate('commandCenter')}
+            ctaLabel="Open DPAL Command Center"
+          />
           <HubCard
             icon={<Sparkles className="w-8 h-8" />}
             label="Super Agent (Field OS)"

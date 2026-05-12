@@ -191,6 +191,8 @@ export const VIEW_PATHS: Record<string, string> = {
   previewModule: '/preview/module-preview',
   /** Investor-facing pitch / walkthrough page. Shareable meeting link. */
   investorDemo: '/investor-demo',
+  /** DPAL Command Center — multi-mode orchestration shell (shared adapters / evidence shape). */
+  commandCenter: '/command-center',
 };
 
 export function viewToPath(view: string): string {
