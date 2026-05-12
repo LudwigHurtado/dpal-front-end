@@ -261,7 +261,7 @@ const InvestorDemoPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h2 className="text-base font-bold text-slate-900 md:text-lg">Choose a demo scenario</h2>
+            <h2 className="text-base font-bold text-slate-900 md:text-lg">Investor Demo Scenarios</h2>
             <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
               Each card opens an existing DPAL module. &quot;Watch DPAL Work&quot; deep-links to the module&apos;s
               workflow panel so investors see DPAL&apos;s step plan — no scan starts on its own.
@@ -319,7 +319,7 @@ const InvestorDemoPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
 
       {/* ===================== BUSINESS VALUE ===================== */}
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
-        <h2 className="text-base font-bold text-slate-900 md:text-lg">Business value</h2>
+        <h2 className="text-base font-bold text-slate-900 md:text-lg">Business Value</h2>
         <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
           Each DPAL capability maps to a concrete investor outcome — software, data integrity, response, and a path to
           accepted MRV / VIU standards.
