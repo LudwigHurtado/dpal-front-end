@@ -61,11 +61,8 @@ function optionalGeoField(v: unknown): unknown {
  * Flatten Express query + JSON body into one record (body wins on key overlap).
  * Used so POST ?compact=true works the same as body.compact.
  */
-export function mergeScanRawFromRequest(query: Record<string, unknown>, body: unknown): Record<string, unknown> {
-  const q: Record<string, unknown> = { ...query };
-  const b =
-    body && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
-  return { ...q, ...b };
+export function mergeScanRawFromRequest(query: Record<string, unknown>, body: Record<string, unknown>): Record<string, unknown> {
+  return { ...query, ...body };
 }
 
 /** Single-string values from Express `req.query` (drops undefined keys). */
@@ -80,22 +77,71 @@ export function flattenExpressQuery(query: Request['query']): Record<string, unk
 }
 
 /**
- * Raw scan fields for parsing: GET uses query only; POST merges query then body (body wins on duplicate keys).
+ * Coerce Express `req.body` into a plain object for POST JSON (and tolerant fallbacks).
+ * Arrays are rejected as invalid scan bodies.
  */
-export function buildScanRawFromRequest(req: Request): Record<string, unknown> {
-  const q = flattenExpressQuery(req.query);
-  if (req.method === 'GET') return q;
-  const b =
-    req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? (req.body as Record<string, unknown>) : {};
-  return mergeScanRawFromRequest(q, b);
+export function coerceJsonScanBody(body: unknown): { ok: true; value: Record<string, unknown> } | { ok: false; error: string; details?: string } {
+  if (body == null || body === '') {
+    return { ok: true, value: {} };
+  }
+  if (typeof body === 'object' && !Array.isArray(body)) {
+    return { ok: true, value: body as Record<string, unknown> };
+  }
+  if (Array.isArray(body)) {
+    return { ok: false, error: 'invalid_body', details: 'JSON body must be an object, not an array.' };
+  }
+  if (Buffer.isBuffer(body)) {
+    return coerceJsonScanBody(body.toString('utf8'));
+  }
+  if (typeof body === 'string') {
+    const t = body.trim();
+    if (!t) return { ok: true, value: {} };
+    try {
+      const parsed = JSON.parse(t) as unknown;
+      if (parsed == null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return { ok: false, error: 'invalid_body', details: 'JSON body must parse to a non-null object.' };
+      }
+      return { ok: true, value: parsed as Record<string, unknown> };
+    } catch {
+      return { ok: false, error: 'invalid_json_body', details: 'Body could not be parsed as JSON.' };
+    }
+  }
+  return { ok: false, error: 'invalid_body', details: 'Unsupported body type for scan request.' };
+}
+
+/**
+ * Single entry for GET query vs POST merged query+body (body wins). Same fields as GET query params.
+ */
+export function buildNormalizedPlasticScanRawFromParts(parts: {
+  method: string;
+  query: Request['query'];
+  body: unknown;
+}): { ok: true; raw: Record<string, unknown> } | { ok: false; error: string; details?: string } {
+  const q = flattenExpressQuery(parts.query);
+  if (parts.method === 'GET') {
+    return { ok: true, raw: q };
+  }
+  const coerced = coerceJsonScanBody(parts.body);
+  if (!coerced.ok) return coerced;
+  return { ok: true, raw: mergeScanRawFromRequest(q, coerced.value) };
 }
 
 export function parsePlasticWatchScanRaw(
   raw: Record<string, unknown>,
-): { ok: true; value: NormalizedPlasticScanRequest } | { ok: false; error: string } {
+): { ok: true; value: NormalizedPlasticScanRequest } | { ok: false; error: string; details?: string } {
   const lat = toFiniteNumber(raw.lat);
   const lng = toFiniteNumber(raw.lng, raw.longitude);
-  const radiusKm = toFiniteNumber(raw.radiusKm, raw.radius) || 10;
+  const radiusCandidates: unknown[] = [raw.radiusKm, raw.radius];
+  const hasExplicitRadius = radiusCandidates.some((v) => v !== undefined && v !== null && String(v).trim() !== '');
+  const radiusParsed = toFiniteNumber(raw.radiusKm, raw.radius);
+  if (hasExplicitRadius && (!Number.isFinite(radiusParsed) || radiusParsed <= 0 || radiusParsed > 250)) {
+    return {
+      ok: false,
+      error: 'invalid_radiusKm',
+      details: 'radiusKm must be a finite number greater than 0 and at most 250 when provided.',
+    };
+  }
+  const radiusKm = hasExplicitRadius ? radiusParsed : Number.isFinite(radiusParsed) && radiusParsed > 0 ? radiusParsed : 10;
 
   const label = toTrimmedString(raw.label) || undefined;
   const baselineDate = toTrimmedString(raw.baselineDate);
@@ -112,7 +158,7 @@ export function parsePlasticWatchScanRaw(
       try {
         polygon = JSON.parse(polygonRaw) as unknown;
       } catch {
-        return { ok: false, error: 'polygon must be valid JSON when provided as a string' };
+        return { ok: false, error: 'polygon must be valid JSON when provided as a string', details: 'polygon string JSON.parse failed' };
       }
     } else {
       polygon = polygonRaw;
@@ -126,7 +172,11 @@ export function parsePlasticWatchScanRaw(
       try {
         aoiGeoJson = JSON.parse(aoiRaw) as unknown;
       } catch {
-        return { ok: false, error: 'aoiGeoJson must be valid JSON when provided as a string' };
+        return {
+          ok: false,
+          error: 'aoiGeoJson must be valid JSON when provided as a string',
+          details: 'aoiGeoJson string JSON.parse failed',
+        };
       }
     } else {
       aoiGeoJson = aoiRaw;
@@ -134,16 +184,20 @@ export function parsePlasticWatchScanRaw(
   }
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return { ok: false, error: 'lat and lng (or longitude) are required finite numbers' };
+    return {
+      ok: false,
+      error: 'invalid_coordinates',
+      details: 'lat and lng (or longitude) must be finite numbers.',
+    };
   }
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-    return { ok: false, error: 'lat/lng out of range' };
+    return { ok: false, error: 'lat_lng_out_of_range', details: 'lat must be within [-90, 90] and lng within [-180, 180].' };
   }
   if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 250) {
-    return { ok: false, error: 'radiusKm must be between 0 and 250' };
+    return { ok: false, error: 'invalid_radiusKm', details: 'radiusKm must be between 0 and 250 (exclusive of 0).' };
   }
   if (!baselineDate || !currentDate) {
-    return { ok: false, error: 'baselineDate and currentDate are required' };
+    return { ok: false, error: 'missing_dates', details: 'baselineDate and currentDate are required (ISO date strings).' };
   }
 
   const includeFullSceneLinks = toBool(raw.includeLinks);

@@ -1,6 +1,16 @@
 /**
  * In-process Express smoke: GET/POST /scan share normalization (no external CMR when lanes are off).
  * Run: cd backend && npx tsx src/services/hyperspectral/plasticWatch.routeScan.selftest.ts
+ *
+ * Manual verification (production API host):
+ *
+ * GET:
+ * curl.exe -i "https://web-production-a27b.up.railway.app/api/hyperspectral-plastic-watch/scan?lat=14.5995&lng=120.9842&radiusKm=12&baselineDate=2025-11-25&currentDate=2026-05-12&environmentType=coast&quickPreset=6mo"
+ *
+ * POST:
+ * curl.exe -i -X POST "https://web-production-a27b.up.railway.app/api/hyperspectral-plastic-watch/scan" ^
+ *   -H "Content-Type: application/json" ^
+ *   --data-raw "{\"lat\":14.5995,\"lng\":120.9842,\"radiusKm\":12,\"baselineDate\":\"2025-11-25\",\"currentDate\":\"2026-05-12\",\"environmentType\":\"coast\",\"quickPreset\":\"6mo\",\"aoiGeoJson\":null}"
  */
 import assert from 'node:assert/strict';
 import express from 'express';
@@ -98,6 +108,50 @@ async function main() {
     });
     assert.equal(postLongRes.status, 200);
     assertScanShape(await postLongRes.json());
+
+    const badCoordRes = await fetch(`${base}/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        lat: 'nope',
+        lng: 120.9842,
+        radiusKm: 12,
+        baselineDate: '2025-11-25',
+        currentDate: '2026-05-12',
+        environmentType: 'coast',
+      }),
+    });
+    assert.equal(badCoordRes.status, 400);
+    const badCoordJson = (await badCoordRes.json()) as Record<string, unknown>;
+    assert.equal(badCoordJson.ok, false);
+    assert.equal(badCoordJson.error, 'invalid_coordinates');
+
+    const arrayBodyRes = await fetch(`${base}/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify([]),
+    });
+    assert.equal(arrayBodyRes.status, 400);
+    const arrayBodyJson = (await arrayBodyRes.json()) as Record<string, unknown>;
+    assert.equal(arrayBodyJson.ok, false);
+    assert.equal(arrayBodyJson.error, 'invalid_body');
+
+    const badRadiusRes = await fetch(`${base}/scan`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...manilaBody,
+        radiusKm: 999,
+      }),
+    });
+    assert.equal(badRadiusRes.status, 400);
+    const badRadiusJson = (await badRadiusRes.json()) as Record<string, unknown>;
+    assert.equal(badRadiusJson.ok, false);
+    assert.equal(badRadiusJson.error, 'invalid_radiusKm');
+
+    const getNoRadiusRes = await fetch(`${base}/scan?lat=14.5995&lng=120.9842&baselineDate=2025-11-25&currentDate=2026-05-12&environmentType=coast`);
+    assert.equal(getNoRadiusRes.status, 200);
+    assertScanShape(await getNoRadiusRes.json());
 
     const compactRes = await fetch(`${base}/scan?${manilaQuery}&compact=true`);
     assert.equal(compactRes.status, 200);

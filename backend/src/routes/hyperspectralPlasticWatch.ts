@@ -6,7 +6,10 @@ import {
   postDroneValidationRequestParsed,
   runHyperspectralPlasticScan,
 } from '../services/hyperspectralPlasticService';
-import { buildScanRawFromRequest, parsePlasticWatchScanRaw } from '../services/hyperspectral/scanRequestNormalize';
+import {
+  buildNormalizedPlasticScanRawFromParts,
+  parsePlasticWatchScanRaw,
+} from '../services/hyperspectral/scanRequestNormalize';
 
 const router = Router();
 
@@ -43,10 +46,27 @@ router.post('/drone/validation-request', (req, res) => {
 });
 
 async function executePlasticScan(req: Request, res: Response): Promise<void> {
-  const raw = buildScanRawFromRequest(req);
-  const parsed = parsePlasticWatchScanRaw(raw);
+  const routeTag = `[${req.method} ${(req.baseUrl ?? '') + (req.path ?? '')}] hyperspectral-plastic-watch`;
+  const normalized = buildNormalizedPlasticScanRawFromParts({
+    method: req.method,
+    query: req.query,
+    body: req.body,
+  });
+  if (!normalized.ok) {
+    res.status(400).json({
+      ok: false,
+      error: normalized.error,
+      ...(normalized.details ? { details: normalized.details } : {}),
+    });
+    return;
+  }
+  const parsed = parsePlasticWatchScanRaw(normalized.raw);
   if (!parsed.ok) {
-    res.status(400).json({ ok: false, error: parsed.error });
+    res.status(400).json({
+      ok: false,
+      error: parsed.error,
+      ...(parsed.details ? { details: parsed.details } : {}),
+    });
     return;
   }
   const { compactScenes, includeFullSceneLinks, ...scanFields } = parsed.value;
@@ -59,12 +79,20 @@ async function executePlasticScan(req: Request, res: Response): Promise<void> {
     res.json(payload);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'scan_failed';
+    console.error(`${routeTag} scan error:`, error);
     if (message.includes('Invalid baseline')) {
-      res.status(400).json({ ok: false, error: message });
+      res.status(400).json({
+        ok: false,
+        error: 'invalid_date_range',
+        details: message,
+      });
       return;
     }
-    console.error('Hyperspectral plastic scan error:', error);
-    res.status(500).json({ ok: false, error: 'scan_failed' });
+    res.status(500).json({
+      ok: false,
+      error: 'scan_failed',
+      details: 'The scan pipeline encountered an unexpected error.',
+    });
   }
 }
 
