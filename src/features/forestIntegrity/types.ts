@@ -1,4 +1,11 @@
-export type ForestProviderState = 'available' | 'unavailable' | 'not_configured' | 'failed' | 'cached';
+export type ForestProviderState =
+  | 'available'
+  | 'unavailable'
+  | 'not_configured'
+  | 'failed'
+  | 'cached'
+  | 'auth_error'
+  | 'rate_limited';
 
 export type ForestIntegrityProviderBlock = {
   status: ForestProviderState;
@@ -7,6 +14,11 @@ export type ForestIntegrityProviderBlock = {
   alerts?: number | null;
   activeFires?: number | null;
   biomassEstimateMgPerHa?: number | null;
+  integratedAlerts?: number | null;
+  disturbanceAlerts?: number | null;
+  datasetVersionsUsed?: string[];
+  queriedAt?: string | null;
+  limitations?: string[];
 };
 
 export type ForestIntegrityIndices = {
@@ -65,8 +77,25 @@ export type ForestEvidencePacketResponse = {
     scanId: unknown;
     label: unknown;
     generatedAt: string;
+    gfwProviderStatus?: string;
+    gfwAlertsCount?: number | null;
   };
-  packet: Record<string, unknown>;
+  packet: {
+    kind?: string;
+    generatedAt?: string;
+    scan?: Record<string, unknown>;
+    gfw?: {
+      gfwProviderStatus: string;
+      gfwAlertsCount: number | null;
+      gfwIntegratedAlertsCount: number | null;
+      gfwDisturbanceAlertsCount: number | null;
+      gfwDatasetVersionsUsed: string[];
+      gfwQueriedAt: string | null;
+      gfwLimitations: string[];
+      gfwMessage: string;
+    };
+    disclaimer?: string;
+  } & Record<string, unknown>;
 };
 
 export type WatchStepStatus = 'pending' | 'running' | 'complete' | 'warning' | 'failed' | 'skipped';

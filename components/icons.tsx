@@ -130,3 +130,26 @@ export const Waves = Icon(<><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2
 export const BarChart2 = Icon(<><line x1="18" x2="18" y1="20" y2="10" /><line x1="12" x2="12" y1="20" y2="4" /><line x1="6" x2="6" y1="20" y2="14" /></>);
 export const TrendingUp = Icon(<><polyline points="22 7 13.5 15.5 8.5 10.5 2 17" /><polyline points="16 7 22 7 22 13" /></>);
 export const TrendingDown = Icon(<><polyline points="22 17 13.5 8.5 8.5 13.5 2 7" /><polyline points="16 17 22 17 22 11" /></>);
+/** Forest / EO UI */
+export const TreePine = Icon(
+  <>
+    <path d="m17 14 3 3.5a1 1 0 0 1-.7 1.7H4.7a1 1 0 0 1-.7-1.7L7 14" />
+    <path d="m10 9 2 2 2-2" />
+    <path d="M12 12v10" />
+  </>,
+);
+export const Flame = Icon(
+  <>
+    <path d="M8.5 14.5A2.5 2.5 0 0 0 11 18c0 1.38-1.5 2-1.5 2s1.5-.62 1.5-2a2.5 2.5 0 0 0-2.5-2.5z" />
+    <path d="M12 2c0 3-3 5.5-3 9.5a4.5 4.5 0 1 0 9 0c0-4-3-6.5-3-9.5Z" />
+  </>,
+);
+export const Satellite = Icon(
+  <>
+    <path d="M13 7s3-1 4 0 1 4 1 4" />
+    <path d="M11 17s-3 1-4 0-1-4-1-4" />
+    <path d="m18 5 2 2" />
+    <path d="m4 17 2 2" />
+    <circle cx="12" cy="12" r="3" />
+  </>,
+);

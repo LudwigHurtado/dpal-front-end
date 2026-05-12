@@ -1,8 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
+import L from 'leaflet';
+import { MapContainer, TileLayer, Circle, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import { ArrowLeft, Globe, ShieldCheck } from '../../../components/icons';
-import { getApiBase } from '../../../constants';
+import {
+  ArrowLeft,
+  ChevronRight,
+  Crosshair,
+  Layout,
+  Maximize2,
+  Search,
+  Settings,
+} from '../../../components/icons';
 import ForestEvidencePacketPanel from './components/ForestEvidencePacketPanel';
 import ForestLayerControl, { type ForestMapLayers } from './components/ForestLayerControl';
 import ForestRiskSummaryCards from './components/ForestRiskSummaryCards';
@@ -23,6 +31,8 @@ import type {
 type Props = {
   onReturn: () => void;
 };
+
+type PresetId = '1m' | '3m' | '6m' | '1y';
 
 function isoFromDateInput(d: string, endOfDay: boolean): string {
   if (!d) return '';
@@ -49,73 +59,66 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
 function initialSteps(): ForestWatchStep[] {
   return [
     {
-      id: 'aoi',
-      title: 'Confirm AOI / coordinates',
+      id: 'init',
+      title: 'Initializing Forest Integrity Scan',
       status: 'pending',
-      explanation: 'DPAL needs a fixed place to monitor before any satellite pull.',
+      explanation: 'Validating AOI, radius, and date window before provider calls.',
     },
     {
-      id: 'baseline',
-      title: 'Load baseline satellite context',
+      id: 'gfw_integrated',
+      title: 'Checking Global Forest Watch Integrated Alerts',
       status: 'pending',
-      provider: 'Microsoft Planetary Computer / Landsat C2 L2',
-      explanation: 'Retrieve past-window scene metadata and statistics for the AOI.',
+      provider: 'Global Forest Watch',
+      explanation: 'Awaiting scan response for integrated deforestation alerts.',
     },
     {
-      id: 'current',
-      title: 'Load current satellite context',
+      id: 'gfw_disturbance',
+      title: 'Checking Disturbance Alerts (GFW)',
       status: 'pending',
-      provider: 'Microsoft Planetary Computer / Landsat C2 L2',
-      explanation: 'Retrieve latest-window scene metadata and statistics for change detection.',
-    },
-    {
-      id: 'indices',
-      title: 'Calculate NDVI / NDMI / NBR',
-      status: 'pending',
-      provider: 'Landsat C2 L2 band means (item statistics)',
-      explanation: 'Vegetation vigor, moisture, and burn-sensitive index deltas when scenes resolve.',
-    },
-    {
-      id: 'gfw',
-      title: 'Check deforestation alert providers',
-      status: 'pending',
-      provider: 'Global Forest Watch (when configured)',
-      explanation: 'Integrated deforestation / disturbance alerts require a configured GFW API path on the host.',
+      provider: 'Global Forest Watch',
+      explanation: 'Awaiting scan response for disturbance / RADD-style lanes when returned.',
     },
     {
       id: 'firms',
-      title: 'Check NASA FIRMS active fire signals',
+      title: 'Checking Active Fires (FIRMS)',
       status: 'pending',
-      provider: 'NASA FIRMS VIIRS SNPP NRT (CSV area API)',
-      explanation: 'Near-real-time thermal anomaly CSV rows for the AOI (not ground-truthed fire perimeters).',
+      provider: 'NASA FIRMS VIIRS SNPP NRT',
+      explanation: 'Awaiting hotspot CSV row counts for the AOI window.',
+    },
+    {
+      id: 'landsat',
+      title: 'Analyzing Satellite Imagery (Landsat)',
+      status: 'pending',
+      provider: 'Microsoft Planetary Computer / Landsat C2 L2',
+      explanation: 'Scene statistics for NDVI / NDMI / NBR when Earth Observation is live.',
     },
     {
       id: 'gedi',
-      title: 'Estimate biomass / carbon integrity risk',
+      title: 'Checking Canopy Height (GEDI)',
       status: 'pending',
-      provider: 'NASA GEDI (when implemented)',
-      explanation: 'Canopy height / biomass estimates are not yet wired — provider remains honest about gaps.',
+      provider: 'NASA GEDI',
+      explanation: 'Canopy / biomass lane status from the API host.',
     },
     {
       id: 'score',
-      title: 'Compute DPAL Forest Integrity score',
+      title: 'Calculating Risk Scores',
       status: 'pending',
-      provider: 'DPAL scoring model (transparent weights)',
-      explanation: 'Combine vegetation, disturbance, FIRMS, deforestation lane, and evidence completeness.',
+      provider: 'DPAL Forest Integrity model',
+      explanation: 'Transparent weighted score when configured lanes return usable evidence.',
     },
     {
       id: 'packet',
-      title: 'Prepare evidence packet',
+      title: 'Compiling Evidence Packet',
       status: 'pending',
       provider: 'DPAL Forest Integrity API',
-      explanation: 'Assemble AOI, timestamps, indices, provider outcomes, and limitations.',
+      explanation: 'Posting normalized evidence payload to the API host.',
     },
     {
-      id: 'hash',
-      title: 'Create QR / hash-ready audit summary',
+      id: 'finalize',
+      title: 'Finalizing Scan Results',
       status: 'pending',
-      provider: 'SHA-256 over canonical packet JSON',
-      explanation: 'Integrity hash anchors the packet for investor and audit workflows.',
+      provider: 'SHA-256 integrity hash',
+      explanation: 'Anchoring the evidence packet for audit workflows.',
     },
   ];
 }
@@ -132,8 +135,34 @@ function MapPicker({ onPick }: { onPick: (p: { lat: number; lng: number }) => vo
   return <Picker />;
 }
 
+function LeafletZoomScale() {
+  const map = useMap();
+  useEffect(() => {
+    const zoom = L.control.zoom({ position: 'topright' });
+    const scale = L.control.scale({ imperial: false, metric: true, position: 'bottomleft' });
+    zoom.addTo(map);
+    scale.addTo(map);
+    return () => {
+      map.removeControl(zoom);
+      map.removeControl(scale);
+    };
+  }, [map]);
+  return null;
+}
+
+function MapViewSync({ center }: { center: { lat: number; lng: number } }) {
+  const map = useMap();
+  useEffect(() => {
+    map.setView([center.lat, center.lng], map.getZoom(), { animate: false });
+  }, [center.lat, center.lng, map]);
+  return null;
+}
+
 const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
   const [label, setLabel] = useState('Forest AOI');
+  const [searchText, setSearchText] = useState('');
+  const [searchBusy, setSearchBusy] = useState(false);
+  const [searchNotice, setSearchNotice] = useState<string | null>(null);
   const [center, setCenter] = useState({ lat: -3.4653, lng: -62.2159 });
   const [radiusKm, setRadiusKm] = useState(15);
   const [baselineDay, setBaselineDay] = useState(() => {
@@ -142,12 +171,29 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
     return d.toISOString().slice(0, 10);
   });
   const [currentDay, setCurrentDay] = useState(() => new Date().toISOString().slice(0, 10));
+  const [activePreset, setActivePreset] = useState<PresetId | null>('6m');
 
-  const [layers, setLayers] = useState<ForestMapLayers>({ satellite: true, labels: true, aoiCircle: true });
+  const [layers, setLayers] = useState<ForestMapLayers>({
+    satellite: true,
+    labels: true,
+    aoiCircle: true,
+    deforestationAlerts: true,
+    disturbanceAlerts: true,
+    activeFires: true,
+    canopyGedi: true,
+    forestLossHansen: true,
+  });
+  const [layerMenuOpen, setLayerMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const settingsRef = useRef<HTMLDivElement | null>(null);
+  const layerMenuRef = useRef<HTMLDivElement | null>(null);
+  const mapWrapRef = useRef<HTMLDivElement | null>(null);
+
   const [providerStatus, setProviderStatus] = useState<ForestProviderStatusResponse | null>(null);
   const [providerStatusError, setProviderStatusError] = useState<string | null>(null);
 
   const [watchOpen, setWatchOpen] = useState(false);
+  const [watchLogLines, setWatchLogLines] = useState<string[]>([]);
   const [steps, setSteps] = useState<ForestWatchStep[]>(() => initialSteps());
   const [isRunning, setIsRunning] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -160,6 +206,11 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
 
   const baselineIso = useMemo(() => isoFromDateInput(baselineDay, false), [baselineDay]);
   const currentIso = useMemo(() => isoFromDateInput(currentDay, true), [currentDay]);
+
+  const pushLog = useCallback((line: string) => {
+    const ts = new Date().toISOString().slice(11, 19);
+    setWatchLogLines((prev) => [...prev.slice(-200), `[${ts}Z] ${line}`]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,12 +227,23 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
     };
   }, []);
 
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      const t = e.target as Node;
+      if (settingsOpen && settingsRef.current && !settingsRef.current.contains(t)) setSettingsOpen(false);
+      if (layerMenuOpen && layerMenuRef.current && !layerMenuRef.current.contains(t)) setLayerMenuOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    return () => document.removeEventListener('mousedown', onDocClick);
+  }, [settingsOpen, layerMenuOpen]);
+
   const patchStep = useCallback((id: string, patch: Partial<ForestWatchStep>) => {
     setSteps((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   }, []);
 
   const resetSteps = useCallback(() => {
     setSteps(initialSteps());
+    setWatchLogLines([]);
   }, []);
 
   const stopWatch = useCallback(() => {
@@ -197,6 +259,24 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
     setCacheNotice(null);
     clearForestIntegrityScanCache();
   }, []);
+
+  const applyPreset = useCallback((pid: PresetId) => {
+    setActivePreset(pid);
+    const months = pid === '1m' ? 1 : pid === '3m' ? 3 : pid === '6m' ? 6 : 12;
+    const end = new Date(currentDay + 'T12:00:00Z');
+    const start = new Date(end);
+    start.setUTCMonth(start.getUTCMonth() - months);
+    setBaselineDay(start.toISOString().slice(0, 10));
+  }, [currentDay]);
+
+  const onBaselineChange = (v: string) => {
+    setBaselineDay(v);
+    setActivePreset(null);
+  };
+  const onCurrentChange = (v: string) => {
+    setCurrentDay(v);
+    setActivePreset(null);
+  };
 
   const runManualScan = useCallback(async () => {
     setLastError(null);
@@ -244,27 +324,24 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
     const assertRun = () => runId === watchRunIdRef.current;
 
     try {
-      patchStep('aoi', {
+      patchStep('init', {
         status: 'running',
-        explanation: 'Validating map center, radius, and date window before provider calls.',
+        explanation: 'Validating map center, radius, and date window.',
         at: new Date().toISOString(),
       });
-      await delay(280, ac.signal);
+      await delay(220, ac.signal);
       if (!assertRun()) return;
 
-      patchStep('aoi', {
+      patchStep('init', {
         status: 'complete',
         explanation: 'AOI locked for this run.',
         detail: `${label} @ ${center.lat.toFixed(5)}, ${center.lng.toFixed(5)} — r=${radiusKm} km`,
         at: new Date().toISOString(),
       });
+      pushLog(`Scan initialized for AOI (${center.lat.toFixed(4)}, ${center.lng.toFixed(4)}), radius ${radiusKm} km.`);
 
-      patchStep('baseline', { status: 'running', at: new Date().toISOString() });
-      await delay(320, ac.signal);
-      if (!assertRun()) return;
-      patchStep('current', { status: 'running', at: new Date().toISOString() });
-      await delay(320, ac.signal);
-      if (!assertRun()) return;
+      patchStep('gfw_integrated', { status: 'running', at: new Date().toISOString() });
+      pushLog('GFW integrated alerts query started (via combined forest scan).');
 
       const { data, fromCache } = await getForestIntegrityScan(
         {
@@ -281,48 +358,76 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
 
       setLastScan(data);
       setCacheNotice(fromCache ? 'Scan result: short client cache hit for identical AOI/window.' : null);
-
-      const s = data.providers.sentinel;
-      patchStep('baseline', {
-        status: s.status === 'available' ? 'complete' : 'warning',
-        explanation: s.message,
-        detail: `Baseline scene: ${data.earthObservation && typeof data.earthObservation === 'object' ? String((data.earthObservation as { beforeScene?: { acquisitionDate?: string } }).beforeScene?.acquisitionDate ?? 'n/a') : 'n/a'}`,
-        provider: 'Planetary Computer / Landsat C2 L2',
-        at: new Date().toISOString(),
-      });
-
-      patchStep('current', {
-        status: s.status === 'available' ? 'complete' : 'warning',
-        explanation: s.message,
-        detail: `Current scene date: ${s.sceneDate ?? 'n/a'}`,
-        at: new Date().toISOString(),
-      });
-
-      const hasIdx =
-        data.indices.ndvi != null || data.indices.ndmi != null || data.indices.nbr != null;
-      patchStep('indices', {
-        status: hasIdx ? 'complete' : 'warning',
-        explanation: hasIdx
-          ? 'Indices derived from scene mean reflectance where available.'
-          : 'Indices unavailable for this AOI/window — see sentinel provider message.',
-        detail: `NDVI ${data.indices.ndvi ?? 'n/a'}, NDMI ${data.indices.ndmi ?? 'n/a'}, NBR ${data.indices.nbr ?? 'n/a'}`,
-        at: new Date().toISOString(),
-      });
+      pushLog('Forest integrity scan response received from API.');
 
       const gfw = data.providers.gfw;
-      patchStep('gfw', {
-        status: gfw.status === 'not_configured' ? 'warning' : gfw.status === 'available' ? 'complete' : 'warning',
+      const intMsg =
+        typeof gfw.integratedAlerts === 'number'
+          ? `GFW integrated alerts returned ${gfw.integratedAlerts} alert(s).`
+          : `GFW integrated alerts unavailable (${gfw.status}).`;
+      pushLog(intMsg);
+
+      const distMsg =
+        typeof gfw.disturbanceAlerts === 'number'
+          ? `GFW disturbance alerts returned ${gfw.disturbanceAlerts} alert(s).`
+          : `GFW disturbance alerts unavailable (${gfw.status}).`;
+      pushLog(distMsg);
+
+      const fr = data.providers.firms;
+      if (typeof fr.activeFires === 'number') {
+        pushLog(`FIRMS returned ${fr.activeFires} active-fire CSV row(s).`);
+      } else {
+        pushLog(`FIRMS lane: ${fr.status} — ${fr.message}`);
+      }
+
+      const gfwIntegratedStatus: ForestWatchStep['status'] =
+        gfw.status === 'available'
+          ? 'complete'
+          : gfw.status === 'auth_error' || gfw.status === 'failed'
+          ? 'failed'
+          : 'warning';
+      patchStep('gfw_integrated', {
+        status: gfwIntegratedStatus,
         explanation: gfw.message,
-        detail: gfw.alerts != null ? `Alerts: ${gfw.alerts}` : undefined,
+        detail:
+          typeof gfw.integratedAlerts === 'number'
+            ? `integrated=${gfw.integratedAlerts}`
+            : `status=${gfw.status}`,
         at: new Date().toISOString(),
       });
 
-      const fr = data.providers.firms;
+      const gfwDistStatus: ForestWatchStep['status'] =
+        gfw.status === 'available'
+          ? 'complete'
+          : gfw.status === 'auth_error' || gfw.status === 'failed'
+          ? 'failed'
+          : 'warning';
+      patchStep('gfw_disturbance', {
+        status: gfwDistStatus,
+        explanation: gfw.message,
+        detail:
+          typeof gfw.disturbanceAlerts === 'number'
+            ? `disturbance=${gfw.disturbanceAlerts}`
+            : undefined,
+        at: new Date().toISOString(),
+      });
+
       patchStep('firms', {
         status:
           fr.status === 'not_configured' ? 'warning' : fr.status === 'failed' ? 'failed' : 'complete',
         explanation: fr.message,
-        detail: fr.activeFires != null ? `CSV rows (hotspot proxy): ${fr.activeFires}` : undefined,
+        detail: fr.activeFires != null ? `CSV rows: ${fr.activeFires}` : undefined,
+        at: new Date().toISOString(),
+      });
+
+      const s = data.providers.sentinel;
+      const hasIdx = data.indices.ndvi != null || data.indices.ndmi != null || data.indices.nbr != null;
+      patchStep('landsat', {
+        status: s.status === 'available' && hasIdx ? 'complete' : 'warning',
+        explanation: hasIdx
+          ? 'Landsat-derived indices present for this window.'
+          : `${s.message} Indices may be missing if scenes did not resolve.`,
+        detail: `NDVI ${data.indices.ndvi ?? 'n/a'}, NDMI ${data.indices.ndmi ?? 'n/a'}, NBR ${data.indices.nbr ?? 'n/a'}`,
         at: new Date().toISOString(),
       });
 
@@ -337,29 +442,31 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         status: data.forestIntegrityScore != null ? 'complete' : 'warning',
         explanation:
           data.forestIntegrityScore != null
-            ? `Score ${data.forestIntegrityScore} — band: ${data.riskLevel.replace(/_/g, ' ')}`
-            : 'Score withheld until at least one primary lane returns usable evidence.',
+            ? `Score ${data.forestIntegrityScore} — ${data.riskLevel.replace(/_/g, ' ')}`
+            : 'Score withheld when configured lanes do not return enough usable evidence.',
         at: new Date().toISOString(),
       });
 
-      patchStep('packet', { status: 'running', explanation: 'Posting evidence packet to API host…', at: new Date().toISOString() });
+      patchStep('packet', { status: 'running', explanation: 'Posting evidence packet…', at: new Date().toISOString() });
       const ev = await postForestIntegrityEvidencePacket(data, ac.signal);
       if (!assertRun()) return;
       setEvidence(ev);
       patchStep('packet', {
         status: 'complete',
-        explanation: 'Evidence packet accepted and normalized server-side.',
+        explanation: 'Evidence packet accepted server-side.',
         at: new Date().toISOString(),
       });
+      pushLog('Evidence packet compiled and accepted by API.');
 
-      patchStep('hash', {
+      patchStep('finalize', {
         status: 'complete',
-        explanation: 'Integrity hash generated for QR-ready anchoring.',
+        explanation: 'Integrity hash ready for anchoring.',
         detail: ev.integrityHash,
         at: new Date().toISOString(),
       });
     } catch (e) {
       if ((e as Error).name === 'AbortError') {
+        pushLog('Scan stopped by operator.');
         setSteps((prev) =>
           prev.map((s) =>
             s.status === 'running' ? { ...s, status: 'skipped' as const, explanation: 'Stopped by operator.' } : s,
@@ -368,6 +475,7 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
       } else {
         const msg = e instanceof Error ? e.message : 'Watch run failed';
         setLastError(msg);
+        pushLog(`Error: ${msg}`);
         setSteps((prev) =>
           prev.map((s) =>
             s.status === 'running' || s.status === 'pending'
@@ -382,125 +490,340 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         abortRef.current = null;
       }
     }
-  }, [baselineIso, center.lat, center.lng, currentIso, label, patchStep, radiusKm, resetSteps]);
+  }, [baselineIso, center.lat, center.lng, currentIso, label, patchStep, pushLog, radiusKm, resetSteps]);
 
   const restartWatch = useCallback(() => {
     if (isRunning) return;
     void executeWatch();
   }, [executeWatch, isRunning]);
 
-  return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-16">
-      <div className="max-w-[1400px] mx-auto px-4 pt-6">
-        <button
-          type="button"
-          onClick={onReturn}
-          className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-600 bg-black/30 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-black/45"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
+  const toggleFullscreen = useCallback(async () => {
+    const el = mapWrapRef.current;
+    if (!el) return;
+    try {
+      if (!document.fullscreenElement) await el.requestFullscreen();
+      else await document.exitFullscreen();
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
-        <header className="rounded-2xl border border-emerald-800/40 bg-gradient-to-r from-emerald-950/80 via-slate-950 to-slate-950 p-6 md:p-8 mb-6">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.22em] text-emerald-300/90">Forestry Protection</p>
-              <h1 className="mt-1 text-2xl md:text-3xl font-black text-white tracking-tight">Forest Integrity + Satellite Monitoring</h1>
-              <p className="mt-2 max-w-3xl text-sm text-slate-400 leading-relaxed">
-                Evidence-support workspace for forest AOI screening using Landsat-backed indices when the API host is live,
-                honest provider status when adapters are missing, and FIRMS CSV checks when configured.
-              </p>
+  const submitSearch = useCallback(async () => {
+    const q = searchText.trim();
+    if (!q) return;
+    setSearchBusy(true);
+    setSearchNotice(null);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q)}`;
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
+      if (!res.ok) throw new Error(`Geocoder HTTP ${res.status}`);
+      const arr = (await res.json()) as { lat: string; lon: string; display_name?: string }[];
+      if (!arr?.length) {
+        setSearchNotice('No results — try another query or click the map.');
+        return;
+      }
+      const lat = Number.parseFloat(arr[0].lat);
+      const lng = Number.parseFloat(arr[0].lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) throw new Error('Invalid geocoder response');
+      if (arr[0].display_name) setLabel(arr[0].display_name.slice(0, 80));
+      handleMapPick({ lat, lng });
+    } catch {
+      setSearchNotice('Geocoding unavailable (network/CORS). Use map click or enter coordinates.');
+    } finally {
+      setSearchBusy(false);
+    }
+  }, [handleMapPick, searchText]);
+
+  const legendRows = useMemo(
+    () =>
+      [
+        { key: 'aoiCircle' as const, label: 'AOI', color: 'bg-emerald-500' },
+        { key: 'deforestationAlerts' as const, label: 'Deforestation Alerts', color: 'bg-amber-500' },
+        { key: 'disturbanceAlerts' as const, label: 'Disturbance Alerts', color: 'bg-orange-500' },
+        { key: 'activeFires' as const, label: 'Active Fires', color: 'bg-rose-500' },
+        { key: 'forestLossHansen' as const, label: 'Forest Loss (Hansen)', color: 'bg-lime-600' },
+        { key: 'canopyGedi' as const, label: 'Canopy Height (GEDI)', color: 'bg-teal-600' },
+        { key: 'satellite' as const, label: 'Satellite Imagery', color: 'bg-slate-600' },
+      ].filter((row) => (row.key === 'aoiCircle' ? layers.aoiCircle : layers[row.key])),
+    [layers],
+  );
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+      <header className="shrink-0 border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-3 px-4 py-2.5">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={onReturn}
+              className="inline-flex items-center gap-1 rounded-lg border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
+            <div className="flex items-center gap-2 border-l border-slate-200 pl-3">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-800 text-[10px] font-bold text-white">
+                DP
+              </div>
+              <div className="min-w-0">
+                <p className="text-[10px] text-slate-500 flex items-center gap-1 flex-wrap">
+                  <span>Monitoring &amp; Remote Sensing</span>
+                  <ChevronRight className="h-3 w-3 shrink-0 opacity-60" />
+                  <span className="font-semibold text-slate-800">Forest Integrity</span>
+                </p>
+              </div>
             </div>
-            <div className="flex flex-col gap-2 shrink-0 w-full sm:w-auto">
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden sm:flex flex-col items-end text-[10px] text-slate-500 leading-tight">
+              <span>
+                Baseline: <span className="font-mono text-slate-700">{baselineDay}</span>
+              </span>
+              <span>
+                Current: <span className="font-mono text-slate-700">{currentDay}</span>
+              </span>
+            </div>
+            <div className="relative" ref={settingsRef}>
               <button
                 type="button"
-                disabled={isRunning}
-                onClick={() => void executeWatch()}
-                className="rounded-xl bg-emerald-600 px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-900/40 hover:bg-emerald-500 disabled:opacity-45"
+                onClick={() => setSettingsOpen((o) => !o)}
+                className="rounded-lg border border-slate-200 p-2 text-slate-600 hover:bg-slate-50"
+                aria-label="Settings"
               >
-                Watch DPAL Work
+                <Settings className="h-4 w-4" />
               </button>
+              {settingsOpen ? (
+                <div className="absolute right-0 top-full z-50 mt-1 w-72 rounded-lg border border-slate-200 bg-white p-3 text-xs shadow-lg">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Provider status</p>
+                  {providerStatusError ? (
+                    <p className="text-rose-600">{providerStatusError}</p>
+                  ) : providerStatus ? (
+                    <ul className="space-y-1 text-slate-600">
+                      <li>Earth Observation live: {providerStatus.earthObservationLive ? 'Yes' : 'No'}</li>
+                      <li>NASA FIRMS key: {providerStatus.nasaFirmsConfigured ? 'Configured' : 'Not configured'}</li>
+                      <li>GFW API: {providerStatus.gfwConfigured ? 'Configured' : 'Not configured'}</li>
+                      <li>GEDI lane: {providerStatus.gediImplemented ? 'Implemented' : 'Not implemented'}</li>
+                    </ul>
+                  ) : (
+                    <p className="text-slate-500">Loading…</p>
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              disabled={isRunning}
+              onClick={() => void executeWatch()}
+              className="rounded-lg bg-emerald-800 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-900 disabled:opacity-50"
+            >
+              Watch DPAL Work
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-[1920px] flex-1 min-h-0 flex-col gap-3 px-4 py-4 lg:flex-row">
+        <aside className="w-full shrink-0 space-y-3 lg:w-[320px] lg:max-w-[360px]">
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900">Define Area of Interest</h2>
+
+            <div className="mt-3">
+              <label className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Search</label>
+              <div className="mt-1 flex gap-1">
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={searchText}
+                    onChange={(e) => setSearchText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void submitSearch();
+                    }}
+                    placeholder="Search location or click on map"
+                    className="w-full rounded-lg border border-slate-200 py-1.5 pl-7 pr-2 text-xs"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={searchBusy}
+                  onClick={() => void submitSearch()}
+                  className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Go
+                </button>
+              </div>
+              {searchNotice ? <p className="mt-1 text-[10px] text-amber-700">{searchNotice}</p> : null}
+            </div>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="text-[10px] font-medium text-slate-500">
+                Lat
+                <input
+                  type="number"
+                  step="any"
+                  value={Number.isFinite(center.lat) ? center.lat : ''}
+                  onChange={(e) => {
+                    const v = Number.parseFloat(e.target.value);
+                    if (Number.isFinite(v)) setCenter((c) => ({ ...c, lat: v }));
+                  }}
+                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-mono"
+                />
+              </label>
+              <label className="text-[10px] font-medium text-slate-500">
+                Lng
+                <input
+                  type="number"
+                  step="any"
+                  value={Number.isFinite(center.lng) ? center.lng : ''}
+                  onChange={(e) => {
+                    const v = Number.parseFloat(e.target.value);
+                    if (Number.isFinite(v)) setCenter((c) => ({ ...c, lng: v }));
+                  }}
+                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-mono"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3">
+              <p className="text-[10px] font-medium text-slate-500">Radius (km)</p>
+              <div className="mt-1 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRadiusKm((r) => Math.max(1, r - 1))}
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  aria-label="Decrease radius"
+                >
+                  −
+                </button>
+                <span className="min-w-[3rem] text-center text-sm font-mono font-semibold">{radiusKm}</span>
+                <button
+                  type="button"
+                  onClick={() => setRadiusKm((r) => Math.min(250, r + 1))}
+                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  aria-label="Increase radius"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <span className="text-[10px] font-medium text-slate-500">or Draw AOI</span>
+              <button
+                type="button"
+                disabled
+                title="Polygon draw coming soon"
+                className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-1 text-[10px] font-medium text-slate-400 cursor-not-allowed"
+              >
+                <Layout className="h-3.5 w-3.5" />
+                Draw
+              </button>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-2">
+              <label className="text-[10px] font-medium text-slate-500">
+                Baseline Date
+                <input
+                  type="date"
+                  value={baselineDay}
+                  onChange={(e) => onBaselineChange(e.target.value)}
+                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                />
+              </label>
+              <label className="text-[10px] font-medium text-slate-500">
+                Current Date
+                <input
+                  type="date"
+                  value={currentDay}
+                  onChange={(e) => onCurrentChange(e.target.value)}
+                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1.5">Quick presets</p>
+              <div className="flex flex-wrap gap-1">
+                {(
+                  [
+                    ['1m', '1 mo'],
+                    ['3m', '3 mo'],
+                    ['6m', '6 mo'],
+                    ['1y', '1 yr'],
+                  ] as const
+                ).map(([id, lab]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => applyPreset(id)}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border ${
+                      activePreset === id
+                        ? 'border-emerald-800 bg-emerald-800 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {lab}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <ForestLayerControl layers={layers} onChange={setLayers} />
+            </div>
+
+            <div className="mt-4 flex flex-col gap-2">
               <button
                 type="button"
                 disabled={isRunning}
                 onClick={() => void runManualScan()}
-                className="rounded-xl border border-slate-500/70 bg-black/30 px-5 py-2.5 text-xs font-bold text-slate-200 hover:bg-black/45 disabled:opacity-45"
+                className="w-full rounded-lg bg-emerald-700 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800 disabled:opacity-50"
               >
-                Run manual scan
+                Run Manual Scan
+              </button>
+              <button
+                type="button"
+                disabled={isRunning}
+                onClick={() => void executeWatch()}
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 text-sm font-semibold text-emerald-900 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Watch DPAL Work
               </button>
             </div>
+
+            <label className="mt-3 block text-[10px] text-slate-500">
+              AOI label (optional)
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+              />
+            </label>
           </div>
+        </aside>
 
-          <div className="mt-4 rounded-lg border border-amber-900/40 bg-amber-950/20 px-3 py-2 text-[11px] text-amber-100/90 leading-snug">
-            DPAL Forest Integrity results are evidence-support tools, not final legal findings or certified carbon-credit
-            issuance. Results should be validated with field evidence, project documents, and independent review before formal
-            claims are made.
-          </div>
-        </header>
+        <main className="flex min-w-0 flex-1 flex-col gap-3">
+          {lastError ? (
+            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{lastError}</div>
+          ) : null}
+          {cacheNotice ? (
+            <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
+          ) : null}
 
-        <div className="mb-3 rounded-lg border border-slate-800 bg-black/30 px-3 py-2 text-[10px] text-slate-500 font-mono">
-          API base: {getApiBase()}
-        </div>
-
-        {lastError ? (
-          <div className="mb-4 rounded-lg border border-rose-800/50 bg-rose-950/30 px-3 py-2 text-sm text-rose-100">{lastError}</div>
-        ) : null}
-        {cacheNotice ? (
-          <div className="mb-4 rounded-lg border border-cyan-800/40 bg-cyan-950/25 px-3 py-2 text-xs text-cyan-100">{cacheNotice}</div>
-        ) : null}
-
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-          <div className="xl:col-span-2 space-y-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-              <label className="block text-xs">
-                <span className="text-slate-500">AOI label</span>
-                <input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-black/40 px-2 py-1.5 text-sm"
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="text-slate-500">Radius (km)</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={250}
-                  value={radiusKm}
-                  onChange={(e) => setRadiusKm(Number.parseFloat(e.target.value) || 15)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-black/40 px-2 py-1.5 text-sm"
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="text-slate-500">Baseline date</span>
-                <input
-                  type="date"
-                  value={baselineDay}
-                  onChange={(e) => setBaselineDay(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-black/40 px-2 py-1.5 text-sm"
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="text-slate-500">Current date</span>
-                <input
-                  type="date"
-                  value={currentDay}
-                  onChange={(e) => setCurrentDay(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-black/40 px-2 py-1.5 text-sm"
-                />
-              </label>
+          <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-[320px]">
+            <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+              <p className="text-xs font-semibold text-slate-800">Forest AOI map</p>
+              <p className="text-[10px] text-slate-500">Click map to set center</p>
             </div>
-
-            <ForestLayerControl layers={layers} onChange={setLayers} />
-
-            <div className="rounded-xl overflow-hidden border border-slate-800">
-              <div className="px-4 py-2 border-b border-slate-800 flex items-center gap-2 bg-slate-900/80">
-                <Globe className="w-4 h-4 text-emerald-400" />
-                <span className="text-sm font-bold text-white">Forest AOI map</span>
-                <span className="text-[10px] text-slate-500">Click map to move center</span>
-              </div>
-              <div style={{ height: '440px' }}>
-                <MapContainer center={[center.lat, center.lng]} zoom={8} scrollWheelZoom style={{ height: '440px', width: '100%' }}>
+            <div ref={mapWrapRef} className="relative flex-1 min-h-[380px]">
+              <div className="h-[min(52vh,520px)] min-h-[380px] w-full">
+                <MapContainer
+                  center={[center.lat, center.lng]}
+                  zoom={8}
+                  scrollWheelZoom
+                  zoomControl={false}
+                  className="z-0 h-full w-full rounded-none"
+                  style={{ height: '100%', width: '100%' }}
+                >
                   {layers.satellite ? (
                     <TileLayer
                       url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
@@ -519,44 +842,104 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
                     <Circle
                       center={[center.lat, center.lng]}
                       radius={radiusKm * 1000}
-                      pathOptions={{ color: '#34d399', weight: 2, fillOpacity: 0.08 }}
+                      pathOptions={{ color: '#047857', weight: 2, fillOpacity: 0.06 }}
                     />
                   ) : null}
                   <MapPicker onPick={handleMapPick} />
+                  <LeafletZoomScale />
+                  <MapViewSync center={center} />
                 </MapContainer>
               </div>
-            </div>
-          </div>
 
-          <div className="space-y-4">
-            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                <p className="text-sm font-bold text-white">Provider status</p>
+              <div className="pointer-events-none absolute inset-0 z-[400] flex items-center justify-center">
+                <Crosshair className="h-8 w-8 text-emerald-700/50 drop-shadow-sm" strokeWidth={2.5} />
               </div>
-              {providerStatusError ? (
-                <p className="text-xs text-rose-300">{providerStatusError}</p>
-              ) : providerStatus ? (
-                <ul className="text-[11px] text-slate-400 space-y-1 font-mono">
-                  <li>Earth Observation live: {providerStatus.earthObservationLive ? 'configured' : 'off / unavailable'}</li>
-                  <li>NASA FIRMS key: {providerStatus.nasaFirmsConfigured ? 'present' : 'not configured'}</li>
-                  <li>GFW API: {providerStatus.gfwConfigured ? 'key present (adapter pending)' : 'not configured'}</li>
-                  <li>GEDI lane: {providerStatus.gediImplemented ? 'implemented' : 'not implemented'}</li>
-                </ul>
-              ) : (
-                <p className="text-xs text-slate-500">Loading…</p>
-              )}
-            </div>
 
-            <ForestRiskSummaryCards scan={lastScan} />
-            <ForestEvidencePacketPanel scan={lastScan} evidence={evidence} />
+              <div className="pointer-events-auto absolute left-3 top-3 z-[450] flex flex-col gap-1">
+                <div className="relative" ref={layerMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setLayerMenuOpen((o) => !o)}
+                    className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
+                    title="Map layers"
+                  >
+                    <Layout className="h-4 w-4" />
+                  </button>
+                  {layerMenuOpen ? (
+                    <div className="absolute left-0 top-full z-[460] mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg">
+                      <p className="text-[10px] font-semibold text-slate-500 mb-1">Quick toggles</p>
+                      <label className="flex items-center justify-between gap-2 py-1">
+                        <span>Satellite base</span>
+                        <input
+                          type="checkbox"
+                          checked={layers.satellite}
+                          onChange={() => setLayers((L) => ({ ...L, satellite: !L.satellite }))}
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 py-1">
+                        <span>Labels</span>
+                        <input
+                          type="checkbox"
+                          checked={layers.labels}
+                          onChange={() => setLayers((L) => ({ ...L, labels: !L.labels }))}
+                        />
+                      </label>
+                      <label className="flex items-center justify-between gap-2 py-1">
+                        <span>AOI circle</span>
+                        <input
+                          type="checkbox"
+                          checked={layers.aoiCircle}
+                          onChange={() => setLayers((L) => ({ ...L, aoiCircle: !L.aoiCircle }))}
+                        />
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void toggleFullscreen()}
+                  className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
+                  title="Fullscreen map"
+                >
+                  <Maximize2 className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="pointer-events-none absolute bottom-3 right-3 z-[450] max-w-[220px] rounded-lg border border-slate-200 bg-white/95 p-2.5 text-[10px] shadow-md">
+                <p className="font-semibold text-slate-800 mb-1.5">Legend</p>
+                <ul className="space-y-1">
+                  {legendRows.length === 0 ? (
+                    <li className="text-slate-500">All overlays hidden in layer panel.</li>
+                  ) : (
+                    legendRows.map((row) => (
+                      <li key={row.label} className="flex items-center gap-2 text-slate-700">
+                        <span className={`h-2 w-2 rounded-full ${row.color}`} />
+                        {row.label}
+                      </li>
+                    ))
+                  )}
+                </ul>
+              </div>
+            </div>
           </div>
-        </div>
+
+          <ForestRiskSummaryCards scan={lastScan} />
+
+          <ForestEvidencePacketPanel scan={lastScan} evidence={evidence} />
+        </main>
       </div>
+
+      <footer className="mt-auto shrink-0 border-t border-amber-200/80 bg-amber-50/90 px-4 py-2.5">
+        <p className="mx-auto max-w-[1920px] text-center text-[11px] leading-snug text-amber-950/90">
+          Disclaimer: Data is provided by third-party sources. DPAL does not treat this information alone as a final legal
+          finding or certified carbon-credit determination. Always conduct on-ground verification and independent review.
+        </p>
+      </footer>
 
       <ForestWatchAutomationPanel
         open={watchOpen}
         steps={steps}
+        logLines={watchLogLines}
         isRunning={isRunning}
         onClose={() => {
           if (isRunning) stopWatch();
