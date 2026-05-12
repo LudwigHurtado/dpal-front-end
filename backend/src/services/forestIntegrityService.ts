@@ -1,7 +1,19 @@
 import { createHash } from 'crypto';
 import { earthObservationService } from './earthObservationService';
+import {
+  getGfwApiKey,
+  getGfwForestAlertsForAoi,
+  type GfwForestAlertsResult,
+} from './globalForestWatchService';
 
-export type ForestProviderState = 'available' | 'unavailable' | 'not_configured' | 'failed' | 'cached';
+export type ForestProviderState =
+  | 'available'
+  | 'unavailable'
+  | 'not_configured'
+  | 'failed'
+  | 'cached'
+  | 'auth_error'
+  | 'rate_limited';
 
 export type ForestIntegrityProviderBlock = {
   status: ForestProviderState;
@@ -10,6 +22,11 @@ export type ForestIntegrityProviderBlock = {
   alerts?: number | null;
   activeFires?: number | null;
   biomassEstimateMgPerHa?: number | null;
+  integratedAlerts?: number | null;
+  disturbanceAlerts?: number | null;
+  datasetVersionsUsed?: string[];
+  queriedAt?: string | null;
+  limitations?: string[];
 };
 
 export type ForestIntegrityIndices = {
@@ -59,10 +76,8 @@ export type ForestProviderStatusResponse = {
   notes: string[];
 };
 
-const GFW_ENV_KEYS = ['GFW_API_KEY', 'GLOBAL_FOREST_WATCH_API_KEY'];
-
 function hasGfwCredentials(): boolean {
-  return GFW_ENV_KEYS.some((k) => Boolean(process.env[k]?.trim()));
+  return Boolean(getGfwApiKey());
 }
 
 async function fetchFirmsHotspotCount(
@@ -298,18 +313,53 @@ export async function runForestIntegrityScan(input: ForestScanInput): Promise<Fo
       : { status: 'failed', message: firmsResult?.message ?? 'FIRMS request failed', activeFires: null };
 
   const gfwOk = hasGfwCredentials();
+  let gfwResult: GfwForestAlertsResult | null = null;
+  if (gfwOk) {
+    try {
+      gfwResult = await getGfwForestAlertsForAoi({
+        lat: input.lat,
+        lng: input.lng,
+        radiusKm: input.radiusKm,
+        polygon: input.polygon,
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+      });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'GFW adapter threw an unexpected error.';
+      gfwResult = {
+        status: 'failed',
+        message: `GFW adapter failed: ${msg}`,
+        alerts: null,
+        integratedAlerts: null,
+        disturbanceAlerts: null,
+        datasetVersionsUsed: [],
+        queriedAt: new Date().toISOString(),
+        limitations: [msg],
+      };
+    }
+  }
+
   const gfwBlock: ForestIntegrityProviderBlock = !gfwOk
     ? {
         status: 'not_configured',
         message:
           'Global Forest Watch integrated deforestation alerts are not wired on this host. Set GFW_API_KEY or GLOBAL_FOREST_WATCH_API_KEY to enable.',
         alerts: null,
+        integratedAlerts: null,
+        disturbanceAlerts: null,
+        datasetVersionsUsed: [],
+        queriedAt: null,
+        limitations: [],
       }
     : {
-        status: 'unavailable',
-        message:
-          'GFW credentials are present, but the DPAL Forest Integrity adapter does not call the GFW API yet. Alerts are not inferred from placeholders.',
-        alerts: null,
+        status: (gfwResult?.status ?? 'failed') as ForestProviderState,
+        message: gfwResult?.message ?? 'GFW adapter returned no result.',
+        alerts: gfwResult?.alerts ?? null,
+        integratedAlerts: gfwResult?.integratedAlerts ?? null,
+        disturbanceAlerts: gfwResult?.disturbanceAlerts ?? null,
+        datasetVersionsUsed: gfwResult?.datasetVersionsUsed ?? [],
+        queriedAt: gfwResult?.queriedAt ?? null,
+        limitations: gfwResult?.limitations ?? [],
       };
 
   const gediBlock: ForestIntegrityProviderBlock = {
@@ -318,21 +368,45 @@ export async function runForestIntegrityScan(input: ForestScanInput): Promise<Fo
     biomassEstimateMgPerHa: null,
   };
 
+  const gfwAvailable = gfwBlock.status === 'available';
+  const gfwAlertCountForScoring =
+    gfwAvailable && typeof gfwBlock.alerts === 'number' ? gfwBlock.alerts : null;
+
   const { score, riskLevel } = computeForestIntegrityScore({
     ndviAfter: metrics.ndviAfter,
     ndviChange: metrics.ndviChange,
     nbrChange: metrics.nbrChange,
     firmsCount: typeof firmsBlock.activeFires === 'number' ? firmsBlock.activeFires : null,
     firmsConfigured,
-    gfwConfigured: gfwOk,
-    gfwAlerts: typeof gfwBlock.alerts === 'number' ? gfwBlock.alerts : null,
+    gfwConfigured: gfwOk && gfwAvailable,
+    gfwAlerts: gfwAlertCountForScoring,
     eoRiskLevel: eo.riskLevel,
     sentinelUsable: sentinelBlock.status === 'available',
   });
 
+  const gfwLaneLimitations: string[] = [];
+  if (gfwOk && !gfwAvailable) {
+    gfwLaneLimitations.push(
+      `Global Forest Watch lane status: ${gfwBlock.status} — ${gfwBlock.message}`,
+    );
+  }
+  if (gfwBlock.limitations && gfwBlock.limitations.length > 0) {
+    for (const line of gfwBlock.limitations) {
+      gfwLaneLimitations.push(`GFW · ${line}`);
+    }
+  }
+  if (gfwOk && gfwAvailable && gfwBlock.datasetVersionsUsed && gfwBlock.datasetVersionsUsed.length > 0) {
+    gfwLaneLimitations.push(
+      `GFW dataset versions used: ${gfwBlock.datasetVersionsUsed.join(', ')}.`,
+    );
+  }
+  if (gfwOk && gfwBlock.queriedAt) {
+    gfwLaneLimitations.push(`GFW queriedAt: ${gfwBlock.queriedAt}`);
+  }
+
   const limitations = [
     ...eo.limitations,
-    ...(gfwOk ? ['GFW API integration pending — do not treat deforestation alert count as verified.'] : []),
+    ...gfwLaneLimitations,
     'FIRMS hotspots are satellite-derived thermal anomalies, not ground-truthed fire perimeters.',
     'Indices are scene-level means from item statistics, not parcel polygons, unless a future zonal engine is added.',
   ];
@@ -347,6 +421,16 @@ export async function runForestIntegrityScan(input: ForestScanInput): Promise<Fo
     indices.ndmi != null ? `NDMI (current/after mean): ${indices.ndmi}` : 'NDMI: unavailable',
     indices.nbr != null ? `NBR (current/after mean): ${indices.nbr}` : 'NBR: unavailable',
     typeof firmsBlock.activeFires === 'number' ? `FIRMS CSV rows (proxy): ${firmsBlock.activeFires}` : 'FIRMS: not evaluated',
+    `GFW lane status: ${gfwBlock.status}`,
+    typeof gfwBlock.integratedAlerts === 'number'
+      ? `GFW integrated deforestation alerts: ${gfwBlock.integratedAlerts}`
+      : 'GFW integrated deforestation alerts: not available',
+    typeof gfwBlock.disturbanceAlerts === 'number'
+      ? `GFW disturbance alerts: ${gfwBlock.disturbanceAlerts}`
+      : 'GFW disturbance alerts: not available',
+    gfwBlock.datasetVersionsUsed && gfwBlock.datasetVersionsUsed.length > 0
+      ? `GFW dataset versions used: ${gfwBlock.datasetVersionsUsed.join(', ')}`
+      : 'GFW dataset versions used: none',
     score != null ? `DPAL Forest Integrity score: ${score} (${riskLevel})` : 'DPAL Forest Integrity score: insufficient configured providers',
   ];
 

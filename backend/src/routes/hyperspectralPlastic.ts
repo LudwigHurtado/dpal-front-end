@@ -1,18 +1,19 @@
 import { Router } from 'express';
 import {
-  getForestProviderStatus,
-  hashForestEvidencePayload,
-  runForestIntegrityScan,
-} from '../services/forestIntegrityService';
+  getHyperspectralPlasticProviderStatus,
+  hashPlasticEvidencePayload,
+  normalizePlasticEnvironmentType,
+  runHyperspectralPlasticScan,
+} from '../services/hyperspectralPlasticService';
 
 const router = Router();
 
 router.get('/provider-status', async (_req, res) => {
   try {
-    const payload = await getForestProviderStatus();
+    const payload = await getHyperspectralPlasticProviderStatus();
     return res.json(payload);
   } catch (error) {
-    console.error('Forest integrity provider-status error:', error);
+    console.error('Hyperspectral plastic provider-status error:', error);
     return res.status(500).json({ ok: false, error: 'provider_status_failed' });
   }
 });
@@ -20,10 +21,11 @@ router.get('/provider-status', async (_req, res) => {
 router.get('/scan', async (req, res) => {
   const lat = Number.parseFloat(String(req.query.lat ?? ''));
   const lng = Number.parseFloat(String(req.query.lng ?? ''));
-  const radiusKm = Number.parseFloat(String(req.query.radiusKm ?? '15'));
+  const radiusKm = Number.parseFloat(String(req.query.radiusKm ?? '10'));
   const label = String(req.query.label ?? '').trim();
   const baselineDate = String(req.query.baselineDate ?? '').trim();
   const currentDate = String(req.query.currentDate ?? '').trim();
+  const environmentType = normalizePlasticEnvironmentType(String(req.query.environmentType ?? 'river'));
   let polygon: unknown;
   if (typeof req.query.polygon === 'string' && req.query.polygon.length > 0) {
     try {
@@ -47,13 +49,14 @@ router.get('/scan', async (req, res) => {
   }
 
   try {
-    const payload = await runForestIntegrityScan({
+    const payload = await runHyperspectralPlasticScan({
       lat,
       lng,
       label: label || undefined,
       radiusKm,
       baselineDate,
       currentDate,
+      environmentType,
       polygon,
     });
     return res.json(payload);
@@ -62,7 +65,7 @@ router.get('/scan', async (req, res) => {
     if (message.includes('Invalid baseline')) {
       return res.status(400).json({ ok: false, error: message });
     }
-    console.error('Forest integrity scan error:', error);
+    console.error('Hyperspectral plastic scan error:', error);
     return res.status(500).json({ ok: false, error: 'scan_failed' });
   }
 });
@@ -74,50 +77,33 @@ router.post('/evidence-packet', (req, res) => {
     if (!scan || scan.ok !== true) {
       return res.status(400).json({
         ok: false,
-        error: 'Body must include { scan } where scan is the JSON from GET /api/forest-integrity/scan.',
+        error: 'Body must include { scan } where scan is the JSON from GET /api/hyperspectral-plastic/scan.',
       });
     }
-    const providers = (scan.providers ?? {}) as Record<string, unknown>;
-    const gfw = (providers.gfw ?? {}) as Record<string, unknown>;
-    const gfwSummary = {
-      gfwProviderStatus: typeof gfw.status === 'string' ? gfw.status : 'unknown',
-      gfwAlertsCount: typeof gfw.alerts === 'number' ? gfw.alerts : null,
-      gfwIntegratedAlertsCount: typeof gfw.integratedAlerts === 'number' ? gfw.integratedAlerts : null,
-      gfwDisturbanceAlertsCount: typeof gfw.disturbanceAlerts === 'number' ? gfw.disturbanceAlerts : null,
-      gfwDatasetVersionsUsed: Array.isArray(gfw.datasetVersionsUsed)
-        ? (gfw.datasetVersionsUsed as unknown[]).filter((v): v is string => typeof v === 'string')
-        : [],
-      gfwQueriedAt: typeof gfw.queriedAt === 'string' ? gfw.queriedAt : null,
-      gfwLimitations: Array.isArray(gfw.limitations)
-        ? (gfw.limitations as unknown[]).filter((v): v is string => typeof v === 'string')
-        : [],
-      gfwMessage: typeof gfw.message === 'string' ? gfw.message : '',
-    };
     const packet = {
-      kind: 'dpal_forest_integrity_evidence_v1' as const,
+      kind: 'dpal_hyperspectral_plastic_watch_evidence_v1' as const,
       generatedAt: new Date().toISOString(),
       scan,
-      gfw: gfwSummary,
       disclaimer:
-        'DPAL Forest Integrity results are evidence-support tools, not final legal findings or certified carbon-credit issuance.',
+        'DPAL Hyperspectral Plastic Watch provides evidence-support signals only. Satellite spectral anomalies are not final proof of plastic pollution and must be reviewed with field sampling, drone imagery, water-quality context, and independent validation.',
     };
-    const integrityHash = hashForestEvidencePayload(packet);
+    const integrityHash = hashPlasticEvidencePayload(packet);
     return res.json({
       ok: true,
       integrityHash,
       qrPayloadPreview: {
-        type: 'dpal_forest_integrity',
+        type: 'dpal_hyperspectral_plastic_watch',
         integrityHash,
         scanId: scan.scanId,
         label: scan.label,
         generatedAt: packet.generatedAt,
-        gfwProviderStatus: gfwSummary.gfwProviderStatus,
-        gfwAlertsCount: gfwSummary.gfwAlertsCount,
+        plasticRiskScore: scan.plasticRiskScore,
+        riskLevel: scan.riskLevel,
       },
       packet,
     });
   } catch (error) {
-    console.error('Forest integrity evidence-packet error:', error);
+    console.error('Hyperspectral plastic evidence-packet error:', error);
     return res.status(500).json({ ok: false, error: 'evidence_packet_failed' });
   }
 });
