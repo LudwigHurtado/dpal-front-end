@@ -1,7 +1,7 @@
 import type { ChatMessage } from '../types';
 import { buildApiUrl } from '../src/config/api';
 import { emitSituationDiagnostics } from './situationRoomService';
-import { parseSituationResponseJson, situationApiErrorMessage } from './situationFetchJson';
+import { parseSituationResponseJson, situationApiErrorMessage, SituationFetchError, parseRetryAfterMs } from './situationFetchJson';
 
 export interface SituationRoomSummary {
   roomId: string;
@@ -29,9 +29,13 @@ export async function fetchSituationMessages(roomId: string): Promise<ChatMessag
   const res = await fetch(buildApiUrl(`/api/situation/${encodeURIComponent(roomId)}/messages?limit=200`));
   const data = (await parseSituationResponseJson(res)) as { messages?: unknown };
   if (!res.ok) {
-    throw new Error(
-      `Failed to fetch messages: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
-    );
+    throw new SituationFetchError({
+      message: `Failed to fetch messages: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'Situation messages',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
   }
   const list = Array.isArray(data?.messages) ? data.messages : [];
   return list.map(normalizeMessage);
@@ -49,7 +53,15 @@ export async function uploadSituationMedia(
     body: JSON.stringify({ roomId, type, dataUrl }),
   });
   const data = (await parseSituationResponseJson(res)) as Record<string, unknown>;
-  if (!res.ok) throw new Error(`Failed to upload media: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  if (!res.ok) {
+    throw new SituationFetchError({
+      message: `Failed to upload media: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'Situation media upload',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
+  }
   return {
     url: String(data?.url || ''),
     path: String(data?.path || ''),
@@ -64,7 +76,13 @@ export async function fetchSituationRooms(): Promise<SituationRoomSummary[]> {
   const res = await fetch(buildApiUrl('/api/situation/rooms'));
   const data = (await parseSituationResponseJson(res)) as { rooms?: unknown };
   if (!res.ok) {
-    throw new Error(`Failed to fetch rooms: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+    throw new SituationFetchError({
+      message: `Failed to fetch rooms: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'Situation rooms list',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
   }
   const rooms = Array.isArray(data?.rooms) ? data.rooms : [];
   return rooms.map((room: any) => ({
@@ -90,7 +108,13 @@ export async function sendSituationMessage(
   });
   const data = (await parseSituationResponseJson(res)) as { message?: unknown };
   if (!res.ok) {
-    throw new Error(`Failed to send message: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+    throw new SituationFetchError({
+      message: `Failed to send message: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'Situation send message',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
   }
   return normalizeMessage(data?.message);
 }

@@ -12,7 +12,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { RefreshCw, AlertTriangle, Activity, ChevronDown, ChevronRight, ExternalLink } from './icons';
 import { apiUrl, API_ROUTES } from '../constants';
-import { parseJsonResponseBody } from '../services/situationFetchJson';
+import { SituationFetchError, parseJsonResponseBody, parseRetryAfterMs } from '../services/situationFetchJson';
+import { detectRateLimitError } from '../services/rateLimitBackoff';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,52 @@ const TYPE_FILTERS: { label: string; value: DisasterEvent['type'] | 'all' }[] = 
   { label: '🌊 Flood',    value: 'flood'      },
 ];
 
+const DISASTERS_FEED_TTL_MS = 60_000;
+
+type DisastersFeedJson = { ok: boolean; events: DisasterEvent[]; error?: string };
+
+let disastersCache: { fetchedAt: number; events: DisasterEvent[] } | null = null;
+let disastersInflight: Promise<DisasterEvent[]> | null = null;
+
+async function fetchDisastersFeedEvents(force: boolean): Promise<DisasterEvent[]> {
+  if (force) disastersCache = null;
+
+  const now = Date.now();
+  if (!force && disastersCache && now - disastersCache.fetchedAt < DISASTERS_FEED_TTL_MS) {
+    return disastersCache.events;
+  }
+  if (disastersInflight) return disastersInflight;
+
+  disastersInflight = (async () => {
+    try {
+      const res = await fetch(apiUrl(API_ROUTES.DISASTERS_FEED));
+      const json = (await parseJsonResponseBody(res, 'Disasters feed')) as DisastersFeedJson;
+
+      if (!res.ok) {
+        throw new SituationFetchError({
+          message:
+            typeof json === 'object' && json && typeof json.error === 'string' && json.error
+              ? json.error
+              : `HTTP ${res.status}`,
+          status: res.status,
+          statusText: res.statusText,
+          contextLabel: 'Disasters feed',
+          retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+        });
+      }
+
+      if (!json.ok) throw new Error(json.error ?? 'Feed error');
+
+      disastersCache = { fetchedAt: Date.now(), events: Array.isArray(json.events) ? json.events : [] };
+      return disastersCache.events;
+    } finally {
+      disastersInflight = null;
+    }
+  })();
+
+  return disastersInflight;
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
@@ -99,34 +146,40 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
   const [lastFetch, setLastFetch]   = useState<Date | null>(null);
   const filterRef                   = useRef<HTMLDivElement>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
+    const force = Boolean(opts?.force);
+    if (!force) {
+      const now = Date.now();
+      if (disastersCache && now - disastersCache.fetchedAt < DISASTERS_FEED_TTL_MS) {
+        setEvents(disastersCache.events);
+        setErr('');
+        setLoading(false);
+        setLastFetch(new Date(disastersCache.fetchedAt));
+        return;
+      }
+    }
+
     setLoading(true);
     setErr('');
     try {
-      const res = await fetch(apiUrl(API_ROUTES.DISASTERS_FEED));
-      const json = (await parseJsonResponseBody(res, 'Disasters feed')) as {
-        ok: boolean;
-        events: DisasterEvent[];
-        error?: string;
-      };
-      if (!res.ok) {
-        throw new Error(
-          typeof json === 'object' && json && typeof (json as { error?: string }).error === 'string'
-            ? (json as { error: string }).error
-            : `HTTP ${res.status}`,
-        );
-      }
-      if (!json.ok) throw new Error(json.error ?? 'Feed error');
-      setEvents(json.events);
+      const ev = await fetchDisastersFeedEvents(force);
+      setEvents(ev);
       setLastFetch(new Date());
     } catch (ex: unknown) {
-      setErr(ex instanceof Error ? ex.message : String(ex));
+      if (detectRateLimitError(ex)) {
+        setErr('Disaster feed is temporarily rate-limited. Please retry shortly.');
+        if (disastersCache) setEvents(disastersCache.events);
+      } else {
+        setErr(ex instanceof Error ? ex.message : String(ex));
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const visible = filter === 'all' ? events : events.filter((e) => e.type === filter);
   const criticalCount = events.filter((e) => e.severity === 'critical' || e.severity === 'high').length;
@@ -173,7 +226,10 @@ export const GlobalAlertsPanel: React.FC<GlobalAlertsPanelProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={(e) => { e.stopPropagation(); void load(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              void load({ force: true });
+            }}
             disabled={loading}
             className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition disabled:opacity-40"
             title="Refresh"

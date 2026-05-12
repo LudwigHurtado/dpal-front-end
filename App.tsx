@@ -97,6 +97,8 @@ import { mintNftRequest } from './services/nftMintApi';
 import { archetypeToNftTheme, buildHeroMintPrompt, HERO_MINT_BASE_CREDITS, HERO_MINT_CATEGORY } from './utils/heroMintHelpers';
 import { fetchSituationMessages, fetchSituationRooms, sendSituationMessage, uploadSituationMedia, type SituationRoomSummary } from './services/situationService';
 import { loadLocalSituationMessages, saveLocalSituationMessages, mergeSituationMessages } from './services/situationLocalStore';
+import { detectRateLimitError, getBackoffMs, shouldSkipPoll } from './services/rateLimitBackoff';
+import { SituationFetchError } from './services/situationFetchJson';
 import type { ScanToSituationPackage } from './services/situationRoomBridge';
 import { createEvidenceRecords } from './services/evidenceVaultService';
 import { persistReportForPublicLookup } from './services/reportPersistenceService';
@@ -1048,38 +1050,107 @@ const App: React.FC = () => {
   }, [currentView]);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval> | undefined;
-
     const roomId = selectedReportForIncidentRoom?.id;
     if (currentView !== 'incidentRoom' || !roomId) {
       return;
     }
 
-    const load = async () => {
+    const POLL_MS = 3500;
+    const MIN_RATE_LIMIT_BACKOFF_MS = 30_000;
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const pollInFlight = { current: false };
+    const lastRateLimitHitAt = { current: null as number | null };
+    const rateLimitBackoffMs = { current: 0 };
+
+    const schedule = (delayMs: number) => {
+      if (cancelled) return;
+      if (timeoutId) clearTimeout(timeoutId);
+      const d = Math.max(500, delayMs);
+      timeoutId = setTimeout(runPoll, d);
+    };
+
+    const runPoll = async () => {
+      if (cancelled) return;
+
+      if (document.visibilityState === 'hidden') {
+        schedule(POLL_MS);
+        return;
+      }
+
+      if (pollInFlight.current) {
+        schedule(POLL_MS);
+        return;
+      }
+
+      if (
+        lastRateLimitHitAt.current != null &&
+        shouldSkipPoll(lastRateLimitHitAt.current, rateLimitBackoffMs.current)
+      ) {
+        const resumeAt = lastRateLimitHitAt.current + rateLimitBackoffMs.current;
+        schedule(Math.min(POLL_MS, Math.max(500, resumeAt - Date.now())));
+        return;
+      }
+
+      pollInFlight.current = true;
       try {
         const [msgs, rooms] = await Promise.all([fetchSituationMessages(roomId), fetchSituationRooms()]);
         const local = loadLocalSituationMessages(roomId);
         setSituationMessages(mergeSituationMessages(msgs, local));
         setSituationRooms(rooms);
         setSituationError(null);
+        lastRateLimitHitAt.current = null;
+        rateLimitBackoffMs.current = 0;
       } catch (error) {
         console.warn('Situation messages fetch failed:', error);
         const local = loadLocalSituationMessages(roomId);
         setSituationMessages(local);
-        const detail = error instanceof Error ? error.message : String(error);
-        setSituationError(
-          local.length
-            ? `Chat sync failed (${detail}). Showing messages stored on this device for this report (same ID as your QR link).`
-            : `Chat sync failed: ${detail}. Check API base, rate limits, or media persistence configuration.`,
-        );
+
+        if (detectRateLimitError(error)) {
+          const backoff = getBackoffMs(error, MIN_RATE_LIMIT_BACKOFF_MS);
+          lastRateLimitHitAt.current = Date.now();
+          rateLimitBackoffMs.current = backoff;
+          const retryHint =
+            error instanceof SituationFetchError && error.retryAfterMs != null && error.retryAfterMs > 0
+              ? ` Server indicated Retry-After ~${Math.ceil(error.retryAfterMs / 1000)}s.`
+              : '';
+          setSituationError(
+            `Situation Room chat is temporarily rate-limited (pausing sync ~${Math.ceil(backoff / 1000)}s).${retryHint} Local messages are still shown.`,
+          );
+        } else {
+          const detail = error instanceof Error ? error.message : String(error);
+          setSituationError(
+            local.length
+              ? `Chat sync failed (${detail}). Showing messages stored on this device for this report (same ID as your QR link).`
+              : `Chat sync failed: ${detail}. Check API base or media persistence configuration.`,
+          );
+        }
+      } finally {
+        pollInFlight.current = false;
       }
+
+      let nextDelay = POLL_MS;
+      if (
+        lastRateLimitHitAt.current != null &&
+        shouldSkipPoll(lastRateLimitHitAt.current, rateLimitBackoffMs.current)
+      ) {
+        nextDelay = Math.max(500, lastRateLimitHitAt.current + rateLimitBackoffMs.current - Date.now());
+      }
+      schedule(nextDelay);
     };
 
-    void load();
-    timer = setInterval(load, 3500);
+    const onVisibility = () => {
+      if (cancelled || document.visibilityState !== 'visible') return;
+      void runPoll();
+    };
+
+    document.addEventListener('visibilitychange', onVisibility);
+    void runPoll();
 
     return () => {
-      if (timer) clearInterval(timer);
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [currentView, selectedReportForIncidentRoom?.id]);
 

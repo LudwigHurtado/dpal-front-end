@@ -1,7 +1,7 @@
 import { loadLocalSituationMessages, mergeSituationMessages, saveLocalSituationMessages } from './situationLocalStore';
 import type { ChatMessage, Report } from '../types';
 import { buildApiUrl, getDpalApiConfig, logSituationRoomDiagnostics } from '../src/config/api';
-import { parseSituationResponseJson, situationApiErrorMessage } from './situationFetchJson';
+import { parseSituationResponseJson, situationApiErrorMessage, SituationFetchError, parseRetryAfterMs } from './situationFetchJson';
 
 export type SituationRoomSourceType =
   | 'public_report'
@@ -91,7 +91,13 @@ async function getJson(path: string): Promise<any> {
   const res = await fetch(buildApiUrl(path));
   const data = await parseSituationResponseJson(res);
   if (!res.ok) {
-    throw new Error(`Situation API ${path}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+    throw new SituationFetchError({
+      message: `Situation API ${path}: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: `Situation API ${path}`,
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
   }
   return data;
 }
@@ -113,7 +119,15 @@ export async function createSituationRoomForReport(payload: Record<string, unkno
     body: JSON.stringify(payload),
   });
   const data = (await parseSituationResponseJson(res)) as { room?: unknown };
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  if (!res.ok) {
+    throw new SituationFetchError({
+      message: `HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'POST /api/situation/report',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
+  }
   return normalizeRoomRecord(data?.room ?? {});
 }
 
@@ -124,7 +138,15 @@ export async function createSituationRoomForProject(payload: Record<string, unkn
     body: JSON.stringify(payload),
   });
   const data = (await parseSituationResponseJson(res)) as { room?: unknown };
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  if (!res.ok) {
+    throw new SituationFetchError({
+      message: `HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'POST /api/situation/project',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
+  }
   return normalizeRoomRecord(data?.room ?? {});
 }
 
@@ -157,7 +179,15 @@ export async function sendMessage(
     body: JSON.stringify(message),
   });
   const data = (await parseSituationResponseJson(res)) as { message?: unknown };
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  if (!res.ok) {
+    throw new SituationFetchError({
+      message: `HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'POST /api/situation/messages',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
+  }
   const row = (data?.message ?? {}) as Record<string, unknown>;
   return {
     id: String(row?.id || row?._id || `msg-${Date.now()}`),
@@ -180,7 +210,15 @@ export async function uploadRoomMedia(roomId: string, fileOrDataUrl: File | stri
       body: JSON.stringify({ roomId, type, dataUrl: fileOrDataUrl }),
     });
     const data = await parseSituationResponseJson(res);
-    if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+    if (!res.ok) {
+      throw new SituationFetchError({
+        message: `HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+        status: res.status,
+        statusText: res.statusText,
+        contextLabel: 'POST /api/situation/media',
+        retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+      });
+    }
     return data;
   }
   const payload = new FormData();
@@ -188,7 +226,15 @@ export async function uploadRoomMedia(roomId: string, fileOrDataUrl: File | stri
   payload.append('file', fileOrDataUrl);
   const res = await fetch(buildApiUrl('/api/situation/media/upload'), { method: 'POST', body: payload });
   const data = await parseSituationResponseJson(res);
-  if (!res.ok) throw new Error(`HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`);
+  if (!res.ok) {
+    throw new SituationFetchError({
+      message: `HTTP ${res.status}: ${situationApiErrorMessage(data, res.status, res.statusText)}`,
+      status: res.status,
+      statusText: res.statusText,
+      contextLabel: 'POST /api/situation/media/upload',
+      retryAfterMs: parseRetryAfterMs(res.headers.get('Retry-After')),
+    });
+  }
   return data;
 }
 
