@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowRight, Activity, Globe, ShieldCheck, Waves, Database, Layout, Sparkles } from './icons';
+import { ArrowRight, Activity, Globe, ShieldCheck, Waves, Database, Layout, Sparkles, Monitor } from './icons';
 import type { View } from '../App';
 import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY } from '../utils/appRoutes';
 import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
@@ -343,7 +343,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
 
       <section className="mb-10">
         <h2 className="text-base md:text-lg font-bold text-cyan-200">Monitoring &amp; Remote Sensing</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6 mt-3">
           <HubCard icon={<Globe className="w-8 h-8" />} label="Earth Observation" subLabel="LEO satellite analysis for environment and civic signals." status="Workspace" colorClass="sky" bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png" onClick={() => onNavigate('earthObservation')} />
           <HubCard
             icon={<Waves className="w-8 h-8" />}
@@ -405,6 +405,27 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
               className="rounded-md border border-emerald-500/50 bg-black/35 px-2.5 py-1 text-[10px] font-semibold text-emerald-100"
             >
               AFOLU command center
+            </button>
+          </HubCard>
+          <HubCard
+            icon={<Monitor className="w-8 h-8" />}
+            label="Hyperspectral Plastic Watch"
+            subLabel="EMIT + PACE spectral intelligence for possible plastic-risk anomalies."
+            status="Workspace"
+            colorClass="sky"
+            bgImageUrl="/environmental-intelligence/water-satellite-monitor-main.png"
+            onClick={() => onNavigate('hyperspectralPlasticWatch')}
+            ctaLabel="Open Plastic Watch"
+          >
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigate('aquaScanWater');
+              }}
+              className="rounded-md border border-cyan-400/60 bg-cyan-950/35 px-2.5 py-1 text-[10px] font-semibold text-cyan-100"
+            >
+              Open from Water Intelligence
             </button>
           </HubCard>
         </div>

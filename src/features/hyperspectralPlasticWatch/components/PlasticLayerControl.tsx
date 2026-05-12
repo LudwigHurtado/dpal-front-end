@@ -13,7 +13,7 @@ const ROWS: { key: RowKey; label: string; hint: string; Icon: React.FC<{ classNa
   { key: 'paceOceanColor', label: 'PACE ocean color', hint: 'Legend / provider context', Icon: Waves },
   { key: 'emitHyperspectral', label: 'EMIT hyperspectral scene', hint: 'Legend / provider context', Icon: Sparkles },
   { key: 'plasticRiskAnomaly', label: 'Plastic-risk anomaly', hint: 'Possible spectral anomaly (not proof)', Icon: Activity },
-  { key: 'turbiditySediment', label: 'Turbidity / sediment', hint: 'Confounder context', Icon: Droplet },
+  { key: 'turbiditySediment', label: 'Turbidity / sediment', hint: 'Confounder context', Icon: Droplets },
   { key: 'chlorophyllAlgae', label: 'Chlorophyll / algae', hint: 'Confounder context', Icon: Activity },
   { key: 'floatingDebrisCandidate', label: 'Floating debris candidate', hint: 'Visual screening context only', Icon: MapPin },
   { key: 'fieldValidationPoints', label: 'Field validation points', hint: 'Planned sampling / QA locations', Icon: Layout },
@@ -81,4 +81,4 @@ const PlasticLayerControl: React.FC<Props> = ({ layers, onChange }) => {
   );
 };
 
-export default PlasticLayerControl;
+export default PlasticLayerControl;
