@@ -6,6 +6,7 @@ import {
 } from './commandCenterModuleRegistry';
 import { buildPendingAdapterResult } from './commandCenterPendingModule';
 import { executePlasticWatchForCommandCenter } from './commandCenterPlasticExecutor';
+import { executeWaterForCommandCenter } from './commandCenterWaterExecutor';
 import {
   COMMAND_CENTER_SAFETY_LABELS,
   type CommandCenterRunContext,
@@ -170,6 +171,9 @@ async function executeModule(
 ): Promise<CommandCenterModuleRunResult> {
   if (moduleKey === 'plasticWatch') {
     return executePlasticWatchForCommandCenter(context, runMode);
+  }
+  if (moduleKey === 'water') {
+    return executeWaterForCommandCenter(context, runMode);
   }
   return buildPendingAdapterResult(moduleKey, runMode);
 }
