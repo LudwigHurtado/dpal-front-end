@@ -9,6 +9,7 @@ import { executePlasticWatchForCommandCenter } from './commandCenterPlasticExecu
 import { executeWaterForCommandCenter } from './commandCenterWaterExecutor';
 import { executeForestIntegrityForCommandCenter } from './commandCenterForestExecutor';
 import { executeEarthObservationForCommandCenter } from './commandCenterEarthObservationExecutor';
+import { executePollutionForCommandCenter } from './commandCenterPollutionExecutor';
 import {
   COMMAND_CENTER_SAFETY_LABELS,
   type CommandCenterRunContext,
@@ -182,6 +183,9 @@ async function executeModule(
   }
   if (moduleKey === 'earthObservation') {
     return executeEarthObservationForCommandCenter(context, runMode);
+  }
+  if (moduleKey === 'pollutionAudit') {
+    return executePollutionForCommandCenter(context, runMode);
   }
   return buildPendingAdapterResult(moduleKey, runMode);
 }
