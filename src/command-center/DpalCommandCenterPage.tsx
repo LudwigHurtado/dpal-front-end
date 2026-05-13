@@ -8,7 +8,12 @@ import {
 import { COMMAND_CENTER_INVESTOR_PRESETS } from './data/commandCenterInvestorPresets';
 import { COMMAND_CENTER_MODULE_REGISTRY, recommendModulesForInvestigation } from './registry/commandCenterModuleRegistry';
 import { buildEvidencePacketPreview, evidenceDraftToPreviewText } from './services/commandCenterEvidenceBuilder';
-import { startCommandCenterRun } from './services/commandCenterBackendRunClient';
+import {
+  cancelCommandCenterRun,
+  mapBackendRunToOrchestration,
+  pollCommandCenterRunUntilTerminal,
+  startCommandCenterRun,
+} from './services/commandCenterBackendRunClient';
 import {
   type AutopilotMachineState,
   type AutopilotStep,
@@ -197,6 +202,8 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
   const [autopilotStepIndex, setAutopilotStepIndex] = React.useState(0);
   const [runningModuleKey, setRunningModuleKey] = React.useState<CommandCenterModuleKey | null>(null);
   const [backendRunId, setBackendRunId] = React.useState<string | null>(null);
+  /** Active backend run id for cancel while autopilot is in flight. */
+  const backendRunActiveRef = React.useRef<string | null>(null);
   const autopilotPausedRef = React.useRef(false);
   const autopilotStopRef = React.useRef(false);
   const autopilotInFlightRef = React.useRef(false);
@@ -398,92 +405,120 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     autopilotInFlightRef.current = true;
     autopilotStopRef.current = false;
     autopilotPausedRef.current = false;
-    setBusy(true);
-    setAutopilotState('queued');
-    setBackendRunId(null);
-    setOrchestration(null);
-    setEvidencePreviewText('');
-
-    const steps = buildAutopilotSteps(mods);
-    setAutopilotSteps(steps);
-    setAutopilotStepIndex(0);
-
-    const backendTry = await startCommandCenterRun({
-      modules: mods,
-      context: { ...ctx } as unknown as Record<string, unknown>,
-      runMode,
-    });
-    if (backendTry.backend === 'accepted') {
-      setBackendRunId(backendTry.runId);
-    }
-
-    setAutopilotState('running');
-    let merged: CommandCenterOrchestrationResult | null = null;
-
     try {
-      for (let i = 0; i < steps.length; i++) {
-        await waitUnpause();
-        if (autopilotStopRef.current) {
+      setBusy(true);
+      setAutopilotState('queued');
+      setBackendRunId(null);
+      backendRunActiveRef.current = null;
+      setOrchestration(null);
+      setEvidencePreviewText('');
+
+      const steps = buildAutopilotSteps(mods);
+      setAutopilotSteps(steps);
+      setAutopilotStepIndex(0);
+      setAutopilotState('running');
+
+      const backendTry = await startCommandCenterRun({
+        modules: mods,
+        context: { ...ctx } as unknown as Record<string, unknown>,
+        runMode,
+      });
+      let backendOrchestration: CommandCenterOrchestrationResult | null = null;
+      if (backendTry.backend === 'accepted') {
+        setBackendRunId(backendTry.runId);
+        backendRunActiveRef.current = backendTry.runId;
+        const polled = await pollCommandCenterRunUntilTerminal(backendTry.runId, {
+          cancelled: () => autopilotStopRef.current,
+          maxWaitMs: 8 * 60_000,
+        });
+        if (polled.backend === 'ok') {
+          backendOrchestration = mapBackendRunToOrchestration(polled.payload);
+          setOrchestration(backendOrchestration);
+        }
+        if (polled.backend === 'stopped' || polled.backend === 'lost') {
+          backendRunActiveRef.current = null;
+        }
+        if (polled.backend === 'stopped') {
           setAutopilotState('stopped');
           return;
         }
-        setAutopilotStepIndex(i);
-        const step = steps[i];
-
-        if (step.kind === 'module' && step.module) {
-          setRunningModuleKey(step.module);
-        } else {
-          setRunningModuleKey(null);
-        }
-
-        try {
-          if (step.kind === 'validate') {
-            await new Promise<void>((r) => window.setTimeout(r, 320));
-          } else if (step.kind === 'module' && step.module) {
-            const chunk = await runCommandCenterOrchestration({
-              modules: [step.module],
-              context: { ...ctx, investorDemoFraming: workflowMode === 'investorDemo' },
-              runMode,
-            });
-            merged = mergeOrchestrationChunks(merged, chunk);
-            setOrchestration(merged);
-          } else if (step.kind === 'evidence') {
-            const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
-            const draft = buildEvidencePacketPreview({
-              title: 'DPAL Command Center — evidence packet preview',
-              includedSectionIds: ids.length ? ids : EVIDENCE_SECTION_DEFAULTS,
-              orchestration: merged ?? undefined,
-            });
-            setEvidencePreviewText(evidenceDraftToPreviewText(draft));
-            await new Promise<void>((r) => window.setTimeout(r, 200));
-          } else if (step.kind === 'nextActions') {
-            await new Promise<void>((r) => window.setTimeout(r, 180));
-          }
-        } catch (e) {
-          const msg = e instanceof Error ? e.message : String(e);
-          setOrchestration((prev) =>
-            prev
-              ? {
-                  ...prev,
-                  orchestrationWarnings: [...prev.orchestrationWarnings, `${step.id}: ${msg}`],
-                }
-              : null,
-          );
-        }
       }
-      if (!autopilotStopRef.current) setAutopilotState('completed');
-    } catch (e) {
-      setAutopilotState('error');
-      const msg = e instanceof Error ? e.message : String(e);
-      setOrchestration((prev) =>
-        prev
-          ? { ...prev, orchestrationWarnings: [...prev.orchestrationWarnings, `autopilot: ${msg}`] }
-          : null,
-      );
+
+      if (autopilotStopRef.current) {
+        setAutopilotState('stopped');
+        return;
+      }
+
+      let merged: CommandCenterOrchestrationResult | null = backendOrchestration;
+
+      try {
+        for (let i = 0; i < steps.length; i++) {
+          await waitUnpause();
+          if (autopilotStopRef.current) {
+            setAutopilotState('stopped');
+            return;
+          }
+          setAutopilotStepIndex(i);
+          const step = steps[i];
+
+          if (step.kind === 'module' && step.module) {
+            setRunningModuleKey(step.module);
+          } else {
+            setRunningModuleKey(null);
+          }
+
+          try {
+            if (step.kind === 'validate') {
+              await new Promise<void>((r) => window.setTimeout(r, 320));
+            } else if (step.kind === 'module' && step.module && backendOrchestration) {
+              await new Promise<void>((r) => window.setTimeout(r, 120));
+            } else if (step.kind === 'module' && step.module) {
+              const chunk = await runCommandCenterOrchestration({
+                modules: [step.module],
+                context: { ...ctx, investorDemoFraming: workflowMode === 'investorDemo' },
+                runMode,
+              });
+              merged = mergeOrchestrationChunks(merged, chunk);
+              setOrchestration(merged);
+            } else if (step.kind === 'evidence') {
+              const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
+              const draft = buildEvidencePacketPreview({
+                title: 'DPAL Command Center — evidence packet preview',
+                includedSectionIds: ids.length ? ids : EVIDENCE_SECTION_DEFAULTS,
+                orchestration: merged ?? undefined,
+              });
+              setEvidencePreviewText(evidenceDraftToPreviewText(draft));
+              await new Promise<void>((r) => window.setTimeout(r, 200));
+            } else if (step.kind === 'nextActions') {
+              await new Promise<void>((r) => window.setTimeout(r, 180));
+            }
+          } catch (e) {
+            const msg = e instanceof Error ? e.message : String(e);
+            setOrchestration((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    orchestrationWarnings: [...prev.orchestrationWarnings, `${step.id}: ${msg}`],
+                  }
+                : null,
+            );
+          }
+        }
+        if (!autopilotStopRef.current) setAutopilotState('completed');
+      } catch (e) {
+        setAutopilotState('error');
+        const msg = e instanceof Error ? e.message : String(e);
+        setOrchestration((prev) =>
+          prev
+            ? { ...prev, orchestrationWarnings: [...prev.orchestrationWarnings, `autopilot: ${msg}`] }
+            : null,
+        );
+      }
     } finally {
       setRunningModuleKey(null);
       setBusy(false);
       autopilotInFlightRef.current = false;
+      backendRunActiveRef.current = null;
     }
   }, [busy, ctx, evidenceSections, modulesForBatch, runMode, waitUnpause, workflowMode]);
 
@@ -500,6 +535,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
   const stopAutopilot = React.useCallback(() => {
     autopilotStopRef.current = true;
     autopilotPausedRef.current = false;
+    void cancelCommandCenterRun(backendRunActiveRef.current);
     if (autopilotInFlightRef.current) setAutopilotState('stopped');
   }, []);
 
