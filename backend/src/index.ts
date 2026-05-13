@@ -104,6 +104,7 @@ const limiter = rateLimit({
 
     if (isDevLike) {
       if (req.originalUrl.startsWith('/api/command-center')) return true;
+      if (req.originalUrl.startsWith('/api/dpal-assistant/report-reader')) return true;
       if (req.originalUrl.startsWith('/api/debug/provider-usage')) return true;
     }
 
@@ -114,12 +115,27 @@ app.use('/api/', limiter);
 
 // ── Health ────────────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
+  const gitCommit =
+    process.env.GIT_COMMIT?.trim() ||
+    process.env.RAILWAY_GIT_COMMIT_SHA?.trim() ||
+    process.env.VERCEL_GIT_COMMIT_SHA?.trim() ||
+    null;
+  const gitBranch =
+    process.env.GIT_BRANCH?.trim() ||
+    process.env.RAILWAY_GIT_BRANCH?.trim() ||
+    process.env.VERCEL_GIT_COMMIT_REF?.trim() ||
+    null;
+  const buildTime = process.env.BUILD_TIME?.trim() || null;
+
   res.json({
-    ok:        true,
-    service:   'dpal-backend',
-    version:   '1.0.0',
+    ok: true,
+    service: 'dpal-backend',
+    version: '1.0.0',
     timestamp: new Date().toISOString(),
-    env:       process.env.NODE_ENV ?? 'development',
+    env: process.env.NODE_ENV ?? 'development',
+    gitCommit,
+    gitBranch,
+    buildTime,
   });
 });
 
