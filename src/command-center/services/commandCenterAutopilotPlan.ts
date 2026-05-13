@@ -42,7 +42,7 @@ export function buildAutopilotSteps(selected: CommandCenterModuleKey[]): Autopil
       module: m,
     });
   }
-  steps.push({ id: 'evidence', label: 'Build evidence packet preview', kind: 'evidence' });
+  steps.push({ id: 'evidence', label: 'Build evidence draft', kind: 'evidence' });
   steps.push({ id: 'next-actions', label: 'Show next actions', kind: 'nextActions' });
   return steps;
 }

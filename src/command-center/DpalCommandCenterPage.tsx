@@ -5,7 +5,7 @@ import {
   FIELD_OS_SUPER_AGENT_HASH,
   WATCH_DEEP_LINK_HASH,
 } from '../../utils/appRoutes';
-import { COMMAND_CENTER_INVESTOR_PRESETS } from './data/commandCenterInvestorPresets';
+import { COMMAND_CENTER_SAVED_SCENARIO_PRESETS } from './data/commandCenterSavedScenariosPresets';
 import { COMMAND_CENTER_MODULE_REGISTRY, recommendModulesForInvestigation } from './registry/commandCenterModuleRegistry';
 import { buildEvidencePacketPreview, evidenceDraftToPreviewText } from './services/commandCenterEvidenceBuilder';
 import {
@@ -38,7 +38,7 @@ const WATCH_STEPS: { id: WatchWorkflowStepId; label: string }[] = [
   { id: 'satellite', label: 'Checking satellite indicators' },
   { id: 'pollution', label: 'Checking pollution records' },
   { id: 'forest_plastic', label: 'Checking forest / plastic risk' },
-  { id: 'evidence', label: 'Building evidence packet' },
+  { id: 'evidence', label: 'Building evidence draft' },
 ];
 
 const MODE_CARDS: {
@@ -57,13 +57,13 @@ const MODE_CARDS: {
     id: 'guided',
     title: 'Guided Workflow',
     bestFor: 'Normal users',
-    description: 'DPAL asks what you are investigating and recommends modules before you preview.',
+    description: 'DPAL asks what you are investigating and recommends modules before you run scans.',
   },
   {
     id: 'watch',
-    title: 'Watch DPAL Work',
-    bestFor: 'Demos / training',
-    description: 'Visible step-by-step flow — nothing runs until you start the watch preview.',
+    title: 'Live Run Monitor',
+    bestFor: 'Training / walkthroughs',
+    description: 'Visible step-by-step flow — nothing runs until you start the monitor sequence.',
   },
   {
     id: 'superAgent',
@@ -73,15 +73,15 @@ const MODE_CARDS: {
   },
   {
     id: 'evidenceBuilder',
-    title: 'Evidence Packet Builder',
+    title: 'Evidence Draft Builder',
     bestFor: 'Legal / government / reports',
-    description: 'Assemble one preview packet from Command Center results with honest safety labels.',
+    description: 'Assemble one evidence draft from Command Center results with honest safety labels.',
   },
   {
-    id: 'investorDemo',
-    title: 'Investor Demo',
-    bestFor: 'Presentations',
-    description: 'Safe presets and demo framing — avoids surprise live API failures.',
+    id: 'savedScenarios',
+    title: 'Saved Scenarios',
+    bestFor: 'Repeat investigations',
+    description: 'Named AOIs and module sets — load context then run live scans or dry_run from the mission bar.',
   },
 ];
 
@@ -131,7 +131,7 @@ function suggestPlanFromGoal(goal: string): { lines: string[]; modules: CommandC
   ];
   const picked = order.filter((m) => modules.has(m));
   const lines = picked.map((m, i) => `${i + 1}. Open ${COMMAND_CENTER_MODULE_REGISTRY.find((r) => r.key === m)?.label ?? m}`);
-  lines.push(`${picked.length + 1}. Build evidence packet preview in Command Center`);
+  lines.push(`${picked.length + 1}. Build evidence draft in Command Center`);
   lines.push(`${picked.length + 2}. Request human review before any external claim`);
   return { lines, modules: picked };
 }
@@ -155,6 +155,15 @@ const EVIDENCE_SECTION_DEFAULTS: EvidencePacketDraftSectionId[] = [
 
 function workspaceViewForModule(key: CommandCenterModuleKey): View {
   return (COMMAND_CENTER_MODULE_REGISTRY.find((r) => r.key === key)?.workspaceView ?? 'mainMenu') as View;
+}
+
+function liveAutopilotModuleHint(module: CommandCenterModuleKey, runMode: 'dry_run' | 'live'): string | null {
+  if (runMode !== 'live') return null;
+  if (module === 'plasticWatch') return 'Live: Plastic Watch scan when API is reachable.';
+  if (module === 'water' || module === 'forestIntegrity' || module === 'earthObservation') {
+    return 'Live: Command Center backend adapter when API is reachable.';
+  }
+  return 'Pending live wiring — open full workspace.';
 }
 
 const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
@@ -260,7 +269,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     });
   }, [orchestration, commandCenterMapCenter]);
 
-  const runBatchLabel = runMode === 'live' ? 'Run Selected Live Scans' : 'Run Unified Preview';
+  const runBatchLabel = runMode === 'live' ? 'Run Selected Scans' : 'Run Unified Preview';
   const guidedRunLabel = runBatchLabel;
 
   const runPreview = React.useCallback(
@@ -270,7 +279,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
       try {
         const res = await runCommandCenterOrchestration({
           modules,
-          context: { ...ctx, investorDemoFraming: workflowMode === 'investorDemo' },
+          context: { ...ctx, investorDemoFraming: workflowMode === 'savedScenarios' },
           runMode,
         });
         setOrchestration(res);
@@ -324,8 +333,8 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     setWatchPaused(false);
   }, []);
 
-  const applyInvestorPreset = React.useCallback((presetId: (typeof COMMAND_CENTER_INVESTOR_PRESETS)[number]['id']) => {
-    const p = COMMAND_CENTER_INVESTOR_PRESETS.find((x) => x.id === presetId);
+  const applySavedScenarioPreset = React.useCallback((presetId: (typeof COMMAND_CENTER_SAVED_SCENARIO_PRESETS)[number]['id']) => {
+    const p = COMMAND_CENTER_SAVED_SCENARIO_PRESETS.find((x) => x.id === presetId);
     if (!p) return;
     setCtx((c) => ({
       ...c,
@@ -382,7 +391,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
   const buildEvidence = () => {
     const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
     const draft = buildEvidencePacketPreview({
-      title: 'DPAL Command Center — evidence packet preview',
+      title: 'DPAL Command Center — evidence draft',
       includedSectionIds: ids,
       orchestration: orchestration ?? undefined,
     });
@@ -475,7 +484,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
             } else if (step.kind === 'module' && step.module) {
               const chunk = await runCommandCenterOrchestration({
                 modules: [step.module],
-                context: { ...ctx, investorDemoFraming: workflowMode === 'investorDemo' },
+                context: { ...ctx, investorDemoFraming: workflowMode === 'savedScenarios' },
                 runMode,
               });
               merged = mergeOrchestrationChunks(merged, chunk);
@@ -483,7 +492,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
             } else if (step.kind === 'evidence') {
               const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
               const draft = buildEvidencePacketPreview({
-                title: 'DPAL Command Center — evidence packet preview',
+                title: 'DPAL Command Center — evidence draft',
                 includedSectionIds: ids.length ? ids : EVIDENCE_SECTION_DEFAULTS,
                 orchestration: merged ?? undefined,
               });
@@ -589,8 +598,9 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-teal-300">DPAL · Live Mission Console</p>
         <h1 className="mt-1 text-xl font-bold tracking-tight md:text-2xl">Command Center</h1>
         <p className="mt-2 max-w-3xl text-xs text-slate-300 md:text-sm">
-          Map-first orchestration with visible autopilot. Full AquaScan, Earth Observation, Plastic Watch, and other workspaces
-          are unchanged — this screen coordinates quick scans and evidence previews only.
+          Map-first coordination for real DPAL module scans. The backend run engine performs live provider work where adapters are
+          wired; pending modules stay in structured pending states until you open the full workspace. Results here are evidence
+          leads — full module workspaces remain authoritative for AOI review, overlays, comparisons, and evidence packets.
         </p>
       </header>
 
@@ -669,7 +679,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
               value={runMode}
               onChange={(e) => setRunMode(e.target.value as 'dry_run' | 'live')}
             >
-              <option value="dry_run">dry_run (preview)</option>
+              <option value="dry_run">dry_run (no live provider calls)</option>
               <option value="live">live (wired APIs)</option>
             </select>
           </label>
@@ -680,7 +690,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
               onClick={() => void startLiveAutopilot()}
               className="rounded-lg bg-teal-500 px-3 py-2 text-xs font-bold text-slate-950 shadow hover:bg-teal-400 disabled:opacity-50"
             >
-              Start Live Autopilot
+              Start Live Run
             </button>
             <button
               type="button"
@@ -694,8 +704,8 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         </div>
         {runMode === 'live' ? (
           <p className="mt-3 text-[10px] text-amber-200">
-            Live mode hits real APIs where wired (Plastic Watch: GET scan). Other modules stay pending_adapter until wired — use
-            Open Full Workspace.
+            Live mode calls real provider routes where the Command Center backend has wired adapters (Plastic Watch, Water,
+            Forest Integrity, Earth Observation). Other modules return pending_adapter until wired — use Open Full Workspace.
           </p>
         ) : null}
       </section>
@@ -759,24 +769,28 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         <aside className="order-2 min-w-0 xl:order-3">
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-slate-50 shadow-sm md:p-4">
             <p className="text-[10px] font-bold uppercase tracking-wide text-teal-300">
-              Autopilot · {runMode === 'live' ? 'live' : 'preview'}
+              Live run · {runMode === 'live' ? 'live' : 'dry_run'}
             </p>
             <p className="mt-1 text-[11px] text-slate-300">
               {runMode === 'live'
-                ? 'Live autopilot runs wired adapters sequentially. One failed module does not abort the run unless you press Stop.'
-                : 'Preview autopilot — same steps with dry_run / preview adapters only.'}
+                ? 'Live run executes wired backend adapters in sequence. One failed module does not abort the run unless you press Stop.'
+                : 'dry_run uses the same steps without live provider calls — safe for setup and training.'}
             </p>
             <p className="mt-2 text-[10px] font-semibold uppercase text-slate-400">State: {autopilotState}</p>
             {backendRunId ? (
               <p className="mt-1 text-[10px] text-teal-200">Backend run id (reserved): {backendRunId}</p>
             ) : (
-              <p className="mt-1 text-[10px] text-slate-500">Backend orchestration: local-only until POST /api/command-center/runs exists.</p>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Backend orchestration idle — Start Live Run to POST /api/command-center/runs when the server accepts it.
+              </p>
             )}
             <ol className="mt-3 max-h-52 list-decimal space-y-1 overflow-y-auto pl-4 text-[11px] text-slate-200">
               {autopilotSteps.length === 0 ? (
-                <li className="text-slate-500">Idle — press Start Live Autopilot.</li>
+                <li className="text-slate-500">Idle — press Start Live Run.</li>
               ) : (
-                autopilotSteps.map((s, idx) => (
+                autopilotSteps.map((s, idx) => {
+                  const liveHint = s.kind === 'module' && s.module ? liveAutopilotModuleHint(s.module, runMode) : null;
+                  return (
                   <li
                     key={s.id}
                     className={
@@ -788,15 +802,12 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                     }
                   >
                     {s.label}
-                    {s.kind === 'module' && s.module && runMode === 'live' ? (
-                      <span className="block text-[9px] font-normal text-slate-500">
-                        {s.module === 'plasticWatch'
-                          ? 'Uses GET /api/hyperspectral-plastic-watch/scan when live.'
-                          : 'Pending live wiring — open full workspace.'}
-                      </span>
+                    {liveHint ? (
+                      <span className="block text-[9px] font-normal text-slate-500">{liveHint}</span>
                     ) : null}
                   </li>
-                ))
+                  );
+                })
               )}
             </ol>
             <div className="mt-4 flex flex-wrap gap-2">
@@ -806,7 +817,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 onClick={() => void startLiveAutopilot()}
                 className="rounded bg-teal-500 px-2 py-1.5 text-[11px] font-bold text-slate-950 disabled:opacity-50"
               >
-                Start
+                Start Live Run
               </button>
               <button
                 type="button"
@@ -847,8 +858,8 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="text-sm font-bold text-slate-900">Manual Scan</h2>
             <p className="mt-1 text-[11px] text-slate-600">
-              Modules included in autopilot and in &quot;{runBatchLabel}&quot; (mission bar). Plastic Watch live uses GET; others
-              show pending_adapter until wired.
+              Modules included in the live run and in &quot;{runBatchLabel}&quot; (mission bar). Wired modules use the Command
+              Center backend run engine; others return pending_adapter until wired.
             </p>
             <div className="mt-3 flex flex-wrap gap-3">
               {COMMAND_CENTER_MODULE_REGISTRY.map((row) => (
@@ -906,9 +917,9 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
 
         {workflowMode === 'watch' && (
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-900">Watch DPAL Work</h2>
+            <h2 className="text-sm font-bold text-slate-900">Live Run Monitor</h2>
             <p className="mt-1 text-xs text-slate-700">
-              Step animation then batch preview using Manual module checkboxes. Nothing runs on load.
+              Step animation then batch scan using Manual module checkboxes. Nothing runs on load.
             </p>
             <p className="mt-2 text-xs">
               Step:{' '}
@@ -931,7 +942,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 onClick={startWatchPreview}
                 className="rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
               >
-                Start Watch Preview
+                Start monitor sequence
               </button>
               <button type="button" onClick={pauseWatch} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
                 Pause
@@ -1003,7 +1014,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
 
         {workflowMode === 'evidenceBuilder' && (
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-900">Evidence Packet Builder</h2>
+            <h2 className="text-sm font-bold text-slate-900">Evidence Draft Builder</h2>
             <div className="mt-2 flex flex-wrap gap-2">
               {(Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).map((id) => (
                 <label key={id} className="flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[11px]">
@@ -1013,7 +1024,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
               ))}
             </div>
             <button type="button" onClick={buildEvidence} className="mt-3 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
-              Build evidence preview
+              Build evidence draft
             </button>
             <button
               type="button"
@@ -1021,7 +1032,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
               onClick={() => {
                 const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
                 const draft = buildEvidencePacketPreview({
-                  title: 'DPAL Command Center — evidence packet preview',
+                  title: 'DPAL Command Center — evidence draft',
                   includedSectionIds: ids,
                   orchestration: orchestration ?? undefined,
                 });
@@ -1030,17 +1041,19 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 void navigator.clipboard.writeText(text).catch(() => {});
               }}
             >
-              Copy preview
+              Copy draft
             </button>
           </section>
         )}
 
-        {workflowMode === 'investorDemo' && (
+        {workflowMode === 'savedScenarios' && (
           <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
-            <h2 className="text-sm font-bold text-slate-900">Investor Demo presets</h2>
-            <p className="mt-1 text-xs text-amber-900">Loads coordinates and module checkboxes; use mission bar to run preview or autopilot.</p>
+            <h2 className="text-sm font-bold text-slate-900">Saved scenario presets</h2>
+            <p className="mt-1 text-xs text-amber-900">
+              Loads coordinates and module checkboxes; use the mission bar to run a live run, dry_run, or batch scans.
+            </p>
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              {COMMAND_CENTER_INVESTOR_PRESETS.map((p) => (
+              {COMMAND_CENTER_SAVED_SCENARIO_PRESETS.map((p) => (
                 <article key={p.id} className="rounded-lg border border-amber-100 bg-white p-3 text-xs shadow-sm">
                   <h3 className="font-bold text-slate-900">{p.title}</h3>
                   <p className="mt-1 text-slate-600">{p.subtitle}</p>
@@ -1049,7 +1062,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                       type="button"
                       className="rounded bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white"
                       onClick={() => {
-                        applyInvestorPreset(p.id);
+                        applySavedScenarioPreset(p.id);
                         void runPreview(p.defaultModules);
                       }}
                     >
@@ -1165,15 +1178,15 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">Run scans or autopilot to populate provider cards.</p>
+          <p className="text-sm text-slate-500">Run scans or Start Live Run to populate provider cards.</p>
         )}
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h3 className="text-sm font-bold text-slate-900">Evidence packet preview</h3>
+          <h3 className="text-sm font-bold text-slate-900">Evidence draft</h3>
           <textarea
             className="mt-2 h-48 w-full rounded-lg border border-slate-200 p-2 font-mono text-[11px]"
             readOnly
-            placeholder="Autopilot step 8 or Evidence Builder fills this…"
+            placeholder="Live run step or Evidence Draft Builder fills this…"
             value={evidencePreviewText}
           />
         </div>

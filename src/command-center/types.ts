@@ -34,7 +34,7 @@ export type CommandCenterWorkflowMode =
   | 'watch'
   | 'superAgent'
   | 'evidenceBuilder'
-  | 'investorDemo';
+  | 'savedScenarios';
 
 export type GuidedInvestigationType =
   | 'water'
@@ -58,7 +58,7 @@ export type CommandCenterRunContext = {
   radiusKm: number;
   baselineDateIso: string;
   currentDateIso: string;
-  /** When true, copy explains demo framing (investor presets). */
+  /** When true, optional saved-scenario framing (preset titles/notes); backend field name unchanged for compatibility. */
   investorDemoFraming?: boolean;
 };
 
@@ -128,15 +128,15 @@ export type EvidencePacketDraft = {
   exportNote: string;
 };
 
-export type InvestorDemoPresetId =
+export type SavedScenarioPresetId =
   | 'santa_cruz_floodguard'
   | 'colorado_river_water'
   | 'california_carb'
   | 'forest_afolu'
   | 'coastal_plastic_watch';
 
-export type InvestorDemoPreset = {
-  id: InvestorDemoPresetId;
+export type SavedScenarioPreset = {
+  id: SavedScenarioPresetId;
   title: string;
   subtitle: string;
   locationLabel: string;

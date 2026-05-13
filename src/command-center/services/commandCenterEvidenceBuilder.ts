@@ -16,7 +16,7 @@ function sectionLines(
   orchestration: CommandCenterOrchestrationResult | undefined,
 ): string[] {
   if (!orchestration) {
-    if (sectionId === 'location') return ['No Command Center run attached — add context or run a preview first.'];
+    if (sectionId === 'location') return ['No Command Center run attached — add context or run scans first.'];
     return ['—'];
   }
   const { context, results } = orchestration;
@@ -41,9 +41,9 @@ function sectionLines(
         'blockchain_anchored: false (unless a chain record exists)',
       ];
     case 'humanReview':
-      return ['Human review: not requested from Command Center preview (attach reviewer workflow separately).'];
+      return ['Human review: not requested from Command Center draft (attach reviewer workflow separately).'];
     case 'blockchain':
-      return ['Blockchain: no hash recorded from this preview-only export.'];
+      return ['Blockchain: no hash recorded from this draft export.'];
     case 'dronePhoto':
       return ['Drone / photo evidence: add in module workspaces or attach files in Situation Room — not bundled here.'];
     case 'waterEvidence':
@@ -85,7 +85,7 @@ export function buildEvidencePacketPreview(opts: {
     humanReviewStatus: 'not_requested',
     blockchainStatus: 'none',
     exportNote:
-      'Preview-only export from DPAL Command Center. Does not assert verification, anchoring, or publication. Open individual modules for full workflows.',
+      'Draft export from DPAL Command Center. Does not assert verification, anchoring, or publication. Open individual modules for full workflows.',
   };
 }
 
