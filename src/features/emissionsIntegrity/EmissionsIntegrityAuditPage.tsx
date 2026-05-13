@@ -70,11 +70,26 @@ import {
   getEiasWorkspaceInitialState,
   saveEiasWorkspaceSnapshot,
 } from './utils/eiasWorkspacePersistence';
+import {
+  estimateJurisdictionFromBBox,
+  guessUsStateLabelFromBBox,
+  mapUsStateToJurisdiction,
+  normalizeGpsCoordinates,
+  reverseGeocodeUsState,
+} from './utils/eiasLocationDetection';
 
 /** Same host as `VITE_API_BASE` must expose `/api/emissions-audit/*` (Prisma `backend/` today; not on default Railway `dpal-ai-server`). */
 const EIAS_API_DISCLAIMER =
   'Saved audits require an API that implements /api/emissions-audit/* and a compatible sign-in (local backend/Prisma JWT). Production Railway often returns 401/404 here; workspace + carbon adapter pulls still work.';
 const LOCAL_DRAFT_HINT = 'This browser keeps an auto-saved local draft of the workspace (facility, periods, inputs, links).';
+
+/** Hub artwork under `public/environmental-intelligence/` — contextual visuals for claims vs remote sensing / air signals. */
+const EIAS_VISUAL_ASSETS = {
+  auditHero: '/environmental-intelligence/emissions-audit-main.png',
+  carbRegulatory: '/environmental-intelligence/emissions-audit-carb-main.png',
+  airSignals: '/environmental-intelligence/air-scan-hero.png',
+  mrvSatellite: '/environmental-intelligence/carbon-intelligence-mrv-main.png',
+} as const;
 
 interface EmissionsIntegrityAuditPageProps {
   onReturn: () => void;
@@ -289,15 +304,6 @@ function clampScore(value: number, min = 0, max = 100): number {
 
 function isFiniteNonNegative(value: number): boolean {
   return Number.isFinite(value) && value >= 0;
-}
-
-function estimateJurisdictionFromPoint(point: CoordinatePoint | null): Jurisdiction | null {
-  if (!point) return null;
-  const { lat, lng } = point;
-  if (lat >= 32.0 && lat <= 42.1 && lng >= -124.6 && lng <= -114.0) return 'California';
-  if (lat >= 31.2 && lat <= 37.1 && lng >= -114.9 && lng <= -109.0) return 'Arizona';
-  if (lat >= 31.3 && lat <= 37.1 && lng >= -109.1 && lng <= -103.0) return 'New Mexico';
-  return 'Federal';
 }
 
 function getLocationValidation(point: CoordinatePoint | null, polygon: CoordinatePoint[]) {
@@ -696,6 +702,9 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   const [viewMode, setViewMode] = useState<'workspace' | 'myAudits'>('workspace');
   const [versionHistory, setVersionHistory] = useState<Array<{ version: number; modifiedBy: string; changeSummary?: string | null; createdAt: string }>>([]);
   const [linkFields, setLinkFields] = useState(initialWorkspace.linkFields);
+  const [geocodedState, setGeocodedState] = useState<string | null>(null);
+  const [geocodedCountry, setGeocodedCountry] = useState<string | null>(null);
+  const [geocodeLoading, setGeocodeLoading] = useState(false);
 
   const baselinePeriod = useMemo(
     () => createPeriod(baselinePreset, defaultBaselinePeriod, baselineCustomStart, baselineCustomEnd),
@@ -709,7 +718,57 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   const areaEstimateKm2 = useMemo(() => computePolygonAreaKm2(polygon), [polygon]);
   const centerPoint = mapPoint ?? (polygon[0] ?? null);
   const locationValidation = useMemo(() => getLocationValidation(centerPoint, polygon), [centerPoint, polygon]);
-  const estimatedJurisdiction = useMemo(() => estimateJurisdictionFromPoint(centerPoint), [centerPoint]);
+
+  useEffect(() => {
+    if (!centerPoint) {
+      setGeocodedState(null);
+      setGeocodedCountry(null);
+      setGeocodeLoading(false);
+      return;
+    }
+    setGeocodedState(null);
+    setGeocodedCountry(null);
+    const ac = new AbortController();
+    const timer = window.setTimeout(() => {
+      setGeocodeLoading(true);
+      void reverseGeocodeUsState(centerPoint.lat, centerPoint.lng, ac.signal)
+        .then(({ state, country }) => {
+          if (ac.signal.aborted) return;
+          setGeocodedState(state);
+          setGeocodedCountry(country);
+        })
+        .catch(() => {
+          if (ac.signal.aborted) return;
+          setGeocodedState(null);
+          setGeocodedCountry(null);
+        })
+        .finally(() => {
+          if (!ac.signal.aborted) setGeocodeLoading(false);
+        });
+    }, 450);
+    return () => {
+      ac.abort();
+      window.clearTimeout(timer);
+    };
+  }, [centerPoint?.lat, centerPoint?.lng]);
+
+  const regulatoryEstimate = useMemo((): Jurisdiction | null => {
+    if (!centerPoint) return null;
+    const fromGeo = mapUsStateToJurisdiction(geocodedState);
+    if (fromGeo) return fromGeo;
+    return estimateJurisdictionFromBBox(centerPoint);
+  }, [centerPoint, geocodedState]);
+
+  const displayStateLabel = useMemo(() => {
+    if (geocodedState) {
+      if (geocodedCountry && geocodedCountry !== 'United States') {
+        return `${geocodedState} · ${geocodedCountry}`;
+      }
+      return geocodedState;
+    }
+    return guessUsStateLabelFromBBox(centerPoint);
+  }, [geocodedState, geocodedCountry, centerPoint]);
+
   const filteredFacilities = useMemo(
     () =>
       demoFacilityResults.filter((result) =>
@@ -721,7 +780,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
   const legalContext = useMemo(() => JURISDICTION_CONTEXT[facilityInfo.jurisdiction as Jurisdiction], [facilityInfo.jurisdiction]);
   const satelliteMetadataBanner = useMemo(() => getMetadataBannerState(satelliteData.metadata), [satelliteData.metadata]);
-  const jurisdictionMismatch = Boolean(estimatedJurisdiction && facilityInfo.jurisdiction !== estimatedJurisdiction);
+  const jurisdictionMismatch = Boolean(regulatoryEstimate && facilityInfo.jurisdiction !== regulatoryEstimate);
   const overallSourceStatuses = useMemo(
     () => [
       getSourceStatus(reportedData.metadata),
@@ -924,12 +983,13 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
 
     setFacilityInfo(nextFacilityInfo);
     const location = source.location ?? {};
-    const point = typeof location.lat === 'number' && typeof location.lng === 'number'
-      ? { lat: location.lat, lng: location.lng }
-      : null;
-    setMapPoint(point);
-    setGpsLat(point ? String(point.lat) : '');
-    setGpsLng(point ? String(point.lng) : '');
+    const rawPoint =
+      typeof location.lat === 'number' && typeof location.lng === 'number'
+        ? normalizeGpsCoordinates(location.lat, location.lng)
+        : null;
+    setMapPoint(rawPoint);
+    setGpsLat(rawPoint ? String(rawPoint.lat) : '');
+    setGpsLng(rawPoint ? String(rawPoint.lng) : '');
     const serverPolygon = Array.isArray(location.polygonGeoJSON?.coordinates?.[0])
       ? location.polygonGeoJSON.coordinates[0]
           .slice(0, -1)
@@ -1120,7 +1180,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
       return false;
     }
     if (jurisdictionMismatch) {
-      setWarning('Jurisdiction and selected location may not match. Review before saving.');
+      setWarning('Jurisdiction dropdown and map-derived regulatory preset may not match. Review before saving.');
     } else {
       setWarning('');
     }
@@ -1197,19 +1257,43 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   };
 
   const applyGpsPoint = (lat: number, lng: number) => {
-    setMapPoint({ lat, lng });
-    setGpsLat(String(Number(lat.toFixed(6))));
-    setGpsLng(String(Number(lng.toFixed(6))));
+    const { lat: nLat, lng: nLng } = normalizeGpsCoordinates(lat, lng);
+    setMapPoint({ lat: nLat, lng: nLng });
+    setGpsLat(String(Number(nLat.toFixed(6))));
+    setGpsLng(String(Number(nLng.toFixed(6))));
   };
 
   const handleMapClick = (point: CoordinatePoint) => {
     if (locationMethod === 'drawn polygon' || drawingPolygon) {
-      setPolygon((current) => [...current, point]);
-      if (!mapPoint) setMapPoint(point);
+      const n = normalizeGpsCoordinates(point.lat, point.lng);
+      const normalized = { lat: n.lat, lng: n.lng };
+      setPolygon((current) => [...current, normalized]);
+      if (!mapPoint) setMapPoint(normalized);
       return;
     }
     applyGpsPoint(point.lat, point.lng);
     setLocationMethod('map click');
+  };
+
+  const handleDeviceGps = () => {
+    if (!navigator.geolocation) {
+      setStatusMessage('This browser does not support device location.');
+      return;
+    }
+    setStatusMessage('Requesting high-accuracy device location…');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        applyGpsPoint(pos.coords.latitude, pos.coords.longitude);
+        setLocationMethod('GPS coordinate input');
+        setStatusMessage(
+          'Device GPS applied. If the pin still looks wrong, enter survey-grade coordinates or click the map to correct it.',
+        );
+      },
+      (err) => {
+        setStatusMessage(err?.message ? `Location error: ${err.message}` : 'Device location was denied or unavailable.');
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 25_000 },
+    );
   };
 
   const toggleLayer = (layer: string) => {
@@ -1529,7 +1613,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-gradient-to-b from-black via-zinc-950 to-slate-950 text-slate-100">
       <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -1617,10 +1701,79 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
             <p className="mt-2 text-lg font-black text-white">{auditStatusLabel}</p>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">State Estimate</p>
-            <p className="mt-2 text-lg font-black text-white">{estimatedJurisdiction ?? 'Unavailable'}</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Map region</p>
+            <p className="mt-2 text-lg font-black text-white leading-snug">
+              {geocodeLoading ? 'Looking up…' : (displayStateLabel ?? '—')}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">EIAS preset: {regulatoryEstimate ?? '—'}</p>
           </div>
         </section>
+
+        {viewMode === 'workspace' ? (
+          <section
+            className="mb-6 overflow-hidden rounded-3xl border border-slate-800/90 bg-slate-950/90 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+            aria-label="Environmental intelligence imagery for emissions audit context"
+          >
+            <div className="border-b border-slate-800/80 bg-slate-900/50 px-4 py-3 sm:px-5">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-emerald-400/95">Environmental intelligence</p>
+              <p className="mt-1 text-sm text-slate-300">
+                Reference visuals for how facility claims, regulatory baselines, atmospheric indicators, and MRV-style satellite lanes fit together in this audit — illustrative context, not live sensor output.
+              </p>
+            </div>
+            <div className="grid gap-0 lg:grid-cols-[1.25fr_1fr]">
+              <div className="relative min-h-[200px] border-b border-slate-800/80 lg:border-b-0 lg:border-r lg:border-slate-800/80">
+                <img
+                  src={encodeURI(EIAS_VISUAL_ASSETS.auditHero)}
+                  alt="Emissions integrity audit workspace concept: reported data compared to observation-based signals"
+                  className="h-full w-full min-h-[200px] object-cover object-center"
+                  loading="eager"
+                  decoding="async"
+                />
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent px-4 pb-4 pt-16 sm:px-5">
+                  <p className="text-xs font-semibold text-white drop-shadow">EIAS scope · claims, boundaries, and evidence export</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1">
+                <figure className="relative border-b border-slate-800/80 sm:border-b-0 sm:border-r lg:border-r-0 lg:border-b lg:border-slate-800/80">
+                  <img
+                    src={encodeURI(EIAS_VISUAL_ASSETS.airSignals)}
+                    alt="Atmospheric and trace-gas analysis context for regional emissions screening"
+                    className="h-44 w-full object-cover object-center sm:h-48 lg:min-h-[200px] lg:h-[38%]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <figcaption className="border-t border-slate-800/60 bg-slate-950/80 px-3 py-2 text-[11px] leading-snug text-slate-400">
+                    Air-quality and gas-indicator context (when live adapters respond on your API host).
+                  </figcaption>
+                </figure>
+                <figure className="relative">
+                  <img
+                    src={encodeURI(EIAS_VISUAL_ASSETS.mrvSatellite)}
+                    alt="Satellite MRV and carbon intelligence signals supporting discrepancy review"
+                    className="h-44 w-full object-cover object-center sm:h-48 lg:min-h-[200px] lg:h-[38%]"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <figcaption className="border-t border-slate-800/60 bg-slate-950/80 px-3 py-2 text-[11px] leading-snug text-slate-400">
+                    Remote sensing and MRV-style indicators — scene-level context, not permit-grade proof alone.
+                  </figcaption>
+                </figure>
+                <figure className="relative border-t border-slate-800/80 sm:col-span-2 lg:col-span-1">
+                  <img
+                    src={encodeURI(EIAS_VISUAL_ASSETS.carbRegulatory)}
+                    alt="Regulatory emissions audit framing alongside satellite and atmospheric evidence"
+                    className="h-40 w-full object-cover object-center sm:h-44"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <figcaption className="border-t border-slate-800/60 bg-slate-950/80 px-3 py-2 text-[11px] leading-snug text-slate-400">
+                    Regulatory and filing context (jurisdiction presets in this workspace).
+                  </figcaption>
+                </figure>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         {viewMode === 'myAudits' ? (
           <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
@@ -1824,6 +1977,18 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                       }}
                     />
                   </div>
+                  <div className="md:col-span-2 flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                    <button
+                      type="button"
+                      onClick={handleDeviceGps}
+                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-4 py-2.5 text-sm font-bold text-emerald-100 transition hover:border-emerald-400/60"
+                    >
+                      Use device GPS (high accuracy)
+                    </button>
+                    <p className="text-xs text-slate-400 sm:max-w-md">
+                      Longitude must be negative in the western US. If the map looks wrong, try this button outdoors, then fine-tune on the map.
+                    </p>
+                  </div>
                 </div>
               ) : null}
 
@@ -1908,7 +2073,7 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                     <p className="mt-3 text-xs text-slate-400">Click the map to place a facility marker or add polygon vertices. No audit runs without a selected point or a boundary.</p>
                     {jurisdictionMismatch ? (
                       <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                        Jurisdiction and selected location may not match. Review before saving.
+                        The jurisdiction you selected above does not match the regulatory preset inferred from the map (California, Arizona, New Mexico, or Federal). Adjust one or the other before saving.
                       </p>
                     ) : null}
                   </div>
@@ -1929,8 +2094,12 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
                         <p className="mt-1 font-black text-white">{toFixedNumber(areaEstimateKm2)} km²</p>
                       </div>
                       <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
-                        <p className="text-[10px] uppercase tracking-wide text-slate-500">State</p>
-                        <p className="mt-1 font-black text-white">{estimatedJurisdiction ?? facilityInfo.jurisdiction}</p>
+                        <p className="text-[10px] uppercase tracking-wide text-slate-500">US state / region</p>
+                        <p className="mt-1 font-black text-white leading-tight">
+                          {geocodeLoading ? 'Looking up…' : (displayStateLabel ?? '—')}
+                        </p>
+                        <p className="mt-2 text-[10px] uppercase tracking-wide text-slate-500">EIAS regulatory preset</p>
+                        <p className="mt-0.5 text-xs font-bold text-slate-300">{regulatoryEstimate ?? '—'}</p>
                       </div>
                       <div className="col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-3">
                         <p className="text-[10px] uppercase tracking-wide text-slate-500">Selected Industry</p>
@@ -2169,6 +2338,38 @@ const EmissionsIntegrityAuditPage: React.FC<EmissionsIntegrityAuditPageProps> = 
               </div>
             </div>
           </div>
+
+          {viewMode === 'workspace' ? (
+            <aside className="hidden xl:block" aria-label="Reference imagery">
+              <div className="sticky top-4 space-y-4">
+                <div className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/90 shadow-[0_0_0_1px_rgba(255,255,255,0.04)]">
+                  <p className="px-4 pt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">Signal lanes</p>
+                  <p className="mt-1 px-4 text-xs text-slate-400">
+                    Atmospheric and MRV artwork from the Environmental Intelligence library — companion to the strip above.
+                  </p>
+                  <img
+                    src={encodeURI(EIAS_VISUAL_ASSETS.airSignals)}
+                    alt=""
+                    aria-hidden
+                    className="mt-3 h-44 w-full object-cover object-center"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <img
+                    src={encodeURI(EIAS_VISUAL_ASSETS.mrvSatellite)}
+                    alt=""
+                    aria-hidden
+                    className="h-44 w-full object-cover object-center border-t border-slate-800/80"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                </div>
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-[11px] leading-relaxed text-slate-500">
+                  The wide layout reserves this column for visuals so the workspace does not sit beside empty space on large screens.
+                </div>
+              </div>
+            </aside>
+          ) : null}
         </div>
 
         <div className="mt-6 grid gap-6">

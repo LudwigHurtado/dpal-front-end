@@ -26,7 +26,13 @@ export async function reverseGeocodeLatLng(
   signal?: AbortSignal,
 ): Promise<ReverseGeocodeResult> {
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=10&addressdetails=1`;
-  const response = await fetch(url, { signal });
+  const response = await fetch(url, {
+    signal,
+    headers: {
+      Accept: 'application/json',
+      'User-Agent': 'DPAL-App/1.0 (https://github.com/LudwigHurtado/dpal-front-end)',
+    },
+  });
   if (!response.ok) throw new Error('Reverse geocoding unavailable');
   const data = (await response.json()) as NominatimReverseResponse;
   const addr = data.address ?? {};
