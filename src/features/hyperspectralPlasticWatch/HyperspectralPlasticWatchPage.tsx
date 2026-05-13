@@ -262,6 +262,49 @@ function MapViewSync({ center }: { center: { lat: number; lng: number } }) {
   return null;
 }
 
+/** Re-measure Leaflet after layout — flex/grid often finalizes after first paint. */
+function LeafletMapSizeFixer({ layoutKey }: { layoutKey: string }) {
+  const map = useMap();
+  useEffect(() => {
+    const run = () => {
+      map.invalidateSize({ animate: false });
+    };
+    run();
+    const t1 = window.setTimeout(run, 100);
+    const t2 = window.setTimeout(run, 350);
+    window.addEventListener('resize', run);
+    const onFs = () => {
+      window.requestAnimationFrame(run);
+    };
+    document.addEventListener('fullscreenchange', onFs);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.removeEventListener('resize', run);
+      document.removeEventListener('fullscreenchange', onFs);
+    };
+  }, [map, layoutKey]);
+  return null;
+}
+
+function LeafletMapResizeObserver({ containerRef }: { containerRef: React.RefObject<HTMLElement | null> }) {
+  const map = useMap();
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => {
+        map.invalidateSize({ animate: false });
+      });
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [map, containerRef]);
+  return null;
+}
+
 const ENV_OPTIONS: { id: PlasticEnvironmentType; label: string }[] = [
   { id: 'river', label: 'River' },
   { id: 'lake', label: 'Lake' },
@@ -306,6 +349,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const settingsRef = useRef<HTMLDivElement | null>(null);
   const layerMenuRef = useRef<HTMLDivElement | null>(null);
   const mapWrapRef = useRef<HTMLDivElement | null>(null);
+  const mapTileHostRef = useRef<HTMLDivElement | null>(null);
 
   const [providerStatus, setProviderStatus] = useState<HyperspectralPlasticProviderStatusResponse | null>(null);
   const [providerStatusError, setProviderStatusError] = useState<string | null>(null);
@@ -812,6 +856,44 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     }
   }, [handleMapPick, searchText]);
 
+  const leafletLayoutKey = useMemo(
+    () =>
+      JSON.stringify({
+        lat: center.lat,
+        lng: center.lng,
+        radiusKm,
+        satellite: layers.satellite,
+        labels: layers.labels,
+        aoiCircle: layers.aoiCircle,
+        scanId: lastScan?.scanId ?? '',
+        isRunning,
+        watchOpen,
+        layerMenuOpen,
+        settingsOpen,
+        lastError: lastError ?? '',
+        cacheNotice: cacheNotice ?? '',
+        evidence: evidence !== null,
+        providerBanner: Boolean(providerStatus),
+      }),
+    [
+      center.lat,
+      center.lng,
+      radiusKm,
+      layers.satellite,
+      layers.labels,
+      layers.aoiCircle,
+      lastScan?.scanId,
+      isRunning,
+      watchOpen,
+      layerMenuOpen,
+      settingsOpen,
+      lastError,
+      cacheNotice,
+      evidence,
+      providerStatus,
+    ],
+  );
+
   const legendRows = useMemo(() => {
     const rows: { key: keyof PlasticMapLayers; label: string; color: string }[] = [
       { key: 'aoiCircle', label: 'AOI', color: 'bg-emerald-600' },
@@ -1152,20 +1234,27 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           ) : null}
 
           <div className="flex flex-col xl:flex-row gap-3 flex-1 min-h-0">
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-[320px] min-w-0">
-              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 min-w-0">
+              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 shrink-0">
                 <p className="text-xs font-semibold text-slate-800">AOI map</p>
                 <p className="text-[10px] text-slate-500">Click map to set center</p>
               </div>
-              <div ref={mapWrapRef} className="relative flex-1 min-h-[380px]">
-                <div className="h-[min(52vh,520px)] min-h-[380px] w-full">
+              <div
+                ref={mapWrapRef}
+                className="relative w-full min-h-[320px] min-w-0 flex-1 md:min-h-[460px] xl:min-h-[520px]"
+              >
+                <div
+                  ref={mapTileHostRef}
+                  className="h-[320px] min-h-[320px] w-full md:h-[460px] md:min-h-[460px] xl:h-[520px] xl:min-h-[520px]"
+                  style={{ width: '100%', minHeight: '320px' }}
+                >
                   <MapContainer
                     center={[center.lat, center.lng]}
                     zoom={9}
                     scrollWheelZoom
                     zoomControl={false}
-                    className="z-0 h-full w-full rounded-none"
-                    style={{ height: '100%', width: '100%' }}
+                    className="z-0 h-full w-full min-h-[320px] rounded-none md:min-h-[460px] xl:min-h-[520px]"
+                    style={{ height: '100%', width: '100%', minHeight: 'inherit' }}
                   >
                     {layers.satellite ? (
                       <TileLayer
@@ -1191,6 +1280,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                     <MapPicker onPick={handleMapPick} />
                     <LeafletZoomScale />
                     <MapViewSync center={center} />
+                    <LeafletMapSizeFixer layoutKey={leafletLayoutKey} />
+                    <LeafletMapResizeObserver containerRef={mapTileHostRef} />
                   </MapContainer>
                 </div>
 
