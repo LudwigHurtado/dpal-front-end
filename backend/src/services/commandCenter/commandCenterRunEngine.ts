@@ -10,6 +10,7 @@ import { executeWaterForCommandCenter } from './commandCenterWaterExecutor';
 import { executeForestIntegrityForCommandCenter } from './commandCenterForestExecutor';
 import { executeEarthObservationForCommandCenter } from './commandCenterEarthObservationExecutor';
 import { executePollutionForCommandCenter } from './commandCenterPollutionExecutor';
+import { executeCarbonViuForCommandCenter } from './commandCenterCarbonViuExecutor';
 import {
   COMMAND_CENTER_SAFETY_LABELS,
   type CommandCenterRunContext,
@@ -186,6 +187,9 @@ async function executeModule(
   }
   if (moduleKey === 'pollutionAudit') {
     return executePollutionForCommandCenter(context, runMode);
+  }
+  if (moduleKey === 'carbonViu') {
+    return executeCarbonViuForCommandCenter(context, runMode);
   }
   return buildPendingAdapterResult(moduleKey, runMode);
 }
