@@ -1,5 +1,1409 @@
 [
   {
+    "id": "room-1778667134823-3ab2faae",
+    "roomId": "room-manual-1778667134823-73839cea",
+    "projectId": "command-center-ccr_mp3whjpb_10af515102d0",
+    "sourceType": "manual",
+    "title": "DPAL Command Center Run — Gerlach, NV, USA",
+    "category": "Command Center",
+    "status": "active",
+    "createdAt": "2026-05-13T10:12:14.819Z",
+    "updatedAt": "2026-05-13T10:12:14.819Z",
+    "evidencePacket": {
+      "kind": "command_center_run_handoff",
+      "runId": "ccr_mp3whjpb_10af515102d0",
+      "runMode": "live",
+      "selectedModules": [
+        "water",
+        "earthObservation",
+        "plasticWatch",
+        "forestIntegrity",
+        "pollutionAudit",
+        "carbonViu",
+        "situationRoom"
+      ],
+      "scanModules": [
+        "water",
+        "earthObservation",
+        "plasticWatch",
+        "forestIntegrity",
+        "pollutionAudit",
+        "carbonViu"
+      ],
+      "location": {
+        "label": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25
+      },
+      "dateRange": {
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "goal": "",
+      "investorDemoFraming": false,
+      "moduleResultsSummary": [
+        {
+          "moduleKey": "water",
+          "status": "partial",
+          "headline": "AquaScan — provider readiness only: Copernicus credentials are not configured on this API host (no live satellite statistics lane).",
+          "limitations": [
+            "Command Center water result is an evidence lead only — not a certified determination, legal outcome, or water credit.",
+            "Full AquaScan workspace is required for AOI drawing, overlays, time-series comparison, and evidence packet generation.",
+            "Field validation may be required before operational or legal use.",
+            "Indicative MRV context only — live signals depend on this API host and upstream providers.",
+            "Command Center map uses center and radius 25 km; GET /api/water/satellite-preview applies a fixed ~2 km statistics AOI around the center (not a user-drawn polygon matching that radius).",
+            "This result reflects GET /api/water/stats only — not a water detection outcome."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "water-stats",
+              "state": "partial",
+              "detail": "liveAnalysisEnabled=false · service=water-routes"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-stats",
+              "label": "GET /api/water/stats"
+            },
+            {
+              "id": "stats-timestamp",
+              "label": "stats.timestamp: 2026-05-13T10:12:13.442Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "earthObservation",
+          "status": "partial",
+          "headline": "Earth Observation — scan responded with UNAVAILABLE source mode (readiness / configuration or no usable scenes).",
+          "limitations": [
+            "Command Center Earth Observation result is an evidence lead only — not a legal finding, certified MRV outcome, or credit issuance.",
+            "Full Earth Observation workspace is required for AOI review, overlays, before/after comparison, and evidence packet generation.",
+            "Satellite and provider outputs are scene-level screening signals; field validation may be required.",
+            "Command Center uses center coordinates and radius (capped at 250 km for POST /api/earth-observation/scan). Custom polygon AOI, overlays, and packet workflows require the full Earth Observation workspace.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "eo-readiness",
+              "state": "partial",
+              "detail": "earthObservationLive=false · copernicusConfigured=false · generatedAt: 2026-05-13T10:12:13.446Z"
+            },
+            {
+              "id": "eo-scan",
+              "state": "partial",
+              "detail": "sourceMode=UNAVAILABLE · signalStatus=not_verified · processingStage=product_found · riskLevel=unknown · No verified sat…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-readiness",
+              "label": "GET /api/forest-integrity/provider-status"
+            },
+            {
+              "id": "endpoint-scan",
+              "label": "POST /api/earth-observation/scan"
+            },
+            {
+              "id": "analysisType",
+              "label": "analysisType: deforestation"
+            },
+            {
+              "id": "readiness-generatedAt",
+              "label": "provider-status.generatedAt: 2026-05-13T10:12:13.446Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "plasticWatch",
+          "status": "partial",
+          "headline": "Live scan returned OK but narrow-band CMR scene lists are empty or disabled — check provider status in workspace.",
+          "limitations": [
+            "CMR metadata does not prove plastic presence.",
+            "Plastic interpretation requires calibrated spectral processing and field/drone validation.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims.",
+            "No PACE/EMIT spectral products with usable granule metadata were retrieved for this AOI and window.",
+            "Plastic-risk score remains unavailable until narrow-band provider data and processing are connected."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "pace",
+              "state": "partial",
+              "detail": "PACE spectral pulls are disabled. Set DPAL_PACE_SPECTRAL_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve narrow-band o…"
+            },
+            {
+              "id": "emit",
+              "state": "partial",
+              "detail": "EMIT L2A pulls are disabled. Set DPAL_EMIT_L2A_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve EMIT hyperspectral gran…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "scanId",
+              "label": "scanId: hpw_mp3whjpm_pe5by1"
+            }
+          ]
+        },
+        {
+          "moduleKey": "forestIntegrity",
+          "status": "partial",
+          "headline": "Forest Integrity — live scan returned structured provider lanes with partial or configuration-limited coverage (evidence lead only).",
+          "limitations": [
+            "Command Center Forest Integrity result is an evidence lead only — not a legal finding, certified carbon claim, or sole proof of deforestation.",
+            "Full Forest Integrity workspace is required for AOI review, overlays, evidence packet generation, and independent validation.",
+            "Satellite and provider signals are not legal or certified carbon outcomes; field context may be required.",
+            "Command Center uses center coordinates and radiusKm; GET /api/forest-integrity/scan uses that AOI. Custom polygon workflows, overlays, and packet validation belong in the full Forest Integrity workspace.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "forest-provider-status",
+              "state": "ok",
+              "detail": "earthObservationLive=false · nasaFirmsConfigured=false · gfwConfigured=false · copernicusConfigured=false · generatedAt:…"
+            },
+            {
+              "id": "sentinel-eo",
+              "state": "unavailable",
+              "detail": "Earth Observation live stack is disabled on this API host (EARTH_OBSERVATION_LIVE_ENABLED)."
+            },
+            {
+              "id": "gfw",
+              "state": "partial",
+              "detail": "Global Forest Watch integrated deforestation alerts are not wired on this host. Set GFW_API_KEY or GLOBAL_FOREST_WATCH_A…"
+            },
+            {
+              "id": "firms",
+              "state": "partial",
+              "detail": "NASA FIRMS MAP key not configured on server (NASA_FIRMS_MAP_KEY)."
+            },
+            {
+              "id": "gedi",
+              "state": "partial",
+              "detail": "NASA GEDI biomass / canopy structure read is not implemented on this API route yet."
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-status",
+              "label": "GET /api/forest-integrity/provider-status"
+            },
+            {
+              "id": "endpoint-scan",
+              "label": "GET /api/forest-integrity/scan"
+            },
+            {
+              "id": "status-generatedAt",
+              "label": "provider-status.generatedAt: 2026-05-13T10:12:13.451Z"
+            },
+            {
+              "id": "scanId",
+              "label": "scanId: fi_mp3whjpp_u5u15a"
+            },
+            {
+              "id": "scan-generatedAt",
+              "label": "scan.generatedAt: 2026-05-13T10:12:13.454Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "pollutionAudit",
+          "status": "partial",
+          "headline": "Pollution — structured CARB readiness and RCRA health/search context (partial evidence lead).",
+          "limitations": [
+            "Command Center pollution result is an evidence lead only.",
+            "Facility matching by location/name is not a legal determination.",
+            "Full CARB/EPA/Hazardous Waste workspace is required for boundary matching, record reconciliation, and evidence packet generation.",
+            "No enforcement, violation, or legal conclusion is made automatically.",
+            "Command Center uses latitude, longitude, and radiusKm for optional distance filtering of catalog rows that include coordinates; CARB/RCRA text search has no lat/lng query parameter — proximity is computed only when coordinates exist on returned records."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "carb-status",
+              "state": "ok",
+              "detail": "sourceMode=IMPORTED · datasetLoaded=true · recordCount=20 · searchReadiness=Ready · datasetVersion=import-batch-17786652…"
+            },
+            {
+              "id": "rcra-health",
+              "state": "ok",
+              "detail": "ok=true · module=rcra-data"
+            },
+            {
+              "id": "carb-search",
+              "state": "ok",
+              "detail": "textHits=0 · withinRadius=0 (coords present & ≤ 25 km) · sourceMode=IMPORTED"
+            },
+            {
+              "id": "rcra-search",
+              "state": "ok",
+              "detail": "textHits=0 · withinRadius=0 (coords present & ≤ 25 km) · sourceMode=IMPORTED"
+            },
+            {
+              "id": "emissions-audit",
+              "state": "partial",
+              "detail": "GET /api/emissions-audit/* requires DpalUser JWT — not invoked from Command Center engine."
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-carb-status",
+              "label": "GET /api/carb-data/status"
+            },
+            {
+              "id": "endpoint-rcra-health",
+              "label": "GET /api/rcra-data/health"
+            },
+            {
+              "id": "endpoint-carb-search",
+              "label": "GET /api/carb-data/search · q length 16"
+            },
+            {
+              "id": "endpoint-rcra-search",
+              "label": "GET /api/rcra-data/search · q length 16"
+            },
+            {
+              "id": "carb-status-retrievalDate",
+              "label": "CARB status retrievalDate: 2026-05-13"
+            }
+          ]
+        },
+        {
+          "moduleKey": "carbonViu",
+          "status": "success",
+          "headline": "Carbon / VIU — live screening returned usable trace-gas, mineral/geology, and/or Landsat NDVI context (not credit or VIU eligibility).",
+          "limitations": [
+            "Command Center Carbon / VIU result is an evidence lead and readiness screen only.",
+            "No automatic VIU issuance.",
+            "No automatic carbon credit issuance.",
+            "No registry certification claim (Verra, Gold Standard, or other).",
+            "Full Carbon MRV / VIU workspace is required for project boundary, methodology, baseline, additionality, permanence, leakage, buffer, validation, and verification.",
+            "Field validation and independent review may be required."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "air-quality",
+              "state": "error",
+              "detail": "HTTP 500: {\"error\":\"Copernicus Sentinel Hub credentials are not configured on the backend.\"}"
+            },
+            {
+              "id": "minerals",
+              "state": "ok",
+              "detail": "geology/mineral context returned · captureDate:2026-05-13T10:12:13.952Z · Bedrock: Quaternary sedimentary (Quaternary; Q…"
+            },
+            {
+              "id": "ecology-landsat",
+              "state": "ok",
+              "detail": "Landsat foliage context · NDVI:0.244 · habitatRisk:moderate · captureDate:2026-05-07T18:38:41.565806Z · Connected to pub…"
+            },
+            {
+              "id": "viu-credit-safety",
+              "state": "partial",
+              "detail": "Not invoked — Command Center does not issue VIUs or carbon credits."
+            },
+            {
+              "id": "registry-claim-safety",
+              "state": "partial",
+              "detail": "No Verra, Gold Standard, or certified registry claims from Command Center engine."
+            },
+            {
+              "id": "validation-readiness",
+              "state": "partial",
+              "detail": "human_verified not set; blockchain anchoring not performed; use full workspace for validator workflow."
+            },
+            {
+              "id": "evidence-sufficiency",
+              "state": "partial",
+              "detail": "Point/radius screening only — insufficient alone for credit or VIU eligibility; boundary + methodology + field review re…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-air",
+              "label": "GET /api/carbon/air-quality"
+            },
+            {
+              "id": "endpoint-min",
+              "label": "GET /api/carbon/minerals"
+            },
+            {
+              "id": "endpoint-eco",
+              "label": "GET /api/ecology/landsat-scan"
+            },
+            {
+              "id": "minerals-captureDate",
+              "label": "minerals.captureDate: 2026-05-13T10:12:13.952Z"
+            },
+            {
+              "id": "ecology-captureDate",
+              "label": "landsat-scan.captureDate: 2026-05-07T18:38:41.565806Z"
+            }
+          ]
+        }
+      ],
+      "safetyLabels": {
+        "pending_verification": true,
+        "human_verified": false,
+        "blockchain_anchored": false
+      }
+    },
+    "aiSummary": {
+      "text": "Command Center attached live scan evidence leads for selected modules.",
+      "moduleStatuses": "water:partial, earthObservation:partial, plasticWatch:partial, forestIntegrity:partial, pollutionAudit:partial, carbonViu:success",
+      "generatedBy": "command_center_engine_deterministic",
+      "generatedAtIso": "2026-05-13T10:12:14.817Z"
+    },
+    "location": {
+      "label": "Gerlach, NV, USA",
+      "lat": 40.65,
+      "lng": -119.35
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0xdd312d1ad627199f8a2fa4165f35277f1bc5fa30abbfa1f0c607b81e11978409"
+    },
+    "sourceSnapshot": {
+      "context": {
+        "goal": "",
+        "locationDescription": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25,
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "moduleStatuses": [
+        {
+          "moduleKey": "water",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "earthObservation",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "plasticWatch",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "forestIntegrity",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "pollutionAudit",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "carbonViu",
+          "status": "success"
+        }
+      ]
+    }
+  },
+  {
+    "id": "room-1778667129056-40bcbed5",
+    "roomId": "room-manual-1778667129056-63b04dba",
+    "projectId": "command-center-ccr_mp3whgbe_5dd81aaa658b",
+    "sourceType": "manual",
+    "title": "DPAL Command Center Run — Gerlach, NV, USA",
+    "category": "Command Center",
+    "status": "active",
+    "createdAt": "2026-05-13T10:12:09.053Z",
+    "updatedAt": "2026-05-13T10:12:09.053Z",
+    "evidencePacket": {
+      "kind": "command_center_run_handoff",
+      "runId": "ccr_mp3whgbe_5dd81aaa658b",
+      "runMode": "live",
+      "selectedModules": [
+        "situationRoom"
+      ],
+      "scanModules": [],
+      "location": {
+        "label": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25
+      },
+      "dateRange": {
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "goal": "",
+      "investorDemoFraming": false,
+      "moduleResultsSummary": [],
+      "safetyLabels": {
+        "pending_verification": true,
+        "human_verified": false,
+        "blockchain_anchored": false
+      }
+    },
+    "aiSummary": {
+      "text": "Command Center attached live scan evidence leads for selected modules.",
+      "moduleStatuses": "no prior module rows in this run.",
+      "generatedBy": "command_center_engine_deterministic",
+      "generatedAtIso": "2026-05-13T10:12:09.051Z"
+    },
+    "location": {
+      "label": "Gerlach, NV, USA",
+      "lat": 40.65,
+      "lng": -119.35
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0xadc750e1aa6558539600ebbc2e877d7ba47887840c182c2aeff8a21605107aef"
+    },
+    "sourceSnapshot": {
+      "context": {
+        "goal": "",
+        "locationDescription": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25,
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "moduleStatuses": []
+    }
+  },
+  {
+    "id": "room-1778666995697-c82ff120",
+    "roomId": "room-manual-1778666995697-8fba01e9",
+    "projectId": "command-center-ccr_mp3wek9h_a3e35d7169d3",
+    "sourceType": "manual",
+    "title": "DPAL Command Center Run — Gerlach, NV, USA",
+    "category": "Command Center",
+    "status": "active",
+    "createdAt": "2026-05-13T10:09:55.694Z",
+    "updatedAt": "2026-05-13T10:09:55.694Z",
+    "evidencePacket": {
+      "kind": "command_center_run_handoff",
+      "runId": "ccr_mp3wek9h_a3e35d7169d3",
+      "runMode": "live",
+      "selectedModules": [
+        "water",
+        "earthObservation",
+        "plasticWatch",
+        "forestIntegrity",
+        "pollutionAudit",
+        "carbonViu",
+        "situationRoom"
+      ],
+      "scanModules": [
+        "water",
+        "earthObservation",
+        "plasticWatch",
+        "forestIntegrity",
+        "pollutionAudit",
+        "carbonViu"
+      ],
+      "location": {
+        "label": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25
+      },
+      "dateRange": {
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "goal": "",
+      "investorDemoFraming": false,
+      "moduleResultsSummary": [
+        {
+          "moduleKey": "water",
+          "status": "partial",
+          "headline": "AquaScan — provider readiness only: Copernicus credentials are not configured on this API host (no live satellite statistics lane).",
+          "limitations": [
+            "Command Center water result is an evidence lead only — not a certified determination, legal outcome, or water credit.",
+            "Full AquaScan workspace is required for AOI drawing, overlays, time-series comparison, and evidence packet generation.",
+            "Field validation may be required before operational or legal use.",
+            "Indicative MRV context only — live signals depend on this API host and upstream providers.",
+            "Command Center map uses center and radius 25 km; GET /api/water/satellite-preview applies a fixed ~2 km statistics AOI around the center (not a user-drawn polygon matching that radius).",
+            "This result reflects GET /api/water/stats only — not a water detection outcome."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "water-stats",
+              "state": "partial",
+              "detail": "liveAnalysisEnabled=false · service=water-routes"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-stats",
+              "label": "GET /api/water/stats"
+            },
+            {
+              "id": "stats-timestamp",
+              "label": "stats.timestamp: 2026-05-13T10:09:54.199Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "earthObservation",
+          "status": "partial",
+          "headline": "Earth Observation — scan responded with UNAVAILABLE source mode (readiness / configuration or no usable scenes).",
+          "limitations": [
+            "Command Center Earth Observation result is an evidence lead only — not a legal finding, certified MRV outcome, or credit issuance.",
+            "Full Earth Observation workspace is required for AOI review, overlays, before/after comparison, and evidence packet generation.",
+            "Satellite and provider outputs are scene-level screening signals; field validation may be required.",
+            "Command Center uses center coordinates and radius (capped at 250 km for POST /api/earth-observation/scan). Custom polygon AOI, overlays, and packet workflows require the full Earth Observation workspace.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "eo-readiness",
+              "state": "partial",
+              "detail": "earthObservationLive=false · copernicusConfigured=false · generatedAt: 2026-05-13T10:09:54.206Z"
+            },
+            {
+              "id": "eo-scan",
+              "state": "partial",
+              "detail": "sourceMode=UNAVAILABLE · signalStatus=not_verified · processingStage=product_found · riskLevel=unknown · No verified sat…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-readiness",
+              "label": "GET /api/forest-integrity/provider-status"
+            },
+            {
+              "id": "endpoint-scan",
+              "label": "POST /api/earth-observation/scan"
+            },
+            {
+              "id": "analysisType",
+              "label": "analysisType: deforestation"
+            },
+            {
+              "id": "readiness-generatedAt",
+              "label": "provider-status.generatedAt: 2026-05-13T10:09:54.206Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "plasticWatch",
+          "status": "partial",
+          "headline": "Live scan returned OK but narrow-band CMR scene lists are empty or disabled — check provider status in workspace.",
+          "limitations": [
+            "CMR metadata does not prove plastic presence.",
+            "Plastic interpretation requires calibrated spectral processing and field/drone validation.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims.",
+            "No PACE/EMIT spectral products with usable granule metadata were retrieved for this AOI and window.",
+            "Plastic-risk score remains unavailable until narrow-band provider data and processing are connected."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "pace",
+              "state": "partial",
+              "detail": "PACE spectral pulls are disabled. Set DPAL_PACE_SPECTRAL_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve narrow-band o…"
+            },
+            {
+              "id": "emit",
+              "state": "partial",
+              "detail": "EMIT L2A pulls are disabled. Set DPAL_EMIT_L2A_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve EMIT hyperspectral gran…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "scanId",
+              "label": "scanId: hpw_mp3wek9y_ou3mx6"
+            }
+          ]
+        },
+        {
+          "moduleKey": "forestIntegrity",
+          "status": "partial",
+          "headline": "Forest Integrity — live scan returned structured provider lanes with partial or configuration-limited coverage (evidence lead only).",
+          "limitations": [
+            "Command Center Forest Integrity result is an evidence lead only — not a legal finding, certified carbon claim, or sole proof of deforestation.",
+            "Full Forest Integrity workspace is required for AOI review, overlays, evidence packet generation, and independent validation.",
+            "Satellite and provider signals are not legal or certified carbon outcomes; field context may be required.",
+            "Command Center uses center coordinates and radiusKm; GET /api/forest-integrity/scan uses that AOI. Custom polygon workflows, overlays, and packet validation belong in the full Forest Integrity workspace.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "forest-provider-status",
+              "state": "ok",
+              "detail": "earthObservationLive=false · nasaFirmsConfigured=false · gfwConfigured=false · copernicusConfigured=false · generatedAt:…"
+            },
+            {
+              "id": "sentinel-eo",
+              "state": "unavailable",
+              "detail": "Earth Observation live stack is disabled on this API host (EARTH_OBSERVATION_LIVE_ENABLED)."
+            },
+            {
+              "id": "gfw",
+              "state": "partial",
+              "detail": "Global Forest Watch integrated deforestation alerts are not wired on this host. Set GFW_API_KEY or GLOBAL_FOREST_WATCH_A…"
+            },
+            {
+              "id": "firms",
+              "state": "partial",
+              "detail": "NASA FIRMS MAP key not configured on server (NASA_FIRMS_MAP_KEY)."
+            },
+            {
+              "id": "gedi",
+              "state": "partial",
+              "detail": "NASA GEDI biomass / canopy structure read is not implemented on this API route yet."
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-status",
+              "label": "GET /api/forest-integrity/provider-status"
+            },
+            {
+              "id": "endpoint-scan",
+              "label": "GET /api/forest-integrity/scan"
+            },
+            {
+              "id": "status-generatedAt",
+              "label": "provider-status.generatedAt: 2026-05-13T10:09:54.215Z"
+            },
+            {
+              "id": "scanId",
+              "label": "scanId: fi_mp3weka1_yw8c9m"
+            },
+            {
+              "id": "scan-generatedAt",
+              "label": "scan.generatedAt: 2026-05-13T10:09:54.218Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "pollutionAudit",
+          "status": "partial",
+          "headline": "Pollution — structured CARB readiness and RCRA health/search context (partial evidence lead).",
+          "limitations": [
+            "Command Center pollution result is an evidence lead only.",
+            "Facility matching by location/name is not a legal determination.",
+            "Full CARB/EPA/Hazardous Waste workspace is required for boundary matching, record reconciliation, and evidence packet generation.",
+            "No enforcement, violation, or legal conclusion is made automatically.",
+            "Command Center uses latitude, longitude, and radiusKm for optional distance filtering of catalog rows that include coordinates; CARB/RCRA text search has no lat/lng query parameter — proximity is computed only when coordinates exist on returned records."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "carb-status",
+              "state": "ok",
+              "detail": "sourceMode=IMPORTED · datasetLoaded=true · recordCount=20 · searchReadiness=Ready · datasetVersion=import-batch-17786652…"
+            },
+            {
+              "id": "rcra-health",
+              "state": "ok",
+              "detail": "ok=true · module=rcra-data"
+            },
+            {
+              "id": "carb-search",
+              "state": "ok",
+              "detail": "textHits=0 · withinRadius=0 (coords present & ≤ 25 km) · sourceMode=IMPORTED"
+            },
+            {
+              "id": "rcra-search",
+              "state": "ok",
+              "detail": "textHits=0 · withinRadius=0 (coords present & ≤ 25 km) · sourceMode=IMPORTED"
+            },
+            {
+              "id": "emissions-audit",
+              "state": "partial",
+              "detail": "GET /api/emissions-audit/* requires DpalUser JWT — not invoked from Command Center engine."
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-carb-status",
+              "label": "GET /api/carb-data/status"
+            },
+            {
+              "id": "endpoint-rcra-health",
+              "label": "GET /api/rcra-data/health"
+            },
+            {
+              "id": "endpoint-carb-search",
+              "label": "GET /api/carb-data/search · q length 16"
+            },
+            {
+              "id": "endpoint-rcra-search",
+              "label": "GET /api/rcra-data/search · q length 16"
+            },
+            {
+              "id": "carb-status-retrievalDate",
+              "label": "CARB status retrievalDate: 2026-05-13"
+            }
+          ]
+        },
+        {
+          "moduleKey": "carbonViu",
+          "status": "success",
+          "headline": "Carbon / VIU — live screening returned usable trace-gas, mineral/geology, and/or Landsat NDVI context (not credit or VIU eligibility).",
+          "limitations": [
+            "Command Center Carbon / VIU result is an evidence lead and readiness screen only.",
+            "No automatic VIU issuance.",
+            "No automatic carbon credit issuance.",
+            "No registry certification claim (Verra, Gold Standard, or other).",
+            "Full Carbon MRV / VIU workspace is required for project boundary, methodology, baseline, additionality, permanence, leakage, buffer, validation, and verification.",
+            "Field validation and independent review may be required."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "air-quality",
+              "state": "error",
+              "detail": "HTTP 500: {\"error\":\"Copernicus Sentinel Hub credentials are not configured on the backend.\"}"
+            },
+            {
+              "id": "minerals",
+              "state": "ok",
+              "detail": "geology/mineral context returned · captureDate:2026-05-13T10:09:55.013Z · Bedrock: Quaternary sedimentary (Quaternary; Q…"
+            },
+            {
+              "id": "ecology-landsat",
+              "state": "ok",
+              "detail": "Landsat foliage context · NDVI:0.244 · habitatRisk:moderate · captureDate:2026-05-07T18:38:41.565806Z · Connected to pub…"
+            },
+            {
+              "id": "viu-credit-safety",
+              "state": "partial",
+              "detail": "Not invoked — Command Center does not issue VIUs or carbon credits."
+            },
+            {
+              "id": "registry-claim-safety",
+              "state": "partial",
+              "detail": "No Verra, Gold Standard, or certified registry claims from Command Center engine."
+            },
+            {
+              "id": "validation-readiness",
+              "state": "partial",
+              "detail": "human_verified not set; blockchain anchoring not performed; use full workspace for validator workflow."
+            },
+            {
+              "id": "evidence-sufficiency",
+              "state": "partial",
+              "detail": "Point/radius screening only — insufficient alone for credit or VIU eligibility; boundary + methodology + field review re…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-air",
+              "label": "GET /api/carbon/air-quality"
+            },
+            {
+              "id": "endpoint-min",
+              "label": "GET /api/carbon/minerals"
+            },
+            {
+              "id": "endpoint-eco",
+              "label": "GET /api/ecology/landsat-scan"
+            },
+            {
+              "id": "minerals-captureDate",
+              "label": "minerals.captureDate: 2026-05-13T10:09:55.013Z"
+            },
+            {
+              "id": "ecology-captureDate",
+              "label": "landsat-scan.captureDate: 2026-05-07T18:38:41.565806Z"
+            }
+          ]
+        }
+      ],
+      "safetyLabels": {
+        "pending_verification": true,
+        "human_verified": false,
+        "blockchain_anchored": false
+      }
+    },
+    "aiSummary": {
+      "text": "Command Center attached live scan evidence leads for selected modules.",
+      "moduleStatuses": "water:partial, earthObservation:partial, plasticWatch:partial, forestIntegrity:partial, pollutionAudit:partial, carbonViu:success",
+      "generatedBy": "command_center_engine_deterministic",
+      "generatedAtIso": "2026-05-13T10:09:55.691Z"
+    },
+    "location": {
+      "label": "Gerlach, NV, USA",
+      "lat": 40.65,
+      "lng": -119.35
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0x1f746e16b7e940a8442e72d1c2662607c9f8e042340a164b0bb0850f5cdf6634"
+    },
+    "sourceSnapshot": {
+      "context": {
+        "goal": "",
+        "locationDescription": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25,
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "moduleStatuses": [
+        {
+          "moduleKey": "water",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "earthObservation",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "plasticWatch",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "forestIntegrity",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "pollutionAudit",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "carbonViu",
+          "status": "success"
+        }
+      ]
+    }
+  },
+  {
+    "id": "room-1778666988338-fdf8536e",
+    "roomId": "room-manual-1778666988338-91cff62d",
+    "projectId": "command-center-ccr_mp3wefqd_fa30ebff7b2c",
+    "sourceType": "manual",
+    "title": "DPAL Command Center Run — Gerlach, NV, USA",
+    "category": "Command Center",
+    "status": "active",
+    "createdAt": "2026-05-13T10:09:48.333Z",
+    "updatedAt": "2026-05-13T10:09:48.333Z",
+    "evidencePacket": {
+      "kind": "command_center_run_handoff",
+      "runId": "ccr_mp3wefqd_fa30ebff7b2c",
+      "runMode": "live",
+      "selectedModules": [
+        "situationRoom"
+      ],
+      "scanModules": [],
+      "location": {
+        "label": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25
+      },
+      "dateRange": {
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "goal": "",
+      "investorDemoFraming": false,
+      "moduleResultsSummary": [],
+      "safetyLabels": {
+        "pending_verification": true,
+        "human_verified": false,
+        "blockchain_anchored": false
+      }
+    },
+    "aiSummary": {
+      "text": "Command Center attached live scan evidence leads for selected modules.",
+      "moduleStatuses": "no prior module rows in this run.",
+      "generatedBy": "command_center_engine_deterministic",
+      "generatedAtIso": "2026-05-13T10:09:48.328Z"
+    },
+    "location": {
+      "label": "Gerlach, NV, USA",
+      "lat": 40.65,
+      "lng": -119.35
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0xba1fc31ba4bfac8a6a34b93b881d2ffdc0b47f2cf8f46fcaca15274ffab9a31a"
+    },
+    "sourceSnapshot": {
+      "context": {
+        "goal": "",
+        "locationDescription": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25,
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "moduleStatuses": []
+    }
+  },
+  {
+    "id": "room-1778665325575-d54bd8b4",
+    "roomId": "room-manual-1778665325575-ac1104a3",
+    "projectId": "command-center-ccr_mp3verje_0f2e27eff061",
+    "sourceType": "manual",
+    "title": "DPAL Command Center Run — Gerlach, NV, USA",
+    "category": "Command Center",
+    "status": "active",
+    "createdAt": "2026-05-13T09:42:05.569Z",
+    "updatedAt": "2026-05-13T09:42:05.569Z",
+    "evidencePacket": {
+      "kind": "command_center_run_handoff",
+      "runId": "ccr_mp3verje_0f2e27eff061",
+      "runMode": "live",
+      "selectedModules": [
+        "water",
+        "earthObservation",
+        "plasticWatch",
+        "forestIntegrity",
+        "pollutionAudit",
+        "carbonViu",
+        "situationRoom"
+      ],
+      "scanModules": [
+        "water",
+        "earthObservation",
+        "plasticWatch",
+        "forestIntegrity",
+        "pollutionAudit",
+        "carbonViu"
+      ],
+      "location": {
+        "label": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25
+      },
+      "dateRange": {
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "goal": "",
+      "investorDemoFraming": false,
+      "moduleResultsSummary": [
+        {
+          "moduleKey": "water",
+          "status": "partial",
+          "headline": "AquaScan — provider readiness only: Copernicus credentials are not configured on this API host (no live satellite statistics lane).",
+          "limitations": [
+            "Command Center water result is an evidence lead only — not a certified determination, legal outcome, or water credit.",
+            "Full AquaScan workspace is required for AOI drawing, overlays, time-series comparison, and evidence packet generation.",
+            "Field validation may be required before operational or legal use.",
+            "Indicative MRV context only — live signals depend on this API host and upstream providers.",
+            "Command Center map uses center and radius 25 km; GET /api/water/satellite-preview applies a fixed ~2 km statistics AOI around the center (not a user-drawn polygon matching that radius).",
+            "This result reflects GET /api/water/stats only — not a water detection outcome."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "water-stats",
+              "state": "partial",
+              "detail": "liveAnalysisEnabled=false · service=water-routes"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-stats",
+              "label": "GET /api/water/stats"
+            },
+            {
+              "id": "stats-timestamp",
+              "label": "stats.timestamp: 2026-05-13T09:42:04.013Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "earthObservation",
+          "status": "partial",
+          "headline": "Earth Observation — scan responded with UNAVAILABLE source mode (readiness / configuration or no usable scenes).",
+          "limitations": [
+            "Command Center Earth Observation result is an evidence lead only — not a legal finding, certified MRV outcome, or credit issuance.",
+            "Full Earth Observation workspace is required for AOI review, overlays, before/after comparison, and evidence packet generation.",
+            "Satellite and provider outputs are scene-level screening signals; field validation may be required.",
+            "Command Center uses center coordinates and radius (capped at 250 km for POST /api/earth-observation/scan). Custom polygon AOI, overlays, and packet workflows require the full Earth Observation workspace.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "eo-readiness",
+              "state": "partial",
+              "detail": "earthObservationLive=false · copernicusConfigured=false · generatedAt: 2026-05-13T09:42:04.018Z"
+            },
+            {
+              "id": "eo-scan",
+              "state": "partial",
+              "detail": "sourceMode=UNAVAILABLE · signalStatus=not_verified · processingStage=product_found · riskLevel=unknown · No verified sat…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-readiness",
+              "label": "GET /api/forest-integrity/provider-status"
+            },
+            {
+              "id": "endpoint-scan",
+              "label": "POST /api/earth-observation/scan"
+            },
+            {
+              "id": "analysisType",
+              "label": "analysisType: deforestation"
+            },
+            {
+              "id": "readiness-generatedAt",
+              "label": "provider-status.generatedAt: 2026-05-13T09:42:04.018Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "plasticWatch",
+          "status": "partial",
+          "headline": "Live scan returned OK but narrow-band CMR scene lists are empty or disabled — check provider status in workspace.",
+          "limitations": [
+            "CMR metadata does not prove plastic presence.",
+            "Plastic interpretation requires calibrated spectral processing and field/drone validation.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims.",
+            "No PACE/EMIT spectral products with usable granule metadata were retrieved for this AOI and window.",
+            "Plastic-risk score remains unavailable until narrow-band provider data and processing are connected."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "pace",
+              "state": "partial",
+              "detail": "PACE spectral pulls are disabled. Set DPAL_PACE_SPECTRAL_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve narrow-band o…"
+            },
+            {
+              "id": "emit",
+              "state": "partial",
+              "detail": "EMIT L2A pulls are disabled. Set DPAL_EMIT_L2A_ENABLED=true and NASA_EARTHDATA_TOKEN to retrieve EMIT hyperspectral gran…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "scanId",
+              "label": "scanId: hpw_mp3verjs_hyw427"
+            }
+          ]
+        },
+        {
+          "moduleKey": "forestIntegrity",
+          "status": "partial",
+          "headline": "Forest Integrity — live scan returned structured provider lanes with partial or configuration-limited coverage (evidence lead only).",
+          "limitations": [
+            "Command Center Forest Integrity result is an evidence lead only — not a legal finding, certified carbon claim, or sole proof of deforestation.",
+            "Full Forest Integrity workspace is required for AOI review, overlays, evidence packet generation, and independent validation.",
+            "Satellite and provider signals are not legal or certified carbon outcomes; field context may be required.",
+            "Command Center uses center coordinates and radiusKm; GET /api/forest-integrity/scan uses that AOI. Custom polygon workflows, overlays, and packet validation belong in the full Forest Integrity workspace.",
+            "No usable imagery was processed for index calculation.",
+            "Field verification is required before making claims."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "forest-provider-status",
+              "state": "ok",
+              "detail": "earthObservationLive=false · nasaFirmsConfigured=false · gfwConfigured=false · copernicusConfigured=false · generatedAt:…"
+            },
+            {
+              "id": "sentinel-eo",
+              "state": "unavailable",
+              "detail": "Earth Observation live stack is disabled on this API host (EARTH_OBSERVATION_LIVE_ENABLED)."
+            },
+            {
+              "id": "gfw",
+              "state": "partial",
+              "detail": "Global Forest Watch integrated deforestation alerts are not wired on this host. Set GFW_API_KEY or GLOBAL_FOREST_WATCH_A…"
+            },
+            {
+              "id": "firms",
+              "state": "partial",
+              "detail": "NASA FIRMS MAP key not configured on server (NASA_FIRMS_MAP_KEY)."
+            },
+            {
+              "id": "gedi",
+              "state": "partial",
+              "detail": "NASA GEDI biomass / canopy structure read is not implemented on this API route yet."
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-status",
+              "label": "GET /api/forest-integrity/provider-status"
+            },
+            {
+              "id": "endpoint-scan",
+              "label": "GET /api/forest-integrity/scan"
+            },
+            {
+              "id": "status-generatedAt",
+              "label": "provider-status.generatedAt: 2026-05-13T09:42:04.025Z"
+            },
+            {
+              "id": "scanId",
+              "label": "scanId: fi_mp3verjw_7ooa7k"
+            },
+            {
+              "id": "scan-generatedAt",
+              "label": "scan.generatedAt: 2026-05-13T09:42:04.028Z"
+            }
+          ]
+        },
+        {
+          "moduleKey": "pollutionAudit",
+          "status": "partial",
+          "headline": "Pollution — structured CARB readiness and RCRA health/search context (partial evidence lead).",
+          "limitations": [
+            "Command Center pollution result is an evidence lead only.",
+            "Facility matching by location/name is not a legal determination.",
+            "Full CARB/EPA/Hazardous Waste workspace is required for boundary matching, record reconciliation, and evidence packet generation.",
+            "No enforcement, violation, or legal conclusion is made automatically.",
+            "Command Center uses latitude, longitude, and radiusKm for optional distance filtering of catalog rows that include coordinates; CARB/RCRA text search has no lat/lng query parameter — proximity is computed only when coordinates exist on returned records."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "carb-status",
+              "state": "ok",
+              "detail": "sourceMode=IMPORTED · datasetLoaded=true · recordCount=20 · searchReadiness=Ready · datasetVersion=import-batch-17786652…"
+            },
+            {
+              "id": "rcra-health",
+              "state": "ok",
+              "detail": "ok=true · module=rcra-data"
+            },
+            {
+              "id": "carb-search",
+              "state": "ok",
+              "detail": "textHits=0 · withinRadius=0 (coords present & ≤ 25 km) · sourceMode=IMPORTED"
+            },
+            {
+              "id": "rcra-search",
+              "state": "ok",
+              "detail": "textHits=0 · withinRadius=0 (coords present & ≤ 25 km) · sourceMode=IMPORTED"
+            },
+            {
+              "id": "emissions-audit",
+              "state": "partial",
+              "detail": "GET /api/emissions-audit/* requires DpalUser JWT — not invoked from Command Center engine."
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-carb-status",
+              "label": "GET /api/carb-data/status"
+            },
+            {
+              "id": "endpoint-rcra-health",
+              "label": "GET /api/rcra-data/health"
+            },
+            {
+              "id": "endpoint-carb-search",
+              "label": "GET /api/carb-data/search · q length 16"
+            },
+            {
+              "id": "endpoint-rcra-search",
+              "label": "GET /api/rcra-data/search · q length 16"
+            },
+            {
+              "id": "carb-status-retrievalDate",
+              "label": "CARB status retrievalDate: 2026-05-13"
+            }
+          ]
+        },
+        {
+          "moduleKey": "carbonViu",
+          "status": "success",
+          "headline": "Carbon / VIU — live screening returned usable trace-gas, mineral/geology, and/or Landsat NDVI context (not credit or VIU eligibility).",
+          "limitations": [
+            "Command Center Carbon / VIU result is an evidence lead and readiness screen only.",
+            "No automatic VIU issuance.",
+            "No automatic carbon credit issuance.",
+            "No registry certification claim (Verra, Gold Standard, or other).",
+            "Full Carbon MRV / VIU workspace is required for project boundary, methodology, baseline, additionality, permanence, leakage, buffer, validation, and verification.",
+            "Field validation and independent review may be required."
+          ],
+          "providerLanesSummary": [
+            {
+              "id": "air-quality",
+              "state": "error",
+              "detail": "HTTP 500: {\"error\":\"Copernicus Sentinel Hub credentials are not configured on the backend.\"}"
+            },
+            {
+              "id": "minerals",
+              "state": "ok",
+              "detail": "geology/mineral context returned · captureDate:2026-05-13T09:42:04.526Z · Bedrock: Quaternary sedimentary (Quaternary; Q…"
+            },
+            {
+              "id": "ecology-landsat",
+              "state": "ok",
+              "detail": "Landsat foliage context · NDVI:0.244 · habitatRisk:moderate · captureDate:2026-05-07T18:38:41.565806Z · Connected to pub…"
+            },
+            {
+              "id": "viu-credit-safety",
+              "state": "partial",
+              "detail": "Not invoked — Command Center does not issue VIUs or carbon credits."
+            },
+            {
+              "id": "registry-claim-safety",
+              "state": "partial",
+              "detail": "No Verra, Gold Standard, or certified registry claims from Command Center engine."
+            },
+            {
+              "id": "validation-readiness",
+              "state": "partial",
+              "detail": "human_verified not set; blockchain anchoring not performed; use full workspace for validator workflow."
+            },
+            {
+              "id": "evidence-sufficiency",
+              "state": "partial",
+              "detail": "Point/radius screening only — insufficient alone for credit or VIU eligibility; boundary + methodology + field review re…"
+            }
+          ],
+          "evidenceRefsSample": [
+            {
+              "id": "endpoint-air",
+              "label": "GET /api/carbon/air-quality"
+            },
+            {
+              "id": "endpoint-min",
+              "label": "GET /api/carbon/minerals"
+            },
+            {
+              "id": "endpoint-eco",
+              "label": "GET /api/ecology/landsat-scan"
+            },
+            {
+              "id": "minerals-captureDate",
+              "label": "minerals.captureDate: 2026-05-13T09:42:04.526Z"
+            },
+            {
+              "id": "ecology-captureDate",
+              "label": "landsat-scan.captureDate: 2026-05-07T18:38:41.565806Z"
+            }
+          ]
+        }
+      ],
+      "safetyLabels": {
+        "pending_verification": true,
+        "human_verified": false,
+        "blockchain_anchored": false
+      }
+    },
+    "aiSummary": {
+      "text": "Command Center attached live scan evidence leads for selected modules.",
+      "moduleStatuses": "water:partial, earthObservation:partial, plasticWatch:partial, forestIntegrity:partial, pollutionAudit:partial, carbonViu:success",
+      "generatedBy": "command_center_engine_deterministic",
+      "generatedAtIso": "2026-05-13T09:42:05.564Z"
+    },
+    "location": {
+      "label": "Gerlach, NV, USA",
+      "lat": 40.65,
+      "lng": -119.35
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0xd1f7d03777d25c65087b3a9db4fabad54add63b6b7a0e4d371bd1a69c2590fa1"
+    },
+    "sourceSnapshot": {
+      "context": {
+        "goal": "",
+        "locationDescription": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25,
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "moduleStatuses": [
+        {
+          "moduleKey": "water",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "earthObservation",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "plasticWatch",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "forestIntegrity",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "pollutionAudit",
+          "status": "partial"
+        },
+        {
+          "moduleKey": "carbonViu",
+          "status": "success"
+        }
+      ]
+    }
+  },
+  {
+    "id": "room-1778665318005-783a3407",
+    "roomId": "room-manual-1778665318005-399fd155",
+    "projectId": "command-center-ccr_mp3vemw9_a35d0fcbbe5c",
+    "sourceType": "manual",
+    "title": "DPAL Command Center Run — Gerlach, NV, USA",
+    "category": "Command Center",
+    "status": "active",
+    "createdAt": "2026-05-13T09:41:58.001Z",
+    "updatedAt": "2026-05-13T09:41:58.001Z",
+    "evidencePacket": {
+      "kind": "command_center_run_handoff",
+      "runId": "ccr_mp3vemw9_a35d0fcbbe5c",
+      "runMode": "live",
+      "selectedModules": [
+        "situationRoom"
+      ],
+      "scanModules": [],
+      "location": {
+        "label": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25
+      },
+      "dateRange": {
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "goal": "",
+      "investorDemoFraming": false,
+      "moduleResultsSummary": [],
+      "safetyLabels": {
+        "pending_verification": true,
+        "human_verified": false,
+        "blockchain_anchored": false
+      }
+    },
+    "aiSummary": {
+      "text": "Command Center attached live scan evidence leads for selected modules.",
+      "moduleStatuses": "no prior module rows in this run.",
+      "generatedBy": "command_center_engine_deterministic",
+      "generatedAtIso": "2026-05-13T09:41:57.995Z"
+    },
+    "location": {
+      "label": "Gerlach, NV, USA",
+      "lat": 40.65,
+      "lng": -119.35
+    },
+    "ledger": {
+      "verificationStatus": "pending",
+      "evidenceHash": "0x8ffa82782b0512e0306e3998d8c6584278d4ba38f39b5e9ba1869758ff4e8748"
+    },
+    "sourceSnapshot": {
+      "context": {
+        "goal": "",
+        "locationDescription": "Gerlach, NV, USA",
+        "latitude": 40.65,
+        "longitude": -119.35,
+        "radiusKm": 25,
+        "baselineDateIso": "2026-04-13",
+        "currentDateIso": "2026-05-13"
+      },
+      "moduleStatuses": []
+    }
+  },
+  {
     "id": "room-1778663653590-a992111b",
     "roomId": "room-manual-1778663653589-e1f44d94",
     "projectId": "command-center-ccr_mp3ueymj_daca7fcb4d1d",

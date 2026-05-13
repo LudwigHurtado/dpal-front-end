@@ -92,12 +92,23 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 // ── Rate limiting ─────────────────────────────────────────────────────────────
+const isDevLike = process.env.NODE_ENV !== 'production';
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 min
-  max: 100,
+  max: isDevLike ? 1000 : 100,
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/good-wheels') || req.originalUrl.startsWith('/api/good-wheels'),
+  skip: (req) => {
+    if (req.path.startsWith('/good-wheels') || req.originalUrl.startsWith('/api/good-wheels')) return true;
+
+    if (isDevLike) {
+      if (req.originalUrl.startsWith('/api/command-center')) return true;
+      if (req.originalUrl.startsWith('/api/debug/provider-usage')) return true;
+    }
+
+    return false;
+  },
 });
 app.use('/api/', limiter);
 

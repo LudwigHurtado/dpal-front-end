@@ -415,5 +415,275 @@
     "senderRole": "system",
     "type": "system",
     "createdAt": "2026-05-13T09:14:13.614Z"
+  },
+  {
+    "id": "sys-1778665318012-be412e9d",
+    "roomId": "room-manual-1778665318005-399fd155",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:41:58.012Z"
+  },
+  {
+    "id": "sys-1778665318015-71ce0a9b",
+    "roomId": "room-manual-1778665318005-399fd155",
+    "text": "Project evidence attached (manual) for command-center-ccr_mp3vemw9_a35d0fcbbe5c.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:41:58.015Z"
+  },
+  {
+    "id": "sys-1778665318020-87791e63",
+    "roomId": "room-manual-1778665318005-399fd155",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:41:58.020Z"
+  },
+  {
+    "id": "sys-1778665318024-b2da912a",
+    "roomId": "room-manual-1778665318005-399fd155",
+    "text": "Ledger data attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:41:58.024Z"
+  },
+  {
+    "id": "sys-1778665318028-2ad7132c",
+    "roomId": "room-manual-1778665318005-399fd155",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:41:58.028Z"
+  },
+  {
+    "id": "sys-1778665325600-299cc34b",
+    "roomId": "room-manual-1778665325575-ac1104a3",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:42:05.600Z"
+  },
+  {
+    "id": "sys-1778665325605-5f05c857",
+    "roomId": "room-manual-1778665325575-ac1104a3",
+    "text": "Project evidence attached (manual) for command-center-ccr_mp3verje_0f2e27eff061.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:42:05.605Z"
+  },
+  {
+    "id": "sys-1778665325609-001c9438",
+    "roomId": "room-manual-1778665325575-ac1104a3",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:42:05.609Z"
+  },
+  {
+    "id": "sys-1778665325614-624367f2",
+    "roomId": "room-manual-1778665325575-ac1104a3",
+    "text": "Ledger data attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:42:05.614Z"
+  },
+  {
+    "id": "sys-1778665325618-01f975ac",
+    "roomId": "room-manual-1778665325575-ac1104a3",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T09:42:05.618Z"
+  },
+  {
+    "id": "sys-1778666988348-78a3476f",
+    "roomId": "room-manual-1778666988338-91cff62d",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:48.348Z"
+  },
+  {
+    "id": "sys-1778666988351-1cf85339",
+    "roomId": "room-manual-1778666988338-91cff62d",
+    "text": "Project evidence attached (manual) for command-center-ccr_mp3wefqd_fa30ebff7b2c.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:48.351Z"
+  },
+  {
+    "id": "sys-1778666988359-f8efec14",
+    "roomId": "room-manual-1778666988338-91cff62d",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:48.359Z"
+  },
+  {
+    "id": "sys-1778666988366-2fe6f239",
+    "roomId": "room-manual-1778666988338-91cff62d",
+    "text": "Ledger data attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:48.366Z"
+  },
+  {
+    "id": "sys-1778666988375-869336fe",
+    "roomId": "room-manual-1778666988338-91cff62d",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:48.375Z"
+  },
+  {
+    "id": "sys-1778666995707-f158f543",
+    "roomId": "room-manual-1778666995697-8fba01e9",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:55.707Z"
+  },
+  {
+    "id": "sys-1778666995711-be270644",
+    "roomId": "room-manual-1778666995697-8fba01e9",
+    "text": "Project evidence attached (manual) for command-center-ccr_mp3wek9h_a3e35d7169d3.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:55.712Z"
+  },
+  {
+    "id": "sys-1778666995715-2c6ba036",
+    "roomId": "room-manual-1778666995697-8fba01e9",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:55.715Z"
+  },
+  {
+    "id": "sys-1778666995718-e4fb4f91",
+    "roomId": "room-manual-1778666995697-8fba01e9",
+    "text": "Ledger data attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:55.718Z"
+  },
+  {
+    "id": "sys-1778666995723-cff1165e",
+    "roomId": "room-manual-1778666995697-8fba01e9",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:09:55.724Z"
+  },
+  {
+    "id": "sys-1778667129060-e8e90f48",
+    "roomId": "room-manual-1778667129056-63b04dba",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:09.060Z"
+  },
+  {
+    "id": "sys-1778667129063-ca894977",
+    "roomId": "room-manual-1778667129056-63b04dba",
+    "text": "Project evidence attached (manual) for command-center-ccr_mp3whgbe_5dd81aaa658b.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:09.063Z"
+  },
+  {
+    "id": "sys-1778667129066-0fc5c88f",
+    "roomId": "room-manual-1778667129056-63b04dba",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:09.066Z"
+  },
+  {
+    "id": "sys-1778667129069-8003d5ef",
+    "roomId": "room-manual-1778667129056-63b04dba",
+    "text": "Ledger data attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:09.069Z"
+  },
+  {
+    "id": "sys-1778667129072-9b08626d",
+    "roomId": "room-manual-1778667129056-63b04dba",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:09.072Z"
+  },
+  {
+    "id": "sys-1778667134830-490f614c",
+    "roomId": "room-manual-1778667134823-73839cea",
+    "text": "Situation Room created.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:14.830Z"
+  },
+  {
+    "id": "sys-1778667134833-24f29d73",
+    "roomId": "room-manual-1778667134823-73839cea",
+    "text": "Project evidence attached (manual) for command-center-ccr_mp3whjpb_10af515102d0.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:14.834Z"
+  },
+  {
+    "id": "sys-1778667134837-938d11c2",
+    "roomId": "room-manual-1778667134823-73839cea",
+    "text": "AI summary attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:14.837Z"
+  },
+  {
+    "id": "sys-1778667134840-30a09620",
+    "roomId": "room-manual-1778667134823-73839cea",
+    "text": "Ledger data attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:14.840Z"
+  },
+  {
+    "id": "sys-1778667134844-91fb56d0",
+    "roomId": "room-manual-1778667134823-73839cea",
+    "text": "Evidence packet hash generated and attached to this Situation Room.",
+    "senderName": "DPAL System",
+    "senderRole": "system",
+    "type": "system",
+    "createdAt": "2026-05-13T10:12:14.844Z"
   }
 ]
