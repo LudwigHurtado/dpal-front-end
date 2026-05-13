@@ -11,6 +11,7 @@ import { executeForestIntegrityForCommandCenter } from './commandCenterForestExe
 import { executeEarthObservationForCommandCenter } from './commandCenterEarthObservationExecutor';
 import { executePollutionForCommandCenter } from './commandCenterPollutionExecutor';
 import { executeCarbonViuForCommandCenter } from './commandCenterCarbonViuExecutor';
+import { executeSituationRoomForCommandCenter } from './commandCenterSituationRoomExecutor';
 import {
   COMMAND_CENTER_SAFETY_LABELS,
   type CommandCenterRunContext,
@@ -191,6 +192,9 @@ async function executeModule(
   if (moduleKey === 'carbonViu') {
     return executeCarbonViuForCommandCenter(context, runMode);
   }
+  if (moduleKey === 'situationRoom') {
+    return buildPendingAdapterResult('situationRoom', runMode);
+  }
   return buildPendingAdapterResult(moduleKey, runMode);
 }
 
@@ -211,9 +215,11 @@ async function runExecution(runId: string): Promise<void> {
 
   const warnings: string[] = [...doc.warnings];
   const results: CommandCenterModuleRunResult[] = [];
+  const scanModules = doc.modules.filter((m) => m !== 'situationRoom');
+  const runSituationHandoff = doc.modules.includes('situationRoom');
 
   try {
-    for (const mod of doc.modules) {
+    for (const mod of scanModules) {
       if (doc.cancelRequested) {
         doc.results = results;
         doc.warnings = warnings;
@@ -237,6 +243,35 @@ async function runExecution(runId: string): Promise<void> {
           runMode: doc.runMode,
           headline: `${mod} — unexpected engine error.`,
           limitations: ['Command Center engine encountered an unexpected failure for this module.'],
+          providerLanes: [{ id: 'engine', label: 'Engine', state: 'error', detail: preview }],
+          evidenceRefs: [],
+          errorMessage: preview,
+        });
+      }
+    }
+
+    if (runSituationHandoff && !doc.cancelRequested) {
+      doc.currentStep = 'situationRoom';
+      touch(doc);
+      try {
+        const sr = await executeSituationRoomForCommandCenter({
+          runId: doc.runId,
+          context: doc.context,
+          runMode: doc.runMode,
+          selectedModules: doc.modules,
+          priorResults: results,
+          safetyLabels: doc.safetyLabels,
+        });
+        results.push(sr);
+      } catch (e) {
+        const preview = e instanceof Error ? e.message.slice(0, 280) : String(e).slice(0, 280);
+        warnings.push(`situationRoom: ${preview}`);
+        results.push({
+          moduleKey: 'situationRoom',
+          status: 'error',
+          runMode: doc.runMode,
+          headline: 'situationRoom — unexpected engine error.',
+          limitations: ['Command Center engine encountered an unexpected failure during Situation Room handoff.'],
           providerLanes: [{ id: 'engine', label: 'Engine', state: 'error', detail: preview }],
           evidenceRefs: [],
           errorMessage: preview,
