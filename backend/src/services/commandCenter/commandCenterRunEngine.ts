@@ -8,6 +8,7 @@ import { buildPendingAdapterResult } from './commandCenterPendingModule';
 import { executePlasticWatchForCommandCenter } from './commandCenterPlasticExecutor';
 import { executeWaterForCommandCenter } from './commandCenterWaterExecutor';
 import { executeForestIntegrityForCommandCenter } from './commandCenterForestExecutor';
+import { executeEarthObservationForCommandCenter } from './commandCenterEarthObservationExecutor';
 import {
   COMMAND_CENTER_SAFETY_LABELS,
   type CommandCenterRunContext,
@@ -178,6 +179,9 @@ async function executeModule(
   }
   if (moduleKey === 'forestIntegrity') {
     return executeForestIntegrityForCommandCenter(context, runMode);
+  }
+  if (moduleKey === 'earthObservation') {
+    return executeEarthObservationForCommandCenter(context, runMode);
   }
   return buildPendingAdapterResult(moduleKey, runMode);
 }
