@@ -64,7 +64,7 @@ export async function runCommandCenterOrchestration(opts: {
         runMode,
         headline: `${key} — adapter error`,
         limitations: ['Adapter rejected before returning structured preview.'],
-        providerLanes: [{ id: 'error', label: 'Error', state: 'unavailable', detail: warnings[warnings.length - 1] }],
+        providerLanes: [{ id: 'error', label: 'Error', state: 'error', detail: warnings[warnings.length - 1] }],
         evidenceRefs: [],
         errorMessage: warnings[warnings.length - 1],
       });

@@ -32,7 +32,7 @@ export function runWaterAdapter(
     runMode: opts.runMode,
     headline: 'AquaScan — live batch from Command Center is not wired; use AquaScan workspace.',
     limitations: [...base, 'Cross-module live orchestration stays in each module to avoid hidden provider calls.'],
-    providerLanes: [{ id: 'live', label: 'Live path', state: 'unavailable', detail: 'Use module workspace for live runs.' }],
+    providerLanes: [{ id: 'live', label: 'Live path', state: 'pending', detail: 'Use AquaScan workspace for live Copernicus / water pulls.' }],
     evidenceRefs: [],
     openWorkspaceView: 'aquaScanWater',
   });

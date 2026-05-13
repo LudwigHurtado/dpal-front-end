@@ -28,7 +28,7 @@ export function runPollutionAuditAdapter(
     runMode: opts.runMode,
     headline: 'Pollution audit — live from Command Center not wired.',
     limitations: base,
-    providerLanes: [{ id: 'live', label: 'Live', state: 'unavailable' }],
+    providerLanes: [{ id: 'live', label: 'Live', state: 'pending', detail: 'Use CARB / EPA workspace for facility live queries.' }],
     evidenceRefs: [],
     openWorkspaceView: 'carbEmissionsAudit',
   });

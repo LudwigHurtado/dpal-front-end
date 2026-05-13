@@ -156,6 +156,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     recommendModulesForInvestigation('full_environmental'),
   );
   const [runMode, setRunMode] = React.useState<'dry_run' | 'live'>('dry_run');
+  const [mapLayoutNonce, setMapLayoutNonce] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
   const [orchestration, setOrchestration] = React.useState<CommandCenterOrchestrationResult | null>(null);
   const [watchActive, setWatchActive] = React.useState(false);
@@ -207,9 +208,12 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
 
   const commandCenterEvidenceMarkers = React.useMemo(() => {
     if (!orchestration?.results?.length || !commandCenterMapCenter) return [];
+    const markable = new Set(['success', 'partial', 'preview_ready']);
+    const rows = orchestration.results.filter((r) => markable.has(r.status));
+    if (!rows.length) return [];
     const { lat, lng } = commandCenterMapCenter;
-    const n = orchestration.results.length;
-    return orchestration.results.map((r, i) => {
+    const n = rows.length;
+    return rows.map((r, i) => {
       const step = 0.0014;
       const ang = (i * 2 * Math.PI) / Math.max(1, n);
       return {
@@ -221,6 +225,9 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
       };
     });
   }, [orchestration, commandCenterMapCenter]);
+
+  const runBatchLabel = runMode === 'live' ? 'Run Selected Live Scans' : 'Run Unified Preview';
+  const guidedRunLabel = runMode === 'live' ? 'Run Selected Live Scans' : 'Run Guided Preview';
 
   const runPreview = React.useCallback(
     async (modules: CommandCenterModuleKey[]) => {
@@ -465,7 +472,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                   onChange={(e) => setRunMode(e.target.value as 'dry_run' | 'live')}
                 >
                   <option value="dry_run">dry_run — preview frames only</option>
-                  <option value="live">live — use module workspaces (batch not wired)</option>
+                  <option value="live">live — real provider quick scans where wired (Plastic Watch uses GET)</option>
                 </select>
               </label>
               <label className="block text-xs">
@@ -487,12 +494,55 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 />
               </label>
             </div>
+            {runMode === 'live' ? (
+              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] leading-relaxed text-amber-950">
+                <span className="font-bold">Live mode: </span>
+                Live mode calls real provider APIs and may take longer. Results are evidence leads, not final verification. Command
+                Center does not publish reports, anchor to chain, issue VIUs, or grant human_verified without reviewer data.
+              </div>
+            ) : null}
+          </section>
+
+          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-bold text-slate-900">Command Center map</h2>
+            <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-600">
+              Leaflet + OpenStreetMap for this control panel only. Google Maps remains the engine for Locator / Lost &amp; Found;
+              Good Wheels keeps its own maps. WRI MapBuilder is scoped as a future Environmental Atlas layer.
+            </p>
+            {commandCenterMapCenter ? (
+              <p className="mt-2 text-xs font-medium text-slate-800">
+                Live map center: {commandCenterMapCenter.lat.toFixed(5)}, {commandCenterMapCenter.lng.toFixed(5)} · radius{' '}
+                {Number.isFinite(ctx.radiusKm) ? ctx.radiusKm : '—'} km
+              </p>
+            ) : (
+              <p className="mt-2 text-xs text-amber-800">Enter valid latitude and longitude in shared context to center the map.</p>
+            )}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
+                onClick={() => setMapLayoutNonce((n) => n + 1)}
+              >
+                Reset map to current context
+              </button>
+            </div>
+            <div className="mt-4">
+              <CommandCenterMapPanel
+                center={commandCenterMapCenter}
+                radiusKm={ctx.radiusKm}
+                evidenceMarkers={commandCenterEvidenceMarkers}
+                layoutNonce={mapLayoutNonce}
+              />
+            </div>
           </section>
 
           {workflowMode === 'manual' && (
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <h2 className="text-base font-bold text-slate-900">Manual Scan</h2>
-              <p className="mt-1 text-[11px] text-slate-600">Select modules, then run a unified preview. Default for advanced users.</p>
+              <p className="mt-1 text-[11px] text-slate-600">
+                Select modules, then run {runMode === 'live' ? 'live quick scans (wired adapters only)' : 'a unified preview'}. Default
+                for advanced users.
+              </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 {COMMAND_CENTER_MODULE_REGISTRY.map((row) => (
                   <label key={row.key} className="flex items-center gap-2 text-sm">
@@ -511,7 +561,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 onClick={() => void runPreview(selectedManualList)}
                 className="mt-4 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-900 disabled:opacity-50"
               >
-                Run Unified Preview
+                {runBatchLabel}
               </button>
             </section>
           )}
@@ -551,7 +601,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 onClick={() => void runPreview(guidedConfirmed)}
                 className="mt-4 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-900 disabled:opacity-50"
               >
-                Run Guided Preview
+                {guidedRunLabel}
               </button>
             </section>
           )}
@@ -654,7 +704,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                       void runPreview(superPlan.modules);
                     }}
                   >
-                    Use This Plan (loads module checkboxes + preview)
+                    Use This Plan (loads module checkboxes + {runMode === 'live' ? 'live scans' : 'preview'})
                   </button>
                 </div>
               ) : null}
@@ -753,22 +803,6 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         </div>
       </div>
 
-      <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-base font-bold text-slate-900">Command Center Map</h2>
-        <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-600">
-          Leaflet + OpenStreetMap for this control panel. Google Maps remains the engine for Locator / Lost &amp; Found; Good
-          Wheels keeps its own React-Leaflet maps. WRI MapBuilder is scoped as a future Environmental Atlas layer — not the
-          core map here.
-        </p>
-        <div className="mt-4">
-          <CommandCenterMapPanel
-            center={commandCenterMapCenter}
-            radiusKm={ctx.radiusKm}
-            evidenceMarkers={commandCenterEvidenceMarkers}
-          />
-        </div>
-      </section>
-
       {orchestration ? (
         <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -789,7 +823,13 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                   <h3 className="font-bold text-slate-900">{r.moduleKey}</h3>
                   <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">{r.status}</span>
                 </div>
+                <p className="mt-1 text-[10px] text-slate-500">
+                  runMode: <span className="font-semibold text-slate-700">{r.runMode}</span>
+                </p>
                 <p className="mt-2 text-slate-800">{r.headline}</p>
+                {r.errorMessage ? (
+                  <p className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-900">{r.errorMessage}</p>
+                ) : null}
                 <div className="mt-2">
                   <p className="text-[10px] font-semibold uppercase text-slate-500">Limitations</p>
                   <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-600">
@@ -799,7 +839,7 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                   </ul>
                 </div>
                 <div className="mt-2">
-                  <p className="text-[10px] font-semibold uppercase text-slate-500">Provider status</p>
+                  <p className="text-[10px] font-semibold uppercase text-slate-500">Provider lanes</p>
                   <ul className="mt-1 space-y-1 text-[11px]">
                     {r.providerLanes.map((p) => (
                       <li key={p.id}>
@@ -809,14 +849,32 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                     ))}
                   </ul>
                 </div>
+                {r.evidenceRefs.length ? (
+                  <div className="mt-2">
+                    <p className="text-[10px] font-semibold uppercase text-slate-500">Evidence refs</p>
+                    <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-600">
+                      {r.evidenceRefs.map((er) => (
+                        <li key={er.id}>
+                          {er.href ? (
+                            <a href={er.href} className="text-emerald-900 underline" target="_blank" rel="noreferrer">
+                              {er.label}
+                            </a>
+                          ) : (
+                            er.label
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {r.openWorkspaceView ? (
                   <div className="mt-3 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
+                      className="rounded-lg bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white shadow hover:bg-emerald-900"
                       onClick={() => onNavigate(r.openWorkspaceView as View)}
                     >
-                      Open module
+                      Open Full Workspace
                     </button>
                     <button
                       type="button"

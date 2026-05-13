@@ -35,7 +35,7 @@ export function runEarthObservationAdapter(
     runMode: opts.runMode,
     headline: 'Earth Observation — use workspace for live scan.',
     limitations: base,
-    providerLanes: [{ id: 'live', label: 'Live scan', state: 'unavailable', detail: 'Run inside Earth Observation view.' }],
+    providerLanes: [{ id: 'live', label: 'Live scan', state: 'pending', detail: 'Use Earth Observation workspace for POST /api/earth-observation/scan.' }],
     evidenceRefs: [],
     openWorkspaceView: 'earthObservation',
   });

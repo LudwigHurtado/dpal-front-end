@@ -25,7 +25,7 @@ export function runSituationRoomAdapter(
     runMode: opts.runMode,
     headline: 'Situation Room — open workspace to attach live context.',
     limitations: base,
-    providerLanes: [{ id: 'live', label: 'Live', state: 'unavailable', detail: 'Create or open a room from the Situation Room view.' }],
+    providerLanes: [{ id: 'live', label: 'Live', state: 'pending', detail: 'Create or open a room from the Situation Room view.' }],
     evidenceRefs: [],
     openWorkspaceView: 'situationRoom',
   });

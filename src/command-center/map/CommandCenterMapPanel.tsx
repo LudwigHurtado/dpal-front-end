@@ -26,6 +26,8 @@ export type CommandCenterMapPanelProps = {
   evidenceMarkers?: CommandCenterMapEvidenceMarker[];
   /** Optional AOI ring in lat/lng order; ring is auto-closed if needed. */
   aoiPolygon?: Array<{ lat: number; lng: number }>;
+  /** Bump to force Leaflet remount (e.g. “Recenter on context”). */
+  layoutNonce?: number;
 };
 
 const OSM_TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -55,7 +57,14 @@ export const CommandCenterMapPanel: React.FC<CommandCenterMapPanelProps> = ({
   radiusKm,
   evidenceMarkers = [],
   aoiPolygon,
+  layoutNonce = 0,
 }) => {
+  const [tileError, setTileError] = React.useState(false);
+
+  React.useEffect(() => {
+    setTileError(false);
+  }, [center?.lat, center?.lng, layoutNonce]);
+
   const hasValidCenter =
     center != null && Number.isFinite(center.lat) && Number.isFinite(center.lng) && Math.abs(center.lat) <= 90 && Math.abs(center.lng) <= 180;
 
@@ -76,16 +85,36 @@ export const CommandCenterMapPanel: React.FC<CommandCenterMapPanelProps> = ({
   const ring = aoiPolygon && aoiPolygon.length >= 3 ? toPolygonRing(aoiPolygon) : null;
 
   return (
-    <div className="h-[min(420px,55vh)] min-h-[260px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
-      <MapContainer
-        key={`${center.lat.toFixed(5)},${center.lng.toFixed(5)}`}
-        center={[center.lat, center.lng]}
-        zoom={zoom}
-        scrollWheelZoom
-        className="h-full w-full"
-        style={{ height: '100%', width: '100%', background: '#e2e8f0' }}
+    <div className="w-full">
+      {tileError ? (
+        <div
+          role="status"
+          className="mb-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+        >
+          Base map tiles failed to load (OpenStreetMap). Check network or ad-blockers; the AOI circle and markers may still
+          render once tiles recover. Try refreshing or switching networks.
+        </div>
+      ) : null}
+      <div
+        className="h-[min(420px,55vh)] min-h-[280px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+        style={{ minHeight: 280 }}
       >
-        <TileLayer attribution={OSM_ATTR} url={OSM_TILE} maxZoom={19} />
+        <MapContainer
+          key={`${center.lat.toFixed(5)},${center.lng.toFixed(5)},${layoutNonce}`}
+          center={[center.lat, center.lng]}
+          zoom={zoom}
+          scrollWheelZoom
+          className="z-0 h-full w-full"
+          style={{ height: '100%', minHeight: 260, width: '100%', background: '#e2e8f0' }}
+        >
+          <TileLayer
+            attribution={OSM_ATTR}
+            url={OSM_TILE}
+            maxZoom={19}
+            eventHandlers={{
+              tileerror: () => setTileError(true),
+            }}
+          />
         {rKm != null ? (
           <Circle
             center={[center.lat, center.lng]}
@@ -116,9 +145,15 @@ export const CommandCenterMapPanel: React.FC<CommandCenterMapPanelProps> = ({
               center={[m.lat, m.lng]}
               radius={8}
               pathOptions={{
-                color: m.type === 'situationRoom' ? '#7c3aed' : '#b45309',
+                color:
+                  m.type === 'situationRoom'
+                    ? '#7c3aed'
+                    : m.type === 'plasticWatch'
+                      ? '#0e7490'
+                      : '#b45309',
                 weight: 2,
-                fillColor: m.type === 'situationRoom' ? '#a78bfa' : '#fbbf24',
+                fillColor:
+                  m.type === 'situationRoom' ? '#a78bfa' : m.type === 'plasticWatch' ? '#2dd4bf' : '#fbbf24',
                 fillOpacity: 0.95,
               }}
             >
@@ -130,7 +165,8 @@ export const CommandCenterMapPanel: React.FC<CommandCenterMapPanelProps> = ({
               </Popup>
             </CircleMarker>
           ))}
-      </MapContainer>
+        </MapContainer>
+      </div>
     </div>
   );
 };

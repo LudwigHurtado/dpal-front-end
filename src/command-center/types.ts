@@ -62,10 +62,20 @@ export type CommandCenterRunContext = {
   investorDemoFraming?: boolean;
 };
 
+export type ProviderLaneState =
+  | 'unknown'
+  | 'ok'
+  | 'partial'
+  | 'preview'
+  | 'unavailable'
+  | 'rate_limited'
+  | 'error'
+  | 'pending';
+
 export type ProviderLaneStatus = {
   id: string;
   label: string;
-  state: 'unknown' | 'ok' | 'partial' | 'preview' | 'unavailable';
+  state: ProviderLaneState;
   detail?: string;
 };
 

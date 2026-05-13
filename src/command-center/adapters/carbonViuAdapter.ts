@@ -27,7 +27,7 @@ export function runCarbonViuAdapter(
     runMode: opts.runMode,
     headline: 'Carbon MRV — live batch from Command Center not wired.',
     limitations: base,
-    providerLanes: [{ id: 'live', label: 'Live', state: 'unavailable' }],
+    providerLanes: [{ id: 'live', label: 'Live', state: 'pending', detail: 'Use Carbon MRV workspace for scans and validator context.' }],
     evidenceRefs: [],
     openWorkspaceView: 'carbonMRV',
   });

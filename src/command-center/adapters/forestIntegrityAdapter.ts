@@ -28,7 +28,7 @@ export function runForestIntegrityAdapter(
     runMode: opts.runMode,
     headline: 'Forest Integrity — use workspace for live lanes.',
     limitations: base,
-    providerLanes: [{ id: 'live', label: 'Live', state: 'unavailable' }],
+    providerLanes: [{ id: 'live', label: 'Live', state: 'pending', detail: 'Use Forest Integrity workspace for GFW/FIRMS lanes.' }],
     evidenceRefs: [],
     openWorkspaceView: 'forestIntegrity',
   });
