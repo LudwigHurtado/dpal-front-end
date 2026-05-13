@@ -8,6 +8,13 @@ import {
 import { COMMAND_CENTER_INVESTOR_PRESETS } from './data/commandCenterInvestorPresets';
 import { COMMAND_CENTER_MODULE_REGISTRY, recommendModulesForInvestigation } from './registry/commandCenterModuleRegistry';
 import { buildEvidencePacketPreview, evidenceDraftToPreviewText } from './services/commandCenterEvidenceBuilder';
+import { startCommandCenterRun } from './services/commandCenterBackendRunClient';
+import {
+  type AutopilotMachineState,
+  type AutopilotStep,
+  buildAutopilotSteps,
+  mergeOrchestrationChunks,
+} from './services/commandCenterAutopilotPlan';
 import { runCommandCenterOrchestration } from './services/commandCenterOrchestrator';
 import { CommandCenterMapPanel } from './map/CommandCenterMapPanel';
 import type {
@@ -141,6 +148,10 @@ const EVIDENCE_SECTION_DEFAULTS: EvidencePacketDraftSectionId[] = [
   'blockchain',
 ];
 
+function workspaceViewForModule(key: CommandCenterModuleKey): View {
+  return (COMMAND_CENTER_MODULE_REGISTRY.find((r) => r.key === key)?.workspaceView ?? 'mainMenu') as View;
+}
+
 const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
   const [workflowMode, setWorkflowMode] = React.useState<CommandCenterWorkflowMode>('manual');
   const [ctx, setCtx] = React.useState<CommandCenterRunContext>(() => defaultContext());
@@ -181,6 +192,15 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
   });
   const [evidencePreviewText, setEvidencePreviewText] = React.useState('');
 
+  const [autopilotState, setAutopilotState] = React.useState<AutopilotMachineState>('idle');
+  const [autopilotSteps, setAutopilotSteps] = React.useState<AutopilotStep[]>([]);
+  const [autopilotStepIndex, setAutopilotStepIndex] = React.useState(0);
+  const [runningModuleKey, setRunningModuleKey] = React.useState<CommandCenterModuleKey | null>(null);
+  const [backendRunId, setBackendRunId] = React.useState<string | null>(null);
+  const autopilotPausedRef = React.useRef(false);
+  const autopilotStopRef = React.useRef(false);
+  const autopilotInFlightRef = React.useRef(false);
+
   React.useEffect(() => {
     setGuidedConfirmed(recommendModulesForInvestigation(guidedType));
   }, [guidedType]);
@@ -199,6 +219,13 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     () => ALL_MODULE_KEYS.filter((k) => manualModules[k]),
     [manualModules],
   );
+
+  const modulesForBatch = React.useCallback((): CommandCenterModuleKey[] => {
+    if (workflowMode === 'guided' && guidedConfirmed.length) return guidedConfirmed;
+    if (workflowMode === 'superAgent' && superPlan?.modules?.length) return superPlan.modules;
+    if (selectedManualList.length) return selectedManualList;
+    return ALL_MODULE_KEYS;
+  }, [workflowMode, guidedConfirmed, superPlan, selectedManualList]);
 
   const commandCenterMapCenter = React.useMemo(() => {
     if (!Number.isFinite(ctx.latitude) || !Number.isFinite(ctx.longitude)) return undefined;
@@ -227,10 +254,11 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
   }, [orchestration, commandCenterMapCenter]);
 
   const runBatchLabel = runMode === 'live' ? 'Run Selected Live Scans' : 'Run Unified Preview';
-  const guidedRunLabel = runMode === 'live' ? 'Run Selected Live Scans' : 'Run Guided Preview';
+  const guidedRunLabel = runBatchLabel;
 
   const runPreview = React.useCallback(
     async (modules: CommandCenterModuleKey[]) => {
+      if (!modules.length) return;
       setBusy(true);
       try {
         const res = await runCommandCenterOrchestration({
@@ -354,6 +382,138 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     setEvidencePreviewText(evidenceDraftToPreviewText(draft));
   };
 
+  const waitUnpause = React.useCallback(async () => {
+    while (autopilotPausedRef.current && !autopilotStopRef.current) {
+      setAutopilotState('paused');
+      await new Promise<void>((r) => {
+        window.setTimeout(r, 220);
+      });
+    }
+  }, []);
+
+  const startLiveAutopilot = React.useCallback(async () => {
+    if (autopilotInFlightRef.current || busy) return;
+    const mods = modulesForBatch();
+    if (!mods.length) return;
+    autopilotInFlightRef.current = true;
+    autopilotStopRef.current = false;
+    autopilotPausedRef.current = false;
+    setBusy(true);
+    setAutopilotState('queued');
+    setBackendRunId(null);
+    setOrchestration(null);
+    setEvidencePreviewText('');
+
+    const steps = buildAutopilotSteps(mods);
+    setAutopilotSteps(steps);
+    setAutopilotStepIndex(0);
+
+    const backendTry = await startCommandCenterRun({
+      modules: mods,
+      context: { ...ctx } as unknown as Record<string, unknown>,
+      runMode,
+    });
+    if (backendTry.backend === 'accepted') {
+      setBackendRunId(backendTry.runId);
+    }
+
+    setAutopilotState('running');
+    let merged: CommandCenterOrchestrationResult | null = null;
+
+    try {
+      for (let i = 0; i < steps.length; i++) {
+        await waitUnpause();
+        if (autopilotStopRef.current) {
+          setAutopilotState('stopped');
+          return;
+        }
+        setAutopilotStepIndex(i);
+        const step = steps[i];
+
+        if (step.kind === 'module' && step.module) {
+          setRunningModuleKey(step.module);
+        } else {
+          setRunningModuleKey(null);
+        }
+
+        try {
+          if (step.kind === 'validate') {
+            await new Promise<void>((r) => window.setTimeout(r, 320));
+          } else if (step.kind === 'module' && step.module) {
+            const chunk = await runCommandCenterOrchestration({
+              modules: [step.module],
+              context: { ...ctx, investorDemoFraming: workflowMode === 'investorDemo' },
+              runMode,
+            });
+            merged = mergeOrchestrationChunks(merged, chunk);
+            setOrchestration(merged);
+          } else if (step.kind === 'evidence') {
+            const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
+            const draft = buildEvidencePacketPreview({
+              title: 'DPAL Command Center — evidence packet preview',
+              includedSectionIds: ids.length ? ids : EVIDENCE_SECTION_DEFAULTS,
+              orchestration: merged ?? undefined,
+            });
+            setEvidencePreviewText(evidenceDraftToPreviewText(draft));
+            await new Promise<void>((r) => window.setTimeout(r, 200));
+          } else if (step.kind === 'nextActions') {
+            await new Promise<void>((r) => window.setTimeout(r, 180));
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          setOrchestration((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  orchestrationWarnings: [...prev.orchestrationWarnings, `${step.id}: ${msg}`],
+                }
+              : null,
+          );
+        }
+      }
+      if (!autopilotStopRef.current) setAutopilotState('completed');
+    } catch (e) {
+      setAutopilotState('error');
+      const msg = e instanceof Error ? e.message : String(e);
+      setOrchestration((prev) =>
+        prev
+          ? { ...prev, orchestrationWarnings: [...prev.orchestrationWarnings, `autopilot: ${msg}`] }
+          : null,
+      );
+    } finally {
+      setRunningModuleKey(null);
+      setBusy(false);
+      autopilotInFlightRef.current = false;
+    }
+  }, [busy, ctx, evidenceSections, modulesForBatch, runMode, waitUnpause, workflowMode]);
+
+  const pauseAutopilot = React.useCallback(() => {
+    autopilotPausedRef.current = true;
+    setAutopilotState('paused');
+  }, []);
+
+  const continueAutopilot = React.useCallback(() => {
+    autopilotPausedRef.current = false;
+    if (autopilotInFlightRef.current) setAutopilotState('running');
+  }, []);
+
+  const stopAutopilot = React.useCallback(() => {
+    autopilotStopRef.current = true;
+    autopilotPausedRef.current = false;
+    if (autopilotInFlightRef.current) setAutopilotState('stopped');
+  }, []);
+
+  const currentAutopilotModuleView = React.useMemo((): View | null => {
+    const step = autopilotSteps[autopilotStepIndex];
+    if (step?.kind === 'module' && step.module) return workspaceViewForModule(step.module);
+    return null;
+  }, [autopilotSteps, autopilotStepIndex]);
+
+  const runningStatusChip =
+    runningModuleKey && (autopilotState === 'running' || autopilotState === 'queued')
+      ? `${runningModuleKey} · running`
+      : null;
+
   const claimPanel = (
     <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-800">
       <h3 className="text-sm font-bold text-slate-900">Claim safety labels</h3>
@@ -368,9 +528,18 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     </div>
   );
 
+  const safetyStrip = (
+    <div className="rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-[11px] leading-relaxed text-slate-800">
+      <span className="font-bold text-slate-900">Safety: </span>
+      Live and preview outputs are <span className="font-semibold">evidence leads</span>, not final verification. No automatic
+      publication, no automatic blockchain anchoring, no automatic VIU or carbon credit issuance, and no human_verified label
+      unless reviewer data confirms it. Pending live wiring: open the full workspace for authoritative module flows.
+    </div>
+  );
+
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-20 pt-6 text-slate-900">
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className="mx-auto max-w-[1600px] px-3 pb-20 pt-4 text-slate-900">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <button
           type="button"
           onClick={onReturn}
@@ -380,516 +549,601 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
         </button>
       </div>
 
-      <header className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-800">DPAL Command Center</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900">One screen. Multiple ways to run DPAL.</h1>
-        <p className="mt-2 max-w-3xl text-sm text-slate-600">
-          Choose how you want to work today. All modes share the same module registry, orchestration, evidence preview shape,
-          and safety labels — without replacing existing module workspaces.
+      <header className="mb-4 rounded-xl border border-slate-800 bg-slate-950 px-4 py-4 text-slate-50 shadow-md">
+        <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-teal-300">DPAL · Live Mission Console</p>
+        <h1 className="mt-1 text-xl font-bold tracking-tight md:text-2xl">Command Center</h1>
+        <p className="mt-2 max-w-3xl text-xs text-slate-300 md:text-sm">
+          Map-first orchestration with visible autopilot. Full AquaScan, Earth Observation, Plastic Watch, and other workspaces
+          are unchanged — this screen coordinates quick scans and evidence previews only.
         </p>
       </header>
 
-      <section className="mb-8">
-        <h2 className="text-lg font-bold text-slate-900">Choose Your DPAL Workflow</h2>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      {/* Mission bar */}
+      <section className="mb-3 rounded-xl border border-slate-800 bg-slate-900 p-3 shadow-sm md:p-4">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-teal-300">Mission bar</p>
+        <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
+          <label className="min-w-[8rem] flex-1 text-[11px] text-slate-200">
+            <span className="font-semibold">Goal</span>
+            <input
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.goal}
+              onChange={(e) => setCtx((c) => ({ ...c, goal: e.target.value }))}
+            />
+          </label>
+          <label className="min-w-[12rem] flex-[2] text-[11px] text-slate-200">
+            <span className="font-semibold">Location</span>
+            <input
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.locationDescription}
+              onChange={(e) => setCtx((c) => ({ ...c, locationDescription: e.target.value }))}
+            />
+          </label>
+          <label className="w-[7.5rem] text-[11px] text-slate-200">
+            <span className="font-semibold">Lat</span>
+            <input
+              type="number"
+              step="any"
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.latitude}
+              onChange={(e) => setCtx((c) => ({ ...c, latitude: Number(e.target.value) }))}
+            />
+          </label>
+          <label className="w-[7.5rem] text-[11px] text-slate-200">
+            <span className="font-semibold">Lng</span>
+            <input
+              type="number"
+              step="any"
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.longitude}
+              onChange={(e) => setCtx((c) => ({ ...c, longitude: Number(e.target.value) }))}
+            />
+          </label>
+          <label className="w-[6.5rem] text-[11px] text-slate-200">
+            <span className="font-semibold">Radius km</span>
+            <input
+              type="number"
+              min={1}
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.radiusKm}
+              onChange={(e) => setCtx((c) => ({ ...c, radiusKm: Number(e.target.value) || 1 }))}
+            />
+          </label>
+          <label className="w-[9.5rem] text-[11px] text-slate-200">
+            <span className="font-semibold">Baseline</span>
+            <input
+              type="date"
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.baselineDateIso}
+              onChange={(e) => setCtx((c) => ({ ...c, baselineDateIso: e.target.value }))}
+            />
+          </label>
+          <label className="w-[9.5rem] text-[11px] text-slate-200">
+            <span className="font-semibold">Current</span>
+            <input
+              type="date"
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={ctx.currentDateIso}
+              onChange={(e) => setCtx((c) => ({ ...c, currentDateIso: e.target.value }))}
+            />
+          </label>
+          <label className="w-[11rem] text-[11px] text-slate-200">
+            <span className="font-semibold">Run mode</span>
+            <select
+              className="mt-1 w-full rounded border border-slate-600 bg-slate-950 px-2 py-1.5 text-sm text-slate-50"
+              value={runMode}
+              onChange={(e) => setRunMode(e.target.value as 'dry_run' | 'live')}
+            >
+              <option value="dry_run">dry_run (preview)</option>
+              <option value="live">live (wired APIs)</option>
+            </select>
+          </label>
+          <div className="flex flex-wrap gap-2 lg:ml-auto">
+            <button
+              type="button"
+              disabled={busy || !modulesForBatch().length}
+              onClick={() => void startLiveAutopilot()}
+              className="rounded-lg bg-teal-500 px-3 py-2 text-xs font-bold text-slate-950 shadow hover:bg-teal-400 disabled:opacity-50"
+            >
+              Start Live Autopilot
+            </button>
+            <button
+              type="button"
+              disabled={busy || !modulesForBatch().length}
+              onClick={() => void runPreview(modulesForBatch())}
+              className="rounded-lg border border-teal-400 bg-slate-950 px-3 py-2 text-xs font-bold text-teal-200 hover:bg-slate-900 disabled:opacity-50"
+            >
+              {runBatchLabel}
+            </button>
+          </div>
+        </div>
+        {runMode === 'live' ? (
+          <p className="mt-3 text-[10px] text-amber-200">
+            Live mode hits real APIs where wired (Plastic Watch: GET scan). Other modules stay pending_adapter until wired — use
+            Open Full Workspace.
+          </p>
+        ) : null}
+      </section>
+
+      {safetyStrip}
+
+      {/* Main: mode rail | map | autopilot — mobile: map, autopilot, rail, then mode panels */}
+      <div className="mt-4 flex flex-col gap-4 xl:grid xl:grid-cols-[10.5rem_minmax(0,1fr)_18rem] xl:items-start">
+        <nav
+          aria-label="Workflow mode"
+          className="order-4 flex flex-row flex-wrap gap-1 border-slate-200 xl:order-1 xl:flex-col xl:border-r xl:pr-3"
+        >
           {MODE_CARDS.map((m) => (
             <button
               key={m.id}
               type="button"
+              title={`${m.bestFor} — ${m.description}`}
               onClick={() => setWorkflowMode(m.id)}
-              className={`rounded-2xl border p-5 text-left shadow-sm transition ${
+              className={`rounded-lg border px-2 py-1.5 text-left text-[11px] font-semibold transition xl:w-full ${
                 workflowMode === m.id
-                  ? 'border-emerald-500 bg-emerald-50/80 ring-2 ring-emerald-200'
-                  : 'border-slate-200 bg-white hover:border-slate-300'
+                  ? 'border-teal-600 bg-teal-50 text-teal-950 ring-1 ring-teal-500'
+                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
               }`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">Mode</p>
-              <h3 className="mt-1 text-base font-bold text-slate-900">{m.title}</h3>
-              <p className="mt-1 text-[11px] font-semibold text-emerald-900">Best for: {m.bestFor}</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-600">{m.description}</p>
+              <span className="block leading-tight">{m.title}</span>
+              <span className="mt-0.5 block text-[9px] font-normal text-slate-500">{m.bestFor}</span>
             </button>
           ))}
-        </div>
-      </section>
+        </nav>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">Shared context</h2>
-            <p className="mt-1 text-[11px] text-slate-600">Used by Manual, Guided, Watch, and Evidence builder. Investor Demo presets fill these fields.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Goal</span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.goal}
-                  onChange={(e) => setCtx((c) => ({ ...c, goal: e.target.value }))}
-                />
-              </label>
-              <label className="block text-xs sm:col-span-2">
-                <span className="font-semibold text-slate-700">Location description</span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.locationDescription}
-                  onChange={(e) => setCtx((c) => ({ ...c, locationDescription: e.target.value }))}
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Latitude</span>
-                <input
-                  type="number"
-                  step="any"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.latitude}
-                  onChange={(e) => setCtx((c) => ({ ...c, latitude: Number(e.target.value) }))}
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Longitude</span>
-                <input
-                  type="number"
-                  step="any"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.longitude}
-                  onChange={(e) => setCtx((c) => ({ ...c, longitude: Number(e.target.value) }))}
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Radius (km)</span>
-                <input
-                  type="number"
-                  min={1}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.radiusKm}
-                  onChange={(e) => setCtx((c) => ({ ...c, radiusKm: Number(e.target.value) || 1 }))}
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Run mode</span>
-                <select
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={runMode}
-                  onChange={(e) => setRunMode(e.target.value as 'dry_run' | 'live')}
-                >
-                  <option value="dry_run">dry_run — preview frames only</option>
-                  <option value="live">live — real provider quick scans where wired (Plastic Watch uses GET)</option>
-                </select>
-              </label>
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Baseline date</span>
-                <input
-                  type="date"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.baselineDateIso}
-                  onChange={(e) => setCtx((c) => ({ ...c, baselineDateIso: e.target.value }))}
-                />
-              </label>
-              <label className="block text-xs">
-                <span className="font-semibold text-slate-700">Current date</span>
-                <input
-                  type="date"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-2 py-1.5 text-sm"
-                  value={ctx.currentDateIso}
-                  onChange={(e) => setCtx((c) => ({ ...c, currentDateIso: e.target.value }))}
-                />
-              </label>
-            </div>
-            {runMode === 'live' ? (
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-[11px] leading-relaxed text-amber-950">
-                <span className="font-bold">Live mode: </span>
-                Live mode calls real provider APIs and may take longer. Results are evidence leads, not final verification. Command
-                Center does not publish reports, anchor to chain, issue VIUs, or grant human_verified without reviewer data.
-              </div>
-            ) : null}
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <h2 className="text-base font-bold text-slate-900">Command Center map</h2>
-            <p className="mt-1 max-w-3xl text-[11px] leading-relaxed text-slate-600">
-              Leaflet + OpenStreetMap for this control panel only. Google Maps remains the engine for Locator / Lost &amp; Found;
-              Good Wheels keeps its own maps. WRI MapBuilder is scoped as a future Environmental Atlas layer.
-            </p>
+        <div className="order-1 min-w-0 xl:order-2">
+          <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm md:p-4">
+            <h2 className="text-sm font-bold text-slate-900">AOI map</h2>
             {commandCenterMapCenter ? (
-              <p className="mt-2 text-xs font-medium text-slate-800">
+              <p className="mt-1 text-xs font-medium text-slate-700">
                 Live map center: {commandCenterMapCenter.lat.toFixed(5)}, {commandCenterMapCenter.lng.toFixed(5)} · radius{' '}
                 {Number.isFinite(ctx.radiusKm) ? ctx.radiusKm : '—'} km
               </p>
             ) : (
-              <p className="mt-2 text-xs text-amber-800">Enter valid latitude and longitude in shared context to center the map.</p>
+              <p className="mt-1 text-xs text-amber-800">Enter valid coordinates in the mission bar.</p>
             )}
-            <div className="mt-2 flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-800 hover:bg-slate-100"
-                onClick={() => setMapLayoutNonce((n) => n + 1)}
-              >
-                Reset map to current context
-              </button>
-            </div>
-            <div className="mt-4">
+            <button
+              type="button"
+              className="mt-2 rounded border border-slate-300 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-800 hover:bg-slate-100"
+              onClick={() => setMapLayoutNonce((n) => n + 1)}
+            >
+              Reset map to current context
+            </button>
+            <div className="mt-3">
               <CommandCenterMapPanel
                 center={commandCenterMapCenter}
                 radiusKm={ctx.radiusKm}
                 evidenceMarkers={commandCenterEvidenceMarkers}
                 layoutNonce={mapLayoutNonce}
+                runningStatusChip={runningStatusChip}
               />
             </div>
-          </section>
-
-          {workflowMode === 'manual' && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">Manual Scan</h2>
-              <p className="mt-1 text-[11px] text-slate-600">
-                Select modules, then run {runMode === 'live' ? 'live quick scans (wired adapters only)' : 'a unified preview'}. Default
-                for advanced users.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {COMMAND_CENTER_MODULE_REGISTRY.map((row) => (
-                  <label key={row.key} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={manualModules[row.key]}
-                      onChange={() => setManualModules((m) => ({ ...m, [row.key]: !m[row.key] }))}
-                    />
-                    {row.shortLabel}
-                  </label>
-                ))}
-              </div>
-              <button
-                type="button"
-                disabled={busy || selectedManualList.length === 0}
-                onClick={() => void runPreview(selectedManualList)}
-                className="mt-4 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-900 disabled:opacity-50"
-              >
-                {runBatchLabel}
-              </button>
-            </section>
-          )}
-
-          {workflowMode === 'guided' && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">Guided Workflow</h2>
-              <p className="mt-1 text-[11px] text-slate-600">What are you investigating?</p>
-              <div className="mt-3 flex flex-col gap-2">
-                {(
-                  [
-                    ['water', 'Water issue'],
-                    ['pollution', 'Pollution issue'],
-                    ['forest', 'Forest loss'],
-                    ['plastic', 'Plastic risk'],
-                    ['carbon', 'Carbon / impact claim'],
-                    ['full_environmental', 'Full environmental review'],
-                  ] as const
-                ).map(([id, label]) => (
-                  <label key={id} className="flex items-center gap-2 text-sm">
-                    <input type="radio" name="guided" checked={guidedType === id} onChange={() => setGuidedType(id)} />
-                    {label}
-                  </label>
-                ))}
-              </div>
-              <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
-                <p className="font-semibold text-slate-800">Recommended</p>
-                <ul className="mt-2 list-disc pl-4">
-                  {guidedConfirmed.map((k) => (
-                    <li key={k}>{COMMAND_CENTER_MODULE_REGISTRY.find((r) => r.key === k)?.label ?? k}</li>
-                  ))}
-                </ul>
-              </div>
-              <button
-                type="button"
-                disabled={busy || guidedConfirmed.length === 0}
-                onClick={() => void runPreview(guidedConfirmed)}
-                className="mt-4 rounded-lg bg-emerald-800 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-emerald-900 disabled:opacity-50"
-              >
-                {guidedRunLabel}
-              </button>
-            </section>
-          )}
-
-          {workflowMode === 'watch' && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">Watch DPAL Work</h2>
-              <p className="mt-1 text-[11px] text-slate-600">
-                Visible autopilot — uses Manual module selection for the final preview batch. Nothing runs on load.
-              </p>
-              <p className="mt-3 text-xs text-slate-700">
-                Current step:{' '}
-                <span className="font-semibold">
-                  {watchActive ? WATCH_STEPS[watchStepIdx]?.label ?? 'Finishing…' : 'Idle — press Start'}
-                </span>
-                {watchPaused ? <span className="ml-2 text-amber-800">(paused)</span> : null}
-              </p>
-              <ol className="mt-3 list-decimal pl-4 text-xs text-slate-700 space-y-1">
-                {WATCH_STEPS.map((s) => (
-                  <li key={s.id} className={watchDoneSteps.includes(s.id) ? 'text-emerald-800 font-semibold' : ''}>
-                    {s.label}
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={Boolean(watchTimer.current)}
-                  onClick={startWatchPreview}
-                  className="rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
-                >
-                  Start Watch Preview
-                </button>
-                <button type="button" onClick={pauseWatch} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
-                  Pause
-                </button>
-                <button type="button" onClick={continueWatch} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
-                  Continue
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    stopWatchTimer();
-                    setWatchActive(false);
-                  }}
-                  className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                >
-                  Stop
-                </button>
-              </div>
-              <p className="mt-3 text-[11px] text-slate-500">
-                Modules used in the final preview match your Manual Scan checkboxes (see Manual mode to adjust).
-              </p>
-            </section>
-          )}
-
-          {workflowMode === 'superAgent' && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">Super Agent (optional)</h2>
-              <p className="mt-2 text-xs text-slate-700">
-                Super Agent can suggest an investigation plan, but Command Center can run manually without it. This mode does
-                not move or duplicate Super Agent execution — it only proposes steps here.
-              </p>
-              <textarea
-                className="mt-3 w-full rounded-lg border border-slate-300 p-2 text-sm"
-                rows={3}
-                placeholder="Example: Investigate whether this site has water pollution and carbon-risk issues."
-                value={superGoal}
-                onChange={(e) => setSuperGoal(e.target.value)}
-              />
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSuperPlan(suggestPlanFromGoal(superGoal))}
-                  className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold"
-                >
-                  Suggest plan
-                </button>
-                <button type="button" onClick={openFieldOsSuperAgent} className="rounded-lg bg-teal-800 px-3 py-1.5 text-xs font-semibold text-white">
-                  Open Field OS Super Agent
-                </button>
-              </div>
-              {superPlan ? (
-                <div className="mt-4 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
-                  <p className="font-semibold text-slate-800">Suggested plan</p>
-                  <ol className="mt-2 list-decimal pl-4 space-y-1">
-                    {superPlan.lines.map((l, i) => (
-                      <li key={i}>{l}</li>
-                    ))}
-                  </ol>
-                  <button
-                    type="button"
-                    className="mt-3 rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white"
-                    onClick={() => {
-                      const o = {} as Record<CommandCenterModuleKey, boolean>;
-                      ALL_MODULE_KEYS.forEach((k) => {
-                        o[k] = superPlan.modules.includes(k);
-                      });
-                      setManualModules(o);
-                      void runPreview(superPlan.modules);
-                    }}
-                  >
-                    Use This Plan (loads module checkboxes + {runMode === 'live' ? 'live scans' : 'preview'})
-                  </button>
-                </div>
-              ) : null}
-            </section>
-          )}
-
-          {workflowMode === 'evidenceBuilder' && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">Evidence Packet Builder</h2>
-              <p className="mt-1 text-[11px] text-slate-600">Assemble preview sections from the latest Command Center run.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {(Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).map((id) => (
-                  <label key={id} className="flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[11px]">
-                    <input type="checkbox" checked={evidenceSections[id]} onChange={() => toggleEvidenceSection(id)} />
-                    {id}
-                  </label>
-                ))}
-              </div>
-              <button type="button" onClick={buildEvidence} className="mt-4 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
-                Build evidence preview
-              </button>
-                <button
-                  type="button"
-                  className="mt-4 ml-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                  onClick={() => {
-                    const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter(
-                      (k) => evidenceSections[k],
-                    );
-                    const draft = buildEvidencePacketPreview({
-                      title: 'DPAL Command Center — evidence packet preview',
-                      includedSectionIds: ids,
-                      orchestration: orchestration ?? undefined,
-                    });
-                    const text = evidenceDraftToPreviewText(draft);
-                    setEvidencePreviewText(text);
-                    void navigator.clipboard.writeText(text).catch(() => {});
-                  }}
-                >
-                  Copy preview text
-                </button>
-              <p className="mt-2 text-[10px] text-amber-800">Export is preview-only unless a dedicated export service is connected later.</p>
-            </section>
-          )}
-
-          {workflowMode === 'investorDemo' && (
-            <section className="rounded-2xl border border-amber-200 bg-amber-50/40 p-5 shadow-sm">
-              <h2 className="text-base font-bold text-slate-900">Investor Demo Mode</h2>
-              <p className="mt-1 text-xs text-amber-900">
-                Demo / preview framing — presets load coordinates and module checkboxes only. No live provider batch runs from
-                this screen.
-              </p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {COMMAND_CENTER_INVESTOR_PRESETS.map((p) => (
-                  <article key={p.id} className="rounded-xl border border-amber-100 bg-white p-4 text-xs shadow-sm">
-                    <p className="text-[10px] font-bold uppercase text-amber-800">Demo preset</p>
-                    <h3 className="mt-1 text-sm font-bold text-slate-900">{p.title}</h3>
-                    <p className="mt-1 text-slate-600">{p.subtitle}</p>
-                    <p className="mt-2 text-[11px] text-slate-700">{p.limitationNote}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="rounded-lg bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white"
-                        onClick={() => {
-                          applyInvestorPreset(p.id);
-                          void runPreview(p.defaultModules);
-                        }}
-                      >
-                        Load preset + preview
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-lg border border-slate-300 px-2 py-1 text-[11px]"
-                        onClick={() => onNavigate(p.primaryWorkspace as View)}
-                      >
-                        Open module
-                      </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            </section>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          {claimPanel}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs">
-            <h3 className="text-sm font-bold text-slate-900">Evidence packet preview</h3>
-            <textarea
-              className="mt-2 h-48 w-full rounded-lg border border-slate-200 p-2 font-mono text-[11px]"
-              readOnly
-              placeholder="Build evidence preview from Evidence Packet Builder…"
-              value={evidencePreviewText}
-            />
           </div>
         </div>
+
+        <aside className="order-2 min-w-0 xl:order-3">
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-3 text-slate-50 shadow-sm md:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-teal-300">
+              Autopilot · {runMode === 'live' ? 'live' : 'preview'}
+            </p>
+            <p className="mt-1 text-[11px] text-slate-300">
+              {runMode === 'live'
+                ? 'Live autopilot runs wired adapters sequentially. One failed module does not abort the run unless you press Stop.'
+                : 'Preview autopilot — same steps with dry_run / preview adapters only.'}
+            </p>
+            <p className="mt-2 text-[10px] font-semibold uppercase text-slate-400">State: {autopilotState}</p>
+            {backendRunId ? (
+              <p className="mt-1 text-[10px] text-teal-200">Backend run id (reserved): {backendRunId}</p>
+            ) : (
+              <p className="mt-1 text-[10px] text-slate-500">Backend orchestration: local-only until POST /api/command-center/runs exists.</p>
+            )}
+            <ol className="mt-3 max-h-52 list-decimal space-y-1 overflow-y-auto pl-4 text-[11px] text-slate-200">
+              {autopilotSteps.length === 0 ? (
+                <li className="text-slate-500">Idle — press Start Live Autopilot.</li>
+              ) : (
+                autopilotSteps.map((s, idx) => (
+                  <li
+                    key={s.id}
+                    className={
+                      idx < autopilotStepIndex
+                        ? 'text-teal-300'
+                        : idx === autopilotStepIndex && autopilotState === 'running'
+                          ? 'font-bold text-white'
+                          : ''
+                    }
+                  >
+                    {s.label}
+                    {s.kind === 'module' && s.module && runMode === 'live' ? (
+                      <span className="block text-[9px] font-normal text-slate-500">
+                        {s.module === 'plasticWatch'
+                          ? 'Uses GET /api/hyperspectral-plastic-watch/scan when live.'
+                          : 'Pending live wiring — open full workspace.'}
+                      </span>
+                    ) : null}
+                  </li>
+                ))
+              )}
+            </ol>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={busy || !modulesForBatch().length}
+                onClick={() => void startLiveAutopilot()}
+                className="rounded bg-teal-500 px-2 py-1.5 text-[11px] font-bold text-slate-950 disabled:opacity-50"
+              >
+                Start
+              </button>
+              <button
+                type="button"
+                disabled={autopilotState !== 'running' && autopilotState !== 'queued'}
+                onClick={pauseAutopilot}
+                className="rounded border border-slate-500 px-2 py-1.5 text-[11px] text-slate-100 disabled:opacity-40"
+              >
+                Pause
+              </button>
+              <button
+                type="button"
+                disabled={autopilotState !== 'paused'}
+                onClick={continueAutopilot}
+                className="rounded border border-slate-500 px-2 py-1.5 text-[11px] text-slate-100 disabled:opacity-40"
+              >
+                Continue
+              </button>
+              <button type="button" onClick={stopAutopilot} className="rounded border border-red-400/60 px-2 py-1.5 text-[11px] text-red-200">
+                Stop
+              </button>
+            </div>
+            {currentAutopilotModuleView ? (
+              <button
+                type="button"
+                className="mt-3 w-full rounded-lg border border-teal-400/50 py-2 text-[11px] font-semibold text-teal-200 hover:bg-slate-800"
+                onClick={() => onNavigate(currentAutopilotModuleView)}
+              >
+                Open Full Workspace for current step
+              </button>
+            ) : null}
+          </div>
+        </aside>
       </div>
 
-      {orchestration ? (
-        <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-base font-bold text-slate-900">Shared result grid</h2>
-            <span className="text-[11px] text-slate-500">
-              Settled at {orchestration.settledAtIso} · mode {orchestration.runMode}
-            </span>
-          </div>
-          {orchestration.orchestrationWarnings.length ? (
-            <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
-              {orchestration.orchestrationWarnings.join(' · ')}
+      {/* Mode-specific panels */}
+      <div className="mt-6 space-y-4">
+        {workflowMode === 'manual' && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">Manual Scan</h2>
+            <p className="mt-1 text-[11px] text-slate-600">
+              Modules included in autopilot and in &quot;{runBatchLabel}&quot; (mission bar). Plastic Watch live uses GET; others
+              show pending_adapter until wired.
             </p>
-          ) : null}
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {orchestration.results.map((r) => (
-              <article key={r.moduleKey} className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="font-bold text-slate-900">{r.moduleKey}</h3>
-                  <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">{r.status}</span>
-                </div>
-                <p className="mt-1 text-[10px] text-slate-500">
-                  runMode: <span className="font-semibold text-slate-700">{r.runMode}</span>
-                </p>
-                <p className="mt-2 text-slate-800">{r.headline}</p>
-                {r.errorMessage ? (
-                  <p className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-900">{r.errorMessage}</p>
-                ) : null}
-                <div className="mt-2">
-                  <p className="text-[10px] font-semibold uppercase text-slate-500">Limitations</p>
-                  <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-600">
-                    {r.limitations.map((l, i) => (
-                      <li key={i}>{l}</li>
-                    ))}
-                  </ul>
-                </div>
-                <div className="mt-2">
-                  <p className="text-[10px] font-semibold uppercase text-slate-500">Provider lanes</p>
-                  <ul className="mt-1 space-y-1 text-[11px]">
-                    {r.providerLanes.map((p) => (
-                      <li key={p.id}>
-                        {p.label}: <span className="font-semibold">{p.state}</span>
-                        {p.detail ? <span className="text-slate-500"> — {p.detail}</span> : null}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                {r.evidenceRefs.length ? (
-                  <div className="mt-2">
-                    <p className="text-[10px] font-semibold uppercase text-slate-500">Evidence refs</p>
-                    <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-600">
-                      {r.evidenceRefs.map((er) => (
-                        <li key={er.id}>
-                          {er.href ? (
-                            <a href={er.href} className="text-emerald-900 underline" target="_blank" rel="noreferrer">
-                              {er.label}
-                            </a>
-                          ) : (
-                            er.label
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-                {r.openWorkspaceView ? (
-                  <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-3">
+              {COMMAND_CENTER_MODULE_REGISTRY.map((row) => (
+                <label key={row.key} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={manualModules[row.key]}
+                    onChange={() => setManualModules((m) => ({ ...m, [row.key]: !m[row.key] }))}
+                  />
+                  {row.shortLabel}
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {workflowMode === 'guided' && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">Guided Workflow</h2>
+            <div className="mt-3 flex flex-col gap-2">
+              {(
+                [
+                  ['water', 'Water issue'],
+                  ['pollution', 'Pollution issue'],
+                  ['forest', 'Forest loss'],
+                  ['plastic', 'Plastic risk'],
+                  ['carbon', 'Carbon / impact claim'],
+                  ['full_environmental', 'Full environmental review'],
+                ] as const
+              ).map(([id, label]) => (
+                <label key={id} className="flex items-center gap-2 text-sm">
+                  <input type="radio" name="guided" checked={guidedType === id} onChange={() => setGuidedType(id)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+            <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
+              <p className="font-semibold text-slate-800">Recommended</p>
+              <ul className="mt-2 list-disc pl-4">
+                {guidedConfirmed.map((k) => (
+                  <li key={k}>{COMMAND_CENTER_MODULE_REGISTRY.find((r) => r.key === k)?.label ?? k}</li>
+                ))}
+              </ul>
+            </div>
+            <button
+              type="button"
+              disabled={busy || guidedConfirmed.length === 0}
+              onClick={() => void runPreview(guidedConfirmed)}
+              className="mt-3 rounded-lg bg-emerald-800 px-3 py-2 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {guidedRunLabel}
+            </button>
+          </section>
+        )}
+
+        {workflowMode === 'watch' && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">Watch DPAL Work</h2>
+            <p className="mt-1 text-xs text-slate-700">
+              Step animation then batch preview using Manual module checkboxes. Nothing runs on load.
+            </p>
+            <p className="mt-2 text-xs">
+              Step:{' '}
+              <span className="font-semibold">
+                {watchActive ? WATCH_STEPS[watchStepIdx]?.label ?? 'Finishing…' : 'Idle'}
+              </span>
+              {watchPaused ? <span className="ml-2 text-amber-800">(paused)</span> : null}
+            </p>
+            <ol className="mt-2 list-decimal pl-4 text-xs text-slate-700">
+              {WATCH_STEPS.map((s) => (
+                <li key={s.id} className={watchDoneSteps.includes(s.id) ? 'font-semibold text-emerald-800' : ''}>
+                  {s.label}
+                </li>
+              ))}
+            </ol>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={Boolean(watchTimer.current)}
+                onClick={startWatchPreview}
+                className="rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+              >
+                Start Watch Preview
+              </button>
+              <button type="button" onClick={pauseWatch} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
+                Pause
+              </button>
+              <button type="button" onClick={continueWatch} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs">
+                Continue
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  stopWatchTimer();
+                  setWatchActive(false);
+                }}
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+              >
+                Stop
+              </button>
+            </div>
+          </section>
+        )}
+
+        {workflowMode === 'superAgent' && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">Super Agent (optional)</h2>
+            <textarea
+              className="mt-2 w-full rounded-lg border border-slate-300 p-2 text-sm"
+              rows={3}
+              placeholder="Investigation goal…"
+              value={superGoal}
+              onChange={(e) => setSuperGoal(e.target.value)}
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSuperPlan(suggestPlanFromGoal(superGoal))}
+                className="rounded-lg border border-slate-300 bg-slate-50 px-3 py-1.5 text-xs font-semibold"
+              >
+                Suggest plan
+              </button>
+              <button type="button" onClick={openFieldOsSuperAgent} className="rounded-lg bg-teal-800 px-3 py-1.5 text-xs font-semibold text-white">
+                Open Field OS Super Agent
+              </button>
+            </div>
+            {superPlan ? (
+              <div className="mt-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-xs">
+                <ol className="list-decimal pl-4">
+                  {superPlan.lines.map((l, i) => (
+                    <li key={i}>{l}</li>
+                  ))}
+                </ol>
+                <button
+                  type="button"
+                  className="mt-2 rounded-lg bg-emerald-800 px-3 py-1.5 text-xs font-semibold text-white"
+                  onClick={() => {
+                    const o = {} as Record<CommandCenterModuleKey, boolean>;
+                    ALL_MODULE_KEYS.forEach((k) => {
+                      o[k] = superPlan.modules.includes(k);
+                    });
+                    setManualModules(o);
+                    void runPreview(superPlan.modules);
+                  }}
+                >
+                  Use plan + {runMode === 'live' ? 'live scans' : 'preview'}
+                </button>
+              </div>
+            ) : null}
+          </section>
+        )}
+
+        {workflowMode === 'evidenceBuilder' && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">Evidence Packet Builder</h2>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).map((id) => (
+                <label key={id} className="flex items-center gap-1 rounded border border-slate-200 px-2 py-1 text-[11px]">
+                  <input type="checkbox" checked={evidenceSections[id]} onChange={() => toggleEvidenceSection(id)} />
+                  {id}
+                </label>
+              ))}
+            </div>
+            <button type="button" onClick={buildEvidence} className="mt-3 rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white">
+              Build evidence preview
+            </button>
+            <button
+              type="button"
+              className="mt-3 ml-2 rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
+              onClick={() => {
+                const ids = (Object.keys(evidenceSections) as EvidencePacketDraftSectionId[]).filter((k) => evidenceSections[k]);
+                const draft = buildEvidencePacketPreview({
+                  title: 'DPAL Command Center — evidence packet preview',
+                  includedSectionIds: ids,
+                  orchestration: orchestration ?? undefined,
+                });
+                const text = evidenceDraftToPreviewText(draft);
+                setEvidencePreviewText(text);
+                void navigator.clipboard.writeText(text).catch(() => {});
+              }}
+            >
+              Copy preview
+            </button>
+          </section>
+        )}
+
+        {workflowMode === 'investorDemo' && (
+          <section className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-900">Investor Demo presets</h2>
+            <p className="mt-1 text-xs text-amber-900">Loads coordinates and module checkboxes; use mission bar to run preview or autopilot.</p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              {COMMAND_CENTER_INVESTOR_PRESETS.map((p) => (
+                <article key={p.id} className="rounded-lg border border-amber-100 bg-white p-3 text-xs shadow-sm">
+                  <h3 className="font-bold text-slate-900">{p.title}</h3>
+                  <p className="mt-1 text-slate-600">{p.subtitle}</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
                     <button
                       type="button"
-                      className="rounded-lg bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white shadow hover:bg-emerald-900"
-                      onClick={() => onNavigate(r.openWorkspaceView as View)}
+                      className="rounded bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white"
+                      onClick={() => {
+                        applyInvestorPreset(p.id);
+                        void runPreview(p.defaultModules);
+                      }}
                     >
-                      Open Full Workspace
+                      Load + preview
                     </button>
                     <button
                       type="button"
-                      className="rounded-lg border border-emerald-300 px-2 py-1 text-[11px] text-emerald-900"
-                      onClick={() => openModuleWithWatch(r.openWorkspaceView as View)}
+                      className="rounded border border-slate-300 px-2 py-1 text-[11px]"
+                      onClick={() => onNavigate(p.primaryWorkspace as View)}
                     >
-                      Open with Watch hash
+                      Open module
                     </button>
                   </div>
-                ) : null}
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* Lower: results + evidence + claims */}
+      <section className="mt-8 space-y-6">
+        <h2 className="text-base font-bold text-slate-900">Live provider results</h2>
+        {orchestration ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-[11px] text-slate-500">
+                Settled at {orchestration.settledAtIso} · batch runMode {orchestration.runMode}
+              </p>
+            </div>
+            {orchestration.orchestrationWarnings.length ? (
+              <p className="mt-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-900">
+                {orchestration.orchestrationWarnings.join(' · ')}
+              </p>
+            ) : null}
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              {orchestration.results.map((r) => {
+                const warn =
+                  r.status === 'error' || r.status === 'rate_limited' || r.status === 'unavailable'
+                    ? 'border-amber-300 bg-amber-50/50'
+                    : 'border-slate-100 bg-slate-50';
+                return (
+                  <article key={r.moduleKey} className={`rounded-xl border p-4 text-xs ${warn}`}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h3 className="font-bold text-slate-900">{r.moduleKey}</h3>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-700">{r.status}</span>
+                    </div>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      runMode: <span className="font-semibold text-slate-700">{r.runMode}</span>
+                    </p>
+                    <p className="mt-2 text-slate-800">{r.headline}</p>
+                    {r.errorMessage ? (
+                      <p className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] text-red-900">{r.errorMessage}</p>
+                    ) : null}
+                    <div className="mt-2">
+                      <p className="text-[10px] font-semibold uppercase text-slate-500">Limitations</p>
+                      <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-600">
+                        {r.limitations.map((l, i) => (
+                          <li key={i}>{l}</li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="mt-2">
+                      <p className="text-[10px] font-semibold uppercase text-slate-500">Provider lanes</p>
+                      <ul className="mt-1 space-y-1 text-[11px]">
+                        {r.providerLanes.map((p) => (
+                          <li key={p.id}>
+                            {p.label}: <span className="font-semibold">{p.state}</span>
+                            {p.detail ? <span className="text-slate-500"> — {p.detail}</span> : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    {r.evidenceRefs.length ? (
+                      <div className="mt-2">
+                        <p className="text-[10px] font-semibold uppercase text-slate-500">Evidence refs</p>
+                        <ul className="mt-1 list-disc pl-4 text-[11px] text-slate-600">
+                          {r.evidenceRefs.map((er) => (
+                            <li key={er.id}>
+                              {er.href ? (
+                                <a href={er.href} className="text-emerald-900 underline" target="_blank" rel="noreferrer">
+                                  {er.label}
+                                </a>
+                              ) : (
+                                er.label
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {r.openWorkspaceView ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="rounded-lg bg-emerald-800 px-2 py-1 text-[11px] font-semibold text-white shadow hover:bg-emerald-900"
+                          onClick={() => onNavigate(r.openWorkspaceView as View)}
+                        >
+                          Open Full Workspace
+                        </button>
+                        <button
+                          type="button"
+                          className="rounded-lg border border-emerald-300 px-2 py-1 text-[11px] text-emerald-900"
+                          onClick={() => openModuleWithWatch(r.openWorkspaceView as View)}
+                        >
+                          Open with Watch hash
+                        </button>
+                      </div>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
           </div>
-        </section>
-      ) : null}
+        ) : (
+          <p className="text-sm text-slate-500">Run scans or autopilot to populate provider cards.</p>
+        )}
+
+        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h3 className="text-sm font-bold text-slate-900">Evidence packet preview</h3>
+          <textarea
+            className="mt-2 h-48 w-full rounded-lg border border-slate-200 p-2 font-mono text-[11px]"
+            readOnly
+            placeholder="Autopilot step 8 or Evidence Builder fills this…"
+            value={evidencePreviewText}
+          />
+        </div>
+
+        {claimPanel}
+      </section>
     </div>
   );
 };

@@ -28,6 +28,8 @@ export type CommandCenterMapPanelProps = {
   aoiPolygon?: Array<{ lat: number; lng: number }>;
   /** Bump to force Leaflet remount (e.g. “Recenter on context”). */
   layoutNonce?: number;
+  /** Optional status overlay while a module step is executing (e.g. “plasticWatch · running”). */
+  runningStatusChip?: string | null;
 };
 
 const OSM_TILE = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -58,6 +60,7 @@ export const CommandCenterMapPanel: React.FC<CommandCenterMapPanelProps> = ({
   evidenceMarkers = [],
   aoiPolygon,
   layoutNonce = 0,
+  runningStatusChip,
 }) => {
   const [tileError, setTileError] = React.useState(false);
 
@@ -96,9 +99,14 @@ export const CommandCenterMapPanel: React.FC<CommandCenterMapPanelProps> = ({
         </div>
       ) : null}
       <div
-        className="h-[min(420px,55vh)] min-h-[280px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+        className="relative h-[min(420px,55vh)] min-h-[280px] w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
         style={{ minHeight: 280 }}
       >
+        {runningStatusChip ? (
+          <div className="pointer-events-none absolute right-2 top-2 z-[500] max-w-[min(100%,14rem)] rounded-md border border-cyan-800/40 bg-cyan-950/90 px-2 py-1 text-[10px] font-semibold text-cyan-50 shadow-md">
+            {runningStatusChip}
+          </div>
+        ) : null}
         <MapContainer
           key={`${center.lat.toFixed(5)},${center.lng.toFixed(5)},${layoutNonce}`}
           center={[center.lat, center.lng]}
