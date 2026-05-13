@@ -126,6 +126,8 @@ export const API_ROUTES = {
   HYPERSPECTRAL_PLASTIC_DRONE_VALIDATION_REQUEST: '/api/hyperspectral-plastic-watch/drone/validation-request',
   /** Persistent project workflow assistant */
   DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
+  /** POST — AI Report Reader (Gemini when configured; deterministic fallback). */
+  DPAL_ASSISTANT_REPORT_READER_CHAT: '/api/dpal-assistant/report-reader/chat',
   /** DPAL Water Monitor + Verified Water Impact Credits */
   WATER_PROJECTS: '/api/water/projects',
   WATER_CREDITS: '/api/water/credits',

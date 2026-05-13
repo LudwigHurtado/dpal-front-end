@@ -9,6 +9,7 @@
     "start": "npx prisma db push --schema=./prisma/schema.prisma && node dist/index.js",
     "smoke:carb": "npm run build && node dist/scripts/checkCarbLiveHealth.js",
     "smoke:forest-integrity": "npm run build && node dist/scripts/smokeForestIntegrity.js",
+    "smoke:report-reader": "npx tsx src/scripts/smokeReportReaderChat.ts",
     "test:plastic-watch": "npx tsx src/services/hyperspectral/plasticWatch.selftest.ts && npx tsx src/services/hyperspectral/plasticWatch.routeScan.selftest.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

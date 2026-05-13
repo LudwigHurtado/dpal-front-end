@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import type { ChatMessage } from '../../types';
 import type { SituationRoomRecord, SituationRoomSourceType } from '../../services/situationRoomService';
+import AiReportReaderChatBox from '../../src/features/aiReportReader/AiReportReaderChatBox';
+import { buildAiReportReaderContext } from '../../src/features/aiReportReader/reportReaderChatApi';
 import {
   buildSituationRoomUrl,
   buildTransparencyUrl,
@@ -76,6 +78,24 @@ export default function SituationRoomShell(props: Props): React.ReactElement {
   useEffect(() => {
     void generateEvidenceHash(props.evidencePacket).then(setEvidenceHash).catch(() => setEvidenceHash(''));
   }, [props.evidencePacket]);
+
+  const aiSnapshot = useMemo(
+    () =>
+      buildAiReportReaderContext({
+        pageType: 'situation_room',
+        roomId: props.roomId,
+        reportId: props.reportId,
+        title: props.title,
+        category: props.category,
+        location: props.location,
+        evidencePacket: props.evidencePacket,
+        ledger: props.ledger,
+        limitations: ['Image bytes are not sent to the reader unless OCR is explicitly attached in context.'],
+        currentVisibleSections: ['coordination', tab, 'verification', 'ledger_qr'],
+        sourcePayload: { aiSummary: props.aiSummary },
+      }),
+    [props.roomId, props.reportId, props.title, props.category, props.location, props.evidencePacket, props.ledger, props.aiSummary, tab],
+  );
 
   const sendDraft = async (): Promise<void> => {
     if (!draft.trim()) return;
@@ -180,6 +200,15 @@ export default function SituationRoomShell(props: Props): React.ReactElement {
           </div>
         ) : null}
       </section>
+
+      <AiReportReaderChatBox
+        title={props.title}
+        reportId={props.reportId}
+        roomId={props.roomId}
+        reportSnapshot={aiSnapshot}
+        evidencePacket={props.evidencePacket}
+        defaultOpen={false}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { GoogleGenAI } from '@google/genai';
+import { handleReportReaderChat } from '../services/dpalReportReaderChatService';
 
 const router = Router();
 
@@ -158,6 +159,16 @@ currentStep,nextStep,plainEnglishExplanation,missingItems,warnings,recommendedAc
     });
   } catch {
     return res.json(base);
+  }
+});
+
+router.post('/report-reader/chat', async (req, res) => {
+  try {
+    const out = await handleReportReaderChat(req.body ?? {});
+    return res.json(out);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return res.status(500).json({ ok: false, error: 'report_reader_failed', message: msg });
   }
 });
 
