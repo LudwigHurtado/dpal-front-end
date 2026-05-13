@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -8,6 +9,17 @@ import {
 import ProjectDetailView from './ProjectDetailView';
 import MRVResultsView from './MRVResultsView';
 import DpalCarbonViuCalculator from './DpalCarbonViuCalculator';
+import {
+  AFOLU_AUTOPILOT_TARGETS,
+  AUTOPILOT_MODES,
+  AutopilotControlBar,
+  AutopilotSpotlight,
+  getAutopilotStepsForMode,
+  useVisibleAutopilot,
+  VisibleAutopilotCursor,
+} from '../src/features/dpalNavigator';
+import type { AfoluVerificationPdfResult } from '../services/afoluVerificationPdfService';
+import { downloadAfoluVerificationPdf, generateAfoluVerificationPdf } from '../services/afoluVerificationPdfService';
 
 type AfoluTab =
   | 'home'
@@ -973,6 +985,25 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const projectAssets = assets.filter((asset) => asset.projectId === selectedProject.id);
   const projectEvidence = evidence.filter((item) => item.projectId === selectedProject.id);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const autopilotMode = searchParams.get('autopilotMode');
+  const autopilotEnabled =
+    searchParams.get('autopilot') === 'true' && autopilotMode === AUTOPILOT_MODES.afoluProofWalkthrough;
+  const autopilotSteps = useMemo(() => getAutopilotStepsForMode(autopilotMode) ?? [], [autopilotMode]);
+  const autopilot = useVisibleAutopilot({
+    enabled: autopilotEnabled && autopilotSteps.length > 0,
+    steps: autopilotSteps,
+  });
+  const autopilotAutoRun = searchParams.get('autoRun') === 'true';
+  const autopilotShowCursor = searchParams.get('showCursor') !== 'false';
+  const [afoluPdf, setAfoluPdf] = useState<AfoluVerificationPdfResult | null>(null);
+  const [afoluPdfBusy, setAfoluPdfBusy] = useState(false);
+  const [afoluPdfErr, setAfoluPdfErr] = useState<string | null>(null);
+  const [qrSimulatedAt, setQrSimulatedAt] = useState<string | null>(null);
+  const [verifyBanner, setVerifyBanner] = useState<string | null>(null);
+  const autopilotStartedRef = useRef(false);
+  const lastAutopilotPdfStepRef = useRef(-1);
+
   const totals = useMemo(() => {
     const hectares = projects.reduce((sum, project) => sum + project.hectares, 0);
     const planted = projects.reduce((sum, project) => sum + project.treesPlanted, 0);
@@ -1187,6 +1218,150 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
       cb();
       setLoadingLabel(null);
     }, 450);
+  };
+
+  const tabDataTarget = (tabId: AfoluTab): string | undefined => {
+    if (tabId === 'missions') return AFOLU_AUTOPILOT_TARGETS.tabMissions;
+    if (tabId === 'assets') return AFOLU_AUTOPILOT_TARGETS.tabAssets;
+    if (tabId === 'evidence') return AFOLU_AUTOPILOT_TARGETS.tabEvidence;
+    if (tabId === 'reports') return AFOLU_AUTOPILOT_TARGETS.tabReports;
+    return undefined;
+  };
+
+  const startAfoluProofWalkthrough = () => {
+    const usp = new URLSearchParams(searchParams);
+    usp.set('autopilot', 'true');
+    usp.set('autopilotMode', AUTOPILOT_MODES.afoluProofWalkthrough);
+    usp.set('autoRun', 'true');
+    usp.set('showCursor', 'true');
+    setSearchParams(usp, { replace: true });
+    setSurfaceView('dashboard');
+  };
+
+  useEffect(() => {
+    if (searchParams.get('afoluVerify') === '1' && searchParams.get('projectId')) {
+      const pid = searchParams.get('projectId');
+      setVerifyBanner(
+        `Verification link opened for project ${pid ?? ''}. This is an in-app summary route only — compare any PDF fingerprint with your records before relying on it.`,
+      );
+    } else {
+      setVerifyBanner(null);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!autopilotEnabled) {
+      autopilotStartedRef.current = false;
+    }
+  }, [autopilotEnabled]);
+
+  useEffect(() => {
+    if (!autopilotEnabled || !autopilotAutoRun) {
+      autopilotStartedRef.current = false;
+      return;
+    }
+    if (autopilotStartedRef.current) return;
+    const t = window.setTimeout(() => {
+      autopilot.start();
+      autopilotStartedRef.current = true;
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('autoRun');
+        return next;
+      }, { replace: true });
+    }, 520);
+    return () => window.clearTimeout(t);
+  }, [autopilotEnabled, autopilotAutoRun, autopilot.start, setSearchParams]);
+
+  useEffect(() => {
+    if (autopilot.status === 'running' && autopilot.stepIndex === 0) {
+      lastAutopilotPdfStepRef.current = -1;
+    }
+  }, [autopilot.status, autopilot.stepIndex]);
+
+  useEffect(() => {
+    if (!autopilotEnabled || !autopilot.isActive || !autopilot.currentStep) return;
+    setSurfaceView('dashboard');
+    const id = autopilot.currentStep.id;
+    if (id === 'afolu_step_home') setActiveTab('home');
+    else if (id === 'afolu_step_missions') setActiveTab('missions');
+    else if (id === 'afolu_step_launch') setActiveTab('home');
+    else if (id === 'afolu_step_assets') setActiveTab('assets');
+    else if (id === 'afolu_step_qr_sim') {
+      setActiveTab('assets');
+      setQrSimulatedAt(new Date().toISOString());
+    } else if (id === 'afolu_step_evidence') setActiveTab('evidence');
+    else if (id === 'afolu_step_reports') setActiveTab('reports');
+    else if (id === 'afolu_step_generate_pdf') {
+      setActiveTab('reports');
+      if (lastAutopilotPdfStepRef.current !== autopilot.stepIndex) {
+        lastAutopilotPdfStepRef.current = autopilot.stepIndex;
+        setAfoluPdfErr(null);
+        setAfoluPdfBusy(true);
+        void generateAfoluVerificationPdf({
+          projectId: selectedProject.id,
+          projectName: selectedProject.name,
+          country: selectedProject.country,
+          region: selectedProject.region,
+          hectares: selectedProject.hectares,
+          creditsGenerated: selectedProject.creditsGenerated,
+          verificationScore: selectedProject.aiVerificationConfidence,
+          observedClaims: [
+            `${selectedProject.treesPlanted.toLocaleString()} seedlings planted`,
+            `${selectedProject.hectares.toLocaleString()} hectares monitored`,
+            `${projectMissions.length} linked missions`,
+            `${projectEvidence.length} evidence records`,
+          ],
+        })
+          .then((r) => setAfoluPdf(r))
+          .catch((e: unknown) => setAfoluPdfErr(e instanceof Error ? e.message : 'PDF failed'))
+          .finally(() => setAfoluPdfBusy(false));
+      }
+    }
+  }, [
+    autopilotEnabled,
+    autopilot.isActive,
+    autopilot.currentStep?.id,
+    autopilot.stepIndex,
+    autopilot.status,
+    selectedProject.id,
+    selectedProject.name,
+    selectedProject.country,
+    selectedProject.region,
+    selectedProject.hectares,
+    selectedProject.creditsGenerated,
+    selectedProject.aiVerificationConfidence,
+    selectedProject.treesPlanted,
+    projectMissions.length,
+    projectEvidence.length,
+  ]);
+
+  const handleAfoluPdfDownload = async () => {
+    setAfoluPdfErr(null);
+    setAfoluPdfBusy(true);
+    try {
+      const r = await downloadAfoluVerificationPdf({
+        projectId: selectedProject.id,
+        projectName: selectedProject.name,
+        country: selectedProject.country,
+        region: selectedProject.region,
+        hectares: selectedProject.hectares,
+        creditsGenerated: selectedProject.creditsGenerated,
+        verificationScore: selectedProject.aiVerificationConfidence,
+        observedClaims: [
+          `${selectedProject.treesPlanted.toLocaleString()} seedlings planted`,
+          `${selectedProject.hectares.toLocaleString()} hectares monitored`,
+          `${projectMissions.length} linked missions`,
+          `${projectEvidence.length} evidence records`,
+          `${selectedProject.creditsGenerated.toLocaleString()} credits generated`,
+        ],
+      });
+      setAfoluPdf(r);
+    } catch (e: unknown) {
+      setAfoluPdfErr(e instanceof Error ? e.message : 'PDF export failed');
+    } finally {
+      setAfoluPdfBusy(false);
+    }
   };
 
   const projectDetailData = useMemo(() => ({
@@ -1441,12 +1616,21 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
           </div>
           <div className="flex flex-wrap gap-2">
             <button
+              type="button"
+              onClick={startAfoluProofWalkthrough}
+              className="rounded-lg border border-cyan-500/50 bg-cyan-950/40 px-4 py-2 text-xs font-bold text-cyan-100 hover:border-cyan-400 hover:text-white"
+            >
+              Watch full proof path
+            </button>
+            <button
               onClick={openProjectSetup}
               className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500"
             >
               Create Project
             </button>
             <button
+              type="button"
+              data-dpal-target={AFOLU_AUTOPILOT_TARGETS.headerLaunchMission}
               onClick={() => {
                 setMissionBuilderStep(0);
                 setSelectedMissionType('Plant Trees');
@@ -1492,10 +1676,11 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
             { title: '3. Missions & Evidence', detail: 'Launch work and capture proof in order', onClick: () => setActiveTab('missions') },
             { title: '4. MRV Review', detail: 'Check monitoring and verification before packaging', onClick: () => setSurfaceView('mrvResults') },
             { title: '5. Buyer Package', detail: 'Move the supported project into commercial prep', onClick: () => setSurfaceView('buyerPackage') },
-          ].map(({ title, detail, onClick }) => (
+          ].map(({ title, detail, onClick }, idx) => (
             <button
               key={title}
               type="button"
+              data-dpal-target={idx === 0 ? AFOLU_AUTOPILOT_TARGETS.workflowIntro : undefined}
               onClick={onClick}
               className="rounded-lg border border-slate-800 bg-slate-900/80 p-4 text-left transition hover:border-emerald-500"
             >
@@ -1509,6 +1694,8 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              type="button"
+              data-dpal-target={tabDataTarget(tab.id)}
               onClick={() => setActiveTab(tab.id)}
               className={`shrink-0 rounded-lg border px-3 py-2 text-xs font-bold transition ${
                 activeTab === tab.id
@@ -1925,6 +2112,19 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
               <h2 className="text-lg font-black text-white">QR Payload Preview</h2>
               <p className="mt-1 text-sm text-slate-400">QR tags should attach to plots, clusters, nursery batches, checkpoints, and routes.</p>
               <pre className="mt-4 overflow-x-auto rounded-lg border border-slate-800 bg-black/40 p-4 text-xs text-emerald-100">{JSON.stringify(qrPayload, null, 2)}</pre>
+              <button
+                type="button"
+                data-dpal-target={AFOLU_AUTOPILOT_TARGETS.qrSimulate}
+                onClick={() => setQrSimulatedAt(new Date().toISOString())}
+                className="mt-4 w-full rounded-lg border border-cyan-500/40 bg-cyan-950/30 px-3 py-2 text-xs font-bold text-cyan-100 hover:border-cyan-400 hover:text-white"
+              >
+                Simulate field QR scan (local demo)
+              </button>
+              {qrSimulatedAt ? (
+                <p className="mt-2 text-[11px] text-emerald-200">
+                  Last simulated scan (browser clock): {qrSimulatedAt} — payload above would open a verification route on a production handset workflow.
+                </p>
+              ) : null}
               <div className="mt-4 grid gap-2 text-xs text-slate-300">
                 {['Open asset page', 'Show mission history', 'Upload new evidence', 'Mark visit', 'Verify condition'].map((action) => (
                   <div key={action} className="rounded-lg border border-slate-800 bg-slate-950 p-2">{action}</div>
@@ -2101,50 +2301,124 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
         )}
 
         {activeTab === 'reports' && (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-4">
+            {verifyBanner ? (
+              <Card className="border-cyan-500/30 bg-cyan-950/25">
+                <p className="text-sm text-cyan-50">{verifyBanner}</p>
+              </Card>
+            ) : null}
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card>
+                <h2 className="text-lg font-black text-white">Observed Claims</h2>
+                <p className="mt-1 text-sm text-slate-400">Hard facts collected from missions and evidence.</p>
+                <div className="mt-4 space-y-2">
+                  {[
+                    `${selectedProject.treesPlanted.toLocaleString()} seedlings planted`,
+                    `${selectedProject.hectares.toLocaleString()} hectares monitored`,
+                    `${projectMissions.length} linked missions`,
+                    `${projectEvidence.length} evidence records in current proof stack`,
+                    `${selectedProject.creditsGenerated.toLocaleString()} credits generated`,
+                  ].map((claim) => (
+                    <div key={claim} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{claim}</div>
+                  ))}
+                </div>
+              </Card>
+              <Card>
+                <h2 className="text-lg font-black text-white">Estimated Impact Claims</h2>
+                <p className="mt-1 text-sm text-slate-400">Modeled outputs stay separate until a validated methodology supports them.</p>
+                <div className="mt-4 space-y-2">
+                  {[
+                    `Estimated sequestration: ${selectedProject.co2CapturedTons.toLocaleString()} tons CO2`,
+                    `Estimated credit value: ${usd(selectedProject.creditsGenerated * selectedProject.pricePerCreditUsd)}`,
+                    'Projected biodiversity uplift: methodology attachment required',
+                    'Projected watershed benefit: methodology attachment required',
+                  ].map((claim) => (
+                    <div key={claim} className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-100">{claim}</div>
+                  ))}
+                </div>
+              </Card>
+            </div>
             <Card>
-              <h2 className="text-lg font-black text-white">Observed Claims</h2>
-              <p className="mt-1 text-sm text-slate-400">Hard facts collected from missions and evidence.</p>
-              <div className="mt-4 space-y-2">
-                {[
-                  `${selectedProject.treesPlanted.toLocaleString()} seedlings planted`,
-                  `${selectedProject.hectares.toLocaleString()} hectares monitored`,
-                  `${projectMissions.length} linked missions`,
-                  `${projectEvidence.length} evidence records in current proof stack`,
-                  `${selectedProject.creditsGenerated.toLocaleString()} credits generated`,
-                ].map((claim) => (
-                  <div key={claim} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-100">{claim}</div>
-                ))}
-              </div>
-            </Card>
-            <Card>
-              <h2 className="text-lg font-black text-white">Estimated Impact Claims</h2>
-              <p className="mt-1 text-sm text-slate-400">Modeled outputs stay separate until a validated methodology supports them.</p>
-              <div className="mt-4 space-y-2">
-                {[
-                  `Estimated sequestration: ${selectedProject.co2CapturedTons.toLocaleString()} tons CO2`,
-                  `Estimated credit value: ${usd(selectedProject.creditsGenerated * selectedProject.pricePerCreditUsd)}`,
-                  'Projected biodiversity uplift: methodology attachment required',
-                  'Projected watershed benefit: methodology attachment required',
-                ].map((claim) => (
-                  <div key={claim} className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-100">{claim}</div>
-                ))}
-              </div>
-            </Card>
-            <Card className="lg:col-span-2">
               <h2 className="text-lg font-black text-white">Verification Package Export</h2>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {['Mission log', 'Evidence summaries', 'Monitoring cycle reports', 'Asset inventory', 'Incident history'].map((item) => (
-                  <button key={item} className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-left text-sm font-bold text-white hover:border-emerald-500">
+                  <button key={item} type="button" className="rounded-lg border border-slate-800 bg-slate-950 p-3 text-left text-sm font-bold text-white hover:border-emerald-500">
                     <FileText className="mb-2 h-4 w-4 text-emerald-300" />
                     {item}
                   </button>
                 ))}
               </div>
             </Card>
+            <div className="grid gap-4 lg:grid-cols-2">
+              <Card data-dpal-target={AFOLU_AUTOPILOT_TARGETS.pdfQr}>
+                <h2 className="text-lg font-black text-white">Local verification PDF + QR</h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  Generates a browser-only PDF with an embedded QR. Scanning the QR re-opens DPAL on this route with read-only query context — not a registry or chain record.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void handleAfoluPdfDownload()}
+                  disabled={afoluPdfBusy}
+                  className="mt-4 w-full rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-70"
+                >
+                  {afoluPdfBusy ? 'Building PDF…' : 'Download verification PDF + QR'}
+                </button>
+                {afoluPdfErr ? <p className="mt-2 text-sm text-rose-300">{afoluPdfErr}</p> : null}
+                {afoluPdf ? (
+                  <div className="mt-4 space-y-3 rounded-lg border border-slate-800 bg-slate-950/80 p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">QR preview (same image is inside the PDF)</p>
+                    <img src={afoluPdf.qrDataUrl} alt="Verification QR" className="h-36 w-36 rounded-lg border border-slate-700 bg-white p-1" />
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Verification URL</p>
+                      <p className="mt-1 break-all text-xs text-cyan-200">{afoluPdf.verificationUrl}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">PDF SHA-256 (local file bytes)</p>
+                      <p className="mt-1 break-all font-mono text-[11px] text-slate-300">{afoluPdf.pdfHash}</p>
+                    </div>
+                  </div>
+                ) : null}
+              </Card>
+              <Card className="border-amber-500/25 bg-amber-950/10" data-dpal-target={AFOLU_AUTOPILOT_TARGETS.humanGate}>
+                <h2 className="text-lg font-black text-white">Human approval gate</h2>
+                <p className="mt-2 text-sm text-amber-50">
+                  Packaging, registry submission, credit issuance, buyer contracts, and on-chain anchoring require explicit human and validator decisions. Autopilot and local PDF previews do not replace that workflow.
+                </p>
+              </Card>
+            </div>
           </div>
         )}
       </main>
+
+      {autopilotEnabled ? (
+        <>
+          {autopilot.isActive ? (
+            <>
+              <AutopilotSpotlight
+                visible={autopilotShowCursor}
+                targetRect={autopilot.targetRect}
+                reduceMotion={autopilot.reduceMotion}
+              />
+              <VisibleAutopilotCursor
+                visible={autopilotShowCursor}
+                targetRect={autopilot.targetRect}
+                bubble={autopilot.currentStep?.bubble ?? ''}
+                reduceMotion={autopilot.reduceMotion}
+              />
+            </>
+          ) : null}
+          <AutopilotControlBar
+            status={autopilot.status}
+            stepIndex={autopilot.stepIndex}
+            totalSteps={autopilot.totalSteps}
+            bubble={autopilot.currentStep?.bubble ?? ''}
+            onPause={autopilot.pause}
+            onResume={autopilot.resume}
+            onStop={autopilot.stop}
+            onTakeControl={autopilot.takeControl}
+          />
+        </>
+      ) : null}
 
       {loadingLabel && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/70 backdrop-blur-sm">

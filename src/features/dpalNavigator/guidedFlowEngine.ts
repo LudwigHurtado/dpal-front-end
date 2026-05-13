@@ -35,6 +35,7 @@ const ROUTES = {
   hazardousWaste: "/hazardous-waste-audit",
   carbEmissions: "/carb-emissions-audit",
   carbonMRV: "/carbon",
+  afolu: "/afolu",
   earthObservation: "/earth-observation",
   ledger: "/transparency-db",
   helpCenter: "/help",
@@ -209,47 +210,87 @@ function buildPollutionFlow(ctx: BuildContext): GuidedFlow {
 }
 
 function buildCarbonLandFlow(ctx: BuildContext): GuidedFlow {
-  const recommended: RecommendedModule = {
+  const carbonMrv: RecommendedModule = {
     id: "carbon-mrv",
     label: "Carbon MRV Engine",
     description: "Register projects, run satellite scans, and compute MRV scores for carbon and land projects.",
     routeTarget: ROUTES.carbonMRV,
   };
-  const steps: GuidedStep[] = [
-    { id: "describe-land", title: "Describe the land / forest / project area", emphasis: "info" },
-    {
-      id: "earth-observation",
-      title: "Run an Earth Observation NDVI / NBR scan if you have coordinates",
-      emphasis: "recommended",
-    },
-    { id: "open-mrv", title: "Open Carbon MRV Engine and check or register the project" },
-    {
-      id: "stop-for-claim",
-      title: "Stop for human MRV review before claiming any carbon offset value",
-      emphasis: "warning",
-    },
-  ];
+  const afoluForest: RecommendedModule = {
+    id: "afolu-forest",
+    label: "Forest Integrity (AFOLU)",
+    description:
+      "AFOLU Carbon & Proof Engine — missions, QR-linked assets, evidence scoring, MRV review, and buyer packaging (front-end workflow).",
+    routeTarget: ROUTES.afolu,
+  };
+  const prefersAfolu =
+    /\bafolu\b|forest integrity|forestry proof|agroforestry mission|protected forest carbon|reforestation project proof|carbon.*forest.*mission/i.test(
+      ctx.rawInput,
+    );
+  const recommended = prefersAfolu ? afoluForest : carbonMrv;
+  const steps: GuidedStep[] = prefersAfolu
+    ? [
+        { id: "describe-land", title: "Describe the forest / restoration / protection project", emphasis: "info" },
+        { id: "open-afolu", title: "Open Forest Integrity (AFOLU) and review missions, assets, and evidence", emphasis: "recommended" },
+        {
+          id: "walk-proof",
+          title: "Optional: run the visible walkthrough through QR simulation and local PDF preview",
+          emphasis: "info",
+        },
+        {
+          id: "stop-for-claim",
+          title: "Stop before any registry or buyer claim — human and validator review still required",
+          emphasis: "warning",
+        },
+      ]
+    : [
+        { id: "describe-land", title: "Describe the land / forest / project area", emphasis: "info" },
+        {
+          id: "earth-observation",
+          title: "Run an Earth Observation NDVI / NBR scan if you have coordinates",
+          emphasis: "recommended",
+        },
+        { id: "open-mrv", title: "Open Carbon MRV Engine and check or register the project" },
+        {
+          id: "stop-for-claim",
+          title: "Stop for human MRV review before claiming any carbon offset value",
+          emphasis: "warning",
+        },
+      ];
   return {
     scenarioType: "carbon_land",
-    confidence: ctx.hasCoords ? 0.85 : 0.65,
-    title: "Carbon / Land Investigation",
-    explanation:
-      "DPAL can help you check whether a land or carbon project has supporting satellite evidence and a registered MRV record.",
+    confidence: prefersAfolu ? (ctx.hasCoords ? 0.88 : 0.72) : ctx.hasCoords ? 0.85 : 0.65,
+    title: prefersAfolu ? "Forest / AFOLU Proof Path" : "Carbon / Land Investigation",
+    explanation: prefersAfolu
+      ? "DPAL can walk the AFOLU workspace: missions and assets, evidence scoring, reports, and a local verification PDF with QR — all advisory until humans and validators approve."
+      : "DPAL can help you check whether a land or carbon project has supporting satellite evidence and a registered MRV record.",
     recommendedModule: recommended,
     routeTarget: recommended.routeTarget,
-    nextBestAction:
-      "Run an Earth Observation scan for the AOI, then review or register the project in Carbon MRV.",
+    nextBestAction: prefersAfolu
+      ? "Open Forest Integrity (AFOLU), review the proof stack, and use the walkthrough if you want a guided tour through PDF + QR preview."
+      : "Run an Earth Observation scan for the AOI, then review or register the project in Carbon MRV.",
     steps,
     safetyWarnings: STANDARD_SAFETY_WARNINGS,
-    queryParams: buildQueryParams(ctx, "carbon-land"),
-    alternateModules: [
-      {
-        id: "earth-observation",
-        label: "Earth Observation",
-        description: "AOI-based NDVI / NBR / NDMI / NDWI screening.",
-        routeTarget: ROUTES.earthObservation,
-      },
-    ],
+    queryParams: buildQueryParams(ctx, prefersAfolu ? "carbon-land-afolu" : "carbon-land"),
+    alternateModules: prefersAfolu
+      ? [
+          carbonMrv,
+          {
+            id: "earth-observation",
+            label: "Earth Observation",
+            description: "AOI-based NDVI / NBR / NDMI / NDWI screening.",
+            routeTarget: ROUTES.earthObservation,
+          },
+        ]
+      : [
+          afoluForest,
+          {
+            id: "earth-observation",
+            label: "Earth Observation",
+            description: "AOI-based NDVI / NBR / NDMI / NDWI screening.",
+            routeTarget: ROUTES.earthObservation,
+          },
+        ],
   };
 }
 

@@ -38,6 +38,8 @@ export { useVisibleAutopilot } from "./useVisibleAutopilot";
 export type { VisibleAutopilotApi } from "./useVisibleAutopilot";
 export {
   WATER_ALERT_AUTOPILOT_STEPS,
+  AFOLU_AUTOPILOT_TARGETS,
+  AFOLU_PROOF_WALKTHROUGH_STEPS,
   AUTOPILOT_TARGETS,
   AUTOPILOT_MODES,
   getAutopilotStepsForMode,

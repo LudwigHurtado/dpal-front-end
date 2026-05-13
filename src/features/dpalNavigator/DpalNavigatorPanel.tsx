@@ -20,12 +20,14 @@ import ActionGateWarning from "./ActionGateWarning";
 import SmartTooltip from "./SmartTooltip";
 import type { GuidedFlow, NavigatorHelperContext, RecommendedModule } from "./types";
 import { logAutopilotEvent } from "./autopilotDiagnostics";
+import { AUTOPILOT_MODES } from "./autopilotSteps";
 
 const NAVIGATOR_HELPER_STORAGE_KEY = "dpal_navigator_helper_context_v1";
 
 const EXAMPLE_CHIPS: Array<{ label: string; sample: string }> = [
   { label: "Flooding near coordinates", sample: "Flooding near -17.7833, -63.1821" },
   { label: "Pollution complaint", sample: "Possible illegal dumping near my neighborhood" },
+  { label: "AFOLU forest proof path", sample: "AFOLU forest integrity proof path for our reforestation project" },
   { label: "Land restoration check", sample: "I want to check if this land restoration project is real" },
   { label: "Create evidence report", sample: "I want to file an accountability report with evidence" },
   { label: "Missing pet or item", sample: "Missing dog last seen near the river" },
@@ -171,26 +173,32 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
   );
 
   /**
-   * Visible Autopilot launcher — same target as the regular guided flow but
-   * appends the autopilot query params so the destination module renders the
-   * cursor + spotlight + control bar and runs the scripted safe-check
-   * sequence. Currently wired only for the water_flood scenario.
+   * Visible Autopilot launcher — appends autopilot query params so the
+   * destination module renders the cursor + spotlight + control bar.
+   * Water: safe provider checks. AFOLU: read-only walkthrough through QR + PDF preview.
    */
   const handleStartAutopilot = React.useCallback(() => {
     if (!flow) return;
     const module = flow.recommendedModule;
     if (!module.routeTarget) return;
+
+    const isWater = flow.scenarioType === "water_flood";
+    const isAfolu =
+      flow.scenarioType === "carbon_land" && module.routeTarget === "/afolu";
+    if (!isWater && !isAfolu) return;
+
+    const autopilotMode = isWater ? AUTOPILOT_MODES.visibleSafeChecks : AUTOPILOT_MODES.afoluProofWalkthrough;
     if (import.meta.env.DEV) {
       logAutopilotEvent({
         eventName: "autopilot_route_started",
-        details: { routeTarget: module.routeTarget, autopilotMode: "visible-safe-checks" },
+        details: { routeTarget: module.routeTarget, autopilotMode },
       });
     }
     const params: Record<string, string> = {
       ...flow.queryParams,
       autopilot: "true",
       autoRun: "true",
-      autopilotMode: "visible-safe-checks",
+      autopilotMode,
       showCursor: "true",
     };
     const search = buildSearchString(params);
@@ -199,8 +207,17 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
     navigate(`${module.routeTarget}${search}`);
   }, [flow, flowId, rawInputFromStore, close, navigate]);
 
-  /** Whether the recommended module supports the visible autopilot. */
-  const autopilotSupported = !!flow && flow.scenarioType === "water_flood" && !!flow.recommendedModule.routeTarget;
+  /** Whether the recommended module supports the visible autopilot walkthrough. */
+  const autopilotSupported =
+    !!flow &&
+    !!flow.recommendedModule.routeTarget &&
+    (flow.scenarioType === "water_flood" ||
+      (flow.scenarioType === "carbon_land" && flow.recommendedModule.routeTarget === "/afolu"));
+
+  const autopilotCtaLabel =
+    flow?.scenarioType === "carbon_land" && flow.recommendedModule.routeTarget === "/afolu"
+      ? "Watch Full AFOLU Proof Path"
+      : "Watch DPAL Run Safe Checks";
 
   if (!isOpen) return null;
 
@@ -371,7 +388,7 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
                     onClick={handleStartAutopilot}
                     className="w-full rounded-lg border border-cyan-400/60 bg-cyan-950/30 px-3 py-2.5 text-xs font-bold uppercase tracking-wide text-cyan-100 hover:text-white"
                   >
-                    Watch DPAL Run Safe Checks
+                    {autopilotCtaLabel}
                   </button>
                 ) : null}
                 <p className="text-[10px] leading-snug text-slate-400">
@@ -379,10 +396,19 @@ export default function DpalNavigatorPanel(): React.ReactElement | null {
                   module with a checklist.{" "}
                   {autopilotSupported ? (
                     <>
-                      <span className="font-semibold text-slate-300">Watch DPAL Run Safe Checks</span>{" "}
-                      walks you through the same module step-by-step using a visible cursor and
-                      runs only read-only checks. No publication, anchoring, payments, or
-                      escalation.
+                      <span className="font-semibold text-slate-300">{autopilotCtaLabel}</span>{" "}
+                      {flow?.scenarioType === "carbon_land" && flow.recommendedModule.routeTarget === "/afolu" ? (
+                        <>
+                          walks missions, assets, simulated field QR, evidence, reports, and a local PDF+QR preview
+                          using a visible cursor. No registry submission, anchoring, payments, or escalation.
+                        </>
+                      ) : (
+                        <>
+                          walks you through the same module step-by-step using a visible cursor and
+                          runs only read-only checks. No publication, anchoring, payments, or
+                          escalation.
+                        </>
+                      )}
                     </>
                   ) : null}
                 </p>
