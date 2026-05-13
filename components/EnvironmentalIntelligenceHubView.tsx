@@ -478,6 +478,17 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <EnvironmentalServiceCard
+            title="Satellite Intelligence + Disclosure Integrity"
+            subtitle="Cross-check satellite signals, public records, company disclosures, and field evidence to detect environmental anomalies and generate review-ready evidence packets."
+            badge="Partial"
+            providerSummary="Multi-source anomaly engine — satellite-indicated · claim comparison · evidence packet ready · validator review recommended"
+            accent="teal"
+            heroImageSrc="/dpal-infographics/environmental-scan-suite.png"
+            watchHint="Preview-first engine — live lanes depend on configured API host; no auto legal findings."
+            onOpenWorkspace={() => onNavigate('satelliteAccountability')}
+            openWorkspaceLabel="Open Accountability Engine"
+          />
+          <EnvironmentalServiceCard
             title="Earth Observation"
             subtitle="LEO screening workspace for AOI metrics, comparison basis, limitations, and situation-room handoff."
             badge={earthObsBadge}

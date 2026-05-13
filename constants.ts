@@ -124,6 +124,12 @@ export const API_ROUTES = {
   HYPERSPECTRAL_PLASTIC_EVIDENCE_PACKET: '/api/hyperspectral-plastic-watch/evidence-packet',
   HYPERSPECTRAL_PLASTIC_DRONE_STATUS: '/api/hyperspectral-plastic-watch/drone/status',
   HYPERSPECTRAL_PLASTIC_DRONE_VALIDATION_REQUEST: '/api/hyperspectral-plastic-watch/drone/validation-request',
+  /** Satellite Intelligence + Disclosure Integrity (safe preview / shell endpoints on configured API host). */
+  SATELLITE_ACCOUNTABILITY_ANALYZE: '/api/satellite-accountability/analyze',
+  SATELLITE_ACCOUNTABILITY_EVIDENCE_PACKET: '/api/satellite-accountability/evidence-packet',
+  SATELLITE_ACCOUNTABILITY_PROVIDER_STATUS: '/api/satellite-accountability/provider-status',
+  SATELLITE_ACCOUNTABILITY_MODULE_STATUS: '/api/satellite-accountability/module-status',
+  SATELLITE_ACCOUNTABILITY_NORMALIZE_SIGNALS: '/api/satellite-accountability/normalize-signals',
   /** Persistent project workflow assistant */
   DPAL_ASSISTANT_PROJECT_GUIDE: '/api/dpal-assistant/project-guide',
   /** POST — AI Report Reader (Gemini when configured; deterministic fallback). */

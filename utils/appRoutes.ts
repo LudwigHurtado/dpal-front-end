@@ -184,6 +184,8 @@ export const VIEW_PATHS: Record<string, string> = {
   environmentalIntelligenceHub: '/environmental-intelligence',
   epaGhgLive: '/environmental-intelligence/epa-ghg',
   envirofactsGeoIntelligence: '/environmental-intelligence/envirofacts-map',
+  /** Satellite Intelligence + Disclosure Integrity — multi-source claim comparison (aliases in pathToView). */
+  satelliteAccountability: '/environmental-intelligence/satellite-accountability',
   previewEnvironmentalCommandCenter: '/preview/environmental-command-center',
   previewEnvironmentalIntelligenceHub: '/preview/environmental-intelligence-hub',
   previewFuelStorageAudit: '/preview/fuel-storage-audit',
@@ -206,6 +208,9 @@ export function pathToView(pathname: string): string | null {
   if (normalized === '/field-missions') return 'missionMarketplace';
   if (normalized === '/environmental/epa-live') return 'epaGhgLive';
   if (normalized === '/environmental/envirofacts-map') return 'envirofactsGeoIntelligence';
+  if (normalized === '/satellite-accountability' || normalized === '/environmental-intelligence/disclosure-integrity') {
+    return 'satelliteAccountability';
+  }
   if (normalized === '/forestry-protection' || normalized === '/environmental-intelligence/forest-integrity') {
     return 'forestIntegrity';
   }

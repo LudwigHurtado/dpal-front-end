@@ -3,3 +3,14 @@ export { default as EnvironmentalDisclaimerBar } from './EnvironmentalDisclaimer
 export { default as EnvironmentalProviderStatusStrip } from './EnvironmentalProviderStatusStrip';
 export { default as EnvironmentalServiceCard } from './EnvironmentalServiceCard';
 export * from './environmentalServiceStatus';
+export * from './satelliteIntelligenceTypes';
+export * from './satelliteSourceRegistry';
+export * from './disclosureIntegrityTypes';
+export * from './anomalyScoring';
+export * from './accountabilityModuleAdapters';
+export * from '../accountability/accountabilityAdapterRegistry';
+export * from '../accountability/providerStatusAggregator';
+export * from '../accountability/crossModuleSignalExamples';
+export * from '../accountability/sampleAccountabilitySignals';
+export { default as SatelliteAccountabilityInfographic } from './SatelliteAccountabilityInfographic';
+export { default as DisclosureIntegrityEvidencePacket } from './DisclosureIntegrityEvidencePacket';
