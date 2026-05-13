@@ -253,6 +253,18 @@ app.listen(PORT, () => {
   console.log(`DPAL Backend running on port ${PORT} [${process.env.NODE_ENV ?? 'development'}]`);
 });
 
-startResolutionDispatcher(prisma);
+const hasDatabaseUrl = Boolean(process.env.DATABASE_URL?.trim());
+const inProduction = process.env.NODE_ENV === 'production';
+/** Dev: opt-in (safest local). Prod: on when DATABASE_URL is set unless explicitly disabled. */
+const shouldStartResolutionDispatcher =
+  hasDatabaseUrl &&
+  (inProduction ? process.env.ENABLE_RESOLUTION_DISPATCHER !== 'false' : process.env.ENABLE_RESOLUTION_DISPATCHER === 'true');
+if (shouldStartResolutionDispatcher) {
+  startResolutionDispatcher(prisma);
+} else {
+  console.warn(
+    '[resolution-dispatcher] disabled — requires DATABASE_URL. In development set ENABLE_RESOLUTION_DISPATCHER=true; in production it runs when DATABASE_URL is set unless ENABLE_RESOLUTION_DISPATCHER=false.',
+  );
+}
 
 export default app;
