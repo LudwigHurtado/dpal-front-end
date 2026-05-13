@@ -25,6 +25,8 @@ export type BuildAiReportReaderSnapshotInput = {
   safetyLabels?: unknown;
   ledger?: unknown;
   currentVisibleSections?: string[];
+  /** Latest Command Center orchestration / run payload (structured only). */
+  commandCenterRun?: unknown;
   extra?: Record<string, unknown>;
 };
 
@@ -49,6 +51,7 @@ export function buildAiReportReaderSnapshot(input: BuildAiReportReaderSnapshotIn
     limitations: input.limitations,
     safetyLabels: input.safetyLabels,
     ledger: input.ledger,
+    commandCenterRun: input.commandCenterRun,
     currentVisibleSections: input.currentVisibleSections ?? [],
   };
   if (input.extra && typeof input.extra === 'object') {

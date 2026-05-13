@@ -6,15 +6,19 @@ import { CATEGORIES_WITH_ICONS } from '../constants';
 import { useTranslations } from '../i18n';
 import { collectReportVisualUrls, getReportImage } from '../utils/reportImages';
 import QrCodeDisplay from './QrCodeDisplay';
+import AiReportReaderChatBox from '../src/features/aiReportReader/AiReportReaderChatBox';
+import { buildAiReportReaderSnapshot } from '../src/features/aiReportReader/buildAiReportReaderSnapshot';
 
 interface ReportCardProps {
   report: Report;
   onAddImage: (imageUrl: string) => void;
   onJoinChat?: (report: Report) => void;
   onEnterMissionV2?: (report: Report) => void;
+  /** When true, shows AI Report Reader below the card body (transparency / ledger). */
+  enableAiReportReader?: boolean;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat, onEnterMissionV2 }) => {
+const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat, onEnterMissionV2, enableAiReportReader = false }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [imageUrlsToDisplay, setImageUrlsToDisplay] = useState<string[]>([]);
   const [showQr, setShowQr] = useState(false);
@@ -239,6 +243,25 @@ const ReportCard: React.FC<ReportCardProps> = ({ report, onAddImage, onJoinChat,
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(rgba(34,211,238,0.1)_1px,transparent_0)] bg-[length:30px_30px] opacity-20"></div>
       </div>
       </div>
+      {enableAiReportReader ? (
+        <div className="border-t border-[var(--dpal-border)] bg-[var(--dpal-background-secondary)] px-4 py-4 sm:px-8 sm:py-6">
+          <AiReportReaderChatBox
+            defaultOpen={false}
+            pageType="transparency_ledger"
+            reportId={safeId}
+            title={safeTitle}
+            reportSnapshot={buildAiReportReaderSnapshot({
+              pageType: 'transparency_ledger',
+              reportId: safeId,
+              title: safeTitle,
+              category: safeCategory,
+              location: safeLocation,
+              description: safeDescription,
+              ledger: { trustScore: safeTrustScore, severity: safeSeverity, blockchainRef: report.blockchainRef },
+            })}
+          />
+        </div>
+      ) : null}
       {showQr && <QrCodeDisplay type="report" id={report.id} onClose={() => setShowQr(false)} />}
     </div>
   );

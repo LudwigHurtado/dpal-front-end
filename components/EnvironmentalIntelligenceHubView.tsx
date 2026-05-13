@@ -521,7 +521,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             </button>
           </EnvironmentalServiceCard>
           <EnvironmentalServiceCard
-            title="AFOLU / Land Use &amp; Carbon Readiness"
+            title={'AFOLU / Land Use & Carbon Readiness'}
             subtitle="Forest integrity scans (GFW, FIRMS, Landsat, GEDI) plus land-use and carbon-readiness workspace entry."
             badge="Live"
             providerSummary="Watch DPAL Work available inside — honest GFW / FIRMS / Landsat / GEDI lane states."
@@ -537,7 +537,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
               onClick={() => onNavigate('afoluEngine')}
               className="rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-700"
             >
-              AFOLU / Land Use &amp; Carbon Readiness (missions &amp; proof)
+              {'AFOLU / Land Use & Carbon Readiness (missions & proof)'}
             </button>
           </EnvironmentalServiceCard>
           <EnvironmentalServiceCard
@@ -596,7 +596,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             onOpenWorkspace={() => onNavigate('dpalCarbon')}
           />
           <EnvironmentalServiceCard
-            title="AFOLU / Land Use &amp; Carbon Readiness"
+            title={'AFOLU / Land Use & Carbon Readiness'}
             subtitle="Investor-facing forest carbon command center and mission launch flows (local-first drafts)."
             badge="Partial"
             providerSummary="Project records may be browser-local until synced to a configured backend."

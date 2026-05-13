@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import type { ChatMessage } from '../../types';
 import type { SituationRoomRecord, SituationRoomSourceType } from '../../services/situationRoomService';
-import AiReportReaderChatBox from '../../src/features/aiReportReader/AiReportReaderChatBox';
-import { buildAiReportReaderContext } from '../../src/features/aiReportReader/reportReaderChatApi';
 import {
   buildSituationRoomUrl,
   buildTransparencyUrl,
@@ -11,6 +9,8 @@ import {
   getMessages,
   sendMessage,
 } from '../../services/situationRoomService';
+import AiReportReaderChatBox from '../../src/features/aiReportReader/AiReportReaderChatBox';
+import { buildAiReportReaderSnapshot } from '../../src/features/aiReportReader/buildAiReportReaderSnapshot';
 
 type Props = {
   sourceType: SituationRoomSourceType;
@@ -81,18 +81,20 @@ export default function SituationRoomShell(props: Props): React.ReactElement {
 
   const aiSnapshot = useMemo(
     () =>
-      buildAiReportReaderContext({
+      buildAiReportReaderSnapshot({
         pageType: 'situation_room',
         roomId: props.roomId,
         reportId: props.reportId,
         title: props.title,
         category: props.category,
-        location: props.location,
+        location: props.location?.label ?? props.location?.address,
         evidencePacket: props.evidencePacket,
         ledger: props.ledger,
-        limitations: ['Image bytes are not sent to the reader unless OCR is explicitly attached in context.'],
         currentVisibleSections: ['coordination', tab, 'verification', 'ledger_qr'],
-        sourcePayload: { aiSummary: props.aiSummary },
+        extra: {
+          aiSummary: props.aiSummary,
+          note: 'Image bytes are not sent to the reader unless OCR is explicitly attached in context.',
+        },
       }),
     [props.roomId, props.reportId, props.title, props.category, props.location, props.evidencePacket, props.ledger, props.aiSummary, tab],
   );
@@ -205,6 +207,7 @@ export default function SituationRoomShell(props: Props): React.ReactElement {
         title={props.title}
         reportId={props.reportId}
         roomId={props.roomId}
+        pageType="situation_room"
         reportSnapshot={aiSnapshot}
         evidencePacket={props.evidencePacket}
         defaultOpen={false}

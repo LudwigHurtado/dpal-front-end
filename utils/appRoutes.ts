@@ -218,7 +218,7 @@ export function pathToView(pathname: string): string | null {
     return 'hyperspectralPlasticWatch';
   }
   /** Legacy AFOLU paths kept for backwards-compatible deep links/bookmarks. */
-  if (normalized === '/aflu' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
+  if (normalized === '/aflu' || normalized === '/aflo' || normalized === '/afolu-engine' || normalized === '/afolu-credit-engine') return 'afoluEngine';
   if (/^\/missions\/m\/[^/]+$/.test(normalized)) return 'marketplaceMissionDetail';
   if (/^\/environmental-intelligence\/epa-ghg\/facility\/[^/]+$/.test(normalized)) return 'epaGhgFacilityDetail';
   if (/^\/aquascan\/reports\/[^/]+$/.test(normalized)) return 'aquascanReportViewer';

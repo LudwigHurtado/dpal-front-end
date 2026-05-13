@@ -226,7 +226,7 @@ const TransparencyDatabaseView: React.FC<TransparencyDatabaseViewProps> = ({ onR
                         {filteredReports.length > 0 ? (
                             filteredReports.map(report => (
                                 /* FIX: Changed onJoinReportChat to onJoinChat to satisfy ReportCardProps interface */
-                                <ReportCard key={report.id} report={report} onAddImage={() => {}} onJoinChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} />
+                                <ReportCard key={report.id} report={report} onAddImage={() => {}} onJoinChat={onJoinReportChat} onEnterMissionV2={onEnterMissionV2} enableAiReportReader />
                             ))
                         ) : (
                             <div className="py-14 text-center border-2 border-dashed border-[var(--dpal-border)] rounded-3xl bg-[var(--dpal-surface)]">

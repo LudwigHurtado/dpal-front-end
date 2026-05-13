@@ -1,35 +1,20 @@
-/**
- * Smoke: deterministic report reader (no HTTP server; no Gemini key required).
- * Run: npx tsx src/scripts/smokeReportReaderChat.ts
- */
-import { buildDeterministicReportReader } from '../services/dpalReportReaderChatService';
+import { handleReportReaderChat } from '../services/dpalReportReaderChatService';
 
-const ctx = {
-  pageType: 'evidence_audit',
-  title: 'Demo packet',
-  human_verified: false,
-  blockchain_anchored: false,
-  orchestration: {
-    results: [
-      {
-        moduleKey: 'water',
-        status: 'partial',
-        headline: 'Water lanes partial',
-        limitations: ['Scene-level only'],
-        providerLanes: [
-          { label: 'SMAP', state: 'ok' },
-          { label: 'SWOT', state: 'unavailable', detail: 'no acquisition' },
-        ],
-      },
-    ],
-  },
-};
+async function main(): Promise<void> {
+  const res = await handleReportReaderChat({
+    question: 'What evidence is missing?',
+    mode: 'evidence_audit',
+    evidencePacket: { summary: 'demo packet', sources: ['landsat'], human_verified: false },
+    messages: [],
+  });
+  if (!res.answer) throw new Error('missing answer');
+  if (res.ok !== true) throw new Error('expected ok true');
+  // eslint-disable-next-line no-console
+  console.log('smoke:report-reader ok', { fallbackUsed: res.fallbackUsed, answerPreview: res.answer.slice(0, 160) });
+}
 
-const out = buildDeterministicReportReader(ctx, 'What providers were used and is this verified?', 'report_reader');
-if (!out.answer.includes('What I cannot conclude')) {
-  throw new Error('Expected answer to include cannot-conclude section');
-}
-if (!out.fallbackUsed) {
-  throw new Error('Expected deterministic fallback');
-}
-console.log('[smokeReportReaderChat] ok', { modules: out.modulesReferenced, warnings: out.safetyWarnings.length });
+main().catch((e) => {
+  // eslint-disable-next-line no-console
+  console.error(e);
+  process.exit(1);
+});

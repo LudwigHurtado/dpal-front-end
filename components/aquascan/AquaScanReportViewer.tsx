@@ -5,6 +5,8 @@ import { downloadAquaScanEvidencePdf } from '../../services/aquascanPdfReportSer
 import { updateAquaScanReportPdfHash } from '../../services/aquascanReportLedgerService';
 import { parseAquaScanReportIdFromPath } from '../../utils/appRoutes';
 import AquaScanReportQRCode from './AquaScanReportQRCode';
+import AiReportReaderChatBox from '../../src/features/aiReportReader/AiReportReaderChatBox';
+import { buildAiReportReaderSnapshot } from '../../src/features/aiReportReader/buildAiReportReaderSnapshot';
 
 interface AquaScanReportViewerProps {
   reportId?: string | null;
@@ -178,6 +180,31 @@ export default function AquaScanReportViewer({
           </section>
         </div>
       </div>
+
+      {report ? (
+        <AiReportReaderChatBox
+          defaultOpen={false}
+          pageType="aquascan_report"
+          reportId={report.reportId}
+          roomId={report.situationRoom.roomId}
+          title={`AquaScan · ${report.projectName ?? report.reportId}`}
+          reportSnapshot={buildAiReportReaderSnapshot({
+            pageType: 'aquascan_report',
+            reportId: report.reportId,
+            title: report.projectName,
+            description: report.aiIntelligence?.summary,
+            location: report.aquaScanResult?.areaSqKm != null ? `AOI ~${report.aquaScanResult.areaSqKm} km²` : undefined,
+            evidencePacket: {
+              aquaScanResult: report.aquaScanResult,
+              satelliteMetadata: report.satelliteMetadata,
+              aiIntelligence: report.aiIntelligence,
+            },
+            ledger: report.ledger,
+            limitations: ['AquaScan reports may be stored locally until backend persistence is connected.'],
+            extra: { hashes: report.hashes, situationRoom: report.situationRoom },
+          })}
+        />
+      ) : null}
     </div>
   );
 }

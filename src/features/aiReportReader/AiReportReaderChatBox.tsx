@@ -19,6 +19,8 @@ export type AiReportReaderChatBoxProps = {
   /** When false, the card is omitted (e.g. list views with many rows). */
   enabled?: boolean;
   pageType?: import('./buildAiReportReaderSnapshot').AiReportReaderPageType;
+  /** `paper` for light shells (Command Center); default `ink` for dark report surfaces. */
+  tone?: 'ink' | 'paper';
 };
 
 function mergeContext(props: AiReportReaderChatBoxProps): Record<string, unknown> {
@@ -41,7 +43,7 @@ function mergeContext(props: AiReportReaderChatBoxProps): Record<string, unknown
 }
 
 const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
-  const { enabled = true, defaultOpen = true, title } = props;
+  const { enabled = true, defaultOpen = true, title, tone = 'ink' } = props;
   const [open, setOpen] = useState(defaultOpen);
   const [messages, setMessages] = useState<ReportReaderChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -107,20 +109,31 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
 
   if (!enabled) return null;
 
+  const shell =
+    tone === 'paper'
+      ? 'border-slate-200 bg-white text-slate-900 shadow-sm'
+      : 'border-slate-700/80 bg-slate-950/80 text-slate-100 shadow-sm';
+  const sub = tone === 'paper' ? 'text-slate-600' : 'text-slate-400';
+  const heading = tone === 'paper' ? 'text-slate-900' : 'text-white';
+  const panel = tone === 'paper' ? 'border-slate-200 bg-slate-50' : 'border-slate-800 bg-slate-900/60';
+  const userBubble = tone === 'paper' ? 'ml-4 bg-sky-100 text-slate-900' : 'ml-4 bg-cyan-950/50 text-cyan-50';
+  const botBubble = tone === 'paper' ? 'mr-4 bg-slate-100 text-slate-900' : 'mr-4 bg-slate-800/80 text-slate-100';
+  const btn = tone === 'paper' ? 'border-slate-300 bg-white text-slate-800' : 'border-slate-600 bg-slate-900 text-slate-100';
+
   return (
-    <section className="mt-4 rounded-2xl border border-slate-700/80 bg-slate-950/80 p-4 text-slate-100 shadow-sm">
+    <section className={`mt-4 rounded-2xl border p-4 ${shell}`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.22em] text-teal-300">AI Report Reader</p>
-          <h3 className="mt-0.5 text-sm font-bold text-white">{title ?? 'Ask about this record'}</h3>
-          <p className="mt-1 text-[11px] leading-snug text-slate-400">
+          <p className={`text-[10px] font-black uppercase tracking-[0.22em] ${tone === 'paper' ? 'text-teal-800' : 'text-teal-300'}`}>AI Report Reader</p>
+          <h3 className={`mt-0.5 text-sm font-bold ${heading}`}>{title ?? 'Ask about this record'}</h3>
+          <p className={`mt-1 text-[11px] leading-snug ${sub}`}>
             Ask questions about the report, evidence, provider lanes, and missing verification.
           </p>
         </div>
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="rounded-lg border border-slate-600 px-2 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-900"
+          className={`rounded-lg border px-2 py-1 text-[10px] font-semibold hover:opacity-90 ${tone === 'paper' ? 'border-slate-300 text-slate-700' : 'border-slate-600 text-slate-200 hover:bg-slate-900'}`}
         >
           {open ? 'Collapse' : 'Expand'}
         </button>
@@ -128,7 +141,11 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
 
       {open ? (
         <>
-          <p className="mt-2 rounded-lg border border-amber-500/30 bg-amber-950/30 px-2 py-1.5 text-[10px] leading-relaxed text-amber-100">
+          <p
+            className={`mt-2 rounded-lg border px-2 py-1.5 text-[10px] leading-relaxed ${
+              tone === 'paper' ? 'border-amber-200 bg-amber-50 text-amber-950' : 'border-amber-500/30 bg-amber-950/30 text-amber-100'
+            }`}
+          >
             AI analysis is assistance only. It does not verify, publish, certify, or create legal conclusions.
           </p>
 
@@ -142,32 +159,32 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
             </p>
           ) : null}
 
-          <div className="mt-3 max-h-52 space-y-2 overflow-y-auto rounded-xl border border-slate-800 bg-slate-900/60 p-2">
+          <div className={`mt-3 max-h-52 space-y-2 overflow-y-auto rounded-xl border p-2 ${panel}`}>
             {messages.length === 0 ? (
-              <p className="text-[11px] text-slate-500">No messages yet — use the shortcuts or type a question.</p>
+              <p className={`text-[11px] ${tone === 'paper' ? 'text-slate-500' : 'text-slate-500'}`}>No messages yet — use the shortcuts or type a question.</p>
             ) : (
               messages.map((m, i) => (
                 <div
                   key={`${m.role}-${i}`}
                   className={`rounded-lg px-2 py-1.5 text-[11px] leading-relaxed ${
-                    m.role === 'user' ? 'ml-4 bg-cyan-950/50 text-cyan-50' : 'mr-4 bg-slate-800/80 text-slate-100'
+                    m.role === 'user' ? userBubble : botBubble
                   }`}
                 >
-                  <span className="text-[9px] font-bold uppercase text-slate-500">{m.role}</span>
+                  <span className={`text-[9px] font-bold uppercase ${tone === 'paper' ? 'text-slate-500' : 'text-slate-500'}`}>{m.role}</span>
                   <p className="mt-0.5 whitespace-pre-wrap">{m.content}</p>
                 </div>
               ))
             )}
           </div>
 
-          {error ? <p className="mt-2 text-[11px] text-red-300">{error}</p> : null}
+          {error ? <p className={`mt-2 text-[11px] ${tone === 'paper' ? 'text-red-700' : 'text-red-300'}`}>{error}</p> : null}
 
           <div className="mt-3 flex flex-wrap gap-1.5">
             <button
               type="button"
               disabled={busy}
               onClick={() => void send('Summarize this record for an operative.', 'report_reader')}
-              className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-[10px] font-semibold text-slate-100 disabled:opacity-50"
+              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold disabled:opacity-50 ${btn}`}
             >
               Summarize
             </button>
@@ -175,7 +192,7 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
               type="button"
               disabled={busy}
               onClick={() => void send('What evidence is missing or not established?', 'evidence_audit')}
-              className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-[10px] font-semibold text-slate-100 disabled:opacity-50"
+              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold disabled:opacity-50 ${btn}`}
             >
               Missing Evidence
             </button>
@@ -183,7 +200,7 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
               type="button"
               disabled={busy}
               onClick={() => void send('What should be done next?', 'next_steps')}
-              className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-[10px] font-semibold text-slate-100 disabled:opacity-50"
+              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold disabled:opacity-50 ${btn}`}
             >
               Next Steps
             </button>
@@ -191,20 +208,24 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
               type="button"
               disabled={busy}
               onClick={() => void send('What can DPAL not conclude from this context?', 'report_reader')}
-              className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-[10px] font-semibold text-slate-100 disabled:opacity-50"
+              className={`rounded-lg border px-2 py-1 text-[10px] font-semibold disabled:opacity-50 ${btn}`}
             >
               What can DPAL not conclude?
             </button>
           </div>
 
-          <label className="mt-3 block text-[10px] font-semibold text-slate-400">
+          <label className={`mt-3 block text-[10px] font-semibold ${tone === 'paper' ? 'text-slate-600' : 'text-slate-400'}`}>
             Ask about this report…
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               rows={2}
               disabled={busy}
-              className="mt-1 w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-[12px] text-white placeholder:text-slate-600"
+              className={`mt-1 w-full rounded-xl border px-3 py-2 text-[12px] ${
+                tone === 'paper'
+                  ? 'border-slate-300 bg-white text-slate-900 placeholder:text-slate-400'
+                  : 'border-slate-700 bg-slate-900 text-white placeholder:text-slate-600'
+              }`}
               placeholder="e.g. Which providers were used?"
             />
           </label>

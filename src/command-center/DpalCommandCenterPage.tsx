@@ -22,6 +22,8 @@ import {
 } from './services/commandCenterAutopilotPlan';
 import { runCommandCenterOrchestration } from './services/commandCenterOrchestrator';
 import { CommandCenterMapPanel } from './map/CommandCenterMapPanel';
+import AiReportReaderChatBox from '../features/aiReportReader/AiReportReaderChatBox';
+import { buildAiReportReaderSnapshot } from '../features/aiReportReader/buildAiReportReaderSnapshot';
 import type {
   CommandCenterModuleKey,
   CommandCenterOrchestrationResult,
@@ -554,6 +556,55 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
     return null;
   }, [autopilotSteps, autopilotStepIndex]);
 
+  const openWorkspaceTarget = React.useMemo((): View | null => {
+    if (currentAutopilotModuleView) return currentAutopilotModuleView;
+    if (runningModuleKey) return workspaceViewForModule(runningModuleKey);
+    return null;
+  }, [currentAutopilotModuleView, runningModuleKey]);
+
+  const commandCenterReaderSnapshot = React.useMemo(
+    () =>
+      buildAiReportReaderSnapshot({
+        pageType: 'command_center',
+        runId: backendRunId ?? undefined,
+        title: 'Command Center run',
+        description: ctx.goal || undefined,
+        location: ctx.locationDescription,
+        dates: { start: ctx.baselineDateIso, end: ctx.currentDateIso },
+        moduleResults: orchestration?.results,
+        evidencePacket: evidencePreviewText ? { evidenceDraftText: evidencePreviewText } : undefined,
+        commandCenterRun: orchestration
+          ? {
+              settledAtIso: orchestration.settledAtIso,
+              runMode: orchestration.runMode,
+              modules: orchestration.modules,
+              results: orchestration.results,
+              orchestrationWarnings: orchestration.orchestrationWarnings,
+            }
+          : undefined,
+        currentVisibleSections: [workflowMode, autopilotState],
+        extra: {
+          latitude: ctx.latitude,
+          longitude: ctx.longitude,
+          radiusKm: ctx.radiusKm,
+        },
+      }),
+    [
+      autopilotState,
+      backendRunId,
+      ctx.baselineDateIso,
+      ctx.currentDateIso,
+      ctx.goal,
+      ctx.latitude,
+      ctx.longitude,
+      ctx.locationDescription,
+      ctx.radiusKm,
+      evidencePreviewText,
+      orchestration,
+      workflowMode,
+    ],
+  );
+
   const runningStatusChip =
     runningModuleKey && (autopilotState === 'running' || autopilotState === 'queued')
       ? `${runningModuleKey} · running`
@@ -839,11 +890,11 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
                 Stop
               </button>
             </div>
-            {currentAutopilotModuleView ? (
+            {openWorkspaceTarget ? (
               <button
                 type="button"
                 className="mt-3 w-full rounded-lg border border-teal-400/50 py-2 text-[11px] font-semibold text-teal-200 hover:bg-slate-800"
-                onClick={() => onNavigate(currentAutopilotModuleView)}
+                onClick={() => onNavigate(openWorkspaceTarget)}
               >
                 Open Full Workspace for current step
               </button>
@@ -1188,6 +1239,26 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
             readOnly
             placeholder="Live run step or Evidence Draft Builder fills this…"
             value={evidencePreviewText}
+          />
+          <AiReportReaderChatBox
+            tone="paper"
+            defaultOpen={false}
+            pageType="command_center"
+            runId={backendRunId ?? undefined}
+            reportSnapshot={commandCenterReaderSnapshot}
+            commandCenterRun={
+              orchestration
+                ? {
+                    settledAtIso: orchestration.settledAtIso,
+                    runMode: orchestration.runMode,
+                    modules: orchestration.modules,
+                    results: orchestration.results,
+                    orchestrationWarnings: orchestration.orchestrationWarnings,
+                  }
+                : undefined
+            }
+            evidencePacket={evidencePreviewText ? { evidenceDraftText: evidencePreviewText } : undefined}
+            title="Ask about this Command Center evidence draft"
           />
         </div>
 
