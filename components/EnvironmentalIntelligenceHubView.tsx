@@ -14,7 +14,7 @@ import EnvironmentalServiceCard from '../src/features/environmentalIntelligence/
 import type { HubServiceBadge } from '../src/features/environmentalIntelligence/shared/environmentalServiceStatus';
 import {
   DEMO_SCENARIOS,
-  demoSourceToneClass,
+  demoSourceToneClassOnDark,
   demoSourceToneLabel,
   type DemoScenario,
 } from '../src/features/environmentalIntelligence/shared/demoScenarios';
@@ -84,14 +84,12 @@ const latestPackets = [
 const workflowSteps = ['Monitor', 'Analyze', 'Audit', 'Verify', 'Export'];
 
 function probeTone(level: ProbeToneLevel): { chip: string; dot: string } {
-  // Lightened to match the investor-style light hub UI (chips sit inside a
-  // white / slate-50 connectivity panel). Honest labels are unchanged.
-  if (level === 'ok') return { chip: 'border-emerald-200 bg-emerald-50 text-emerald-800', dot: 'bg-emerald-500' };
-  if (level === 'degraded') return { chip: 'border-amber-200 bg-amber-50 text-amber-800', dot: 'bg-amber-500' };
+  if (level === 'ok') return { chip: 'border-emerald-500/35 bg-emerald-950/50 text-emerald-200', dot: 'bg-emerald-400' };
+  if (level === 'degraded') return { chip: 'border-amber-500/35 bg-amber-950/45 text-amber-200', dot: 'bg-amber-400' };
   if (level === 'rate_limited')
-    return { chip: 'border-violet-200 bg-violet-50 text-violet-800', dot: 'bg-violet-500 animate-pulse' };
-  if (level === 'offline') return { chip: 'border-rose-200 bg-rose-50 text-rose-800', dot: 'bg-rose-500' };
-  return { chip: 'border-slate-200 bg-white text-slate-600', dot: 'bg-slate-400 animate-pulse' };
+    return { chip: 'border-violet-500/35 bg-violet-950/50 text-violet-200', dot: 'bg-violet-400 animate-pulse' };
+  if (level === 'offline') return { chip: 'border-rose-500/35 bg-rose-950/50 text-rose-200', dot: 'bg-rose-400' };
+  return { chip: 'border-slate-600 bg-slate-800/80 text-slate-300', dot: 'bg-slate-500 animate-pulse' };
 }
 
 function formatProbeDetail(row: HubConnectivityRow): string {
@@ -137,21 +135,21 @@ const DemoScenarioCard: React.FC<{
 }> = ({ scenario, onOpenDemo, onWatchDpalWork }) => {
   const accent = scenario.accent ?? 'emerald';
   return (
-    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
+    <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-700/90 bg-slate-900/95 text-slate-100 shadow-lg shadow-black/25 transition hover:border-slate-500 hover:shadow-xl">
       <div className={`h-1 w-full ${demoAccentBar[accent]}`} aria-hidden />
       <div className="flex flex-1 flex-col p-5">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">{scenario.moduleLabel}</p>
-            <h3 className="mt-0.5 text-sm font-semibold tracking-tight text-slate-900">{scenario.title}</h3>
+            <h3 className="mt-0.5 text-sm font-semibold tracking-tight text-white">{scenario.title}</h3>
           </div>
-          <span className="shrink-0 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+          <span className="shrink-0 rounded-full border border-amber-500/40 bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
             Demo
           </span>
         </div>
-        <p className="mt-2 text-xs leading-relaxed text-slate-600">{scenario.investorExplanation}</p>
-        <p className="mt-3 rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-700">
-          <span className="font-semibold text-slate-800">Location:</span> {scenario.locationLabel}
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">{scenario.investorExplanation}</p>
+        <p className="mt-3 rounded-lg border border-slate-700/80 bg-slate-950/60 px-2.5 py-1.5 text-[11px] text-slate-300">
+          <span className="font-semibold text-slate-200">Location:</span> {scenario.locationLabel}
         </p>
         <div className="mt-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">Provider sources</p>
@@ -159,7 +157,7 @@ const DemoScenarioCard: React.FC<{
             {scenario.providerSources.map((src) => (
               <span
                 key={src.id}
-                className={demoSourceToneClass(src.tone)}
+                className={demoSourceToneClassOnDark(src.tone)}
                 title={`${src.label} — ${demoSourceToneLabel(src.tone)}`}
               >
                 {src.label}
@@ -169,11 +167,11 @@ const DemoScenarioCard: React.FC<{
           </div>
         </div>
         <p className="mt-3 text-[10px] leading-relaxed text-slate-500">{scenario.limitationNote}</p>
-        <div className="mt-auto pt-4 flex flex-wrap gap-2">
+        <div className="mt-auto flex flex-wrap gap-2 pt-4">
           <button
             type="button"
             onClick={onOpenDemo}
-            className="inline-flex items-center gap-2 rounded-lg bg-emerald-800 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-900"
+            className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white shadow-sm hover:bg-emerald-500"
           >
             Open Demo
             <ArrowRight className="h-3.5 w-3.5" />
@@ -183,7 +181,7 @@ const DemoScenarioCard: React.FC<{
               type="button"
               onClick={onWatchDpalWork}
               title="Opens the module Watch / workflow panel without running a scan."
-              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-xs font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-500 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-100 shadow-sm hover:bg-slate-700"
             >
               Watch DPAL Work
               <ArrowRight className="h-3.5 w-3.5" />
@@ -286,7 +284,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
   );
 
   return (
-    <div className="animate-fade-in max-w-[1400px] mx-auto px-4 pb-24 font-sans text-slate-900">
+    <div className="animate-fade-in min-h-screen max-w-[1400px] mx-auto bg-gradient-to-b from-black via-zinc-950 to-slate-950 px-4 pb-24 font-sans text-slate-100">
       {showEntryModal ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/90 p-4">
           <div className="w-full max-w-5xl rounded-3xl border dpal-border-subtle dpal-bg-panel-soft p-3 md:p-4">
@@ -325,14 +323,14 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         <button
           type="button"
           onClick={onReturn}
-          className="mb-4 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 shadow-sm hover:bg-slate-50"
+          className="mb-4 rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-200 shadow-sm hover:bg-slate-700"
         >
           Back to Home
         </button>
       </div>
 
       <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-slate-800">{DPAL_INFOGRAPHIC_CATEGORY}</h2>
+        <h2 className="text-base md:text-lg font-bold text-slate-100">{DPAL_INFOGRAPHIC_CATEGORY}</h2>
         <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           <HubCard
             icon={<Layout className="w-8 h-8" />}
@@ -346,11 +344,11 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </div>
       </section>
 
-      <section className="mb-8 rounded-2xl border border-slate-200 bg-slate-50 p-5 md:p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h2 className="text-base md:text-lg font-bold text-slate-800">API connectivity</h2>
-            <p className="text-[11px] text-slate-600 mt-1">
+            <h2 className="text-base md:text-lg font-bold text-slate-100">API connectivity</h2>
+            <p className="mt-1 text-[11px] text-slate-400">
               Uses your configured API base (VITE_DPAL_API_BASE_URL / VITE_API_BASE). Staggered probes; cache TTL (host 2m, adapters 10m).
               Auto-refresh every 5 minutes — skips adapters in cooldown.
             </p>
@@ -362,7 +360,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
                 setRefreshNotice(null);
                 void runConnectivityProbes({ bypassCache: true });
               }}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800 shadow-sm hover:bg-slate-100"
+              className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 shadow-sm hover:bg-slate-700"
             >
               Refresh now
             </button>
@@ -374,7 +372,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
                   setRefreshNotice(null);
                   void runConnectivityProbes({ bypassCache: true, bypassCooldown: true });
                 }}
-                className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100"
+                className="rounded-lg border border-amber-500/50 bg-amber-950/40 px-3 py-1.5 text-xs font-semibold text-amber-200 hover:bg-amber-950/60"
               >
                 Dev: force probes
               </button>
@@ -382,7 +380,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           </div>
         </div>
         {refreshNotice ? (
-          <p className="mb-3 rounded-lg border border-violet-200 bg-violet-50 px-3 py-2 text-[11px] text-violet-800">
+          <p className="mb-3 rounded-lg border border-violet-500/40 bg-violet-950/40 px-3 py-2 text-[11px] text-violet-200">
             {refreshNotice}
           </p>
         ) : null}
@@ -401,25 +399,25 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             );
           })}
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 border-t border-slate-200 pt-3">
+        <div className="flex flex-wrap items-center gap-3 border-t border-slate-700/80 pt-3 text-[11px] text-slate-400">
           <span>
-            Summary: <span className="text-emerald-700 font-semibold">{okCount} OK</span>
+            Summary: <span className="font-semibold text-emerald-400">{okCount} OK</span>
             {degradedCount ? (
               <>
                 {' · '}
-                <span className="text-amber-700 font-semibold">{degradedCount} degraded</span>
+                <span className="font-semibold text-amber-400">{degradedCount} degraded</span>
               </>
             ) : null}
             {rateLimitedCount ? (
               <>
                 {' · '}
-                <span className="text-violet-700 font-semibold">{rateLimitedCount} rate limited</span>
+                <span className="font-semibold text-violet-400">{rateLimitedCount} rate limited</span>
               </>
             ) : null}
             {offlineCount ? (
               <>
                 {' · '}
-                <span className="text-rose-700 font-semibold">{offlineCount} offline</span>
+                <span className="font-semibold text-rose-400">{offlineCount} offline</span>
               </>
             ) : null}
           </span>
@@ -427,10 +425,10 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </div>
       </section>
 
-      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+      <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
         <div className="mb-4">
-          <h2 className="text-base md:text-lg font-bold text-slate-800">Public API Intelligence Layer</h2>
-          <p className="mt-1 text-[11px] text-slate-600 max-w-5xl">
+          <h2 className="text-base md:text-lg font-bold text-slate-100">Public API Intelligence Layer</h2>
+          <p className="mt-1 max-w-5xl text-[11px] text-slate-400">
             Connect weather, radar, air quality, geocoding, carbon estimates, blockchain verification, and evidence packet previews into DPAL&apos;s live accountability system.
           </p>
         </div>
@@ -438,8 +436,8 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
       </section>
 
       <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-slate-800">Agentic investigations</h2>
-        <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
+        <h2 className="text-base md:text-lg font-bold text-slate-100">Agentic investigations</h2>
+        <p className="mt-1 max-w-3xl text-[11px] text-slate-400">
           One place to describe an environmental accountability goal, get a multi-tool plan (water, Earth Observation,
           CARB, evidence), run previews, and queue review — without hunting through the workflow list first.
         </p>
@@ -473,9 +471,9 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
         </div>
       </section>
 
-      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">A · Monitoring &amp; Remote Sensing</h2>
-        <p className="mt-1 text-xs text-slate-600 max-w-4xl">
+      <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">A · Monitoring &amp; Remote Sensing</h2>
+        <p className="mt-1 max-w-4xl text-xs text-slate-400">
           Satellite lanes, water intelligence, forest-risk evidence, and spectral screening — provider summaries reflect hub probes and configured routes (never fabricated counts).
         </p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -485,6 +483,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge={earthObsBadge}
             providerSummary={lineLabel(hubHealth)}
             accent="sky"
+            heroImageSrc="/main-screen/satellite-water-analysis.png"
             watchHint="Watch-style automation runs only after you open the workspace and start a flow."
             onOpenWorkspace={() => onNavigate('earthObservation')}
           />
@@ -494,6 +493,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge={aquaScanBadge}
             providerSummary={lineLabel(hubCop)}
             accent="sky"
+            heroImageSrc="/environmental-intelligence/aqua-scan-hero.png"
             watchHint="Watch DPAL Work focuses the AquaScan workflow rail — no scan auto-runs."
             onOpenWorkspace={() => onNavigate('aquaScanWater')}
             onWatchDpalWork={() => openWithWatchHash('aquaScanWater')}
@@ -501,42 +501,43 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             <button
               type="button"
               onClick={() => onNavigate('waterMonitor')}
-              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+              className="rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-700"
             >
               Water Command Center
             </button>
             <button
               type="button"
               onClick={() => onNavigate('waterOperationsEngine')}
-              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+              className="rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-700"
             >
               Water Operations Engine
             </button>
             <button
               type="button"
               onClick={() => onNavigate('aqualandWell')}
-              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+              className="rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-700"
             >
               Aqualand Well
             </button>
           </EnvironmentalServiceCard>
           <EnvironmentalServiceCard
-            title="Forest Integrity"
-            subtitle="Live GFW + FIRMS + satellite monitoring for forest-risk evidence packets."
+            title="AFOLU / Land Use &amp; Carbon Readiness"
+            subtitle="Forest integrity scans (GFW, FIRMS, Landsat, GEDI) plus land-use and carbon-readiness workspace entry."
             badge="Live"
             providerSummary="Watch DPAL Work available inside — honest GFW / FIRMS / Landsat / GEDI lane states."
             accent="emerald"
+            heroImageSrc="/environmental-intelligence/forest-integrity-main.png"
             watchHint="Watch DPAL Work opens the workflow panel — scan still starts only on click."
             onOpenWorkspace={() => onNavigate('forestIntegrity')}
-            openWorkspaceLabel="Open Forest Integrity"
+            openWorkspaceLabel="Open Forest Integrity workspace"
             onWatchDpalWork={() => openWithWatchHash('forestIntegrity')}
           >
             <button
               type="button"
               onClick={() => onNavigate('afoluEngine')}
-              className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-800 hover:bg-slate-100"
+              className="rounded-md border border-slate-600 bg-slate-800 px-2.5 py-1 text-[10px] font-semibold text-slate-200 hover:bg-slate-700"
             >
-              AFOLU / Forest Carbon
+              AFOLU / Land Use &amp; Carbon Readiness (missions &amp; proof)
             </button>
           </EnvironmentalServiceCard>
           <EnvironmentalServiceCard
@@ -545,6 +546,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Preview"
             providerSummary="PACE/EMIT lanes remain preview until narrow-band products are wired; no plastic detection claims."
             accent="sky"
+            heroImageSrc="/environmental-intelligence/air-scan-hero.png"
             watchHint="Evidence-support only — Watch DPAL Work opens the workflow panel without auto-running a scan."
             onOpenWorkspace={() => onNavigate('hyperspectralPlasticWatch')}
             openWorkspaceLabel="Open Plastic Watch"
@@ -556,6 +558,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="OpenAQ availability varies by region and upstream health."
             accent="sky"
+            heroImageSrc="/environmental-intelligence/air-quality-control-main.png"
             onOpenWorkspace={() => onNavigate('airQualityMonitor')}
           />
           <EnvironmentalServiceCard
@@ -564,6 +567,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Uses /api/ecology when available on your configured API host."
             accent="emerald"
+            heroImageSrc="/main-screen/land-mineral-monitoring.png"
             onOpenWorkspace={() => onNavigate('ecologicalConservation')}
           />
           <EnvironmentalServiceCard
@@ -572,14 +576,15 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary={lineLabel(connectivity.find((c) => c.id === 'signals'))}
             accent="amber"
+            heroImageSrc="/environmental-intelligence/water-satellite-monitor-main.png"
             onOpenWorkspace={() => onNavigate('globalSignals')}
           />
         </div>
       </section>
 
-      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">B · Carbon &amp; MRV</h2>
-        <p className="mt-1 text-xs text-slate-600 max-w-4xl">Carbon intelligence, AFOLU workflows, impact units, and AOI tools — each module keeps its own validator gates.</p>
+      <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">B · Carbon &amp; MRV</h2>
+        <p className="mt-1 max-w-4xl text-xs text-slate-400">Carbon intelligence, AFOLU workflows, impact units, and AOI tools — each module keeps its own validator gates.</p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
           <EnvironmentalServiceCard
             title="Carbon Intelligence &amp; MRV"
@@ -587,15 +592,18 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Requires live /api/carbon routes on your configured API host for full depth."
             accent="teal"
+            heroImageSrc="/environmental-intelligence/carbon-intelligence-mrv-main.png"
             onOpenWorkspace={() => onNavigate('dpalCarbon')}
           />
           <EnvironmentalServiceCard
-            title="AFOLU / Forest Carbon"
+            title="AFOLU / Land Use &amp; Carbon Readiness"
             subtitle="Investor-facing forest carbon command center and mission launch flows (local-first drafts)."
             badge="Partial"
             providerSummary="Project records may be browser-local until synced to a configured backend."
             accent="emerald"
+            heroImageSrc="/environmental-intelligence/forest-integrity-main.png"
             onOpenWorkspace={() => onNavigate('afoluEngine')}
+            openWorkspaceLabel="Open AFOLU workspace"
           />
           <EnvironmentalServiceCard
             title="Verified Impact Units · VIU readiness"
@@ -603,6 +611,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Portfolio views may combine API + local demo purchases per module rules."
             accent="teal"
+            heroImageSrc="/main-screen/Offset-Marketplace/offset-marketplace.png"
             onOpenWorkspace={() => onNavigate('offsetMarketplace')}
           />
           <EnvironmentalServiceCard
@@ -611,15 +620,16 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge={earthObsBadge}
             providerSummary="Use the Earth Observation workspace for geospatial baseline framing."
             accent="sky"
+            heroImageSrc="/main-screen/satellite-water-analysis.png"
             onOpenWorkspace={() => onNavigate('earthObservation')}
             openWorkspaceLabel="Open Earth Observation"
           />
         </div>
       </section>
 
-      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">C · Compliance &amp; Audits</h2>
-        <p className="mt-1 text-xs text-slate-600 max-w-4xl">Regulatory-grade audit workspaces — always disclose dataset mode (live vs imported vs preview).</p>
+      <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">C · Compliance &amp; Audits</h2>
+        <p className="mt-1 max-w-4xl text-xs text-slate-400">Regulatory-grade audit workspaces — always disclose dataset mode (live vs imported vs preview).</p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <EnvironmentalServiceCard
             title="CARB Emissions Audit"
@@ -627,6 +637,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge={carbAuditBadge}
             providerSummary={lineLabel(hubCarb)}
             accent="emerald"
+            heroImageSrc="/environmental-intelligence/emissions-audit-carb-main.png"
             onOpenWorkspace={() => onNavigate('carbEmissionsAudit')}
           />
           <EnvironmentalServiceCard
@@ -635,6 +646,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Save/list requires /api/emissions-audit on a host with DpalUser JWT unless ported."
             accent="emerald"
+            heroImageSrc="/environmental-intelligence/emissions-audit-main.png"
             onOpenWorkspace={() => onNavigate('emissionsIntegrityAudit')}
           />
           <EnvironmentalServiceCard
@@ -643,6 +655,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Dataset readiness depends on imported or live hazardous-waste adapters."
             accent="emerald"
+            heroImageSrc="/environmental-intelligence/hub-main-menu-card.png"
             onOpenWorkspace={() => onNavigate('hazardousWasteAudit')}
           />
           <EnvironmentalServiceCard
@@ -651,6 +664,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Live"
             providerSummary="Public EPA feeds — not DPAL-authored facility claims."
             accent="sky"
+            heroImageSrc="/environmental-intelligence/air-quality-control-main.png"
             onOpenWorkspace={() => onNavigate('epaGhgLive')}
           />
           <EnvironmentalServiceCard
@@ -659,6 +673,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Live"
             providerSummary="Envirofacts queries are rate-sensitive; respect upstream limits."
             accent="sky"
+            heroImageSrc="/environmental-intelligence/hub-layout-reference.png"
             onOpenWorkspace={() => onNavigate('envirofactsGeoIntelligence')}
           />
           <EnvironmentalServiceCard
@@ -667,14 +682,15 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Preview"
             providerSummary="Preview-safe — not a certified tank inspection."
             accent="amber"
+            heroImageSrc="/environmental-intelligence/water-satellite-monitor-main.png"
             onOpenWorkspace={() => onNavigate('previewFuelStorageAudit')}
           />
         </div>
       </section>
 
-      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
-        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-800">D · Evidence &amp; Response</h2>
-        <p className="mt-1 text-xs text-slate-600 max-w-4xl">Export, anchor, and operationalize environmental evidence without bypassing human review gates.</p>
+      <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">D · Evidence &amp; Response</h2>
+        <p className="mt-1 max-w-4xl text-xs text-slate-400">Export, anchor, and operationalize environmental evidence without bypassing human review gates.</p>
         <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           <EnvironmentalServiceCard
             title="Evidence Packets"
@@ -682,6 +698,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Open the packet viewer or finish packets inside each environmental workspace."
             accent="teal"
+            heroImageSrc="/dpal-infographics/environmental-scan-suite.png"
             onOpenWorkspace={() => onNavigate('previewEvidencePacket')}
             openWorkspaceLabel="Open packet viewer"
           />
@@ -691,6 +708,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Live"
             providerSummary="Uses your configured filing API for authenticated rooms."
             accent="sky"
+            heroImageSrc="/environmental-intelligence/hub-main-menu-card.png"
             onOpenWorkspace={() => onNavigate('situationRoom')}
           />
           <EnvironmentalServiceCard
@@ -699,6 +717,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Navigator + Field OS — no auto-publish or auto-verify."
             accent="emerald"
+            heroImageSrc="/main-screen/dpal-mission-control-hero.png"
             onOpenWorkspace={() => {
               try {
                 sessionStorage.setItem(FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, '1');
@@ -715,17 +734,18 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             badge="Partial"
             providerSummary="Missions V2 routes — separate from live filing API unless bridged."
             accent="amber"
+            heroImageSrc="/main-screen/field-missions.png"
             onOpenWorkspace={() => onNavigate('missionMarketplace')}
             openWorkspaceLabel="Open missions hub"
           />
         </div>
       </section>
 
-      <section className="mb-10 rounded-2xl border border-slate-200 bg-white p-5 md:p-6 shadow-sm">
+      <section className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
-            <h2 className="text-base md:text-lg font-bold text-slate-800">Investor Demo Scenarios</h2>
-            <p className="mt-1 max-w-3xl text-[11px] text-slate-600">
+            <h2 className="text-base md:text-lg font-bold text-slate-100">Investor Demo Scenarios</h2>
+            <p className="mt-1 max-w-3xl text-[11px] text-slate-400">
               Prebuilt walkthroughs showing how DPAL moves from location → signal → verification → evidence packet → response.
             </p>
           </div>
@@ -733,13 +753,13 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             <button
               type="button"
               onClick={() => onNavigate('investorDemo')}
-              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 shadow-sm hover:bg-emerald-50"
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/50 bg-emerald-950/40 px-3 py-1.5 text-xs font-semibold text-emerald-100 shadow-sm hover:bg-emerald-950/70"
               title="One-page investor pitch with scenario selector, business value, and revenue tracks."
             >
               Open Investor Pitch Page
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
-            <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+            <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-200">
               Demo Mode
             </span>
           </div>

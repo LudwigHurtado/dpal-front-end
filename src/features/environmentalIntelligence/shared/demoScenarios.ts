@@ -242,7 +242,7 @@ export function getDemoScenarioById(id: string): DemoScenario | undefined {
   return DEMO_SCENARIOS.find((s) => s.id === id);
 }
 
-/** Tone → light chip class. Matches the investor-style hub UI; honest labels unchanged. */
+/** Tone → light chip class. Matches light panels (e.g. Investor Demo page). */
 export function demoSourceToneClass(tone: DemoScenarioSourceTone): string {
   const base = 'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold';
   switch (tone) {
@@ -255,6 +255,22 @@ export function demoSourceToneClass(tone: DemoScenarioSourceTone): string {
     case 'unavailable':
     default:
       return `${base} border-slate-200 bg-slate-50 text-slate-600`;
+  }
+}
+
+/** Tone → chip class for dark cards (Environmental Intelligence Hub scenario grid). */
+export function demoSourceToneClassOnDark(tone: DemoScenarioSourceTone): string {
+  const base = 'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold';
+  switch (tone) {
+    case 'live':
+      return `${base} border-emerald-500/45 bg-emerald-500/15 text-emerald-200`;
+    case 'partial':
+      return `${base} border-amber-500/45 bg-amber-500/12 text-amber-100`;
+    case 'preview':
+      return `${base} border-sky-500/45 bg-sky-500/12 text-sky-100`;
+    case 'unavailable':
+    default:
+      return `${base} border-slate-600 bg-slate-800/80 text-slate-300`;
   }
 }
 
