@@ -7,6 +7,7 @@ import {
 import { buildPendingAdapterResult } from './commandCenterPendingModule';
 import { executePlasticWatchForCommandCenter } from './commandCenterPlasticExecutor';
 import { executeWaterForCommandCenter } from './commandCenterWaterExecutor';
+import { executeForestIntegrityForCommandCenter } from './commandCenterForestExecutor';
 import {
   COMMAND_CENTER_SAFETY_LABELS,
   type CommandCenterRunContext,
@@ -174,6 +175,9 @@ async function executeModule(
   }
   if (moduleKey === 'water') {
     return executeWaterForCommandCenter(context, runMode);
+  }
+  if (moduleKey === 'forestIntegrity') {
+    return executeForestIntegrityForCommandCenter(context, runMode);
   }
   return buildPendingAdapterResult(moduleKey, runMode);
 }
