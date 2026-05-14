@@ -672,3 +672,40 @@ model HazardousWasteAudit {
   @@index([riskLevel])
   @@index([deletedAt])
 }
+
+/// DPAL Environmental Intelligence — persisted evidence packets (JSON payload; survives restarts).
+model EnvironmentalEvidencePacket {
+  id                        String   @id @default(cuid())
+  packetId                  String   @unique
+  runId                     String
+  useCaseId                 String?
+  title                     String
+  locationLabel             String?
+  lat                       Float?
+  lng                       Float?
+  radiusKm                  Float?
+  aoiGeoJson                Json?
+  baselineDate              String?
+  currentDate               String?
+  requestedSources          Json
+  providerResults           Json
+  evidenceLanes             Json
+  confidence                Json
+  limitations               Json
+  skippedSources            Json?
+  safetyLabels              Json
+  validationStatus          String
+  situationRoomId           String?
+  projectId                 String?
+  qrPayload                 Json?
+  integrityHash             String
+  integrityHashLimitation   String
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+
+  @@map("environmental_evidence_packets")
+  @@index([runId])
+  @@index([useCaseId])
+  @@index([validationStatus])
+  @@index([createdAt])
+}

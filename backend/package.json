@@ -13,6 +13,7 @@
     "smoke:env-intel-sources": "npm run build && node dist/scripts/smokeSourceRegistry.js",
     "smoke:provider-execution": "npx tsx src/scripts/smokeProviderExecution.ts",
     "smoke:evidence-packets": "npx tsx src/scripts/smokeEvidencePackets.ts",
+    "smoke:evidence-packet-store": "npx tsx src/scripts/smokeEvidencePacketStore.ts",
     "test:plastic-watch": "npx tsx src/services/hyperspectral/plasticWatch.selftest.ts && npx tsx src/services/hyperspectral/plasticWatch.routeScan.selftest.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

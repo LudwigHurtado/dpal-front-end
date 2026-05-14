@@ -70,11 +70,35 @@ async function main(): Promise<void> {
 
   const got = await store.get(packet.packetId);
   assert(got != null && got.packetId === packet.packetId, 'GET by id');
+  assert(got!.integrityHash === packet.integrityHash, 'GET returns same integrityHash before update');
 
   const listed = await store.list(20);
   assert(listed.some((p) => p.packetId === packet.packetId), 'list contains packet');
 
-  console.log('[smokeEvidencePackets] OK', { packetId: packet.packetId, integrityHash: packet.integrityHash.slice(0, 12) + '…' });
+  const updated = await store.update(packet.packetId, { situationRoomId: 'smoke-situation-room-stub' });
+  if (!updated) {
+    assert(false, 'update returns packet');
+    return;
+  }
+  assert(updated.situationRoomId === 'smoke-situation-room-stub', 'situationRoomId patched');
+  assert(updated.integrityHash.length === 64, 'integrityHash still present after update');
+  assert(updated.integrityHashLimitation.toLowerCase().includes('not blockchain anchoring'), 'limitation after update');
+  assert(
+    updated.safetyLabels.pending_verification === true &&
+      updated.safetyLabels.human_verified === false &&
+      updated.safetyLabels.blockchain_anchored === false,
+    'safety labels unchanged after update',
+  );
+
+  const gotAfter = await store.get(packet.packetId);
+  assert(gotAfter?.situationRoomId === 'smoke-situation-room-stub', 'packet survives update round-trip');
+  assert(gotAfter?.integrityHash === updated.integrityHash, 'integrityHash stable for stored row');
+
+  console.log('[smokeEvidencePackets] OK', {
+    packetId: packet.packetId,
+    storeMode: store.mode,
+    integrityHash: packet.integrityHash.slice(0, 12) + '…',
+  });
 }
 
 main().catch((e) => {
