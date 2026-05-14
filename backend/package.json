@@ -16,6 +16,7 @@
     "smoke:evidence-packet-store": "npx tsx src/scripts/smokeEvidencePacketStore.ts",
     "smoke:accountability-profiles": "npx tsx src/scripts/smokeAccountabilityProfiles.ts",
     "smoke:env-validation": "npx tsx src/scripts/smokeEnvironmentalValidation.ts",
+    "smoke:env-business-workflows": "npx tsx src/scripts/smokeEnvironmentalBusinessWorkflows.ts",
     "test:plastic-watch": "npx tsx src/services/hyperspectral/plasticWatch.selftest.ts && npx tsx src/services/hyperspectral/plasticWatch.routeScan.selftest.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

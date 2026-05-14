@@ -782,3 +782,39 @@ model EnvironmentalValidationRequest {
   @@index([createdAt])
   @@map("environmental_validation_requests")
 }
+
+/// DPAL Environmental Intelligence — business workflow orchestration runs (profile + evidence + optional validation).
+model EnvironmentalBusinessWorkflowRun {
+  id              String    @id @default(cuid())
+  workflowRunId   String    @unique
+  workflowId      String
+  workflowName    String
+  status          String
+  profileId       String?
+  packetId        String?
+  validationId    String?
+  useCaseId       String?
+  companyName     String?
+  facilityName    String?
+  claimText       String?
+  lat             Float?
+  lng             Float?
+  radiusKm        Float?
+  input           Json
+  outputSummary   Json
+  safetyLabels    Json
+  limitations     Json
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  completedAt     DateTime?
+
+  @@index([workflowRunId])
+  @@index([workflowId])
+  @@index([status])
+  @@index([profileId])
+  @@index([packetId])
+  @@index([validationId])
+  @@index([useCaseId])
+  @@index([createdAt])
+  @@map("environmental_business_workflow_runs")
+}
