@@ -1,0 +1,525 @@
+[
+  {
+    "id": "carbon_credit_integrity",
+    "name": "Carbon credit integrity screening",
+    "description": "Cross-check MRV signals, public disclosures, and satellite proxies without asserting issuance or registry outcomes.",
+    "requiredSources": [
+      "LANDSAT_8_9",
+      "NASA_HLS",
+      "GEDI_LIDAR",
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "SENTINEL_2",
+      "SENTINEL_1",
+      "FIELD_SENSOR",
+      "LAB_SAMPLE",
+      "COMPANY_DISCLOSURE"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Screening and evidence review only. No automatic carbon credit issuance, registry approval, or VIU eligibility."
+  },
+  {
+    "id": "corporate_greenwashing_review",
+    "name": "Corporate greenwashing divergence review",
+    "description": "Compare voluntary disclosures to independent environmental signals and public records.",
+    "requiredSources": [
+      "COMPANY_DISCLOSURE",
+      "ESG_REPORT"
+    ],
+    "optionalSources": [
+      "EPA_DATASET",
+      "SENTINEL_5P_TROPOMI",
+      "SENTINEL_2",
+      "WEATHER_DATA"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Narrative and documentary comparison — not a finding of fraud or liability."
+  },
+  {
+    "id": "methane_super_emitter_monitoring",
+    "name": "Methane super-emitter monitoring",
+    "description": "Column and plume-oriented screening with transport context; commercial feeds optional.",
+    "requiredSources": [
+      "SENTINEL_5P_TROPOMI",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "GHGSAT",
+      "TEMPO",
+      "CARB_DATASET",
+      "EPA_DATASET",
+      "FIELD_SENSOR"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Anomaly screening requires validation; no enforcement or guilt conclusions."
+  },
+  {
+    "id": "co2_facility_verification",
+    "name": "CO₂ facility verification context",
+    "description": "Satellite column context plus inventories and meteorology — not stack testing.",
+    "requiredSources": [
+      "WEATHER_DATA",
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "OCO_3",
+      "OCO_2",
+      "SENTINEL_5P_TROPOMI",
+      "CARB_DATASET"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Column CO₂ cannot alone verify facility emissions without modeling and independent measurements."
+  },
+  {
+    "id": "harmful_algal_bloom_watch",
+    "name": "Harmful algal bloom watch",
+    "description": "Ocean color and thermal context for bloom risk triage in coastal and lake settings.",
+    "requiredSources": [
+      "PACE_OCI",
+      "SENTINEL_3",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "SENTINEL_2",
+      "VIIRS",
+      "FIELD_SENSOR",
+      "RIVER_TIDE_DATA"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Remote sensing suggests conditions; field assays confirm toxicity and species."
+  },
+  {
+    "id": "plastic_pollution_watch",
+    "name": "Plastic pollution watch",
+    "description": "Coastal/ocean color proxies and vessel activity context — no polymer identification claim from color alone.",
+    "requiredSources": [
+      "PACE_OCI",
+      "SENTINEL_2"
+    ],
+    "optionalSources": [
+      "VIIRS",
+      "AIS_VESSEL_DATA",
+      "COMMUNITY_REPORT",
+      "DRONE_SURVEY"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Use “suggestive” language; high-resolution or field validation required for debris attribution."
+  },
+  {
+    "id": "blue_carbon_mrv",
+    "name": "Blue carbon MRV context",
+    "description": "Combine wetland extent, structure samples, and tide context for screening-level MRV inputs.",
+    "requiredSources": [
+      "SENTINEL_2",
+      "SWOT",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "GEDI_LIDAR",
+      "ICESAT_2",
+      "NASA_HLS",
+      "FIELD_SENSOR",
+      "LAB_SAMPLE"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Not certified carbon stock; no automatic credit issuance."
+  },
+  {
+    "id": "forest_carbon_deforestation_audit",
+    "name": "Forest carbon / deforestation audit",
+    "description": "Optical/SAR change detection with biomass samples where available.",
+    "requiredSources": [
+      "LANDSAT_8_9",
+      "NASA_HLS",
+      "NASA_FIRMS"
+    ],
+    "optionalSources": [
+      "SENTINEL_1",
+      "SENTINEL_2",
+      "GEDI_LIDAR",
+      "DYNAMIC_WORLD",
+      "PLANET_SCOPE"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Disturbance screening is not legal land tenure or enforcement."
+  },
+  {
+    "id": "illegal_mining_land_disturbance",
+    "name": "Illegal mining / land disturbance screening",
+    "description": "SAR/optical disturbance flags with public records — intent and legality require investigation.",
+    "requiredSources": [
+      "SENTINEL_1",
+      "SENTINEL_2"
+    ],
+    "optionalSources": [
+      "LANDSAT_8_9",
+      "NASA_EMIT",
+      "DRONE_SURVEY",
+      "EPA_DATASET",
+      "MAXAR_WORLDVIEW"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Use “disturbance detected”; no guilt, permit violation, or enforcement conclusions."
+  },
+  {
+    "id": "water_pollution_evidence",
+    "name": "Water pollution evidence packet",
+    "description": "Combine optical water indices, public discharge records, and lab/field validation hooks.",
+    "requiredSources": [
+      "EPA_DATASET",
+      "SENTINEL_2"
+    ],
+    "optionalSources": [
+      "SENTINEL_3",
+      "FIELD_SENSOR",
+      "LAB_SAMPLE",
+      "RIVER_TIDE_DATA",
+      "INCIDENT_REPORT"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Screening and record linkage — adjudication requires qualified experts."
+  },
+  {
+    "id": "flood_risk_damage_intelligence",
+    "name": "Flood risk and damage intelligence",
+    "description": "Hydrology context: SAR wetness, gauges, SWOT, weather windows — not an emergency dispatch system.",
+    "requiredSources": [
+      "WEATHER_DATA",
+      "RIVER_TIDE_DATA"
+    ],
+    "optionalSources": [
+      "SENTINEL_1",
+      "SWOT",
+      "SMAP",
+      "VIIRS",
+      "COMMUNITY_REPORT"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Does not replace official warnings or legal flood determinations."
+  },
+  {
+    "id": "wildfire_illegal_burn_monitoring",
+    "name": "Wildfire / illegal burn monitoring",
+    "description": "Hotspot timelines with SAR/optical corroboration — arson or illegality not inferred automatically.",
+    "requiredSources": [
+      "NASA_FIRMS",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "VIIRS",
+      "SENTINEL_2",
+      "SENTINEL_1",
+      "LANDSAT_8_9"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Hotspots are not proof of cause, intent, or jurisdiction-specific illegality."
+  },
+  {
+    "id": "urban_heat_environmental_justice",
+    "name": "Urban heat / environmental justice context",
+    "description": "Thermal and land-cover screening with demographic overlays added downstream in workflows.",
+    "requiredSources": [
+      "LANDSAT_8_9",
+      "ECOSTRESS"
+    ],
+    "optionalSources": [
+      "TEMPO",
+      "DYNAMIC_WORLD",
+      "WEATHER_DATA",
+      "FIELD_SENSOR"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Exposure screening is not clinical outcome proof."
+  },
+  {
+    "id": "industrial_air_pollution_watch",
+    "name": "Industrial air pollution watch",
+    "description": "NO₂ columns, TEMPO diurnal context, and facility registry linkage.",
+    "requiredSources": [
+      "SENTINEL_5P_TROPOMI",
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "TEMPO",
+      "NASA_EMIT",
+      "CARB_DATASET",
+      "WEATHER_DATA"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Column abundances are not ground concentrations or permit violations alone."
+  },
+  {
+    "id": "port_shipping_pollution",
+    "name": "Port and shipping pollution screening",
+    "description": "Vessel activity, NO₂, ocean color turbidity proxies near ports.",
+    "requiredSources": [
+      "SENTINEL_5P_TROPOMI",
+      "SENTINEL_2"
+    ],
+    "optionalSources": [
+      "AIS_VESSEL_DATA",
+      "PACE_OCI",
+      "TEMPO",
+      "WEATHER_DATA"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "AIS gaps and atmospheric mixing limit attribution."
+  },
+  {
+    "id": "agriculture_carbon_water_efficiency",
+    "name": "Agriculture carbon / water efficiency screening",
+    "description": "Soil moisture, ET/thermal stress, and optical crop condition proxies.",
+    "requiredSources": [
+      "SMAP",
+      "LANDSAT_8_9"
+    ],
+    "optionalSources": [
+      "NASA_HLS",
+      "ECOSTRESS",
+      "SENTINEL_2",
+      "WEATHER_DATA"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Agronomic decisions require local agronomy validation."
+  },
+  {
+    "id": "drought_groundwater_risk",
+    "name": "Drought and groundwater stress screening",
+    "description": "GRACE large-basin trends with moisture and weather context — not well-specific adjudication.",
+    "requiredSources": [
+      "GRACE_FO",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "SMAP",
+      "LANDSAT_8_9",
+      "RIVER_TIDE_DATA",
+      "FIELD_SENSOR"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "GRACE cannot localize to individual wells; legal groundwater claims need dedicated studies."
+  },
+  {
+    "id": "biodiversity_habitat_integrity",
+    "name": "Biodiversity / habitat integrity screening",
+    "description": "Land-cover dynamics and structure samples — species richness needs ecological field survey.",
+    "requiredSources": [
+      "DYNAMIC_WORLD",
+      "LANDSAT_8_9"
+    ],
+    "optionalSources": [
+      "NASA_HLS",
+      "SENTINEL_2",
+      "GEDI_LIDAR",
+      "MODIS"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Remote indices are not species inventories or regulatory biodiversity sign-offs."
+  },
+  {
+    "id": "infrastructure_subsidence_monitoring",
+    "name": "Infrastructure subsidence monitoring",
+    "description": "InSAR-capable sources and structure height references where available.",
+    "requiredSources": [
+      "SENTINEL_1"
+    ],
+    "optionalSources": [
+      "ICESAT_2",
+      "CAPELLA_SAR",
+      "ICEYE_SAR",
+      "MAXAR_WORLDVIEW",
+      "NISAR"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Commercial SAR and future missions are gated; deformation screening requires expert QA."
+  },
+  {
+    "id": "dam_reservoir_river_integrity",
+    "name": "Dam, reservoir, and river integrity context",
+    "description": "Stage/discharge, SWOT, and SAR wetness for hydrologic anomaly triage.",
+    "requiredSources": [
+      "RIVER_TIDE_DATA",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "SWOT",
+      "SENTINEL_1",
+      "SMAP",
+      "GRACE_FO"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Not a dam safety certification or regulatory sign-off."
+  },
+  {
+    "id": "insurance_environmental_risk",
+    "name": "Insurance environmental risk context",
+    "description": "Multi-hazard screening stack: flood, fire, heat, air, and subsidence leads.",
+    "requiredSources": [
+      "WEATHER_DATA",
+      "NASA_FIRMS"
+    ],
+    "optionalSources": [
+      "SENTINEL_1",
+      "GRACE_FO",
+      "TEMPO",
+      "ICEYE_SAR",
+      "LANDSAT_8_9"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Not underwriting, pricing, or legal advice."
+  },
+  {
+    "id": "real_estate_land_due_diligence",
+    "name": "Real estate / land due diligence",
+    "description": "Historical land change, subsidence hints, and environmental record proximity.",
+    "requiredSources": [
+      "LANDSAT_8_9",
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "DYNAMIC_WORLD",
+      "SENTINEL_1",
+      "MAXAR_WORLDVIEW",
+      "PLANET_SCOPE"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Environmental due diligence requires qualified professionals and local records review."
+  },
+  {
+    "id": "hazardous_waste_integrity_audit",
+    "name": "Hazardous waste integrity audit support",
+    "description": "RCRA/ECHO-style registry context with field and lab validation hooks.",
+    "requiredSources": [
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "REGULATORY_FILING",
+      "DRONE_SURVEY",
+      "LAB_SAMPLE",
+      "INCIDENT_REPORT"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Registry presence is not proof of current noncompliance; no enforcement conclusions."
+  },
+  {
+    "id": "supplier_environmental_watch",
+    "name": "Supplier environmental watch",
+    "description": "Disclosure + facility signals + optional commercial imagery.",
+    "requiredSources": [
+      "ESG_REPORT",
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "COMPANY_DISCLOSURE",
+      "SENTINEL_5P_TROPOMI",
+      "AIS_VESSEL_DATA",
+      "QR_EVIDENCE"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Supplier screening is not contractual certification."
+  },
+  {
+    "id": "government_transparency_dashboard",
+    "name": "Government transparency dashboard",
+    "description": "Aggregate public datasets and satellite context for civic intelligence dashboards.",
+    "requiredSources": [
+      "EPA_DATASET",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "CARB_DATASET",
+      "REGULATORY_FILING",
+      "RIVER_TIDE_DATA",
+      "INCIDENT_REPORT"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Dashboards surface records; they do not judge officials or establish liability."
+  },
+  {
+    "id": "community_environmental_reporting",
+    "name": "Community environmental reporting",
+    "description": "Triage community reports with corroborating sensors and imagery.",
+    "requiredSources": [
+      "COMMUNITY_REPORT"
+    ],
+    "optionalSources": [
+      "INCIDENT_REPORT",
+      "QR_EVIDENCE",
+      "WEATHER_DATA",
+      "SENTINEL_2",
+      "FIELD_SENSOR"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Community reports are pending verification until corroborated."
+  },
+  {
+    "id": "environmental_litigation_support",
+    "name": "Environmental litigation support (evidence organization)",
+    "description": "Structured evidence lanes for counsel workflows — DPAL does not provide legal advice.",
+    "requiredSources": [
+      "REGULATORY_FILING",
+      "EPA_DATASET"
+    ],
+    "optionalSources": [
+      "LAB_SAMPLE",
+      "DRONE_SURVEY",
+      "INCIDENT_REPORT",
+      "LANDSAT_8_9",
+      "SENTINEL_1"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "Organizational tool only; counsel determines admissibility and strategy."
+  },
+  {
+    "id": "investor_climate_risk_intelligence",
+    "name": "Investor climate risk intelligence",
+    "description": "Combine disclosures and physical hazard screening without security offering claims.",
+    "requiredSources": [
+      "COMPANY_DISCLOSURE",
+      "WEATHER_DATA"
+    ],
+    "optionalSources": [
+      "ESG_REPORT",
+      "GRACE_FO",
+      "NASA_FIRMS",
+      "SENTINEL_5P_TROPOMI"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Not investment advice; no forward performance or compliance guarantees."
+  },
+  {
+    "id": "municipal_climate_resilience",
+    "name": "Municipal climate resilience screening",
+    "description": "Heat, flood, drought, and air screening layers for planning context.",
+    "requiredSources": [
+      "WEATHER_DATA",
+      "LANDSAT_8_9"
+    ],
+    "optionalSources": [
+      "TEMPO",
+      "SWOT",
+      "SMAP",
+      "GRACE_FO",
+      "RIVER_TIDE_DATA"
+    ],
+    "validationRequired": false,
+    "safetyLanguage": "Planning support only; engineering designs require licensed professionals."
+  },
+  {
+    "id": "dpal_verified_impact_units",
+    "name": "DPAL verified impact units (governance-gated)",
+    "description": "Placeholder lane for future governance products — no automatic VIU issuance.",
+    "requiredSources": [
+      "QR_EVIDENCE",
+      "LAB_SAMPLE"
+    ],
+    "optionalSources": [
+      "FIELD_SENSOR",
+      "INCIDENT_REPORT",
+      "SENTINEL_2"
+    ],
+    "validationRequired": true,
+    "safetyLanguage": "No automatic VIU eligibility, credits, or blockchain anchoring."
+  }
+]

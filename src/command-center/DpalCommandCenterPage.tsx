@@ -22,6 +22,7 @@ import {
 } from './services/commandCenterAutopilotPlan';
 import { runCommandCenterOrchestration } from './services/commandCenterOrchestrator';
 import { CommandCenterMapPanel } from './map/CommandCenterMapPanel';
+import { CommandCenterSourceRegistryStrip } from './components/CommandCenterSourceRegistryStrip';
 import AiReportReaderChatBox from '../features/aiReportReader/AiReportReaderChatBox';
 import { buildAiReportReaderSnapshot } from '../features/aiReportReader/buildAiReportReaderSnapshot';
 import type {
@@ -762,6 +763,10 @@ const DpalCommandCenterPage: React.FC<Props> = ({ onReturn, onNavigate }) => {
       </section>
 
       {safetyStrip}
+
+      <div className="mt-3">
+        <CommandCenterSourceRegistryStrip />
+      </div>
 
       {/* Main: mode rail | map | autopilot — mobile: map, autopilot, rail, then mode panels */}
       <div className="mt-4 flex flex-col gap-4 xl:grid xl:grid-cols-[10.5rem_minmax(0,1fr)_18rem] xl:items-start">

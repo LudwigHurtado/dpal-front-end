@@ -182,6 +182,9 @@ export const API_ROUTES = {
   FLOODGUARD_GENERATE_EVIDENCE_PACKET: '/api/floodguard/generate-evidence-packet',
   FLOODGUARD_ANCHOR_ALERT: '/api/floodguard/anchor-alert',
   FLOODGUARD_ALERTS_LIVE: '/api/floodguard/alerts/live',
+  /** DPAL Environmental Intelligence — central source registry status (Prisma backend) */
+  ENVIRONMENTAL_INTELLIGENCE_SOURCES_STATUS: '/api/environmental-intelligence/sources/status',
+  ENVIRONMENTAL_INTELLIGENCE_SOURCES_USE_CASES: '/api/environmental-intelligence/sources/use-cases',
 } as const;
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
