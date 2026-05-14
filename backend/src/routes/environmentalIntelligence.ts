@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
 import accountabilityProfileRoutes from '../environmental-intelligence/accountabilityProfiles/accountabilityProfileRoutes';
 import evidencePacketRoutes from '../environmental-intelligence/evidencePackets/evidencePacketRoutes';
+import validationRoutes from '../environmental-intelligence/validation/validationRoutes';
 import { getAllBusinessUseCases } from '../environmental-intelligence/sources/businessUseCasesBackend';
 import { buildSourcesStatusPayload } from '../environmental-intelligence/sources/providerStatus';
 import { executeEnvironmentalSourceRun } from '../environmental-intelligence/sources/sourceRunService';
@@ -10,6 +11,7 @@ const router = Router();
 
 router.use('/accountability-profiles', accountabilityProfileRoutes);
 router.use('/evidence-packets', evidencePacketRoutes);
+router.use('/validation', validationRoutes);
 
 const sourceRunBodySchema = z.object({
   sourceIds: z.array(z.string()).optional(),

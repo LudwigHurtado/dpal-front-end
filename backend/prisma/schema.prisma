@@ -746,3 +746,39 @@ model EnvironmentalAccountabilityProfile {
   @@index([validationStatus])
   @@index([createdAt])
 }
+
+/// DPAL Environmental Intelligence — validation requests (review workflow; not automatic verification).
+model EnvironmentalValidationRequest {
+  id               String    @id @default(cuid())
+  validationId     String    @unique
+  targetType       String
+  targetId         String
+  profileId        String?
+  packetId         String?
+  useCaseId        String?
+  requestType      String
+  status           String
+  priority         String
+  requestedBy      String?
+  assignedTo       String?
+  reviewerName     String?
+  reviewerRole     String?
+  reviewNotes      String?
+  validationResult String?
+  safetyLabels     Json
+  limitations      Json
+  evidenceRefs     Json
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  completedAt      DateTime?
+
+  @@index([validationId])
+  @@index([targetType])
+  @@index([targetId])
+  @@index([profileId])
+  @@index([packetId])
+  @@index([status])
+  @@index([priority])
+  @@index([createdAt])
+  @@map("environmental_validation_requests")
+}

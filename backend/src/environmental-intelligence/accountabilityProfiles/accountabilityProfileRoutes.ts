@@ -105,7 +105,6 @@ export async function recalculateAndPersistProfileRisk(profileId: string) {
     riskLevel: risk.riskLevel,
     anomalySummary: risk.anomalySummary,
     limitations: mergedLimitations,
-    validationStatus: 'pending_verification',
   });
 }
 
