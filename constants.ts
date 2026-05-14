@@ -186,6 +186,7 @@ export const API_ROUTES = {
   ENVIRONMENTAL_INTELLIGENCE_SOURCES_STATUS: '/api/environmental-intelligence/sources/status',
   ENVIRONMENTAL_INTELLIGENCE_SOURCES_USE_CASES: '/api/environmental-intelligence/sources/use-cases',
   ENVIRONMENTAL_INTELLIGENCE_SOURCES_RUN: '/api/environmental-intelligence/sources/run',
+  ENVIRONMENTAL_INTELLIGENCE_EVIDENCE_PACKETS: '/api/environmental-intelligence/evidence-packets',
 } as const;
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);

@@ -1,10 +1,13 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
+import evidencePacketRoutes from '../environmental-intelligence/evidencePackets/evidencePacketRoutes';
 import { getAllBusinessUseCases } from '../environmental-intelligence/sources/businessUseCasesBackend';
 import { buildSourcesStatusPayload } from '../environmental-intelligence/sources/providerStatus';
 import { executeEnvironmentalSourceRun } from '../environmental-intelligence/sources/sourceRunService';
 
 const router = Router();
+
+router.use('/evidence-packets', evidencePacketRoutes);
 
 const sourceRunBodySchema = z.object({
   sourceIds: z.array(z.string()).optional(),
