@@ -80,7 +80,8 @@ function hasGfwCredentials(): boolean {
   return Boolean(getGfwApiKey());
 }
 
-async function fetchFirmsHotspotCount(
+/** NASA FIRMS area CSV (VIIRS SNPP NRT) — shared for Forest Integrity and Environmental Intelligence provider layer. */
+export async function fetchFirmsHotspotCount(
   lat: number,
   lng: number,
   radiusKm: number,

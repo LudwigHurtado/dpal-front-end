@@ -1,42 +1,32 @@
-import type { ProviderRunResult } from './providerAdapters';
+import type { ProviderRunResult, ProviderRunStatus } from './providerAdapters';
 
-/** Aligns with Command Center `evidenceRefs` / provider lane style (id + label + optional href). */
+/** One normalized lane per provider run — shared contract for Command Center and downstream modules. */
 export type EvidenceLane = {
   id: string;
+  sourceId: string;
   label: string;
-  href?: string;
-  state?: string;
+  status: ProviderRunStatus;
   detail?: string;
-  sourceId?: string;
+  signals: ProviderRunResult['signals'];
+  evidenceRefs?: ProviderRunResult['evidenceRefs'];
+  limitations: string[];
+  safetyLabels: ProviderRunResult['safetyLabels'];
 };
 
-export function normalizeProviderResultToEvidenceLane(result: ProviderRunResult): EvidenceLane[] {
-  const lanes: EvidenceLane[] = [
-    {
-      id: `${result.sourceId}-status`,
-      label: `${result.sourceId} · ${result.status}`,
-      detail: result.limitations.length ? result.limitations.join(' | ') : undefined,
-      sourceId: result.sourceId,
-      state: result.status,
-    },
-  ];
-  for (const s of result.signals) {
-    lanes.push({
-      id: `${result.sourceId}-signal-${s.key}`,
-      label: `${s.label}: ${String(s.value)}`,
-      detail: s.confidence,
-      sourceId: result.sourceId,
-    });
-  }
-  const refs = result.evidenceRefs ?? [];
-  refs.forEach((e, i) => {
-    lanes.push({
-      id: `${result.sourceId}-ref-${i}`,
-      label: e.label,
-      href: e.url,
-      detail: e.type,
-      sourceId: result.sourceId,
-    });
-  });
-  return lanes;
+export function normalizeProviderResultToEvidenceLane(result: ProviderRunResult): EvidenceLane {
+  return {
+    id: `lane-${result.sourceId}`,
+    sourceId: result.sourceId,
+    label: `${result.sourceId} · ${result.status}`,
+    status: result.status,
+    detail: result.limitations.length ? result.limitations.join(' | ') : undefined,
+    signals: result.signals,
+    evidenceRefs: result.evidenceRefs,
+    limitations: result.limitations,
+    safetyLabels: result.safetyLabels,
+  };
+}
+
+export function normalizeProviderResultsToEvidenceLanes(results: ProviderRunResult[]): EvidenceLane[] {
+  return results.map(normalizeProviderResultToEvidenceLane);
 }

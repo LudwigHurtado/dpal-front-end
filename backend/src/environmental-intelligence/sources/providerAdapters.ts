@@ -1,4 +1,3 @@
-import { getBackendSourceRegistry, inferCanRunFromStatus } from './sourceRegistry';
 import type { BackendSourceRecord, SourceStatus } from './sourceTypes';
 
 export interface ProviderRunInput {
@@ -11,6 +10,11 @@ export interface ProviderRunInput {
   companyName?: string;
   facilityId?: string;
   useCaseId?: string;
+  projectId?: string;
+  roomId?: string;
+  reportId?: string;
+  /** QR / artifact references when running QR_EVIDENCE */
+  evidenceRefs?: unknown[];
 }
 
 export type ProviderRunStatus =
@@ -53,13 +57,13 @@ export interface ProviderAdapter {
   run(input: ProviderRunInput): Promise<ProviderRunResult>;
 }
 
-const SAFETY = {
+export const PROVIDER_RUN_SAFETY = {
   pending_verification: true as const,
   human_verified: false as const,
   blockchain_anchored: false as const,
 };
 
-function statusFromRegistry(st: SourceStatus): ProviderRunStatus {
+export function statusFromRegistryStatus(st: SourceStatus): ProviderRunStatus {
   if (st === 'future') return 'future';
   if (st === 'commercial') return 'commercial_required';
   if (st === 'partner_required') return 'commercial_required';
@@ -68,15 +72,16 @@ function statusFromRegistry(st: SourceStatus): ProviderRunStatus {
   return 'unavailable';
 }
 
-function hasGeo(input: ProviderRunInput): boolean {
+export function hasGeo(input: ProviderRunInput): boolean {
   return typeof input.lat === 'number' && typeof input.lng === 'number' && Number.isFinite(input.lat) && Number.isFinite(input.lng);
 }
 
-function buildAdapterForSource(row: BackendSourceRecord): ProviderAdapter {
+/** Fallback stub for registry sources without a Phase-4 live adapter yet. */
+export function createStubProviderAdapter(row: BackendSourceRecord): ProviderAdapter {
   const sourceId = row.sourceId;
-
   const canRun = (input: ProviderRunInput): boolean => {
-    if (!inferCanRunFromStatus(row.status)) return false;
+    if (row.status === 'future' || row.status === 'commercial' || row.status === 'partner_required') return false;
+    if (row.status === 'not_configured' || row.status === 'unavailable') return false;
     const disclosure = ['COMPANY_DISCLOSURE', 'ESG_REPORT', 'REGULATORY_FILING'];
     if (disclosure.includes(sourceId)) {
       return Boolean((input.companyName && input.companyName.trim()) || (input.facilityId && String(input.facilityId).trim()));
@@ -92,13 +97,7 @@ function buildAdapterForSource(row: BackendSourceRecord): ProviderAdapter {
     canRun,
     async run(input: ProviderRunInput) {
       if (row.status === 'future') {
-        return {
-          sourceId,
-          status: 'future',
-          signals: [],
-          limitations: row.limitations,
-          safetyLabels: SAFETY,
-        };
+        return { sourceId, status: 'future', signals: [], limitations: row.limitations, safetyLabels: PROVIDER_RUN_SAFETY };
       }
       if (row.status === 'commercial' || row.status === 'partner_required') {
         return {
@@ -106,16 +105,16 @@ function buildAdapterForSource(row: BackendSourceRecord): ProviderAdapter {
           status: 'commercial_required',
           signals: [],
           limitations: row.limitations,
-          safetyLabels: SAFETY,
+          safetyLabels: PROVIDER_RUN_SAFETY,
         };
       }
       if (row.status === 'not_configured' || row.status === 'unavailable') {
         return {
           sourceId,
-          status: statusFromRegistry(row.status),
+          status: statusFromRegistryStatus(row.status),
           signals: [],
           limitations: row.limitations,
-          safetyLabels: SAFETY,
+          safetyLabels: PROVIDER_RUN_SAFETY,
         };
       }
       if (!canRun(input)) {
@@ -124,7 +123,7 @@ function buildAdapterForSource(row: BackendSourceRecord): ProviderAdapter {
           status: 'unavailable',
           signals: [],
           limitations: [...row.limitations, 'Required inputs missing for this source (e.g., coordinates or company id).'],
-          safetyLabels: SAFETY,
+          safetyLabels: PROVIDER_RUN_SAFETY,
         };
       }
       return {
@@ -139,39 +138,16 @@ function buildAdapterForSource(row: BackendSourceRecord): ProviderAdapter {
         evidenceRefs: [
           {
             type: 'registry_lane',
-            label: `${row.name} — adapter stub (orchestration wiring pending)`,
+            label: `${row.name} — stub adapter (no live Phase-4 module)`,
             metadata: { category: row.category, useCaseId: input.useCaseId ?? null },
           },
         ],
         limitations: [
           ...row.limitations,
-          'Provider execution layer returns structured placeholder until live adapter routes are connected.',
+          'No dedicated live provider adapter is registered for this source yet.',
         ],
-        safetyLabels: SAFETY,
+        safetyLabels: PROVIDER_RUN_SAFETY,
       };
     },
   };
-}
-
-const registry = getBackendSourceRegistry();
-export const providerAdaptersBySourceId: Readonly<Record<string, ProviderAdapter>> = Object.fromEntries(
-  registry.map((s) => [s.sourceId, buildAdapterForSource(s)]),
-);
-
-export function listProviderAdapters(): ProviderAdapter[] {
-  return registry.map((s) => providerAdaptersBySourceId[s.sourceId]);
-}
-
-export async function runProviderStub(sourceId: string, input: ProviderRunInput): Promise<ProviderRunResult> {
-  const ad = providerAdaptersBySourceId[sourceId];
-  if (!ad) {
-    return {
-      sourceId,
-      status: 'error',
-      signals: [],
-      limitations: ['No adapter registered for sourceId.'],
-      safetyLabels: SAFETY,
-    };
-  }
-  return ad.run(input);
 }

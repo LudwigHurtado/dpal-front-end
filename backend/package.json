@@ -11,6 +11,7 @@
     "smoke:forest-integrity": "npm run build && node dist/scripts/smokeForestIntegrity.js",
     "smoke:report-reader": "npx tsx src/scripts/smokeReportReaderChat.ts",
     "smoke:env-intel-sources": "npm run build && node dist/scripts/smokeSourceRegistry.js",
+    "smoke:provider-execution": "npx tsx src/scripts/smokeProviderExecution.ts",
     "test:plastic-watch": "npx tsx src/services/hyperspectral/plasticWatch.selftest.ts && npx tsx src/services/hyperspectral/plasticWatch.routeScan.selftest.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
