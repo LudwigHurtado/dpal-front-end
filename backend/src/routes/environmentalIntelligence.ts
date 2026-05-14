@@ -1,5 +1,6 @@
 import { Router, type Request, type Response } from 'express';
 import { z } from 'zod';
+import accountabilityProfileRoutes from '../environmental-intelligence/accountabilityProfiles/accountabilityProfileRoutes';
 import evidencePacketRoutes from '../environmental-intelligence/evidencePackets/evidencePacketRoutes';
 import { getAllBusinessUseCases } from '../environmental-intelligence/sources/businessUseCasesBackend';
 import { buildSourcesStatusPayload } from '../environmental-intelligence/sources/providerStatus';
@@ -7,6 +8,7 @@ import { executeEnvironmentalSourceRun } from '../environmental-intelligence/sou
 
 const router = Router();
 
+router.use('/accountability-profiles', accountabilityProfileRoutes);
 router.use('/evidence-packets', evidencePacketRoutes);
 
 const sourceRunBodySchema = z.object({

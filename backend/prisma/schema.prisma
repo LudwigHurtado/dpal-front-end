@@ -709,3 +709,40 @@ model EnvironmentalEvidencePacket {
   @@index([validationStatus])
   @@index([createdAt])
 }
+
+/// DPAL Environmental Intelligence — company/facility accountability screening profiles.
+model EnvironmentalAccountabilityProfile {
+  id                   String   @id @default(cuid())
+  profileId            String   @unique
+  profileType          String
+  companyName          String?
+  facilityName         String?
+  facilityId           String?
+  address              String?
+  lat                  Float?
+  lng                  Float?
+  radiusKm             Float?
+  useCaseId            String?
+  claimText            String?
+  claimSourceUrl       String?
+  status               String
+  riskLevel            String?
+  anomalySummary       String?
+  validationStatus     String
+  safetyLabels         Json
+  limitations          Json
+  evidencePacketIds    Json
+  situationRoomIds     Json
+  projectIds           Json
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("environmental_accountability_profiles")
+  @@index([profileId])
+  @@index([companyName])
+  @@index([facilityName])
+  @@index([useCaseId])
+  @@index([status])
+  @@index([validationStatus])
+  @@index([createdAt])
+}
