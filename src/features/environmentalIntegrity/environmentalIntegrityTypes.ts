@@ -269,6 +269,14 @@ export interface ProviderSourceStatusEntry {
   evidenceUse?: string;
   /** Matrix grouping key for UI sections. */
   matrixGroup?: 'pace' | 'infrastructure' | 'other';
+  /** Recommended SPA path for live engine launch (context routing). */
+  recommendedRoute?: string;
+  /** App view key when launching via in-app navigation. */
+  recommendedView?: string;
+  recommendedModuleLabel?: string;
+  launchPurpose?: string;
+  evidenceRole?: PaceSuiteEvidenceRole;
+  sourceSuiteCode?: string;
   /** One-line product-aware availability (e.g. “available for reflectance screening”). */
   availabilitySummary?: string;
   processingLevel?: string;
@@ -279,6 +287,13 @@ export interface ProviderSourceStatusEntry {
   paceDataVersion?: string;
   lastRetrievalDate?: string;
 }
+
+export type PaceSuiteEvidenceRole =
+  | 'confidence layer'
+  | 'quality control layer'
+  | 'carbon/ecosystem context'
+  | 'confounder reduction'
+  | 'validator support';
 
 /**
  * Canonical PACE product-suite record for CarbonPura / DPAL evidence-ready tracking.
@@ -300,6 +315,11 @@ export interface PaceProductSuiteStatus {
   missingForFullLive: string;
   relatedModule: string;
   route?: string;
+  recommendedRoute: string;
+  recommendedView: string;
+  recommendedModuleLabel: string;
+  launchPurpose: string;
+  evidenceRole: PaceSuiteEvidenceRole;
   evidenceUse: string;
   confidenceUse: string;
   availabilitySummary: string;

@@ -1,9 +1,11 @@
 import { VIEW_PATHS } from '../../../../utils/appRoutes';
 import type {
   PaceProductSuiteStatus,
+  PaceSuiteEvidenceRole,
   ProviderSourceLifecycleStatus,
   ProviderSourceStatusEntry,
 } from '../../environmentalIntegrity/environmentalIntegrityTypes';
+import { buildCarbonPuraContextUrl, CARBONPURA_DEFAULT_PROJECT_ID } from './carbonPuraProjectContext';
 import type { HyperspectralPlasticProviderStatusResponse } from '../../hyperspectralPlasticWatch/types';
 
 /** PACE does not directly prove plastic pollution. */
@@ -20,6 +22,111 @@ export const PACE_DATA_VERSION_LABEL = 'PACE V3.1 (reference — confirm granule
 
 const PLASTIC_WATCH_ROUTE = VIEW_PATHS.hyperspectralPlasticWatch;
 const PLASTIC_WATCH_MODULE = 'Hyperspectral Plastic Watch';
+
+type SuiteRouting = {
+  recommendedRoute: string;
+  recommendedView: string;
+  recommendedModuleLabel: string;
+  launchPurpose: string;
+  evidenceRole: PaceSuiteEvidenceRole;
+};
+
+/** Recommended module routing per official PACE product suite (context routing — targets may ignore params). */
+export const PACE_SUITE_ROUTING: Record<string, SuiteRouting> = {
+  OC_AOP: {
+    recommendedRoute: VIEW_PATHS.hyperspectralPlasticWatch,
+    recommendedView: 'hyperspectralPlasticWatch',
+    recommendedModuleLabel: 'PACE Plastic Watch',
+    launchPurpose:
+      'Use reflectance / ocean-color context for water-color and plastic-risk confidence review (not standalone plastic proof).',
+    evidenceRole: 'confidence layer',
+  },
+  OC_IOP: {
+    recommendedRoute: VIEW_PATHS.aquaScanWater,
+    recommendedView: 'aquaScanWater',
+    recommendedModuleLabel: 'AquaScan',
+    launchPurpose:
+      'Use water clarity, absorption, backscatter, and Kd context for turbidity and confounder review.',
+    evidenceRole: 'confounder reduction',
+  },
+  OC_BGC: {
+    recommendedRoute: VIEW_PATHS.waterOperationsEngine,
+    recommendedView: 'waterOperationsEngine',
+    recommendedModuleLabel: 'Water Monitor',
+    launchPurpose:
+      'Use chlorophyll, POC, phytoplankton carbon, and bloom context for blue-carbon and ecosystem review (Plastic Watch also supports bloom confounders).',
+    evidenceRole: 'carbon/ecosystem context',
+  },
+  MOANA: {
+    recommendedRoute: VIEW_PATHS.hyperspectralPlasticWatch,
+    recommendedView: 'hyperspectralPlasticWatch',
+    recommendedModuleLabel: 'PACE Plastic Watch',
+    launchPurpose:
+      'Use phytoplankton group context to reduce false positives in plastic-risk screening (coastal limitations apply).',
+    evidenceRole: 'confounder reduction',
+  },
+  PAR: {
+    recommendedRoute: VIEW_PATHS.waterOperationsEngine,
+    recommendedView: 'waterOperationsEngine',
+    recommendedModuleLabel: 'Water Monitor',
+    launchPurpose: 'Use photosynthetically available radiation for productivity and bloom/carbon context.',
+    evidenceRole: 'carbon/ecosystem context',
+  },
+  CLDMASK: {
+    recommendedRoute: VIEW_PATHS.hyperspectralPlasticWatch,
+    recommendedView: 'hyperspectralPlasticWatch',
+    recommendedModuleLabel: 'PACE Plastic Watch',
+    launchPurpose: 'Use cloud and cloud-adjacent masking as quality control before interpreting PACE signals.',
+    evidenceRole: 'quality control layer',
+  },
+  SFREFL: {
+    recommendedRoute: VIEW_PATHS.hyperspectralPlasticWatch,
+    recommendedView: 'hyperspectralPlasticWatch',
+    recommendedModuleLabel: 'PACE Plastic Watch',
+    launchPurpose: 'Use surface reflectance as supporting layer for surface anomaly review.',
+    evidenceRole: 'confidence layer',
+  },
+  LANDVI: {
+    recommendedRoute: VIEW_PATHS.forestIntegrity,
+    recommendedView: 'forestIntegrity',
+    recommendedModuleLabel: 'Forest Integrity',
+    launchPurpose: 'Use vegetation indices for forest, biomass, carbon, and land-surface monitoring.',
+    evidenceRole: 'carbon/ecosystem context',
+  },
+  'AER_UAA / UVAI_UAA': {
+    recommendedRoute: VIEW_PATHS.airQualityMonitor,
+    recommendedView: 'airQualityMonitor',
+    recommendedModuleLabel: 'Air Quality Monitor',
+    launchPurpose:
+      'Use aerosol / smoke / dust context for atmospheric interference and air-quality context.',
+    evidenceRole: 'quality control layer',
+  },
+  'HARP2/SPEXone': {
+    recommendedRoute: VIEW_PATHS.hyperspectralPlasticWatch,
+    recommendedView: 'hyperspectralPlasticWatch',
+    recommendedModuleLabel: 'PACE Plastic Watch',
+    launchPurpose:
+      'Use polarimetric context for aerosol, glint, cloud, and ocean-surface confounder review (planned lane).',
+    evidenceRole: 'confounder reduction',
+  },
+};
+
+export function getPaceSuiteRouting(suiteCode: string): SuiteRouting {
+  return (
+    PACE_SUITE_ROUTING[suiteCode] ?? {
+      recommendedRoute: PLASTIC_WATCH_ROUTE,
+      recommendedView: 'hyperspectralPlasticWatch',
+      recommendedModuleLabel: PLASTIC_WATCH_MODULE,
+      launchPurpose: 'Open related DPAL engine for PACE evidence-support context.',
+      evidenceRole: 'validator support',
+    }
+  );
+}
+
+export function buildPaceSuiteContextHref(suiteCode: string, projectId = CARBONPURA_DEFAULT_PROJECT_ID): string {
+  const routing = getPaceSuiteRouting(suiteCode);
+  return buildCarbonPuraContextUrl(routing.recommendedRoute, projectId, { sourceSuite: suiteCode });
+}
 
 type PaceLaneProbe = {
   status: ProviderSourceLifecycleStatus;
@@ -114,36 +221,42 @@ export const CARBONPURA_PACE_MODULE_MAP = [
 export const PACE_INTELLIGENCE_LAYERS = [
   {
     id: 'reflectance',
+    primarySuiteCode: 'OC_AOP',
     headline: 'Reflectance → Water Color / Plastic Confidence',
     suites: 'OC_AOP (Apparent Optical Properties)',
     detail: 'Remote sensing reflectance, water color, fluorescence — plastic-risk confidence input only with confounder review.',
   },
   {
     id: 'iop',
+    primarySuiteCode: 'OC_IOP',
     headline: 'IOP → Water Clarity / Turbidity Confounders',
     suites: 'OC_IOP (Inherent Optical Properties)',
     detail: 'Absorption, backscattering, Kd — turbidity and suspended-material context for plastic and AquaScan workflows.',
   },
   {
     id: 'bgc',
+    primarySuiteCode: 'OC_BGC',
     headline: 'BGC / MOANA / PAR → Ocean Carbon / Bloom Context',
     suites: 'OC_BGC · MOANA · PAR',
     detail: 'Chlorophyll, phytoplankton groups, POC, PAR — bloom and blue-carbon context.',
   },
   {
     id: 'qc-atmos',
+    primarySuiteCode: 'CLDMASK',
     headline: 'CLDMASK / AER / UVAI → Quality Control / Atmosphere',
     suites: 'CLDMASK · CLD · AER_UAA · UVAI_UAA',
     detail: 'Cloud masking, aerosol and UVAI — false-positive reduction and correction warnings.',
   },
   {
     id: 'land',
+    primarySuiteCode: 'LANDVI',
     headline: 'LANDVI / SFREFL → Vegetation / Land Surface',
     suites: 'SFREFL · LANDVI',
     detail: 'Surface reflectance and vegetation indices — forest/biomass and land/water boundary context.',
   },
   {
     id: 'polar',
+    primarySuiteCode: 'HARP2/SPEXone',
     headline: 'HARP2 / SPEXone → Polarimetric Context',
     suites: 'RemoTAP · FastMAPOL · cloud polarimetry',
     detail: 'Aerosol, glint, and ocean/air correction confidence — planned/future DPAL lane.',
@@ -152,7 +265,15 @@ export const PACE_INTELLIGENCE_LAYERS = [
 
 type SuiteTemplate = Omit<
   PaceProductSuiteStatus,
-  'status' | 'reason' | 'providerNotes' | 'lastRetrievalDate'
+  | 'status'
+  | 'reason'
+  | 'providerNotes'
+  | 'lastRetrievalDate'
+  | 'recommendedRoute'
+  | 'recommendedView'
+  | 'recommendedModuleLabel'
+  | 'launchPurpose'
+  | 'evidenceRole'
 > & {
   id: string;
   partialReason: string;
@@ -183,6 +304,8 @@ function resolveSuite(
     reason = tpl.unavailableReason;
   }
 
+  const routing = getPaceSuiteRouting(tpl.suiteCode);
+
   return {
     suiteCode: tpl.suiteCode,
     suiteName: tpl.suiteName,
@@ -198,7 +321,12 @@ function resolveSuite(
     uncertaintyAvailable: tpl.uncertaintyAvailable,
     missingForFullLive: tpl.missingForFullLive,
     relatedModule: tpl.relatedModule,
-    route: tpl.route,
+    route: routing.recommendedRoute,
+    recommendedRoute: routing.recommendedRoute,
+    recommendedView: routing.recommendedView,
+    recommendedModuleLabel: routing.recommendedModuleLabel,
+    launchPurpose: routing.launchPurpose,
+    evidenceRole: routing.evidenceRole,
     evidenceUse: tpl.evidenceUse,
     confidenceUse: tpl.confidenceUse,
     availabilitySummary: tpl.availabilitySummary,
@@ -249,8 +377,8 @@ const OCI_SUITE_TEMPLATES: SuiteTemplate[] = [
     qualityFlagsRequired: 'cloud mask, atmospheric correction flags, turbidity, CDOM',
     uncertaintyAvailable: false,
     missingForFullLive: 'live IOP reader, Kd maps in evidence, AquaScan cross-link',
-    relatedModule: PLASTIC_WATCH_MODULE,
-    route: PLASTIC_WATCH_ROUTE,
+    relatedModule: 'AquaScan · Plastic Watch',
+    route: VIEW_PATHS.aquaScanWater,
     evidenceUse: 'confounder appendix — not plastic proof',
     confidenceUse: 'Explains turbidity vs plastic — ' + PACE_PLASTIC_CONFIDENCE_DISCLAIMER,
   },
@@ -423,6 +551,8 @@ function buildPolarimetricSuite(
       ? 'future'
       : 'planned';
 
+  const routing = getPaceSuiteRouting('HARP2/SPEXone');
+
   return {
     suiteCode: 'HARP2/SPEXone',
     suiteName: 'Polarimetric Aerosol / Ocean / Cloud Products',
@@ -442,7 +572,12 @@ function buildPolarimetricSuite(
     uncertaintyAvailable: false,
     missingForFullLive: 'polarimetry readers, glint UI, hub endpoint, evidence block',
     relatedModule: PLASTIC_WATCH_MODULE,
-    route: PLASTIC_WATCH_ROUTE,
+    route: routing.recommendedRoute,
+    recommendedRoute: routing.recommendedRoute,
+    recommendedView: routing.recommendedView,
+    recommendedModuleLabel: routing.recommendedModuleLabel,
+    launchPurpose: routing.launchPurpose,
+    evidenceRole: routing.evidenceRole,
     evidenceUse: 'future QC / confounder appendix',
     confidenceUse: 'Polarimetric confounder context — ' + PACE_PLASTIC_CONFIDENCE_DISCLAIMER,
     availabilitySummary: 'polarimetric aerosol / ocean / cloud support (planned lane)',
@@ -510,10 +645,16 @@ export function toProviderSourceStatusEntry(
     currentCapability: suite.currentCapability,
     missingForFullLive: suite.missingForFullLive,
     relatedModule: suite.relatedModule,
-    route: suite.route,
+    route: suite.recommendedRoute,
+    recommendedRoute: suite.recommendedRoute,
+    recommendedView: suite.recommendedView,
+    recommendedModuleLabel: suite.recommendedModuleLabel,
+    launchPurpose: suite.launchPurpose,
+    evidenceRole: suite.evidenceRole,
     providerNotes: suite.providerNotes,
     confidenceUse: suite.confidenceUse,
     productSuiteCode: suite.suiteCode,
+    sourceSuiteCode: suite.suiteCode,
     instrument: suite.instrument === 'OCI' ? 'PACE OCI' : suite.instrument,
     maturityLevel: suite.maturityLevel,
     qualityFlagsRequired: suite.qualityFlagsRequired,

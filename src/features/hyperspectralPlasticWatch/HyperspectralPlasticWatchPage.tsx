@@ -19,6 +19,7 @@ import PlasticWatchAutomationPanel from './components/PlasticWatchAutomationPane
 import SpectralSignaturePanel from './components/SpectralSignaturePanel';
 import { WATCH_DEEP_LINK_HASH } from '../../../utils/appRoutes';
 import EnvironmentalDashboardShell from '../environmentalIntelligence/shared/EnvironmentalDashboardShell';
+import { CarbonPuraContextBanner } from '../partners/carbonpura/components/CarbonPuraContextBanner';
 import EnvironmentalDisclaimerBar from '../environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
 import EnvironmentalProviderStatusStrip from '../environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
 import InvestorDemoExplainer from '../environmentalIntelligence/shared/InvestorDemoExplainer';
@@ -30,9 +31,12 @@ import {
   getDroneValidationStatus,
   getHyperspectralPlasticProviderStatus,
   getHyperspectralPlasticScan,
+  parseLocalizedNumber,
+  plasticScanPendingStatusMessage,
   postDroneValidationPrepare,
   postHyperspectralPlasticEvidencePacket,
 } from './services/hyperspectralPlasticApi';
+import { mapQuickPresetToApi } from './services/plasticScanRequest';
 import type {
   DroneValidationPrepareResponse,
   HyperspectralPlasticProviderStatusResponse,
@@ -588,12 +592,17 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       lng: center.lng,
       label,
       radiusKm,
-      baselineDate: baselineIso,
-      currentDate: currentIso,
+      baselineDate: baselineDay,
+      currentDate: currentDay,
       environmentType,
-      quickPreset: activePreset,
+      quickPreset: mapQuickPresetToApi(activePreset),
     }),
-    [activePreset, baselineIso, center.lat, center.lng, currentIso, environmentType, label, radiusKm],
+    [activePreset, baselineDay, center.lat, center.lng, currentDay, environmentType, label, radiusKm],
+  );
+
+  const plasticScanPendingNotice = useMemo(
+    () => (lastScan ? plasticScanPendingStatusMessage(lastScan) : null),
+    [lastScan],
   );
 
   const runManualScan = useCallback(async () => {
@@ -729,15 +738,21 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       });
 
       const pr = data.plasticRisk;
+      const pendingIndex = data.riskLevel === 'pending_index_extraction' || pr.status === 'pending_index_extraction';
       patchStep('score', {
-        status: pr.score == null ? 'warning' : 'complete',
-        explanation:
-          pr.score == null
+        status: pendingIndex || pr.score == null ? 'warning' : 'complete',
+        explanation: pendingIndex
+          ? plasticScanPendingStatusMessage(data) ?? pr.message
+          : pr.score == null
             ? `${pr.message} (${pr.status})`
             : `Plastic-risk score ${pr.score} — ${data.riskLevel.replace(/_/g, ' ')}`,
         at: new Date().toISOString(),
       });
-      pushLog(`Plastic-risk: ${pr.status} — ${pr.message}`);
+      pushLog(
+        pendingIndex
+          ? `Plastic-risk: metadata retrieved — index extraction pending (not a failed scan).`
+          : `Plastic-risk: ${pr.status} — ${pr.message}`,
+      );
 
       patchStep('packet', { status: 'running', explanation: 'Posting evidence packet…', at: new Date().toISOString() });
       const ev = await postHyperspectralPlasticEvidencePacket(data, ac.signal);
@@ -913,6 +928,9 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
   return (
     <EnvironmentalDashboardShell>
+      <div className="mx-auto max-w-[1920px] px-4 pt-3">
+        <CarbonPuraContextBanner moduleLabel="Hyperspectral Plastic Watch / PACE Intelligence" />
+      </div>
       <header className="shrink-0 border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-[1920px] flex-wrap items-center justify-between gap-3 px-4 py-2.5">
           <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
@@ -1044,7 +1062,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                   step="any"
                   value={Number.isFinite(center.lat) ? center.lat : ''}
                   onChange={(e) => {
-                    const v = Number.parseFloat(e.target.value);
+                    const v = parseLocalizedNumber(e.target.value);
                     if (Number.isFinite(v)) setCenter((c) => ({ ...c, lat: v }));
                   }}
                   className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-mono"
@@ -1057,7 +1075,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                   step="any"
                   value={Number.isFinite(center.lng) ? center.lng : ''}
                   onChange={(e) => {
-                    const v = Number.parseFloat(e.target.value);
+                    const v = parseLocalizedNumber(e.target.value);
                     if (Number.isFinite(v)) setCenter((c) => ({ ...c, lng: v }));
                   }}
                   className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-mono"
@@ -1223,6 +1241,11 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           ) : null}
           {cacheNotice ? (
             <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
+          ) : null}
+          {plasticScanPendingNotice ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              {plasticScanPendingNotice}
+            </div>
           ) : null}
 
           {plasticInvestorExplainerEl}

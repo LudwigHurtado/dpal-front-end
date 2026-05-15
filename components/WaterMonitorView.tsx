@@ -46,6 +46,7 @@ import {
   NavigatorHelperCard,
   useNavigatorOutcomeTracking,
 } from '../src/features/dpalNavigator';
+import { CarbonPuraContextBanner } from '../src/features/partners/carbonpura/components/CarbonPuraContextBanner';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -2371,6 +2372,66 @@ interface SatellitePreview {
   };
 }
 
+type SatellitePreviewAdapterLane = SatellitePreview['adapters']['smap'];
+
+function defaultAdapterLane(): SatellitePreviewAdapterLane {
+  return { ok: false };
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+/** Returns null when the API payload is too incomplete for live display (caller should use demo fallback). */
+function normalizeSatellitePreview(raw: unknown): SatellitePreview | null {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const payload = raw as Partial<SatellitePreview> & { ok?: boolean };
+  const summary = payload.summary;
+  if (
+    !summary ||
+    !isFiniteNumber(summary.soilMoistureIndex) ||
+    !isFiniteNumber(summary.surfaceWaterLevel) ||
+    !isFiniteNumber(summary.waterStorageTrend) ||
+    !isFiniteNumber(summary.vegetationStress) ||
+    !isFiniteNumber(summary.droughtRisk) ||
+    !isFiniteNumber(summary.confidenceScore)
+  ) {
+    return null;
+  }
+
+  const adapters = payload.adapters;
+  if (!adapters || typeof adapters !== 'object') return null;
+
+  const lane = (value: unknown): SatellitePreviewAdapterLane =>
+    value && typeof value === 'object' && typeof (value as SatellitePreviewAdapterLane).ok === 'boolean'
+      ? (value as SatellitePreviewAdapterLane)
+      : defaultAdapterLane();
+
+  return {
+    capturedAt: typeof payload.capturedAt === 'string' ? payload.capturedAt : new Date().toISOString(),
+    areaLabel: payload.areaLabel,
+    centerLat: payload.centerLat,
+    centerLng: payload.centerLng,
+    adapters: {
+      smap: lane(adapters.smap),
+      swot: lane(adapters.swot),
+      grace: lane(adapters.grace),
+      gibs: lane(adapters.gibs),
+      copernicus: lane(adapters.copernicus),
+      sentinel1: adapters.sentinel1 ? lane(adapters.sentinel1) : defaultAdapterLane(),
+    },
+    summary: {
+      soilMoistureIndex: summary.soilMoistureIndex,
+      surfaceWaterLevel: summary.surfaceWaterLevel,
+      waterStorageTrend: summary.waterStorageTrend,
+      vegetationStress: summary.vegetationStress,
+      droughtRisk: summary.droughtRisk,
+      confidenceScore: summary.confidenceScore,
+    },
+  };
+}
+
 function buildSatellitePreviewFallback(point: GPSPoint, label: string): SatellitePreview {
   const seedRaw = Math.sin(point.lat * 12.9898 + point.lng * 78.233) * 43758.5453;
   const seed = seedRaw - Math.floor(seedRaw);
@@ -2475,8 +2536,17 @@ function SatelliteLiveFeed({ monitoringProject }: {
       const areaLabel = encodeURIComponent(label.trim() || 'Custom water scan');
       const url = `${apiUrl(API_ROUTES.WATER_SATELLITE_PREVIEW)}?lat=${point.lat}&lng=${point.lng}&areaLabel=${areaLabel}`;
       const result = await apiFetch<{ ok: boolean } & SatellitePreview>(url);
-      setData(result);
-      setLastRefresh(new Date());
+      const normalized = normalizeSatellitePreview(result);
+      if (!normalized) {
+        setData(buildSatellitePreviewFallback(point, label));
+        setLastRefresh(new Date());
+        setFallbackNotice(
+          'Satellite preview response was incomplete. Showing deterministic demo readings for now.',
+        );
+      } else {
+        setData(normalized);
+        setLastRefresh(new Date());
+      }
     } catch (ex: unknown) {
       const message = ex instanceof Error ? ex.message : String(ex);
       if (/not found|404/i.test(message)) {
@@ -2781,12 +2851,12 @@ function SatelliteLiveFeed({ monitoringProject }: {
 
       {/* Adapter status badges */}
       <div className="flex flex-wrap gap-2">
-        <AdapterBadge name="SMAP"        ok={data?.adapters.smap.ok ?? false}            conf={data?.adapters.smap.confidenceScore} />
-        <AdapterBadge name="SWOT"        ok={data?.adapters.swot.ok ?? false}            conf={data?.adapters.swot.confidenceScore} />
-        <AdapterBadge name="GRACE-FO"    ok={data?.adapters.grace.ok ?? false}           conf={data?.adapters.grace.confidenceScore} />
-        <AdapterBadge name="NASA GIBS"   ok={data?.adapters.gibs.ok ?? false}            conf={data?.adapters.gibs.confidenceScore} />
-        <AdapterBadge name="Copernicus"  ok={data?.adapters.copernicus.ok ?? false}      conf={data?.adapters.copernicus.confidenceScore} />
-        <AdapterBadge name="Sentinel-1 SAR" ok={data?.adapters.sentinel1?.ok ?? false}  conf={data?.adapters.sentinel1?.confidenceScore} />
+        <AdapterBadge name="SMAP"        ok={data?.adapters?.smap?.ok ?? false}            conf={data?.adapters?.smap?.confidenceScore} />
+        <AdapterBadge name="SWOT"        ok={data?.adapters?.swot?.ok ?? false}            conf={data?.adapters?.swot?.confidenceScore} />
+        <AdapterBadge name="GRACE-FO"    ok={data?.adapters?.grace?.ok ?? false}           conf={data?.adapters?.grace?.confidenceScore} />
+        <AdapterBadge name="NASA GIBS"   ok={data?.adapters?.gibs?.ok ?? false}            conf={data?.adapters?.gibs?.confidenceScore} />
+        <AdapterBadge name="Copernicus"  ok={data?.adapters?.copernicus?.ok ?? false}      conf={data?.adapters?.copernicus?.confidenceScore} />
+        <AdapterBadge name="Sentinel-1 SAR" ok={data?.adapters?.sentinel1?.ok ?? false}  conf={data?.adapters?.sentinel1?.confidenceScore} />
       </div>
 
       {loading && (
@@ -3357,6 +3427,9 @@ export default function WaterMonitorView({ onReturn, onOpenAquaScan }: WaterMoni
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto max-w-4xl px-4 pt-3">
+        <CarbonPuraContextBanner moduleLabel="Water Operations Engine" />
+      </div>
       {/* Top bar */}
       <div className="sticky top-0 z-30 bg-slate-950/95 backdrop-blur border-b border-slate-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center gap-3">

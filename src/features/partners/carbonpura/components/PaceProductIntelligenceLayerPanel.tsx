@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { VIEW_PATHS } from '../../../../../utils/appRoutes';
 import {
   CARBONPURA_PACE_MODULE_MAP,
+  getPaceSuiteRouting,
   PACE_DATA_VERSION_LABEL,
   PACE_INTELLIGENCE_LAYERS,
   PACE_PLASTIC_CONFOUNDER_STACK,
@@ -13,13 +14,37 @@ import {
   paceStatusDisplayLabel,
 } from '../paceProductSuites';
 import type { ProviderSourceLifecycleStatus } from '../../../environmentalIntegrity/environmentalIntegrityTypes';
+import type { useCarbonPuraEvidenceDraft } from '../hooks/useCarbonPuraEvidenceDraft';
+import { CARBONPURA_DEFAULT_PROJECT_ID } from '../carbonPuraProjectContext';
+import { PaceSuiteLaunchActions } from './PaceSuiteLaunchActions';
+
+type EvidenceDraftApi = ReturnType<typeof useCarbonPuraEvidenceDraft>;
 
 type PaceProductIntelligenceLayerPanelProps = {
   paceLaneStatus?: ProviderSourceLifecycleStatus | null;
+  evidenceDraft?: EvidenceDraftApi;
 };
 
-export function PaceProductIntelligenceLayerPanel({ paceLaneStatus }: PaceProductIntelligenceLayerPanelProps) {
+export function PaceProductIntelligenceLayerPanel({
+  paceLaneStatus,
+  evidenceDraft,
+}: PaceProductIntelligenceLayerPanelProps) {
   const laneLabel = paceLaneStatus ? paceStatusDisplayLabel(paceLaneStatus) : 'Checking…';
+
+  const toggleSuiteDraft = (suiteCode: string) => {
+    if (!evidenceDraft) return;
+    const routing = getPaceSuiteRouting(suiteCode);
+    if (evidenceDraft.isSuiteSelected(suiteCode)) {
+      evidenceDraft.removeSourceSuite(suiteCode);
+      return;
+    }
+    evidenceDraft.addSourceSuite({
+      suiteCode,
+      moduleLabel: routing.recommendedModuleLabel,
+      route: routing.recommendedRoute,
+      evidenceUse: routing.launchPurpose,
+    });
+  };
 
   return (
     <section className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/90 to-white p-5 md:p-6">
@@ -62,16 +87,43 @@ export function PaceProductIntelligenceLayerPanel({ paceLaneStatus }: PaceProduc
       </div>
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {PACE_INTELLIGENCE_LAYERS.map((layer) => (
-          <div
-            key={layer.id}
-            className="rounded-xl border border-white/80 bg-white p-4 shadow-sm ring-1 ring-indigo-100/80"
-          >
-            <p className="text-sm font-semibold text-slate-900">{layer.headline}</p>
-            <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-indigo-600">{layer.suites}</p>
-            <p className="mt-2 text-xs leading-relaxed text-slate-600">{layer.detail}</p>
-          </div>
-        ))}
+        {PACE_INTELLIGENCE_LAYERS.map((layer) => {
+          const routing = getPaceSuiteRouting(layer.primarySuiteCode);
+          const suiteCode = layer.primarySuiteCode;
+          const selected = evidenceDraft?.isSuiteSelected(suiteCode) ?? false;
+          return (
+            <div
+              key={layer.id}
+              className="rounded-xl border border-white/80 bg-white p-4 shadow-sm ring-1 ring-indigo-100/80"
+            >
+              <p className="text-sm font-semibold text-slate-900">{layer.headline}</p>
+              <p className="mt-1 text-[11px] font-medium uppercase tracking-wide text-indigo-600">{layer.suites}</p>
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">{layer.detail}</p>
+              <p className="mt-2 text-xs text-slate-700">
+                <span className="font-semibold">Recommended engine:</span> {routing.recommendedModuleLabel}
+              </p>
+              <p className="mt-1 text-[10px] font-medium uppercase text-indigo-700">
+                Evidence role: {routing.evidenceRole}
+              </p>
+              <div className="mt-3">
+                <PaceSuiteLaunchActions
+                  compact
+                  projectId={CARBONPURA_DEFAULT_PROJECT_ID}
+                  evidenceSelected={selected}
+                  onMarkForEvidence={evidenceDraft ? () => toggleSuiteDraft(suiteCode) : undefined}
+                  source={{
+                    productSuiteCode: suiteCode,
+                    recommendedRoute: routing.recommendedRoute,
+                    recommendedModuleLabel: routing.recommendedModuleLabel,
+                    launchPurpose: routing.launchPurpose,
+                    evidenceRole: routing.evidenceRole,
+                    evidenceUse: routing.launchPurpose,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -119,8 +171,8 @@ export function PaceProductIntelligenceLayerPanel({ paceLaneStatus }: PaceProduc
       </div>
 
       <p className="mt-4 text-[11px] text-slate-500">
-        Ten grouped matrix rows below (NASA PACE / OCI — OC_AOP Reflectance, … HARP2/SPEXone) include suite code, processing
-        level, domain, carbonPura use, QC flags, uncertainty, and evidence use.
+        Ten grouped matrix rows below include launch actions — open the live DPAL engine or route with CarbonPura context.
+        Scans run only inside the target module.
       </p>
     </section>
   );

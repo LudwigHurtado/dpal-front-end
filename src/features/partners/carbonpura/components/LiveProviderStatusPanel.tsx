@@ -5,15 +5,22 @@ import {
   sourceLifecycleClasses,
   sourceLifecycleLabel,
 } from '../carbonPuraSourceStatusMatrix';
-import { isPaceMatrixEntry, paceStatusDisplayLabel } from '../paceProductSuites';
+import { getPaceSuiteRouting, isPaceMatrixEntry, paceStatusDisplayLabel } from '../paceProductSuites';
 import type { ProviderSourceStatusEntry, ProviderSourceLifecycleStatus } from '../../../environmentalIntegrity/environmentalIntegrityTypes';
+import type { useCarbonPuraEvidenceDraft } from '../hooks/useCarbonPuraEvidenceDraft';
+import { CARBONPURA_DEFAULT_PROJECT_ID } from '../carbonPuraProjectContext';
+import { PaceSuiteLaunchActions } from './PaceSuiteLaunchActions';
+
+type EvidenceDraftApi = ReturnType<typeof useCarbonPuraEvidenceDraft>;
 
 function SourceStatusCard({
   source,
   defaultExpanded,
+  evidenceDraft,
 }: {
   source: ProviderSourceStatusEntry;
   defaultExpanded?: boolean;
+  evidenceDraft?: EvidenceDraftApi;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded ?? false);
   const isPace = isPaceMatrixEntry(source);
@@ -144,11 +151,45 @@ function SourceStatusCard({
                 <dd className="mt-0.5 text-slate-500">{source.providerNotes}</dd>
               </div>
             ) : null}
+            {isPace && source.productSuiteCode ? (
+              <div className="sm:col-span-2 border-t border-slate-100 pt-3">
+                <PaceSuiteLaunchActions
+                  projectId={CARBONPURA_DEFAULT_PROJECT_ID}
+                  evidenceSelected={evidenceDraft?.isSuiteSelected(source.productSuiteCode) ?? false}
+                  onMarkForEvidence={
+                    evidenceDraft
+                      ? () => {
+                          const code = source.productSuiteCode!;
+                          const routing = getPaceSuiteRouting(code);
+                          if (evidenceDraft.isSuiteSelected(code)) {
+                            evidenceDraft.removeSourceSuite(code);
+                          } else {
+                            evidenceDraft.addSourceSuite({
+                              suiteCode: code,
+                              moduleLabel: routing.recommendedModuleLabel,
+                              route: routing.recommendedRoute,
+                              evidenceUse: source.evidenceUse ?? routing.launchPurpose,
+                            });
+                          }
+                        }
+                      : undefined
+                  }
+                  source={{
+                    productSuiteCode: source.productSuiteCode,
+                    recommendedRoute: source.recommendedRoute ?? source.route,
+                    recommendedModuleLabel: source.recommendedModuleLabel ?? source.relatedModule,
+                    launchPurpose: source.launchPurpose,
+                    evidenceRole: source.evidenceRole,
+                    evidenceUse: source.evidenceUse,
+                  }}
+                />
+              </div>
+            ) : null}
           </dl>
         </div>
       ) : (
         <p className="border-t border-slate-50 px-4 py-2 text-[11px] text-slate-400">
-          Tap to expand maturity, QC flags, evidence use, route, and live provider notes
+          Tap to expand launch actions, maturity, QC flags, evidence use, and live provider notes
         </p>
       )}
     </li>
@@ -160,11 +201,13 @@ function MatrixSection({
   subtitle,
   sources,
   defaultExpandFirst,
+  evidenceDraft,
 }: {
   title: string;
   subtitle?: string;
   sources: ProviderSourceStatusEntry[];
   defaultExpandFirst?: number;
+  evidenceDraft?: EvidenceDraftApi;
 }) {
   if (sources.length === 0) return null;
   return (
@@ -179,6 +222,7 @@ function MatrixSection({
             key={source.id}
             source={source}
             defaultExpanded={index < (defaultExpandFirst ?? 0)}
+            evidenceDraft={evidenceDraft}
           />
         ))}
       </ul>
@@ -186,7 +230,11 @@ function MatrixSection({
   );
 }
 
-export function LiveProviderStatusPanel() {
+type LiveProviderStatusPanelProps = {
+  evidenceDraft?: EvidenceDraftApi;
+};
+
+export function LiveProviderStatusPanel({ evidenceDraft }: LiveProviderStatusPanelProps) {
   const { loading, apiDetail, sources, refreshedAtIso, refresh } = useCarbonPuraLiveStatus();
 
   const { paceSources, otherSources } = useMemo(() => {
@@ -254,11 +302,17 @@ export function LiveProviderStatusPanel() {
       <ul className="space-y-1">
         <MatrixSection
           title="PACE product suites (NASA OCI · HARP2 · SPEXone)"
-          subtitle="10 suite-specific rows — not a single generic PACE/OCI entry"
+          subtitle="10 suite-specific rows — launch live engines or mark for local evidence draft"
           sources={paceSources}
           defaultExpandFirst={2}
+          evidenceDraft={evidenceDraft}
         />
-        <MatrixSection title="Other DPAL sources & infrastructure" sources={otherSources} defaultExpandFirst={1} />
+        <MatrixSection
+          title="Other DPAL sources & infrastructure"
+          sources={otherSources}
+          defaultExpandFirst={1}
+          evidenceDraft={evidenceDraft}
+        />
         {!loading && sources.length === 0 ? (
           <li className="list-none text-sm text-slate-500">Connection pending — source matrix not loaded yet.</li>
         ) : null}

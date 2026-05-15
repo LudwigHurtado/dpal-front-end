@@ -64,6 +64,7 @@ import EnvironmentalProviderStatusStrip from '../src/features/environmentalIntel
 import type { EnvironmentalProviderStripItem } from '../src/features/environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
 import type { EnvironmentalProviderUiState } from '../src/features/environmentalIntelligence/shared/environmentalServiceStatus';
 import EnvironmentalDisclaimerBar from '../src/features/environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
+import { CarbonPuraContextBanner } from '../src/features/partners/carbonpura/components/CarbonPuraContextBanner';
 interface AquaScanViewProps {
   onReturn: () => void;
   hero?: Hero;
@@ -2670,6 +2671,9 @@ export default function AquaScanView({
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <div className="mx-auto w-full max-w-[1400px] px-4 pt-3">
+        <CarbonPuraContextBanner moduleLabel="AquaScan Water Intelligence" />
+      </div>
       {/* -- 1. Premium Header -- */}
       <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
         <div className="mx-auto flex min-h-12 max-w-[1400px] flex-wrap items-center gap-3 px-4 py-2 sm:px-6">

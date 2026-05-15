@@ -1,8 +1,9 @@
 import { VIEW_PATHS } from '../../../../utils/appRoutes';
 import type { CarbonPuraAttachmentStatus, ExistingDpalModule } from '../../environmentalIntegrity/environmentalIntegrityTypes';
+import { CARBONPURA_DEFAULT_PROJECT_ID, CARBONPURA_PARTNER_KEY } from './carbonPuraProjectContext';
 
-export const CARBONPURA_PARTNER_ID = 'carbonpura';
-export const CARBONPURA_DEMO_PROJECT_ID = 'carbonpura-demo-001';
+export const CARBONPURA_PARTNER_ID = CARBONPURA_PARTNER_KEY;
+export const CARBONPURA_DEMO_PROJECT_ID = CARBONPURA_DEFAULT_PROJECT_ID;
 
 export type CarbonPuraEngineDef = ExistingDpalModule & {
   supportsContextLink: boolean;
@@ -112,11 +113,16 @@ export const CARBONPURA_LIVE_ENGINES: CarbonPuraEngineDef[] = [
 
 export function buildCarbonPuraContextHref(
   routePath: string,
-  options?: { includeProjectId?: boolean },
+  options?: { includeProjectId?: boolean; sourceSuite?: string },
 ): string {
+  const base = routePath.startsWith('/') ? routePath : `/${routePath}`;
   const params = new URLSearchParams({ partner: CARBONPURA_PARTNER_ID });
   if (options?.includeProjectId) {
     params.set('projectId', CARBONPURA_DEMO_PROJECT_ID);
   }
-  return `${routePath}?${params.toString()}`;
+  if (options?.sourceSuite) {
+    params.set('sourceSuite', options.sourceSuite);
+  }
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }

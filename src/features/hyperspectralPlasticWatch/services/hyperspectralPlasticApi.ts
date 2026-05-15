@@ -7,22 +7,36 @@ import type {
   PlasticEvidencePacketResponse,
   PlasticEnvironmentType,
 } from '../types';
+import {
+  buildPlasticScanRequestBody,
+  normalizePlasticScanResponse,
+  parseLocalizedNumber,
+} from './plasticScanRequest';
+
+export {
+  isPendingPlasticIndexExtraction,
+  PENDING_PLASTIC_INDEX_STATUS_MESSAGE,
+  parseLocalizedNumber,
+  plasticScanPendingStatusMessage,
+} from './plasticScanRequest';
 
 type CacheEntry = { expires: number; payload: HyperspectralPlasticScanResponse };
 const scanCache = new Map<string, CacheEntry>();
 const SCAN_CACHE_TTL_MS = 120_000;
 
 function cacheKey(parts: {
-  lat: number;
-  lng: number;
-  radiusKm: number;
+  lat: number | string;
+  lng: number | string;
+  radiusKm: number | string;
   baselineDate: string;
   currentDate: string;
   environmentType: PlasticEnvironmentType;
 }): string {
+  const lat = parseLocalizedNumber(parts.lat);
+  const lng = parseLocalizedNumber(parts.lng);
   return [
-    parts.lat.toFixed(4),
-    parts.lng.toFixed(4),
+    Number.isFinite(lat) ? lat.toFixed(4) : String(parts.lat),
+    Number.isFinite(lng) ? lng.toFixed(4) : String(parts.lng),
     String(parts.radiusKm),
     parts.baselineDate,
     parts.currentDate,
@@ -83,10 +97,10 @@ export async function postDroneValidationPrepare(
 }
 
 export type PlasticScanParams = {
-  lat: number;
-  lng: number;
+  lat: number | string;
+  lng: number | string;
   label?: string;
-  radiusKm: number;
+  radiusKm: number | string;
   baselineDate: string;
   currentDate: string;
   environmentType: PlasticEnvironmentType;
@@ -113,34 +127,49 @@ export async function getHyperspectralPlasticScan(
   }
 
   const url = apiUrl(API_ROUTES.HYPERSPECTRAL_PLASTIC_SCAN);
+  const payload = buildPlasticScanRequestBody(params);
+  const lat = parseLocalizedNumber(payload.lat as number);
+  const lng = parseLocalizedNumber(payload.lng as number);
+  const radiusKm = parseLocalizedNumber(payload.radiusKm as number);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+    throw new Error('Enter valid coordinates: latitude -90 to 90, longitude -180 to 180.');
+  }
+  if (!Number.isFinite(radiusKm) || radiusKm <= 0 || radiusKm > 250) {
+    throw new Error('radiusKm must be between 0 and 250 km.');
+  }
+  if (!payload.baselineDate || !payload.currentDate) {
+    throw new Error('Choose valid baseline and current dates.');
+  }
+
+  if (import.meta.env.DEV) {
+    console.debug('[PlasticWatch] POST scan payload', payload);
+  }
+
   const res = await fetch(url, {
     signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({
-      lat: params.lat,
-      lng: params.lng,
-      radiusKm: params.radiusKm,
-      label: params.label,
-      baselineDate: params.baselineDate,
-      currentDate: params.currentDate,
-      environmentType: params.environmentType,
-      polygon: params.polygon ?? null,
-      quickPreset: params.quickPreset ?? null,
-      aoiGeoJson: params.aoiGeoJson ?? null,
-      ...(params.compact ? { compact: true } : {}),
-      ...(params.includeLinks ? { includeLinks: true } : {}),
-    }),
+    body: JSON.stringify(payload),
   });
   const body = (await res.json().catch(() => null)) as
     | HyperspectralPlasticScanResponse
     | { ok?: false; error?: string }
     | null;
+
+  if (import.meta.env.DEV) {
+    console.debug('[PlasticWatch] POST scan response', { status: res.status, body });
+  }
+
   if (!res.ok || !body || (body as HyperspectralPlasticScanResponse).ok !== true) {
     const err = (body as { error?: string } | null)?.error;
     throw new Error(err ?? `Plastic watch scan failed (${res.status})`);
   }
-  const data = body as HyperspectralPlasticScanResponse;
+
+  const data = normalizePlasticScanResponse(body);
+  if (!data) {
+    throw new Error('Plastic watch scan returned ok:true but the response shape was incomplete.');
+  }
+
   scanCache.set(key, { expires: Date.now() + SCAN_CACHE_TTL_MS, payload: data });
   return { data, fromCache: false };
 }

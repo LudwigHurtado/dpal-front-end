@@ -6,11 +6,14 @@ import { PaceProductIntelligenceLayerPanel } from './components/PaceProductIntel
 import { CarbonPuraLiveWorkflowPanel } from './components/CarbonPuraLiveWorkflowPanel';
 import { WaterPlasticFusionPanel } from './components/WaterPlasticFusionPanel';
 import { LiveVerificationChecklist } from './components/LiveVerificationChecklist';
+import { LiveModuleVerificationMatrix } from './components/LiveModuleVerificationMatrix';
 import { IntegrityRadarPanel } from './components/IntegrityRadarPanel';
 import { EvidencePacketAggregationPanel } from './components/EvidencePacketAggregationPanel';
 import { ComplianceRegistryReadinessPanel } from './components/ComplianceRegistryReadinessPanel';
+import { CarbonPuraEvidenceDraftPanel } from './components/CarbonPuraEvidenceDraftPanel';
 import { CARBONPURA_LIVE_ENGINES } from './carbonPuraModuleRegistry';
 import { useCarbonPuraLiveStatus } from './hooks/useCarbonPuraLiveStatus';
+import { useCarbonPuraEvidenceDraft } from './hooks/useCarbonPuraEvidenceDraft';
 import { isPaceMatrixEntry } from './paceProductSuites';
 
 type CarbonPuraWorkspaceProps = {
@@ -27,6 +30,7 @@ type SummaryCard = {
 
 export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPuraWorkspaceProps) {
   const liveStatus = useCarbonPuraLiveStatus();
+  const evidenceDraft = useCarbonPuraEvidenceDraft();
   const liveSourceCount = liveStatus.sources.filter((s) => s.status === 'live').length;
   const partialSourceCount = liveStatus.sources.filter((s) => s.status === 'partial').length;
 
@@ -68,6 +72,12 @@ export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPura
       detail: liveStatus.loading
         ? 'Loading provider / source matrix…'
         : `${liveSourceCount} live · ${partialSourceCount} partial · ${liveStatus.sources.length} sources (each with reason).`,
+    },
+    {
+      id: 'evidence-draft',
+      label: 'Evidence Draft (local)',
+      value: String(evidenceDraft.selectedSourceSuites.length),
+      detail: 'PACE suites marked for CarbonPura evidence draft — local browser storage only, not backend-saved.',
     },
     {
       id: 'integrity-alerts',
@@ -115,24 +125,25 @@ export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPura
 
         <LiveModuleLaunchGrid onOpenView={onOpenView} />
 
-        <PaceProductIntelligenceLayerPanel paceLaneStatus={paceLaneStatus} />
-
-        <div className="grid gap-6 lg:grid-cols-2">
-          <LiveProviderStatusPanel />
-          <CarbonPuraLiveWorkflowPanel />
-        </div>
+        <CarbonPuraLiveWorkflowPanel />
 
         <WaterPlasticFusionPanel />
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <EvidencePacketAggregationPanel />
-          <IntegrityRadarPanel />
-        </div>
+        <PaceProductIntelligenceLayerPanel paceLaneStatus={paceLaneStatus} evidenceDraft={evidenceDraft} />
 
-        <div className="grid gap-6 lg:grid-cols-2">
-          <ComplianceRegistryReadinessPanel />
-          <LiveVerificationChecklist />
-        </div>
+        <CarbonPuraEvidenceDraftPanel evidenceDraft={evidenceDraft} />
+
+        <LiveProviderStatusPanel evidenceDraft={evidenceDraft} />
+
+        <IntegrityRadarPanel />
+
+        <EvidencePacketAggregationPanel />
+
+        <ComplianceRegistryReadinessPanel />
+
+        <LiveVerificationChecklist />
+
+        <LiveModuleVerificationMatrix />
       </div>
     </div>
   );
