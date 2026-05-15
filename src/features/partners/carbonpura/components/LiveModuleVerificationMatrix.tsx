@@ -58,7 +58,7 @@ function providerNoteFromProbe(
         : 'Water stats unavailable on configured API host';
   }
   if (row.providerProbeKey === 'copernicus') {
-    return 'Copernicus status probed at hub â€” AquaScan uses server proxy when VITE_API_BASE configured';
+    return 'Copernicus status probed at hub — AquaScan uses server proxy when VITE_API_BASE configured';
   }
   if (row.providerProbeKey === 'api') {
     return apiDetail;
@@ -67,7 +67,7 @@ function providerNoteFromProbe(
 }
 
 type LiveModuleVerificationMatrixProps = {
-  /** When Playwright smoke passes, parent or docs can set â€” optional override per row id. */
+  /** When Playwright smoke passes, parent or docs can set — optional override per row id. */
   e2ePassedRouteIds?: string[];
 };
 
@@ -173,7 +173,7 @@ export function LiveModuleVerificationMatrix({ e2ePassedRouteIds = [] }: LiveMod
         {rows.map((row) => (
           <details key={`${row.id}-qa`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
             <summary className="cursor-pointer text-sm font-semibold text-slate-800">
-              Manual QA â€” {row.moduleName}
+              Manual QA — {row.moduleName}
             </summary>
             <p className="mt-2 text-xs text-slate-600">{row.verificationNotes}</p>
             <p className="mt-1 text-xs text-slate-600">
@@ -188,7 +188,7 @@ export function LiveModuleVerificationMatrix({ e2ePassedRouteIds = [] }: LiveMod
               {row.qaChecklist.map((item) => (
                 <li key={item.id} className="flex items-start gap-2 text-xs text-slate-700">
                   <span className="text-slate-400" aria-hidden>
-                    {item.codeVerified ? 'â—†' : 'â˜'}
+                    {item.codeVerified ? '●' : '○'}
                   </span>
                   {item.label}
                   {item.codeVerified ? (

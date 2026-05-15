@@ -11,6 +11,7 @@ export async function queryPaceScenes(args: {
   start: Date;
   end: Date;
   token: string;
+  pageSize?: number;
 }): Promise<CmrGranuleSearchResult> {
   const bbox = boundingBoxFromPoint(args.lat, args.lng, args.radiusKm);
   const temporal = cmrTemporalRange(args.start, args.end);
@@ -19,6 +20,7 @@ export async function queryPaceScenes(args: {
     provider: 'PACE',
     boundingBox: bbox,
     temporal,
+    pageSize: args.pageSize,
     token: args.token,
   });
 }

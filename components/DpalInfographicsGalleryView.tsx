@@ -68,7 +68,7 @@ export default function DpalInfographicsGalleryView({ onReturn }: DpalInfographi
           onClick={onReturn}
           className="mb-4 rounded-lg border border-slate-600 bg-slate-900/80 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:border-cyan-500/50 hover:text-cyan-100"
         >
-          Back to Environmental Intelligence Hub
+          Back to Home
         </button>
 
         <header className="mb-8 rounded-2xl border border-cyan-500/25 bg-gradient-to-br from-slate-900/90 to-slate-950 p-6 shadow-xl">

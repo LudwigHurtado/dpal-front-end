@@ -7,6 +7,8 @@ import type {
 
 type Props = {
   scan: HyperspectralPlasticScanResponse | null;
+  /** When scan was served from short client cache. */
+  fromCache?: boolean;
 };
 
 function formatUtcSnippet(iso: string): string {
@@ -21,19 +23,42 @@ function formatCloudCover(c: number | null | undefined): string {
   return `${Math.round(c)}%`;
 }
 
+function formatTemporalRange(temporal: string | undefined): string {
+  if (!temporal?.trim()) return '—';
+  const parts = temporal.split(',').map((p) => p.trim()).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${formatUtcSnippet(parts[0])} → ${formatUtcSnippet(parts[1])}`;
+  }
+  return temporal;
+}
+
 type SceneRow = DpalHyperspectralScene | DpalHyperspectralCompactScene;
 
-const PaceSatelliteMetadataCard: React.FC<Props> = ({ scan }) => {
+const PaceSatelliteMetadataCard: React.FC<Props> = ({ scan, fromCache }) => {
   const pace = scan?.providers.pace;
   const scenes = pace?.scenes ?? [];
   const previewRows = useMemo(() => scenes.slice(0, 3) as SceneRow[], [scenes]);
-  const sceneCount = scenes.length;
+  const returnedCount = pace?.returnedCount ?? scenes.length;
+  const totalHits = pace?.totalHits;
+  const pageSize = pace?.pageSize ?? 20;
+  const isPageLimited = pace?.isPageLimited === true;
   const latestSceneTime =
     pace?.sceneDate != null && String(pace.sceneDate).trim() !== ''
       ? formatUtcSnippet(String(pace.sceneDate))
       : previewRows[0]?.startTime
         ? formatUtcSnippet(previewRows[0].startTime)
         : null;
+
+  const granuleBadgeLabel = useMemo(() => {
+    if (returnedCount <= 0) return null;
+    if (totalHits != null && totalHits > returnedCount) {
+      return `Returned ${returnedCount} of ${totalHits} CMR matches (metadata)`;
+    }
+    if (isPageLimited) {
+      return `First ${returnedCount} CMR matches on this page (metadata)`;
+    }
+    return `${returnedCount} CMR match${returnedCount === 1 ? '' : 'es'} (metadata)`;
+  }, [returnedCount, totalHits, isPageLimited]);
 
   if (!scan) {
     return (
@@ -71,9 +96,9 @@ const PaceSatelliteMetadataCard: React.FC<Props> = ({ scan }) => {
           </h3>
           <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-800/90">{statusLabel}</p>
         </div>
-        {sceneCount > 0 ? (
+        {granuleBadgeLabel ? (
           <span className="rounded-full border border-sky-200 bg-white px-2 py-0.5 text-[10px] font-semibold text-sky-900">
-            Satellite observations found: {sceneCount} granule{sceneCount === 1 ? '' : 's'}
+            {granuleBadgeLabel}
           </span>
         ) : null}
       </div>
@@ -82,6 +107,58 @@ const PaceSatelliteMetadataCard: React.FC<Props> = ({ scan }) => {
         This confirms DPAL can locate relevant satellite observations for the AOI. Plastic classification requires
         calibrated spectral processing and field validation.
       </p>
+
+      {returnedCount > 0 ? (
+        <div className="mt-3 rounded-lg border border-sky-100 bg-white/90 p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-sky-900">CMR query diagnostics</p>
+          <p className="mt-1.5 text-[10px] text-slate-600 leading-snug">
+            A count of 20 often means the result hit the current CMR page size, not that only 20 observations exist.
+            Check total matches and page-limited below before interpreting coverage.
+          </p>
+          <dl className="mt-2 grid grid-cols-1 gap-1.5 text-[11px] sm:grid-cols-2">
+            <div>
+              <dt className="text-slate-500">Returned granules</dt>
+              <dd className="font-mono font-semibold text-slate-900">{returnedCount}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Total matches (CMR-Hits)</dt>
+              <dd className="font-mono font-semibold text-slate-900">
+                {totalHits != null ? totalHits : 'Not reported by CMR'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Page size</dt>
+              <dd className="font-mono text-slate-900">{pageSize}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Page-limited</dt>
+              <dd className="font-mono text-slate-900">{isPageLimited ? 'yes' : 'no'}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-slate-500">PACE short name</dt>
+              <dd className="font-mono text-slate-900 break-all">{pace?.queryShortName ?? '—'}</dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-slate-500">Date range (CMR temporal)</dt>
+              <dd className="font-mono text-[10px] text-slate-900 leading-snug">
+                {formatTemporalRange(pace?.temporal)}
+              </dd>
+            </div>
+            <div className="sm:col-span-2">
+              <dt className="text-slate-500">Bounding box (west,south,east,north)</dt>
+              <dd className="font-mono text-[10px] text-slate-900 break-all">{pace?.boundingBox ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">Latest reference date</dt>
+              <dd className="font-mono text-slate-900">{latestSceneTime ?? '—'}</dd>
+            </div>
+            <div>
+              <dt className="text-slate-500">From cache</dt>
+              <dd className="font-mono text-slate-900">{fromCache ? 'yes' : 'no'}</dd>
+            </div>
+          </dl>
+        </div>
+      ) : null}
 
       <dl className="mt-3 grid grid-cols-1 gap-2 text-[11px] sm:grid-cols-2">
         <div className="rounded-lg border border-sky-100 bg-white/80 p-2.5">
@@ -121,7 +198,7 @@ const PaceSatelliteMetadataCard: React.FC<Props> = ({ scan }) => {
       {previewRows.length > 0 ? (
         <div className="mt-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            Sample granules (first {previewRows.length} of {sceneCount})
+            Sample granules (first {previewRows.length} of {returnedCount})
           </p>
           <ul className="mt-2 space-y-2">
             {previewRows.map((row, idx) => (

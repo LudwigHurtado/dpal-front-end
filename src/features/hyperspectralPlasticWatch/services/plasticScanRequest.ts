@@ -7,6 +7,18 @@ import type {
 } from '../types';
 import type { PlasticScanParams } from './hyperspectralPlasticApi';
 
+export const DEFAULT_PLASTIC_SCAN_PAGE_SIZE = 20;
+export const MIN_PLASTIC_SCAN_PAGE_SIZE = 1;
+export const MAX_PLASTIC_SCAN_PAGE_SIZE = 100;
+
+/** Validate optional CMR page size for plastic scan requests. */
+export function validatePlasticScanPageSize(raw: number | string | undefined): number | null {
+  if (raw === undefined || raw === null || raw === '') return null;
+  const n = typeof raw === 'number' ? raw : Number.parseInt(String(raw).trim(), 10);
+  if (!Number.isFinite(n) || n < MIN_PLASTIC_SCAN_PAGE_SIZE || n > MAX_PLASTIC_SCAN_PAGE_SIZE) return null;
+  return Math.floor(n);
+}
+
 /** Shown when CMR metadata succeeded but numeric plastic-risk index is not ready. */
 export const PENDING_PLASTIC_INDEX_STATUS_MESSAGE =
   'NASA CMR metadata retrieved. Plastic-risk scoring pending narrow-band index extraction and validation.';
@@ -101,6 +113,13 @@ function asProviderBlock(v: unknown): PlasticSpectralProviderBlock {
     spectralRange: o.spectralRange,
     limitations: o.limitations,
     scenes: o.scenes,
+    returnedCount: typeof o.returnedCount === 'number' ? o.returnedCount : undefined,
+    totalHits: o.totalHits === null || typeof o.totalHits === 'number' ? o.totalHits : undefined,
+    pageSize: typeof o.pageSize === 'number' ? o.pageSize : undefined,
+    isPageLimited: typeof o.isPageLimited === 'boolean' ? o.isPageLimited : undefined,
+    queryShortName: typeof o.queryShortName === 'string' ? o.queryShortName : undefined,
+    boundingBox: typeof o.boundingBox === 'string' ? o.boundingBox : undefined,
+    temporal: typeof o.temporal === 'string' ? o.temporal : undefined,
   };
 }
 
@@ -109,6 +128,8 @@ export function buildPlasticScanRequestBody(params: PlasticScanParams): Record<s
   const lat = parseLocalizedNumber(params.lat);
   const lng = parseLocalizedNumber(params.lng);
   const radiusKm = parseLocalizedNumber(params.radiusKm);
+
+  const pageSize = validatePlasticScanPageSize(params.pageSize);
 
   return {
     lat,
@@ -123,6 +144,7 @@ export function buildPlasticScanRequestBody(params: PlasticScanParams): Record<s
     aoiGeoJson: params.aoiGeoJson ?? null,
     ...(params.compact ? { compact: true } : {}),
     ...(params.includeLinks ? { includeLinks: true } : {}),
+    ...(pageSize != null ? { pageSize } : {}),
   };
 }
 

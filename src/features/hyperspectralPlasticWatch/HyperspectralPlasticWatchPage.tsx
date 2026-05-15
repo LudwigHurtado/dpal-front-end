@@ -15,6 +15,7 @@ import PlasticEvidencePacketPanel from './components/PlasticEvidencePacketPanel'
 import PaceSatelliteMetadataCard from './components/PaceSatelliteMetadataCard';
 import PlasticLayerControl from './components/PlasticLayerControl';
 import PlasticRiskSummaryCards from './components/PlasticRiskSummaryCards';
+import PlasticWatchReportAssistant from './components/PlasticWatchReportAssistant';
 import PlasticWatchAutomationPanel from './components/PlasticWatchAutomationPanel';
 import SpectralSignaturePanel from './components/SpectralSignaturePanel';
 import { WATCH_DEEP_LINK_HASH } from '../../../utils/appRoutes';
@@ -46,8 +47,10 @@ import type {
   PlasticMapLayers,
   PlasticProviderState,
   PlasticWatchStep,
+  PlasticWatchTab,
   ProviderReadinessCard,
 } from './types';
+import { PlasticWatchTabbedShell } from './components/PlasticWatchTabbedShell';
 
 type Props = {
   onReturn: () => void;
@@ -368,6 +371,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [cacheNotice, setCacheNotice] = useState<string | null>(null);
   const [dronePrepare, setDronePrepare] = useState<DroneValidationPrepareResponse | null>(null);
   const [droneBusy, setDroneBusy] = useState(false);
+  const [activeTab, setActiveTab] = useState<PlasticWatchTab>('aoi');
 
   const watchRunIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -447,12 +451,18 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
     const afterScan = lastScan?.ok === true;
     const pace = lastScan?.providers.pace;
-    const paceGranules = pace?.scenes?.length ?? 0;
+    const paceReturned = pace?.returnedCount ?? pace?.scenes?.length ?? 0;
+    const paceTotal = pace?.totalHits;
+    const pacePageLimited = pace?.isPageLimited === true;
 
     const whatYouAreSeeing = afterScan
       ? `Live scan response loaded (${lastScan.scanId}). PACE lane reports ${pace?.status ?? '—'}. ${
-          paceGranules > 0
-            ? `NASA CMR lists ${paceGranules} PACE granule metadata record(s) for this AOI — satellite observations found, not plastic classification.`
+          paceReturned > 0
+            ? paceTotal != null && paceTotal > paceReturned
+              ? `NASA CMR returned ${paceReturned} of ${paceTotal} matching PACE granule metadata record(s) for this AOI — not plastic classification.`
+              : pacePageLimited
+                ? `NASA CMR returned the first ${paceReturned} matching PACE granule(s) on this page — page-limited; more observations may exist in the catalog.`
+                : `NASA CMR returned ${paceReturned} matching PACE granule metadata record(s) for this AOI — satellite observations found, not plastic classification.`
             : (pace?.message ?? 'See the PACE Satellite Metadata card for lane details.')
         }`
       : 'A Hyperspectral Plastic Watch workspace ready for AOI review. Map, AOI controls, environment type, and the Watch DPAL Work panel are visible — run Watch DPAL Work or Manual scan to retrieve NASA CMR metadata for PACE / EMIT.';
@@ -689,12 +699,18 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       pushLog('Hyperspectral plastic watch scan response received from API (POST).');
 
       const p = data.providers.pace;
+      const paceReturned = p.returnedCount ?? p.scenes?.length ?? 0;
+      const paceTotal = p.totalHits;
       patchStep('pace', {
         status: providerStepStatus(p.status),
         explanation: p.message,
         detail:
-          p.scenes?.length != null && p.scenes.length > 0
-            ? `NASA CMR scenes=${p.scenes.length} (metadata only)`
+          paceReturned > 0
+            ? paceTotal != null && paceTotal > paceReturned
+              ? `CMR returned=${paceReturned} of ${paceTotal} total (metadata only; pageSize=${p.pageSize ?? 20})`
+              : p.isPageLimited
+                ? `CMR returned=${paceReturned} on page (page-limited; pageSize=${p.pageSize ?? 20})`
+                : `CMR returned=${paceReturned} granule(s) (metadata only)`
             : p.sceneDate
               ? `sceneDate=${p.sceneDate}`
               : `status=${p.status}`,
@@ -1413,7 +1429,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           </div>
 
           <PlasticRiskSummaryCards scan={lastScan} />
-          <PaceSatelliteMetadataCard scan={lastScan} />
+          <PlasticWatchReportAssistant scan={lastScan} evidence={evidence} />
+          <PaceSatelliteMetadataCard scan={lastScan} fromCache={Boolean(cacheNotice)} />
           <SpectralSignaturePanel scan={lastScan} />
           <PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />
         </main>

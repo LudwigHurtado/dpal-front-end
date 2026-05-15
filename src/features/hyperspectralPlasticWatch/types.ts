@@ -44,6 +44,13 @@ export type PlasticSpectralProviderBlock = {
   spectralRange?: string | null;
   limitations?: string[];
   scenes?: Array<DpalHyperspectralScene | DpalHyperspectralCompactScene>;
+  returnedCount?: number;
+  totalHits?: number | null;
+  pageSize?: number;
+  isPageLimited?: boolean;
+  queryShortName?: string;
+  boundingBox?: string;
+  temporal?: string;
 };
 
 export type PlasticDroneProviderBlock = {
@@ -172,6 +179,8 @@ export type PlasticEvidencePacketResponse = {
 };
 
 export type WatchStepStatus = 'pending' | 'running' | 'complete' | 'warning' | 'failed' | 'skipped';
+
+export type PlasticWatchTab = 'aoi' | 'results' | 'evidence' | 'workflow';
 
 export type PlasticWatchStep = {
   id: string;

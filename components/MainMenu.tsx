@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslations } from '../i18n';
-import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves } from './icons';
+import { List, ArrowRight, Search, Mic, Loader, Megaphone, Sparkles, Monitor, Broadcast, Zap, Database, ShieldCheck, Target, Map, User, Activity, Award, Hash, Gem, FileText, Phone, Globe, Package, Scale, AlertTriangle, Heart, Coins, X, Fingerprint, Waves, Layout } from './icons';
+import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
 import { Category } from '../types';
 import { CATEGORIES_WITH_ICONS, getValidatorPortalUrl } from '../constants';
 import {
@@ -352,6 +353,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     colorClass="blue"
                     bgImageUrl="/main-screen/politician-viewpoints.png"
                     onClick={() => onNavigate('politicianTransparency')}
+                />
+
+                <PrimaryNavModule
+                    icon={<Layout className="w-8 h-8" />}
+                    label={DPAL_INFOGRAPHIC_CATEGORY}
+                    subLabel="Shareable DPAL one-pagers — AquaScan, Earth Observation, missions, accountability, APIs, and more."
+                    status="Shareables"
+                    colorClass="teal"
+                    bgImageUrl="/dpal-infographics/environmental-scan-suite.png"
+                    onClick={() => onNavigate('dpalInfographicsGallery')}
                 />
 
                 <PrimaryNavModule

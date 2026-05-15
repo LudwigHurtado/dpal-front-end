@@ -1,8 +1,7 @@
 import React from 'react';
-import { ArrowRight, Activity, Globe, ShieldCheck, Database, Layout, Sparkles, Monitor } from './icons';
+import { ArrowRight, Activity, Globe, ShieldCheck, Database, Sparkles, Monitor } from './icons';
 import type { View } from '../App';
 import { FIELD_OS_SCROLL_SUPER_AGENT_SESSION_KEY, WATCH_DEEP_LINK_HASH } from '../utils/appRoutes';
-import { DPAL_INFOGRAPHIC_CATEGORY } from '../data/dpalInfographics';
 import DpalIntegrationCommandCenter from '../src/components/DpalIntegrationCommandCenter';
 import {
   runEnvironmentalHubProbes,
@@ -328,21 +327,6 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
           Back to Home
         </button>
       </div>
-
-      <section className="mb-10">
-        <h2 className="text-base md:text-lg font-bold text-slate-100">{DPAL_INFOGRAPHIC_CATEGORY}</h2>
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          <HubCard
-            icon={<Layout className="w-8 h-8" />}
-            label="DPAL story & service maps"
-            subLabel="Open the full gallery of DPAL one-pagers: AquaScan, Earth Observation, missions, accountability, enterprise APIs, and more — ready to share with a link."
-            status="Shareables"
-            colorClass="teal"
-            bgImageUrl="/dpal-infographics/environmental-scan-suite.png"
-            onClick={() => onNavigate('dpalInfographicsGallery')}
-          />
-        </div>
-      </section>
 
       <section className="mb-8 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

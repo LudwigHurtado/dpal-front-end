@@ -1,5 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { CarbonPuraHeader } from './components/CarbonPuraHeader';
+import { CarbonPuraSectionNav, type CarbonPuraViewMode } from './components/CarbonPuraSectionNav';
+import { CarbonPuraProjectMapPanel } from './components/CarbonPuraProjectMapPanel';
+import { CarbonPuraNextActionPanel } from './components/CarbonPuraNextActionPanel';
+import { CarbonPuraFoldPanel } from './components/CarbonPuraFoldPanel';
 import { LiveModuleLaunchGrid } from './components/LiveModuleLaunchGrid';
 import { LiveProviderStatusPanel } from './components/LiveProviderStatusPanel';
 import { PaceProductIntelligenceLayerPanel } from './components/PaceProductIntelligenceLayerPanel';
@@ -17,6 +21,7 @@ import { CARBONPURA_LIVE_ENGINES } from './carbonPuraModuleRegistry';
 import { useCarbonPuraLiveStatus } from './hooks/useCarbonPuraLiveStatus';
 import { useCarbonPuraEvidenceDraft } from './hooks/useCarbonPuraEvidenceDraft';
 import { isPaceMatrixEntry } from './paceProductSuites';
+import { carbonPuraSectionAnchor } from './carbonPuraSections';
 
 type CarbonPuraWorkspaceProps = {
   onReturn?: () => void;
@@ -31,11 +36,13 @@ type SummaryCard = {
 };
 
 export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPuraWorkspaceProps) {
+  const [viewMode, setViewMode] = useState<CarbonPuraViewMode>('executive');
   const liveStatus = useCarbonPuraLiveStatus();
   const evidenceDraft = useCarbonPuraEvidenceDraft();
   const evidenceChain = useCarbonPuraEvidenceChain();
   const liveSourceCount = liveStatus.sources.filter((s) => s.status === 'live').length;
   const partialSourceCount = liveStatus.sources.filter((s) => s.status === 'partial').length;
+  const isTechnical = viewMode === 'technical';
 
   const paceLaneStatus = useMemo(() => {
     const paceRows = liveStatus.sources.filter(isPaceMatrixEntry);
@@ -54,107 +61,127 @@ export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPura
     return paceRows[0]?.status ?? null;
   }, [liveStatus.sources]);
 
+  const monitoringSourceCount = liveStatus.loading ? '…' : String(liveStatus.sources.length);
+
   const summaryCards: SummaryCard[] = [
     {
-      id: 'active-projects',
-      label: 'Active Projects',
-      value: 'Pending',
-      detail:
-        'Shared project context across partner modules is pending wiring. Module-native workflows open live engines now.',
-    },
-    {
       id: 'connected-modules',
-      label: 'Connected DPAL Modules',
+      label: 'Connected modules',
       value: String(CARBONPURA_LIVE_ENGINES.length),
       detail: 'Confirmed SPA routes — CarbonPura launches DPAL engines on their native workspaces.',
     },
     {
       id: 'fusion',
-      label: 'Monitoring Sources',
-      value: liveStatus.loading ? '…' : String(liveStatus.sources.length),
+      label: 'Monitoring sources',
+      value: monitoringSourceCount,
       detail: liveStatus.loading
         ? 'Loading provider / source matrix…'
-        : `${liveSourceCount} live · ${partialSourceCount} partial · ${liveStatus.sources.length} sources (each with reason).`,
+        : `${liveSourceCount} live · ${partialSourceCount} partial · ${monitoringSourceCount} sources (each with reason).`,
     },
     {
       id: 'evidence-draft',
-      label: 'Evidence chain',
-      value: evidenceChain.backendAvailable
-        ? `${evidenceChain.events.length} event${evidenceChain.events.length === 1 ? '' : 's'}`
-        : 'Local only',
+      label: 'Evidence events',
+      value: evidenceChain.backendAvailable ? String(evidenceChain.events.length) : 'Local only',
       detail: evidenceChain.backendAvailable
-        ? `Backend ${evidenceChain.persistenceMode} · ${evidenceDraft.selectedSourceSuites.length} local suite selection(s).`
-        : 'PACE suites in local draft — backend aggregation unavailable on current API host.',
-    },
-    {
-      id: 'integrity-alerts',
-      label: 'Integrity Alerts',
-      value: 'Pending',
-      detail: 'Planned GeoLedger / overlap / double-counting checks are connection-pending at hub layer.',
+        ? `Backend ${evidenceChain.persistenceMode} · evidence-source events on configured host.`
+        : 'Local suite selections — backend aggregation unavailable on current API host.',
     },
     {
       id: 'evidence-packets',
-      label: 'Evidence Packets',
+      label: 'Draft packets',
       value: evidenceChain.hasDraftPacket ? 'Draft' : 'Pending',
       detail: evidenceChain.hasDraftPacket
-        ? 'Draft packet on backend — not validator-approved. QR/export pending.'
+        ? 'Draft packet on backend — not validator-approved. QR living page pending.'
         : 'Draft packet API available when evidence events exist; no fabricated combined packet.',
-    },
-    {
-      id: 'validator-reviews',
-      label: 'Validator Reviews',
-      value: 'Pending',
-      detail: 'Validator queue surfaces inside operational modules (e.g., Water Operations Engine).',
-    },
-    {
-      id: 'article6',
-      label: 'Article 6 Readiness',
-      value: 'Pending',
-      detail: 'DPAL prepares evidence-backed records for registry workflows. Article 6 authorization remains with authorities.',
     },
   ];
 
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-7xl space-y-6 px-4 py-6 md:px-6 md:py-8">
-        <CarbonPuraHeader onReturn={onReturn} />
+        <CarbonPuraHeader onReturn={onReturn} viewMode={viewMode} onViewModeChange={setViewMode} />
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {summaryCards.map((card) => (
-            <div
-              key={card.id}
-              className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
-            >
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
-              <p className="mt-1 text-2xl font-bold text-slate-900">{card.value}</p>
-              <p className="mt-2 text-xs leading-relaxed text-slate-600">{card.detail}</p>
-            </div>
-          ))}
+        <CarbonPuraSectionNav viewMode={viewMode} />
+
+        <div id={carbonPuraSectionAnchor('overview')} className="scroll-mt-28 space-y-6">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {summaryCards.map((card) => (
+              <div key={card.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
+                <p className="mt-1 text-2xl font-bold tabular-nums text-slate-900">{card.value}</p>
+                <p className="mt-2 text-xs leading-relaxed text-slate-600">{card.detail}</p>
+              </div>
+            ))}
+          </div>
+
+          <CarbonPuraProjectMapPanel />
+          <CarbonPuraNextActionPanel />
+
+          {isTechnical ? (
+            <CarbonPuraFoldPanel defaultExpanded={false}>
+              <CarbonPuraLiveWorkflowPanel />
+            </CarbonPuraFoldPanel>
+          ) : null}
         </div>
 
-        <LiveModuleLaunchGrid onOpenView={onOpenView} />
+        <div id={carbonPuraSectionAnchor('live-engines')} className="scroll-mt-28">
+          <LiveModuleLaunchGrid onOpenView={onOpenView} />
+        </div>
 
-        <CarbonPuraLiveWorkflowPanel />
+        {isTechnical ? (
+          <>
+            <div id={carbonPuraSectionAnchor('water-plastic')} className="scroll-mt-28">
+              <CarbonPuraFoldPanel defaultExpanded>
+                <WaterPlasticFusionPanel />
+              </CarbonPuraFoldPanel>
+            </div>
 
-        <WaterPlasticFusionPanel />
+            <div id={carbonPuraSectionAnchor('pace-products')} className="scroll-mt-28">
+              <CarbonPuraFoldPanel defaultExpanded={false}>
+                <PaceProductIntelligenceLayerPanel paceLaneStatus={paceLaneStatus} evidenceDraft={evidenceDraft} />
+              </CarbonPuraFoldPanel>
+            </div>
 
-        <PaceProductIntelligenceLayerPanel paceLaneStatus={paceLaneStatus} evidenceDraft={evidenceDraft} />
+            <div id={carbonPuraSectionAnchor('provider-matrix')} className="scroll-mt-28">
+              <LiveProviderStatusPanel evidenceDraft={evidenceDraft} />
+            </div>
 
-        <CarbonPuraChainOfEvidencePanel evidenceChain={evidenceChain} evidenceDraft={evidenceDraft} />
+            <CarbonPuraFoldPanel defaultExpanded={false}>
+              <IntegrityRadarPanel />
+            </CarbonPuraFoldPanel>
 
-        <CarbonPuraEvidenceDraftPanel evidenceDraft={evidenceDraft} evidenceChain={evidenceChain} />
+            <CarbonPuraFoldPanel defaultExpanded={false}>
+              <EvidencePacketAggregationPanel />
+            </CarbonPuraFoldPanel>
 
-        <LiveProviderStatusPanel evidenceDraft={evidenceDraft} />
+          </>
+        ) : null}
 
-        <IntegrityRadarPanel />
+        <div id={carbonPuraSectionAnchor('evidence-chain')} className="scroll-mt-28 space-y-6">
+          <CarbonPuraChainOfEvidencePanel evidenceChain={evidenceChain} evidenceDraft={evidenceDraft} />
+          <CarbonPuraFoldPanel defaultExpanded>
+            <CarbonPuraEvidenceDraftPanel evidenceDraft={evidenceDraft} evidenceChain={evidenceChain} />
+          </CarbonPuraFoldPanel>
+        </div>
 
-        <EvidencePacketAggregationPanel />
+        {isTechnical ? (
+          <>
+            <div id={carbonPuraSectionAnchor('compliance')} className="scroll-mt-28">
+              <CarbonPuraFoldPanel defaultExpanded={false}>
+                <ComplianceRegistryReadinessPanel />
+              </CarbonPuraFoldPanel>
+            </div>
 
-        <ComplianceRegistryReadinessPanel />
-
-        <LiveVerificationChecklist />
-
-        <LiveModuleVerificationMatrix />
+            <div id={carbonPuraSectionAnchor('verification')} className="scroll-mt-28 space-y-6">
+              <CarbonPuraFoldPanel defaultExpanded={false}>
+                <LiveVerificationChecklist />
+              </CarbonPuraFoldPanel>
+              <CarbonPuraFoldPanel defaultExpanded={false}>
+                <LiveModuleVerificationMatrix />
+              </CarbonPuraFoldPanel>
+            </div>
+          </>
+        ) : null}
       </div>
     </div>
   );

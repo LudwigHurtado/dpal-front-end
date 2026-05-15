@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { earthObservationService } from './earthObservationService';
 import { queryEmitL2aScenes } from './hyperspectral/emitProvider';
+import { formatPaceCmrProviderMessage } from './hyperspectral/paceCmrMessaging';
 import { queryPaceScenes } from './hyperspectral/paceProvider';
 import {
   sceneToCompact,
@@ -34,6 +35,15 @@ export type PlasticSpectralProviderBlock = {
   spectralRange?: string | null;
   limitations?: string[];
   scenes?: Array<DpalHyperspectralScene | DpalHyperspectralCompactScene>;
+  /** Granules returned in this CMR response page (may be less than total catalog matches). */
+  returnedCount?: number;
+  /** Total CMR catalog matches when NASA returns CMR-Hits header. */
+  totalHits?: number | null;
+  pageSize?: number;
+  isPageLimited?: boolean;
+  queryShortName?: string;
+  boundingBox?: string;
+  temporal?: string;
 };
 
 export type PlasticDroneProviderBlock = {
@@ -132,6 +142,8 @@ export type PlasticScanInput = {
   /** When true and includeFullSceneLinks is not true, PACE/EMIT scenes omit full CMR link arrays. */
   compactScenes?: boolean;
   includeFullSceneLinks?: boolean;
+  /** CMR granule page size (1–100); default 20. */
+  pageSize?: number;
 };
 
 function clamp(n: number, lo: number, hi: number): number {
@@ -216,6 +228,7 @@ async function buildPaceScanBlock(args: {
     start: args.start,
     end: args.end,
     token,
+    pageSize: args.pageSize,
   });
 
   if (cmr.errorCode === 'auth_error') {
@@ -255,16 +268,31 @@ async function buildPaceScanBlock(args: {
   }
 
   const first = cmr.scenes[0];
+  const diagnostics = paceCmrDiagnosticsFromResult(cmr);
+  const meta = cmr.metadata ?? {
+    returnedCount: diagnostics.returnedCount ?? cmr.scenes.length,
+    totalHits: diagnostics.totalHits ?? null,
+    pageSize: diagnostics.pageSize ?? 20,
+    isPageLimited: diagnostics.isPageLimited ?? false,
+    queryShortName: diagnostics.queryShortName ?? '',
+    boundingBox: diagnostics.boundingBox ?? '',
+    temporal: diagnostics.temporal ?? '',
+  };
+
   return {
     status: 'available',
-    message: `NASA CMR returned ${cmr.scenes.length} PACE granule(s) — metadata only (no spectral index extraction in this build).`,
+    message: formatPaceCmrProviderMessage(meta),
     sceneDate: first.startTime || null,
     spectralRange: 'PACE OCI (narrow-band products — indices not extracted here)',
     limitations: [
       'CMR granule metadata does not prove plastic presence.',
       'Plastic-relevant interpretation requires calibrated narrow-band processing and field validation.',
+      meta.isPageLimited
+        ? 'Granule count may reflect the CMR page size — not necessarily all observations in the catalog for this AOI and date window.'
+        : 'Granule count reflects CMR matches returned for this query (metadata listing only).',
     ],
     scenes: cmr.scenes,
+    ...diagnostics,
   };
 }
 
@@ -377,6 +405,7 @@ export async function runHyperspectralPlasticScan(input: PlasticScanInput): Prom
       radiusKm: input.radiusKm,
       start,
       end,
+      pageSize: input.pageSize,
     }),
     buildEmitScanBlock({
       lat: input.lat,

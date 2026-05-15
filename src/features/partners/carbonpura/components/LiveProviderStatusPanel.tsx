@@ -230,22 +230,69 @@ function MatrixSection({
   );
 }
 
+type ProviderMatrixFilter =
+  | 'all'
+  | 'pace'
+  | 'live'
+  | 'partial'
+  | 'planned_future'
+  | 'metadata_only';
+
+const FILTER_OPTIONS: { id: ProviderMatrixFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'pace', label: 'PACE suites' },
+  { id: 'live', label: 'Live' },
+  { id: 'partial', label: 'Partial' },
+  { id: 'planned_future', label: 'Planned/Future' },
+  { id: 'metadata_only', label: 'Metadata only' },
+];
+
+function matchesFilter(source: ProviderSourceStatusEntry, filter: ProviderMatrixFilter): boolean {
+  if (filter === 'all') return true;
+  if (filter === 'pace') return isPaceMatrixEntry(source);
+  if (filter === 'live') return source.status === 'live';
+  if (filter === 'partial') return source.status === 'partial';
+  if (filter === 'metadata_only') return source.status === 'metadata_only';
+  if (filter === 'planned_future') return source.status === 'planned' || source.status === 'future';
+  return true;
+}
+
+function matchesSearch(source: ProviderSourceStatusEntry, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [source.sourceName, source.productSuiteCode, source.relatedModule]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(q);
+}
+
 type LiveProviderStatusPanelProps = {
   evidenceDraft?: EvidenceDraftApi;
 };
 
 export function LiveProviderStatusPanel({ evidenceDraft }: LiveProviderStatusPanelProps) {
   const { loading, apiDetail, sources, refreshedAtIso, refresh } = useCarbonPuraLiveStatus();
+  const [filter, setFilter] = useState<ProviderMatrixFilter>('all');
+  const [search, setSearch] = useState('');
+  const [matrixExpanded, setMatrixExpanded] = useState(false);
+
+  const filteredSources = useMemo(
+    () => sources.filter((s) => matchesFilter(s, filter) && matchesSearch(s, search)),
+    [sources, filter, search],
+  );
 
   const { paceSources, otherSources } = useMemo(() => {
     const pace: ProviderSourceStatusEntry[] = [];
     const other: ProviderSourceStatusEntry[] = [];
-    for (const s of sources) {
+    for (const s of filteredSources) {
       if (isPaceMatrixEntry(s)) pace.push(s);
       else other.push(s);
     }
     return { paceSources: pace, otherSources: other };
-  }, [sources]);
+  }, [filteredSources]);
+
+  const previewSources = useMemo(() => filteredSources.slice(0, 4), [filteredSources]);
 
   const statusCounts = useMemo(() => {
     const counts: Record<ProviderSourceLifecycleStatus, number> = {
@@ -291,32 +338,104 @@ export function LiveProviderStatusPanel({ evidenceDraft }: LiveProviderStatusPan
             statusCounts[key] > 0 ? (
               <span
                 key={key}
-                className={`rounded-full border px-2 py-0.5 font-semibold uppercase tracking-wide ${sourceLifecycleClasses(key)}`}
+                className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold tabular-nums ${sourceLifecycleClasses(key)}`}
               >
-                {sourceLifecycleLabel(key)}: {statusCounts[key]}
+                <span className="uppercase tracking-wide">{sourceLifecycleLabel(key)}</span>: {statusCounts[key]}
               </span>
             ) : null,
           )}
         </p>
       ) : null}
-      <ul className="space-y-1">
-        <MatrixSection
-          title="PACE product suites (NASA OCI · HARP2 · SPEXone)"
-          subtitle="10 suite-specific rows — launch live engines or mark for local evidence draft"
-          sources={paceSources}
-          defaultExpandFirst={2}
-          evidenceDraft={evidenceDraft}
-        />
-        <MatrixSection
-          title="Other DPAL sources & infrastructure"
-          sources={otherSources}
-          defaultExpandFirst={1}
-          evidenceDraft={evidenceDraft}
-        />
-        {!loading && sources.length === 0 ? (
-          <li className="list-none text-sm text-slate-500">Connection pending — source matrix not loaded yet.</li>
-        ) : null}
-      </ul>
+
+      <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+        <label className="flex-1 text-xs text-slate-600">
+          <span className="mb-1 block font-semibold text-slate-800">Search sources</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="sourceName, suite code, related module…"
+            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900"
+          />
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {FILTER_OPTIONS.map((opt) => (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => setFilter(opt.id)}
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                filter === opt.id
+                  ? 'border-teal-600 bg-teal-50 text-teal-900'
+                  : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!matrixExpanded && filteredSources.length > 0 ? (
+        <div className="mb-4 rounded-lg border border-slate-100 bg-slate-50 p-3">
+          <p className="text-xs font-semibold text-slate-800">
+            Showing {filteredSources.length} of {sources.length} sources
+            {filter !== 'all' || search ? ' (filtered)' : ''}
+          </p>
+          <ul className="mt-2 space-y-1 text-xs text-slate-600">
+            {previewSources.map((s) => (
+              <li key={s.id} className="flex justify-between gap-2">
+                <span className="truncate font-medium text-slate-800">{s.sourceName}</span>
+                <span className="shrink-0 tabular-nums text-slate-500">{sourceLifecycleLabel(s.status)}</span>
+              </li>
+            ))}
+            {filteredSources.length > previewSources.length ? (
+              <li className="text-slate-400">+{filteredSources.length - previewSources.length} more…</li>
+            ) : null}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setMatrixExpanded(true)}
+            className="mt-3 text-xs font-semibold text-teal-700 hover:text-teal-900"
+          >
+            Expand full matrix ({filteredSources.length} rows)
+          </button>
+        </div>
+      ) : null}
+
+      {matrixExpanded ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setMatrixExpanded(false)}
+            className="mb-3 text-xs font-semibold text-slate-600 hover:text-slate-900"
+          >
+            Collapse matrix preview
+          </button>
+          <ul className="space-y-1">
+            <MatrixSection
+              title="PACE product suites (NASA OCI · HARP2 · SPEXone)"
+              subtitle="10 suite-specific rows — launch live engines or mark for local evidence draft"
+              sources={paceSources}
+              defaultExpandFirst={0}
+              evidenceDraft={evidenceDraft}
+            />
+            <MatrixSection
+              title="Other DPAL sources & infrastructure"
+              sources={otherSources}
+              defaultExpandFirst={0}
+              evidenceDraft={evidenceDraft}
+            />
+            {!loading && filteredSources.length === 0 ? (
+              <li className="list-none text-sm text-slate-500">No sources match the current filter.</li>
+            ) : null}
+          </ul>
+        </>
+      ) : null}
+
+      {!loading && sources.length === 0 ? (
+        <p className="text-sm text-slate-500">Connection pending — source matrix not loaded yet.</p>
+      ) : null}
     </section>
   );
 }

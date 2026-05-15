@@ -268,11 +268,12 @@ test.describe('CarbonPura live module smoke', () => {
     const scanHits = await stubApiNoScans(page);
     await page.goto('/partners/carbonpura');
     await expectPageRenders(page);
-    await expect(page.getByRole('heading', { name: /PACE Product Intelligence Layer/i })).toBeVisible({
-      timeout: 15_000,
-    });
-    await expect(page.getByRole('heading', { name: /Live module verification matrix/i })).toBeVisible();
+    await expect(page.getByTestId('carbonpura-project-map')).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('carbonpura-section-nav')).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Live DPAL engines/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /CarbonPura chain of evidence/i })).toBeVisible();
+    await expect(page.getByText(/Map shows CarbonPura project context/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /PACE Product Intelligence Layer/i })).toHaveCount(0);
     assertNoScans(scanHits);
   });
 
@@ -285,7 +286,8 @@ test.describe('CarbonPura live module smoke', () => {
       timeout: 15_000,
     });
     const draftBtn = page.getByRole('button', { name: /Create draft evidence packet/i });
-    await expect(draftBtn).toBeVisible();
+    await draftBtn.scrollIntoViewIfNeeded();
+    await expect(draftBtn).toBeVisible({ timeout: 15_000 });
     await expect(draftBtn).toBeDisabled();
     assertNoScans(scanHits);
   });

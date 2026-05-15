@@ -2783,7 +2783,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'dpalInfographicsGallery' && (
-          <DpalInfographicsGalleryView onReturn={() => goBack('environmentalIntelligenceHub')} />
+          <DpalInfographicsGalleryView onReturn={() => goBack('mainMenu')} />
         )}
 
         {currentView === 'epaGhgLive' && (

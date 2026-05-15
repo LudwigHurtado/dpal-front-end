@@ -11,6 +11,7 @@ import {
   buildPlasticScanRequestBody,
   normalizePlasticScanResponse,
   parseLocalizedNumber,
+  validatePlasticScanPageSize,
 } from './plasticScanRequest';
 
 export {
@@ -112,6 +113,8 @@ export type PlasticScanParams = {
   compact?: boolean;
   /** Force full CMR scene link arrays (overrides compact). */
   includeLinks?: boolean;
+  /** NASA CMR granule page size (1–100). Omitted → server default (20). */
+  pageSize?: number;
 };
 
 export async function getHyperspectralPlasticScan(
@@ -139,6 +142,9 @@ export async function getHyperspectralPlasticScan(
   }
   if (!payload.baselineDate || !payload.currentDate) {
     throw new Error('Choose valid baseline and current dates.');
+  }
+  if (params.pageSize != null && validatePlasticScanPageSize(params.pageSize) == null) {
+    throw new Error('pageSize must be an integer from 1 to 100 when provided.');
   }
 
   if (import.meta.env.DEV) {

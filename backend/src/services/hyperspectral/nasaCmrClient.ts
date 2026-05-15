@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { computePaceCmrSearchMetadata, parseCmrHitsHeader } from './paceCmrMessaging';
 
 export type DpalHyperspectralScene = {
   provider: 'PACE' | 'EMIT';
@@ -150,8 +151,19 @@ export function normalizeCmrGranule(
   };
 }
 
+export type CmrGranuleSearchMetadata = {
+  returnedCount: number;
+  totalHits: number | null;
+  pageSize: number;
+  queryShortName: string;
+  boundingBox: string;
+  temporal: string;
+  isPageLimited: boolean;
+};
+
 export type CmrGranuleSearchResult = {
   scenes: DpalHyperspectralScene[];
+  metadata?: CmrGranuleSearchMetadata;
   httpStatus?: number;
   errorCode?: 'auth_error' | 'failed' | 'rate_limited';
   safeMessage?: string;
@@ -175,6 +187,8 @@ export async function searchCmrGranulesByShortName(args: {
   const t = args.token?.trim();
   if (t) headers.Authorization = `Bearer ${t}`;
 
+  const pageSize = args.pageSize ?? 20;
+
   try {
     const res = await axios.get(url, {
       params: {
@@ -182,7 +196,7 @@ export async function searchCmrGranulesByShortName(args: {
         bounding_box: args.boundingBox,
         temporal: args.temporal,
         sort_key: '-start_date',
-        page_size: args.pageSize ?? 20,
+        page_size: pageSize,
       },
       headers,
       timeout: 25_000,
@@ -217,7 +231,17 @@ export async function searchCmrGranulesByShortName(args: {
     const feed = (res.data as { feed?: { entry?: Record<string, unknown>[] } })?.feed;
     const entries = Array.isArray(feed?.entry) ? feed.entry : [];
     const scenes = entries.map((e) => normalizeCmrGranule(e, args.provider));
-    return { scenes, httpStatus: res.status };
+    const returnedCount = scenes.length;
+    const totalHits = parseCmrHitsHeader(res.headers as Record<string, unknown>);
+    const metadata = computePaceCmrSearchMetadata({
+      returnedCount,
+      totalHits,
+      pageSize,
+      queryShortName: args.shortName,
+      boundingBox: args.boundingBox,
+      temporal: args.temporal,
+    });
+    return { scenes, metadata, httpStatus: res.status };
   } catch (e) {
     const msg = e instanceof Error ? e.message : 'cmr_request_failed';
     return {

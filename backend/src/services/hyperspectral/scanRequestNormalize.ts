@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 import type { PlasticEnvironmentType } from './plasticEnvironment';
 import { normalizePlasticEnvironmentType } from './plasticEnvironment';
+import { DEFAULT_PACE_CMR_PAGE_SIZE, MAX_PACE_CMR_PAGE_SIZE, MIN_PACE_CMR_PAGE_SIZE } from './paceCmrMessaging';
 
 export type NormalizedPlasticScanRequest = {
   lat: number;
@@ -17,6 +18,8 @@ export type NormalizedPlasticScanRequest = {
   compactScenes: boolean;
   /** When true, always return full CMR scenes with links (overrides compact). */
   includeFullSceneLinks: boolean;
+  /** NASA CMR granule page size (1–100). */
+  pageSize: number;
 };
 
 function firstScalar(v: unknown): unknown {
@@ -203,6 +206,20 @@ export function parsePlasticWatchScanRaw(
   const includeFullSceneLinks = toBool(raw.includeLinks);
   const compactScenes = toBool(raw.compact) && !includeFullSceneLinks;
 
+  const pageSizeRaw = toFiniteNumber(raw.pageSize);
+  const hasExplicitPageSize =
+    raw.pageSize !== undefined && raw.pageSize !== null && String(raw.pageSize).trim() !== '';
+  if (hasExplicitPageSize) {
+    if (!Number.isFinite(pageSizeRaw) || pageSizeRaw < MIN_PACE_CMR_PAGE_SIZE || pageSizeRaw > MAX_PACE_CMR_PAGE_SIZE) {
+      return {
+        ok: false,
+        error: 'invalid_pageSize',
+        details: `pageSize must be an integer from ${MIN_PACE_CMR_PAGE_SIZE} to ${MAX_PACE_CMR_PAGE_SIZE} when provided.`,
+      };
+    }
+  }
+  const pageSize = hasExplicitPageSize ? Math.floor(pageSizeRaw) : DEFAULT_PACE_CMR_PAGE_SIZE;
+
   return {
     ok: true,
     value: {
@@ -218,6 +235,7 @@ export function parsePlasticWatchScanRaw(
       aoiGeoJson,
       compactScenes,
       includeFullSceneLinks,
+      pageSize,
     },
   };
 }
