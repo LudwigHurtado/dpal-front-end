@@ -35,27 +35,30 @@ Companion docs:
 
 ## 2. Latest production smoke results
 
-Time of run: **2026-05-07** (FloodGuard Stage 12J shipped + pushed).
+Time of run: **2026-05-15** (write-path fix deployed on `main`, commits
+`76fa94a` + `f3c08fe`).
 
 | Stage | Surface | Endpoint or page | Result |
 |-------|---------|------------------|--------|
-| 12J  | Frontend | `GET /floodguard` | OK — renders Start Panel, "Local fallback" mode chips, 1 active alert, 4 zones in scope. |
+| 12J  | Frontend | `GET /floodguard` | OK — renders Start Panel, "Local fallback" mode chips, active alerts, zones in scope. |
 | 12I  | Frontend | `GET /floodguard/verify/<id>` | HTTP 200 — route mounts standalone via `AppBootstrap`. |
 | 11   | Backend | `GET /api/floodguard/cities` | OK — returns Santa Cruz (SCZ) and Denver (DEN). |
-| 11   | Backend | `GET /api/floodguard/alerts/live` | OK — 5 alerts (Santa Cruz Plan 3000 corridor at L3 Flood Alert; others L0–L2). |
+| 11   | Backend | `GET /api/floodguard/alerts/live` | OK — alerts with lifecycle + signal snapshots. |
 | 12C+12E | Backend | `GET /api/floodguard/agents/monitor` | OK — full agentic evaluation, water-level integration present. |
-| 12F  | Backend | `GET /api/floodguard/missions` | OK — empty list, includes legal disclaimer. |
-| 12I  | Backend | `GET /api/floodguard/public/ledger/test-not-real` | Proper 404 (`{"error":"Ledger record not found","code":"not_found"}`) — endpoint deployed. |
-| 12H  | Backend | `GET /api/floodguard/alerts/<id>/ledger` | Proper 404 against in-memory alert id (see §4). |
-| 11   | Backend | **`POST /api/floodguard/generate-evidence-packet`** | **500 Internal server error** — write-path issue (see §4). |
-| 12G  | Backend | **`POST /api/floodguard/alerts/<id>/route-preview`** | **500 Internal server error.** |
-| 12H  | Backend | **`POST /api/floodguard/anchor-alert`** | **500 Internal server error.** |
-| -    | Adapters | rainfall / satellite / water-level | All running in synthetic fallback mode (expected — live env flags off). |
+| 12F  | Backend | `GET /api/floodguard/missions` | OK — includes legal disclaimer. |
+| 12I  | Backend | `GET /api/floodguard/public/ledger/test-not-real` | Proper 404 (`{"error":"Ledger record not found","code":"not_found"}`). |
+| 11   | Backend | **`POST /api/floodguard/generate-evidence-packet`** | **HTTP 200** — `ok: true`, `packetStatus: generated_unanchored`, `blockchainAnchored: false`. |
+| 12G  | Backend | **`POST /api/floodguard/alerts/<id>/route-preview`** | **HTTP 200** — `ok: true`, `previewStatus: generated`, `mode: dry_run`, routes + blocked populated. |
+| 12H  | Backend | **`POST /api/floodguard/anchor-alert`** | **HTTP 200** — `ok: true`, `anchorStatus: pending_anchor`, `ledgerMode: mock`, `blockchainAnchored: false`. |
+| -    | Adapters | rainfall / satellite / water-level | Synthetic fallback mode (expected — live env flags off). |
 | 12H  | Adapters | ledger | `dpal_local_mock` provider (expected for now). |
 
-**Summary.** Reads are healthy across stages 11–12J. Writes that touch the
-store on production currently 500. The frontend is fully shipped (Stage
-12J UI is rendering on Vercel).
+**Summary.** Reads and writes are healthy on production. Write endpoints
+return structured **200** responses with explicit degraded/mock flags
+instead of **500**. The frontend is fully shipped (Stage 12J UI on Vercel).
+
+**Prior run (2026-05-07):** the three POST endpoints returned **500** before
+the safe-wrapper patch and malformed-JSON handler (see §4).
 
 ---
 
@@ -82,29 +85,32 @@ shape (Stage 12I deployed).
 
 ### 3.2 Full write smoke (anchor + verify)
 
-This is the end-to-end "real result" path. It currently 500s on the
-write step on production — see §4. Locally (`http://localhost:3001`)
-it should succeed.
+This is the end-to-end "real result" path. On Windows, prefer
+`--data-binary @file.json` for POST bodies — inline `-d "{...}"` often
+produces invalid JSON and triggers **400** `validation_error` (not 500).
 
 ```powershell
 $BASE = "https://web-production-a27b.up.railway.app/api/floodguard"
 $ALERT = (curl.exe -s "$BASE/alerts/live" | ConvertFrom-Json).alerts[0].alertId
 Write-Host "alert: $ALERT"
 
+# Write JSON bodies to temp files (avoids PowerShell escaping bugs)
+@{"alertId"=$ALERT;"generatedBy"="smoke"} | ConvertTo-Json | Set-Content smoke-evidence.json
+@{"mode"="dry_run";"generatedBy"="smoke"} | ConvertTo-Json | Set-Content smoke-route.json
+@{"alertId"=$ALERT;"createdBy"="smoke"} | ConvertTo-Json | Set-Content smoke-anchor.json
+
 # 1. Generate the evidence packet
-curl.exe -s -X POST "$BASE/generate-evidence-packet" `
-  -H "Content-Type: application/json" `
-  -d "{`"alertId`":`"$ALERT`",`"generatedBy`":`"smoke`"}"
+curl.exe -s -w "`nHTTP %{http_code}`n" -X POST "$BASE/generate-evidence-packet" `
+  -H "Content-Type: application/json" --data-binary "@smoke-evidence.json"
 
 # 2. Routing preview (dry run)
-curl.exe -s -X POST "$BASE/alerts/$ALERT/route-preview" `
-  -H "Content-Type: application/json" `
-  -d "{`"mode`":`"dry_run`",`"generatedBy`":`"smoke`"}"
+curl.exe -s -w "`nHTTP %{http_code}`n" -X POST "$BASE/alerts/$ALERT/route-preview" `
+  -H "Content-Type: application/json" --data-binary "@smoke-route.json"
 
 # 3. Anchor on the local mock ledger
-$LEDGER = (curl.exe -s -X POST "$BASE/anchor-alert" `
-  -H "Content-Type: application/json" `
-  -d "{`"alertId`":`"$ALERT`",`"createdBy`":`"smoke`"}" | ConvertFrom-Json).ledgerRecordId
+curl.exe -s -X POST "$BASE/anchor-alert" `
+  -H "Content-Type: application/json" --data-binary "@smoke-anchor.json" -o anchor-out.json
+$LEDGER = (Get-Content anchor-out.json -Raw | ConvertFrom-Json).ledgerRecordId
 Write-Host "ledgerRecordId: $LEDGER"
 
 # 4. Public verification
@@ -113,80 +119,57 @@ Write-Host ""
 Write-Host "Open: https://dpal-front-end.vercel.app/floodguard/verify/$LEDGER"
 ```
 
-If step 1, 2, or 3 returns `{"error":"Internal server error"}`, see §4.
+Expected: **HTTP 200** on steps 1–3 with `ok: true` and explicit
+`blockchainAnchored: false` / `ledgerMode: mock` flags. Step 4 returns the
+public-safe ledger record.
 
 ---
 
-## 4. Known production issue — write endpoints return 500
+## 4. Resolved issue — write endpoints returned 500 (fixed 2026-05-15)
 
-### Symptom
+### Symptom (historical, 2026-05-07)
 
-The reads listed in §2 all succeed. These write endpoints currently
-respond with `500 {"error":"Internal server error"}`:
+The reads listed in §2 all succeeded, but these write endpoints returned
+`500 {"error":"Internal server error"}`:
 
 - `POST /api/floodguard/generate-evidence-packet`
 - `POST /api/floodguard/alerts/:alertId/route-preview`
 - `POST /api/floodguard/anchor-alert`
 
-### What we know
+### Root causes
 
-- `/health` reports `service: dpal-backend, version: 1.0.0, env:
-  production` — Railway is running this repo's `backend/` code.
-- All Stage 12C–12J **read** routes are deployed (cities, alerts/live,
-  agents/monitor, missions, public/ledger/:id).
-- The store's `persist()` swallows filesystem errors with `try/catch`
-  ([`floodGuardStore.ts` lines 309–316][persist]) — so a filesystem
-  issue alone would not cause a 500 from the route handler. The 500
-  must originate **before** persistence (in the orchestrator, packet
-  builder, ledger builder, or routing service), most likely on a code
-  path that's only exercised by writes.
-- Alert IDs in production are timestamped (`...-205744`,
-  `...-205745`, etc.) and are regenerated at process restart, so a
-  stale `store.json` in the persistent directory could include
-  references to alerts that no longer exist in memory.
+1. **Malformed JSON on Windows smoke tests** — PowerShell `curl -d "{...}"`
+   often produced invalid JSON; Express's `express.json()` threw before
+   route handlers, surfacing as **500**. Fix: global handler returns **400**
+   `validation_error` for bad JSON (`backend/src/index.ts`, commit `f3c08fe`).
+   Smoke recipes now use `--data-binary @file.json` (see §3.2).
 
-[persist]: ../backend/src/services/floodGuard/floodGuardStore.ts
+2. **Unhandled exceptions on write paths** — orchestrator/store errors could
+   bubble to Express. Fix: safe wrappers in `floodGuardStore.ts` and
+   structured **200** degraded responses in `floodGuardRoutes.ts` (commit
+   `76fa94a`). Responses always include `ok`, status fields, and
+   `blockchainAnchored: false` where applicable.
 
-### Triage steps for the next engineer
+### Current status
 
-1. **Open the Railway logs** for `dpal-backend` and re-run §3.2's smoke
-   commands. Capture the stack trace from the first 500.
-2. **Check the persisted store** at the deploy's data directory
-   (`backend/data/floodguard/store.json`). If the file exists from a
-   prior version with an incompatible shape, deleting or migrating it
-   may unblock writes.
-3. **Verify Railway has a Volume mounted** at the data directory. If
-   not, add one — otherwise Railway's container filesystem is
-   ephemeral and `persist()` can't keep state across restarts.
-4. **Reproduce locally** with the same env:
+All three POST endpoints return **HTTP 200** on production as of
+**2026-05-15** (see §2). Re-run §3.2 after each deploy to confirm.
 
-    ```bash
-    cd backend
-    NODE_ENV=production npm run build
-    NODE_ENV=production node dist/index.js
-    # in another terminal:
-    curl http://localhost:3001/api/floodguard/cities
-    # then re-run §3.2 with BASE=http://localhost:3001/api/floodguard
-    ```
+### If writes regress
 
-   If it succeeds locally, the issue is environmental (filesystem,
-   timeouts, env vars). If it 500s locally too, the bug is in the
-   deployed commit and you can debug with full stack traces.
+1. Check Railway logs for `[evidence_packet_generation]`, `[route_preview_logic]`,
+   or `[ledger_anchoring]` prefixes.
+2. Confirm smoke bodies are valid JSON (`--data-binary @file.json`).
+3. Check `backend/data/floodguard/store.json` for stale shape — `loadOrSeed()`
+   heals versions 1–5 automatically.
+4. Verify a Railway Volume is mounted if you need persistence across restarts.
 
-5. **Once fixed,** add a runtime smoke job (or a CI step) that runs
-   the §3.2 commands against production after every deploy and fails
-   if any step is non-2xx. That way write-path regressions can't ship
-   silently again.
-
-### What is NOT broken
+### What is NOT broken (expected pilot posture)
 
 - Frontend is fully deployed; Stage 12J onboarding panel renders.
-- Alerts, agents, missions, and the public verification endpoint are
-  all responding to GETs.
 - Live-data flags are intentionally off (`Local fallback`,
   `Synthetic rainfall fallback`, `AquaScan satellite fallback`,
-  `Mock ledger`, `Preview routing only`) — that is the expected pilot
-  posture, not a bug.
+  `Mock ledger`, `Preview routing only`) — not a bug.
 
 ---
 
@@ -224,7 +207,7 @@ A short version of "is FloodGuard healthy right now":
 - [ ] `https://dpal-front-end.vercel.app/floodguard/verify/<id>` renders
       the verification page.
 
-If any of those fails, follow §4 and check Railway logs.
+If any of those fails, follow §4 (regression triage) and check Railway logs.
 
 > *DPAL FloodGuard provides verified civic flood intelligence and does not
 > replace official government emergency alerts.*
