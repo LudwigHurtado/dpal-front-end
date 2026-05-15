@@ -276,6 +276,17 @@ app.use((_req, res) => {
 
 // ── Error handler ──────────────────────────────────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  // Malformed JSON from express.json() — return 400, not 500 (common with shell quoting).
+  if (err instanceof SyntaxError && 'body' in err) {
+    console.warn(`[FloodGuard][schema] invalid JSON body: ${err.message}`);
+    res.status(400).json({
+      ok: false,
+      error: 'Invalid JSON body',
+      code: 'validation_error',
+      message: err.message,
+    });
+    return;
+  }
   console.error('[Unhandled error]', err.message);
   res.status(500).json({ error: 'Internal server error' });
 });
