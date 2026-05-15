@@ -2,6 +2,7 @@ import React from 'react';
 import type { PlasticWatchTab } from '../types';
 
 export const PLASTIC_WATCH_TABS: { id: PlasticWatchTab; label: string; hint: string }[] = [
+  { id: 'overview', label: 'Project info', hint: 'Demo scenario, context, evidence preview' },
   { id: 'aoi', label: 'AOI & scan', hint: 'Location, dates, layers, run scan' },
   { id: 'results', label: 'Results', hint: 'Risk summary, PACE metadata, spectral' },
   { id: 'evidence', label: 'Evidence', hint: 'Packet export and drone prep' },
@@ -14,6 +15,7 @@ type PlasticWatchTabbedShellProps = {
   mapToolbar: React.ReactNode;
   map: React.ReactNode;
   alerts?: React.ReactNode;
+  overviewPanel: React.ReactNode;
   aoiPanel: React.ReactNode;
   resultsPanel: React.ReactNode;
   evidencePanel: React.ReactNode;
@@ -26,6 +28,7 @@ export function PlasticWatchTabbedShell({
   mapToolbar,
   map,
   alerts,
+  overviewPanel,
   aoiPanel,
   resultsPanel,
   evidencePanel,
@@ -79,6 +82,16 @@ export function PlasticWatchTabbedShell({
       </div>
 
       <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+        {activeTab === 'overview' ? (
+          <div
+            id="plastic-watch-panel-overview"
+            role="tabpanel"
+            aria-labelledby="plastic-watch-tab-overview"
+            className="space-y-4"
+          >
+            {overviewPanel}
+          </div>
+        ) : null}
         {activeTab === 'aoi' ? (
           <div id="plastic-watch-panel-aoi" role="tabpanel" aria-labelledby="plastic-watch-tab-aoi" className="space-y-4">
             {aoiPanel}

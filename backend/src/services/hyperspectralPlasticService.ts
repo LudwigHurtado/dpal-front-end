@@ -188,12 +188,50 @@ export async function getHyperspectralPlasticProviderStatus(): Promise<Hyperspec
   return buildPlasticWatchProviderReadinessPayload();
 }
 
+function paceCmrDiagnosticsFromResult(cmr: {
+  scenes: { length: number };
+  metadata?: {
+    returnedCount: number;
+    totalHits: number | null;
+    pageSize: number;
+    queryShortName: string;
+    boundingBox: string;
+    temporal: string;
+    isPageLimited: boolean;
+  };
+}): Pick<
+  PlasticSpectralProviderBlock,
+  | 'returnedCount'
+  | 'totalHits'
+  | 'pageSize'
+  | 'isPageLimited'
+  | 'queryShortName'
+  | 'boundingBox'
+  | 'temporal'
+> {
+  const meta = cmr.metadata;
+  if (!meta) {
+    const returnedCount = cmr.scenes.length;
+    return { returnedCount, totalHits: null, pageSize: 20, isPageLimited: false };
+  }
+  return {
+    returnedCount: meta.returnedCount,
+    totalHits: meta.totalHits,
+    pageSize: meta.pageSize,
+    isPageLimited: meta.isPageLimited,
+    queryShortName: meta.queryShortName,
+    boundingBox: meta.boundingBox,
+    temporal: meta.temporal,
+  };
+}
+
 async function buildPaceScanBlock(args: {
   lat: number;
   lng: number;
   radiusKm: number;
   start: Date;
   end: Date;
+  pageSize?: number;
 }): Promise<PlasticSpectralProviderBlock> {
   if (!paceFeatureEnabled()) {
     return {

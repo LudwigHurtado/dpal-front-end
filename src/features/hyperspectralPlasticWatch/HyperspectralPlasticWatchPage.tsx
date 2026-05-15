@@ -51,6 +51,7 @@ import type {
   ProviderReadinessCard,
 } from './types';
 import { PlasticWatchTabbedShell } from './components/PlasticWatchTabbedShell';
+import PlasticWatchProjectInfoPanel from './components/PlasticWatchProjectInfoPanel';
 
 type Props = {
   onReturn: () => void;
@@ -371,7 +372,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [cacheNotice, setCacheNotice] = useState<string | null>(null);
   const [dronePrepare, setDronePrepare] = useState<DroneValidationPrepareResponse | null>(null);
   const [droneBusy, setDroneBusy] = useState(false);
-  const [activeTab, setActiveTab] = useState<PlasticWatchTab>('aoi');
+  const [activeTab, setActiveTab] = useState<PlasticWatchTab>('results');
 
   const watchRunIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -476,28 +477,35 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       : 'Plastic-risk evidence score (0–100) is withheld until narrow-band processing is wired. Narrow-band confirmation requires configured EMIT / PACE plus field validation.';
 
     return (
-      <InvestorDemoExplainer
+      <PlasticWatchProjectInfoPanel
         title={scenario.title}
-        moduleLabel={scenario.moduleLabel}
-        whatYouAreSeeing={whatYouAreSeeing}
-        whyItMatters={scenario.investorExplanation}
-        honestyNote={scenario.limitationNote}
-        nextAction={scenario.recommendedNextAction}
-        accent={scenario.accent}
-        evidencePreview={{
-          location: scenario.locationLabel,
-          timestampLabel: afterScan
-            ? `Scan window: ${lastScan.aoi.baselineDate.slice(0, 10)} → ${lastScan.aoi.currentDate.slice(0, 10)}`
-            : 'Baseline / current window — set in the side panel before scan.',
-          providerSources: scenario.providerSources,
-          signalSummary,
-          confidenceNote,
-          fieldValidationStatus:
-            'Field sampling, drone validation, and water-quality context are required to escalate any anomaly.',
-          qrHashStatus: 'SHA-256 integrity hash is issued after the evidence packet is accepted server-side.',
-          recommendedAction: scenario.recommendedNextAction,
-        }}
-      />
+        subtitle={scenario.locationLabel}
+        defaultOpen={false}
+      >
+        <InvestorDemoExplainer
+          title={scenario.title}
+          moduleLabel={scenario.moduleLabel}
+          whatYouAreSeeing={whatYouAreSeeing}
+          whyItMatters={scenario.investorExplanation}
+          honestyNote={scenario.limitationNote}
+          nextAction={scenario.recommendedNextAction}
+          accent={scenario.accent}
+          className="border-0 shadow-none rounded-none"
+          evidencePreview={{
+            location: scenario.locationLabel,
+            timestampLabel: afterScan
+              ? `Scan window: ${lastScan.aoi.baselineDate.slice(0, 10)} → ${lastScan.aoi.currentDate.slice(0, 10)}`
+              : 'Baseline / current window — set in the side panel before scan.',
+            providerSources: scenario.providerSources,
+            signalSummary,
+            confidenceNote,
+            fieldValidationStatus:
+              'Field sampling, drone validation, and water-quality context are required to escalate any anomaly.',
+            qrHashStatus: 'SHA-256 integrity hash is issued after the evidence packet is accepted server-side.',
+            recommendedAction: scenario.recommendedNextAction,
+          }}
+        />
+      </PlasticWatchProjectInfoPanel>
     );
   }, [lastScan]);
 
@@ -1264,35 +1272,98 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             </div>
           ) : null}
 
-          {plasticInvestorExplainerEl}
-
           {!googleMapsFrontendConfigured ? (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
               Google Maps key not configured. Use coordinates or fallback map tiles; API keys are never shown in the UI.
             </div>
           ) : null}
 
-          <div className="flex flex-col xl:flex-row gap-3 flex-1 min-h-0">
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden flex flex-col flex-1 min-h-0 min-w-0">
-              <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2 shrink-0">
-                <p className="text-xs font-semibold text-slate-800">AOI map</p>
-                <p className="text-[10px] text-slate-500">Click map to set center</p>
+          <PlasticWatchTabbedShell
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            mapToolbar={
+              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-600">
+                <span>
+                  Baseline: <span className="font-mono font-semibold text-slate-800">{baselineDay}</span>
+                </span>
+                <span>
+                  Current: <span className="font-mono font-semibold text-slate-800">{currentDay}</span>
+                </span>
               </div>
-              <div
+            }
+            overviewPanel={
+              plasticInvestorExplainerEl ?? (
+                <p className="text-xs text-slate-500">No demo scenario loaded.</p>
+              )
+            }
+            aoiPanel={
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-700">
+                <p className="font-semibold text-slate-900">AOI & scan controls</p>
+                <p className="mt-1">
+                  Search, coordinates, radius, dates, environment type, layer visibility, and scan actions live in the{' '}
+                  <strong>left panel</strong>. Use <strong>Run scan</strong> or <strong>Watch DPAL Work</strong> there, then
+                  open the <strong>Results</strong> tab for risk summary and PACE metadata.
+                </p>
+              </div>
+            }
+            resultsPanel={
+              <>
+                <PlasticRiskSummaryCards scan={lastScan} />
+                <PlasticWatchReportAssistant scan={lastScan} evidence={evidence} />
+                <PaceSatelliteMetadataCard scan={lastScan} fromCache={Boolean(cacheNotice)} />
+                <SpectralSignaturePanel scan={lastScan} />
+              </>
+            }
+            evidencePanel={<PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />}
+            workflowPanel={
+              <div className="space-y-3">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 shadow-sm">
+                  <p className="text-xs font-semibold text-emerald-950">Watch DPAL Work</p>
+                  <p className="text-[10px] text-slate-600 mt-1 leading-snug">
+                    Starts only when you press the button. Opens the step log panel while the workflow runs.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isRunning}
+                    onClick={() => void executeWatch()}
+                    className="mt-2 w-full rounded-lg bg-emerald-800 py-2 text-[11px] font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
+                  >
+                    Start Watch workflow
+                  </button>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 max-h-[min(52vh,480px)] overflow-y-auto shadow-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Step status</p>
+                  <ul className="space-y-2">
+                    {steps.map((s) => (
+                      <li key={s.id} className="flex gap-2 text-[11px] text-slate-700">
+                        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${stepTone(s.status)}`} />
+                        <span className="leading-snug">
+                          <span className="font-semibold text-slate-900">{s.title}</span>
+                          <span className="block text-slate-500 mt-0.5">{s.explanation}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            }
+            map={
+              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden w-full">
+<div
                 ref={mapWrapRef}
-                className="relative w-full min-h-[320px] min-w-0 flex-1 md:min-h-[460px] xl:min-h-[520px]"
+                className="relative w-full min-h-[300px] min-w-0 md:min-h-[380px]"
               >
                 <div
                   ref={mapTileHostRef}
-                  className="h-[320px] min-h-[320px] w-full md:h-[460px] md:min-h-[460px] xl:h-[520px] xl:min-h-[520px]"
-                  style={{ width: '100%', minHeight: '320px' }}
+                  className="h-[300px] min-h-[300px] w-full md:h-[380px] md:min-h-[380px]"
+                  style={{ width: '100%', minHeight: '300px' }}
                 >
                   <MapContainer
                     center={[center.lat, center.lng]}
                     zoom={9}
                     scrollWheelZoom
                     zoomControl={false}
-                    className="z-0 h-full w-full min-h-[320px] rounded-none md:min-h-[460px] xl:min-h-[520px]"
+                    className="z-0 h-full w-full min-h-[300px] rounded-none md:min-h-[380px]"
                     style={{ height: '100%', width: '100%', minHeight: 'inherit' }}
                   >
                     {layers.satellite ? (
@@ -1394,45 +1465,9 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
                   </ul>
                 </div>
               </div>
-            </div>
-
-            <aside className="w-full shrink-0 xl:w-[300px] xl:max-w-[320px] space-y-2">
-              <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 shadow-sm">
-                <p className="text-xs font-semibold text-emerald-950">Watch DPAL Work</p>
-                <p className="text-[10px] text-slate-600 mt-1 leading-snug">
-                  Starts only when you press the button. Opens the step log panel while the workflow runs.
-                </p>
-                <button
-                  type="button"
-                  disabled={isRunning}
-                  onClick={() => void executeWatch()}
-                  className="mt-2 w-full rounded-lg bg-emerald-800 py-2 text-[11px] font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
-                >
-                  Start Watch workflow
-                </button>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3 max-h-[min(52vh,480px)] overflow-y-auto shadow-sm">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Step status</p>
-                <ul className="space-y-2">
-                  {steps.map((s) => (
-                    <li key={s.id} className="flex gap-2 text-[11px] text-slate-700">
-                      <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${stepTone(s.status)}`} />
-                      <span className="leading-snug">
-                        <span className="font-semibold text-slate-900">{s.title}</span>
-                        <span className="block text-slate-500 mt-0.5">{s.explanation}</span>
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </aside>
-          </div>
-
-          <PlasticRiskSummaryCards scan={lastScan} />
-          <PlasticWatchReportAssistant scan={lastScan} evidence={evidence} />
-          <PaceSatelliteMetadataCard scan={lastScan} fromCache={Boolean(cacheNotice)} />
-          <SpectralSignaturePanel scan={lastScan} />
-          <PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />
+            }
+          />
         </main>
       </div>
 

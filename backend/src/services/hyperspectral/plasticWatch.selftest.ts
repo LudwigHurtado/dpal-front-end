@@ -5,6 +5,11 @@
 import assert from 'node:assert/strict';
 import { buildPlasticWatchProviderReadinessPayload } from './providerStatus';
 import { buildDroneValidationAcknowledgment, validateDroneRequestBody } from './droneValidationProvider';
+import {
+  computePaceCmrSearchMetadata,
+  DEFAULT_PACE_CMR_PAGE_SIZE,
+  formatPaceCmrProviderMessage,
+} from './paceCmrMessaging';
 import { parsePlasticWatchScanRaw } from './scanRequestNormalize';
 
 const saved = { ...process.env };
@@ -100,6 +105,54 @@ function main() {
     assert.equal(compactOffWithLinks.value.includeFullSceneLinks, true);
     assert.equal(compactOffWithLinks.value.compactScenes, false);
   }
+
+  const defaultPage = parsePlasticWatchScanRaw({
+    lat: 14.5995,
+    lng: 120.9842,
+    radiusKm: 12,
+    baselineDate: '2025-11-25',
+    currentDate: '2026-05-12',
+    environmentType: 'coast',
+  });
+  assert.equal(defaultPage.ok, true);
+  if (defaultPage.ok) assert.equal(defaultPage.value.pageSize, DEFAULT_PACE_CMR_PAGE_SIZE);
+
+  const page50 = parsePlasticWatchScanRaw({
+    lat: 14.5995,
+    lng: 120.9842,
+    radiusKm: 12,
+    baselineDate: '2025-11-25',
+    currentDate: '2026-05-12',
+    environmentType: 'coast',
+    pageSize: 50,
+  });
+  assert.equal(page50.ok, true);
+  if (page50.ok) assert.equal(page50.value.pageSize, 50);
+
+  const pageLimitedMeta = computePaceCmrSearchMetadata({
+    returnedCount: 20,
+    totalHits: null,
+    pageSize: 20,
+    queryShortName: 'PACE_OCI_L2_BGC',
+    boundingBox: '1,2,3,4',
+    temporal: '2025-01-01T00:00:00.000Z,2026-01-01T00:00:00.000Z',
+  });
+  assert.equal(pageLimitedMeta.isPageLimited, true);
+  const pageLimitedMsg = formatPaceCmrProviderMessage(pageLimitedMeta);
+  assert.match(pageLimitedMsg, /first 20 matching/);
+  assert.match(pageLimitedMsg, /No spectral index extraction/);
+  assert.match(pageLimitedMsg, /Not plastic classification/);
+
+  const partialMeta = computePaceCmrSearchMetadata({
+    returnedCount: 20,
+    totalHits: 137,
+    pageSize: 20,
+    queryShortName: 'PACE_OCI_L2_BGC',
+    boundingBox: '1,2,3,4',
+    temporal: '2025-01-01T00:00:00.000Z,2026-01-01T00:00:00.000Z',
+  });
+  const partialMsg = formatPaceCmrProviderMessage(partialMeta);
+  assert.match(partialMsg, /20 of 137/);
 
   restoreEnv();
   console.log('plasticWatch.selftest: all passed');

@@ -180,7 +180,7 @@ export type PlasticEvidencePacketResponse = {
 
 export type WatchStepStatus = 'pending' | 'running' | 'complete' | 'warning' | 'failed' | 'skipped';
 
-export type PlasticWatchTab = 'aoi' | 'results' | 'evidence' | 'workflow';
+export type PlasticWatchTab = 'overview' | 'aoi' | 'results' | 'evidence' | 'workflow';
 
 export type PlasticWatchStep = {
   id: string;
