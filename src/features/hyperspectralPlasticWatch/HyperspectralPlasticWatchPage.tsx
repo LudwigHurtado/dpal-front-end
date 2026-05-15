@@ -151,6 +151,102 @@ function mapFallbackScanState(s: PlasticProviderState | undefined): Environmenta
   return mapPlasticLane(s);
 }
 
+function plasticWatchSetupBannerBody(ps: HyperspectralPlasticProviderStatusResponse): React.ReactNode {
+  const mono = (name: string) => <span className="font-mono">{name}</span>;
+
+  const spectralSentence = (() => {
+    if (ps.paceConfigured && ps.emitConfigured) return null;
+
+    const needPace = !ps.paceConfigured;
+    const needEmit = !ps.emitConfigured;
+
+    if (needPace && needEmit) {
+      if (ps.pace.status === 'needs_credentials' && ps.emit.status === 'needs_credentials') {
+        return (
+          <>
+            PACE and EMIT are enabled on the API host but cannot query NASA CMR until you add {mono('NASA_EARTHDATA_TOKEN')}.
+          </>
+        );
+      }
+      return (
+        <>
+          PACE and EMIT stay inactive until you set {mono('NASA_EARTHDATA_TOKEN')} on the API host and enable{' '}
+          {mono('DPAL_PACE_SPECTRAL_ENABLED')} and/or {mono('DPAL_EMIT_L2A_ENABLED')} so scans can retrieve narrow-band CMR granule metadata.
+        </>
+      );
+    }
+
+    if (needPace) {
+      if (ps.pace.status === 'needs_credentials') {
+        return (
+          <>
+            PACE lane is enabled — add {mono('NASA_EARTHDATA_TOKEN')} on the API host before narrow-band granule metadata can load.
+          </>
+        );
+      }
+      if (ps.emitConfigured) {
+        return (
+          <>
+            Enable {mono('DPAL_PACE_SPECTRAL_ENABLED')} on the API host (Earthdata credentials are already configured) so PACE can retrieve narrow-band CMR granule metadata.
+          </>
+        );
+      }
+      return (
+        <>
+          Enable {mono('DPAL_PACE_SPECTRAL_ENABLED')} and {mono('NASA_EARTHDATA_TOKEN')} on the API host before PACE can retrieve narrow-band CMR granule metadata.
+        </>
+      );
+    }
+
+    if (needEmit) {
+      if (ps.emit.status === 'needs_credentials') {
+        return (
+          <>
+            EMIT lane is enabled — add {mono('NASA_EARTHDATA_TOKEN')} on the API host before EMIT L2A granule metadata can load.
+          </>
+        );
+      }
+      if (ps.paceConfigured) {
+        return (
+          <>
+            Enable {mono('DPAL_EMIT_L2A_ENABLED')} on the API host (Earthdata credentials are already configured) so EMIT hyperspectral granule metadata can load via NASA CMR.
+          </>
+        );
+      }
+      return (
+        <>
+          Enable {mono('DPAL_EMIT_L2A_ENABLED')} and {mono('NASA_EARTHDATA_TOKEN')} on the API host before EMIT can retrieve hyperspectral granule metadata.
+        </>
+      );
+    }
+
+    return null;
+  })();
+
+  const droneSentence = ps.drone.configured ? (
+    <>
+      Drone validation connects through manual workflows, uploads, optional provider APIs, or flight-plan hooks (configure{' '}
+      {mono('DPAL_DRONE_PROVIDER_MODE')} on the API host). Runs are prepare-only: no live drone dispatch until your provider confirms a flight or mission.
+    </>
+  ) : (
+    <>
+      Enable {mono('DPAL_DRONE_VALIDATION_ENABLED')} and set {mono('DPAL_DRONE_PROVIDER_MODE')} on the API host (
+      <span className="font-mono">manual</span>, <span className="font-mono">upload</span>, <span className="font-mono">api</span>, or{' '}
+      <span className="font-mono">flight_plan_hook</span>). For <span className="font-mono">api</span> mode, add provider URL and key server-side; dispatch still waits on provider confirmation — DPAL never implies an automated flight queue.
+    </>
+  );
+
+  if (spectralSentence !== null) {
+    return (
+      <>
+        {spectralSentence} {droneSentence}
+      </>
+    );
+  }
+
+  return droneSentence;
+}
+
 function initialSteps(): PlasticWatchStep[] {
   return [
     {
@@ -1035,14 +1131,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         <div className="shrink-0 border-b border-cyan-200 bg-cyan-50/90">
           <div className="mx-auto max-w-[1920px] px-4 py-2 text-[11px] leading-snug text-cyan-950">
             <span className="font-semibold">Next steps: </span>
-            PACE/EMIT are connection-ready but stay inactive until you set{' '}
-            <span className="font-mono">NASA_EARTHDATA_TOKEN</span> and enable{' '}
-            <span className="font-mono">DPAL_PACE_SPECTRAL_ENABLED</span> /{' '}
-            <span className="font-mono">DPAL_EMIT_L2A_ENABLED</span> on the API host to retrieve narrow-band CMR granule
-            metadata. Drone validation is ready to connect through manual/upload mode or provider API configuration (
-            <span className="font-mono">DPAL_DRONE_VALIDATION_ENABLED</span>,{' '}
-            <span className="font-mono">DPAL_DRONE_PROVIDER_MODE</span>
-            ). No live drone dispatch is implied until a provider confirms.
+            {plasticWatchSetupBannerBody(providerStatus)}
           </div>
         </div>
       ) : null}
