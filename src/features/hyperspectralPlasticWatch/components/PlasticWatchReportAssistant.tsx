@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Bot, ChevronDown, ChevronUp, RefreshCw, Send, Sparkles } from '../../../../components/icons';
+import { Bot, ChevronDown, ChevronUp, RefreshCw, Sparkles } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
 import type { HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } from '../types';
 import {
@@ -11,6 +11,7 @@ import {
 type Props = {
   scan: HyperspectralPlasticScanResponse | null;
   evidence: PlasticEvidencePacketResponse | null;
+  onOpenChat?: () => void;
 };
 
 type AiBlock = {
@@ -110,16 +111,13 @@ Structured brief:
 ${structured}`;
 }
 
-export default function PlasticWatchReportAssistant({ scan, evidence }: Props): React.ReactElement {
+export default function PlasticWatchReportAssistant({ scan, evidence, onOpenChat }: Props): React.ReactElement {
   const brief = useMemo(() => buildPlasticWatchReportBrief(scan, evidence), [scan, evidence]);
   const aiEnabled = isAiEnabled();
   const [expanded, setExpanded] = useState(true);
-  const [aiOpen, setAiOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiBlock, setAiBlock] = useState<AiBlock | null>(null);
-  const [followUp, setFollowUp] = useState('');
-  const [followUpReply, setFollowUpReply] = useState<string | null>(null);
   const lastScanIdRef = useRef<string | null>(null);
 
   const runAiExplain = useCallback(
@@ -127,13 +125,8 @@ export default function PlasticWatchReportAssistant({ scan, evidence }: Props): 
       if (!aiEnabled) return;
       setLoading(true);
       setError(null);
-      if (!question) setFollowUpReply(null);
       try {
         const raw = await runGeminiPrompt(buildAiPrompt(brief, question));
-        if (question) {
-          setFollowUpReply(raw.trim());
-          return;
-        }
         const parsed = parseAiStructuredResponse(
           raw,
           brief.map((s) => s.id),
@@ -159,7 +152,6 @@ export default function PlasticWatchReportAssistant({ scan, evidence }: Props): 
     if (id && id !== lastScanIdRef.current) {
       lastScanIdRef.current = id;
       setAiBlock(null);
-      setFollowUpReply(null);
       setError(null);
     }
   }, [scan?.scanId]);
@@ -196,14 +188,20 @@ export default function PlasticWatchReportAssistant({ scan, evidence }: Props): 
             <button
               type="button"
               disabled={loading || !scan}
-              onClick={() => {
-                setAiOpen(true);
-                void runAiExplain();
-              }}
+              onClick={() => void runAiExplain()}
               className="inline-flex items-center gap-1 rounded-lg bg-indigo-700 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-800 disabled:opacity-50"
             >
               {loading ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              Explain with AI
+              Summarize with AI
+            </button>
+          ) : null}
+          {onOpenChat ? (
+            <button
+              type="button"
+              onClick={onOpenChat}
+              className="inline-flex items-center gap-1 rounded-lg border border-violet-300 bg-violet-50 px-3 py-1.5 text-xs font-semibold text-violet-900 hover:bg-violet-100"
+            >
+              Open Chat tab
             </button>
           ) : null}
         </div>
@@ -277,38 +275,10 @@ export default function PlasticWatchReportAssistant({ scan, evidence }: Props): 
         <p className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">{error}</p>
       ) : null}
 
-      {aiEnabled && scan ? (
-        <div className={`mt-4 ${aiOpen ? 'block' : 'hidden'}`}>
-          <label className="block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-            Ask about this report
-          </label>
-          <div className="mt-1 flex gap-2">
-            <input
-              value={followUp}
-              onChange={(e) => setFollowUp(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && followUp.trim()) void runAiExplain(followUp.trim());
-              }}
-              placeholder="e.g. Why is the score not computed? What should we do next in Manila Bay?"
-              className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-xs"
-            />
-            <button
-              type="button"
-              disabled={loading || !followUp.trim()}
-              onClick={() => void runAiExplain(followUp.trim())}
-              className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 bg-white px-3 py-2 text-xs font-semibold text-indigo-900 hover:bg-indigo-50 disabled:opacity-50"
-            >
-              <Send className="h-3.5 w-3.5" />
-              Ask
-            </button>
-          </div>
-          {followUpReply ? (
-            <div className="mt-2 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-xs leading-relaxed text-slate-800">
-              <span className="mb-1 block text-[10px] font-semibold uppercase text-slate-500">Answer</span>
-              {followUpReply}
-            </div>
-          ) : null}
-        </div>
+      {onOpenChat && aiEnabled ? (
+        <p className="mt-3 text-xs text-slate-600">
+          For multi-turn questions, use the <strong>Chat</strong> tab below the map.
+        </p>
       ) : null}
 
       {!scan ? (

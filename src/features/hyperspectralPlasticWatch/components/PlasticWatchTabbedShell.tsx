@@ -5,6 +5,7 @@ export const PLASTIC_WATCH_TABS: { id: PlasticWatchTab; label: string; hint: str
   { id: 'overview', label: 'Project info', hint: 'Demo scenario, context, evidence preview' },
   { id: 'aoi', label: 'AOI & scan', hint: 'Location, dates, layers, run scan' },
   { id: 'results', label: 'Results', hint: 'Risk summary, PACE metadata, spectral' },
+  { id: 'chat', label: 'Chat', hint: 'Ask questions about this scan' },
   { id: 'evidence', label: 'Evidence', hint: 'Packet export and drone prep' },
   { id: 'workflow', label: 'Workflow', hint: 'Watch DPAL Work steps' },
 ];
@@ -18,6 +19,7 @@ type PlasticWatchTabbedShellProps = {
   overviewPanel: React.ReactNode;
   aoiPanel: React.ReactNode;
   resultsPanel: React.ReactNode;
+  chatPanel: React.ReactNode;
   evidencePanel: React.ReactNode;
   workflowPanel: React.ReactNode;
 };
@@ -31,6 +33,7 @@ export function PlasticWatchTabbedShell({
   overviewPanel,
   aoiPanel,
   resultsPanel,
+  chatPanel,
   evidencePanel,
   workflowPanel,
 }: PlasticWatchTabbedShellProps): React.ReactElement {
@@ -105,6 +108,16 @@ export function PlasticWatchTabbedShell({
             className="space-y-4"
           >
             {resultsPanel}
+          </div>
+        ) : null}
+        {activeTab === 'chat' ? (
+          <div
+            id="plastic-watch-panel-chat"
+            role="tabpanel"
+            aria-labelledby="plastic-watch-tab-chat"
+            className="space-y-4"
+          >
+            {chatPanel}
           </div>
         ) : null}
         {activeTab === 'evidence' ? (

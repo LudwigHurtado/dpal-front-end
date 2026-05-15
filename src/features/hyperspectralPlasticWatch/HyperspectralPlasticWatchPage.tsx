@@ -52,6 +52,7 @@ import type {
 } from './types';
 import { PlasticWatchTabbedShell } from './components/PlasticWatchTabbedShell';
 import PlasticWatchProjectInfoPanel from './components/PlasticWatchProjectInfoPanel';
+import PlasticWatchChatPanel from './components/PlasticWatchChatPanel';
 
 type Props = {
   onReturn: () => void;
@@ -1309,10 +1310,17 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             resultsPanel={
               <>
                 <PlasticRiskSummaryCards scan={lastScan} />
-                <PlasticWatchReportAssistant scan={lastScan} evidence={evidence} />
+                <PlasticWatchReportAssistant
+                  scan={lastScan}
+                  evidence={evidence}
+                  onOpenChat={() => setActiveTab('chat')}
+                />
                 <PaceSatelliteMetadataCard scan={lastScan} fromCache={Boolean(cacheNotice)} />
                 <SpectralSignaturePanel scan={lastScan} />
               </>
+            }
+            chatPanel={
+              <PlasticWatchChatPanel scan={lastScan} evidence={evidence} aoiLabel={label || undefined} />
             }
             evidencePanel={<PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />}
             workflowPanel={
