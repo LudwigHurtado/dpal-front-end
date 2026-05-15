@@ -191,6 +191,8 @@ export const VIEW_PATHS: Record<string, string> = {
   previewFuelStorageAudit: '/preview/fuel-storage-audit',
   previewEvidencePacket: '/preview/evidence-packet',
   previewModule: '/preview/module-preview',
+  /** CarbonPura partner command center — orchestrates live DPAL environmental engines */
+  carbonPuraWorkspace: '/partners/carbonpura',
   /** Investor-facing pitch / walkthrough page. Shareable meeting link. */
   investorDemo: '/investor-demo',
   /** DPAL Command Center — multi-mode orchestration shell (shared adapters / evidence shape). */
