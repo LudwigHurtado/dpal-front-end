@@ -11,6 +11,8 @@ import { IntegrityRadarPanel } from './components/IntegrityRadarPanel';
 import { EvidencePacketAggregationPanel } from './components/EvidencePacketAggregationPanel';
 import { ComplianceRegistryReadinessPanel } from './components/ComplianceRegistryReadinessPanel';
 import { CarbonPuraEvidenceDraftPanel } from './components/CarbonPuraEvidenceDraftPanel';
+import { CarbonPuraChainOfEvidencePanel } from './components/CarbonPuraChainOfEvidencePanel';
+import { useCarbonPuraEvidenceChain } from './hooks/useCarbonPuraEvidenceChain';
 import { CARBONPURA_LIVE_ENGINES } from './carbonPuraModuleRegistry';
 import { useCarbonPuraLiveStatus } from './hooks/useCarbonPuraLiveStatus';
 import { useCarbonPuraEvidenceDraft } from './hooks/useCarbonPuraEvidenceDraft';
@@ -31,6 +33,7 @@ type SummaryCard = {
 export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPuraWorkspaceProps) {
   const liveStatus = useCarbonPuraLiveStatus();
   const evidenceDraft = useCarbonPuraEvidenceDraft();
+  const evidenceChain = useCarbonPuraEvidenceChain();
   const liveSourceCount = liveStatus.sources.filter((s) => s.status === 'live').length;
   const partialSourceCount = liveStatus.sources.filter((s) => s.status === 'partial').length;
 
@@ -75,9 +78,13 @@ export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPura
     },
     {
       id: 'evidence-draft',
-      label: 'Evidence Draft (local)',
-      value: String(evidenceDraft.selectedSourceSuites.length),
-      detail: 'PACE suites marked for CarbonPura evidence draft — local browser storage only, not backend-saved.',
+      label: 'Evidence chain',
+      value: evidenceChain.backendAvailable
+        ? `${evidenceChain.events.length} event${evidenceChain.events.length === 1 ? '' : 's'}`
+        : 'Local only',
+      detail: evidenceChain.backendAvailable
+        ? `Backend ${evidenceChain.persistenceMode} · ${evidenceDraft.selectedSourceSuites.length} local suite selection(s).`
+        : 'PACE suites in local draft — backend aggregation unavailable on current API host.',
     },
     {
       id: 'integrity-alerts',
@@ -88,8 +95,10 @@ export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPura
     {
       id: 'evidence-packets',
       label: 'Evidence Packets',
-      value: 'Pending',
-      detail: 'No fabricated combined packet in this hub. Live evidence exports remain module-native.',
+      value: evidenceChain.hasDraftPacket ? 'Draft' : 'Pending',
+      detail: evidenceChain.hasDraftPacket
+        ? 'Draft packet on backend — not validator-approved. QR/export pending.'
+        : 'Draft packet API available when evidence events exist; no fabricated combined packet.',
     },
     {
       id: 'validator-reviews',
@@ -131,7 +140,9 @@ export default function CarbonPuraWorkspace({ onReturn, onOpenView }: CarbonPura
 
         <PaceProductIntelligenceLayerPanel paceLaneStatus={paceLaneStatus} evidenceDraft={evidenceDraft} />
 
-        <CarbonPuraEvidenceDraftPanel evidenceDraft={evidenceDraft} />
+        <CarbonPuraChainOfEvidencePanel evidenceChain={evidenceChain} evidenceDraft={evidenceDraft} />
+
+        <CarbonPuraEvidenceDraftPanel evidenceDraft={evidenceDraft} evidenceChain={evidenceChain} />
 
         <LiveProviderStatusPanel evidenceDraft={evidenceDraft} />
 

@@ -190,7 +190,16 @@ export const API_ROUTES = {
   ENVIRONMENTAL_INTELLIGENCE_ACCOUNTABILITY_PROFILES: '/api/environmental-intelligence/accountability-profiles',
   ENVIRONMENTAL_INTELLIGENCE_VALIDATION: '/api/environmental-intelligence/validation',
   ENVIRONMENTAL_INTELLIGENCE_BUSINESS_WORKFLOWS: '/api/environmental-intelligence/business-workflows',
+  /** CarbonPura partner — chain of evidence (Prisma backend) */
+  CARBONPURA_PROJECTS: '/api/partners/carbonpura/projects',
 } as const;
+
+export const CARBONPURA_PROJECT_EVIDENCE_EVENTS = (projectId: string) =>
+  apiUrl(`/api/partners/carbonpura/projects/${encodeURIComponent(projectId)}/evidence-events`);
+export const CARBONPURA_PROJECT_EVIDENCE_PACKETS = (projectId: string) =>
+  apiUrl(`/api/partners/carbonpura/projects/${encodeURIComponent(projectId)}/evidence-packets`);
+export const CARBONPURA_PROJECT_EVIDENCE_PACKET_DRAFT = (projectId: string) =>
+  apiUrl(`/api/partners/carbonpura/projects/${encodeURIComponent(projectId)}/evidence-packets/draft`);
 
 export const SIGNAL_DETAIL        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}`);
 export const SIGNAL_STATUS        = (id: string) => apiUrl(`/api/signals/${encodeURIComponent(id)}/status`);

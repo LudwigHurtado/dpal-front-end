@@ -32,6 +32,7 @@ import signalsRouter from './routes/signals';
 import floodGuardRouter from './routes/floodGuardRoutes';
 import dpalIntegrationsRoutes from './routes/dpalIntegrations.routes';
 import environmentalIntelligenceRouter from './routes/environmentalIntelligence';
+import carbonpuraRouter from './routes/carbonpura';
 import { getProviderUsageSummary } from './services/providerRequestGuards';
 import { prisma } from './lib/prisma';
 import { startResolutionDispatcher } from './lib/resolutionDispatcher';
@@ -173,6 +174,7 @@ app.use('/api/good-wheels', goodWheelsRouter);
 app.use('/api/floodguard', floodGuardRouter);
 app.use('/api/integrations', dpalIntegrationsRoutes);
 app.use('/api/environmental-intelligence', environmentalIntelligenceRouter);
+app.use('/api/partners/carbonpura', carbonpuraRouter);
 
 if (process.env.NODE_ENV === 'development' || process.env.ENABLE_DEBUG_PROVIDER_USAGE === 'true') {
   app.get('/api/debug/provider-usage', (_req, res) => {

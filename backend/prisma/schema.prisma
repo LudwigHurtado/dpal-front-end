@@ -818,3 +818,80 @@ model EnvironmentalBusinessWorkflowRun {
   @@index([createdAt])
   @@map("environmental_business_workflow_runs")
 }
+
+/// CarbonPura partner — project registry for chain-of-evidence workflows.
+model CarbonPuraProject {
+  id            String   @id @default(cuid())
+  projectId     String   @unique
+  partnerKey    String
+  name          String
+  status        String   @default("draft")
+  locationLabel String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  evidenceEvents  CarbonPuraEvidenceEvent[]
+  evidencePackets CarbonPuraEvidencePacket[]
+
+  @@map("carbonpura_projects")
+  @@index([partnerKey])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// CarbonPura — evidence event (source selection or module output attachment).
+model CarbonPuraEvidenceEvent {
+  id              String   @id @default(cuid())
+  eventId         String   @unique
+  projectId       String
+  partnerKey      String
+  moduleId        String?
+  moduleName      String
+  sourceSuite     String?
+  eventType       String
+  title           String
+  summary         String?
+  status          String
+  coordinates     Json?
+  aoiGeoJson      Json?
+  provider        String?
+  confidenceUse   String?
+  rawPayloadJson  Json?
+  limitationsJson Json?
+  evidenceHash    String
+  createdAt       DateTime @default(now())
+
+  project CarbonPuraProject @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+
+  @@map("carbonpura_evidence_events")
+  @@index([projectId])
+  @@index([partnerKey])
+  @@index([status])
+  @@index([createdAt])
+}
+
+/// CarbonPura — aggregated evidence packet (draft until validator workflow connected).
+model CarbonPuraEvidencePacket {
+  id            String   @id @default(cuid())
+  packetId      String   @unique
+  projectId     String
+  partnerKey    String
+  status        String   @default("draft")
+  title         String
+  summary       String?
+  eventIds      Json
+  packetHash    String
+  qrUrl         String?
+  jsonExportUrl String?
+  pdfExportUrl  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project CarbonPuraProject @relation(fields: [projectId], references: [projectId], onDelete: Cascade)
+
+  @@map("carbonpura_evidence_packets")
+  @@index([projectId])
+  @@index([partnerKey])
+  @@index([status])
+  @@index([createdAt])
+}

@@ -123,6 +123,71 @@ async function stubApiNoScans(page: Page): Promise<Record<string, number>> {
       return;
     }
 
+    if (url.includes('/api/partners/carbonpura/projects') && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          partnerKey: 'carbonpura',
+          persistenceMode: 'memory',
+          projects: [
+            {
+              id: 'e2e-proj',
+              projectId: 'carbonpura-demo-001',
+              partnerKey: 'carbonpura',
+              name: 'E2E CarbonPura project',
+              status: 'draft',
+              locationLabel: null,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            },
+          ],
+        }),
+      });
+      return;
+    }
+
+    if (url.includes('/api/partners/carbonpura/projects') && method === 'POST') {
+      await route.fulfill({
+        status: 201,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          persistenceMode: 'memory',
+          project: {
+            id: 'e2e-proj-new',
+            projectId: 'carbonpura-demo-001',
+            partnerKey: 'carbonpura',
+            name: 'E2E CarbonPura project',
+            status: 'draft',
+            locationLabel: null,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      });
+      return;
+    }
+
+    if (url.includes('/api/partners/carbonpura/') && url.includes('/evidence-events') && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, projectId: 'carbonpura-demo-001', persistenceMode: 'memory', events: [] }),
+      });
+      return;
+    }
+
+    if (url.includes('/api/partners/carbonpura/') && url.includes('/evidence-packets') && method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, projectId: 'carbonpura-demo-001', persistenceMode: 'memory', packets: [] }),
+      });
+      return;
+    }
+
     if (url.includes('/api/water/projects')) {
       await route.fulfill({
         status: 200,
@@ -207,6 +272,21 @@ test.describe('CarbonPura live module smoke', () => {
       timeout: 15_000,
     });
     await expect(page.getByRole('heading', { name: /Live module verification matrix/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /CarbonPura chain of evidence/i })).toBeVisible();
+    assertNoScans(scanHits);
+  });
+
+  test('CarbonPura chain panel and draft packet button state (no live scans)', async ({ page }) => {
+    test.setTimeout(60_000);
+    const scanHits = await stubApiNoScans(page);
+    await page.goto('/partners/carbonpura');
+    await expectPageRenders(page);
+    await expect(page.getByRole('heading', { name: /CarbonPura chain of evidence/i })).toBeVisible({
+      timeout: 15_000,
+    });
+    const draftBtn = page.getByRole('button', { name: /Create draft evidence packet/i });
+    await expect(draftBtn).toBeVisible();
+    await expect(draftBtn).toBeDisabled();
     assertNoScans(scanHits);
   });
 
