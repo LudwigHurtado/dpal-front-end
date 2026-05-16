@@ -6,6 +6,12 @@ import { getInputConfigureHint } from '../dmrvInputRegistry';
 import { DmrvInputSymbol } from './dmrvInputSymbols';
 import { DmrvTypeSymbol } from './dmrvTypeSymbols';
 
+export type DmrvInputSourceMeta = {
+  configured: boolean;
+  selectedCount: number;
+  chips: string[];
+};
+
 export type DmrvInfographicRowProps = {
   rowId?: string;
   index: number;
@@ -14,7 +20,10 @@ export type DmrvInfographicRowProps = {
   onSelect: () => void;
   onOpenProjectConfig: () => void;
   onConfigureInput?: (inputDef: DmrvInputDef) => void;
+  getInputSourceMeta?: (inputKey: string) => DmrvInputSourceMeta | undefined;
 };
+
+const SOURCE_PICKER_KEYS = new Set(['satellite-imagery', 'lidar']);
 
 export function DmrvInfographicRow({
   rowId,
@@ -24,6 +33,7 @@ export function DmrvInfographicRow({
   onSelect,
   onOpenProjectConfig,
   onConfigureInput,
+  getInputSourceMeta,
 }: DmrvInfographicRowProps): React.ReactElement {
   const inputDefs = type.inputDefs.length > 0 ? type.inputDefs.slice(0, 5) : [];
 
@@ -84,7 +94,9 @@ export function DmrvInfographicRow({
                 key={inputDef.key}
                 inputDef={inputDef}
                 accentColor={type.segmentColor}
+                sourceMeta={getInputSourceMeta?.(inputDef.key)}
                 onConfigure={onConfigureInput}
+                isSourcePicker={SOURCE_PICKER_KEYS.has(inputDef.key)}
               />
             ))}
             <InputConfigChip
@@ -132,14 +144,19 @@ function InputConfigChip({
   accentColor,
   onConfigure,
   onPress,
+  sourceMeta,
+  isSourcePicker,
 }: {
   inputDef: DmrvInputDef;
   iconLabel?: string;
   accentColor: string;
   onConfigure?: (inputDef: DmrvInputDef) => void;
   onPress?: () => void;
+  sourceMeta?: DmrvInputSourceMeta;
+  isSourcePicker?: boolean;
 }): React.ReactElement {
   const interactive = Boolean(onPress) || Boolean(onConfigure);
+  const configured = Boolean(sourceMeta?.configured);
   const hint = onPress ? inputDef.shortDescription || inputDef.label : getInputConfigureHint(inputDef.key);
 
   return (
@@ -154,21 +171,41 @@ function InputConfigChip({
       }}
       disabled={!interactive}
       title={interactive ? hint : 'Evidence input unavailable for this row.'}
-      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50 px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
-        interactive
-          ? 'cursor-pointer hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
-          : 'cursor-not-allowed opacity-55 grayscale-[0.35]'
+      className={`group/input relative flex w-[88px] flex-col items-center gap-1 rounded-xl border px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
+        configured
+          ? 'border-emerald-400/80 bg-gradient-to-b from-emerald-50 to-white hover:shadow-md hover:ring-2 hover:ring-emerald-500/20'
+          : interactive
+            ? 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
+            : 'cursor-not-allowed border-slate-200/90 bg-gradient-to-b from-white to-slate-50 opacity-55 grayscale-[0.35]'
       }`}
-      style={{ borderColor: `${accentColor}40` }}
+      style={{ borderColor: configured ? undefined : `${accentColor}40` }}
     >
       {!interactive ? (
         <Lock className="absolute right-1 top-1 h-3 w-3 text-slate-500" aria-hidden />
       ) : null}
       <DmrvInputSymbol label={iconLabel ?? inputDef.label} size={44} accentColor={accentColor} />
       <span className="px-0.5 text-[7.5px] font-bold leading-tight text-slate-800">{inputDef.label}</span>
-      {interactive ? (
+
+      {configured && sourceMeta ? (
+        <>
+          <span className="rounded-full bg-emerald-600 px-1.5 py-0.5 text-[6px] font-black uppercase tracking-wide text-white">
+            Configured
+          </span>
+          <span className="text-[6.5px] font-bold text-emerald-800">{sourceMeta.selectedCount} selected</span>
+          <span className="flex max-w-full flex-wrap justify-center gap-0.5 px-0.5">
+            {sourceMeta.chips.map((chip) => (
+              <span
+                key={chip}
+                className="truncate rounded bg-white/90 px-1 py-px text-[5.5px] font-semibold text-[#1e3a5f] ring-1 ring-emerald-200"
+              >
+                {chip}
+              </span>
+            ))}
+          </span>
+        </>
+      ) : interactive ? (
         <span className="flex items-center gap-0.5 text-[6.5px] font-black uppercase tracking-wide text-[#1e3a5f] opacity-80 group-hover/input:opacity-100">
-          Configure
+          {isSourcePicker ? 'Pick sources' : 'Configure'}
           <ChevronRight className="h-2.5 w-2.5" aria-hidden />
         </span>
       ) : (

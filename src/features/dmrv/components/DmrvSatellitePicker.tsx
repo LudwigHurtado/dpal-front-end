@@ -30,7 +30,7 @@ function MissionImage({ src, alt }: { src: string; alt: string }): React.ReactEl
       alt={alt}
       loading="lazy"
       decoding="async"
-      className="h-full w-full object-cover"
+      className="h-full w-full object-contain bg-white p-1"
       onError={() => setFailed(true)}
     />
   );

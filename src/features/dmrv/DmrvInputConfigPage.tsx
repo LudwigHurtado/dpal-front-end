@@ -5,6 +5,7 @@ import { DmrvAiConfigHelper, type DmrvAiHelperVariant } from './components/DmrvA
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
 import { DmrvSatellitePicker } from './components/DmrvSatellitePicker';
+import { DmrvSectionAiStrip } from './components/DmrvSectionAiStrip';
 import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
 import { DmrvInputSymbol } from './components/dmrvInputSymbols';
 import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner';
@@ -122,6 +123,100 @@ export default function DmrvInputConfigPage({
     );
   }, [categorySlug, config, inputDef.label, inputKey, integrityScore, typeId]);
 
+  const typeTitle = dmrvType?.title ?? typeId;
+
+  const satellitePickContext = useMemo(() => {
+    if (!config) return '';
+    return JSON.stringify(
+      {
+        section: 'satellite_pick',
+        dmrvType: typeTitle,
+        category: categorySlug,
+        selectedSatellites: config.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY],
+        missions: ['landsat-9', 'sentinel-2', 'sentinel-1', 'modis', 'pace', 'sentinel-5p'],
+      },
+      null,
+      2,
+    );
+  }, [categorySlug, config, typeTitle]);
+
+  const sceneCoverageContext = useMemo(() => {
+    if (!config) return '';
+    return JSON.stringify(
+      { section: 'scene_coverage', dmrvType: typeTitle, dataSourceSettings: config.dataSourceSettings },
+      null,
+      2,
+    );
+  }, [config, typeTitle]);
+
+  const evidenceRulesContext = useMemo(() => {
+    if (!config) return '';
+    return JSON.stringify(
+      { section: 'evidence_rules', dmrvType: typeTitle, validationRules: config.validationRules },
+      null,
+      2,
+    );
+  }, [config, typeTitle]);
+
+  const evidencePacketContext = useMemo(() => {
+    if (!config) return '';
+    return JSON.stringify(
+      { section: 'evidence_packet', dmrvType: typeTitle, evidencePacket: config.evidencePacket },
+      null,
+      2,
+    );
+  }, [config, typeTitle]);
+
+  const applySceneSettings = useCallback((parsed: Record<string, unknown>) => {
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev.dataSourceSettings };
+      for (const [key, value] of Object.entries(parsed)) {
+        if (key === 'selectedSatellites') continue;
+        if (typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number') {
+          next[key] = value;
+        }
+      }
+      return { ...prev, dataSourceSettings: next };
+    });
+  }, []);
+
+  const applyValidationRules = useCallback((parsed: Record<string, unknown>) => {
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev.validationRules };
+      for (const key of Object.keys(next) as (keyof typeof next)[]) {
+        if (typeof parsed[key] === 'boolean') next[key] = parsed[key] as boolean;
+      }
+      return { ...prev, validationRules: next };
+    });
+  }, []);
+
+  const applyEvidencePacket = useCallback((parsed: Record<string, unknown>) => {
+    setConfig((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev.evidencePacket };
+      if (typeof parsed.title === 'string') next.title = parsed.title;
+      if (
+        parsed.publicVisibility === 'private' ||
+        parsed.publicVisibility === 'validator_only' ||
+        parsed.publicVisibility === 'public'
+      ) {
+        next.publicVisibility = parsed.publicVisibility;
+      }
+      for (const key of [
+        'includeMapSnapshot',
+        'includeRawDataReference',
+        'includeReviewerNotes',
+        'includeAttachments',
+        'generateQrCode',
+      ] as const) {
+        if (typeof parsed[key] === 'boolean') next[key] = parsed[key];
+      }
+      return { ...prev, evidencePacket: next };
+    });
+  }, []);
+
   const patchDataSource = useCallback((key: string, value: string | boolean) => {
     setConfig((prev) =>
       prev ? { ...prev, dataSourceSettings: { ...prev.dataSourceSettings, [key]: value } } : prev,
@@ -142,6 +237,18 @@ export default function DmrvInputConfigPage({
     },
     [],
   );
+
+  const applySatellitePick = useCallback((parsed: Record<string, unknown>) => {
+    const raw = parsed.selectedSatellites ?? parsed.satelliteIds;
+    if (typeof raw === 'string') {
+      patchDataSource(DMRV_SATELLITE_SETTINGS_KEY, raw);
+    } else if (Array.isArray(raw)) {
+      patchDataSource(
+        DMRV_SATELLITE_SETTINGS_KEY,
+        raw.filter((id): id is string => typeof id === 'string').join(','),
+      );
+    }
+  }, [patchDataSource]);
 
   const handleSave = useCallback(() => {
     if (!config) return;
@@ -224,7 +331,6 @@ export default function DmrvInputConfigPage({
     );
   }
 
-  const typeTitle = dmrvType?.title ?? typeId;
   const backPath = dmrvCategoryPath(categorySlug, typeId, projectId);
 
   return (
@@ -300,6 +406,18 @@ export default function DmrvInputConfigPage({
                   selectedRaw={config.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY]}
                   onChange={(ids) => patchDataSource(DMRV_SATELLITE_SETTINGS_KEY, ids)}
                 />
+                <DmrvSectionAiStrip
+                  sectionLabel="Satellite pick"
+                  hint={`Ask which missions fit ${typeTitle} — or suggest a stack for you.`}
+                  contextSummary={satellitePickContext}
+                  disabled={!!busy}
+                  starters={[
+                    'Which satellites for forest carbon?',
+                    'Do I need SAR if it is often cloudy?',
+                  ]}
+                  autofillPrompt={`Suggest satellite mission IDs for ${typeTitle} DMRV. Return JSON: { "selectedSatellites": "landsat-9,sentinel-2,sentinel-1" } using only: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5p.`}
+                  onApply={applySatellitePick}
+                />
               </Panel>
             ) : null}
 
@@ -309,14 +427,56 @@ export default function DmrvInputConfigPage({
                 settings={config.dataSourceSettings}
                 onChange={patchDataSource}
               />
+              {config.configType === 'satellite' ? (
+                <DmrvSectionAiStrip
+                  sectionLabel="Scene coverage"
+                  hint="Cloud limits, dates, and coverage rules for your AOI."
+                  contextSummary={sceneCoverageContext}
+                  disabled={!!busy}
+                  starters={[
+                    'What cloud cover limit is reasonable?',
+                    'How do I align dates with reporting period?',
+                  ]}
+                  autofillPrompt={`Suggest scene & coverage settings for ${typeTitle} satellite MRV. Return JSON with string/boolean fields only: provider, collection, startDate, endDate, cloudCoverLimit, resolution, minimumCoveragePct, refreshFrequency, aoiRequired.`}
+                  onApply={applySceneSettings}
+                />
+              ) : null}
             </Panel>
 
-            <Panel title="Validation Rules">
+            <Panel title="Evidence Rules">
               <ValidationRules config={config} onPatch={patchValidation} />
+              {config.configType === 'satellite' ? (
+                <DmrvSectionAiStrip
+                  sectionLabel="Evidence rules"
+                  hint="Validation gates before scene search and evidence packets."
+                  contextSummary={evidenceRulesContext}
+                  disabled={!!busy}
+                  starters={[
+                    'What rules should forest satellite MRV use?',
+                    'When is before/after comparison required?',
+                  ]}
+                  autofillPrompt={`Suggest validation rule booleans for ${typeTitle} satellite evidence. Return JSON with only boolean keys: requireCoordinates, requireTimestamp, requireSourceDocument, requireReviewerApproval, requireFieldVerification, requireBeforeAfterComparison, requireAnomalyDetection, requireUncertaintyScore.`}
+                  onApply={applyValidationRules}
+                />
+              ) : null}
             </Panel>
 
             <Panel title="Evidence Packet Settings">
               <EvidenceFields config={config} onPatch={patchEvidence} />
+              {config.configType === 'satellite' ? (
+                <DmrvSectionAiStrip
+                  sectionLabel="Package settings"
+                  hint="What goes into the reviewer packet and public visibility."
+                  contextSummary={evidencePacketContext}
+                  disabled={!!busy}
+                  starters={[
+                    'What should the evidence packet title say?',
+                    'Should map snapshots be included?',
+                  ]}
+                  autofillPrompt={`Suggest evidence packet settings for ${typeTitle} satellite MRV. Return JSON: title (string), publicVisibility (private|validator_only|public), includeMapSnapshot, includeRawDataReference, includeReviewerNotes, includeAttachments, generateQrCode (booleans).`}
+                  onApply={applyEvidencePacket}
+                />
+              ) : null}
             </Panel>
 
             <div className="flex flex-wrap gap-2">
