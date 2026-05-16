@@ -1,4 +1,6 @@
 import { DMRV_FAMILIES, type DmrvFamilyDef, type DmrvTypeDef } from './dmrvCatalog';
+import { DMRV_INFOGRAPHIC_TYPES, type InfographicTypeSeed } from './dmrvInfographicTypes';
+import { segmentColorForIndex } from './dmrvInfographicTheme';
 
 export type DmrvConnectorStatus = 'live' | 'planned';
 
@@ -19,7 +21,14 @@ export type DmrvConnectorMeta = {
 export type DmrvType = {
   id: string;
   title: string;
+  /** Short label for the selector dial legend */
+  selectorLabel: string;
   description: string;
+  /** Infographic input chips (up to five shown in the board) */
+  inputExamples: string[];
+  /** Evaluation metrics shown on the right of each row */
+  evaluationMetrics: string[];
+  segmentColor: string;
   inputs: string[];
   connectors: string[];
   dataLayers: string[];
@@ -278,49 +287,49 @@ const CATEGORY_META: Record<
 > = {
   'carbon-land': {
     title: 'Carbon & Land',
-    subtitle: 'Land-based carbon intelligence, nature-based verification, and project integrity.',
+    subtitle: 'Land-based carbon intelligence. Nature-based verification. Tailored to carbon and land projects.',
     image: '/assets/dmrv/carbon-land-dmrv.png',
     description:
       'Land-based carbon intelligence, nature-based verification, and carbon project integrity.',
   },
   'water-blue-carbon': {
     title: 'Water & Blue Carbon',
-    subtitle: 'Aquatic intelligence for wetlands, watersheds, oceans, flooding, drought, and water quality.',
+    subtitle: 'Water intelligence. Blue-carbon verification. Tailored to aquatic and hydrologic systems.',
     image: '/assets/dmrv/water-blue-carbon-dmrv.png',
     description:
       'Aquatic intelligence for wetlands, watersheds, oceans, flooding, drought, and water quality.',
   },
   'pollution-emissions': {
     title: 'Pollution & Emissions',
-    subtitle: 'Facility emissions, air quality, methane, waste, toxic exposure, and compliance verification.',
+    subtitle: 'Pollution intelligence. Emissions verification. Tailored to compliance and environmental accountability.',
     image: '/assets/dmrv/pollution-emissions-dmrv.png',
     description:
       'Facility emissions, air quality, methane, waste, toxic exposure, and compliance verification.',
   },
   'biodiversity-ecosystems': {
     title: 'Biodiversity & Ecosystems',
-    subtitle: 'Habitat, species, restoration, protected areas, nature-positive claims, and ecosystem condition.',
+    subtitle: 'Ecosystem intelligence. Habitat verification. Tailored to biodiversity and restoration outcomes.',
     image: '/assets/dmrv/biodiversity-ecosystems-dmrv.png',
     description:
       'Habitat, species, restoration, protected areas, nature-positive claims, and ecosystem condition.',
   },
   'climate-risk-disaster': {
     title: 'Climate Risk & Disaster',
-    subtitle: 'Wildfire, heat, flood, disaster recovery, infrastructure risk, and resilience verification.',
+    subtitle: 'Risk intelligence. Resilience verification. Tailored to hazards, adaptation, and recovery.',
     image: '/assets/dmrv/climate-risk-disaster-dmrv.png',
     description:
       'Wildfire, heat, flood, disaster recovery, infrastructure risk, and resilience verification.',
   },
   'urban-energy-infrastructure': {
     title: 'Urban, Energy & Infrastructure',
-    subtitle: 'Smart city, renewable energy, clean mobility, public works, and building efficiency verification.',
+    subtitle: 'City intelligence. Clean-infrastructure verification. Tailored to built environments and public works.',
     image: '/assets/dmrv/urban-energy-infrastructure-dmrv.png',
     description:
       'Smart city, renewable energy, clean mobility, public works, and building efficiency verification.',
   },
   'supply-chain-corporate-claims': {
     title: 'Supply Chain, Traceability & Corporate Claims',
-    subtitle: 'Corporate ESG claims, greenwashing detection, offset integrity, commodity sourcing, and traceability.',
+    subtitle: 'Traceability intelligence. Corporate-claims verification. Tailored to supply chains and disclosures.',
     image: '/assets/dmrv/supply-chain-corporate-claims-dmrv.png',
     description:
       'Corporate ESG claims, greenwashing detection, offset integrity, commodity sourcing, and traceability.',
@@ -328,7 +337,7 @@ const CATEGORY_META: Record<
   'community-public-accountability': {
     title: 'Community, Justice & Public Accountability',
     subtitle:
-      'Citizen reports, environmental justice, public health, school and housing conditions, QR evidence sites.',
+      'Community intelligence. Public verification. Tailored to harm reporting, justice, and accountability.',
     image: '/assets/dmrv/community-public-accountability-dmrv.png',
     description:
       'Citizen reports, environmental justice, public health, school and housing conditions, QR evidence sites.',
@@ -336,24 +345,42 @@ const CATEGORY_META: Record<
   'custom-advanced-intelligence': {
     title: 'Custom & Advanced Intelligence',
     subtitle:
-      'AI anomaly detection, blockchain evidence, validator review, IoT, drones, satellite fusion, legal packets.',
+      'Flexible intelligence. Verifiable evidence. Tailored to advanced workflows and future-ready systems.',
     image: '/assets/dmrv/custom-advanced-intelligence-dmrv.png',
     description:
       'AI anomaly detection, blockchain evidence, validator review, IoT, drones, satellite fusion, legal packets.',
   },
 };
 
-function mapTypeFromCatalog(t: DmrvTypeDef, familyConnectorIds: string[]): DmrvType {
-  const inputs = [...new Set([...t.inputExamples, ...t.profile.requiredInputs, ...t.profile.optionalInputs])];
-  const dataLayers = [...new Set([...t.profile.satelliteLayers, ...t.evaluationFocus])];
+function mapTypeFromInfographic(
+  seed: InfographicTypeSeed,
+  index: number,
+  catalogType: DmrvTypeDef | undefined,
+  familyConnectorIds: string[],
+): DmrvType {
+  const profile = catalogType?.profile;
+  const inputs = [
+    ...new Set([
+      ...seed.inputExamples,
+      ...(profile?.requiredInputs ?? []),
+      ...(profile?.optionalInputs ?? []),
+    ]),
+  ];
+  const dataLayers = [
+    ...new Set([...(profile?.satelliteLayers ?? []), ...seed.evaluationFocus]),
+  ];
   return {
-    id: t.id,
-    title: t.label,
-    description: t.description,
+    id: seed.id,
+    title: seed.label,
+    selectorLabel: seed.selectorLabel,
+    description: seed.description,
+    inputExamples: seed.inputExamples,
+    evaluationMetrics: seed.evaluationFocus,
+    segmentColor: segmentColorForIndex(index),
     inputs,
     connectors: familyConnectorIds,
     dataLayers,
-    riskFlags: t.profile.riskFlags,
+    riskFlags: profile?.riskFlags ?? [],
     workflow: [...DMRV_WORKFLOW_STEPS],
   };
 }
@@ -362,6 +389,11 @@ function mapFamily(family: DmrvFamilyDef): DmrvCategory {
   const slug = CATALOG_ID_TO_SLUG[family.id] ?? family.id;
   const meta = CATEGORY_META[slug];
   const connectorIds = (FAMILY_CONNECTORS[family.id] ?? []).filter((id) => CONNECTOR_CATALOG[id]);
+  const infographicSeeds = DMRV_INFOGRAPHIC_TYPES[family.id];
+  const types = infographicSeeds.map((seed, index) => {
+    const catalogType = family.types.find((t) => t.id === seed.id);
+    return mapTypeFromInfographic(seed, index, catalogType, connectorIds);
+  });
   return {
     slug,
     title: meta?.title ?? family.title,
@@ -369,7 +401,7 @@ function mapFamily(family: DmrvFamilyDef): DmrvCategory {
     image: meta?.image ?? `/assets/dmrv/${slug}-dmrv.png`,
     color: family.hex,
     description: meta?.description ?? family.description,
-    types: family.types.map((t) => mapTypeFromCatalog(t, connectorIds)),
+    types,
   };
 }
 
