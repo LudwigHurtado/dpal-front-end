@@ -2161,6 +2161,7 @@ const App: React.FC = () => {
       <DPALPlatformShell
         currentPathname={location.pathname}
         onSelectView={(v) => handleNavigate(v as View)}
+        onSelectPath={(path) => navigate(path)}
         useMobileLayout={useMobileLayout}
         hideSidebar={hidePlatformSidebar}
         mobileNavOpen={platformMobileNavOpen}

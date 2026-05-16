@@ -2,11 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getValidatorPortalUrl } from '../../constants';
 import { DPAL_OFFICIAL_FAVICON } from '../../src/constants/brandAssets';
+import { PLANETARY_INTELLIGENCE_CATEGORIES } from '../../src/data/planetaryIntelligenceCategories';
+import { DeepOwlCategoryIcon } from '../../src/components/deepOwl/DeepOwlCategoryIcon';
 
 export type PlatformSidebarProps = {
   currentPath: string;
   /** Maps to App.tsx view ids */
   onSelectView: (view: string) => void;
+  /** Navigate to a pathname (Deep Owl category → workspace in main panel). */
+  onSelectPath: (path: string) => void;
   /** Tailwind sticky offset; empty string disables sticky (e.g. mobile drawer). */
   stickyTop?: string;
   className?: string;
@@ -82,9 +86,14 @@ const HOME_PATHS = ['/', '/planetary-intelligence', '/workspaces'];
 const GLOBAL_INTELLIGENCE_MAP_PATHS = ['/global-intelligence-map'];
 const DEEP_OWL_SERVICE_LINES_PATHS = ['/deep-owl/service-lines', '/deep-owl'];
 
+function isDeepOwlCategoryPath(pathname: string): boolean {
+  return PLANETARY_INTELLIGENCE_CATEGORIES.some((c) => pathMatchesExact(pathname, [c.href]));
+}
+
 export function PlatformSidebar({
   currentPath,
   onSelectView,
+  onSelectPath,
   stickyTop = 'top-0',
   className = '',
 }: PlatformSidebarProps): React.ReactElement {
@@ -94,7 +103,8 @@ export function PlatformSidebar({
   const [deepOwlSectorOpen, setDeepOwlSectorOpen] = useState(
     () =>
       pathMatchesExact(currentPath, GLOBAL_INTELLIGENCE_MAP_PATHS) ||
-      pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS),
+      pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS) ||
+      isDeepOwlCategoryPath(currentPath),
   );
 
   useEffect(() => {
@@ -106,7 +116,8 @@ export function PlatformSidebar({
   useEffect(() => {
     if (
       pathMatchesExact(currentPath, GLOBAL_INTELLIGENCE_MAP_PATHS) ||
-      pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS)
+      pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS) ||
+      isDeepOwlCategoryPath(currentPath)
     ) {
       setDeepOwlSectorOpen(true);
     }
@@ -120,8 +131,8 @@ export function PlatformSidebar({
 
   const homeActive = pathMatches(currentPath, HOME_PATHS);
   const globalMapActive = pathMatchesExact(currentPath, GLOBAL_INTELLIGENCE_MAP_PATHS);
-  const deepOwlActive = pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS);
-  const deepOwlSectorActive = globalMapActive || deepOwlActive;
+  const deepOwlCategoryActive = isDeepOwlCategoryPath(currentPath);
+  const deepOwlSectorActive = globalMapActive || deepOwlCategoryActive;
 
   const moreActive = pathMatches(currentPath, [
     '/additional-modules',
@@ -185,19 +196,25 @@ export function PlatformSidebar({
           </button>
 
           {deepOwlSectorOpen ? (
-            <div className="ml-2 mt-1 space-y-0.5 border-l border-slate-700 py-1 pl-2">
+            <div className="ml-2 mt-1 max-h-[min(52vh,480px)] space-y-0.5 overflow-y-auto border-l border-slate-700 py-1 pl-2 [scrollbar-width:thin]">
               <SectorChildNav
                 label="Global Intelligence Map"
                 active={globalMapActive}
                 onClick={() => onSelectView('globalIntelligenceMap')}
                 icon={<GlobeMapNavIcon />}
               />
-              <SectorChildNav
-                label="Deep Owl Service Lines"
-                active={deepOwlActive}
-                onClick={() => onSelectView('deepOwlServiceLines')}
-                icon={<DeepOwlNavIcon className="text-slate-400" />}
-              />
+              <p className="px-2 pb-1 pt-2 text-[9px] font-bold uppercase tracking-[0.16em] text-slate-500">Service lines</p>
+              {PLANETARY_INTELLIGENCE_CATEGORIES.map((category, index) => (
+                <SectorChildNav
+                  key={category.id}
+                  label={category.title}
+                  title={category.title}
+                  active={pathMatchesExact(currentPath, [category.href])}
+                  onClick={() => onSelectPath(category.href)}
+                  icon={<DeepOwlCategoryIcon icon={category.icon} size={14} variant="nav" />}
+                  index={index + 1}
+                />
+              ))}
             </div>
           ) : null}
         </div>
@@ -406,25 +423,33 @@ function LayersIcon(): React.ReactElement {
 
 function SectorChildNav({
   label,
+  title,
   active,
   onClick,
   icon,
+  index,
 }: {
   label: string;
+  title?: string;
   active: boolean;
   onClick: () => void;
   icon: React.ReactNode;
+  index?: number;
 }): React.ReactElement {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[13px] transition ${
+      title={title ?? label}
+      className={`flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition ${
         active ? 'bg-emerald-500/15 font-semibold text-emerald-300' : 'font-medium text-slate-400 hover:bg-slate-800/70 hover:text-white'
       }`}
     >
-      <span className={active ? 'text-emerald-400' : 'text-slate-500'}>{icon}</span>
-      {label}
+      {index != null ? (
+        <span className="mt-0.5 w-4 shrink-0 text-right text-[9px] font-semibold tabular-nums text-slate-600">{index}</span>
+      ) : null}
+      <span className={`mt-0.5 shrink-0 ${active ? 'text-emerald-400' : 'text-slate-500'}`}>{icon}</span>
+      <span className="min-w-0 flex-1 text-[11px] leading-snug">{label}</span>
     </button>
   );
 }

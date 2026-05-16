@@ -4,6 +4,7 @@ import { PlatformSidebar } from '../components/platform/PlatformSidebar';
 export interface DPALPlatformShellProps {
   currentPathname: string;
   onSelectView: (view: string) => void;
+  onSelectPath: (path: string) => void;
   useMobileLayout: boolean;
   /** Full-width modes (no sidebar column). */
   hideSidebar?: boolean;
@@ -23,6 +24,7 @@ export interface DPALPlatformShellProps {
 export default function DPALPlatformShell({
   currentPathname,
   onSelectView,
+  onSelectPath,
   useMobileLayout,
   hideSidebar,
   mobileNavOpen,
@@ -54,6 +56,10 @@ export default function DPALPlatformShell({
       currentPath={currentPathname}
       onSelectView={(v) => {
         onSelectView(v);
+        if (useMobileLayout) onMobileNavOpenChange(false);
+      }}
+      onSelectPath={(path) => {
+        onSelectPath(path);
         if (useMobileLayout) onMobileNavOpenChange(false);
       }}
     />

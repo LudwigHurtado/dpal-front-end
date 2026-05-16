@@ -70,13 +70,20 @@ export function DeepOwlCategoryIcon({
   icon,
   className = '',
   size = 18,
+  variant = 'default',
 }: {
   icon: DeepOwlIconKey;
   className?: string;
   size?: number;
+  /** `nav` — compact icon for sidebar rows (no tile background). */
+  variant?: 'default' | 'nav';
 }): React.ReactElement {
   const tone = ICON_CLASS[icon];
   const common = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, 'aria-hidden': true as const };
+  const shell =
+    variant === 'nav'
+      ? `inline-flex shrink-0 items-center justify-center ${tone} ${className}`.trim()
+      : `inline-flex shrink-0 items-center justify-center rounded-lg bg-slate-100/90 p-1.5 ${tone} ${className}`.trim();
 
   const glyphs: Record<DeepOwlIconKey, React.ReactNode> = {
     carbon: (
@@ -264,9 +271,7 @@ export function DeepOwlCategoryIcon({
   };
 
   return (
-    <span
-      className={`inline-flex shrink-0 items-center justify-center rounded-lg bg-slate-100/90 p-1.5 ${tone} ${className}`.trim()}
-    >
+    <span className={shell}>
       <svg {...common}>{glyphs[icon]}</svg>
     </span>
   );

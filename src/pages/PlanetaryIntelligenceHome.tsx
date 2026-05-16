@@ -3,8 +3,6 @@ import { PlatformTopCommandBar } from '../../components/platform/PlatformTopComm
 import { WorkspaceCard } from '../../components/platform/WorkspaceCard';
 import { SystemOverviewCard } from '../../components/platform/SystemOverviewCard';
 import { AlertSummaryCard } from '../../components/platform/AlertSummaryCard';
-import { DeepOwlServiceLinesList } from '../components/deepOwl/DeepOwlServiceLinesList';
-
 export interface PlanetaryIntelligenceHomeProps {
   onNavigate: (view: string) => void;
   onOpenLiveMap?: () => void;
@@ -105,45 +103,6 @@ export default function PlanetaryIntelligenceHome({
               />
               <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-14 bg-gradient-to-b from-white/90 to-transparent" aria-hidden />
             </div>
-          </div>
-        </section>
-
-        <section className="mt-10 rounded-2xl border border-slate-200/90 bg-white px-5 py-8 shadow-lg shadow-slate-900/[0.06] sm:px-8">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div className="max-w-3xl">
-              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800">Intelligence categories</h2>
-              <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Deep Owl service lines</p>
-              <p className="mt-2 text-sm leading-relaxed text-slate-600">
-                Each title opens the closest DPAL workspace today. Icons indicate the hazard or domain (flame for wildfire, ship for ports, and so on).
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('deepOwlServiceLines')}
-              className="shrink-0 rounded-xl border border-emerald-600/35 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-100/90"
-            >
-              View all 30 service lines
-            </button>
-          </div>
-          <div className="mt-6 max-h-[420px] overflow-y-auto pr-1 [scrollbar-width:thin]">
-            <DeepOwlServiceLinesList variant="compact" />
-          </div>
-        </section>
-
-        <section className="mt-10 rounded-2xl border border-slate-200/90 bg-white px-5 py-6 shadow-lg shadow-slate-900/[0.06] sm:px-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800">World overview</h2>
-              <p className="mt-2 text-lg font-semibold text-slate-900">Global Intelligence Map</p>
-              <p className="mt-1 text-sm text-slate-600">Layer toggles, AOI context, and live signal preview routing.</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => onNavigate('globalIntelligenceMap')}
-              className="shrink-0 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800"
-            >
-              Open Global Intelligence Map
-            </button>
           </div>
         </section>
 
