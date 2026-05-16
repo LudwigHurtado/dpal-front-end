@@ -36,20 +36,6 @@ export function PlatformTopCommandBar({
               </svg>
             </button>
           ) : null}
-          <Link
-            to="/"
-            className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500/25 shadow-md sm:h-11 sm:w-11"
-            title="DPAL — Deep Owl ECO SYSTEM"
-            aria-label="DPAL Home — Deep Owl ECO SYSTEM"
-          >
-            <img
-              src="/main-screen/deep-owl-ecosystem-logo.png"
-              alt=""
-              className="h-full w-full object-cover"
-              width={44}
-              height={44}
-            />
-          </Link>
           <label className="relative mx-auto w-full max-w-xl min-w-0 flex-1">
             <span className="sr-only">Search locations, projects, facilities</span>
             <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden>

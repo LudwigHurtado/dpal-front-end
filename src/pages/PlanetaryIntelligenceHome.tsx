@@ -1,11 +1,9 @@
 import React, { useRef } from 'react';
-import { Link } from 'react-router-dom';
 import { PlatformTopCommandBar } from '../../components/platform/PlatformTopCommandBar';
 import { WorkspaceCard } from '../../components/platform/WorkspaceCard';
 import { SystemOverviewCard } from '../../components/platform/SystemOverviewCard';
 import { AlertSummaryCard } from '../../components/platform/AlertSummaryCard';
-import { GlobalIntelligenceMapPreview } from '../../components/platform/GlobalIntelligenceMapPreview';
-import { PLANETARY_INTELLIGENCE_CATEGORIES } from '../data/planetaryIntelligenceCategories';
+import { DeepOwlServiceLinesList } from '../components/deepOwl/DeepOwlServiceLinesList';
 
 export interface PlanetaryIntelligenceHomeProps {
   onNavigate: (view: string) => void;
@@ -111,33 +109,43 @@ export default function PlanetaryIntelligenceHome({
         </section>
 
         <section className="mt-10 rounded-2xl border border-slate-200/90 bg-white px-5 py-8 shadow-lg shadow-slate-900/[0.06] sm:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800">Intelligence categories</h2>
-            <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Deep Owl service lines</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              Each title opens the closest DPAL workspace today. Broader claims, sensors, and partner datasets are documented in module guides — not implied by this list alone.
-            </p>
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-3xl">
+              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800">Intelligence categories</h2>
+              <p className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">Deep Owl service lines</p>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                Each title opens the closest DPAL workspace today. Icons indicate the hazard or domain (flame for wildfire, ship for ports, and so on).
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('deepOwlServiceLines')}
+              className="shrink-0 rounded-xl border border-emerald-600/35 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-950 transition hover:bg-emerald-100/90"
+            >
+              View all 30 service lines
+            </button>
           </div>
-          <ol className="mt-8 list-none space-y-0 p-0 sm:columns-2 sm:gap-x-10 lg:columns-3">
-            {PLANETARY_INTELLIGENCE_CATEGORIES.map((c, index) => (
-              <li key={c.id} className="mb-2 break-inside-avoid">
-                <Link
-                  to={c.href}
-                  className="group flex items-baseline gap-2 rounded-xl border border-transparent px-2 py-2 text-sm text-slate-800 transition hover:border-emerald-200/80 hover:bg-emerald-50/50"
-                >
-                  <span className="w-6 shrink-0 text-right text-xs font-semibold tabular-nums text-slate-400 group-hover:text-emerald-700">
-                    {index + 1}
-                  </span>
-                  <span className="min-w-0 font-medium leading-snug group-hover:text-emerald-950">{c.title}</span>
-                </Link>
-              </li>
-            ))}
-          </ol>
+          <div className="mt-6 max-h-[420px] overflow-y-auto pr-1 [scrollbar-width:thin]">
+            <DeepOwlServiceLinesList variant="compact" />
+          </div>
         </section>
 
-        <div className="mt-10">
-          <GlobalIntelligenceMapPreview onOpenGlobalSignals={() => onNavigate('globalSignals')} />
-        </div>
+        <section className="mt-10 rounded-2xl border border-slate-200/90 bg-white px-5 py-6 shadow-lg shadow-slate-900/[0.06] sm:px-8">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xs font-semibold uppercase tracking-[0.22em] text-emerald-800">World overview</h2>
+              <p className="mt-2 text-lg font-semibold text-slate-900">Global Intelligence Map</p>
+              <p className="mt-1 text-sm text-slate-600">Layer toggles, AOI context, and live signal preview routing.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => onNavigate('globalIntelligenceMap')}
+              className="shrink-0 rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white shadow-md transition hover:bg-slate-800"
+            >
+              Open Global Intelligence Map
+            </button>
+          </div>
+        </section>
 
         <section ref={workspacesRef} id="primary-workspaces" className="mt-14 scroll-mt-8">
           <div className="flex max-w-4xl gap-4">

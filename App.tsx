@@ -159,11 +159,13 @@ import CarbonPuraWorkspace from './src/features/partners/carbonpura/CarbonPuraWo
 import SatelliteAccountabilityPage from './src/features/environmentalIntelligence/satelliteAccountability/SatelliteAccountabilityPage';
 import DPALPlatformShell from './layouts/DPALPlatformShell';
 import PlatformHomePage from './src/features/platformHome/PlatformHomePage';
+import DeepOwlServiceLinesPage from './src/pages/DeepOwlServiceLinesPage';
+import GlobalIntelligenceMapPage from './src/pages/GlobalIntelligenceMapPage';
 import EnvironmentalWorkspacePage from './src/features/environmentalWorkspace/EnvironmentalWorkspacePage';
 import CarbonCompliancePage from './src/features/carbonCompliance/CarbonCompliancePage';
 import AdditionalModulesPage from './src/features/additionalModules/AdditionalModulesPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2090,6 +2092,7 @@ const App: React.FC = () => {
 
   const platformWideMainChrome = [
     'mainMenu',
+    'deepOwlServiceLines',
     'additionalModules',
     'carbonPuraWorkspace',
     'carbonComplianceWorkspace',
@@ -2142,7 +2145,7 @@ const App: React.FC = () => {
           </button>
         </div>
       )}
-      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'mainMenu' && (
+      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'mainMenu' && currentView !== 'deepOwlServiceLines' && currentView !== 'globalIntelligenceMap' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'mint')} 
           onNavigateHome={navigateHome} 
@@ -2162,7 +2165,11 @@ const App: React.FC = () => {
         hideSidebar={hidePlatformSidebar}
         mobileNavOpen={platformMobileNavOpen}
         onMobileNavOpenChange={setPlatformMobileNavOpen}
-        sidebarStickyTop={currentView === 'mainMenu' ? 'top-0' : 'top-[4.75rem]'}
+        sidebarStickyTop={
+          currentView === 'mainMenu' || currentView === 'deepOwlServiceLines' || currentView === 'globalIntelligenceMap'
+            ? 'top-0'
+            : 'top-[4.75rem]'
+        }
         mainColumnClassName={
           platformWideMainChrome
             ? 'lg:rounded-tl-3xl lg:border-l lg:border-t lg:border-slate-200/80 lg:bg-slate-50/98 lg:shadow-[inset_1px_1px_0_rgba(255,255,255,0.65)]'
@@ -2181,6 +2188,23 @@ const App: React.FC = () => {
             onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
             onOpenLiveMap={() => handleNavigate('hub', undefined, 'map')}
             onOpenCarbonPuraDemo={() => handleNavigate('carbonPuraWorkspace')}
+          />
+        )}
+
+        {currentView === 'deepOwlServiceLines' && (
+          <DeepOwlServiceLinesPage
+            onBack={() => goBack('mainMenu')}
+            useMobileLayout={useMobileLayout}
+            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
+          />
+        )}
+
+        {currentView === 'globalIntelligenceMap' && (
+          <GlobalIntelligenceMapPage
+            onBack={() => goBack('mainMenu')}
+            onOpenGlobalSignals={() => handleNavigate('globalSignals')}
+            useMobileLayout={useMobileLayout}
+            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
           />
         )}
 

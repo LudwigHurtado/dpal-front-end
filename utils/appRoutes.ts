@@ -205,6 +205,9 @@ export const VIEW_PATHS: Record<string, string> = {
   additionalModules: '/additional-modules',
   /** Classic DPAL main-menu tile grid — preserved for operators who prefer the legacy explorer. */
   legacyMainMenuGrid: '/classic-home',
+  /** Deep Owl intelligence service line catalog (30 category launchers). */
+  deepOwlServiceLines: '/deep-owl/service-lines',
+  globalIntelligenceMap: '/global-intelligence-map',
 };
 
 export function viewToPath(view: string): string {
@@ -215,6 +218,8 @@ export function viewToPath(view: string): string {
 export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
   if (normalized === '/planetary-intelligence' || normalized === '/workspaces') return 'mainMenu';
+  if (normalized === '/deep-owl' || normalized === '/deep-owl/service-lines') return 'deepOwlServiceLines';
+  if (normalized === '/global-intelligence-map') return 'globalIntelligenceMap';
   if (normalized === '/modules' || normalized === '/more-tools' || normalized === '/more-dpal-modules') return 'additionalModules';
   if (normalized === '/carbon-pura' || normalized === '/partner/carbonpura' || normalized === '/carbonpura-command-center') {
     return 'carbonPuraWorkspace';

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getValidatorPortalUrl } from '../../constants';
+import { DPAL_OFFICIAL_FAVICON } from '../../src/constants/brandAssets';
 
 export type PlatformSidebarProps = {
   currentPath: string;
@@ -78,6 +79,8 @@ const WORKSPACE_CHILDREN: NavLeaf[] = [
 ];
 
 const HOME_PATHS = ['/', '/planetary-intelligence', '/workspaces'];
+const GLOBAL_INTELLIGENCE_MAP_PATHS = ['/global-intelligence-map'];
+const DEEP_OWL_SERVICE_LINES_PATHS = ['/deep-owl/service-lines', '/deep-owl'];
 
 export function PlatformSidebar({
   currentPath,
@@ -88,10 +91,24 @@ export function PlatformSidebar({
   const [workspaceOpen, setWorkspaceOpen] = useState(() =>
     WORKSPACE_CHILDREN.some((ch) => ch.paths.some((p) => pathMatchesExact(currentPath, [p]))),
   );
+  const [deepOwlSectorOpen, setDeepOwlSectorOpen] = useState(
+    () =>
+      pathMatchesExact(currentPath, GLOBAL_INTELLIGENCE_MAP_PATHS) ||
+      pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS),
+  );
 
   useEffect(() => {
     if (WORKSPACE_CHILDREN.some((ch) => ch.paths.some((p) => pathMatchesExact(currentPath, [p])))) {
       setWorkspaceOpen(true);
+    }
+  }, [currentPath]);
+
+  useEffect(() => {
+    if (
+      pathMatchesExact(currentPath, GLOBAL_INTELLIGENCE_MAP_PATHS) ||
+      pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS)
+    ) {
+      setDeepOwlSectorOpen(true);
     }
   }, [currentPath]);
 
@@ -102,6 +119,9 @@ export function PlatformSidebar({
   };
 
   const homeActive = pathMatches(currentPath, HOME_PATHS);
+  const globalMapActive = pathMatchesExact(currentPath, GLOBAL_INTELLIGENCE_MAP_PATHS);
+  const deepOwlActive = pathMatchesExact(currentPath, DEEP_OWL_SERVICE_LINES_PATHS);
+  const deepOwlSectorActive = globalMapActive || deepOwlActive;
 
   const moreActive = pathMatches(currentPath, [
     '/additional-modules',
@@ -126,7 +146,7 @@ export function PlatformSidebar({
             aria-label="DPAL Home — Deep Owl ECO SYSTEM"
           >
             <img
-              src="/main-screen/deep-owl-ecosystem-logo.png"
+              src={DPAL_OFFICIAL_FAVICON}
               alt=""
               className="h-full w-full object-cover"
               width={48}
@@ -145,6 +165,42 @@ export function PlatformSidebar({
 
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <NavButton label="Home" active={homeActive} onClick={() => onSelectView('mainMenu')} icon={<HomeIcon />} accentActive />
+
+        <div>
+          <button
+            type="button"
+            onClick={() => setDeepOwlSectorOpen(!deepOwlSectorOpen)}
+            className={`flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm font-medium transition ${
+              deepOwlSectorOpen || deepOwlSectorActive
+                ? 'bg-slate-800/80 text-white'
+                : 'text-slate-300 hover:bg-slate-800/50 hover:text-white'
+            }`}
+            aria-expanded={deepOwlSectorOpen}
+          >
+            <span className="flex items-center gap-2">
+              <DeepOwlNavIcon className={deepOwlSectorActive ? 'text-emerald-400' : 'text-slate-400'} />
+              Deep Owl Intelligence
+            </span>
+            <span className="text-xs text-slate-500">{deepOwlSectorOpen ? '▾' : '▸'}</span>
+          </button>
+
+          {deepOwlSectorOpen ? (
+            <div className="ml-2 mt-1 space-y-0.5 border-l border-slate-700 py-1 pl-2">
+              <SectorChildNav
+                label="Global Intelligence Map"
+                active={globalMapActive}
+                onClick={() => onSelectView('globalIntelligenceMap')}
+                icon={<GlobeMapNavIcon />}
+              />
+              <SectorChildNav
+                label="Deep Owl Service Lines"
+                active={deepOwlActive}
+                onClick={() => onSelectView('deepOwlServiceLines')}
+                icon={<DeepOwlNavIcon className="text-slate-400" />}
+              />
+            </div>
+          ) : null}
+        </div>
 
         <FlatNav
           label="CarbonPura Command"
@@ -344,6 +400,52 @@ function LayersIcon(): React.ReactElement {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
       <polygon points="12 3 22 9 12 15 2 9 12 3" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M2 13l10 6 10-6M2 17l10 6 10-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SectorChildNav({
+  label,
+  active,
+  onClick,
+  icon,
+}: {
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-[13px] transition ${
+        active ? 'bg-emerald-500/15 font-semibold text-emerald-300' : 'font-medium text-slate-400 hover:bg-slate-800/70 hover:text-white'
+      }`}
+    >
+      <span className={active ? 'text-emerald-400' : 'text-slate-500'}>{icon}</span>
+      {label}
+    </button>
+  );
+}
+
+function GlobeMapNavIcon(): React.ReactElement {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function DeepOwlNavIcon({ className = 'text-slate-400' }: { className?: string }): React.ReactElement {
+  return (
+    <svg className={className} width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="9" cy="11" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="15" cy="11" r="1.5" fill="currentColor" stroke="none" />
+      <path d="M8 15c1.2 1.5 2.6 2 4 2s2.8-.5 4-2" strokeLinecap="round" />
+      <path d="M12 3v2M4 8l1.5 1M20 8l-1.5 1" strokeLinecap="round" opacity="0.55" />
     </svg>
   );
 }

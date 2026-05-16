@@ -97,6 +97,8 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'environmentalWorkspace',
   'additionalModules',
   'legacyMainMenuGrid',
+  'deepOwlServiceLines',
+  'globalIntelligenceMap',
 ]);
 
 export type NavSessionPayload = {
