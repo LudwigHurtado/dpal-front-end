@@ -29,7 +29,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Forest / Land Use',
       'Forest / Land Use DMRV',
       'Monitors forest carbon stocks, deforestation, degradation, regrowth, and land-cover change.',
-      ['Satellite Imagery', 'LiDAR', 'Field Plots', 'Biomass Data', 'Activity Data'],
+      ['Satellite', 'LiDAR', 'Field Plots', 'Biomass Data', 'Activity Data'],
       ['Land cover change', 'Biomass / carbon stock', 'Deforestation alerts', 'Regrowth trends'],
     ),
     row(
@@ -45,7 +45,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Grassland / Savanna',
       'Grassland / Savanna DMRV',
       'Evaluates biomass, grazing pressure, fire regimes, and rangeland condition.',
-      ['Satellite Imagery', 'Field Surveys', 'Soil Samples', 'Fire Data', 'Grazing Data'],
+      ['Satellite', 'Field Surveys', 'Soil Samples', 'Fire Data', 'Grazing Data'],
       ['Biomass productivity', 'Soil carbon', 'Fire regime', 'Grazing intensity'],
     ),
     row(
@@ -61,7 +61,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Peatland / Boreal',
       'Peatland / Boreal DMRV',
       'Tracks peat carbon, drainage, methane flux, fire risk, and rewetting outcomes.',
-      ['Satellite Imagery', 'Soil Cores', 'Methane Sensors', 'Fire Data', 'Water Table Data'],
+      ['Satellite', 'Soil Cores', 'Methane Sensors', 'Fire Data', 'Water Table Data'],
       ['Peat carbon stock', 'Methane emissions', 'Fire risk', 'Rewetting performance'],
     ),
     row(
@@ -69,7 +69,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'AFOLU',
       'AFOLU DMRV',
       'Integrates agriculture, forestry, and other land-use interventions in one verification pathway.',
-      ['Satellite Imagery', 'Parcel Maps', 'Activity Records', 'Field Validation', 'Carbon Factors'],
+      ['Satellite', 'Parcel Maps', 'Activity Records', 'Field Validation', 'Carbon Factors'],
       ['Multi-land-use accounting', 'Emission reductions', 'Removal estimates', 'Intervention tracking'],
     ),
     row(
@@ -77,7 +77,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'REDD+',
       'REDD+ DMRV',
       'Assesses avoided deforestation, forest protection, leakage risk, and conservation performance.',
-      ['Satellite Imagery', 'Baseline Maps', 'Patrol Reports', 'Leakage Analysis', 'Community Records'],
+      ['Satellite', 'Baseline Maps', 'Patrol Reports', 'Leakage Analysis', 'Community Records'],
       ['Avoided deforestation', 'Leakage risk', 'Forest integrity', 'Protection effectiveness'],
     ),
     row(
@@ -95,7 +95,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Wetland / Blue Carbon',
       'Wetland / Blue Carbon DMRV',
       'Assesses mangroves, saltmarshes, seagrass, wetland carbon, and ecosystem condition.',
-      ['Satellite Imagery', 'Water Extent', 'Field Surveys', 'Carbon Data', 'Tide Data'],
+      ['Satellite', 'Water Extent', 'Field Surveys', 'Carbon Data', 'Tide Data'],
       ['Extent / area change', 'Blue-carbon estimates', 'Hydrology indicators', 'Disturbance tracking'],
     ),
     row(
@@ -103,7 +103,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Coastal / Mangrove',
       'Coastal / Mangrove DMRV',
       'Monitors coastal protection, sediment dynamics, tidal influence, and mangrove extent.',
-      ['Satellite Imagery', 'Drone Imagery', 'Sediment Data', 'Wave / Tide Data', 'Field Plots'],
+      ['Satellite', 'Drone Imagery', 'Sediment Data', 'Wave / Tide Data', 'Field Plots'],
       ['Mangrove extent', 'Sediment accretion', 'Protection services', 'Carbon stock trend'],
     ),
     row(
@@ -111,7 +111,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Freshwater / Watershed',
       'Freshwater / Watershed DMRV',
       'Tracks rivers, lakes, reservoirs, watershed health, and hydrologic condition.',
-      ['Satellite Imagery', 'River Gauges', 'Rainfall Data', 'Water Quality', 'Watershed Records'],
+      ['Satellite', 'River Gauges', 'Rainfall Data', 'Water Quality', 'Watershed Records'],
       ['Basin stress', 'Flow indicators', 'Land-use pressure', 'Water availability'],
     ),
     row(
@@ -119,7 +119,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Marine / Ocean',
       'Marine / Ocean DMRV',
       'Evaluates offshore ecosystems, coral reefs, plankton signals, and blue-carbon systems.',
-      ['Satellite Imagery', 'Ocean Color', 'Buoys', 'Field Surveys', 'Current / Tide Data'],
+      ['Satellite', 'Ocean Color', 'Buoys', 'Field Surveys', 'Current / Tide Data'],
       ['Ocean stress', 'Plastic risk screening', 'Water quality context', 'Recovery trends'],
     ),
     row(
@@ -127,7 +127,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Water Quality',
       'Water Quality DMRV',
       'Measures turbidity, contamination, nutrient stress, harmful algal blooms, and chemistry trends.',
-      ['Water Samples', 'Sensor Stations', 'Lab Data', 'Satellite Imagery', 'Incident Reports'],
+      ['Water Samples', 'Sensor Stations', 'Lab Data', 'Satellite', 'Incident Reports'],
       ['Parameter exceedance', 'Trend vs baseline', 'Exposure context', 'Compliance evidence'],
     ),
     row(
@@ -143,7 +143,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Flood / Hydrology',
       'Flood / Hydrology DMRV',
       'Assesses flood extent, water storage, rainfall response, and river gauge behavior.',
-      ['Satellite Imagery', 'Flood Maps', 'River Gauges', 'Rainfall Data', 'Infrastructure Maps'],
+      ['Satellite', 'Flood Maps', 'River Gauges', 'Rainfall Data', 'Infrastructure Maps'],
       ['Flood stage', 'Exposure', 'Hydrology anomaly', 'Alert routing support'],
     ),
     row(
@@ -151,7 +151,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Drought / Water Stress',
       'Drought / Water Stress DMRV',
       'Tracks low-water conditions, vegetation stress, soil moisture, and groundwater risk.',
-      ['Satellite Imagery', 'Soil Moisture', 'Groundwater Data', 'Vegetation Index', 'Climate Records'],
+      ['Satellite', 'Soil Moisture', 'Groundwater Data', 'Vegetation Index', 'Climate Records'],
       ['Moisture anomaly', 'Storage trend', 'Scarcity class', 'Stress duration'],
     ),
   ],
@@ -177,7 +177,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Methane Detection',
       'Methane Detection DMRV',
       'Tracks oil and gas leaks, landfill methane, agricultural methane, and hotspot persistence.',
-      ['Satellite Imagery', 'Methane Sensors', 'Field Surveys', 'Infrared Data', 'Incident Records'],
+      ['Satellite', 'Methane Sensors', 'Field Surveys', 'Infrared Data', 'Incident Records'],
       ['Leak hotspots', 'Methane persistence', 'Source attribution', 'Mitigation follow-up'],
     ),
     row(
@@ -201,7 +201,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Waste / Circular Economy',
       'Waste / Circular Economy DMRV',
       'Tracks diversion, recycling performance, landfill burden, and waste-stream outcomes.',
-      ['Facility Records', 'Collection Data', 'Landfill Sensors', 'Recycling Audits', 'Satellite Imagery'],
+      ['Facility Records', 'Collection Data', 'Landfill Sensors', 'Recycling Audits', 'Satellite'],
       ['Diversion rates', 'Landfill methane', 'Leakage / litter', 'Recycling verification'],
     ),
     row(
@@ -217,7 +217,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Toxic Exposure',
       'Toxic Exposure DMRV',
       'Assesses spills, contamination zones, toxic releases, and public risk indicators.',
-      ['Soil / Water Samples', 'Exposure Maps', 'Health Reports', 'Incident Logs', 'Satellite Imagery'],
+      ['Soil / Water Samples', 'Exposure Maps', 'Health Reports', 'Incident Logs', 'Satellite'],
       ['Contamination zones', 'Toxic release risk', 'Exposure indicators', 'Escalation evidence'],
     ),
   ],
@@ -227,7 +227,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Biodiversity / Habitat',
       'Biodiversity / Habitat DMRV',
       'Measures habitat integrity, species-support conditions, fragmentation, and ecosystem resilience.',
-      ['Satellite Imagery', 'Habitat Maps', 'Species Surveys', 'Acoustic Sensors', 'Field Validation'],
+      ['Satellite', 'Habitat Maps', 'Species Surveys', 'Acoustic Sensors', 'Field Validation'],
       ['Habitat extent', 'Fragmentation', 'Species-support indicators', 'Ecosystem condition'],
     ),
     row(
@@ -251,7 +251,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Coral Reef',
       'Coral Reef DMRV',
       'Monitors reef condition, bleaching signals, ocean stress, and recovery trends.',
-      ['Satellite Imagery', 'Ocean Color', 'Dive Surveys', 'Temperature Data', 'Reef Maps'],
+      ['Satellite', 'Ocean Color', 'Dive Surveys', 'Temperature Data', 'Reef Maps'],
       ['Reef health', 'Bleaching risk', 'Water stress', 'Recovery trends'],
     ),
     row(
@@ -275,7 +275,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Ecological Restoration',
       'Ecological Restoration DMRV',
       'Measures before/after restoration, habitat recovery, and intervention effectiveness.',
-      ['Baseline Photos', 'Satellite Imagery', 'Intervention Records', 'Field Validation', 'Time-Series Maps'],
+      ['Baseline Photos', 'Satellite', 'Intervention Records', 'Field Validation', 'Time-Series Maps'],
       ['Restoration progress', 'Habitat recovery', 'Intervention outcomes', 'Long-term resilience'],
     ),
     row(
@@ -317,7 +317,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Disaster Recovery',
       'Disaster Recovery DMRV',
       'Tracks rebuilding progress after floods, fires, storms, or other major events.',
-      ['Satellite Imagery', 'Damage Assessments', 'Project Records', 'Drone Imagery', 'Field Validation'],
+      ['Satellite', 'Damage Assessments', 'Project Records', 'Drone Imagery', 'Field Validation'],
       ['Recovery progress', 'Remaining damage', 'Restoration status', 'Reconstruction evidence'],
     ),
     row(
@@ -333,7 +333,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Insurance Risk',
       'Insurance Risk DMRV',
       'Verifies hazard exposure, damage evidence, and site-level risk indicators.',
-      ['Hazard Maps', 'Claim Records', 'Site Photos', 'Exposure Models', 'Satellite Imagery'],
+      ['Hazard Maps', 'Claim Records', 'Site Photos', 'Exposure Models', 'Satellite'],
       ['Damage evidence', 'Exposure level', 'Claim support', 'Insurable risk'],
     ),
     row(
@@ -359,7 +359,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Urban / Built Environment',
       'Urban / Built Environment DMRV',
       'Evaluates urban form, green cover, building activity, and heat-island mitigation.',
-      ['Satellite Imagery', 'Building Data', 'Land-Cover Maps', 'Mobility Data', 'Air Quality Data'],
+      ['Satellite', 'Building Data', 'Land-Cover Maps', 'Mobility Data', 'Air Quality Data'],
       ['Green cover', 'Building intensity', 'Urban heat', 'Mobility context'],
     ),
     row(
@@ -441,7 +441,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Mining / Extractives',
       'Mining / Extractives DMRV',
       'Assesses mine disturbance, tailings integrity, reclamation, and water-risk evidence.',
-      ['Satellite Imagery', 'Drone Imagery', 'Tailings Data', 'Water Quality', 'Reclamation Surveys'],
+      ['Satellite', 'Drone Imagery', 'Tailings Data', 'Water Quality', 'Reclamation Surveys'],
       ['Land disturbance', 'Tailings stability', 'Water risk', 'Reclamation progress'],
     ),
     row(
@@ -491,7 +491,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'Environmental Justice',
       'Environmental Justice DMRV',
       'Measures pollution burden, facility proximity, vulnerability, and disproportionate community risk.',
-      ['Census Layers', 'Facility Maps', 'Exposure Data', 'Community Reports', 'Satellite Imagery'],
+      ['Census Layers', 'Facility Maps', 'Exposure Data', 'Community Reports', 'Satellite'],
       ['Burden hotspots', 'Proximity risk', 'Vulnerability context', 'Justice indicators'],
     ),
     row(
@@ -565,7 +565,7 @@ export const DMRV_INFOGRAPHIC_TYPES: Record<DmrvFamilyId, InfographicTypeSeed[]>
       'AI Anomaly Detection',
       'AI Anomaly Detection DMRV',
       'Flags unusual changes, suspicious claims, and high-risk evidence gaps.',
-      ['Time-Series Data', 'AI Models', 'Risk Scoring', 'Alert Logs', 'Satellite Imagery'],
+      ['Time-Series Data', 'AI Models', 'Risk Scoring', 'Alert Logs', 'Satellite'],
       ['Anomaly flags', 'Suspicious patterns', 'Evidence gaps', 'Risk escalation'],
     ),
     row(

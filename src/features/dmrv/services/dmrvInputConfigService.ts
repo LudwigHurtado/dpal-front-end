@@ -113,6 +113,7 @@ function defaultDataSourceSettings(configType: DmrvInputConfigType): Record<stri
   switch (configType) {
     case 'satellite':
       return {
+        selectedSatellites: '',
         provider: 'Planetary Computer',
         collection: '',
         startDate: '',
@@ -248,6 +249,11 @@ export function computeCompletenessScore(config: DmrvInputConfig): number {
   const ds = config.dataSourceSettings;
   const filledDs = Object.values(ds).filter((v) => v !== '' && v !== undefined && v !== false).length;
   points += Math.min(25, filledDs * 3);
+  if (config.configType === 'satellite') {
+    const selected =
+      typeof ds.selectedSatellites === 'string' ? ds.selectedSatellites.trim() : '';
+    if (selected) points += 8;
+  }
 
   const rules = Object.values(config.validationRules).filter(Boolean).length;
   points += Math.min(12, rules * 2);

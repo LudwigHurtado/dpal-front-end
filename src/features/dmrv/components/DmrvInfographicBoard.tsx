@@ -8,7 +8,11 @@ import {
   dmrvProjectConfigPath,
 } from '../dmrvNavigation';
 import { DMRV_FOOTER_TAGLINES } from '../dmrvInfographicTheme';
-import { getDmrvProjectContext, isDmrvProjectContextComplete } from '../services/dmrvProjectContextService';
+import {
+  defaultDmrvProjectId,
+  ensureDmrvProjectContext,
+  getDmrvProjectContext,
+} from '../services/dmrvProjectContextService';
 import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInfographicRow } from './DmrvInfographicRow';
 import { DmrvSelectorDial } from './DmrvSelectorDial';
@@ -19,7 +23,7 @@ export type DmrvInfographicBoardProps = {
   types: DmrvType[];
   selectedTypeId: string | null;
   onSelectType: (typeId: string) => void;
-  /** Active project — unlocks evidence source cards when complete */
+  /** Active project id from URL — evidence inputs work with or without a completed profile */
   projectId?: string | null;
 };
 
@@ -41,8 +45,7 @@ export function DmrvInfographicBoard({
     () => (projectId ? getDmrvProjectContext(projectId) : null),
     [projectId],
   );
-  const projectUnlocked = isDmrvProjectContextComplete(projectId);
-  const workflowStep = projectUnlocked ? 1 : 0;
+  const workflowStep = 1;
 
   const handleOpenProject = useCallback(
     (typeId: string) => {
@@ -57,10 +60,19 @@ export function DmrvInfographicBoard({
 
   const handleConfigureInput = useCallback(
     (typeId: string, inputDef: DmrvInputDef) => {
-      if (!projectId || !projectUnlocked) return;
-      navigate(dmrvInputConfigPath(projectId, category.slug, inputDef.key, typeId));
+      const type = types.find((t) => t.id === typeId);
+      const pid =
+        projectId?.trim() || defaultDmrvProjectId(category.slug, typeId);
+      ensureDmrvProjectContext({
+        categorySlug: category.slug,
+        categoryTitle: category.title,
+        typeId,
+        typeTitle: type?.title ?? typeId,
+        projectId: pid,
+      });
+      navigate(dmrvInputConfigPath(pid, category.slug, inputDef.key, typeId));
     },
-    [category.slug, navigate, projectId, projectUnlocked],
+    [category.slug, category.title, navigate, projectId, types],
   );
 
   const handleSelectType = useCallback(
@@ -99,16 +111,19 @@ export function DmrvInfographicBoard({
 
       <DmrvWorkflowProgress activeStep={workflowStep} />
 
-      {projectCtx ? (
-        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-900">
-          Project <span className="font-bold">{projectCtx.projectName || projectCtx.projectId}</span> is active.
-          Evidence sources unlock when project configuration is complete.
-        </p>
-      ) : (
-        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs text-slate-600">
-          Project configuration is optional. Configure project identity anytime, or open individual inputs directly.
-        </p>
-      )}
+      <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs text-slate-700">
+        {projectCtx?.projectName?.trim() ? (
+          <>
+            Active project: <span className="font-bold">{projectCtx.projectName}</span>. Configure any evidence input
+            below — project details can be updated anytime.
+          </>
+        ) : (
+          <>
+            Configure any evidence input on the icons below. Project identity is optional and can be filled in when you
+            are ready.
+          </>
+        )}
+      </p>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
         <DmrvSelectorDial
@@ -138,7 +153,6 @@ export function DmrvInfographicBoard({
                 type={type}
                 active={type.id === selectedTypeId}
                 onSelect={() => handleSelectType(type.id)}
-                projectUnlocked={projectUnlocked}
                 onOpenProjectConfig={() => handleOpenProject(type.id)}
                 onConfigureInput={(inputDef) => handleConfigureInput(type.id, inputDef)}
               />

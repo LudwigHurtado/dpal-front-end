@@ -29,8 +29,8 @@ export type DmrvInputDef = {
 const INPUT_CATALOG: Record<string, DmrvInputDef> = {
   'satellite-imagery': {
     key: 'satellite-imagery',
-    label: 'Satellite Imagery',
-    shortDescription: 'Orbital screening layers — scene selection, cloud limits, and AOI coverage rules.',
+    label: 'Satellite',
+    shortDescription: 'Pick orbital missions, sensors, and screening rules for your AOI and reporting period.',
     configType: 'satellite',
     requiredForIntegrity: true,
     blockchainAnchorRequired: true,
@@ -225,7 +225,7 @@ export const DMRV_INPUT_CATALOG = INPUT_CATALOG;
 
 const CONFIGURE_HINTS: Record<string, string> = {
   'satellite-imagery':
-    'Configure orbital evidence sources after project setup is complete.',
+    'Configure orbital evidence sources for this DMRV type.',
   lidar: 'Configure elevation, canopy, or terrain evidence.',
   'field-plots': 'Configure ground-truth verification records.',
   'biomass-data': 'Configure biomass models, carbon factors, and uncertainty.',
@@ -241,5 +241,5 @@ const CONFIGURE_HINTS: Record<string, string> = {
 };
 
 export function getInputConfigureHint(inputKey: string): string {
-  return CONFIGURE_HINTS[inputKey] ?? 'Configure this evidence source after project setup is complete.';
+  return CONFIGURE_HINTS[inputKey] ?? 'Configure this evidence source for the active DMRV type.';
 }

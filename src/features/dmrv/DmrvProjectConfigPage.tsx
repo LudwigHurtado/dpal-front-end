@@ -5,11 +5,13 @@ import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
-import { dmrvCategoryPath } from './dmrvNavigation';
+import { dmrvCategoryPath, dmrvInputConfigPath } from './dmrvNavigation';
 import {
   anchorDmrvProjectIdentity,
   buildDefaultProjectContext,
   createDmrvProjectContext,
+  defaultDmrvProjectId,
+  ensureDmrvProjectContext,
   generateDmrvProjectHash,
   getDmrvProjectContext,
   updateDmrvProjectContext,
@@ -131,6 +133,30 @@ export default function DmrvProjectConfigPage({
     navigate(dmrvCategoryPath(categorySlug, typeId, saved.projectId), { replace: true });
   }, [categorySlug, ctx, isNew, navigate, typeId]);
 
+  const handleSkipToCategory = useCallback(() => {
+    const pid = ctx?.projectId?.trim() || defaultDmrvProjectId(categorySlug, typeId);
+    ensureDmrvProjectContext({
+      categorySlug,
+      categoryTitle: category?.title ?? categorySlug,
+      typeId,
+      typeTitle: dmrvType?.title ?? typeId,
+      projectId: pid,
+    });
+    navigate(dmrvCategoryPath(categorySlug, typeId, pid));
+  }, [category?.title, categorySlug, ctx?.projectId, dmrvType?.title, navigate, typeId]);
+
+  const handleOpenSatelliteConfig = useCallback(() => {
+    const pid = ctx?.projectId?.trim() || defaultDmrvProjectId(categorySlug, typeId);
+    ensureDmrvProjectContext({
+      categorySlug,
+      categoryTitle: category?.title ?? categorySlug,
+      typeId,
+      typeTitle: dmrvType?.title ?? typeId,
+      projectId: pid,
+    });
+    navigate(dmrvInputConfigPath(pid, categorySlug, 'satellite-imagery', typeId));
+  }, [category?.title, categorySlug, ctx?.projectId, dmrvType?.title, navigate, typeId]);
+
   const handleGenerateHash = useCallback(async () => {
     if (!ctx) return;
     setBusy('hash');
@@ -212,21 +238,33 @@ export default function DmrvProjectConfigPage({
               </button>
               <h1 className="text-xl font-black text-[#1e3a5f] md:text-2xl">Project Configuration</h1>
               <p className="mt-1 text-sm text-slate-600">
-                Required first. Creates the project identity, AOI, methodology, reporting period, and blockchain root
-                record before configuring evidence sources.
+                Optional project identity, AOI, methodology, reporting period, and blockchain root record. You can configure
+                evidence sources from the DMRV selector icons without completing every field here.
               </p>
             </div>
             <span
               className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${
                 validation?.complete
                   ? 'border-emerald-200 bg-emerald-50 text-emerald-900'
-                  : 'border-amber-200 bg-amber-50 text-amber-950'
+                  : 'border-slate-200 bg-slate-50 text-slate-700'
               }`}
             >
-              {validation?.complete ? 'Complete' : ctx.status === 'draft' ? 'Draft' : 'Required'}
+              {validation?.complete ? 'Complete' : ctx.status === 'draft' ? 'Draft' : 'Optional'}
             </span>
           </div>
         </header>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          <ActionBtn
+            label="Skip — open category & configure evidence"
+            onClick={handleSkipToCategory}
+          />
+          <ActionBtn
+            label="Open satellite config"
+            primary
+            onClick={handleOpenSatelliteConfig}
+          />
+        </div>
 
         <DmrvWorkflowProgress activeStep={0} />
 
@@ -237,9 +275,10 @@ export default function DmrvProjectConfigPage({
         ) : null}
 
         {!validation?.complete ? (
-          <p className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-950">
-            Complete Project Configuration before configuring evidence sources. Missing:{' '}
-            {validation?.missing.join(', ') ?? 'required fields'}.
+          <p className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700">
+            Project profile is optional for now — you can configure satellites and other evidence inputs first. When you
+            are ready for integrity scoring or evidence packets, complete:{' '}
+            {validation?.missing.join(', ') ?? 'the fields above'}.
           </p>
         ) : null}
 

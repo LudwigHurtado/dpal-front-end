@@ -34,17 +34,17 @@ const VARIANT_META: Record<
     title: 'Project Configuration AI Helper',
     placeholder: 'Ask about project identity, AOI, methodology, or reporting period…',
     starters: [
-      'What must be complete before I configure evidence sources?',
+      'What project fields help evidence packets and integrity scoring?',
       'How should I describe the AOI for reviewers?',
       'What belongs in the reporting period section?',
     ],
   },
   'satellite-imagery': {
-    title: 'Satellite Imagery Configuration AI Helper',
-    placeholder: 'Ask about scene selection, cloud limits, or AOI coverage…',
+    title: 'Satellite Configuration AI Helper',
+    placeholder: 'Ask which mission fits your MRV type, cloud limits, or AOI coverage…',
     starters: [
-      'What cloud cover limit is reasonable for screening?',
-      'How do I align satellite dates with the reporting period?',
+      'Which satellite should I pick for forest carbon screening?',
+      'When should I use Sentinel-1 SAR instead of optical imagery?',
       'What should I document for validator review?',
     ],
   },

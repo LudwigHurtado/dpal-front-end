@@ -140,8 +140,6 @@ export function PlasticAoiMapPanel({
 }: Props): React.ReactElement {
   const mapWrapRef = useRef<HTMLDivElement | null>(null);
   const mapTileHostRef = useRef<HTMLDivElement | null>(null);
-  const [layerMenuOpen, setLayerMenuOpen] = React.useState(false);
-  const layerMenuRef = useRef<HTMLDivElement | null>(null);
 
   const savedRing = useMemo(
     (): PolygonRing | null => (savedPoints.length >= 3 ? polygonRingFromPoints(savedPoints) : null),
@@ -189,19 +187,75 @@ export function PlasticAoiMapPanel({
     onDrawingPolygonChange(false);
   }, [onDraftPointsChange, onDrawingPolygonChange, onSavedPointsChange]);
 
-  useEffect(() => {
-    function onDocClick(e: MouseEvent) {
-      const t = e.target as Node;
-      if (layerMenuOpen && layerMenuRef.current && !layerMenuRef.current.contains(t)) setLayerMenuOpen(false);
-    }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
-  }, [layerMenuOpen]);
-
   return (
     <div className="flex flex-col gap-3">
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Location &amp; scan map</h2>
+            <p className="text-[10px] text-slate-600">Layer visibility is below the map; AOI tools are under that.</p>
+          </div>
+          <button
+            type="button"
+            disabled={scanDisabled || scanBusy}
+            onClick={onRunScan}
+            className="shrink-0 rounded-lg bg-sky-800 px-4 py-1.5 text-xs font-semibold text-white hover:bg-sky-900 disabled:opacity-50"
+          >
+            {scanBusy ? 'Scanning…' : 'Run Scan'}
+          </button>
+        </div>
+        <div ref={mapWrapRef} className="relative w-full">
+          <div ref={mapTileHostRef} className="h-[min(58vh,560px)] min-h-[400px] w-full md:min-h-[480px] md:h-[min(65vh,640px)] lg:min-h-[520px] lg:h-[min(70vh,720px)]">
+            <MapContainer
+              center={[center.lat, center.lng]}
+              zoom={10}
+              scrollWheelZoom
+              zoomControl={false}
+              className="z-0 h-full w-full"
+              style={{ height: '100%', width: '100%' }}
+            >
+              {layers.satellite ? (
+                <TileLayer
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={20}
+                />
+              ) : (
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
+              )}
+              {layers.labels ? (
+                <TileLayer
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={20}
+                />
+              ) : null}
+              {savedRing ? (
+                <Polygon positions={savedRing} pathOptions={{ color: '#0369a1', weight: 3, fillOpacity: 0.15 }} />
+              ) : null}
+              {draftRing && drawingPolygon ? (
+                <Polygon
+                  positions={draftRing}
+                  pathOptions={{ color: '#0ea5e9', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }}
+                />
+              ) : null}
+              <MapPolygonDrawer
+                enabled={drawingPolygon}
+                onAddPoint={(p) => onDraftPointsChange([...draftPoints, p])}
+              />
+              <LeafletZoomScale />
+              <MapViewSync center={center} />
+              <LeafletMapSizeFixer layoutKey={layoutKey} />
+              <LeafletMapResizeObserver containerRef={mapTileHostRef} />
+            </MapContainer>
+          </div>
+          {!drawingPolygon ? <MapCrosshairOverlay /> : null}
+          <MapFullscreenButton onToggle={toggleFullscreen} />
+        </div>
+      </div>
+
+      <PlasticLayerControl layers={layers} onChange={onLayersChange} />
+
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-        <h2 className="text-sm font-semibold text-slate-900">2. Location &amp; scan area</h2>
+        <h3 className="text-xs font-semibold text-slate-900">AOI tools</h3>
         <p className="mt-1 text-[11px] text-slate-600">
           Click points on the map to create your scan boundary. Finish and save before running a scan.
         </p>
@@ -344,69 +398,8 @@ export function PlasticAoiMapPanel({
             Apply coordinates
           </button>
         </details>
-
-        <div className="mt-3">
-          <PlasticLayerControl layers={layers} onChange={onLayersChange} />
-        </div>
       </div>
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div ref={mapWrapRef} className="relative w-full min-h-[320px]">
-          <div ref={mapTileHostRef} className="h-[320px] w-full md:h-[420px]">
-            <MapContainer
-              center={[center.lat, center.lng]}
-              zoom={10}
-              scrollWheelZoom
-              zoomControl={false}
-              className="z-0 h-full w-full"
-              style={{ height: '100%', width: '100%' }}
-            >
-              {layers.satellite ? (
-                <TileLayer
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                  maxZoom={20}
-                />
-              ) : (
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
-              )}
-              {layers.labels ? (
-                <TileLayer
-                  url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                  maxZoom={20}
-                />
-              ) : null}
-              {savedRing ? (
-                <Polygon positions={savedRing} pathOptions={{ color: '#0369a1', weight: 3, fillOpacity: 0.15 }} />
-              ) : null}
-              {draftRing && drawingPolygon ? (
-                <Polygon
-                  positions={draftRing}
-                  pathOptions={{ color: '#0ea5e9', weight: 2, dashArray: '6 4', fillOpacity: 0.08 }}
-                />
-              ) : null}
-              <MapPolygonDrawer
-                enabled={drawingPolygon}
-                onAddPoint={(p) => onDraftPointsChange([...draftPoints, p])}
-              />
-              <LeafletZoomScale />
-              <MapViewSync center={center} />
-              <LeafletMapSizeFixer layoutKey={layoutKey} />
-              <LeafletMapResizeObserver containerRef={mapTileHostRef} />
-            </MapContainer>
-          </div>
-          {!drawingPolygon ? (
-            <MapCrosshairOverlay />
-          ) : null}
-          <MapFloatingControls
-            layerMenuOpen={layerMenuOpen}
-            setLayerMenuOpen={setLayerMenuOpen}
-            layerMenuRef={layerMenuRef}
-            layers={layers}
-            onLayersChange={onLayersChange}
-            toggleFullscreen={toggleFullscreen}
-          />
-        </div>
-      </div>
     </div>
   );
 }
@@ -428,61 +421,15 @@ function MapCrosshairOverlay() {
   );
 }
 
-function MapFloatingControls({
-  layerMenuOpen,
-  setLayerMenuOpen,
-  layerMenuRef,
-  layers,
-  onLayersChange,
-  toggleFullscreen,
-}: {
-  layerMenuOpen: boolean;
-  setLayerMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  layerMenuRef: React.RefObject<HTMLDivElement | null>;
-  layers: PlasticMapLayers;
-  onLayersChange: (l: PlasticMapLayers) => void;
-  toggleFullscreen: () => void;
-}) {
+function MapFullscreenButton({ onToggle }: { onToggle: () => void }): React.ReactElement {
   return (
-    <div className="pointer-events-auto absolute left-3 top-3 z-[450] flex flex-col gap-1">
-      <div className="relative" ref={layerMenuRef}>
-        <button
-          type="button"
-          onClick={() => setLayerMenuOpen((o) => !o)}
-          className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
-          title="Map layers"
-        >
-          <Layout className="h-4 w-4" />
-        </button>
-        {layerMenuOpen ? (
-          <div className="absolute left-0 top-full z-[460] mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg">
-            <label className="flex items-center justify-between gap-2 py-1">
-              <span>Satellite base</span>
-              <input
-                type="checkbox"
-                checked={layers.satellite}
-                onChange={() => onLayersChange({ ...layers, satellite: !layers.satellite })}
-              />
-            </label>
-            <label className="flex items-center justify-between gap-2 py-1">
-              <span>Labels</span>
-              <input
-                type="checkbox"
-                checked={layers.labels}
-                onChange={() => onLayersChange({ ...layers, labels: !layers.labels })}
-              />
-            </label>
-          </div>
-        ) : null}
-      </div>
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
-        title="Fullscreen map"
-      >
-        <Maximize2 className="h-4 w-4" />
-      </button>
-    </div>
+    <button
+      type="button"
+      onClick={onToggle}
+      className="pointer-events-auto absolute right-3 top-3 z-[450] rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
+      title="Fullscreen map"
+    >
+      <Maximize2 className="h-4 w-4" />
+    </button>
   );
 }

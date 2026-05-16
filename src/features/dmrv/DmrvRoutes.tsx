@@ -6,8 +6,8 @@ import DmrvInputConfigPage from './DmrvInputConfigPage';
 import DmrvProjectConfigPage from './DmrvProjectConfigPage';
 import { getCategoryBySlug } from './dmrvRegistry';
 import { resolveDmrvInputDef } from './dmrvInputRegistry';
-import { dmrvNewProjectPath } from './dmrvNavigation';
-import { isDmrvProjectContextComplete } from './services/dmrvProjectContextService';
+import { dmrvInputConfigPath } from './dmrvNavigation';
+import { defaultDmrvProjectId } from './services/dmrvProjectContextService';
 
 export type DmrvRoutesProps = {
   onReturn?: () => void;
@@ -40,15 +40,6 @@ function DmrvInputConfigGuard({
   if (!categorySlug || !getCategoryBySlug(categorySlug) || !inputKey || !projectId) {
     return <Navigate to="/dmrv" replace />;
   }
-  if (!isDmrvProjectContextComplete(projectId)) {
-    return (
-      <Navigate
-        to={dmrvNewProjectPath(categorySlug, typeId)}
-        replace
-        state={{ reason: 'project_required' }}
-      />
-    );
-  }
   resolveDmrvInputDef(inputKey);
   return <DmrvInputConfigPage onReturn={onReturn} onNavigate={onNavigate} />;
 }
@@ -58,8 +49,14 @@ function DmrvLegacyInputRedirect(): React.ReactElement {
   const { categorySlug, inputKey } = useParams<{ categorySlug: string; inputKey: string }>();
   const [searchParams] = useSearchParams();
   const typeId = searchParams.get('typeId') ?? 'forest-land-use';
-  if (!categorySlug) return <Navigate to="/dmrv" replace />;
-  return <Navigate to={dmrvNewProjectPath(categorySlug, typeId)} replace />;
+  if (!categorySlug || !inputKey) return <Navigate to="/dmrv" replace />;
+  const projectId = defaultDmrvProjectId(categorySlug, typeId);
+  return (
+    <Navigate
+      to={dmrvInputConfigPath(projectId, categorySlug, inputKey, typeId)}
+      replace
+    />
+  );
 }
 
 function DmrvProjectConfigGuard(props: DmrvRoutesProps): React.ReactElement {

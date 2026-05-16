@@ -23,6 +23,33 @@ export function generateDmrvProjectId(categorySlug: string, typeId: string): str
   return `dmrv-${categorySlug}-${typeId}-${stamp}`.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
 }
 
+/** Stable project id for a category + type when the operator has not created a named project yet. */
+export function defaultDmrvProjectId(categorySlug: string, typeId: string): string {
+  return `dmrv-${categorySlug}-${typeId}`.replace(/[^a-z0-9-]/gi, '-').toLowerCase();
+}
+
+/** Ensure a draft project context exists so evidence inputs can open without completing project setup first. */
+export function ensureDmrvProjectContext(params: {
+  categorySlug: string;
+  categoryTitle: string;
+  typeId: string;
+  typeTitle: string;
+  projectId?: string | null;
+}): DmrvProjectContext {
+  const projectId = params.projectId?.trim() || defaultDmrvProjectId(params.categorySlug, params.typeId);
+  const existing = getDmrvProjectContext(projectId);
+  if (existing) return existing;
+  return createDmrvProjectContext(
+    buildDefaultProjectContext({
+      categorySlug: params.categorySlug,
+      categoryTitle: params.categoryTitle,
+      typeId: params.typeId,
+      typeTitle: params.typeTitle,
+      projectId,
+    }),
+  );
+}
+
 export function buildDefaultProjectContext(params: {
   categorySlug: string;
   categoryTitle: string;

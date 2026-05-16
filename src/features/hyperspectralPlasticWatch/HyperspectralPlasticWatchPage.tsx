@@ -368,12 +368,8 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     cleanupMissionPins: false,
     droneValidationPoints: false,
   });
-  const [layerMenuOpen, setLayerMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const settingsRef = useRef<HTMLDivElement | null>(null);
-  const layerMenuRef = useRef<HTMLDivElement | null>(null);
-  const mapWrapRef = useRef<HTMLDivElement | null>(null);
-  const mapTileHostRef = useRef<HTMLDivElement | null>(null);
 
   const [providerStatus, setProviderStatus] = useState<HyperspectralPlasticProviderStatusResponse | null>(null);
   const [providerStatusError, setProviderStatusError] = useState<string | null>(null);
@@ -567,11 +563,10 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     function onDocClick(e: MouseEvent) {
       const t = e.target as Node;
       if (settingsOpen && settingsRef.current && !settingsRef.current.contains(t)) setSettingsOpen(false);
-      if (layerMenuOpen && layerMenuRef.current && !layerMenuRef.current.contains(t)) setLayerMenuOpen(false);
     }
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
-  }, [settingsOpen, layerMenuOpen]);
+  }, [settingsOpen]);
 
   /**
    * `#watch` deep-link handler.
@@ -1037,7 +1032,6 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         scanId: lastScan?.scanId ?? '',
         isRunning,
         watchOpen,
-        layerMenuOpen,
         settingsOpen,
         lastError: lastError ?? '',
         cacheNotice: cacheNotice ?? '',
@@ -1054,7 +1048,6 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       lastScan?.scanId,
       isRunning,
       watchOpen,
-      layerMenuOpen,
       settingsOpen,
       lastError,
       cacheNotice,
@@ -1082,7 +1075,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
   return (
     <EnvironmentalDashboardShell>
-      <div className="mx-auto max-w-[1920px] px-4 pt-3">
+      <div className="mx-auto max-w-[1920px] px-4 pt-2 pb-0">
         <CarbonPuraContextBanner moduleLabel="Hyperspectral Plastic Watch / PACE Intelligence" />
       </div>
       <header className="shrink-0 border-b border-slate-200 bg-white">
@@ -1160,24 +1153,6 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
       <EnvironmentalProviderStatusStrip items={providerStripItems} />
 
-      <div className="mx-auto max-w-[1920px] space-y-3 px-4 pb-2 pt-3">
-        <PlasticMissionHero
-          onStartMission={() => {
-            setDrawingPolygon(true);
-            setPolygonDraftPoints([]);
-            setShowPageExplainer(false);
-          }}
-          onDrawArea={() => {
-            setDrawingPolygon(true);
-            setPolygonDraftPoints([]);
-          }}
-          onLoadDemo={() => loadDemoMission()}
-          onExplainPage={() => setShowPageExplainer(true)}
-        />
-        <PlasticWatchValueStrip />
-        {showPageExplainer ? <PlasticPageExplainer /> : null}
-      </div>
-
       {providerStatus ? (
         <div className="shrink-0 border-b border-cyan-200 bg-cyan-50/90">
           <div className="mx-auto max-w-[1920px] px-4 py-2 text-[11px] leading-snug text-cyan-950">
@@ -1191,7 +1166,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         </div>
       ) : null}
 
-      <div className="mx-auto grid w-full max-w-[1920px] flex-1 grid-cols-1 gap-4 px-4 py-4 xl:grid-cols-12">
+      <div className="mx-auto grid w-full max-w-[1920px] flex-1 grid-cols-1 gap-4 px-4 py-3 xl:grid-cols-12">
         <aside className="space-y-3 xl:col-span-3">
           <PlasticMissionStepper
             steps={workflowSteps}
@@ -1220,12 +1195,6 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         </aside>
 
         <main className="min-w-0 space-y-3 xl:col-span-6">
-          <MissionAlerts
-            lastError={lastError}
-            cacheNotice={cacheNotice}
-            plasticScanPendingNotice={plasticScanPendingNotice}
-            googleMapsConfigured={googleMapsFrontendConfigured}
-          />
           <PlasticAoiMapPanel
             center={center}
             onCenterChange={setCenter}
@@ -1252,6 +1221,12 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
             scanBusy={isRunning}
             onRunScan={() => void runManualScan()}
             layoutKey={leafletLayoutKey}
+          />
+          <MissionAlerts
+            lastError={lastError}
+            cacheNotice={cacheNotice}
+            plasticScanPendingNotice={plasticScanPendingNotice}
+            googleMapsConfigured={googleMapsFrontendConfigured}
           />
           <PlasticSatelliteReadinessPanel
             missionTypeId={missionTypeId}
@@ -1280,6 +1255,24 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
           />
           <PlasticWatchChatPanel scan={lastScan} evidence={evidence} aoiLabel={label || undefined} />
         </aside>
+      </div>
+
+      <div className="mx-auto max-w-[1920px] space-y-3 px-4 pb-2 pt-2">
+        <PlasticMissionHero
+          onStartMission={() => {
+            setDrawingPolygon(true);
+            setPolygonDraftPoints([]);
+            setShowPageExplainer(false);
+          }}
+          onDrawArea={() => {
+            setDrawingPolygon(true);
+            setPolygonDraftPoints([]);
+          }}
+          onLoadDemo={() => loadDemoMission()}
+          onExplainPage={() => setShowPageExplainer(true)}
+        />
+        <PlasticWatchValueStrip />
+        {showPageExplainer ? <PlasticPageExplainer /> : null}
       </div>
 
       <EnvironmentalDisclaimerBar tone="amber">

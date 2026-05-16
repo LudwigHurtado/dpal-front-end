@@ -4,6 +4,8 @@ import { ArrowLeft, ExternalLink, Loader } from '../../../components/icons';
 import { DmrvAiConfigHelper, type DmrvAiHelperVariant } from './components/DmrvAiConfigHelper';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
+import { DmrvSatellitePicker } from './components/DmrvSatellitePicker';
+import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
 import { DmrvInputSymbol } from './components/dmrvInputSymbols';
 import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
@@ -20,7 +22,7 @@ import {
   saveDmrvInputConfig,
   testDmrvInputSource,
 } from './services/dmrvInputConfigService';
-import { getDmrvProjectContext } from './services/dmrvProjectContextService';
+import { ensureDmrvProjectContext } from './services/dmrvProjectContextService';
 import type { DmrvConfigStatus, DmrvInputConfig } from './services/dmrvInputConfigTypes';
 
 export type DmrvInputConfigPageProps = {
@@ -59,10 +61,16 @@ export default function DmrvInputConfigPage({
 
   const category = getCategoryBySlug(categorySlug);
   const dmrvType = getTypeForCategory(categorySlug, typeId);
-  const storedProject = useMemo(
-    () => (projectId ? getDmrvProjectContext(projectId) : null),
-    [projectId],
-  );
+  const storedProject = useMemo(() => {
+    if (!projectId || !category) return null;
+    return ensureDmrvProjectContext({
+      categorySlug,
+      categoryTitle: category.title,
+      typeId,
+      typeTitle: dmrvType?.title ?? typeId,
+      projectId,
+    });
+  }, [category, categorySlug, dmrvType?.title, projectId, typeId]);
   const inputDef = useMemo(
     () => getDmrvInputByKey(inputKey) ?? resolveDmrvInputDef(inputKey.replace(/-/g, ' ')),
     [inputKey],
@@ -202,15 +210,15 @@ export default function DmrvInputConfigPage({
     }
   }, [config]);
 
-  if (!category || !config || !storedProject) {
+  if (!category || !config) {
     return (
       <div>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          DMRV configuration not found. Complete{' '}
+          DMRV configuration could not be loaded.{' '}
           <Link to="/dmrv" className="font-semibold underline">
-            project setup
+            Return to DMRV hub
           </Link>{' '}
-          first, then return to configure evidence sources.
+          and open an evidence input from the selector icons.
         </p>
       </div>
     );
@@ -260,7 +268,7 @@ export default function DmrvInputConfigPage({
 
         <DmrvWorkflowProgress activeStep={2} />
 
-        <DmrvProjectContextBanner project={storedProject} />
+        {storedProject ? <DmrvProjectContextBanner project={storedProject} /> : null}
 
         <div className="mb-4 rounded-xl border border-[#1e3a5f]/20 bg-[#e8f0f7] px-4 py-3">
           <p className="text-sm font-semibold text-[#1e3a5f]">
@@ -286,7 +294,16 @@ export default function DmrvInputConfigPage({
 
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
           <main className="space-y-4">
-            <Panel title="Data Source Settings">
+            {config.configType === 'satellite' ? (
+              <Panel title="Pick satellites for this MRV use">
+                <DmrvSatellitePicker
+                  selectedRaw={config.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY]}
+                  onChange={(ids) => patchDataSource(DMRV_SATELLITE_SETTINGS_KEY, ids)}
+                />
+              </Panel>
+            ) : null}
+
+            <Panel title={config.configType === 'satellite' ? 'Scene & coverage settings' : 'Data Source Settings'}>
               <DmrvDataSourceFields
                 configType={config.configType}
                 settings={config.dataSourceSettings}

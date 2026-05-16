@@ -5,13 +5,13 @@ import type { DmrvType } from '../dmrvRegistry';
 import { getInputConfigureHint } from '../dmrvInputRegistry';
 import { DmrvInputSymbol } from './dmrvInputSymbols';
 import { DmrvTypeSymbol } from './dmrvTypeSymbols';
+
 export type DmrvInfographicRowProps = {
   rowId?: string;
   index: number;
   type: DmrvType;
   active: boolean;
   onSelect: () => void;
-  projectUnlocked: boolean;
   onOpenProjectConfig: () => void;
   onConfigureInput?: (inputDef: DmrvInputDef) => void;
 };
@@ -22,25 +22,24 @@ export function DmrvInfographicRow({
   type,
   active,
   onSelect,
-  projectUnlocked,
   onOpenProjectConfig,
   onConfigureInput,
 }: DmrvInfographicRowProps): React.ReactElement {
   const inputDefs = type.inputDefs.length > 0 ? type.inputDefs.slice(0, 5) : [];
 
+  const rowSurface = `grid w-full grid-cols-1 gap-3 rounded-xl border p-3 transition xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(140px,180px)] xl:items-center xl:gap-4 ${
+    active
+      ? 'border-slate-900 bg-white shadow-md ring-2 ring-slate-900/10'
+      : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
+  }`;
+
   return (
     <li id={rowId} className="scroll-mt-24">
-      <button
-        type="button"
-        onClick={onSelect}
-        className={`group grid w-full grid-cols-1 gap-3 rounded-xl border p-3 text-left transition xl:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(140px,180px)] xl:items-center xl:gap-4 ${
-          active
-            ? 'border-slate-900 bg-white shadow-md ring-2 ring-slate-900/10'
-            : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'
-        }`}
+      <div
+        className={rowSurface}
         style={active ? { borderLeftWidth: 4, borderLeftColor: type.segmentColor } : undefined}
       >
-        <span className="flex min-w-0 items-start gap-3">
+        <button type="button" onClick={onSelect} className="flex min-w-0 items-start gap-3 text-left">
           <DmrvTypeSymbol
             typeId={type.id}
             title={type.title}
@@ -58,9 +57,9 @@ export function DmrvInfographicRow({
             className={`mt-1 h-4 w-4 shrink-0 xl:hidden ${active ? 'text-slate-900' : 'text-slate-400'}`}
             aria-hidden
           />
-        </span>
+        </button>
 
-        <span className="border-t border-slate-100 pt-3 xl:border-t-0 xl:pt-0">
+        <div className="border-t border-slate-100 pt-3 xl:border-t-0 xl:pt-0">
           <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 xl:hidden">
             Inputs for evaluation
           </span>
@@ -70,7 +69,7 @@ export function DmrvInfographicRow({
               inputDef={{
                 key: 'project-config',
                 label: 'Project Config',
-                shortDescription: 'Project identity, AOI, methodology, and reporting period.',
+                shortDescription: 'Optional — project identity, AOI, methodology, and reporting period.',
                 configType: 'generic',
                 requiredForIntegrity: false,
                 blockchainAnchorRequired: false,
@@ -78,7 +77,6 @@ export function DmrvInfographicRow({
               }}
               iconLabel="Project Documents"
               accentColor={type.segmentColor}
-              unlocked
               onPress={onOpenProjectConfig}
             />
             {inputDefs.map((inputDef) => (
@@ -86,7 +84,6 @@ export function DmrvInfographicRow({
                 key={inputDef.key}
                 inputDef={inputDef}
                 accentColor={type.segmentColor}
-                unlocked={projectUnlocked}
                 onConfigure={onConfigureInput}
               />
             ))}
@@ -102,13 +99,12 @@ export function DmrvInfographicRow({
               }}
               iconLabel="Blockchain log"
               accentColor={type.segmentColor}
-              unlocked={projectUnlocked}
               onConfigure={onConfigureInput}
             />
           </span>
-        </span>
+        </div>
 
-        <span className="border-t border-slate-100 pt-3 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+        <div className="border-t border-slate-100 pt-3 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
           <span className="mb-1 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 xl:hidden">
             Metrics
           </span>
@@ -124,8 +120,8 @@ export function DmrvInfographicRow({
               </li>
             ))}
           </ul>
-        </span>
-      </button>
+        </div>
+      </div>
     </li>
   );
 }
@@ -134,34 +130,30 @@ function InputConfigChip({
   inputDef,
   iconLabel,
   accentColor,
-  unlocked,
   onConfigure,
   onPress,
 }: {
   inputDef: DmrvInputDef;
-  /** Override symbol resolver (e.g. project documents icon for Project Config). */
   iconLabel?: string;
   accentColor: string;
-  unlocked: boolean;
   onConfigure?: (inputDef: DmrvInputDef) => void;
   onPress?: () => void;
 }): React.ReactElement {
-  const interactive = Boolean(onPress) || (unlocked && Boolean(onConfigure));
+  const interactive = Boolean(onPress) || Boolean(onConfigure);
   const hint = onPress ? inputDef.shortDescription || inputDef.label : getInputConfigureHint(inputDef.key);
 
   return (
     <button
       type="button"
-      onClick={(e) => {
-        e.stopPropagation();
+      onClick={() => {
         if (onPress) {
           onPress();
           return;
         }
-        if (interactive) onConfigure?.(inputDef);
+        onConfigure?.(inputDef);
       }}
       disabled={!interactive}
-      title={interactive ? hint : 'Complete project configuration to unlock.'}
+      title={interactive ? hint : 'Evidence input unavailable for this row.'}
       className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50 px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
         interactive
           ? 'cursor-pointer hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'

@@ -20,18 +20,14 @@ export function PlasticMissionHero({
     'inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-xs font-semibold text-slate-800 hover:bg-slate-50';
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-sky-50/40 to-white p-5 shadow-sm sm:p-6">
+    <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-white via-sky-50/40 to-white p-4 shadow-sm sm:p-5">
       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-sky-800">DPAL Planetary Intelligence</p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">DPAL Plastic Watch</h1>
-      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-700">
+      <h1 className="mt-1 text-xl font-bold tracking-tight text-slate-900 sm:text-2xl">DPAL Plastic Watch</h1>
+      <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-slate-700">
         Satellite-backed plastic-risk intelligence for oceans, rivers, beaches, ports, and coastal cleanup evidence.
       </p>
-      <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-600">
-        Draw an area of interest, check satellite readiness, scan for candidate plastic-risk zones, and generate a
-        transparent DPAL evidence packet for validation and action.
-      </p>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button type="button" onClick={onStartMission} className={primary}>
           <Play className="h-3.5 w-3.5" />
           Start Plastic Mission
@@ -49,7 +45,7 @@ export function PlasticMissionHero({
         </button>
       </div>
 
-      <p className="mt-4 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-[11px] leading-snug text-amber-950">
+      <p className="mt-3 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-[11px] leading-snug text-amber-950">
         Satellite scans identify <strong>candidate plastic-risk zones</strong>. Field validation is recommended before
         final claims.
       </p>

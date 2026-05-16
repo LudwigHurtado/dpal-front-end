@@ -3,7 +3,7 @@ import { ChevronRight, Shield } from '../../../../components/icons';
 import type { DmrvProjectStatus } from '../services/dmrvProjectContextTypes';
 
 const STATUS_LABEL: Record<DmrvProjectStatus, string> = {
-  required: 'Required',
+  required: 'Not started',
   draft: 'Draft',
   complete: 'Complete',
   blockchain_ready: 'Blockchain Ready',
@@ -31,11 +31,11 @@ export function DmrvProjectFirstCard({
             <Shield className="h-5 w-5" aria-hidden />
           </span>
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1e3a5f]">Step 1 · Required first</p>
-            <p className="text-[11px] font-black text-slate-900">Configure Project First</p>
+            <p className="text-[10px] font-black uppercase tracking-[0.12em] text-[#1e3a5f]">Step 1 · Project context</p>
+            <p className="text-[11px] font-black text-slate-900">Project configuration (optional)</p>
             <p className="mt-0.5 text-[10px] leading-snug text-slate-600">
-              Required first. Creates project identity, AOI, methodology, reporting period, and blockchain root record
-              before configuring evidence sources.
+              Optional. Set project identity, AOI, methodology, and reporting period — or open any evidence input directly
+              from the selector icons.
             </p>
           </div>
         </div>
