@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { ShieldCheck } from '../../../../components/icons';
 import type { DmrvCategory, DmrvType } from '../dmrvRegistry';
+import { DmrvTypeSymbol } from './dmrvTypeSymbols';
 
 export type DmrvSelectorDialProps = {
   category: DmrvCategory;
@@ -62,13 +63,7 @@ export function DmrvSelectorDial({
                   active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
                 }`}
               >
-                <span
-                  className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-black text-white"
-                  style={{ backgroundColor: type.segmentColor }}
-                  aria-hidden
-                >
-                  {index + 1}
-                </span>
+                <DmrvTypeSymbol typeId={type.id} title={type.selectorLabel} size={20} ringColor={type.segmentColor} />
                 <span className="min-w-0 flex-1 leading-tight">{type.selectorLabel}</span>
               </button>
             </li>

@@ -1,7 +1,8 @@
 import React from 'react';
 import { ChevronRight } from '../../../../components/icons';
 import type { DmrvType } from '../dmrvRegistry';
-import { DmrvInputIcon } from './dmrvInputIcon';
+import { DmrvInputSymbol } from './dmrvInputSymbols';
+import { DmrvTypeSymbol } from './dmrvTypeSymbols';
 
 export type DmrvInfographicRowProps = {
   index: number;
@@ -31,13 +32,13 @@ export function DmrvInfographicRow({
         style={active ? { borderLeftWidth: 4, borderLeftColor: type.segmentColor } : undefined}
       >
         <span className="flex min-w-0 items-start gap-3">
-          <span
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-black text-white shadow-sm"
-            style={{ backgroundColor: type.segmentColor }}
-            aria-hidden
-          >
-            {index}
-          </span>
+          <DmrvTypeSymbol
+            typeId={type.id}
+            title={type.title}
+            size={44}
+            ringColor={type.segmentColor}
+            className="shrink-0"
+          />
           <span className="min-w-0 flex-1">
             <span className="block text-[11px] font-black uppercase tracking-wide text-[#1e3a5f]">
               {index}. {type.title}
@@ -54,15 +55,15 @@ export function DmrvInfographicRow({
           <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 xl:hidden">
             Inputs for evaluation
           </span>
-          <span className="flex flex-wrap justify-center gap-2 xl:justify-start">
+          <span className="flex flex-wrap justify-center gap-2.5 xl:justify-start">
             {inputs.map((label) => (
               <span
                 key={label}
-                className="flex w-[72px] flex-col items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1 py-2 text-center"
-                style={{ borderColor: `${type.segmentColor}33` }}
+                className="flex w-[76px] flex-col items-center gap-1.5 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50 px-1 pb-2 pt-1.5 text-center shadow-sm"
+                style={{ borderColor: `${type.segmentColor}40` }}
               >
-                <DmrvInputIcon label={label} className="h-5 w-5 text-slate-600" />
-                <span className="text-[8px] font-semibold leading-tight text-slate-700">{label}</span>
+                <DmrvInputSymbol label={label} size={44} accentColor={type.segmentColor} />
+                <span className="px-0.5 text-[7.5px] font-bold leading-tight text-slate-800">{label}</span>
               </span>
             ))}
           </span>

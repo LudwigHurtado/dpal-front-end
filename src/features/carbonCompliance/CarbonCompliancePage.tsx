@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { CarbonComplianceDmrvBoard } from './CarbonComplianceDmrvBoard';
 import { PlatformTopCommandBar } from '../../../components/platform/PlatformTopCommandBar';
 import { NodeConnectionCard } from '../../../components/platform/NodeConnectionCard';
 import { WorkspaceSection } from '../../../components/platform/WorkspaceSection';
@@ -400,10 +401,60 @@ export default function CarbonCompliancePage({
 
   return (
     <div className="min-h-screen bg-slate-100/90 pb-24">
-      <div className="mx-auto max-w-7xl px-4 pb-12 pt-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[min(100%,1520px)] px-4 pb-12 pt-6 sm:px-6 lg:px-8">
         <PlatformTopCommandBar onOpenMobileNav={useMobileLayout ? onOpenMobileNav : undefined} />
 
-        {/* Hero */}
+        <section className="mb-6 rounded-2xl border border-slate-200/90 bg-white px-5 py-5 shadow-sm sm:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-800">
+            Planetary Intelligence · Carbon dMRV
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+            Carbon Compliance · Adaptive DMRV
+          </h1>
+          <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+            Select a DMRV family, choose an evaluation type on the selector dial, and review inputs and metrics in the
+            table below. All nine infographic boards from the DPAL Adaptive DMRV system are available on this page.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <StatusChip tone="info" label={DEMO_BADGE} />
+            <button
+              type="button"
+              onClick={() => onNavigate('mainMenu')}
+              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 shadow-sm transition hover:border-emerald-300 hover:bg-emerald-50/50"
+            >
+              ← Platform home
+            </button>
+            <button
+              type="button"
+              onClick={() => onNavigate('dmrvSelector')}
+              className="rounded-2xl border border-[#1e3a5f]/30 bg-[#e8f0f7] px-4 py-2 text-sm font-semibold text-[#1e3a5f] shadow-sm transition hover:bg-[#dbeafe]"
+            >
+              Full DMRV hub (/dmrv)
+            </button>
+          </div>
+        </section>
+
+        <CarbonComplianceDmrvBoard initialCategorySlug="carbon-land" />
+
+        <details className="mt-10 group rounded-2xl border border-slate-200/90 bg-white shadow-md shadow-slate-900/[0.04]">
+          <summary className="cursor-pointer list-none px-5 py-4 sm:px-6 [&::-webkit-details-marker]:hidden">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-900">Carbon dMRV Command Center (operations)</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  Evidence stack, anomalies, CAD Trust connector, and validator queue.
+                </p>
+              </div>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-600 group-open:hidden">
+                Show operations panel
+              </span>
+              <span className="hidden rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-900 group-open:inline">
+                Hide operations panel
+              </span>
+            </div>
+          </summary>
+
+          <div className="space-y-8 border-t border-slate-100 px-4 pb-8 pt-6 sm:px-6">
         <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-lg shadow-slate-900/[0.06]">
           <div className="border-b border-slate-100 bg-gradient-to-br from-white via-slate-50/80 to-emerald-50/30 px-6 py-8 sm:px-8 sm:py-10">
             <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -692,6 +743,8 @@ export default function CarbonCompliancePage({
             />
           </div>
         </WorkspaceSection>
+          </div>
+        </details>
       </div>
     </div>
   );

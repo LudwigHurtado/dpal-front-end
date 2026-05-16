@@ -3,6 +3,7 @@ import { PlatformTopCommandBar } from '../../components/platform/PlatformTopComm
 import { WorkspaceCard } from '../../components/platform/WorkspaceCard';
 import { SystemOverviewCard } from '../../components/platform/SystemOverviewCard';
 import { AlertSummaryCard } from '../../components/platform/AlertSummaryCard';
+import { OCEAN_PLASTIC_INTELLIGENCE_HERO } from '../features/hyperspectralPlasticWatch/plasticWatchAssets';
 export interface PlanetaryIntelligenceHomeProps {
   onNavigate: (view: string) => void;
   onOpenLiveMap?: () => void;
@@ -29,7 +30,7 @@ export default function PlanetaryIntelligenceHome({
 
   const image = {
     carbon: '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
-    ocean: '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png',
+    ocean: OCEAN_PLASTIC_INTELLIGENCE_HERO,
     waterIntelligence: '/main-screen/water-intelligence.png',
     aquaScan: '/environmental-intelligence/aqua-scan-hero.png',
     waterOperations: '/main-screen/water-project-monitoring.png',
@@ -136,7 +137,7 @@ export default function PlanetaryIntelligenceHome({
             />
             <WorkspaceCard
               imageSrc={image.ocean}
-              imageAlt="Sustainability and environmental imagery representing ocean and marine intelligence"
+              imageAlt="Ocean and Plastic Intelligence — satellite, drone, field, and lab evidence layers"
               title="Ocean &amp; Plastic Intelligence"
               description="Advanced ocean analytics, plastic detection, PACE ocean color, and marine ecosystem health."
               capabilities={['PACE', 'Plastic AI', 'Phytoplankton', 'Coastal']}

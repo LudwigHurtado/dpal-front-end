@@ -536,12 +536,12 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             </button>
           </EnvironmentalServiceCard>
           <EnvironmentalServiceCard
-            title="Hyperspectral Plastic Watch"
+            title="Ocean &amp; Plastic Intelligence"
             subtitle="EMIT + PACE-ready workflow for possible plastic-risk anomaly review."
             badge="Preview"
             providerSummary="PACE/EMIT lanes remain preview until narrow-band products are wired; no plastic detection claims."
             accent="sky"
-            heroImageSrc="/environmental-intelligence/air-scan-hero.png"
+            heroImageSrc="/environmental-intelligence/ocean-plastic-intelligence-hero.png"
             watchHint="Evidence-support only — Watch DPAL Work opens the workflow panel without auto-running a scan."
             onOpenWorkspace={() => onNavigate('hyperspectralPlasticWatch')}
             openWorkspaceLabel="Open Plastic Watch"

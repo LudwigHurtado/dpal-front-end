@@ -53,6 +53,7 @@ import type {
 import { PlasticWatchTabbedShell } from './components/PlasticWatchTabbedShell';
 import PlasticWatchProjectInfoPanel from './components/PlasticWatchProjectInfoPanel';
 import PlasticWatchChatPanel from './components/PlasticWatchChatPanel';
+import { OceanPlasticIntelligenceHero } from './components/OceanPlasticIntelligenceHero';
 
 type Props = {
   onReturn: () => void;
@@ -1126,6 +1127,10 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       </header>
 
       <EnvironmentalProviderStatusStrip items={providerStripItems} />
+
+      <div className="mx-auto max-w-[1920px] px-4 pb-2 pt-3">
+        <OceanPlasticIntelligenceHero />
+      </div>
 
       {providerStatus ? (
         <div className="shrink-0 border-b border-cyan-200 bg-cyan-50/90">
