@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 
 type Props = {
   onOpenFacilityPage: (facilityId: string, snapshot: EpaFacilityProfile | null) => void;
+  onNavigatePath?: (path: string) => void;
 };
 
 const DEFAULT_FILTERS: EpaFilters = {
@@ -48,8 +49,9 @@ function buildEvidenceRecord(profile: EpaFacilityProfile): EpaEvidencePacketReco
   };
 }
 
-const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage }) => {
+const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage, onNavigatePath }) => {
   const navigate = useNavigate();
+  const goPath = onNavigatePath ?? ((path: string) => navigate(path));
   const [filters, setFilters] = React.useState<EpaFilters>(DEFAULT_FILTERS);
   const [rows, setRows] = React.useState<EpaFacilityProfile[]>([]);
   const [loading, setLoading] = React.useState(false);
@@ -135,7 +137,7 @@ const EpaLiveDashboard: React.FC<Props> = ({ onOpenFacilityPage }) => {
         </button>
         <button
           type="button"
-          onClick={() => navigate('/environmental-intelligence/envirofacts-map')}
+          onClick={() => goPath('/environmental-intelligence/envirofacts-map')}
           className="rounded-md px-3 py-1 font-semibold text-slate-300 hover:bg-slate-800"
         >
           Envirofacts Geo Intelligence

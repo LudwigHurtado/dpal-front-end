@@ -20,6 +20,7 @@ import {
   CARBON_PROJECT_GPS,
 } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import type { Hero } from '../types';
@@ -338,6 +339,10 @@ function ImpactAidChat({ mode, data, location, radiusKm, project }: ImpactAidCha
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loadingImpactAid]);
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   const modeLabel = mode === 'air' ? 'Air Quality Impact Helper' : mode === 'minerals' ? 'Mineral Dust Impact Helper' : 'Project Impact Helper';
 
   return (
@@ -407,15 +412,16 @@ function ImpactAidChat({ mode, data, location, radiusKm, project }: ImpactAidCha
         </div>
       )}
 
-      <div className="flex flex-col gap-2 md:flex-row">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-end">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && askImpactAid(input)}
           disabled={!aiReady || loadingImpactAid}
           placeholder="Ask: who is affected, what should we verify, or what help should we organize?"
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-emerald-500 disabled:opacity-50"
+          className="min-w-[12rem] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-emerald-500 disabled:opacity-50"
         />
+        <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={!aiReady || loadingImpactAid} />
         <button
           onClick={() => {
             const q = input;

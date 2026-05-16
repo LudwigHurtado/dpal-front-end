@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -6,6 +6,7 @@ import {
 } from './icons';
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import { buildDpalMrvPrompt } from '../services/mrvPrompt';
 
 interface GPSPoint { lat: number; lng: number }
@@ -178,6 +179,10 @@ function ConservationAidChat({ scan, location, radiusKm }: { scan: EcologyScanRe
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   return (
     <div className="rounded-xl border border-emerald-700/30 bg-emerald-950/10 p-4 space-y-3">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -234,15 +239,16 @@ function ConservationAidChat({ scan, location, radiusKm }: { scan: EcologyScanRe
         </div>
       )}
 
-      <div className="flex flex-col gap-2 md:flex-row">
+      <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-end">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && ask(input)}
           disabled={!aiReady || loading}
           placeholder="Ask about foliage decline, habitat risk, restoration, proof, or community help..."
-          className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-emerald-500 disabled:opacity-50"
+          className="min-w-[12rem] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder-slate-600 outline-none focus:border-emerald-500 disabled:opacity-50"
         />
+        <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={!aiReady || loading} />
         <button
           onClick={() => {
             const q = input;

@@ -120,8 +120,13 @@ type InvestigationItem = {
   status: 'Investigation Ready';
 };
 
-const EnvirofactsGeoDashboard: React.FC = () => {
+type EnvirofactsGeoDashboardProps = {
+  onNavigatePath?: (path: string) => void;
+};
+
+const EnvirofactsGeoDashboard: React.FC<EnvirofactsGeoDashboardProps> = ({ onNavigatePath }) => {
   const navigate = useNavigate();
+  const goPath = onNavigatePath ?? ((path: string) => navigate(path));
   const navOutcome = useNavigatorOutcomeTracking('pollution_waste');
   const [filters, setFilters] = React.useState(DEFAULT_FILTERS);
   const [rows, setRows] = React.useState<EnvirofactsRecord[]>([]);
@@ -342,7 +347,7 @@ const EnvirofactsGeoDashboard: React.FC = () => {
         <div className="mt-3 inline-flex rounded-lg border border-slate-800 bg-slate-900/90 p-1 text-xs">
           <button
             type="button"
-            onClick={() => navigate('/environmental-intelligence/epa-ghg')}
+            onClick={() => goPath('/environmental-intelligence/epa-ghg')}
             className="rounded-md px-3 py-1.5 font-semibold text-slate-400 hover:bg-slate-800 hover:text-slate-200"
           >
             EPA GHG Intelligence

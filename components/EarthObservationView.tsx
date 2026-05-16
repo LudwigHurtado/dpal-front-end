@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Circle, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import {
@@ -6,6 +6,7 @@ import {
 } from './icons';
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
 import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
@@ -329,12 +330,45 @@ function ObservationAidChat({ result, location, radiusKm }: { result: EarthObser
     } finally { setLoading(false); }
   };
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   return (
     <div className="space-y-3 rounded-xl border border-sky-700/30 bg-sky-950/10 p-4">
       <div className="flex items-start gap-3"><Bot className="h-4 w-4 text-sky-300 mt-0.5" /><p className="text-sm font-bold text-white">Earth Observation Helper</p></div>
       {error && <div className="rounded-lg border border-rose-500/40 bg-rose-900/20 px-3 py-2 text-xs text-rose-300">{error}</div>}
       {messages.length > 0 && <div className="max-h-72 overflow-y-auto space-y-2">{messages.map((m, i) => <div key={`${m.role}-${i}`} className="rounded-lg border border-slate-700 bg-slate-900/80 px-3 py-2 text-xs text-slate-200">{m.text}</div>)}<div ref={bottomRef} /></div>}
-      <div className="flex gap-2"><input value={input} onChange={(e) => setInput(e.target.value)} className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white" /><button onClick={() => { const q = input; setInput(''); void ask(q); }} disabled={!aiReady || loading || !input.trim()} className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">{loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : 'Ask'}</button></div>
+      <div className="flex flex-wrap items-end gap-2">
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && input.trim()) {
+              const q = input;
+              setInput('');
+              void ask(q);
+            }
+          }}
+          disabled={!aiReady || loading}
+          placeholder="Ask about this scan, evidence, or next steps…"
+          className="min-w-[12rem] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-500"
+        />
+        <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={!aiReady || loading} />
+        <button
+          type="button"
+          onClick={() => {
+            const q = input;
+            setInput('');
+            void ask(q);
+          }}
+          disabled={!aiReady || loading || !input.trim()}
+          className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40"
+        >
+          {loading ? <RefreshCw className="h-4 w-4 animate-spin" aria-hidden /> : 'Ask'}
+        </button>
+      </div>
     </div>
   );
 }

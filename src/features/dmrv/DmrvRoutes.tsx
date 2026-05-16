@@ -1,17 +1,19 @@
 import React from 'react';
-import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Outlet, Route, Routes, useParams, useSearchParams } from 'react-router-dom';
 import DmrvCategoryPage from './DmrvCategoryPage';
 import DmrvHubPage from './DmrvHubPage';
 import DmrvInputConfigPage from './DmrvInputConfigPage';
+import DmrvProjectConfigPage from './DmrvProjectConfigPage';
 import { getCategoryBySlug } from './dmrvRegistry';
 import { resolveDmrvInputDef } from './dmrvInputRegistry';
+import { dmrvNewProjectPath } from './dmrvNavigation';
+import { isDmrvProjectContextComplete } from './services/dmrvProjectContextService';
 
 export type DmrvRoutesProps = {
   onReturn?: () => void;
   onNavigate?: (view: string) => void;
 };
 
-/** Unknown slugs redirect to hub instead of a blank "not found" flash. */
 function DmrvCategoryGuard({
   onReturn,
   onNavigate,
@@ -27,27 +29,58 @@ function DmrvInputConfigGuard({
   onReturn,
   onNavigate,
 }: DmrvRoutesProps): React.ReactElement {
-  const { categorySlug, inputKey } = useParams<{ categorySlug: string; inputKey: string }>();
-  if (!getCategoryBySlug(categorySlug) || !inputKey) {
+  const { projectId, categorySlug, inputKey } = useParams<{
+    projectId: string;
+    categorySlug: string;
+    inputKey: string;
+  }>();
+  const [searchParams] = useSearchParams();
+  const typeId = searchParams.get('typeId') ?? 'forest-land-use';
+
+  if (!categorySlug || !getCategoryBySlug(categorySlug) || !inputKey || !projectId) {
     return <Navigate to="/dmrv" replace />;
+  }
+  if (!isDmrvProjectContextComplete(projectId)) {
+    return (
+      <Navigate
+        to={dmrvNewProjectPath(categorySlug, typeId)}
+        replace
+        state={{ reason: 'project_required' }}
+      />
+    );
   }
   resolveDmrvInputDef(inputKey);
   return <DmrvInputConfigPage onReturn={onReturn} onNavigate={onNavigate} />;
 }
 
-/**
- * Absolute `/dmrv` layout — category route must be nested so `/dmrv/carbon-land` is not
- * collapsed back to `/dmrv` by App view→URL sync (see App.tsx dmrvSelector guard).
- */
+/** Legacy `/dmrv/:category/config/:input` → require project setup first */
+function DmrvLegacyInputRedirect(): React.ReactElement {
+  const { categorySlug, inputKey } = useParams<{ categorySlug: string; inputKey: string }>();
+  const [searchParams] = useSearchParams();
+  const typeId = searchParams.get('typeId') ?? 'forest-land-use';
+  if (!categorySlug) return <Navigate to="/dmrv" replace />;
+  return <Navigate to={dmrvNewProjectPath(categorySlug, typeId)} replace />;
+}
+
+function DmrvProjectConfigGuard(props: DmrvRoutesProps): React.ReactElement {
+  return <DmrvProjectConfigPage {...props} />;
+}
+
 export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): React.ReactElement {
   return (
     <Routes>
       <Route path="/dmrv" element={<Outlet />}>
         <Route index element={<DmrvHubPage onReturn={onReturn} />} />
+        <Route path="projects/new" element={<DmrvProjectConfigGuard onReturn={onReturn} onNavigate={onNavigate} />} />
         <Route
-          path=":categorySlug/config/:inputKey"
+          path="projects/:projectId/config"
+          element={<DmrvProjectConfigGuard onReturn={onReturn} onNavigate={onNavigate} />}
+        />
+        <Route
+          path="projects/:projectId/:categorySlug/config/:inputKey"
           element={<DmrvInputConfigGuard onReturn={onReturn} onNavigate={onNavigate} />}
         />
+        <Route path=":categorySlug/config/:inputKey" element={<DmrvLegacyInputRedirect />} />
         <Route
           path=":categorySlug"
           element={<DmrvCategoryGuard onReturn={onReturn} onNavigate={onNavigate} />}

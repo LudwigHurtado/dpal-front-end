@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Package, Shield } from '../../../components/icons';
 import { DmrvConnectorPanel } from './components/DmrvConnectorPanel';
 import { DmrvInfographicBoard } from './components/DmrvInfographicBoard';
@@ -14,23 +14,26 @@ export type DmrvCategoryPageProps = {
 
 export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryPageProps): React.ReactElement {
   const { categorySlug } = useParams<{ categorySlug: string }>();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
+  const typeIdFromUrl = searchParams.get('typeId');
   const navigate = useNavigate();
   const category = getCategoryBySlug(categorySlug);
 
-  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
+  const [selectedTypeId, setSelectedTypeId] = useState<string | null>(typeIdFromUrl);
   const [activeConnectorId, setActiveConnectorId] = useState<string | null>(null);
   const [workflowStep, setWorkflowStep] = useState(2);
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [showBlockchain, setShowBlockchain] = useState(false);
 
   useEffect(() => {
-    if (category?.types[0]) {
-      setSelectedTypeId(category.types[0].id);
-      setActiveConnectorId(null);
-      setWorkflowStep(2);
-      setShowWorkflow(false);
-    }
-  }, [category?.slug]);
+    if (!category?.types.length) return;
+    const match = typeIdFromUrl && category.types.some((t) => t.id === typeIdFromUrl);
+    setSelectedTypeId(match ? typeIdFromUrl : category.types[0].id);
+    setActiveConnectorId(null);
+    setWorkflowStep(2);
+    setShowWorkflow(false);
+  }, [category?.slug, category?.types, typeIdFromUrl]);
 
   const selectedType = useMemo(
     () => category?.types.find((t) => t.id === selectedTypeId),
@@ -65,6 +68,7 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
           types={category.types}
           selectedTypeId={selectedTypeId}
           onSelectType={handleSelectType}
+          projectId={projectId}
         />
 
         {selectedType && showWorkflow ? (

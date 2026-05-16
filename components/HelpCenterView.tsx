@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { submitHelpReport, getMyTickets, uploadHelpReportAttachments, type HelpTicketRecord } from '../services/helpCenterService';
+import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import { type View } from '../App';
 import {
   ShieldCheck, Search, AlertTriangle, Clock, CheckCircle, ChevronRight,
@@ -281,6 +282,10 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
   }, []);
 
   /** Submit via AI chat input — sends to real backend */
+  const handleAiVoiceTranscript = useCallback((text: string) => {
+    setAiInput((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   const handleAiSubmit = useCallback(async () => {
     if (!aiInput.trim() || submitting) return;
     setSubmitting(true);
@@ -1165,15 +1170,16 @@ const HelpCenterView: React.FC<HelpCenterViewProps> = ({ onReturn }) => {
               </div>
 
               {/* Input bar */}
-              <div className="border-t border-gray-100 p-3 flex gap-2 items-end">
+              <div className="border-t border-gray-100 p-3 flex flex-wrap gap-2 items-end">
                 <input
                   type="text"
-                  className="flex-1 text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-purple-400 transition-colors font-medium text-gray-800"
+                  className="min-w-[12rem] flex-1 text-sm bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 outline-none focus:border-purple-400 transition-colors font-medium text-gray-800"
                   placeholder="Ask DPAL Support AI anything…"
                   value={aiInput}
                   onChange={e => setAiInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') void handleAiSubmit(); }}
                 />
+                <VoiceInputButton onTranscript={handleAiVoiceTranscript} disabled={submitting} />
                 <button onClick={() => void handleAiSubmit()} disabled={!aiInput.trim() || submitting}
                   className="w-9 h-9 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-200 text-white rounded-xl flex items-center justify-center transition-colors flex-shrink-0"
                 >

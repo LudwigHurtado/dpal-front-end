@@ -1,18 +1,26 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from '../../../../components/icons';
 import type { DmrvCategory, DmrvInputDef, DmrvType } from '../dmrvRegistry';
-import { dmrvInputConfigPath } from '../dmrvNavigation';
+import {
+  dmrvInputConfigPath,
+  dmrvNewProjectPath,
+  dmrvProjectConfigPath,
+} from '../dmrvNavigation';
 import { DMRV_FOOTER_TAGLINES } from '../dmrvInfographicTheme';
+import { getDmrvProjectContext, isDmrvProjectContextComplete } from '../services/dmrvProjectContextService';
 import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInfographicRow } from './DmrvInfographicRow';
 import { DmrvSelectorDial } from './DmrvSelectorDial';
+import { DmrvWorkflowProgress } from './DmrvWorkflowProgress';
 
 export type DmrvInfographicBoardProps = {
   category: DmrvCategory;
   types: DmrvType[];
   selectedTypeId: string | null;
   onSelectType: (typeId: string) => void;
+  /** Active project — unlocks evidence source cards when complete */
+  projectId?: string | null;
 };
 
 export function dmrvTypeRowId(typeId: string): string {
@@ -24,15 +32,35 @@ export function DmrvInfographicBoard({
   types,
   selectedTypeId,
   onSelectType,
+  projectId,
 }: DmrvInfographicBoardProps): React.ReactElement {
   const navigate = useNavigate();
   const footerTagline = DMRV_FOOTER_TAGLINES[category.slug] ?? 'environmental intelligence';
 
+  const projectCtx = useMemo(
+    () => (projectId ? getDmrvProjectContext(projectId) : null),
+    [projectId],
+  );
+  const projectUnlocked = isDmrvProjectContextComplete(projectId);
+  const workflowStep = projectUnlocked ? 1 : 0;
+
+  const handleOpenProject = useCallback(
+    (typeId: string) => {
+      if (projectId && projectCtx) {
+        navigate(dmrvProjectConfigPath(projectId));
+        return;
+      }
+      navigate(dmrvNewProjectPath(category.slug, typeId));
+    },
+    [category.slug, navigate, projectCtx, projectId],
+  );
+
   const handleConfigureInput = useCallback(
     (typeId: string, inputDef: DmrvInputDef) => {
-      navigate(dmrvInputConfigPath(category.slug, inputDef.key, typeId));
+      if (!projectId || !projectUnlocked) return;
+      navigate(dmrvInputConfigPath(projectId, category.slug, inputDef.key, typeId));
     },
-    [category.slug, navigate],
+    [category.slug, navigate, projectId, projectUnlocked],
   );
 
   const handleSelectType = useCallback(
@@ -64,7 +92,23 @@ export function DmrvInfographicBoard({
         <p className="mx-auto mt-2 max-w-3xl text-sm font-medium leading-relaxed text-slate-600">
           {category.subtitle}
         </p>
+        <p className="mx-auto mt-2 max-w-2xl text-xs text-slate-500">
+          {types.length} DMRV types · {category.types.length} evaluation pathways on this board
+        </p>
       </header>
+
+      <DmrvWorkflowProgress activeStep={workflowStep} />
+
+      {!projectUnlocked ? (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-medium text-amber-950">
+          Complete Project Configuration before configuring evidence sources.
+        </p>
+      ) : projectCtx ? (
+        <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-900">
+          Project <span className="font-bold">{projectCtx.projectName || projectCtx.projectId}</span> is active —
+          evidence source cards are unlocked.
+        </p>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
         <DmrvSelectorDial
@@ -94,6 +138,9 @@ export function DmrvInfographicBoard({
                 type={type}
                 active={type.id === selectedTypeId}
                 onSelect={() => handleSelectType(type.id)}
+                projectStatus={projectCtx?.status ?? 'required'}
+                projectUnlocked={projectUnlocked}
+                onOpenProjectConfig={() => handleOpenProject(type.id)}
                 onConfigureInput={(inputDef) => handleConfigureInput(type.id, inputDef)}
               />
             ))}

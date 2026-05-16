@@ -1,9 +1,13 @@
 import React from 'react';
-import { ChevronRight } from '../../../../components/icons';
+import { ChevronRight, Lock } from '../../../../components/icons';
 import type { DmrvInputDef } from '../dmrvRegistry';
 import type { DmrvType } from '../dmrvRegistry';
+import { getInputConfigureHint } from '../dmrvInputRegistry';
+import { DmrvProjectFirstCard } from './DmrvProjectFirstCard';
+import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInputSymbol } from './dmrvInputSymbols';
 import { DmrvTypeSymbol } from './dmrvTypeSymbols';
+import type { DmrvProjectStatus } from '../services/dmrvProjectContextTypes';
 
 export type DmrvInfographicRowProps = {
   rowId?: string;
@@ -11,6 +15,9 @@ export type DmrvInfographicRowProps = {
   type: DmrvType;
   active: boolean;
   onSelect: () => void;
+  projectStatus: DmrvProjectStatus;
+  projectUnlocked: boolean;
+  onOpenProjectConfig: () => void;
   onConfigureInput?: (inputDef: DmrvInputDef) => void;
 };
 
@@ -20,6 +27,9 @@ export function DmrvInfographicRow({
   type,
   active,
   onSelect,
+  projectStatus,
+  projectUnlocked,
+  onOpenProjectConfig,
   onConfigureInput,
 }: DmrvInfographicRowProps): React.ReactElement {
   const inputDefs = type.inputDefs.length > 0 ? type.inputDefs.slice(0, 5) : [];
@@ -60,12 +70,22 @@ export function DmrvInfographicRow({
           <span className="mb-2 block text-[9px] font-black uppercase tracking-[0.12em] text-slate-400 xl:hidden">
             Inputs for evaluation
           </span>
+
+          <DmrvProjectFirstCard status={projectStatus} onOpen={onOpenProjectConfig} />
+
+          {!projectUnlocked ? (
+            <p className="mb-2 text-center text-[9px] font-medium text-amber-800 xl:text-left">
+              Complete Project Configuration before configuring evidence sources.
+            </p>
+          ) : null}
+
           <span className="flex flex-wrap justify-center gap-2.5 xl:justify-start">
             {inputDefs.map((inputDef) => (
               <InputConfigChip
                 key={inputDef.key}
                 inputDef={inputDef}
                 accentColor={type.segmentColor}
+                unlocked={projectUnlocked}
                 onConfigure={onConfigureInput}
               />
             ))}
@@ -80,7 +100,9 @@ export function DmrvInfographicRow({
                 validationRole: 'Integrity timestamp',
               }}
               accentColor={type.segmentColor}
+              unlocked={projectUnlocked}
               onConfigure={onConfigureInput}
+              dark
             />
           </span>
         </span>
@@ -110,30 +132,54 @@ export function DmrvInfographicRow({
 function InputConfigChip({
   inputDef,
   accentColor,
+  unlocked,
   onConfigure,
+  dark,
 }: {
   inputDef: DmrvInputDef;
   accentColor: string;
+  unlocked: boolean;
   onConfigure?: (inputDef: DmrvInputDef) => void;
+  dark?: boolean;
 }): React.ReactElement {
-  const interactive = Boolean(onConfigure);
+  const interactive = unlocked && Boolean(onConfigure);
+  const hint = getInputConfigureHint(inputDef.key);
 
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        onConfigure?.(inputDef);
+        if (interactive) onConfigure?.(inputDef);
       }}
       disabled={!interactive}
-      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50 px-1 pb-2 pt-1.5 text-center shadow-sm transition hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20 ${
-        interactive ? 'cursor-pointer' : 'cursor-default'
+      title={
+        interactive
+          ? hint
+          : 'Project setup required first.'
+      }
+      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
+        dark
+          ? 'border-[#1e3a5f]/25 bg-gradient-to-b from-slate-900 to-slate-800'
+          : 'border-slate-200/90 bg-gradient-to-b from-white to-slate-50'
+      } ${
+        interactive
+          ? 'cursor-pointer hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
+          : 'cursor-not-allowed opacity-55 grayscale-[0.35]'
       }`}
-      style={{ borderColor: `${accentColor}40` }}
-      title={interactive ? `Configure ${inputDef.label}` : inputDef.label}
+      style={dark ? undefined : { borderColor: `${accentColor}40` }}
     >
-      <DmrvInputSymbol label={inputDef.label} size={44} accentColor={accentColor} />
-      <span className="px-0.5 text-[7.5px] font-bold leading-tight text-slate-800">
+      {!interactive ? (
+        <Lock className="absolute right-1 top-1 h-3 w-3 text-slate-500" aria-hidden />
+      ) : null}
+      {dark ? (
+        <DmrvBlockchainSymbol size={44} accentColor={accentColor} className="rounded-lg overflow-hidden" />
+      ) : (
+        <DmrvInputSymbol label={inputDef.label} size={44} accentColor={accentColor} />
+      )}
+      <span
+        className={`px-0.5 text-[7.5px] font-bold leading-tight ${dark ? 'text-emerald-100' : 'text-slate-800'}`}
+      >
         {inputDef.label}
       </span>
       {interactive ? (
@@ -141,7 +187,9 @@ function InputConfigChip({
           Configure
           <ChevronRight className="h-2.5 w-2.5" aria-hidden />
         </span>
-      ) : null}
+      ) : (
+        <span className="text-[6px] font-bold uppercase text-slate-500">Locked</span>
+      )}
     </button>
   );
 }

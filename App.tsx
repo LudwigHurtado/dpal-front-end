@@ -131,6 +131,7 @@ import {
   pathToView,
   parseEpaFacilityIdFromPath,
   parseMarketplaceListingIdFromPath,
+  resolvePathNavigationTarget,
   viewToPath,
   FIELD_OS_SUPER_AGENT_HASH,
 } from './utils/appRoutes';
@@ -491,6 +492,8 @@ const App: React.FC = () => {
   const [viewHistory, setViewHistory] = useState<View[]>(getInitialViewHistory);
   const viewRef = useRef<View>(getInitialCurrentView());
   const backNavRef = useRef(false);
+  /** Previous pathname for view→URL sync — detects Link/path navigation before `currentView` catches up. */
+  const prevPathnameForViewToUrlRef = useRef(location.pathname);
   /** Incremented when Help is chosen so category selection can focus Digital + Next (DPAL Help sector). */
   const [helpSectorFocusSignal, setHelpSectorFocusSignal] = useState(0);
 
@@ -526,6 +529,53 @@ const App: React.FC = () => {
    * Deep links use `/?reportId=`, `/?block=`, etc. with pathname still `/`. Do not map `/` → mainMenu in that
    * case or we fight incident room / certificate flows and cause URL flicker.
    */
+  const applyPathNavigationTarget = useCallback(
+    (pathname: string, options?: { recordBackOnPop?: boolean }) => {
+      const normalizedPath = pathname.replace(/\/$/, '') || '/';
+      const target = resolvePathNavigationTarget(normalizedPath);
+      if (!target) return false;
+
+      if (target.marketplaceDetailListingId) {
+        setMarketplaceDetailListingId(target.marketplaceDetailListingId);
+      }
+      if (target.epaFacilityDetailId) {
+        setEpaFacilityDetailId(target.epaFacilityDetailId);
+      }
+      if (target.aquaScanViewerReportId) {
+        setAquaScanViewerReportId(target.aquaScanViewerReportId);
+      }
+      if (target.aquaScanSituationRoomId) {
+        setAquaScanSituationRoomId(target.aquaScanSituationRoomId);
+      }
+      if (target.carbViewerReportId) {
+        setCarbViewerReportId(target.carbViewerReportId);
+      }
+      if (target.carbSituationRoomId) {
+        setCarbSituationRoomId(target.carbSituationRoomId);
+      }
+
+      const nextView = target.view as View;
+      setCurrentView((prev) => {
+        if (nextView === prev) return prev;
+        if (options && 'recordBackOnPop' in options) {
+          backNavRef.current = Boolean(options.recordBackOnPop);
+        }
+        return nextView;
+      });
+      return true;
+    },
+    [],
+  );
+
+  /** Path-first navigation (sidebar, workspace cards): set view before URL so view→URL does not bounce. */
+  const syncNavigateToPath = useCallback(
+    (path: string, options?: { replace?: boolean }) => {
+      applyPathNavigationTarget(path);
+      navigate(path, { replace: options?.replace ?? false });
+    },
+    [applyPathNavigationTarget, navigate],
+  );
+
   /** URL → view: useLayoutEffect so pathname and screen stay aligned before paint (avoids flash on /missions/create etc.). */
   useLayoutEffect(() => {
     const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
@@ -541,87 +591,18 @@ const App: React.FC = () => {
       }
     }
 
-    const listingIdFromPath = parseMarketplaceListingIdFromPath(normalizedPath);
-    if (listingIdFromPath) {
-      setMarketplaceDetailListingId(listingIdFromPath);
-      setCurrentView((prev) => {
-        if (prev === 'marketplaceMissionDetail') return prev;
-        /** Only skip in-app history push on browser back/forward; Link pushes should record previous view for goBack(). */
-        backNavRef.current = navigationType === 'POP';
-        return 'marketplaceMissionDetail';
-      });
+    if (
+      applyPathNavigationTarget(location.pathname, {
+        recordBackOnPop: navigationType === 'POP',
+      })
+    ) {
       return;
     }
 
-    const epaFacilityIdFromPath = parseEpaFacilityIdFromPath(normalizedPath);
-    if (epaFacilityIdFromPath) {
-      setEpaFacilityDetailId(epaFacilityIdFromPath);
-      setCurrentView((prev) => {
-        if (prev === 'epaGhgFacilityDetail') return prev;
-        backNavRef.current = navigationType === 'POP';
-        return 'epaGhgFacilityDetail';
-      });
-      return;
+    if (location.pathname !== '/' && location.pathname !== '/index.html') {
+      navigate('/', { replace: true });
     }
-
-    const aquaScanReportIdFromPath = parseAquaScanReportIdFromPath(normalizedPath);
-    if (aquaScanReportIdFromPath) {
-      setAquaScanViewerReportId(aquaScanReportIdFromPath);
-      setCurrentView((prev) => {
-        if (prev === 'aquascanReportViewer') return prev;
-        backNavRef.current = navigationType === 'POP';
-        return 'aquascanReportViewer';
-      });
-      return;
-    }
-
-    const aquaScanSituationRoomIdFromPath = parseAquaScanSituationRoomIdFromPath(normalizedPath);
-    if (aquaScanSituationRoomIdFromPath) {
-      setAquaScanSituationRoomId(aquaScanSituationRoomIdFromPath);
-      setCurrentView((prev) => {
-        if (prev === 'aquascanSituationRoom') return prev;
-        backNavRef.current = navigationType === 'POP';
-        return 'aquascanSituationRoom';
-      });
-      return;
-    }
-
-    const carbReportIdFromPath = parseCarbReportIdFromPath(normalizedPath);
-    if (carbReportIdFromPath) {
-      setCarbViewerReportId(carbReportIdFromPath);
-      setCurrentView((prev) => {
-        if (prev === 'carbReportViewer') return prev;
-        backNavRef.current = navigationType === 'POP';
-        return 'carbReportViewer';
-      });
-      return;
-    }
-
-    const carbSituationRoomIdFromPath = parseCarbSituationRoomIdFromPath(normalizedPath);
-    if (carbSituationRoomIdFromPath) {
-      setCarbSituationRoomId(carbSituationRoomIdFromPath);
-      setCurrentView((prev) => {
-        if (prev === 'carbSituationRoom') return prev;
-        backNavRef.current = navigationType === 'POP';
-        return 'carbSituationRoom';
-      });
-      return;
-    }
-
-    const v = pathToView(location.pathname);
-    if (v == null) {
-      if (location.pathname !== '/' && location.pathname !== '/index.html') {
-        navigate('/', { replace: true });
-      }
-      return;
-    }
-    setCurrentView((prev) => {
-      const next = (v === 'carbonComplianceWorkspace' ? 'dmrvSelector' : v) as View;
-      if (next === prev) return prev;
-      backNavRef.current = navigationType === 'POP';
-      return next;
-    });
-  }, [location.pathname, location.search, navigate, navigationType]);
+  }, [location.pathname, location.search, navigate, navigationType, applyPathNavigationTarget]);
 
   /**
    * currentView → URL: keep the address bar in sync after in-app navigation.
@@ -633,8 +614,20 @@ const App: React.FC = () => {
    * currentView → URL: run after paint (useEffect) so URL→view layout effect can commit `currentView` first.
    * Otherwise the same tick can read stale `currentView` (e.g. still `mainMenu` while pathname is already `/ecology`)
    * and `navigate('/')` fights the Link — category tiles flicker and some routes appear broken.
+   * When the pathname just changed (sidebar Link, `onSelectPath`), skip rewriting the URL until URL→view
+   * updates `currentView` — otherwise `/dmrv` flickers against the previous screen (e.g. Environmental Hub).
    */
   useEffect(() => {
+    try {
+    const normalizedPath = location.pathname.replace(/\/$/, '') || '/';
+    const pathnameChanged = prevPathnameForViewToUrlRef.current !== location.pathname;
+    if (pathnameChanged) {
+      const target = resolvePathNavigationTarget(normalizedPath);
+      if (!target || target.view !== currentView) {
+        return;
+      }
+    }
+
     if (currentView === 'marketplaceMissionDetail' && marketplaceDetailListingId) {
       const path = marketplaceMissionDetailPath(marketplaceDetailListingId);
       const curPath = location.pathname.replace(/\/$/, '') || '/';
@@ -738,8 +731,21 @@ const App: React.FC = () => {
     const cur = `${location.pathname}${location.search}${location.hash}`;
     if (full === cur) return;
     navigate(full, { replace: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally sync only when view changes; do not re-run on every query/hash change
-  }, [currentView, marketplaceDetailListingId, epaFacilityDetailId, aquaScanViewerReportId, aquaScanSituationRoomId, carbViewerReportId, carbSituationRoomId, navigate]);
+    } finally {
+      prevPathnameForViewToUrlRef.current = location.pathname;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pathname guard above; search/hash handled inside effect body
+  }, [
+    currentView,
+    location.pathname,
+    marketplaceDetailListingId,
+    epaFacilityDetailId,
+    aquaScanViewerReportId,
+    aquaScanSituationRoomId,
+    carbViewerReportId,
+    carbSituationRoomId,
+    navigate,
+  ]);
 
   /** After refresh, avoid impossible routes (e.g. report form without a category). */
   useLayoutEffect(() => {
@@ -2191,7 +2197,7 @@ const App: React.FC = () => {
       <DPALPlatformShell
         currentPathname={location.pathname}
         onSelectView={(v) => handleNavigate(v as View)}
-        onSelectPath={(path) => navigate(path)}
+        onSelectPath={syncNavigateToPath}
         useMobileLayout={useMobileLayout}
         hideSidebar={hidePlatformSidebar}
         mobileNavOpen={platformMobileNavOpen}
@@ -2218,6 +2224,7 @@ const App: React.FC = () => {
         {currentView === 'mainMenu' && (
           <PlatformHomePage
             onNavigate={(v) => handleNavigate(v as View)}
+            onNavigatePath={syncNavigateToPath}
             useMobileLayout={useMobileLayout}
             onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
             onOpenLiveMap={() => handleNavigate('hub', undefined, 'map')}
@@ -2270,6 +2277,7 @@ const App: React.FC = () => {
         {currentView === 'environmentalWorkspace' && (
           <EnvironmentalWorkspacePage
             onNavigate={(v) => handleNavigate(v as View)}
+            onNavigatePath={syncNavigateToPath}
             useMobileLayout={useMobileLayout}
             onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
           />
@@ -2913,6 +2921,7 @@ const App: React.FC = () => {
         {currentView === 'epaGhgLive' && (
           <EpaLiveDashboard
             onOpenFacilityPage={(facilityId, snapshot) => openEpaFacilityDetail(facilityId, snapshot)}
+            onNavigatePath={syncNavigateToPath}
           />
         )}
 
@@ -2924,7 +2933,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'envirofactsGeoIntelligence' && (
-          <EnvirofactsGeoDashboard />
+          <EnvirofactsGeoDashboard onNavigatePath={syncNavigateToPath} />
         )}
 
         {currentView === 'carbonMRV' && (
@@ -3098,28 +3107,28 @@ const App: React.FC = () => {
         {currentView === 'previewEnvironmentalCommandCenter' && (
           <EnvironmentalCommandCenter
             activePath={location.pathname}
-            onNavigatePath={(path) => navigate(path)}
+            onNavigatePath={syncNavigateToPath}
           />
         )}
 
         {currentView === 'previewEnvironmentalIntelligenceHub' && (
           <EnvironmentalIntelligenceHub
             activePath={location.pathname}
-            onNavigatePath={(path) => navigate(path)}
+            onNavigatePath={syncNavigateToPath}
           />
         )}
 
         {currentView === 'previewFuelStorageAudit' && (
           <FuelStorageAuditPage
             activePath={location.pathname}
-            onNavigatePath={(path) => navigate(path)}
+            onNavigatePath={syncNavigateToPath}
           />
         )}
 
         {currentView === 'previewEvidencePacket' && (
           <EvidencePacketViewer
             activePath={location.pathname}
-            onNavigatePath={(path) => navigate(path)}
+            onNavigatePath={syncNavigateToPath}
           />
         )}
 
@@ -3127,7 +3136,7 @@ const App: React.FC = () => {
           <GenericEnvironmentalModule
             activePath={location.pathname}
             moduleType={previewModuleType}
-            onNavigatePath={(path) => navigate(path)}
+            onNavigatePath={syncNavigateToPath}
           />
         )}
       </main>

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DmrvBlockchainBadge } from '../dmrv/components/DmrvBlockchainSymbol';
 import { DmrvInfographicBoard } from '../dmrv/components/DmrvInfographicBoard';
 import { DMRV_CATEGORIES, getCategoryBySlug, type DmrvCategory } from '../dmrv/dmrvRegistry';
@@ -14,6 +15,8 @@ export type CarbonComplianceDmrvBoardProps = {
 export function CarbonComplianceDmrvBoard({
   initialCategorySlug = 'carbon-land',
 }: CarbonComplianceDmrvBoardProps): React.ReactElement {
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
   const [activeSlug, setActiveSlug] = useState(initialCategorySlug);
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
 
@@ -43,6 +46,7 @@ export function CarbonComplianceDmrvBoard({
           types={category.types}
           selectedTypeId={selectedTypeId}
           onSelectType={handleSelectType}
+          projectId={projectId}
         />
       ) : (
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">

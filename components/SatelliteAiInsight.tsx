@@ -9,9 +9,10 @@
  *   <SatelliteAiInsight domain="water" data={satelliteData} project={projectCtx} />
  */
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Bot, Send, RefreshCw, ChevronDown, ChevronUp, Sparkles } from "./icons";
 import { runGeminiPrompt, isAiEnabled } from "../services/geminiService";
+import { appendVoiceTranscript, VoiceInputButton } from "../src/shared/components/VoiceInputButton";
 import { buildDpalMrvPrompt, type DpalMrvMode } from "../services/mrvPrompt";
 
 export type SatelliteDomain = "water" | "carbon" | "offset";
@@ -161,6 +162,10 @@ export function SatelliteAiInsight({
     await runAnalysis(q);
   };
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   // Auto-analyze when data arrives (if opted-in)
   useEffect(() => {
     if (autoAnalyze && !didAutoRun.current && Object.keys(data).length > 0) {
@@ -306,15 +311,16 @@ export function SatelliteAiInsight({
 
           {/* Follow-up input */}
           {messages.length > 0 && (
-            <div className="flex items-center gap-2 mt-1">
+            <div className="mt-1 flex flex-wrap items-end gap-2">
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleFollowUp()}
                 placeholder="Ask a follow-up question…"
-                className="flex-1 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-slate-500 transition"
+                className="min-w-[12rem] flex-1 bg-slate-800/60 border border-slate-700/50 rounded-lg px-3 py-1.5 text-xs text-slate-200 placeholder-slate-600 outline-none focus:border-slate-500 transition"
               />
+              <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={loading} />
               <button
                 onClick={handleFollowUp}
                 disabled={!input.trim() || loading}

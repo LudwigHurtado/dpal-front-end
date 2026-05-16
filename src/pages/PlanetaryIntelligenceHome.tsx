@@ -7,6 +7,8 @@ import { AlertSummaryCard } from '../../components/platform/AlertSummaryCard';
 import { OCEAN_PLASTIC_INTELLIGENCE_HERO } from '../features/hyperspectralPlasticWatch/plasticWatchAssets';
 export interface PlanetaryIntelligenceHomeProps {
   onNavigate: (view: string) => void;
+  /** Path-first navigation — keeps App view state aligned (avoids URL/view flicker). */
+  onNavigatePath?: (path: string) => void;
   onOpenLiveMap?: () => void;
   onOpenCarbonPuraDemo?: () => void;
   onOpenMobileNav?: () => void;
@@ -18,12 +20,14 @@ export interface PlanetaryIntelligenceHomeProps {
  */
 export default function PlanetaryIntelligenceHome({
   onNavigate,
+  onNavigatePath,
   onOpenLiveMap,
   onOpenCarbonPuraDemo,
   onOpenMobileNav,
   useMobileLayout,
 }: PlanetaryIntelligenceHomeProps): React.ReactElement {
   const navigate = useNavigate();
+  const goPath = onNavigatePath ?? ((path: string) => navigate(path));
   const workspacesRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToWorkspaces = () => {
@@ -135,7 +139,7 @@ export default function PlanetaryIntelligenceHome({
               capabilities={['MRV', 'VIUs', 'Registry', 'Nodes']}
               statusLabel="Active"
               metrics={[{ label: 'Projects', value: '54' }, { label: 'Packets', value: '1,245' }]}
-              onClick={() => navigate('/dmrv/carbon-land')}
+              onClick={() => goPath('/dmrv/carbon-land')}
             />
             <WorkspaceCard
               imageSrc={image.ocean}

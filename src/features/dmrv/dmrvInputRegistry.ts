@@ -222,3 +222,24 @@ export function getInputDefsForLabels(labels: string[]): DmrvInputDef[] {
 }
 
 export const DMRV_INPUT_CATALOG = INPUT_CATALOG;
+
+const CONFIGURE_HINTS: Record<string, string> = {
+  'satellite-imagery':
+    'Configure orbital evidence sources after project setup is complete.',
+  lidar: 'Configure elevation, canopy, or terrain evidence.',
+  'field-plots': 'Configure ground-truth verification records.',
+  'biomass-data': 'Configure biomass models, carbon factors, and uncertainty.',
+  'activity-data': 'Configure activity records and emission/removal factors.',
+  'soil-samples': 'Configure lab/soil evidence and chain of custody.',
+  'iot-sensors': 'Configure sensor feeds, calibration, and API endpoints.',
+  'management-data': 'Configure practice and management records.',
+  'weather-data': 'Configure meteorological provider and station data.',
+  'field-surveys': 'Configure structured field survey evidence.',
+  'fire-data': 'Configure fire screening and burn-scar sources.',
+  'grazing-data': 'Configure grazing records and stocking rates.',
+  'blockchain-log': 'Anchor project and evidence configuration to the DPAL ledger.',
+};
+
+export function getInputConfigureHint(inputKey: string): string {
+  return CONFIGURE_HINTS[inputKey] ?? 'Configure this evidence source after project setup is complete.';
+}

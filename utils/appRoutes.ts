@@ -90,6 +90,56 @@ export function parseCarbSituationRoomIdFromPath(pathname: string): string | nul
   return m ? decodeURIComponent(m[1]) : null;
 }
 
+/** Resolved App view + optional detail ids when navigating by pathname (sidebar, deep links). */
+export type PathNavigationTarget = {
+  view: string;
+  marketplaceDetailListingId?: string;
+  epaFacilityDetailId?: string;
+  aquaScanViewerReportId?: string;
+  aquaScanSituationRoomId?: string;
+  carbViewerReportId?: string;
+  carbSituationRoomId?: string;
+};
+
+/** Map a pathname to the App shell view (and detail ids) — shared by URL→view and path-first navigation. */
+export function resolvePathNavigationTarget(pathname: string): PathNavigationTarget | null {
+  const normalized = pathname.replace(/\/$/, '') || '/';
+
+  const listingIdFromPath = parseMarketplaceListingIdFromPath(normalized);
+  if (listingIdFromPath) {
+    return { view: 'marketplaceMissionDetail', marketplaceDetailListingId: listingIdFromPath };
+  }
+
+  const epaFacilityIdFromPath = parseEpaFacilityIdFromPath(normalized);
+  if (epaFacilityIdFromPath) {
+    return { view: 'epaGhgFacilityDetail', epaFacilityDetailId: epaFacilityIdFromPath };
+  }
+
+  const aquaScanReportIdFromPath = parseAquaScanReportIdFromPath(normalized);
+  if (aquaScanReportIdFromPath) {
+    return { view: 'aquascanReportViewer', aquaScanViewerReportId: aquaScanReportIdFromPath };
+  }
+
+  const aquaScanSituationRoomIdFromPath = parseAquaScanSituationRoomIdFromPath(normalized);
+  if (aquaScanSituationRoomIdFromPath) {
+    return { view: 'aquascanSituationRoom', aquaScanSituationRoomId: aquaScanSituationRoomIdFromPath };
+  }
+
+  const carbReportIdFromPath = parseCarbReportIdFromPath(normalized);
+  if (carbReportIdFromPath) {
+    return { view: 'carbReportViewer', carbViewerReportId: carbReportIdFromPath };
+  }
+
+  const carbSituationRoomIdFromPath = parseCarbSituationRoomIdFromPath(normalized);
+  if (carbSituationRoomIdFromPath) {
+    return { view: 'carbSituationRoom', carbSituationRoomId: carbSituationRoomIdFromPath };
+  }
+
+  const v = pathToView(normalized);
+  if (!v) return null;
+  return { view: v === 'carbonComplianceWorkspace' ? 'dmrvSelector' : v };
+}
+
 /** view id → pathname (single segment or nested, no trailing slash except root). */
 export const VIEW_PATHS: Record<string, string> = {
   mainMenu: '/',

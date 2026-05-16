@@ -1,8 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import AquaScanVisualSnapshotAnalyzer from './AquaScanVisualSnapshotAnalyzer';
 import type { AquaScanProject } from '../water/aquaScanMockData';
 import type { NearbyEntity } from '../../services/entityLookupService';
 import type { WaterAnalysisResponse } from '../../services/waterAnalysisService';
+import { appendVoiceTranscript, VoiceInputButton } from '../../src/shared/components/VoiceInputButton';
 import type {
   CopernicusCollection,
   CopernicusIndexType,
@@ -529,6 +530,10 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
     setCustomAnswer(answerCustomAquaScanQuestion(nextQuestion, intelligence));
   };
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setCustomQuestion((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   if (props.variant === 'compact') {
     return (
       <div className="mt-2 space-y-2">
@@ -637,7 +642,7 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
             </div>
           </div>
           <form
-            className="mt-3 flex flex-col gap-2 sm:flex-row"
+            className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end"
             onSubmit={(event) => {
               event.preventDefault();
               askCustomQuestion(customQuestion);
@@ -648,8 +653,9 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
               value={customQuestion}
               onChange={(event) => setCustomQuestion(event.target.value)}
               placeholder="Ask about this report, satellite result, confidence, evidence, or DPAL objective..."
-              className="min-h-10 flex-1 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
+              className="min-h-10 min-w-[12rem] flex-1 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-xs text-slate-100 outline-none transition placeholder:text-slate-500 focus:border-cyan-400"
             />
+            <VoiceInputButton onTranscript={handleVoiceTranscript} />
             <button
               type="submit"
               className="min-h-10 rounded-lg border border-cyan-400/40 bg-cyan-500/15 px-4 py-2 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/20"

@@ -2,10 +2,13 @@ import { apiUrl, API_ROUTES } from '../../../../constants';
 import { createEnvironmentalEvidencePacket } from '../../../services/environmentalEvidencePacketsApi';
 import type { DmrvInputConfigType } from '../dmrvInputRegistry';
 import { getDmrvInputByKey, resolveDmrvInputDef } from '../dmrvInputRegistry';
+import { formatReportingPeriod, getDmrvProjectContext } from './dmrvProjectContextService';
+import type { DmrvProjectContext as DmrvStoredProjectContext } from './dmrvProjectContextTypes';
 import type {
   DmrvEvidencePacketResult,
   DmrvInputConfig,
   DmrvInputConfigTestResult,
+  DmrvProjectContext,
 } from './dmrvInputConfigTypes';
 
 const STORAGE_KEY = 'dpal_dmrv_input_configs_v1';
@@ -29,18 +32,49 @@ function writeAll(map: Record<string, DmrvInputConfig>): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
 
+/** @deprecated Use explicit projectId from project configuration wizard */
 export function defaultProjectId(categorySlug: string, typeId: string): string {
   return `dmrv-${categorySlug}-${typeId}`;
 }
 
+export function projectContextSnapshot(stored?: DmrvStoredProjectContext | null): DmrvProjectContext {
+  if (!stored) {
+    return {
+      projectName: '',
+      projectId: '',
+      locationAoiId: '',
+      methodology: '',
+      reportingPeriod: '',
+      responsibleOrganization: '',
+      validatorReviewer: '',
+    };
+  }
+  const locationLabel =
+    stored.location.aoiId.trim() ||
+    (stored.location.latitude && stored.location.longitude
+      ? `${stored.location.latitude}, ${stored.location.longitude}`
+      : '');
+  return {
+    projectName: stored.projectName,
+    projectId: stored.projectId,
+    locationAoiId: locationLabel,
+    methodology: stored.methodology.name,
+    reportingPeriod: formatReportingPeriod(stored),
+    responsibleOrganization: stored.organization,
+    validatorReviewer: stored.reviewer.name,
+  };
+}
+
 export function buildDefaultConfig(params: {
+  projectId: string;
   categorySlug: string;
   typeId: string;
   inputKey: string;
   inputLabel?: string;
 }): DmrvInputConfig {
   const def = getDmrvInputByKey(params.inputKey) ?? resolveDmrvInputDef(params.inputLabel ?? params.inputKey);
-  const projectId = defaultProjectId(params.categorySlug, params.typeId);
+  const stored = getDmrvProjectContext(params.projectId);
+  const projectId = params.projectId;
   return {
     projectId,
     categorySlug: params.categorySlug,
@@ -49,15 +83,7 @@ export function buildDefaultConfig(params: {
     inputLabel: params.inputLabel ?? def.label,
     configType: def.configType,
     status: 'not_configured',
-    projectContext: {
-      projectName: '',
-      projectId,
-      locationAoiId: '',
-      methodology: '',
-      reportingPeriod: '',
-      responsibleOrganization: '',
-      validatorReviewer: '',
-    },
+    projectContext: projectContextSnapshot(stored),
     dataSourceSettings: defaultDataSourceSettings(def.configType),
     validationRules: {
       requireCoordinates: def.configType === 'satellite' || def.configType === 'field-plots',
@@ -216,13 +242,8 @@ function deriveStatus(config: DmrvInputConfig): DmrvInputConfig['status'] {
 
 export function computeCompletenessScore(config: DmrvInputConfig): number {
   let points = 0;
-  const ctx = config.projectContext;
-  if (ctx.projectName.trim()) points += 8;
-  if (ctx.projectId.trim()) points += 4;
-  if (ctx.locationAoiId.trim()) points += 8;
-  if (ctx.methodology.trim()) points += 6;
-  if (ctx.reportingPeriod.trim()) points += 6;
-  if (ctx.responsibleOrganization.trim()) points += 4;
+  const stored = getDmrvProjectContext(config.projectId);
+  if (stored && stored.projectName.trim()) points += 10;
 
   const ds = config.dataSourceSettings;
   const filledDs = Object.values(ds).filter((v) => v !== '' && v !== undefined && v !== false).length;

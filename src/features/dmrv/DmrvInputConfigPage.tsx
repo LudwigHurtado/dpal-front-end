@@ -1,21 +1,26 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Loader } from '../../../components/icons';
+import { DmrvAiConfigHelper, type DmrvAiHelperVariant } from './components/DmrvAiConfigHelper';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
 import { DmrvInputSymbol } from './components/dmrvInputSymbols';
+import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner';
+import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
 import { getDmrvInputByKey, resolveDmrvInputDef } from './dmrvInputRegistry';
+import { dmrvCategoryPath } from './dmrvNavigation';
 import { anchorDmrvInputConfig } from './services/dmrvBlockchainAnchor';
 import {
   buildDefaultConfig,
   computeCompletenessScore,
-  defaultProjectId,
   generateDmrvEvidencePacket,
   getDmrvInputConfig,
+  projectContextSnapshot,
   saveDmrvInputConfig,
   testDmrvInputSource,
 } from './services/dmrvInputConfigService';
+import { getDmrvProjectContext } from './services/dmrvProjectContextService';
 import type { DmrvConfigStatus, DmrvInputConfig } from './services/dmrvInputConfigTypes';
 
 export type DmrvInputConfigPageProps = {
@@ -43,13 +48,21 @@ export default function DmrvInputConfigPage({
   onReturn,
   onNavigate,
 }: DmrvInputConfigPageProps): React.ReactElement {
-  const { categorySlug = '', inputKey = '' } = useParams<{ categorySlug: string; inputKey: string }>();
+  const {
+    projectId = '',
+    categorySlug = '',
+    inputKey = '',
+  } = useParams<{ projectId: string; categorySlug: string; inputKey: string }>();
   const [searchParams] = useSearchParams();
   const typeId = searchParams.get('typeId') ?? 'forest-land-use';
   const navigate = useNavigate();
 
   const category = getCategoryBySlug(categorySlug);
   const dmrvType = getTypeForCategory(categorySlug, typeId);
+  const storedProject = useMemo(
+    () => (projectId ? getDmrvProjectContext(projectId) : null),
+    [projectId],
+  );
   const inputDef = useMemo(
     () => getDmrvInputByKey(inputKey) ?? resolveDmrvInputDef(inputKey.replace(/-/g, ' ')),
     [inputKey],
@@ -60,30 +73,46 @@ export default function DmrvInputConfigPage({
   const [notice, setNotice] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!categorySlug || !inputKey) return;
-    const projectId = defaultProjectId(categorySlug, typeId);
+    if (!categorySlug || !inputKey || !projectId) return;
     const existing = getDmrvInputConfig(projectId, categorySlug, inputKey);
-    setConfig(
+    const base =
       existing ??
-        buildDefaultConfig({
-          categorySlug,
-          typeId,
-          inputKey,
-          inputLabel: inputDef.label,
-        }),
-    );
-  }, [categorySlug, inputKey, typeId, inputDef.label]);
+      buildDefaultConfig({
+        projectId,
+        categorySlug,
+        typeId,
+        inputKey,
+        inputLabel: inputDef.label,
+      });
+    const snapshot = projectContextSnapshot(storedProject);
+    setConfig({ ...base, projectContext: snapshot });
+  }, [categorySlug, inputKey, projectId, typeId, inputDef.label, storedProject]);
 
   const integrityScore = config ? computeCompletenessScore(config) : 0;
 
-  const patchProject = useCallback(
-    (key: keyof DmrvInputConfig['projectContext'], value: string) => {
-      setConfig((prev) =>
-        prev ? { ...prev, projectContext: { ...prev.projectContext, [key]: value } } : prev,
-      );
-    },
-    [],
-  );
+  const aiHelperVariant: DmrvAiHelperVariant =
+    inputKey === 'satellite-imagery' ? 'satellite-imagery' : 'input';
+
+  const aiContextSummary = useMemo(() => {
+    if (!config) return '';
+    return JSON.stringify(
+      {
+        category: categorySlug,
+        typeId,
+        inputKey,
+        inputLabel: inputDef.label,
+        configType: config.configType,
+        status: config.status,
+        integrityScore,
+        dataSourceSettings: config.dataSourceSettings,
+        validationRules: config.validationRules,
+        evidencePacket: config.evidencePacket,
+        projectContext: config.projectContext,
+      },
+      null,
+      2,
+    );
+  }, [categorySlug, config, inputDef.label, inputKey, integrityScore, typeId]);
 
   const patchDataSource = useCallback((key: string, value: string | boolean) => {
     setConfig((prev) =>
@@ -173,21 +202,22 @@ export default function DmrvInputConfigPage({
     }
   }, [config]);
 
-  if (!category || !config) {
+  if (!category || !config || !storedProject) {
     return (
       <div>
         <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-          DMRV configuration not found.{' '}
+          DMRV configuration not found. Complete{' '}
           <Link to="/dmrv" className="font-semibold underline">
-            Return to DMRV hub
-          </Link>
+            project setup
+          </Link>{' '}
+          first, then return to configure evidence sources.
         </p>
       </div>
     );
   }
 
   const typeTitle = dmrvType?.title ?? typeId;
-  const backPath = `/dmrv/${categorySlug}${typeId ? `?highlight=${typeId}` : ''}`;
+  const backPath = dmrvCategoryPath(categorySlug, typeId, projectId);
 
   return (
     <div className="min-h-full bg-white text-slate-900">
@@ -228,6 +258,10 @@ export default function DmrvInputConfigPage({
           </span>
         </header>
 
+        <DmrvWorkflowProgress activeStep={2} />
+
+        <DmrvProjectContextBanner project={storedProject} />
+
         <div className="mb-4 rounded-xl border border-[#1e3a5f]/20 bg-[#e8f0f7] px-4 py-3">
           <p className="text-sm font-semibold text-[#1e3a5f]">
             Configuration Integrity Score: {integrityScore}%
@@ -239,7 +273,8 @@ export default function DmrvInputConfigPage({
             />
           </div>
           <p className="mt-2 text-xs text-slate-600">
-            Tracks required fields, evidence packet readiness, blockchain link, and validator review settings.
+            Tracks data source settings, validation rules, evidence packet readiness, and blockchain link for this
+            input — project identity is managed in project configuration.
           </p>
         </div>
 
@@ -249,22 +284,7 @@ export default function DmrvInputConfigPage({
           </p>
         ) : null}
 
-        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(260px,300px)_minmax(0,1fr)_minmax(260px,300px)]">
-          <aside className="space-y-4">
-            <Panel title="Project Configuration">
-              <ProjectFields config={config} onPatch={patchProject} />
-            </Panel>
-            <div className="flex flex-col gap-2">
-              <ActionButton label="Save Configuration" primary onClick={handleSave} disabled={!!busy} />
-              <ActionButton
-                label={busy === 'test' ? 'Testing…' : 'Test Data Source'}
-                onClick={() => void handleTest()}
-                disabled={!!busy}
-                icon={busy === 'test' ? <Loader className="h-4 w-4 animate-spin" /> : undefined}
-              />
-            </div>
-          </aside>
-
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
           <main className="space-y-4">
             <Panel title="Data Source Settings">
               <DmrvDataSourceFields
@@ -282,10 +302,16 @@ export default function DmrvInputConfigPage({
               <EvidenceFields config={config} onPatch={patchEvidence} />
             </Panel>
 
-            <div>
+            <div className="flex flex-wrap gap-2">
+              <ActionButton label="Save Configuration" primary onClick={handleSave} disabled={!!busy} />
+              <ActionButton
+                label={busy === 'test' ? 'Testing…' : 'Test Data Source'}
+                onClick={() => void handleTest()}
+                disabled={!!busy}
+                icon={busy === 'test' ? <Loader className="h-4 w-4 animate-spin" /> : undefined}
+              />
               <ActionButton
                 label={busy === 'evidence' ? 'Generating…' : 'Generate Evidence Packet'}
-                primary
                 onClick={() => void handleEvidence()}
                 disabled={!!busy}
               />
@@ -293,6 +319,7 @@ export default function DmrvInputConfigPage({
           </main>
 
           <aside className="space-y-4">
+            <DmrvAiConfigHelper variant={aiHelperVariant} contextSummary={aiContextSummary} disabled={!!busy} />
             <Panel title="Evidence + Blockchain Status">
               <BlockchainPanel config={config} />
             </Panel>

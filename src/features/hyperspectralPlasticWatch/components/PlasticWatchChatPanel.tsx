@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, RefreshCw, Send } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
 import type { HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } from '../types';
 import { briefToPromptContext, buildPlasticWatchReportBrief } from '../utils/plasticWatchReportBrief';
 
@@ -106,6 +107,10 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+  }, []);
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -241,7 +246,7 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
               <p className="mt-2 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">{error}</p>
             ) : null}
 
-            <div className="mt-3 flex shrink-0 gap-2 border-t border-slate-100 pt-3">
+            <div className="mt-3 flex shrink-0 flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
               <input
                 type="text"
                 value={input}
@@ -255,8 +260,9 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
                     ? 'Ask about risk signal, PACE granules, validation, or next steps…'
                     : 'Ask how to run a scan or interpret the workspace…'
                 }
-                className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300 disabled:opacity-60"
+                className="min-w-[12rem] flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-violet-400 focus:outline-none focus:ring-1 focus:ring-violet-300 disabled:opacity-60"
               />
+              <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={loading} />
               <button
                 type="button"
                 disabled={!input.trim() || loading}

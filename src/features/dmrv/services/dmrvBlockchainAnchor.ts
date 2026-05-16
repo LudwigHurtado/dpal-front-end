@@ -1,4 +1,5 @@
 import { apiUrl, API_ROUTES, CARBON_PROJECT_LEDGER } from '../../../../constants';
+import { getDmrvProjectContext } from './dmrvProjectContextService';
 import type { DmrvInputConfig } from './dmrvInputConfigTypes';
 
 export type AnchorDmrvInputConfigParams = {
@@ -34,16 +35,30 @@ export async function anchorDmrvInputConfig(
   params: AnchorDmrvInputConfigParams,
 ): Promise<AnchorDmrvInputConfigResult> {
   const { projectId, categorySlug, inputKey, config, evidencePacketId } = params;
+  const projectContext = getDmrvProjectContext(projectId);
   const payload = {
     projectId,
     categorySlug,
     typeId: config.typeId,
     inputKey,
     evidencePacketId: evidencePacketId ?? config.evidencePacketId,
+    projectIdentity: projectContext
+      ? {
+          projectName: projectContext.projectName,
+          organization: projectContext.organization,
+          location: projectContext.location,
+          reporting: projectContext.reporting,
+          methodology: projectContext.methodology,
+          reviewer: projectContext.reviewer,
+          configHash: projectContext.blockchain.configHash,
+        }
+      : config.projectContext,
     configDigest: {
-      projectContext: config.projectContext,
+      inputLabel: config.inputLabel,
+      configType: config.configType,
       dataSourceSettings: config.dataSourceSettings,
       validationRules: config.validationRules,
+      evidencePacket: config.evidencePacket,
       updatedAt: config.updatedAt,
     },
   };

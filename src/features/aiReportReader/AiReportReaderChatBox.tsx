@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { appendVoiceTranscript, VoiceInputButton } from '../../shared/components/VoiceInputButton';
 import { buildAiReportReaderSnapshot } from './buildAiReportReaderSnapshot';
 import {
   postReportReaderChat,
@@ -60,6 +61,10 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
     () => mergeContext(props),
     [props.reportSnapshot, props.evidencePacket, props.reportId, props.roomId, props.runId, props.title, props.pageType],
   );
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+  }, []);
 
   const send = useCallback(
     async (question: string, mode: ReportReaderChatMode = 'report_reader') => {
@@ -229,7 +234,8 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
               placeholder="e.g. Which providers were used?"
             />
           </label>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={busy} />
             <button
               type="button"
               disabled={busy || !input.trim()}

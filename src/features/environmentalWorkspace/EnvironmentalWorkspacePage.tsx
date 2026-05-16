@@ -7,16 +7,19 @@ import { PlatformCommandBar } from '../../../components/platform/PlatformCommand
 
 export interface EnvironmentalWorkspacePageProps {
   onNavigate: (view: string) => void;
+  onNavigatePath?: (path: string) => void;
   onOpenMobileNav?: () => void;
   useMobileLayout?: boolean;
 }
 
 export default function EnvironmentalWorkspacePage({
   onNavigate,
+  onNavigatePath,
   onOpenMobileNav,
   useMobileLayout,
 }: EnvironmentalWorkspacePageProps): React.ReactElement {
   const navigate = useNavigate();
+  const goPath = onNavigatePath ?? ((path: string) => navigate(path));
   return (
     <div className="mx-auto max-w-6xl px-1 pb-16 sm:px-2">
       <PlatformCommandBar
@@ -107,7 +110,7 @@ export default function EnvironmentalWorkspacePage({
               title="Carbon Compliance Shell"
               description="CAD Trust readiness, registry connectors, VIU posture."
               badge="New"
-              onClick={() => navigate('/dmrv/carbon-land')}
+              onClick={() => goPath('/dmrv/carbon-land')}
             />
           </div>
         </WorkspaceSection>

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import L from 'leaflet';
 import QRCode from 'qrcode';
 import { CircleMarker, MapContainer, Marker, Polygon, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
@@ -6,6 +6,7 @@ import 'leaflet/dist/leaflet.css';
 import { CARBON_PROJECT_QR_REGISTRY_DETAIL } from '../constants';
 import { saveCarbonQrRegistryEntry, updateCarbonQrRegistryFavorite } from '../services/carbonQrRegistryService';
 import { AiError, isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import {
   AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Cpu, Database, FileText, Globe, Map, MapPin,
   Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Sparkles, Star, Target, Upload,
@@ -682,6 +683,10 @@ const InstructorHelper: React.FC<{
   const [followLatest, setFollowLatest] = useState(true);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
 
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setQuestion((current) => appendVoiceTranscript(current, text));
+  }, []);
+
   const buildFallbackResponse = (prompt: string) => {
     const normalized = prompt.toLowerCase();
     let response = `${context} This section is part of the same AOI-linked report, so changes here affect the calculation, the disclosure, and the registry package.`;
@@ -848,13 +853,14 @@ Instructions:
         ))}
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto]">
+      <div className="mt-3 flex flex-wrap items-end gap-2">
         <input
           value={question}
           onChange={(event) => setQuestion(event.target.value)}
           placeholder="Ask what AOI means, why this number changed, or how to verify this section..."
-          className="min-w-0 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
+          className="min-w-[12rem] flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white outline-none focus:border-cyan-400"
         />
+        <VoiceInputButton onTranscript={handleVoiceTranscript} disabled={isLoading} />
         <button
           onClick={() => { void explainQuestion(question || suggestedQuestions[0]); }}
           className="rounded-lg bg-cyan-600 px-4 py-2 text-xs font-black text-white hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
