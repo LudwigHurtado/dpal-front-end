@@ -983,17 +983,6 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     void executeWatch();
   }, [executeWatch, isRunning]);
 
-  const toggleFullscreen = useCallback(async () => {
-    const el = mapWrapRef.current;
-    if (!el) return;
-    try {
-      if (!document.fullscreenElement) await el.requestFullscreen();
-      else await document.exitFullscreen();
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
   const submitSearch = useCallback(async () => {
     const q = searchText.trim();
     if (!q) return;
