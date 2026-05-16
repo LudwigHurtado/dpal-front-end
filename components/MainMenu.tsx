@@ -376,6 +376,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 />
 
                 <PrimaryNavModule
+                    icon={<Target className="w-8 h-8" />}
+                    label="DMRV"
+                    subLabel="Adaptable DMRV selector — choose environment type, evaluation inputs, and workflow scope."
+                    status="New"
+                    colorClass="emerald"
+                    bgImageUrl="/environmental-intelligence/carbon-intelligence-mrv-main.png"
+                    onClick={() => onNavigate('dmrvSelector')}
+                />
+
+                <PrimaryNavModule
                     icon={<Waves className="w-8 h-8" />}
                     label="Water Intelligence"
                     subLabel="Colorado River conservation exchange pilot, VWCU patterns, evidence, public verification — Pilot / Demonstration Mode; FloodGuard city demos remain at /floodguard."

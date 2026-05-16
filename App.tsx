@@ -164,8 +164,10 @@ import GlobalIntelligenceMapPage from './src/pages/GlobalIntelligenceMapPage';
 import EnvironmentalWorkspacePage from './src/features/environmentalWorkspace/EnvironmentalWorkspacePage';
 import CarbonCompliancePage from './src/features/carbonCompliance/CarbonCompliancePage';
 import AdditionalModulesPage from './src/features/additionalModules/AdditionalModulesPage';
+import ClimatiqEmissionsCalculatorPage from './src/features/climatiq/ClimatiqEmissionsCalculatorPage';
+import DmrvSelectorPage from './src/features/dmrv/DmrvSelectorPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap' | 'climatiqCalculator' | 'dmrvSelector';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -2930,6 +2932,17 @@ const App: React.FC = () => {
             onReturn={() => goBack('mainMenu')}
             actorName={heroWithRank.name}
             onOpenSituationRoomFromScan={handleOpenSituationRoomFromScan}
+          />
+        )}
+
+        {currentView === 'climatiqCalculator' && (
+          <ClimatiqEmissionsCalculatorPage onReturn={() => goBack('environmentalIntelligenceHub')} />
+        )}
+
+        {currentView === 'dmrvSelector' && (
+          <DmrvSelectorPage
+            onReturn={() => goBack('mainMenu')}
+            onNavigate={(view) => setCurrentView(view as View)}
           />
         )}
 

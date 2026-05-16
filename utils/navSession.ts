@@ -99,6 +99,8 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'legacyMainMenuGrid',
   'deepOwlServiceLines',
   'globalIntelligenceMap',
+  'climatiqCalculator',
+  'dmrvSelector',
 ]);
 
 export type NavSessionPayload = {

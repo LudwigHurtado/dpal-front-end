@@ -186,6 +186,10 @@ export const VIEW_PATHS: Record<string, string> = {
   envirofactsGeoIntelligence: '/environmental-intelligence/envirofacts-map',
   /** Satellite Intelligence + Disclosure Integrity — multi-source claim comparison (aliases in pathToView). */
   satelliteAccountability: '/environmental-intelligence/satellite-accountability',
+  /** Climatiq emissions calculator — server-proxied factor search + kgCO2e estimate */
+  climatiqCalculator: '/environmental-intelligence/climatiq',
+  /** Adaptable DMRV selector — environment-type evaluation framework */
+  dmrvSelector: '/dmrv',
   previewEnvironmentalCommandCenter: '/preview/environmental-command-center',
   previewEnvironmentalIntelligenceHub: '/preview/environmental-intelligence-hub',
   previewFuelStorageAudit: '/preview/fuel-storage-audit',

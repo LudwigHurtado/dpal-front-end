@@ -591,6 +591,26 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             onOpenWorkspace={() => onNavigate('dpalCarbon')}
           />
           <EnvironmentalServiceCard
+            title="Climatiq Emissions Calculator"
+            subtitle="Search emission factors and estimate kgCO₂e via the DPAL backend proxy — API key stays server-side."
+            badge="Partial"
+            providerSummary="Requires CLIMATIQ_API_KEY on the API host (/api/climatiq/*). Never exposed in the browser."
+            accent="teal"
+            heroImageSrc="/environmental-intelligence/carbon-intelligence-mrv-main.png"
+            onOpenWorkspace={() => onNavigate('climatiqCalculator')}
+            openWorkspaceLabel="Open Climatiq calculator"
+          />
+          <EnvironmentalServiceCard
+            title="Adaptable DMRV Selector"
+            subtitle="One system, multiple DMRV types — forest, agriculture, wetland, coastal, urban, grassland, and custom evaluation paths."
+            badge="Partial"
+            providerSummary="Interactive selector for environment-type DMRV scope and evaluation inputs — configuration only, not auto-verification."
+            accent="emerald"
+            heroImageSrc="/environmental-intelligence/carbon-intelligence-mrv-main.png"
+            onOpenWorkspace={() => onNavigate('dmrvSelector')}
+            openWorkspaceLabel="Open DMRV selector"
+          />
+          <EnvironmentalServiceCard
             title={'AFOLU / Land Use & Carbon Readiness'}
             subtitle="Investor-facing forest carbon command center and mission launch flows (local-first drafts)."
             badge="Partial"

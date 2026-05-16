@@ -194,6 +194,10 @@ export const API_ROUTES = {
   CARBONPURA_PROJECTS: '/api/partners/carbonpura/projects',
   /** CAD Trust connector — live reachability (Prisma / local backend; probes CADTRUST_API_BASE when sync enabled) */
   CADTRUST_HEALTH: '/api/cadtrust/health',
+  /** Climatiq carbon engine — server proxy only (CLIMATIQ_API_KEY on backend/Railway, never VITE_*) */
+  CLIMATIQ_HEALTH: '/api/climatiq/health',
+  CLIMATIQ_SEARCH: '/api/climatiq/search',
+  CLIMATIQ_ESTIMATE: '/api/climatiq/estimate',
 } as const;
 
 export const CARBONPURA_PROJECT_EVIDENCE_EVENTS = (projectId: string) =>

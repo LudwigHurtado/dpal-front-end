@@ -76,6 +76,7 @@ const WORKSPACE_CHILDREN: NavLeaf[] = [
   { label: 'FloodGuard', view: 'floodGuard', paths: ['/floodguard'] },
   { label: 'Emissions Integrity (EIAS)', view: 'emissionsIntegrityAudit', paths: ['/emissions-integrity-audit'] },
   { label: 'Carbon MRV Engine', view: 'carbonMRV', paths: ['/carbon-mrv', '/carbon'] },
+  { label: 'DMRV', view: 'dmrvSelector', paths: ['/dmrv'] },
   { label: 'Offsets Marketplace', view: 'offsetMarketplace', paths: ['/offsets'] },
   { label: 'Hazardous Waste Audit', view: 'hazardousWasteAudit', paths: ['/hazardous-waste-audit'] },
   { label: 'Air Quality Monitor', view: 'airQualityMonitor', paths: ['/air'] },
