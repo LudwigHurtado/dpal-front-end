@@ -12,7 +12,9 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Bot, Send, RefreshCw, ChevronDown, ChevronUp, Sparkles } from "./icons";
 import { runGeminiPrompt, isAiEnabled } from "../services/geminiService";
+import { AiVoiceReplyControls } from "../src/shared/components/AiVoiceReplyControls";
 import { appendVoiceTranscript, VoiceInputButton } from "../src/shared/components/VoiceInputButton";
+import { useAiVoiceAssistant } from "../src/shared/hooks/useAiVoiceAssistant";
 import { buildDpalMrvPrompt, type DpalMrvMode } from "../services/mrvPrompt";
 
 export type SatelliteDomain = "water" | "carbon" | "offset";
@@ -131,6 +133,8 @@ export function SatelliteAiInsight({
   const didAutoRun = useRef(false);
 
   const aiEnabled = isAiEnabled();
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === "assistant").at(-1)?.text ?? null;
 
   const runAnalysis = async (followUp?: string) => {
     if (loading) return;
@@ -139,7 +143,9 @@ export function SatelliteAiInsight({
     try {
       const prompt = buildPrompt(domain, data, project, followUp);
       const text = await runGeminiPrompt(prompt);
-      setMessages((prev) => [...prev, { role: "assistant", text: text.trim() }]);
+      const assistantText = text.trim();
+      voice.speakReply(assistantText);
+      setMessages((prev) => [...prev, { role: "assistant", text: assistantText }]);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "AI analysis failed");
     } finally {
@@ -330,6 +336,17 @@ export function SatelliteAiInsight({
               </button>
             </div>
           )}
+          <AiVoiceReplyControls
+            className="mt-2"
+            replyText={lastAssistantReply}
+            autoSpeak={voice.autoSpeak}
+            onAutoSpeakChange={voice.setAutoSpeak}
+            isSpeaking={voice.isSpeaking}
+            speak={voice.speak}
+            stopSpeaking={voice.stopSpeaking}
+            ttsSupported={voice.ttsSupported}
+            ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+          />
         </div>
       )}
     </div>

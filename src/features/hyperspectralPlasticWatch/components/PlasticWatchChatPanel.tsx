@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, RefreshCw, Send } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 import type { HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } from '../types';
 import { briefToPromptContext, buildPlasticWatchReportBrief } from '../utils/plasticWatchReportBrief';
 
@@ -94,6 +96,8 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastScanIdRef = useRef<string | null>(null);
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
 
   useEffect(() => {
     const id = scan?.scanId ?? null;
@@ -129,9 +133,11 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
 
       try {
         const reply = await runGeminiPrompt(buildChatPrompt(context, messages, trimmed));
+        const assistantText = reply.trim();
+        voice.speakReply(assistantText);
         setMessages((prev) => [
           ...prev,
-          { id: `a-${Date.now()}`, role: 'assistant', text: reply.trim() },
+          { id: `a-${Date.now()}`, role: 'assistant', text: assistantText },
         ]);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Chat request failed');
@@ -141,7 +147,7 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
         setLoading(false);
       }
     },
-    [aiEnabled, context, loading, messages],
+    [aiEnabled, context, loading, messages, voice],
   );
 
   const clearChat = () => {
@@ -273,6 +279,17 @@ export default function PlasticWatchChatPanel({ scan, evidence, aoiLabel }: Prop
                 Send
               </button>
             </div>
+            <AiVoiceReplyControls
+              className="mt-2 shrink-0"
+              replyText={lastAssistantReply}
+              autoSpeak={voice.autoSpeak}
+              onAutoSpeakChange={voice.setAutoSpeak}
+              isSpeaking={voice.isSpeaking}
+              speak={voice.speak}
+              stopSpeaking={voice.stopSpeaking}
+              ttsSupported={voice.ttsSupported}
+              ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+            />
           </>
         )}
       </div>

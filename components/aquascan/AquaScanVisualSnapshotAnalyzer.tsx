@@ -1,5 +1,8 @@
 import React, { useCallback, useId, useState } from 'react';
 import { AiError, isAiEnabled, runGeminiWithImagePrompt } from '../../services/geminiService';
+import { AiVoiceReplyControls } from '../../src/shared/components/AiVoiceReplyControls';
+import { appendVoiceTranscript, VoiceInputButton } from '../../src/shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../src/shared/hooks/useAiVoiceAssistant';
 
 const MAX_EDGE_PX = 1280;
 const JPEG_QUALITY = 0.82;
@@ -97,6 +100,7 @@ export default function AquaScanVisualSnapshotAnalyzer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState('');
+  const voice = useAiVoiceAssistant();
 
   const clearImage = useCallback(() => {
     setPreviewUrl(null);
@@ -178,7 +182,9 @@ export default function AquaScanVisualSnapshotAnalyzer({
       const { mimeType, base64Data } = parseDataUrl(previewUrl);
       const prompt = buildVisionSystemPrompt(workspaceContextText || '(No workspace summary yet.)', userFocus);
       const text = await runGeminiWithImagePrompt(prompt, [{ mimeType, base64Data }]);
-      setReading(text.trim() || 'No text returned from the model.');
+      const reply = text.trim() || 'No text returned from the model.';
+      voice.speakReply(reply);
+      setReading(reply);
     } catch (e) {
       const msg =
         e instanceof AiError
@@ -190,7 +196,7 @@ export default function AquaScanVisualSnapshotAnalyzer({
     } finally {
       setBusy(false);
     }
-  }, [previewUrl, userFocus, workspaceContextText]);
+  }, [previewUrl, userFocus, workspaceContextText, voice]);
 
   const boxClass =
     variant === 'compact'
@@ -246,12 +252,19 @@ export default function AquaScanVisualSnapshotAnalyzer({
       </div>
       <label className={`mt-2 block ${variant === 'compact' ? 'text-[9px]' : 'text-xs'}`}>
         <span className="text-slate-500">Optional focus (e.g. &quot;Is Waterhole Canyon flowing into the river?&quot;)</span>
-        <input
-          value={userFocus}
-          onChange={(e) => setUserFocus(e.target.value)}
-          placeholder="What should the model look for?"
-          className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950/80 px-2 py-1.5 text-xs text-slate-100 outline-none placeholder:text-slate-600 focus:border-teal-500/60"
-        />
+        <div className="mt-1 flex flex-wrap items-end gap-2">
+          <input
+            value={userFocus}
+            onChange={(e) => setUserFocus(e.target.value)}
+            placeholder="What should the model look for?"
+            className="min-w-[12rem] flex-1 rounded-lg border border-slate-700 bg-slate-950/80 px-2 py-1.5 text-xs text-slate-100 outline-none placeholder:text-slate-600 focus:border-teal-500/60"
+          />
+          <VoiceInputButton
+            onTranscript={(t) => setUserFocus((prev) => appendVoiceTranscript(prev, t))}
+            disabled={busy}
+            label="Speak"
+          />
+        </div>
       </label>
       {previewUrl ? (
         <div className={`mt-2 overflow-hidden rounded-lg border border-slate-700 bg-black/40 ${variant === 'compact' ? 'max-h-28' : 'max-h-56'}`}>
@@ -267,6 +280,17 @@ export default function AquaScanVisualSnapshotAnalyzer({
           {error}
         </p>
       ) : null}
+      <AiVoiceReplyControls
+        className="mt-2"
+        replyText={reading}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
       {reading ? (
         <div className={`mt-2 rounded-lg border border-slate-700 bg-slate-950/70 text-slate-200 ${variant === 'compact' ? 'max-h-48 overflow-y-auto p-2 text-[9px] leading-relaxed' : 'max-h-[28rem] overflow-y-auto p-3 text-xs leading-relaxed'}`}>
           <p className={`mb-1 font-semibold text-teal-200 ${variant === 'compact' ? 'text-[9px]' : 'text-[11px]'}`}>Reading</p>

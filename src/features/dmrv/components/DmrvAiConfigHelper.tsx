@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, RefreshCw, Send } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 
 export type DmrvAiHelperVariant = 'input' | 'project' | 'satellite-imagery';
 
@@ -85,6 +87,8 @@ export function DmrvAiConfigHelper({
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const contextRef = useRef(contextSummary);
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
 
   useEffect(() => {
     contextRef.current = contextSummary;
@@ -117,26 +121,31 @@ export function DmrvAiConfigHelper({
       try {
         const prompt = buildPrompt(contextRef.current, [...messages, userMsg], trimmed);
         const reply = await runGeminiPrompt(prompt);
+        const assistantText = reply.trim() || 'No response from the assistant.';
+        voice.speakReply(assistantText);
         setMessages((prev) => [
           ...prev,
-          { id: `a-${Date.now()}`, role: 'assistant', text: reply.trim() || 'No response from the assistant.' },
+          { id: `a-${Date.now()}`, role: 'assistant', text: assistantText },
         ]);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Could not reach the AI helper.';
         setError(msg);
+        const fallbackText =
+          'The configuration helper could not complete this request. You can still save your settings and continue manually.';
+        voice.speakReply(fallbackText);
         setMessages((prev) => [
           ...prev,
           {
             id: `a-err-${Date.now()}`,
             role: 'assistant',
-            text: 'The configuration helper could not complete this request. You can still save your settings and continue manually.',
+            text: fallbackText,
           },
         ]);
       } finally {
         setLoading(false);
       }
     },
-    [aiEnabled, disabled, loading, messages],
+    [aiEnabled, disabled, loading, messages, voice],
   );
 
   const starterButtons = useMemo(
@@ -237,6 +246,17 @@ export function DmrvAiConfigHelper({
           Send
         </button>
       </div>
+      <AiVoiceReplyControls
+        className="mt-2"
+        replyText={lastAssistantReply}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
     </section>
   );
 }

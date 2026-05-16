@@ -6,7 +6,9 @@ import {
 } from './icons';
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { AiVoiceReplyControls } from '../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
 import { buildDpalMrvPrompt } from '../services/mrvPrompt';
 
 interface GPSPoint { lat: number; lng: number }
@@ -157,6 +159,8 @@ function ConservationAidChat({ scan, location, radiusKm }: { scan: EcologyScanRe
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiReady = isAiEnabled();
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
   const defaultQuestion = 'What are the ecological issues here, what can fix them, and how can DPAL help the community or project?';
 
   const ask = async (question: string) => {
@@ -167,7 +171,9 @@ function ConservationAidChat({ scan, location, radiusKm }: { scan: EcologyScanRe
     setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
     try {
       const text = await runGeminiPrompt(buildConservationPrompt(scan, location, radiusKm, trimmed));
-      setMessages((prev) => [...prev, { role: 'assistant', text: text.trim() }]);
+      const assistantText = text.trim();
+      voice.speakReply(assistantText);
+      setMessages((prev) => [...prev, { role: 'assistant', text: assistantText }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI helper failed.');
     } finally {
@@ -262,6 +268,16 @@ function ConservationAidChat({ scan, location, radiusKm }: { scan: EcologyScanRe
           Ask
         </button>
       </div>
+      <AiVoiceReplyControls
+        replyText={lastAssistantReply}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
     </div>
   );
 }

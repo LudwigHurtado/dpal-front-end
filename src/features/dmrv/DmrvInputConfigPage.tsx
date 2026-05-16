@@ -5,7 +5,9 @@ import { DmrvAiConfigHelper, type DmrvAiHelperVariant } from './components/DmrvA
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
 import { DmrvSatellitePicker } from './components/DmrvSatellitePicker';
+import { SceneLivePreviewCard } from './components/SceneLivePreviewCard';
 import { DmrvSectionAiStrip } from './components/DmrvSectionAiStrip';
+import { runSceneSteppedAutofill } from './utils/sceneAutofillSteps';
 import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
 import { DmrvInputSymbol } from './components/dmrvInputSymbols';
 import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner';
@@ -80,6 +82,8 @@ export default function DmrvInputConfigPage({
   const [config, setConfig] = useState<DmrvInputConfig | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [scenePreviewUpdating, setScenePreviewUpdating] = useState(false);
+  const [sceneAutofillStatus, setSceneAutofillStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!categorySlug || !inputKey || !projectId) return;
@@ -180,6 +184,55 @@ export default function DmrvInputConfigPage({
       return { ...prev, dataSourceSettings: next };
     });
   }, []);
+
+  const applySceneField = useCallback((key: string, value: string | boolean) => {
+    applySceneSettings({ [key]: value });
+  }, [applySceneSettings]);
+
+  const handleAnimatedSceneAutofill = useCallback(
+    async (
+      parsed: Record<string, unknown>,
+      helpers: {
+        applyField: (key: string, value: string | boolean) => void;
+        setStatus: (message: string) => void;
+      },
+    ) => {
+      setSceneAutofillStatus('Preparing suggested scene configuration…');
+      await runSceneSteppedAutofill(parsed, typeTitle, applySceneField, (message) => {
+        setSceneAutofillStatus(message);
+        helpers.setStatus(message);
+      });
+      window.setTimeout(() => setSceneAutofillStatus(null), 2400);
+    },
+    [applySceneField, typeTitle],
+  );
+
+  const sceneDs = config?.dataSourceSettings;
+  const scenePreviewFingerprint = useMemo(() => {
+    if (!sceneDs) return '';
+    return [
+      sceneDs.provider,
+      sceneDs.collection,
+      sceneDs.startDate,
+      sceneDs.endDate,
+      sceneDs.cloudCoverLimit,
+      sceneDs.resolution,
+      sceneDs.minimumCoveragePct,
+      sceneDs.aoiRequired,
+      sceneDs.refreshFrequency,
+    ].join('|');
+  }, [sceneDs]);
+
+  useEffect(() => {
+    if (!config || config.configType !== 'satellite') return undefined;
+    setScenePreviewUpdating(true);
+    const timer = window.setTimeout(() => setScenePreviewUpdating(false), 480);
+    return () => window.clearTimeout(timer);
+  }, [config?.configType, scenePreviewFingerprint]);
+
+  const aoiExists = Boolean(
+    storedProject?.location.aoiId?.trim() || config?.projectContext.locationAoiId?.trim(),
+  );
 
   const applyValidationRules = useCallback((parsed: Record<string, unknown>) => {
     setConfig((prev) => {
@@ -422,25 +475,65 @@ export default function DmrvInputConfigPage({
             ) : null}
 
             <Panel title={config.configType === 'satellite' ? 'Scene & coverage settings' : 'Data Source Settings'}>
-              <DmrvDataSourceFields
-                configType={config.configType}
-                settings={config.dataSourceSettings}
-                onChange={patchDataSource}
-              />
               {config.configType === 'satellite' ? (
-                <DmrvSectionAiStrip
-                  sectionLabel="Scene coverage"
-                  hint="Cloud limits, dates, and coverage rules for your AOI."
-                  contextSummary={sceneCoverageContext}
-                  disabled={!!busy}
-                  starters={[
-                    'What cloud cover limit is reasonable?',
-                    'How do I align dates with reporting period?',
-                  ]}
-                  autofillPrompt={`Suggest scene & coverage settings for ${typeTitle} satellite MRV. Return JSON with string/boolean fields only: provider, collection, startDate, endDate, cloudCoverLimit, resolution, minimumCoveragePct, refreshFrequency, aoiRequired.`}
-                  onApply={applySceneSettings}
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start">
+                  <div className="min-w-0 space-y-3">
+                    <p className="text-xs text-slate-600">
+                      Configure how DPAL will query scenes — the live preview updates as you adjust provider, dates,
+                      cloud limits, and coverage rules. No catalog search runs until you execute scene search in the
+                      workflow.
+                    </p>
+                    <DmrvDataSourceFields
+                      configType={config.configType}
+                      settings={config.dataSourceSettings}
+                      onChange={patchDataSource}
+                    />
+                    <DmrvSectionAiStrip
+                      sectionLabel="Scene coverage"
+                      hint="Cloud limits, dates, and coverage rules for your AOI."
+                      contextSummary={sceneCoverageContext}
+                      disabled={!!busy}
+                      starters={[
+                        'What cloud cover limit is reasonable?',
+                        'How do I align dates with reporting period?',
+                      ]}
+                      autofillPrompt={`Suggest scene & coverage settings for ${typeTitle} satellite MRV. Return JSON with string/boolean fields only: provider, collection, startDate, endDate, cloudCoverLimit, resolution, minimumCoveragePct, refreshFrequency, aoiRequired.`}
+                      onApply={applySceneSettings}
+                      onAnimatedApply={handleAnimatedSceneAutofill}
+                    />
+                  </div>
+                  <SceneLivePreviewCard
+                    provider={String(sceneDs?.provider ?? '')}
+                    product={String(sceneDs?.collection ?? '')}
+                    dateStart={String(sceneDs?.startDate ?? '')}
+                    dateEnd={String(sceneDs?.endDate ?? '')}
+                    cloudCover={
+                      sceneDs?.cloudCoverLimit !== undefined && sceneDs?.cloudCoverLimit !== ''
+                        ? String(sceneDs.cloudCoverLimit)
+                        : undefined
+                    }
+                    resolution={String(sceneDs?.resolution ?? '')}
+                    minimumCoverage={
+                      sceneDs?.minimumCoveragePct !== undefined && sceneDs?.minimumCoveragePct !== ''
+                        ? String(sceneDs.minimumCoveragePct)
+                        : undefined
+                    }
+                    aoiRequired={Boolean(sceneDs?.aoiRequired)}
+                    refreshFrequency={String(sceneDs?.refreshFrequency ?? '')}
+                    dmrvTypeId={typeId}
+                    dmrvTypeName={typeTitle}
+                    aoiExists={aoiExists}
+                    isUpdating={scenePreviewUpdating}
+                    autofillStatus={sceneAutofillStatus}
+                  />
+                </div>
+              ) : (
+                <DmrvDataSourceFields
+                  configType={config.configType}
+                  settings={config.dataSourceSettings}
+                  onChange={patchDataSource}
                 />
-              ) : null}
+              )}
             </Panel>
 
             <Panel title="Evidence Rules">

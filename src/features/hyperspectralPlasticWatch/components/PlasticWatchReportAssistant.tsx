@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp, RefreshCw, Sparkles } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
+import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 import type { HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } from '../types';
 import {
   briefToPromptContext,
@@ -119,6 +121,8 @@ export default function PlasticWatchReportAssistant({ scan, evidence, onOpenChat
   const [error, setError] = useState<string | null>(null);
   const [aiBlock, setAiBlock] = useState<AiBlock | null>(null);
   const lastScanIdRef = useRef<string | null>(null);
+  const voice = useAiVoiceAssistant();
+  const spokenOverview = aiBlock?.overall ?? null;
 
   const runAiExplain = useCallback(
     async (question?: string) => {
@@ -131,20 +135,21 @@ export default function PlasticWatchReportAssistant({ scan, evidence, onOpenChat
           raw,
           brief.map((s) => s.id),
         );
-        setAiBlock(
+        const block =
           parsed ?? {
             overall: raw.trim().slice(0, 600),
             sections: [],
             actions: [],
-          },
-        );
+          };
+        voice.speakReply(block.overall);
+        setAiBlock(block);
       } catch (e) {
         setError(e instanceof Error ? e.message : 'AI explanation failed');
       } finally {
         setLoading(false);
       }
     },
-    [aiEnabled, brief],
+    [aiEnabled, brief, voice],
   );
 
   useEffect(() => {
@@ -211,6 +216,17 @@ export default function PlasticWatchReportAssistant({ scan, evidence, onOpenChat
         <div className="mt-4 rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-indigo-800">AI overview</p>
           <p className="mt-1 text-sm leading-relaxed text-slate-800">{aiBlock.overall}</p>
+          <AiVoiceReplyControls
+            className="mt-2"
+            replyText={spokenOverview}
+            autoSpeak={voice.autoSpeak}
+            onAutoSpeakChange={voice.setAutoSpeak}
+            isSpeaking={voice.isSpeaking}
+            speak={voice.speak}
+            stopSpeaking={voice.stopSpeaking}
+            ttsSupported={voice.ttsSupported}
+            ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+          />
         </div>
       ) : null}
 

@@ -20,7 +20,9 @@ import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { GibsTileViewer } from './GibsTileViewer';
 import { SatelliteAiInsight } from './SatelliteAiInsight';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { AiVoiceReplyControls } from '../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
 import { buildDpalMrvPrompt } from '../services/mrvPrompt';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
@@ -143,6 +145,8 @@ function WaterImpactAidChat({ data, project }: WaterImpactAidChatProps) {
   const [impactAidError, setImpactAidError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiReady = isAiEnabled();
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
   const defaultQuestion = 'What are the issues here, what can fix them, and how can we help the affected person, community, or project?';
 
   const askImpactAid = async (question: string) => {
@@ -154,7 +158,9 @@ function WaterImpactAidChat({ data, project }: WaterImpactAidChatProps) {
     try {
       const prompt = buildWaterImpactAidPrompt({ data, project, question: trimmed });
       const text = await runGeminiPrompt(prompt);
-      setMessages((prev) => [...prev, { role: 'assistant', text: text.trim() }]);
+      const assistantText = text.trim();
+      voice.speakReply(assistantText);
+      setMessages((prev) => [...prev, { role: 'assistant', text: assistantText }]);
     } catch (err) {
       setImpactAidError(err instanceof Error ? err.message : 'AI helper failed.');
     } finally {
@@ -260,6 +266,16 @@ function WaterImpactAidChat({ data, project }: WaterImpactAidChatProps) {
           Ask
         </button>
       </div>
+      <AiVoiceReplyControls
+        replyText={lastAssistantReply}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
     </div>
   );
 }

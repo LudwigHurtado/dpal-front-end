@@ -6,7 +6,9 @@ import 'leaflet/dist/leaflet.css';
 import { CARBON_PROJECT_QR_REGISTRY_DETAIL } from '../constants';
 import { saveCarbonQrRegistryEntry, updateCarbonQrRegistryFavorite } from '../services/carbonQrRegistryService';
 import { AiError, isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { AiVoiceReplyControls } from '../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
 import {
   AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Cpu, Database, FileText, Globe, Map, MapPin,
   Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Sparkles, Star, Target, Upload,
@@ -682,6 +684,7 @@ const InstructorHelper: React.FC<{
   const [isExpanded, setIsExpanded] = useState(true);
   const [followLatest, setFollowLatest] = useState(true);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
+  const voice = useAiVoiceAssistant();
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setQuestion((current) => appendVoiceTranscript(current, text));
@@ -764,6 +767,7 @@ Instructions:
 - Do not invent external facts not implied by the report context.
       `);
       const finalResponse = response.trim() || buildFallbackResponse(trimmedPrompt);
+      voice.speakReply(finalResponse);
       setHelperMode('google-ai');
       setAnswerSourceDetail('Gemini 2.5 Flash');
       setChatHistory((current) => current.map((entry) => (
@@ -804,6 +808,7 @@ Instructions:
   }, [chatHistory, followLatest, isExpanded]);
 
   const latestEntry = chatHistory[chatHistory.length - 1] || null;
+  const lastAssistantReply = latestEntry?.answer ?? null;
 
   return (
     <div className="rounded-xl border border-cyan-400/20 bg-gradient-to-br from-cyan-950/40 via-slate-900 to-slate-950 p-4 shadow-lg">
@@ -869,6 +874,17 @@ Instructions:
           {isLoading ? 'Thinking...' : <span className="inline-flex items-center gap-2"><Send className="h-4 w-4" />Explain</span>}
         </button>
       </div>
+      <AiVoiceReplyControls
+        className="mt-2"
+        replyText={lastAssistantReply}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
 
       {chatHistory.length ? (
         <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950/90">

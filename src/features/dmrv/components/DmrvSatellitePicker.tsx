@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   collectTechnologiesForIds,
   DMRV_SATELLITE_MISSIONS,
@@ -6,6 +6,7 @@ import {
   parseSelectedSatelliteIds,
   toggleSatelliteSelection,
 } from '../dmrvSatelliteCatalog';
+import { getTechnologyEntry, hasTechnologyGlossaryEntry, type DmrvTechnologyEntry } from '../dmrvTechnologyGlossary';
 
 type DmrvSatellitePickerProps = {
   selectedRaw: unknown;
@@ -41,6 +42,15 @@ export function DmrvSatellitePicker({ selectedRaw, onChange }: DmrvSatellitePick
     () => getMissionsForIds(selectedIds).map((m) => m.name).join(', '),
     [selectedIds],
   );
+  const [activeTech, setActiveTech] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (activeTech && !technologies.includes(activeTech)) {
+      setActiveTech(null);
+    }
+  }, [activeTech, technologies]);
+
+  const activeEntry = activeTech ? getTechnologyEntry(activeTech) : null;
 
   const handleToggle = (missionId: string, checked: boolean) => {
     const next = toggleSatelliteSelection(selectedIds, missionId, checked);
@@ -131,26 +141,102 @@ export function DmrvSatellitePicker({ selectedRaw, onChange }: DmrvSatellitePick
           Technologies in your stack
         </h3>
         <p className="mt-1 text-xs text-slate-600">
-          Instruments and product families from your selected satellites — use these when documenting adapters and
-          validation rules.
+          Instruments and product families from your selected satellites — click any tag to learn what it does and how
+          DPAL uses it in screening and evidence workflows.
         </p>
         {technologies.length === 0 ? (
           <p className="mt-3 rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
             Select a satellite above to see its sensors and data products here.
           </p>
         ) : (
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {technologies.map((tech) => (
-              <li
-                key={tech}
-                className="rounded-full border border-[#1e3a5f]/20 bg-white px-3 py-1 text-xs font-semibold text-[#1e3a5f] shadow-sm"
-              >
-                {tech}
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="mt-3 flex flex-wrap gap-2" aria-label="Technologies in your stack">
+              {technologies.map((tech) => {
+                const selected = activeTech === tech;
+                const detailId = `dmrv-tech-detail-${tech.replace(/\s+/g, '-')}`;
+                return (
+                  <li key={tech}>
+                    <button
+                      type="button"
+                      aria-expanded={selected}
+                      aria-controls={selected ? detailId : undefined}
+                      onClick={() => setActiveTech((prev) => (prev === tech ? null : tech))}
+                      className={`rounded-full border px-3 py-1 text-xs font-semibold shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]/40 ${
+                        selected
+                          ? 'border-[#1e3a5f] bg-[#1e3a5f] text-white'
+                          : 'border-[#1e3a5f]/20 bg-white text-[#1e3a5f] hover:border-[#1e3a5f]/50 hover:bg-[#e8f0f7]'
+                      }`}
+                    >
+                      {tech}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+
+            {activeTech && activeEntry ? (
+              <TechDetailPanel tech={activeTech} entry={activeEntry} onClose={() => setActiveTech(null)} />
+            ) : (
+              <p className="mt-3 text-[11px] text-slate-500">
+                Tip: select a tag above to open a short guide for that instrument or API.
+              </p>
+            )}
+          </>
         )}
       </section>
+    </div>
+  );
+}
+
+function TechDetailPanel({
+  tech,
+  entry,
+  onClose,
+}: {
+  tech: string;
+  entry: DmrvTechnologyEntry;
+  onClose: () => void;
+}): React.ReactElement {
+  const hasGlossary = hasTechnologyGlossaryEntry(tech);
+
+  return (
+    <div
+      className="mt-3 rounded-xl border border-[#1e3a5f]/20 bg-white p-4 shadow-sm"
+      id={`dmrv-tech-detail-${tech.replace(/\s+/g, '-')}`}
+      role="region"
+      aria-labelledby={`dmrv-tech-title-${tech.replace(/\s+/g, '-')}`}
+    >
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">Technology guide</p>
+          <h4 id={`dmrv-tech-title-${tech.replace(/\s+/g, '-')}`} className="text-base font-black text-[#1e3a5f]">
+            {tech}
+          </h4>
+          {!hasGlossary ? (
+            <p className="mt-1 text-[11px] text-amber-700">
+              General guide — add a dedicated glossary entry for richer copy.
+            </p>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+          aria-label="Close technology guide"
+        >
+          Close
+        </button>
+      </div>
+      <div className="mt-3 space-y-3 text-sm text-slate-700">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">What it is</p>
+          <p className="mt-1 leading-relaxed">{entry.summary}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wide text-[#1e3a5f]">How DPAL uses it</p>
+          <p className="mt-1 leading-relaxed">{entry.inDpal}</p>
+        </div>
+      </div>
     </div>
   );
 }

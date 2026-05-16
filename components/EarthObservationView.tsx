@@ -6,7 +6,9 @@ import {
 } from './icons';
 import { API_ROUTES, apiUrl } from '../constants';
 import { isAiEnabled, runGeminiPrompt } from '../services/geminiService';
+import { AiVoiceReplyControls } from '../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
 import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
@@ -316,6 +318,8 @@ function ObservationAidChat({ result, location, radiusKm }: { result: EarthObser
   const [error, setError] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiReady = isAiEnabled();
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
   const ask = async (question: string) => {
     const trimmed = question.trim();
     if (!trimmed || loading) return;
@@ -324,7 +328,9 @@ function ObservationAidChat({ result, location, radiusKm }: { result: EarthObser
     setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
     try {
       const text = await runGeminiPrompt(buildObservationPrompt(result, location, radiusKm, trimmed));
-      setMessages((prev) => [...prev, { role: 'assistant', text: text.trim() }]);
+      const assistantText = text.trim();
+      voice.speakReply(assistantText);
+      setMessages((prev) => [...prev, { role: 'assistant', text: assistantText }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'AI helper failed.');
     } finally { setLoading(false); }
@@ -369,6 +375,16 @@ function ObservationAidChat({ result, location, radiusKm }: { result: EarthObser
           {loading ? <RefreshCw className="h-4 w-4 animate-spin" aria-hidden /> : 'Ask'}
         </button>
       </div>
+      <AiVoiceReplyControls
+        replyText={lastAssistantReply}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
     </div>
   );
 }

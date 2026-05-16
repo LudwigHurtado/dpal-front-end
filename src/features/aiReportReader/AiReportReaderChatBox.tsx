@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AiVoiceReplyControls } from '../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../shared/hooks/useAiVoiceAssistant';
 import { buildAiReportReaderSnapshot } from './buildAiReportReaderSnapshot';
 import {
   postReportReaderChat,
@@ -52,6 +54,8 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
   const [error, setError] = useState<string | null>(null);
   const [lastMeta, setLastMeta] = useState<Pick<ReportReaderChatResponse, 'fallbackUsed' | 'safetyWarnings'> | null>(null);
   const messagesRef = useRef<ReportReaderChatMessage[]>([]);
+  const voice = useAiVoiceAssistant();
+  const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.content ?? null;
 
   useEffect(() => {
     messagesRef.current = messages;
@@ -89,18 +93,21 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
           mode,
         });
         setLastMeta({ fallbackUsed: res.fallbackUsed, safetyWarnings: res.safetyWarnings });
+        voice.speakReply(res.answer);
         const withAssistant = [...nextMessages, { role: 'assistant' as const, content: res.answer }];
         messagesRef.current = withAssistant;
         setMessages(withAssistant);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
         setError(msg);
+        const failContent =
+          'The AI Report Reader could not reach the DPAL assistant endpoint. Check that your API host implements POST /api/dpal-assistant/report-reader/chat and that the app is pointed at the correct backend.';
+        voice.speakReply(failContent);
         const fail = [
           ...nextMessages,
           {
             role: 'assistant' as const,
-            content:
-              'The AI Report Reader could not reach the DPAL assistant endpoint. Check that your API host implements POST /api/dpal-assistant/report-reader/chat and that the app is pointed at the correct backend.',
+            content: failContent,
           },
         ];
         messagesRef.current = fail;
@@ -109,7 +116,7 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
         setBusy(false);
       }
     },
-    [busy, mergedSnapshot, props.commandCenterRun, props.evidencePacket, props.reportId, props.roomId, props.runId],
+    [busy, mergedSnapshot, props.commandCenterRun, props.evidencePacket, props.reportId, props.roomId, props.runId, voice],
   );
 
   if (!enabled) return null;
@@ -245,6 +252,17 @@ const AiReportReaderChatBox: React.FC<AiReportReaderChatBoxProps> = (props) => {
               {busy ? 'Thinking…' : 'Send'}
             </button>
           </div>
+          <AiVoiceReplyControls
+            className="mt-2"
+            replyText={lastAssistantReply}
+            autoSpeak={voice.autoSpeak}
+            onAutoSpeakChange={voice.setAutoSpeak}
+            isSpeaking={voice.isSpeaking}
+            speak={voice.speak}
+            stopSpeaking={voice.stopSpeaking}
+            ttsSupported={voice.ttsSupported}
+            ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+          />
         </>
       ) : null}
     </section>

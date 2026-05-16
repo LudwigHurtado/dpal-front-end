@@ -1,6 +1,9 @@
 import React, { useCallback, useRef, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp, RefreshCw, Sparkles } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
+import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 
 export type DmrvSectionAiStripProps = {
   sectionLabel: string;
@@ -9,6 +12,17 @@ export type DmrvSectionAiStripProps = {
   /** When set, "Suggest fill" asks the model for JSON matching this shape and calls onApply. */
   autofillPrompt?: string;
   onApply?: (parsed: Record<string, unknown>) => void;
+  /**
+   * When set, "Suggest fill" applies parsed fields one at a time with status updates
+   * instead of instant onApply.
+   */
+  onAnimatedApply?: (
+    parsed: Record<string, unknown>,
+    helpers: {
+      applyField: (key: string, value: string | boolean) => void;
+      setStatus: (message: string) => void;
+    },
+  ) => Promise<void>;
   disabled?: boolean;
   starters?: string[];
 };
@@ -36,6 +50,7 @@ export function DmrvSectionAiStrip({
   contextSummary,
   autofillPrompt,
   onApply,
+  onAnimatedApply,
   disabled = false,
   starters = [],
 }: DmrvSectionAiStripProps): React.ReactElement {
@@ -46,7 +61,14 @@ export function DmrvSectionAiStrip({
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const contextRef = useRef(contextSummary);
+  const voice = useAiVoiceAssistant();
+
   contextRef.current = contextSummary;
+
+  const handleVoiceTranscript = useCallback((text: string) => {
+    setInput((current) => appendVoiceTranscript(current, text));
+    setExpanded(true);
+  }, []);
 
   const ask = useCallback(
     async (message: string, mode: 'chat' | 'autofill') => {
@@ -76,19 +98,39 @@ User: ${message}
 Assistant:`;
 
         const raw = await runGeminiPrompt(prompt);
-        if (mode === 'autofill' && onApply) {
+        let spokenText = '';
+        if (mode === 'autofill' && (onApply || onAnimatedApply)) {
           const parsed = extractJsonObject(raw);
           if (parsed) {
-            onApply(parsed);
-            setReply('Applied suggested values — review and save when ready.');
-            setNotice('Suggestions applied to this section. You can still edit fields manually.');
+            if (onAnimatedApply) {
+              await onAnimatedApply(parsed, {
+                applyField: (key, value) => {
+                  onApply?.({ [key]: value });
+                },
+                setStatus: (message) => {
+                  setReply(message);
+                  setNotice(message);
+                },
+              });
+              spokenText = 'Scene configuration ready. Review and save when ready.';
+              setReply((prev) => prev ?? 'Scene configuration ready — review and save when ready.');
+              setNotice('Suggestions applied step by step. You can still edit fields manually.');
+            } else if (onApply) {
+              onApply(parsed);
+              spokenText = 'Applied suggested values. Review and save when ready.';
+              setReply('Applied suggested values — review and save when ready.');
+              setNotice('Suggestions applied to this section. You can still edit fields manually.');
+            }
           } else {
-            setReply(raw.trim());
+            spokenText = raw.trim();
+            setReply(spokenText);
             setNotice('Could not parse JSON from the assistant — see reply above.');
           }
         } else {
-          setReply(raw.trim());
+          spokenText = raw.trim();
+          setReply(spokenText);
         }
+        if (spokenText) voice.speakReply(spokenText);
         setExpanded(true);
       } catch (err) {
         setNotice(err instanceof Error ? err.message : 'Assistant unavailable.');
@@ -96,7 +138,7 @@ Assistant:`;
         setLoading(false);
       }
     },
-    [aiEnabled, autofillPrompt, disabled, onApply, sectionLabel],
+    [aiEnabled, autofillPrompt, disabled, onAnimatedApply, onApply, sectionLabel, voice],
   );
 
   return (
@@ -107,7 +149,7 @@ Assistant:`;
           AI · {sectionLabel}
         </span>
         <span className="min-w-0 flex-1 text-[10px] text-slate-500">{hint}</span>
-        {autofillPrompt && onApply ? (
+        {autofillPrompt && (onApply || onAnimatedApply) ? (
           <button
             type="button"
             disabled={loading || disabled || !aiEnabled}
@@ -151,17 +193,25 @@ Assistant:`;
               ))}
             </div>
           ) : null}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <input
               type="text"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && input.trim()) void ask(input, 'chat');
+                if (e.key === 'Enter' && input.trim()) {
+                  void ask(input, 'chat');
+                  setInput('');
+                }
               }}
               disabled={loading || disabled}
               placeholder={`Ask about ${sectionLabel.toLowerCase()}…`}
-              className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]/20 disabled:opacity-60"
+              className="min-w-[10rem] flex-1 rounded-lg border border-slate-200 px-2.5 py-1.5 text-[11px] text-slate-900 placeholder:text-slate-400 focus:border-[#1e3a5f] focus:outline-none focus:ring-1 focus:ring-[#1e3a5f]/20 disabled:opacity-60"
+            />
+            <VoiceInputButton
+              onTranscript={handleVoiceTranscript}
+              disabled={loading || disabled}
+              label="Speak"
             />
             <button
               type="button"
@@ -175,6 +225,16 @@ Assistant:`;
               Send
             </button>
           </div>
+          <AiVoiceReplyControls
+            replyText={reply}
+            autoSpeak={voice.autoSpeak}
+            onAutoSpeakChange={voice.setAutoSpeak}
+            isSpeaking={voice.isSpeaking}
+            speak={voice.speak}
+            stopSpeaking={voice.stopSpeaking}
+            ttsSupported={voice.ttsSupported}
+            ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+          />
           {reply ? (
             <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] leading-relaxed text-slate-700">
               {reply}

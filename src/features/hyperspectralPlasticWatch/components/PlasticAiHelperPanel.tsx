@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import { Bot } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
-import { VoiceInputButton } from '../../../shared/components/VoiceInputButton';
+import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
+import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 import { getPlasticMissionType, type PlasticMissionTypeId } from '../data/plasticMissionTypes';
 import type { HyperspectralPlasticScanResponse, PlasticEvidencePacketResponse } from '../types';
 import { buildPlasticWatchReportBrief, briefToPromptContext } from '../utils/plasticWatchReportBrief';
@@ -30,6 +32,7 @@ export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAo
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState('');
+  const voice = useAiVoiceAssistant();
 
   const runHelper = useCallback(
     async (userPrompt: string) => {
@@ -49,14 +52,16 @@ export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAo
         const text = await runGeminiPrompt(
           `You are the DPAL Plastic Watch AI Helper. Be honest: never claim confirmed plastic from satellites alone. Use "candidate plastic-risk zone" language.\n\nContext:\n${context}\n\nUser request: ${userPrompt}`,
         );
-        setMessage(text.trim() || 'No response from AI helper.');
+        const reply = text.trim() || 'No response from AI helper.';
+        voice.speakReply(reply);
+        setMessage(reply);
       } catch (e) {
         setMessage(e instanceof Error ? e.message : 'AI helper unavailable — use the workflow steps on the left.');
       } finally {
         setBusy(false);
       }
     },
-    [evidence, hasSavedAoi, mission.helperFocus, mission.title, scan],
+    [evidence, hasSavedAoi, mission.helperFocus, mission.title, scan, voice],
   );
 
   React.useEffect(() => {
@@ -92,7 +97,11 @@ export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAo
           placeholder="Ask the Plastic Watch helper…"
           className="min-w-0 flex-1 rounded-lg border border-slate-200 px-2 py-1.5 text-xs"
         />
-        <VoiceInputButton onTranscript={(t) => setInput((prev) => (prev ? `${prev} ${t}` : t))} label="Voice" />
+        <VoiceInputButton
+          onTranscript={(t) => setInput((prev) => appendVoiceTranscript(prev, t))}
+          disabled={busy}
+          label="Speak"
+        />
         <button
           type="button"
           disabled={busy || !input.trim()}
@@ -102,6 +111,17 @@ export function PlasticAiHelperPanel({ missionTypeId, scan, evidence, hasSavedAo
           Ask
         </button>
       </div>
+      <AiVoiceReplyControls
+        className="mt-2"
+        replyText={message}
+        autoSpeak={voice.autoSpeak}
+        onAutoSpeakChange={voice.setAutoSpeak}
+        isSpeaking={voice.isSpeaking}
+        speak={voice.speak}
+        stopSpeaking={voice.stopSpeaking}
+        ttsSupported={voice.ttsSupported}
+        ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+      />
       {!isAiEnabled() ? (
         <p className="mt-2 text-[10px] text-slate-500">AI helper uses rule-based fallbacks when Gemini is not configured.</p>
       ) : null}

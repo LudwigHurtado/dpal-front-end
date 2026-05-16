@@ -3,7 +3,9 @@ import AquaScanVisualSnapshotAnalyzer from './AquaScanVisualSnapshotAnalyzer';
 import type { AquaScanProject } from '../water/aquaScanMockData';
 import type { NearbyEntity } from '../../services/entityLookupService';
 import type { WaterAnalysisResponse } from '../../services/waterAnalysisService';
+import { AiVoiceReplyControls } from '../../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../src/shared/components/VoiceInputButton';
+import { useAiVoiceAssistant } from '../../src/shared/hooks/useAiVoiceAssistant';
 import type {
   CopernicusCollection,
   CopernicusIndexType,
@@ -523,11 +525,14 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
   const [activeQuestionId, setActiveQuestionId] = useState<AquaScanQuestionId>('ndwi_meaning');
   const [customQuestion, setCustomQuestion] = useState('');
   const [customAnswer, setCustomAnswer] = useState('');
+  const voice = useAiVoiceAssistant();
   const activeQuestion = intelligence.questionsAndAnswers.find((item) => item.id === activeQuestionId) ?? intelligence.questionsAndAnswers[0];
   const askCustomQuestion = (question: string) => {
     const nextQuestion = question.trim();
     setCustomQuestion(nextQuestion);
-    setCustomAnswer(answerCustomAquaScanQuestion(nextQuestion, intelligence));
+    const answer = answerCustomAquaScanQuestion(nextQuestion, intelligence);
+    setCustomAnswer(answer);
+    voice.speakReply(answer);
   };
 
   const handleVoiceTranscript = useCallback((text: string) => {
@@ -681,6 +686,17 @@ export function AquaScanIntelligenceReader(props: AquaScanIntelligenceReaderProp
               </button>
             ))}
           </div>
+          <AiVoiceReplyControls
+            className="mt-2"
+            replyText={customAnswer}
+            autoSpeak={voice.autoSpeak}
+            onAutoSpeakChange={voice.setAutoSpeak}
+            isSpeaking={voice.isSpeaking}
+            speak={voice.speak}
+            stopSpeaking={voice.stopSpeaking}
+            ttsSupported={voice.ttsSupported}
+            ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
+          />
           {customAnswer ? (
             <div className="mt-2 rounded-lg border border-cyan-500/30 bg-slate-900/70 p-3 text-slate-300">
               <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-200">Answer</p>
