@@ -2,7 +2,6 @@ import React from 'react';
 import { ChevronRight } from '../../../../components/icons';
 import type { DmrvInputDef } from '../dmrvRegistry';
 import type { DmrvType } from '../dmrvRegistry';
-import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInputSymbol } from './dmrvInputSymbols';
 import { DmrvTypeSymbol } from './dmrvTypeSymbols';
 
@@ -82,7 +81,6 @@ export function DmrvInfographicRow({
               }}
               accentColor={type.segmentColor}
               onConfigure={onConfigureInput}
-              dark
             />
           </span>
         </span>
@@ -113,12 +111,10 @@ function InputConfigChip({
   inputDef,
   accentColor,
   onConfigure,
-  dark,
 }: {
   inputDef: DmrvInputDef;
   accentColor: string;
   onConfigure?: (inputDef: DmrvInputDef) => void;
-  dark?: boolean;
 }): React.ReactElement {
   const interactive = Boolean(onConfigure);
 
@@ -130,22 +126,14 @@ function InputConfigChip({
         onConfigure?.(inputDef);
       }}
       disabled={!interactive}
-      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
-        dark
-          ? 'border-[#1e3a5f]/25 bg-gradient-to-b from-slate-900 to-slate-800 hover:ring-2 hover:ring-emerald-400/40'
-          : 'border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
-      } ${interactive ? 'cursor-pointer' : 'cursor-default'}`}
-      style={dark ? undefined : { borderColor: `${accentColor}40` }}
+      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50 px-1 pb-2 pt-1.5 text-center shadow-sm transition hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20 ${
+        interactive ? 'cursor-pointer' : 'cursor-default'
+      }`}
+      style={{ borderColor: `${accentColor}40` }}
       title={interactive ? `Configure ${inputDef.label}` : inputDef.label}
     >
-      {dark ? (
-        <DmrvBlockchainSymbol size={44} accentColor={accentColor} className="rounded-lg overflow-hidden" />
-      ) : (
-        <DmrvInputSymbol label={inputDef.label} size={44} accentColor={accentColor} />
-      )}
-      <span
-        className={`px-0.5 text-[7.5px] font-bold leading-tight ${dark ? 'text-emerald-100' : 'text-slate-800'}`}
-      >
+      <DmrvInputSymbol label={inputDef.label} size={44} accentColor={accentColor} />
+      <span className="px-0.5 text-[7.5px] font-bold leading-tight text-slate-800">
         {inputDef.label}
       </span>
       {interactive ? (

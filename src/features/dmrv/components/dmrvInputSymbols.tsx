@@ -1,5 +1,4 @@
 import React from 'react';
-import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 
 export type DmrvInputSymbolKey =
   | 'satellite'
@@ -379,7 +378,22 @@ function LabSymbol({ size, className }: SymProps): React.ReactElement {
 }
 
 function BlockchainInputSymbol({ size, className }: SymProps): React.ReactElement {
-  return <DmrvBlockchainSymbol size={size} className={className} accentColor="#1e3a5f" />;
+  return (
+    <Sym size={size} className={className}>
+      <rect width="48" height="48" rx="8" fill="#e8f0f7" />
+      <rect x="8" y="14" width="12" height="12" rx="2" fill="#1e3a5f" opacity="0.95" />
+      <rect x="28" y="14" width="12" height="12" rx="2" fill="#4a86cf" opacity="0.85" />
+      <rect x="18" y="26" width="12" height="12" rx="2" fill="#2a9d8f" opacity="0.9" />
+      <path
+        d="M20 20h8M32 20h-4v4M16 26h2v4"
+        stroke="#64748b"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <circle cx="24" cy="10" r="2" fill="#22d3ee" />
+      <path d="M24 12v2" stroke="#22d3ee" strokeWidth="1.2" strokeLinecap="round" />
+    </Sym>
+  );
 }
 
 function QrSymbol({ size, className }: SymProps): React.ReactElement {
