@@ -224,6 +224,7 @@ export function pathToView(pathname: string): string | null {
   if (normalized === '/planetary-intelligence' || normalized === '/workspaces') return 'mainMenu';
   if (normalized === '/deep-owl' || normalized === '/deep-owl/service-lines') return 'deepOwlServiceLines';
   if (normalized === '/global-intelligence-map') return 'globalIntelligenceMap';
+  if (normalized === '/dmrv' || normalized.startsWith('/dmrv/')) return 'dmrvSelector';
   if (normalized === '/modules' || normalized === '/more-tools' || normalized === '/more-dpal-modules') return 'additionalModules';
   if (normalized === '/carbon-pura' || normalized === '/partner/carbonpura' || normalized === '/carbonpura-command-center') {
     return 'carbonPuraWorkspace';

@@ -165,7 +165,7 @@ import EnvironmentalWorkspacePage from './src/features/environmentalWorkspace/En
 import CarbonCompliancePage from './src/features/carbonCompliance/CarbonCompliancePage';
 import AdditionalModulesPage from './src/features/additionalModules/AdditionalModulesPage';
 import ClimatiqEmissionsCalculatorPage from './src/features/climatiq/ClimatiqEmissionsCalculatorPage';
-import DmrvSelectorPage from './src/features/dmrv/DmrvSelectorPage';
+import DmrvRoutes from './src/features/dmrv/DmrvRoutes';
 
 export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid' | 'deepOwlServiceLines' | 'globalIntelligenceMap' | 'climatiqCalculator' | 'dmrvSelector';
 
@@ -2095,6 +2095,7 @@ const App: React.FC = () => {
   const platformWideMainChrome = [
     'mainMenu',
     'deepOwlServiceLines',
+    'dmrvSelector',
     'additionalModules',
     'carbonPuraWorkspace',
     'carbonComplianceWorkspace',
@@ -2169,7 +2170,10 @@ const App: React.FC = () => {
         mobileNavOpen={platformMobileNavOpen}
         onMobileNavOpenChange={setPlatformMobileNavOpen}
         sidebarStickyTop={
-          currentView === 'mainMenu' || currentView === 'deepOwlServiceLines' || currentView === 'globalIntelligenceMap'
+          currentView === 'mainMenu' ||
+          currentView === 'deepOwlServiceLines' ||
+          currentView === 'globalIntelligenceMap' ||
+          currentView === 'dmrvSelector'
             ? 'top-0'
             : 'top-[4.75rem]'
         }
@@ -2940,7 +2944,7 @@ const App: React.FC = () => {
         )}
 
         {currentView === 'dmrvSelector' && (
-          <DmrvSelectorPage
+          <DmrvRoutes
             onReturn={() => goBack('mainMenu')}
             onNavigate={(view) => setCurrentView(view as View)}
           />
