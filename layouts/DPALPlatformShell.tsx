@@ -11,6 +11,8 @@ export interface DPALPlatformShellProps {
   onMobileNavOpenChange: (open: boolean) => void;
   /** Tailwind sticky offset for sidebar (clears sticky app header when present). */
   sidebarStickyTop?: string;
+  /** Optional canvas treatment for the main column (e.g. rounded top-left). */
+  mainColumnClassName?: string;
   children: React.ReactNode;
 }
 
@@ -26,6 +28,7 @@ export default function DPALPlatformShell({
   mobileNavOpen,
   onMobileNavOpenChange,
   sidebarStickyTop = 'top-[4.5rem]',
+  mainColumnClassName = '',
   children,
 }: DPALPlatformShellProps): React.ReactElement {
   useEffect(() => {
@@ -73,7 +76,7 @@ export default function DPALPlatformShell({
         <div className="fixed inset-y-0 left-0 z-[150] w-[min(88vw,280px)] shadow-xl lg:hidden">{sidebar}</div>
       ) : null}
 
-      <div className="min-w-0 flex-1 bg-slate-100/90">{children}</div>
+      <div className={`min-w-0 flex-1 bg-slate-100/90 ${mainColumnClassName}`.trim()}>{children}</div>
 
       {useMobileLayout && !hideSidebar ? (
         <button

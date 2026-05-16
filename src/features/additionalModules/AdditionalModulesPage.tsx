@@ -17,7 +17,7 @@ export default function AdditionalModulesPage({
   useMobileLayout,
 }: AdditionalModulesPageProps): React.ReactElement {
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-[min(100%,1440px)] px-4 pb-24 pt-8 sm:px-6 lg:px-10">
       <PlatformCommandBar
         title="More DPAL Modules"
         subtitle="Non-environment spotlight tools remain fully supported—from mobility and escrow to civic reporting and demonstration surfaces."
@@ -39,6 +39,8 @@ export default function AdditionalModulesPage({
 
         <WorkspaceSection title="Featured modules" description="Operational tools outside the planetary workspace spotlight." className="mt-8">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <WorkspaceToolCard title="CarbonPura Command Center" description="Partner environmental integrity OS demo." onClick={() => onNavigate('carbonPuraWorkspace')} />
+            <WorkspaceToolCard title="Situation Room" description="Collaborative incident rooms and filings." onClick={() => onNavigate('incidentRoom')} />
             <WorkspaceToolCard title="Good Wheels" description="Community mobility pilots and ride workflows." onClick={() => onNavigate('goodWheels')} />
             <WorkspaceToolCard title="Escrow" description="Trusted escrow and milestones." onClick={() => onNavigate('escrowService')} />
             <WorkspaceToolCard

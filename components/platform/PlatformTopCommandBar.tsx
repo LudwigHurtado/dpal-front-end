@@ -5,17 +5,24 @@ export interface PlatformTopCommandBarProps {
   onOpenMobileNav?: () => void;
   /** Optional trailing actions (e.g. compact status on narrow layouts). */
   extraTrailing?: React.ReactNode;
+  /** Profile image URL (falls back to initials avatar). */
+  avatarUrl?: string | null;
+  /** Unread-style badge on bell (mockup default 1). */
+  alertCount?: number;
 }
 
 export function PlatformTopCommandBar({
   onOpenMobileNav,
   extraTrailing,
+  avatarUrl,
+  alertCount = 1,
 }: PlatformTopCommandBarProps): React.ReactElement {
   const hintId = useId();
+  const showBellBadge = alertCount > 0;
 
   return (
-    <div className="mb-8 border-b border-slate-200/80 pb-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
+    <div className="-mx-1 mb-8 rounded-2xl border border-slate-200/90 bg-white px-4 py-3 shadow-sm sm:px-5">
+      <div className="flex min-h-[72px] flex-col gap-4 lg:flex-row lg:items-center lg:gap-6">
         <div className="flex min-w-0 flex-1 items-center gap-3 lg:justify-center">
           {onOpenMobileNav ? (
             <button
@@ -29,6 +36,20 @@ export function PlatformTopCommandBar({
               </svg>
             </button>
           ) : null}
+          <Link
+            to="/"
+            className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500/25 shadow-md sm:h-11 sm:w-11"
+            title="DPAL — Deep Owl ECO SYSTEM"
+            aria-label="DPAL Home — Deep Owl ECO SYSTEM"
+          >
+            <img
+              src="/main-screen/deep-owl-ecosystem-logo.png"
+              alt=""
+              className="h-full w-full object-cover"
+              width={44}
+              height={44}
+            />
+          </Link>
           <label className="relative mx-auto w-full max-w-xl min-w-0 flex-1">
             <span className="sr-only">Search locations, projects, facilities</span>
             <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden>
@@ -48,32 +69,45 @@ export function PlatformTopCommandBar({
           </label>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 sm:justify-end lg:gap-3">
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 sm:justify-end lg:gap-4">
           {extraTrailing}
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-900">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Node Status</span>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-emerald-900">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              Online
             </span>
-            Node Status: Online
-          </span>
+          </div>
           <button
             type="button"
-            className="relative flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
+            className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
             aria-label="Notifications"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M18 8a6 6 0 10-12 0c0 7-3 7-3 7h18s-3 0-3-7" strokeLinecap="round" />
               <path d="M13.73 21a2 2 0 01-3.46 0" strokeLinecap="round" />
             </svg>
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-white" aria-hidden />
+            {showBellBadge ? (
+              <span className="absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                {alertCount > 9 ? '9+' : alertCount}
+              </span>
+            ) : null}
           </button>
           <Link
             to="/account"
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-br from-slate-100 to-slate-200 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-emerald-200 hover:text-emerald-900"
+            className="relative flex h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-100 shadow-sm transition hover:border-emerald-200"
             title="Account"
           >
-            <span aria-hidden>U</span>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 text-xs font-bold text-white">
+                DP
+              </span>
+            )}
             <span className="sr-only">Account</span>
           </Link>
         </div>

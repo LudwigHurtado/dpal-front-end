@@ -215,7 +215,10 @@ export function viewToPath(view: string): string {
 export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
   if (normalized === '/planetary-intelligence' || normalized === '/workspaces') return 'mainMenu';
-  if (normalized === '/modules' || normalized === '/more-tools') return 'additionalModules';
+  if (normalized === '/modules' || normalized === '/more-tools' || normalized === '/more-dpal-modules') return 'additionalModules';
+  if (normalized === '/carbon-pura' || normalized === '/partner/carbonpura' || normalized === '/carbonpura-command-center') {
+    return 'carbonPuraWorkspace';
+  }
   if (normalized === '/environmental-hub') return 'environmentalWorkspace';
   if (normalized === '/carbon-mrv') return 'carbonMRV';
   if (normalized === '/carbonpura') return 'carbonPuraWorkspace';

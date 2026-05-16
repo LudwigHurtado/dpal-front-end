@@ -2081,6 +2081,14 @@ const App: React.FC = () => {
   const layoutVersion = (import.meta.env.VITE_LAYOUT_VERSION || 'v1').toLowerCase();
   const ActiveLayout = layoutVersion === 'v2' ? LayoutV2 : LayoutV1;
 
+  const platformWideMainChrome = [
+    'mainMenu',
+    'additionalModules',
+    'carbonPuraWorkspace',
+    'carbonComplianceWorkspace',
+    'environmentalWorkspace',
+  ].includes(currentView);
+
   return (
     <ActiveLayout>
     <div className="dpal-app flex min-h-screen flex-col transition-all duration-300 selection:bg-cyan-500/25 overflow-x-hidden">
@@ -2148,8 +2156,13 @@ const App: React.FC = () => {
         mobileNavOpen={platformMobileNavOpen}
         onMobileNavOpenChange={setPlatformMobileNavOpen}
         sidebarStickyTop={currentView === 'mainMenu' ? 'top-0' : 'top-[4.75rem]'}
+        mainColumnClassName={
+          platformWideMainChrome
+            ? 'lg:rounded-tl-3xl lg:border-l lg:border-t lg:border-slate-200/80 lg:bg-slate-50/98 lg:shadow-[inset_1px_1px_0_rgba(255,255,255,0.65)]'
+            : ''
+        }
       >
-      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'legacyMainMenuGrid', 'carbonComplianceWorkspace', 'environmentalWorkspace', 'additionalModules', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
+      <main className={`${platformWideMainChrome ? 'w-full max-w-[min(100%,1440px)] mx-auto' : 'container mx-auto'} ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'legacyMainMenuGrid', 'carbonComplianceWorkspace', 'environmentalWorkspace', 'additionalModules', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
@@ -2160,6 +2173,7 @@ const App: React.FC = () => {
             useMobileLayout={useMobileLayout}
             onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
             onOpenLiveMap={() => handleNavigate('hub', undefined, 'map')}
+            onOpenCarbonPuraDemo={() => handleNavigate('carbonPuraWorkspace')}
           />
         )}
 

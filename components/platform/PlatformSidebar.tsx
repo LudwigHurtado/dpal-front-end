@@ -27,26 +27,54 @@ function pathMatches(current: string, paths: string[]): boolean {
   return false;
 }
 
+/** Exact path match — avoids one `/water` parent highlighting every water sub-route. */
+function pathMatchesExact(current: string, paths: string[]): boolean {
+  const n = normalizePath(current);
+  return paths.some((pre) => normalizePath(pre) === n);
+}
+
 const WORKSPACE_CHILDREN: NavLeaf[] = [
   {
     label: 'Carbon & MRV',
     view: 'carbonComplianceWorkspace',
-    paths: ['/carbon-compliance', '/cad-trust', '/partners/carbonpura', '/carbonpura', '/carbon', '/offsets', '/carbon-hub', '/afolu'],
+    paths: [
+      '/carbon-compliance',
+      '/cad-trust',
+      '/partners/carbonpura',
+      '/carbonpura',
+      '/carbon-pura',
+      '/partner/carbonpura',
+      '/carbonpura-command-center',
+      '/carbon-hub',
+      '/afolu',
+    ],
   },
   {
     label: 'Ocean & Plastic',
     view: 'hyperspectralPlasticWatch',
     paths: ['/ocean-plastic', '/hyperspectral-plastic-watch', '/plastic-watch'],
   },
-  { label: 'Water Intelligence', view: 'waterMonitor', paths: ['/water', '/water/aquascan', '/water/monitor', '/water/aqualand'] },
-  { label: 'Emissions & Industrial', view: 'carbEmissionsAudit', paths: ['/emissions-industrial', '/carb-emissions-audit', '/emissions-integrity-audit'] },
+  { label: 'Water Intelligence', view: 'waterMonitor', paths: ['/water'] },
+  { label: 'AquaScan MRV', view: 'aquaScanWater', paths: ['/water/aquascan'] },
+  { label: 'Water Operations Engine', view: 'waterOperationsEngine', paths: ['/water/monitor'] },
+  { label: 'Aqualand Well', view: 'aqualandWell', paths: ['/water/aqualand'] },
+  { label: 'Emissions & Industrial', view: 'carbEmissionsAudit', paths: ['/emissions-industrial', '/carb-emissions-audit'] },
   {
     label: 'Biosphere & Land',
     view: 'earthObservation',
-    paths: ['/biosphere-land', '/earth-observation', '/ecology', '/forest-integrity'],
+    paths: ['/biosphere-land', '/earth-observation', '/ecology'],
   },
   { label: 'Evidence & Blockchain', view: 'previewEvidencePacket', paths: ['/evidence', '/preview/evidence-packet', '/transparency-db'] },
   { label: 'Disaster & Risk', view: 'globalSignals', paths: ['/disaster-risk', '/global-signals'] },
+  { label: 'Environmental Hub', view: 'environmentalIntelligenceHub', paths: ['/environmental-intelligence'] },
+  { label: 'Field OS', view: 'fieldOS', paths: ['/field-os'] },
+  { label: 'FloodGuard', view: 'floodGuard', paths: ['/floodguard'] },
+  { label: 'Emissions Integrity (EIAS)', view: 'emissionsIntegrityAudit', paths: ['/emissions-integrity-audit'] },
+  { label: 'Carbon MRV Engine', view: 'carbonMRV', paths: ['/carbon-mrv', '/carbon'] },
+  { label: 'Offsets Marketplace', view: 'offsetMarketplace', paths: ['/offsets'] },
+  { label: 'Hazardous Waste Audit', view: 'hazardousWasteAudit', paths: ['/hazardous-waste-audit'] },
+  { label: 'Air Quality Monitor', view: 'airQualityMonitor', paths: ['/air'] },
+  { label: 'Forest Integrity', view: 'forestIntegrity', paths: ['/forest-integrity'] },
 ];
 
 const HOME_PATHS = ['/', '/planetary-intelligence', '/workspaces'];
@@ -58,11 +86,13 @@ export function PlatformSidebar({
   className = '',
 }: PlatformSidebarProps): React.ReactElement {
   const [workspaceOpen, setWorkspaceOpen] = useState(() =>
-    WORKSPACE_CHILDREN.some((ch) => pathMatches(currentPath, ch.paths)),
+    WORKSPACE_CHILDREN.some((ch) => ch.paths.some((p) => pathMatchesExact(currentPath, [p]))),
   );
 
   useEffect(() => {
-    if (WORKSPACE_CHILDREN.some((ch) => pathMatches(currentPath, ch.paths))) setWorkspaceOpen(true);
+    if (WORKSPACE_CHILDREN.some((ch) => ch.paths.some((p) => pathMatchesExact(currentPath, [p])))) {
+      setWorkspaceOpen(true);
+    }
   }, [currentPath]);
 
   const openValidators = () => {
@@ -73,24 +103,39 @@ export function PlatformSidebar({
 
   const homeActive = pathMatches(currentPath, HOME_PATHS);
 
-  const moreActive = pathMatches(currentPath, ['/additional-modules', '/modules', '/more-tools', '/classic-home']);
+  const moreActive = pathMatches(currentPath, [
+    '/additional-modules',
+    '/modules',
+    '/more-tools',
+    '/more-dpal-modules',
+    '/classic-home',
+  ]);
 
   const stickyCls = stickyTop.trim() ? `sticky ${stickyTop.trim()}` : '';
 
   return (
     <aside
-      className={`${stickyCls} z-[95] flex w-[276px] shrink-0 flex-col overflow-y-auto border-r border-slate-800/80 bg-[#0f172a] ${
-        stickyCls ? 'max-h-[100dvh] self-start' : 'min-h-[100dvh]'
-      } ${className}`}
+      className={`${stickyCls} z-[95] flex min-h-[100dvh] w-[280px] shrink-0 flex-col border-r border-slate-950/90 bg-gradient-to-b from-[#030712] via-[#0b1224] to-[#020617] ${className}`}
       aria-label="DPAL platform navigation"
     >
-      <div className="border-b border-slate-800/90 px-5 py-6">
+      <div className="shrink-0 border-b border-slate-800/90 px-5 py-6">
         <div className="flex items-start gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-sky-600 text-sm font-black text-white shadow-lg shadow-emerald-900/30">
-            D
-          </div>
+          <Link
+            to="/"
+            className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500/35 shadow-lg shadow-emerald-950/40"
+            aria-label="DPAL Home — Deep Owl ECO SYSTEM"
+          >
+            <img
+              src="/main-screen/deep-owl-ecosystem-logo.png"
+              alt=""
+              className="h-full w-full object-cover"
+              width={48}
+              height={48}
+            />
+          </Link>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-bold tracking-tight text-white">DPAL</p>
+            <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-emerald-400/90">Deep Owl ECO SYSTEM</p>
             <p className="mt-1 text-[11px] font-medium leading-snug text-slate-400">
               Planetary Intelligence &amp; Public Accountability
             </p>
@@ -98,8 +143,15 @@ export function PlatformSidebar({
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto px-3 py-4">
         <NavButton label="Home" active={homeActive} onClick={() => onSelectView('mainMenu')} icon={<HomeIcon />} accentActive />
+
+        <FlatNav
+          label="CarbonPura Command"
+          paths={['/partners/carbonpura', '/carbonpura', '/carbon-pura', '/partner/carbonpura', '/carbonpura-command-center']}
+          currentPath={currentPath}
+          onClick={() => onSelectView('carbonPuraWorkspace')}
+        />
 
         <div>
           <button
@@ -120,7 +172,7 @@ export function PlatformSidebar({
           {workspaceOpen ? (
             <div className="ml-2 mt-1 space-y-0.5 border-l border-slate-700 py-1 pl-2">
               {WORKSPACE_CHILDREN.map((item) => {
-                const active = pathMatches(currentPath, item.paths);
+                const active = item.paths.some((p) => pathMatchesExact(currentPath, [p]));
                 return (
                   <button
                     key={item.view}
@@ -173,7 +225,7 @@ export function PlatformSidebar({
         </div>
       </nav>
 
-      <div className="space-y-3 border-t border-slate-800/90 px-4 py-5">
+      <div className="mt-auto shrink-0 space-y-3 border-t border-slate-800/90 bg-slate-950/40 px-4 py-5">
         <div className="flex items-center gap-3 rounded-xl bg-slate-800/70 px-3 py-2.5">
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-700 text-xs font-semibold text-slate-100">DP</div>
           <div className="min-w-0 flex-1">
