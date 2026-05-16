@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Package, Shield } from '../../../components/icons';
 import { DmrvConnectorPanel } from './components/DmrvConnectorPanel';
 import { DmrvInfographicBoard } from './components/DmrvInfographicBoard';
@@ -49,9 +49,7 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
   }, []);
 
   if (!category) {
-    return (
-      <CategoryNotFound />
-    );
+    return <Navigate to="/dmrv" replace />;
   }
 
   const connectors = selectedType?.connectors ?? [];
@@ -92,17 +90,6 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
           Select a type above to open connectors and workflow actions.
         </p>
       </div>
-    </div>
-  );
-}
-
-function CategoryNotFound(): React.ReactElement {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-      <h1 className="text-lg font-black text-[#1e3a5f]">Category not found</h1>
-      <Link to="/dmrv" className="mt-4 inline-block text-sm font-bold text-emerald-800 underline">
-        Back to DMRV hub
-      </Link>
     </div>
   );
 }

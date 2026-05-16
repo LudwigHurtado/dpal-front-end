@@ -8,11 +8,18 @@ export type DmrvRoutesProps = {
   onNavigate?: (view: string) => void;
 };
 
+/**
+ * Absolute paths required — these Routes are mounted inside App (not under a /dmrv parent Route).
+ * Relative `:categorySlug` was incorrectly matching `/dmrv` with slug "dmrv".
+ */
 export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): React.ReactElement {
   return (
     <Routes>
-      <Route index element={<DmrvHubPage onReturn={onReturn} />} />
-      <Route path=":categorySlug" element={<DmrvCategoryPage onReturn={onReturn} onNavigate={onNavigate} />} />
+      <Route path="/dmrv" element={<DmrvHubPage onReturn={onReturn} />} />
+      <Route
+        path="/dmrv/:categorySlug"
+        element={<DmrvCategoryPage onReturn={onReturn} onNavigate={onNavigate} />}
+      />
       <Route path="*" element={<Navigate to="/dmrv" replace />} />
     </Routes>
   );
