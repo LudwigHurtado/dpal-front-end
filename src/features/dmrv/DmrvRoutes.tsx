@@ -2,7 +2,9 @@ import React from 'react';
 import { Navigate, Outlet, Route, Routes, useParams } from 'react-router-dom';
 import DmrvCategoryPage from './DmrvCategoryPage';
 import DmrvHubPage from './DmrvHubPage';
+import DmrvInputConfigPage from './DmrvInputConfigPage';
 import { getCategoryBySlug } from './dmrvRegistry';
+import { resolveDmrvInputDef } from './dmrvInputRegistry';
 
 export type DmrvRoutesProps = {
   onReturn?: () => void;
@@ -21,6 +23,18 @@ function DmrvCategoryGuard({
   return <DmrvCategoryPage onReturn={onReturn} onNavigate={onNavigate} />;
 }
 
+function DmrvInputConfigGuard({
+  onReturn,
+  onNavigate,
+}: DmrvRoutesProps): React.ReactElement {
+  const { categorySlug, inputKey } = useParams<{ categorySlug: string; inputKey: string }>();
+  if (!getCategoryBySlug(categorySlug) || !inputKey) {
+    return <Navigate to="/dmrv" replace />;
+  }
+  resolveDmrvInputDef(inputKey);
+  return <DmrvInputConfigPage onReturn={onReturn} onNavigate={onNavigate} />;
+}
+
 /**
  * Absolute `/dmrv` layout — category route must be nested so `/dmrv/carbon-land` is not
  * collapsed back to `/dmrv` by App view→URL sync (see App.tsx dmrvSelector guard).
@@ -30,6 +44,10 @@ export default function DmrvRoutes({ onReturn, onNavigate }: DmrvRoutesProps): R
     <Routes>
       <Route path="/dmrv" element={<Outlet />}>
         <Route index element={<DmrvHubPage onReturn={onReturn} />} />
+        <Route
+          path=":categorySlug/config/:inputKey"
+          element={<DmrvInputConfigGuard onReturn={onReturn} onNavigate={onNavigate} />}
+        />
         <Route
           path=":categorySlug"
           element={<DmrvCategoryGuard onReturn={onReturn} onNavigate={onNavigate} />}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 
 export type DmrvInputSymbolKey =
   | 'satellite'
@@ -50,6 +51,8 @@ export type DmrvInputSymbolKey =
   | 'traffic'
   | 'plastic'
   | 'health'
+  | 'blockchain'
+  | 'qr'
   | 'default';
 
 const GRAD_ID = 'dmrv-sym';
@@ -375,6 +378,25 @@ function LabSymbol({ size, className }: SymProps): React.ReactElement {
   );
 }
 
+function BlockchainInputSymbol({ size, className }: SymProps): React.ReactElement {
+  return <DmrvBlockchainSymbol size={size} className={className} accentColor="#1e3a5f" />;
+}
+
+function QrSymbol({ size, className }: SymProps): React.ReactElement {
+  return (
+    <Sym size={size} className={className}>
+      <rect width="48" height="48" rx="8" fill="#f8fafc" />
+      <rect x="10" y="10" width="12" height="12" rx="1" fill="#1e293b" />
+      <rect x="26" y="10" width="12" height="12" rx="1" fill="#1e293b" />
+      <rect x="10" y="26" width="12" height="12" rx="1" fill="#1e293b" />
+      <rect x="14" y="14" width="4" height="4" fill="#fff" />
+      <rect x="30" y="14" width="4" height="4" fill="#fff" />
+      <rect x="14" y="30" width="4" height="4" fill="#fff" />
+      <path d="M28 28h8v8h-8z" fill="none" stroke="#1e293b" strokeWidth="1.5" />
+    </Sym>
+  );
+}
+
 function DefaultSymbol({ size, className }: SymProps): React.ReactElement {
   return (
     <Sym size={size} className={className}>
@@ -435,6 +457,8 @@ const SYMBOL_MAP: Record<DmrvInputSymbolKey, React.FC<SymProps>> = {
   traffic: ActivitySymbol,
   plastic: HyperspectralSymbol,
   health: LabSymbol,
+  blockchain: BlockchainInputSymbol,
+  qr: QrSymbol,
   default: DefaultSymbol,
 };
 
@@ -461,6 +485,8 @@ export function resolveInputSymbolKey(label: string): DmrvInputSymbolKey {
     ['field-survey', /field survey|field validation|field photo|patrol|dive survey|sightings/],
     ['field-plot', /field plot|plot|parcel|aoi|boundary|corridor/],
     ['lab', /lab |laboratory|health|exposure map|sample/],
+    ['blockchain', /blockchain|block chain|hash record|blockchain hash|blockchain proof|audit trail|timestamp log|chain of custody|immutable|ledger|sha-?256|evidence hash/],
+    ['qr', /qr page|qr evidence|qr record/],
     ['validator', /validator|audit|review|compliance/],
     ['community', /community|citizen|shelter|demographic/],
     ['registry', /registry|manifest|permit|records|documents|project doc|claims/],

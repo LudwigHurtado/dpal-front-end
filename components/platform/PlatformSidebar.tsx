@@ -16,7 +16,7 @@ export type PlatformSidebarProps = {
   className?: string;
 };
 
-type NavLeaf = { label: string; view: string; paths: string[] };
+type NavLeaf = { label: string; view: string; paths: string[]; /** When set, sidebar click navigates here instead of viewToPath. */ launchPath?: string };
 
 function normalizePath(p: string): string {
   return p.replace(/\/$/, '') || '/';
@@ -41,10 +41,12 @@ function pathMatchesExact(current: string, paths: string[]): boolean {
 const WORKSPACE_CHILDREN: NavLeaf[] = [
   {
     label: 'Carbon & MRV',
-    view: 'carbonComplianceWorkspace',
+    view: 'dmrvSelector',
+    launchPath: '/dmrv/carbon-land',
     paths: [
       '/carbon-compliance',
       '/cad-trust',
+      '/dmrv/carbon-land',
       '/partners/carbonpura',
       '/carbonpura',
       '/carbon-pura',
@@ -247,16 +249,24 @@ export function PlatformSidebar({
             <div className="ml-2 mt-1 space-y-0.5 border-l border-slate-700 py-1 pl-2">
               {WORKSPACE_CHILDREN.map((item) => {
                 const active =
-                  item.view === 'dmrvSelector'
-                    ? item.paths.some((p) => pathMatches(currentPath, [p]))
-                    : item.paths.some((p) => pathMatchesExact(currentPath, [p]));
+                  item.launchPath || item.view !== 'dmrvSelector'
+                    ? item.paths.some((p) => pathMatchesExact(currentPath, [p]))
+                    : item.paths.some((p) => pathMatches(currentPath, [p]));
                 return (
                   <button
-                    key={item.view}
+                    key={`${item.view}-${item.label}`}
                     type="button"
-                    onClick={() =>
-                      item.view === 'dmrvSelector' ? onSelectPath('/dmrv') : onSelectView(item.view)
-                    }
+                    onClick={() => {
+                      if (item.launchPath) {
+                        onSelectPath(item.launchPath);
+                        return;
+                      }
+                      if (item.view === 'dmrvSelector') {
+                        onSelectPath('/dmrv');
+                        return;
+                      }
+                      onSelectView(item.view);
+                    }}
                     className={`flex w-full rounded-lg px-2 py-2 text-left text-[13px] transition ${
                       active ? 'bg-emerald-500/15 font-semibold text-emerald-300' : 'font-medium text-slate-400 hover:bg-slate-800/70 hover:text-white'
                     }`}

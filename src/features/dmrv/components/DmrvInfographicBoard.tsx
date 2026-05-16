@@ -1,7 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ShieldCheck } from '../../../../components/icons';
-import type { DmrvCategory, DmrvType } from '../dmrvRegistry';
+import type { DmrvCategory, DmrvInputDef, DmrvType } from '../dmrvRegistry';
+import { dmrvInputConfigPath } from '../dmrvNavigation';
 import { DMRV_FOOTER_TAGLINES } from '../dmrvInfographicTheme';
+import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInfographicRow } from './DmrvInfographicRow';
 import { DmrvSelectorDial } from './DmrvSelectorDial';
 
@@ -12,17 +15,49 @@ export type DmrvInfographicBoardProps = {
   onSelectType: (typeId: string) => void;
 };
 
+export function dmrvTypeRowId(typeId: string): string {
+  return `dmrv-type-row-${typeId}`;
+}
+
 export function DmrvInfographicBoard({
   category,
   types,
   selectedTypeId,
   onSelectType,
 }: DmrvInfographicBoardProps): React.ReactElement {
+  const navigate = useNavigate();
   const footerTagline = DMRV_FOOTER_TAGLINES[category.slug] ?? 'environmental intelligence';
+
+  const handleConfigureInput = useCallback(
+    (typeId: string, inputDef: DmrvInputDef) => {
+      navigate(dmrvInputConfigPath(category.slug, inputDef.key, typeId));
+    },
+    [category.slug, navigate],
+  );
+
+  const handleSelectType = useCallback(
+    (typeId: string) => {
+      onSelectType(typeId);
+      requestAnimationFrame(() => {
+        document.getElementById(dmrvTypeRowId(typeId))?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
+      });
+    },
+    [onSelectType],
+  );
 
   return (
     <div className="space-y-4">
       <header className="rounded-2xl border border-slate-200 bg-white px-5 py-6 text-center shadow-sm">
+        <div className="mx-auto mb-3 flex max-w-md items-center justify-center gap-2">
+          <DmrvBlockchainSymbol size={36} accentColor={category.color} className="rounded-lg overflow-hidden shadow-sm" />
+          <span className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">
+            Blockchain accountability layer
+          </span>
+        </div>
         <h1 className="text-lg font-black uppercase tracking-[0.06em] text-[#1e3a5f] md:text-2xl">
           DPAL Adaptive DMRV: {category.title}
         </h1>
@@ -36,7 +71,7 @@ export function DmrvInfographicBoard({
           category={category}
           types={types}
           selectedTypeId={selectedTypeId}
-          onSelectType={onSelectType}
+          onSelectType={handleSelectType}
         />
 
         <section className="min-w-0 space-y-3">
@@ -54,10 +89,12 @@ export function DmrvInfographicBoard({
             {types.map((type, i) => (
               <DmrvInfographicRow
                 key={type.id}
+                rowId={dmrvTypeRowId(type.id)}
                 index={i + 1}
                 type={type}
                 active={type.id === selectedTypeId}
-                onSelect={() => onSelectType(type.id)}
+                onSelect={() => handleSelectType(type.id)}
+                onConfigureInput={(inputDef) => handleConfigureInput(type.id, inputDef)}
               />
             ))}
           </ul>
@@ -65,15 +102,15 @@ export function DmrvInfographicBoard({
       </div>
 
       <footer className="flex items-center justify-center gap-3 rounded-2xl border border-[#1e3a5f]/25 bg-[#e8f0f7] px-5 py-4 text-center">
-        <ShieldCheck className="h-8 w-8 shrink-0 text-[#1e3a5f]" aria-hidden />
+        <DmrvBlockchainSymbol size={40} accentColor={category.color} className="shrink-0 rounded-lg overflow-hidden shadow-sm" />
+        <ShieldCheck className="h-7 w-7 shrink-0 text-[#1e3a5f]" aria-hidden />
         <p className="text-xs font-medium leading-snug text-slate-700 md:text-sm">
           <span className="font-black uppercase tracking-wide text-[#1e3a5f]">
             Adaptive. Transparent. Scientific.
           </span>{' '}
-          One DMRV system, configured for {footerTagline}.
+          One DMRV system with blockchain evidence timestamps, configured for {footerTagline}.
         </p>
       </footer>
     </div>
   );
 }
-

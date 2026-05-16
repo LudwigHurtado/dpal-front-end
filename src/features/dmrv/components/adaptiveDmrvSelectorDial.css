@@ -1,0 +1,74 @@
+@keyframes dmrv-dial-scan-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes dmrv-dial-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+.dmrv-selector-dial {
+  --dmrv-dial-accent: #1e3a5f;
+}
+
+.dmrv-selector-dial__dial-wrap {
+  filter: drop-shadow(0 4px 12px rgba(15, 23, 42, 0.12));
+}
+
+.dmrv-selector-dial__dial-wrap--active {
+  filter: drop-shadow(0 4px 16px rgba(30, 58, 95, 0.22));
+}
+
+.dmrv-selector-dial__scan {
+  transform-origin: 90px 90px;
+  animation: dmrv-dial-scan-sweep 10s linear infinite;
+  pointer-events: none;
+}
+
+.dmrv-selector-dial__scan-arc {
+  animation: dmrv-dial-pulse 3s ease-in-out infinite;
+}
+
+.dmrv-selector-dial__needle {
+  transform-origin: 90px 90px;
+  transition: transform 0.55s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+
+.dmrv-selector-dial__segment {
+  cursor: pointer;
+  transition: opacity 0.2s ease, filter 0.2s ease;
+}
+
+.dmrv-selector-dial__segment:hover {
+  filter: brightness(1.08);
+  opacity: 1;
+}
+
+.dmrv-selector-dial__segment--dim {
+  opacity: 0.72;
+}
+
+.dmrv-selector-dial__segment--active {
+  opacity: 1;
+  filter: brightness(1.12);
+}
+
+.dmrv-selector-dial__center-knob {
+  transition: box-shadow 0.35s ease;
+}
+
+.dmrv-selector-dial__dial-wrap--active .dmrv-selector-dial__center-knob {
+  box-shadow:
+    0 4px 14px rgba(15, 23, 42, 0.45),
+    0 0 0 3px rgba(30, 58, 95, 0.12);
+}

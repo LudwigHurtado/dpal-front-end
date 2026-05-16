@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import EnvironmentalWorkspaceShell from '../../../layouts/EnvironmentalWorkspaceShell';
 import { WorkspaceSection } from '../../../components/platform/WorkspaceSection';
 import { WorkspaceToolCard } from '../../../components/platform/WorkspaceToolCard';
@@ -15,6 +16,7 @@ export default function EnvironmentalWorkspacePage({
   onOpenMobileNav,
   useMobileLayout,
 }: EnvironmentalWorkspacePageProps): React.ReactElement {
+  const navigate = useNavigate();
   return (
     <div className="mx-auto max-w-6xl px-1 pb-16 sm:px-2">
       <PlatformCommandBar
@@ -105,7 +107,7 @@ export default function EnvironmentalWorkspacePage({
               title="Carbon Compliance Shell"
               description="CAD Trust readiness, registry connectors, VIU posture."
               badge="New"
-              onClick={() => onNavigate('carbonComplianceWorkspace')}
+              onClick={() => navigate('/dmrv/carbon-land')}
             />
           </div>
         </WorkspaceSection>

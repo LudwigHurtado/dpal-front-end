@@ -201,8 +201,8 @@ export const VIEW_PATHS: Record<string, string> = {
   investorDemo: '/investor-demo',
   /** DPAL Command Center — multi-mode orchestration shell (shared adapters / evidence shape). */
   commandCenter: '/command-center',
-  /** Platform Architecture v2 — Carbon Compliance hub (aliases: `/cad-trust`). */
-  carbonComplianceWorkspace: '/carbon-compliance',
+  /** Carbon compliance entry — canonical DMRV carbon-land category (alias: `/carbon-compliance`, `/cad-trust`). */
+  carbonComplianceWorkspace: '/dmrv/carbon-land',
   /** Platform Architecture v2 — Environmental workspace hub (aliases: `/environmental-hub`). */
   environmentalWorkspace: '/environmental-workspace',
   /** Platform Architecture v2 — secondary modules directory (aliases: `/modules`, `/more-tools`). */
@@ -224,6 +224,8 @@ export function pathToView(pathname: string): string | null {
   if (normalized === '/planetary-intelligence' || normalized === '/workspaces') return 'mainMenu';
   if (normalized === '/deep-owl' || normalized === '/deep-owl/service-lines') return 'deepOwlServiceLines';
   if (normalized === '/global-intelligence-map') return 'globalIntelligenceMap';
+  if (normalized === '/carbon-compliance' || normalized === '/cad-trust') return 'dmrvSelector';
+  if (/^\/carbon-compliance\/[^/]+\/config\//.test(normalized)) return 'dmrvSelector';
   if (normalized === '/dmrv' || normalized.startsWith('/dmrv/')) return 'dmrvSelector';
   if (normalized === '/modules' || normalized === '/more-tools' || normalized === '/more-dpal-modules') return 'additionalModules';
   if (normalized === '/carbon-pura' || normalized === '/partner/carbonpura' || normalized === '/carbonpura-command-center') {
@@ -232,7 +234,6 @@ export function pathToView(pathname: string): string | null {
   if (normalized === '/environmental-hub') return 'environmentalWorkspace';
   if (normalized === '/carbon-mrv') return 'carbonMRV';
   if (normalized === '/carbonpura') return 'carbonPuraWorkspace';
-  if (normalized === '/cad-trust') return 'carbonComplianceWorkspace';
   if (normalized === '/ocean-plastic') return 'hyperspectralPlasticWatch';
   if (normalized === '/biosphere-land') return 'earthObservation';
   if (normalized === '/evidence') return 'previewEvidencePacket';

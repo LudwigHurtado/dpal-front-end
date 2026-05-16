@@ -1,4 +1,5 @@
 import React from 'react';
+import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 
 export type DmrvTypeSymbolKey =
   | 'urban'
@@ -295,6 +296,10 @@ function AiSymbol({ size, className }: SymProps): React.ReactElement {
   );
 }
 
+function BlockchainTypeSymbol({ size, className }: SymProps): React.ReactElement {
+  return <DmrvBlockchainSymbol size={size} className={className} accentColor="#1e3a5f" />;
+}
+
 function DefaultSymbol({ size, className }: SymProps): React.ReactElement {
   return (
     <Sym size={size} className={className}>
@@ -365,7 +370,7 @@ const SYMBOL_MAP: Record<DmrvTypeSymbolKey, React.FC<SymProps>> = {
   housing: BuildingSymbol,
   qr: DefaultSymbol,
   ai: AiSymbol,
-  blockchain: DefaultSymbol,
+  blockchain: BlockchainTypeSymbol,
   drone: AiSymbol,
   fusion: AiSymbol,
   default: DefaultSymbol,
@@ -380,6 +385,8 @@ const TYPE_ID_MAP: Record<string, DmrvTypeSymbolKey> = {
   'transport-emissions': 'transport',
   'green-infrastructure': 'green-infra',
   'public-works': 'public-works',
+  'blockchain-evidence': 'blockchain',
+  'qr-evidence-site': 'blockchain',
   'forest-land-use': 'forest',
   agriculture: 'agriculture',
   'grassland-savanna': 'grassland',

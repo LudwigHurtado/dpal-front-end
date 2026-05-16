@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PlatformTopCommandBar } from '../../components/platform/PlatformTopCommandBar';
 import { WorkspaceCard } from '../../components/platform/WorkspaceCard';
 import { SystemOverviewCard } from '../../components/platform/SystemOverviewCard';
@@ -22,6 +23,7 @@ export default function PlanetaryIntelligenceHome({
   onOpenMobileNav,
   useMobileLayout,
 }: PlanetaryIntelligenceHomeProps): React.ReactElement {
+  const navigate = useNavigate();
   const workspacesRef = useRef<HTMLDivElement | null>(null);
 
   const scrollToWorkspaces = () => {
@@ -133,7 +135,7 @@ export default function PlanetaryIntelligenceHome({
               capabilities={['MRV', 'VIUs', 'Registry', 'Nodes']}
               statusLabel="Active"
               metrics={[{ label: 'Projects', value: '54' }, { label: 'Packets', value: '1,245' }]}
-              onClick={() => onNavigate('carbonComplianceWorkspace')}
+              onClick={() => navigate('/dmrv/carbon-land')}
             />
             <WorkspaceCard
               imageSrc={image.ocean}

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from '../../../../components/icons';
 import type { DmrvCategory } from '../dmrvRegistry';
+import { DmrvBlockchainBadge } from './DmrvBlockchainSymbol';
 
 export type DmrvImageButtonCardProps = {
   category: DmrvCategory;
@@ -37,6 +38,9 @@ export function DmrvImageButtonCard({ category }: DmrvImageButtonCardProps): Rea
             </span>
           </div>
         )}
+        <span className="pointer-events-none absolute left-3 top-3">
+          <DmrvBlockchainBadge accentColor={category.color} className="shadow-md" />
+        </span>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0f172a]/90 via-[#0f172a]/55 to-transparent px-4 pb-3 pt-12">
           <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-300/90">DMRV category</p>
           <h3 className="mt-0.5 text-lg font-black tracking-tight text-white">{category.title}</h3>

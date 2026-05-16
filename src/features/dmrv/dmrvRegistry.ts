@@ -1,6 +1,9 @@
 import { DMRV_FAMILIES, type DmrvFamilyDef, type DmrvTypeDef } from './dmrvCatalog';
+import { getInputDefsForLabels, type DmrvInputDef } from './dmrvInputRegistry';
 import { DMRV_INFOGRAPHIC_TYPES, type InfographicTypeSeed } from './dmrvInfographicTypes';
 import { segmentColorForIndex } from './dmrvInfographicTheme';
+
+export type { DmrvInputDef } from './dmrvInputRegistry';
 
 export type DmrvConnectorStatus = 'live' | 'planned';
 
@@ -26,6 +29,8 @@ export type DmrvType = {
   description: string;
   /** Infographic input chips (up to five shown in the board) */
   inputExamples: string[];
+  /** Registry metadata for each input chip — stable keys for config routes */
+  inputDefs: DmrvInputDef[];
   /** Evaluation metrics shown on the right of each row */
   evaluationMetrics: string[];
   segmentColor: string;
@@ -369,12 +374,14 @@ function mapTypeFromInfographic(
   const dataLayers = [
     ...new Set([...(profile?.satelliteLayers ?? []), ...seed.evaluationFocus]),
   ];
+  const inputDefs = getInputDefsForLabels(seed.inputExamples);
   return {
     id: seed.id,
     title: seed.label,
     selectorLabel: seed.selectorLabel,
     description: seed.description,
     inputExamples: seed.inputExamples,
+    inputDefs,
     evaluationMetrics: seed.evaluationFocus,
     segmentColor: segmentColorForIndex(index),
     inputs,

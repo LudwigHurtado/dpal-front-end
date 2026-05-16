@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { DmrvBlockchainBadge } from '../dmrv/components/DmrvBlockchainSymbol';
 import { DmrvInfographicBoard } from '../dmrv/components/DmrvInfographicBoard';
 import { DMRV_CATEGORIES, getCategoryBySlug, type DmrvCategory } from '../dmrv/dmrvRegistry';
 
@@ -123,6 +124,9 @@ function CategoryThumb({
           <p className="line-clamp-2 text-[11px] font-black leading-tight text-white">{category.title}</p>
         </div>
       </div>
+      <span className="absolute left-2 top-2">
+        <DmrvBlockchainBadge accentColor={category.color} className="shadow-md" />
+      </span>
       {active ? (
         <span className="absolute right-2 top-2 rounded-full bg-emerald-500 px-2 py-0.5 text-[9px] font-black uppercase text-white shadow">
           Active

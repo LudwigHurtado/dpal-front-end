@@ -162,7 +162,6 @@ import PlatformHomePage from './src/features/platformHome/PlatformHomePage';
 import DeepOwlServiceLinesPage from './src/pages/DeepOwlServiceLinesPage';
 import GlobalIntelligenceMapPage from './src/pages/GlobalIntelligenceMapPage';
 import EnvironmentalWorkspacePage from './src/features/environmentalWorkspace/EnvironmentalWorkspacePage';
-import CarbonCompliancePage from './src/features/carbonCompliance/CarbonCompliancePage';
 import AdditionalModulesPage from './src/features/additionalModules/AdditionalModulesPage';
 import ClimatiqEmissionsCalculatorPage from './src/features/climatiq/ClimatiqEmissionsCalculatorPage';
 import DmrvRoutes from './src/features/dmrv/DmrvRoutes';
@@ -344,11 +343,15 @@ function getInitialCurrentView(): View {
   const params = new URLSearchParams(window.location.search);
   if (params.get('view') === 'storage') return 'storage';
   const fromPath = pathToView(window.location.pathname);
-  if (fromPath) return fromPath as View;
+  if (fromPath) {
+    if (fromPath === 'carbonComplianceWorkspace') return 'dmrvSelector';
+    return fromPath as View;
+  }
   const nav = readNavSession();
   if (nav?.currentView) {
     /** Completion views need in-memory payload; fall back to hub after refresh. */
     if (nav.currentView === 'reportComplete') return 'hub';
+    if (nav.currentView === 'carbonComplianceWorkspace') return 'dmrvSelector';
     return nav.currentView as View;
   }
   return 'mainMenu';
@@ -613,9 +616,10 @@ const App: React.FC = () => {
       return;
     }
     setCurrentView((prev) => {
-      if (v === prev) return prev;
+      const next = (v === 'carbonComplianceWorkspace' ? 'dmrvSelector' : v) as View;
+      if (next === prev) return prev;
       backNavRef.current = navigationType === 'POP';
-      return v as View;
+      return next;
     });
   }, [location.pathname, location.search, navigate, navigationType]);
 
@@ -674,9 +678,21 @@ const App: React.FC = () => {
       return;
     }
     /** DMRV hub + category pages share one view id — keep `/dmrv/:slug` when user opens a category card. */
-    if (currentView === 'dmrvSelector') {
+    if (currentView === 'dmrvSelector' || currentView === 'carbonComplianceWorkspace') {
       const curPath = location.pathname.replace(/\/$/, '') || '/';
+      const carbonConfigMatch = curPath.match(/^\/carbon-compliance\/([^/]+)\/config\/([^/]+)$/);
+      if (carbonConfigMatch) {
+        navigate(`/dmrv/${carbonConfigMatch[1]}/config/${carbonConfigMatch[2]}${location.search}`, {
+          replace: true,
+        });
+        return;
+      }
+      if (curPath === '/carbon-compliance' || curPath === '/cad-trust') {
+        navigate('/dmrv/carbon-land', { replace: true });
+        return;
+      }
       if (curPath === '/dmrv' || curPath.startsWith('/dmrv/')) return;
+      if (curPath.startsWith('/carbon-compliance/')) return;
     }
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
@@ -737,6 +753,12 @@ const App: React.FC = () => {
     if (currentView !== 'store') return;
     setHeroHubTab('store');
     setCurrentView('heroHub');
+  }, [currentView]);
+
+  /** Legacy view id — carbon compliance now uses DMRV carbon-land category page. */
+  useLayoutEffect(() => {
+    if (currentView !== 'carbonComplianceWorkspace') return;
+    setCurrentView('dmrvSelector');
   }, [currentView]);
 
   /**
@@ -2242,14 +2264,6 @@ const App: React.FC = () => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');
             }}
-          />
-        )}
-
-        {currentView === 'carbonComplianceWorkspace' && (
-          <CarbonCompliancePage
-            onNavigate={(v) => handleNavigate(v as View)}
-            useMobileLayout={useMobileLayout}
-            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
           />
         )}
 
