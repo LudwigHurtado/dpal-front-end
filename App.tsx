@@ -116,7 +116,7 @@ import { deriveImageDataUrlsFromFiles } from './utils/reportImageUrls';
 import { readNavSession, writeNavSession, categoryFromSession } from './utils/navSession';
 import { clearReportDeepLinkQuery, buildSituationRoomUrl } from './utils/deepLinks';
 import { useTranslations } from './i18n';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom';
 import {
   aquaScanReportPath,
   aquaScanSituationRoomPath,
@@ -383,6 +383,7 @@ const getInitialHeroLocation = (reports: Report[]): string => {
 const App: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const navigationType = useNavigationType();
   const previewModuleType = useMemo(() => {
     const m = location.pathname.match(/^\/preview\/module-preview\/([^/]+)$/);
     return m?.[1] ? decodeURIComponent(m[1]) : 'environmental-module';
@@ -538,7 +539,8 @@ const App: React.FC = () => {
       setMarketplaceDetailListingId(listingIdFromPath);
       setCurrentView((prev) => {
         if (prev === 'marketplaceMissionDetail') return prev;
-        backNavRef.current = true;
+        /** Only skip in-app history push on browser back/forward; Link pushes should record previous view for goBack(). */
+        backNavRef.current = navigationType === 'POP';
         return 'marketplaceMissionDetail';
       });
       return;
@@ -549,7 +551,7 @@ const App: React.FC = () => {
       setEpaFacilityDetailId(epaFacilityIdFromPath);
       setCurrentView((prev) => {
         if (prev === 'epaGhgFacilityDetail') return prev;
-        backNavRef.current = true;
+        backNavRef.current = navigationType === 'POP';
         return 'epaGhgFacilityDetail';
       });
       return;
@@ -560,7 +562,7 @@ const App: React.FC = () => {
       setAquaScanViewerReportId(aquaScanReportIdFromPath);
       setCurrentView((prev) => {
         if (prev === 'aquascanReportViewer') return prev;
-        backNavRef.current = true;
+        backNavRef.current = navigationType === 'POP';
         return 'aquascanReportViewer';
       });
       return;
@@ -571,7 +573,7 @@ const App: React.FC = () => {
       setAquaScanSituationRoomId(aquaScanSituationRoomIdFromPath);
       setCurrentView((prev) => {
         if (prev === 'aquascanSituationRoom') return prev;
-        backNavRef.current = true;
+        backNavRef.current = navigationType === 'POP';
         return 'aquascanSituationRoom';
       });
       return;
@@ -582,7 +584,7 @@ const App: React.FC = () => {
       setCarbViewerReportId(carbReportIdFromPath);
       setCurrentView((prev) => {
         if (prev === 'carbReportViewer') return prev;
-        backNavRef.current = true;
+        backNavRef.current = navigationType === 'POP';
         return 'carbReportViewer';
       });
       return;
@@ -593,7 +595,7 @@ const App: React.FC = () => {
       setCarbSituationRoomId(carbSituationRoomIdFromPath);
       setCurrentView((prev) => {
         if (prev === 'carbSituationRoom') return prev;
-        backNavRef.current = true;
+        backNavRef.current = navigationType === 'POP';
         return 'carbSituationRoom';
       });
       return;
@@ -608,10 +610,10 @@ const App: React.FC = () => {
     }
     setCurrentView((prev) => {
       if (v === prev) return prev;
-      backNavRef.current = true;
+      backNavRef.current = navigationType === 'POP';
       return v as View;
     });
-  }, [location.pathname, location.search, navigate]);
+  }, [location.pathname, location.search, navigate, navigationType]);
 
   /**
    * currentView → URL: keep the address bar in sync after in-app navigation.
@@ -619,7 +621,12 @@ const App: React.FC = () => {
    * Depend only on `currentView` — listing `location.search`/`hash` here re-ran the effect on every
    * `history.replaceState` from situation-room / deep-link helpers and caused rapid navigate + flicker.
    */
-  useLayoutEffect(() => {
+  /**
+   * currentView → URL: run after paint (useEffect) so URL→view layout effect can commit `currentView` first.
+   * Otherwise the same tick can read stale `currentView` (e.g. still `mainMenu` while pathname is already `/ecology`)
+   * and `navigate('/')` fights the Link — category tiles flicker and some routes appear broken.
+   */
+  useEffect(() => {
     if (currentView === 'marketplaceMissionDetail' && marketplaceDetailListingId) {
       const path = marketplaceMissionDetailPath(marketplaceDetailListingId);
       const curPath = location.pathname.replace(/\/$/, '') || '/';

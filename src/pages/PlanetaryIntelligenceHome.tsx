@@ -43,7 +43,6 @@ export default function PlanetaryIntelligenceHome({
 
   /** Earth + satellites hero (committed under `public/main-screen/`). */
   const heroVisualUrl = '/main-screen/planetary-intelligence-hero-earth.png';
-  const brandMarkUrl = '/main-screen/deep-owl-ecosystem-logo.png';
 
   return (
     <div className="w-full pb-24">
@@ -97,22 +96,7 @@ export default function PlanetaryIntelligenceHome({
                 style={{ backgroundImage: `url(${heroVisualUrl})` }}
                 aria-hidden
               />
-              <div className="pointer-events-none absolute right-5 top-5 z-[3] sm:right-7 sm:top-7 lg:right-9 lg:top-9">
-                <div className="relative">
-                  <div
-                    className="pointer-events-none absolute -inset-1 rounded-full bg-gradient-to-br from-white/90 via-white/40 to-transparent blur-sm"
-                    aria-hidden
-                  />
-                  <img
-                    src={brandMarkUrl}
-                    alt="Deep Owl ECO SYSTEM"
-                    width={112}
-                    height={112}
-                    className="relative h-20 w-20 rounded-full object-cover shadow-xl shadow-slate-950/35 ring-2 ring-emerald-400/40 sm:h-24 sm:w-24"
-                  />
-                </div>
-              </div>
-              {/* Blend hero imagery into white canvas (left seam + bottom + soft top) */}
+              {/* Blend only into the white column and card edges — no overlays on the globe art */}
               <div
                 className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-[min(55%,240px)] bg-gradient-to-r from-white from-25% via-white/85 to-transparent lg:w-[min(48%,280px)]"
                 aria-hidden
@@ -122,14 +106,6 @@ export default function PlanetaryIntelligenceHome({
                 aria-hidden
               />
               <div className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-14 bg-gradient-to-b from-white/90 to-transparent" aria-hidden />
-              <div className="pointer-events-none absolute inset-0 z-[1] bg-gradient-to-tr from-slate-900/15 via-transparent to-slate-900/40" aria-hidden />
-
-              <svg className="pointer-events-none absolute inset-0 z-[1] h-full w-full text-white/18" viewBox="0 0 400 320" preserveAspectRatio="xMidYMid slice" aria-hidden>
-                <ellipse cx="58%" cy="42%" rx="120" ry="48" fill="none" stroke="currentColor" strokeWidth="0.5" transform="rotate(-12 240 128)" />
-                <circle cx="72%" cy="28%" r="2.5" fill="currentColor" />
-                <circle cx="48%" cy="52%" r="2" fill="currentColor" />
-                <circle cx="82%" cy="48%" r="1.8" fill="currentColor" />
-              </svg>
             </div>
           </div>
         </section>
