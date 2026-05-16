@@ -246,12 +246,17 @@ export function PlatformSidebar({
           {workspaceOpen ? (
             <div className="ml-2 mt-1 space-y-0.5 border-l border-slate-700 py-1 pl-2">
               {WORKSPACE_CHILDREN.map((item) => {
-                const active = item.paths.some((p) => pathMatchesExact(currentPath, [p]));
+                const active =
+                  item.view === 'dmrvSelector'
+                    ? item.paths.some((p) => pathMatches(currentPath, [p]))
+                    : item.paths.some((p) => pathMatchesExact(currentPath, [p]));
                 return (
                   <button
                     key={item.view}
                     type="button"
-                    onClick={() => onSelectView(item.view)}
+                    onClick={() =>
+                      item.view === 'dmrvSelector' ? onSelectPath('/dmrv') : onSelectView(item.view)
+                    }
                     className={`flex w-full rounded-lg px-2 py-2 text-left text-[13px] transition ${
                       active ? 'bg-emerald-500/15 font-semibold text-emerald-300' : 'font-medium text-slate-400 hover:bg-slate-800/70 hover:text-white'
                     }`}

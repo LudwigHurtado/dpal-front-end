@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ChevronRight } from '../../../../components/icons';
 import type { DmrvCategory } from '../dmrvRegistry';
 
@@ -9,12 +9,14 @@ export type DmrvImageButtonCardProps = {
 
 export function DmrvImageButtonCard({ category }: DmrvImageButtonCardProps): React.ReactElement {
   const [imgFailed, setImgFailed] = useState(false);
+  const navigate = useNavigate();
   const href = `/dmrv/${category.slug}`;
 
   return (
-    <Link
-      to={href}
-      className="group relative flex flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-md shadow-slate-900/[0.06] transition duration-200 hover:-translate-y-0.5 hover:border-[#1e3a5f]/35 hover:shadow-lg hover:shadow-[#1e3a5f]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]/40"
+    <button
+      type="button"
+      onClick={() => navigate(href)}
+      className="group relative flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white text-left shadow-md shadow-slate-900/[0.06] transition duration-200 hover:-translate-y-0.5 hover:border-[#1e3a5f]/35 hover:shadow-lg hover:shadow-[#1e3a5f]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]/40"
     >
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-slate-100">
         {!imgFailed ? (
@@ -48,6 +50,6 @@ export function DmrvImageButtonCard({ category }: DmrvImageButtonCardProps): Rea
           <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden />
         </span>
       </div>
-    </Link>
+    </button>
   );
 }

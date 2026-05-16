@@ -673,6 +673,11 @@ const App: React.FC = () => {
       navigate(path, { replace: false });
       return;
     }
+    /** DMRV hub + category pages share one view id — keep `/dmrv/:slug` when user opens a category card. */
+    if (currentView === 'dmrvSelector') {
+      const curPath = location.pathname.replace(/\/$/, '') || '/';
+      if (curPath === '/dmrv' || curPath.startsWith('/dmrv/')) return;
+    }
     const path = viewToPath(currentView);
     // Keep deep-link query/hash only on report certificate or situation room views.
     // For Home and standard app views, clear stale URL params like ?reportId=...
