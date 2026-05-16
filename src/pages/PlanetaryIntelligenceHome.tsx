@@ -30,7 +30,10 @@ export default function PlanetaryIntelligenceHome({
   const image = {
     carbon: '/main-screen/Offset-Marketplace/hero-meadow-forest-sky.png',
     ocean: '/main-screen/Offset-Marketplace/hero-dpal-sustainability-collage.png',
-    water: '/main-screen/satellite-water-analysis.png',
+    waterIntelligence: '/main-screen/water-intelligence.png',
+    aquaScan: '/environmental-intelligence/aqua-scan-hero.png',
+    waterOperations: '/main-screen/water-project-monitoring.png',
+    aqualand: '/environmental-intelligence/water-satellite-monitor-main.png',
     emissions: '/main-screen/land-mineral-monitoring.png',
     biosphere: '/main-screen/Offset-Marketplace/parcel-aerial-agricultural-plot.png',
     evidence: '/main-screen/public-ledger.png',
@@ -142,8 +145,8 @@ export default function PlanetaryIntelligenceHome({
               onClick={() => onNavigate('hyperspectralPlasticWatch')}
             />
             <WorkspaceCard
-              imageSrc={image.water}
-              imageAlt="Satellite-informed water basin visualization"
+              imageSrc={image.waterIntelligence}
+              imageAlt="Water intelligence command view with basin and alert context"
               title="Water Intelligence"
               description="Surface water quality, floods, watershed health and contamination tracking."
               capabilities={['AquaScan', 'Rivers', 'Floods', 'Quality']}
@@ -152,8 +155,8 @@ export default function PlanetaryIntelligenceHome({
               onClick={() => onNavigate('waterMonitor')}
             />
             <WorkspaceCard
-              imageSrc={image.water}
-              imageAlt="AquaScan technical water MRV workspace"
+              imageSrc={image.aquaScan}
+              imageAlt="AquaScan MRV satellite AOI analysis workspace"
               title="AquaScan MRV"
               description="Technical AOI water satellite analysis, overlays, before/after comparison, and evidence packet support."
               capabilities={['AOI', 'Copernicus', 'Evidence', 'MRV']}
@@ -162,8 +165,8 @@ export default function PlanetaryIntelligenceHome({
               onClick={() => onNavigate('aquaScanWater')}
             />
             <WorkspaceCard
-              imageSrc={image.water}
-              imageAlt="Water operations engine dashboard"
+              imageSrc={image.waterOperations}
+              imageAlt="Water operations and project monitoring dashboard"
               title="Water Operations Engine"
               description="Project-based water monitoring, validator workflow, snapshots, impact tracking, and water credits workflow."
               capabilities={['Projects', 'Validators', 'Snapshots', 'Credits']}
@@ -172,8 +175,8 @@ export default function PlanetaryIntelligenceHome({
               onClick={() => onNavigate('waterOperationsEngine')}
             />
             <WorkspaceCard
-              imageSrc={image.water}
-              imageAlt="Aqualand well intelligence surface"
+              imageSrc={image.aqualand}
+              imageAlt="Aqualand well and groundwater intelligence surface"
               title="Aqualand Well"
               description="Aqualand / upgraded well intelligence route — same live engines family as AquaScan."
               capabilities={['Wells', 'Intake', 'Layers', 'Evidence']}
