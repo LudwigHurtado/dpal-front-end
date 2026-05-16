@@ -130,60 +130,6 @@ export default function PlanetaryIntelligenceHome({
                 <circle cx="48%" cy="52%" r="2" fill="currentColor" />
                 <circle cx="82%" cy="48%" r="1.8" fill="currentColor" />
               </svg>
-
-              <div className="relative z-[2] flex h-full min-h-[280px] items-end justify-center p-6 sm:p-8 lg:items-center lg:justify-end">
-                <div className="w-full max-w-[340px] rounded-2xl border border-white/15 bg-slate-950/82 p-6 text-white shadow-2xl shadow-slate-950/40 ring-1 ring-white/10 backdrop-blur-md">
-                  <div className="mb-5 grid grid-cols-4 gap-2 border-b border-white/10 pb-4">
-                    {[
-                      { label: 'Monitor', bar: 'bg-emerald-400', glyph: '◎' },
-                      { label: 'Verify', bar: 'bg-cyan-400', glyph: '〜' },
-                      { label: 'Detect', bar: 'bg-sky-500', glyph: '◆' },
-                      { label: 'Protect', bar: 'bg-emerald-500', glyph: '❋' },
-                    ].map((m) => (
-                      <div key={m.label} className="flex flex-col items-center gap-1.5 text-center">
-                        <span className="text-[10px] font-bold text-white/90" aria-hidden>
-                          {m.glyph}
-                        </span>
-                        <span className="h-1 w-full max-w-[40px] rounded-full bg-white/20">
-                          <span className={`block h-full w-3/4 rounded-full ${m.bar}`} />
-                        </span>
-                        <span className="text-[8px] font-semibold uppercase tracking-wide text-slate-400">{m.label}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-2 border-b border-white/15 pb-3">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-400 shadow-[0_0_0_3px_rgba(52,211,153,0.35)]" aria-hidden />
-                    <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-200">Live Global Overview</p>
-                  </div>
-                  <dl className="mt-5 space-y-5">
-                    <div>
-                      <dt className="text-xs font-medium text-slate-400">Active Alerts</dt>
-                      <dd className="mt-1 flex flex-wrap items-baseline gap-2">
-                        <span className="text-2xl font-semibold tabular-nums text-white">37</span>
-                        <span className="text-xs font-semibold text-rose-300">High Priority</span>
-                      </dd>
-                    </div>
-                    <div className="border-t border-white/10 pt-5">
-                      <dt className="text-xs font-medium text-slate-400">Monitoring Areas</dt>
-                      <dd className="mt-1 flex flex-wrap items-baseline gap-2">
-                        <span className="text-2xl font-semibold tabular-nums text-white">128</span>
-                        <span className="text-xs font-semibold text-emerald-300">+12 this week</span>
-                      </dd>
-                    </div>
-                    <div className="border-t border-white/10 pt-5">
-                      <dt className="text-xs font-medium text-slate-400">Evidence Packets</dt>
-                      <dd className="mt-1 flex flex-wrap items-baseline gap-2">
-                        <span className="text-2xl font-semibold tabular-nums text-white">2,846</span>
-                        <span className="text-xs font-semibold text-emerald-300">+245 this week</span>
-                      </dd>
-                    </div>
-                    <div className="border-t border-white/10 pt-5">
-                      <dt className="text-xs font-medium text-slate-400">Node Status</dt>
-                      <dd className="mt-1 text-sm font-semibold text-emerald-300">Online · operational preview</dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
             </div>
           </div>
         </section>
