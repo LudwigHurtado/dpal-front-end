@@ -12,15 +12,13 @@ type DmrvSatellitePickerProps = {
   onChange: (serializedIds: string) => void;
 };
 
-function MissionImage({ src, alt }: { src: string; alt: string }): React.ReactElement {
+function MissionImage({ src, alt, missionId }: { src: string; alt: string; missionId: string }): React.ReactElement {
   const [failed, setFailed] = useState(false);
   if (failed) {
     return (
-      <div
-        className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#1e3a5f] to-slate-700 text-[10px] font-bold uppercase tracking-wide text-white/90"
-        aria-hidden
-      >
-        Earth obs
+      <div className="flex h-full min-h-[120px] w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#e8f0f7] to-slate-100 px-3 text-center">
+        <span className="text-[10px] font-black uppercase tracking-wide text-[#1e3a5f]">Image unavailable</span>
+        <span className="text-[9px] text-slate-500">{missionId}</span>
       </div>
     );
   }
@@ -30,7 +28,7 @@ function MissionImage({ src, alt }: { src: string; alt: string }): React.ReactEl
       alt={alt}
       loading="lazy"
       decoding="async"
-      className="h-full w-full object-contain bg-white p-1"
+      className="mx-auto h-full max-h-[140px] w-full object-contain object-center p-2"
       onError={() => setFailed(true)}
     />
   );
@@ -54,8 +52,7 @@ export function DmrvSatellitePicker({ selectedRaw, onChange }: DmrvSatellitePick
       <div className="rounded-xl border border-[#1e3a5f]/15 bg-gradient-to-br from-[#e8f0f7] to-white px-4 py-3">
         <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[#1e3a5f]">Satellite stack</p>
         <p className="mt-1 text-sm text-slate-700">
-          Pick one or more missions for this MRV project. Selections are saved with your configuration and listed in
-          evidence packets for reviewers.
+          Pick one or more missions for this MRV project. Each card shows the spacecraft used for that data source.
         </p>
         <p className="mt-2 text-xs text-slate-500">
           {selectedIds.length === 0
@@ -76,26 +73,37 @@ export function DmrvSatellitePicker({ selectedRaw, onChange }: DmrvSatellitePick
                   : 'border-slate-200 hover:border-slate-300'
               }`}
             >
-              <div className="relative h-28 overflow-hidden bg-slate-100">
-                <MissionImage src={mission.imageUrl} alt={`${mission.name} spacecraft`} />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/75 via-slate-900/20 to-transparent" />
-                <div className="absolute left-2 top-2 flex items-center gap-2">
+              <div className="relative border-b border-slate-100 bg-white">
+                <div className="flex min-h-[132px] items-center justify-center bg-gradient-to-b from-slate-50 to-white">
+                  <MissionImage
+                    src={mission.imageUrl}
+                    alt={`${mission.name} spacecraft`}
+                    missionId={mission.id}
+                  />
+                </div>
+                <div className="absolute right-2 top-2">
                   <input
                     type="checkbox"
                     checked={checked}
                     onChange={(e) => handleToggle(mission.id, e.target.checked)}
-                    className="h-4 w-4 rounded border-white/80 bg-white/95 text-[#1e3a5f] shadow"
+                    className="h-5 w-5 rounded border-slate-300 bg-white text-[#1e3a5f] shadow-md"
                     aria-label={`Select ${mission.name}`}
                   />
-                  <span className="rounded-md bg-white/90 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-[#1e3a5f]">
+                </div>
+              </div>
+
+              <div className="border-b border-slate-100 bg-[#1e3a5f] px-3 py-2 text-white">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-black leading-tight">{mission.name}</p>
+                    <p className="text-[10px] font-medium text-white/85">{mission.tagline}</p>
+                  </div>
+                  <span className="shrink-0 rounded-md bg-white/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide">
                     {mission.agency}
                   </span>
                 </div>
-                <div className="absolute bottom-2 left-2 right-2">
-                  <p className="text-sm font-black text-white drop-shadow">{mission.name}</p>
-                  <p className="text-[10px] font-medium text-white/90">{mission.tagline}</p>
-                </div>
               </div>
+
               <div className="flex flex-1 flex-col gap-2 p-3">
                 <p className="text-xs leading-relaxed text-slate-700">{mission.description}</p>
                 <div>
