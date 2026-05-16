@@ -99,7 +99,10 @@ const PlasticEvidencePacketPanel: React.FC<Props> = ({ scan, evidence }) => {
             <div className="rounded-lg border border-slate-100 bg-slate-50/50 p-3">
               <p className="text-[11px] font-semibold text-slate-700 mb-2">Summary</p>
               {!scan ? (
-                <p className="text-sm text-slate-500">Run a scan or Watch DPAL Work to populate the packet.</p>
+                <p className="text-sm text-slate-500">
+                  Run <strong>Watch DPAL Work</strong> from the left panel to build the packet, integrity hash, and
+                  validator-ready export.
+                </p>
               ) : (
                 <>
                   {cell('AOI label', scan.label)}

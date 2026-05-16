@@ -28,8 +28,11 @@ export function OceanPlasticIntelligenceHero({
           Ocean &amp; Plastic Intelligence
         </h1>
         <p className="mt-2 max-w-2xl text-xs leading-relaxed text-slate-200 sm:text-sm">
-          Satellite screening, PACE ocean-color context, field validation, drone surveys, and evidence packets — human
-          gates before any plastic attribution claim.
+          Screen coastal and river areas for possible plastic-risk signals using PACE / EMIT metadata, AI explanation,
+          and exportable evidence — not confirmed plastic detection from satellite alone.
+        </p>
+        <p className="mt-2 text-[11px] font-medium text-emerald-200/95">
+          1 · Set circle AOI on map → 2 · Watch DPAL Work → 3 · Review Results &amp; Evidence tabs
         </p>
       </div>
     </section>

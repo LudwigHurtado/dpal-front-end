@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft } from '../icons';
 import { getValidatorPortalUrl } from '../../constants';
 import { DPAL_OFFICIAL_FAVICON } from '../../src/constants/brandAssets';
 import { PLANETARY_INTELLIGENCE_CATEGORIES } from '../../src/data/planetaryIntelligenceCategories';
@@ -13,10 +14,20 @@ export type PlatformSidebarProps = {
   onSelectPath: (path: string) => void;
   /** Tailwind sticky offset; empty string disables sticky (e.g. mobile drawer). */
   stickyTop?: string;
+  /** Desktop only: collapse the platform sidebar rail. */
+  onCollapse?: () => void;
   className?: string;
 };
 
-type NavLeaf = { label: string; view: string; paths: string[]; /** When set, sidebar click navigates here instead of viewToPath. */ launchPath?: string };
+type NavLeaf = {
+  label: string;
+  view: string;
+  paths: string[];
+  /** When set, sidebar click navigates here instead of viewToPath. */
+  launchPath?: string;
+  /** Highlight when pathname equals or starts with this prefix (e.g. all `/dmrv/*` routes). */
+  pathPrefix?: string;
+};
 
 function normalizePath(p: string): string {
   return p.replace(/\/$/, '') || '/';
@@ -42,8 +53,9 @@ const WORKSPACE_CHILDREN: NavLeaf[] = [
   {
     label: 'Carbon & MRV',
     view: 'dmrvSelector',
-    launchPath: '/dmrv/carbon-land',
+    pathPrefix: '/dmrv',
     paths: [
+      '/dmrv',
       '/carbon-compliance',
       '/cad-trust',
       '/dmrv/carbon-land',
@@ -98,6 +110,7 @@ export function PlatformSidebar({
   onSelectView,
   onSelectPath,
   stickyTop = 'top-0',
+  onCollapse,
   className = '',
 }: PlatformSidebarProps): React.ReactElement {
   const [workspaceOpen, setWorkspaceOpen] = useState(() =>
@@ -153,7 +166,8 @@ export function PlatformSidebar({
       aria-label="DPAL platform navigation"
     >
       <div className="shrink-0 border-b border-slate-800/90 px-5 py-6">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex min-w-0 items-start gap-3">
           <Link
             to="/"
             className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full ring-2 ring-emerald-500/35 shadow-lg shadow-emerald-950/40"
@@ -174,6 +188,18 @@ export function PlatformSidebar({
               Planetary Intelligence &amp; Public Accountability
             </p>
           </div>
+          </div>
+          {onCollapse ? (
+            <button
+              type="button"
+              onClick={onCollapse}
+              className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-slate-700/80 bg-slate-800/60 text-slate-300 transition hover:border-slate-600 hover:bg-slate-800 hover:text-white"
+              aria-label="Collapse navigation sidebar"
+              title="Collapse sidebar"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -249,9 +275,10 @@ export function PlatformSidebar({
             <div className="ml-2 mt-1 space-y-0.5 border-l border-slate-700 py-1 pl-2">
               {WORKSPACE_CHILDREN.map((item) => {
                 const active =
-                  item.launchPath || item.view !== 'dmrvSelector'
+                  (item.pathPrefix ? pathMatches(currentPath, [item.pathPrefix]) : false) ||
+                  (item.launchPath || item.view !== 'dmrvSelector'
                     ? item.paths.some((p) => pathMatchesExact(currentPath, [p]))
-                    : item.paths.some((p) => pathMatches(currentPath, [p]));
+                    : item.paths.some((p) => pathMatches(currentPath, [p])));
                 return (
                   <button
                     key={`${item.view}-${item.label}`}

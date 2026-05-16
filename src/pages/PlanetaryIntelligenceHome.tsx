@@ -139,7 +139,7 @@ export default function PlanetaryIntelligenceHome({
               capabilities={['MRV', 'VIUs', 'Registry', 'Nodes']}
               statusLabel="Active"
               metrics={[{ label: 'Projects', value: '54' }, { label: 'Packets', value: '1,245' }]}
-              onClick={() => goPath('/dmrv/carbon-land')}
+              onClick={() => goPath('/dmrv')}
             />
             <WorkspaceCard
               imageSrc={image.ocean}

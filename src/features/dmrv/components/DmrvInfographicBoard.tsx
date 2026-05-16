@@ -99,16 +99,16 @@ export function DmrvInfographicBoard({
 
       <DmrvWorkflowProgress activeStep={workflowStep} />
 
-      {!projectUnlocked ? (
-        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-center text-xs font-medium text-amber-950">
-          Complete Project Configuration before configuring evidence sources.
-        </p>
-      ) : projectCtx ? (
+      {projectCtx ? (
         <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-center text-xs text-emerald-900">
-          Project <span className="font-bold">{projectCtx.projectName || projectCtx.projectId}</span> is active —
-          evidence source cards are unlocked.
+          Project <span className="font-bold">{projectCtx.projectName || projectCtx.projectId}</span> is active.
+          Evidence sources unlock when project configuration is complete.
         </p>
-      ) : null}
+      ) : (
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-center text-xs text-slate-600">
+          Project configuration is optional. Configure project identity anytime, or open individual inputs directly.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
         <DmrvSelectorDial
@@ -138,7 +138,6 @@ export function DmrvInfographicBoard({
                 type={type}
                 active={type.id === selectedTypeId}
                 onSelect={() => handleSelectType(type.id)}
-                projectStatus={projectCtx?.status ?? 'required'}
                 projectUnlocked={projectUnlocked}
                 onOpenProjectConfig={() => handleOpenProject(type.id)}
                 onConfigureInput={(inputDef) => handleConfigureInput(type.id, inputDef)}

@@ -110,7 +110,7 @@ export default function EnvironmentalWorkspacePage({
               title="Carbon Compliance Shell"
               description="CAD Trust readiness, registry connectors, VIU posture."
               badge="New"
-              onClick={() => goPath('/dmrv/carbon-land')}
+              onClick={() => goPath('/dmrv')}
             />
           </div>
         </WorkspaceSection>

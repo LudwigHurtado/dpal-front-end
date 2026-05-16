@@ -1,23 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import L from 'leaflet';
-import { MapContainer, TileLayer, Circle, useMap, useMapEvents } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
 import {
   ArrowLeft,
   ChevronRight,
-  Crosshair,
-  Layout,
-  Maximize2,
-  Search,
   Settings,
 } from '../../../components/icons';
-import PlasticEvidencePacketPanel from './components/PlasticEvidencePacketPanel';
-import PaceSatelliteMetadataCard from './components/PaceSatelliteMetadataCard';
-import PlasticLayerControl from './components/PlasticLayerControl';
-import PlasticRiskSummaryCards from './components/PlasticRiskSummaryCards';
-import PlasticWatchReportAssistant from './components/PlasticWatchReportAssistant';
 import PlasticWatchAutomationPanel from './components/PlasticWatchAutomationPanel';
-import SpectralSignaturePanel from './components/SpectralSignaturePanel';
 import { WATCH_DEEP_LINK_HASH } from '../../../utils/appRoutes';
 import EnvironmentalDashboardShell from '../environmentalIntelligence/shared/EnvironmentalDashboardShell';
 import { CarbonPuraContextBanner } from '../partners/carbonpura/components/CarbonPuraContextBanner';
@@ -50,10 +37,28 @@ import type {
   PlasticWatchTab,
   ProviderReadinessCard,
 } from './types';
-import { PlasticWatchTabbedShell } from './components/PlasticWatchTabbedShell';
 import PlasticWatchProjectInfoPanel from './components/PlasticWatchProjectInfoPanel';
 import PlasticWatchChatPanel from './components/PlasticWatchChatPanel';
-import { OceanPlasticIntelligenceHero } from './components/OceanPlasticIntelligenceHero';
+import { PlasticMissionHero } from './components/PlasticMissionHero';
+import { PlasticMissionSelector } from './components/PlasticMissionSelector';
+import { PlasticMissionStepper } from './components/PlasticMissionStepper';
+import { PlasticAoiMapPanel } from './components/PlasticAoiMapPanel';
+import { PlasticAiHelperPanel } from './components/PlasticAiHelperPanel';
+import { PlasticSatelliteReadinessPanel } from './components/PlasticSatelliteReadinessPanel';
+import { PlasticScanResultsPanel } from './components/PlasticScanResultsPanel';
+import { PlasticPageExplainer } from './components/PlasticPageExplainer';
+import PlasticEvidencePacketPanel from './components/PlasticEvidencePacketPanel';
+import type { PlasticMissionTypeId } from './data/plasticMissionTypes';
+import { getPlasticMissionType } from './data/plasticMissionTypes';
+import {
+  computeBoundingRadiusKm,
+  computePolygonCentroid,
+  parseManualPolygonJson,
+  toPolygonGeoJSON,
+  type LatLngPoint,
+} from './utils/plasticAoiUtils';
+import { computeMissionWorkflowSteps } from './utils/plasticMissionWorkflow';
+import { PlasticWatchValueStrip } from './components/PlasticWatchValueStrip';
 
 type Props = {
   onReturn: () => void;
@@ -333,93 +338,6 @@ function initialSteps(): PlasticWatchStep[] {
   ];
 }
 
-function MapPicker({ onPick }: { onPick: (p: { lat: number; lng: number }) => void }) {
-  function Picker() {
-    useMapEvents({
-      click(e) {
-        onPick({ lat: e.latlng.lat, lng: e.latlng.lng });
-      },
-    });
-    return null;
-  }
-  return <Picker />;
-}
-
-function LeafletZoomScale() {
-  const map = useMap();
-  useEffect(() => {
-    const zoom = L.control.zoom({ position: 'topright' });
-    const scale = L.control.scale({ imperial: false, metric: true, position: 'bottomleft' });
-    zoom.addTo(map);
-    scale.addTo(map);
-    return () => {
-      map.removeControl(zoom);
-      map.removeControl(scale);
-    };
-  }, [map]);
-  return null;
-}
-
-function MapViewSync({ center }: { center: { lat: number; lng: number } }) {
-  const map = useMap();
-  useEffect(() => {
-    map.setView([center.lat, center.lng], map.getZoom(), { animate: false });
-  }, [center.lat, center.lng, map]);
-  return null;
-}
-
-/** Re-measure Leaflet after layout — flex/grid often finalizes after first paint. */
-function LeafletMapSizeFixer({ layoutKey }: { layoutKey: string }) {
-  const map = useMap();
-  useEffect(() => {
-    const run = () => {
-      map.invalidateSize({ animate: false });
-    };
-    run();
-    const t1 = window.setTimeout(run, 100);
-    const t2 = window.setTimeout(run, 350);
-    window.addEventListener('resize', run);
-    const onFs = () => {
-      window.requestAnimationFrame(run);
-    };
-    document.addEventListener('fullscreenchange', onFs);
-    return () => {
-      window.clearTimeout(t1);
-      window.clearTimeout(t2);
-      window.removeEventListener('resize', run);
-      document.removeEventListener('fullscreenchange', onFs);
-    };
-  }, [map, layoutKey]);
-  return null;
-}
-
-function LeafletMapResizeObserver({ containerRef }: { containerRef: React.RefObject<HTMLElement | null> }) {
-  const map = useMap();
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || typeof ResizeObserver === 'undefined') return;
-
-    const observer = new ResizeObserver(() => {
-      window.requestAnimationFrame(() => {
-        map.invalidateSize({ animate: false });
-      });
-    });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [map, containerRef]);
-  return null;
-}
-
-const ENV_OPTIONS: { id: PlasticEnvironmentType; label: string }[] = [
-  { id: 'river', label: 'River' },
-  { id: 'lake', label: 'Lake' },
-  { id: 'coast', label: 'Coast' },
-  { id: 'ocean', label: 'Ocean' },
-  { id: 'landfill_dumping', label: 'Landfill / dumping area' },
-  { id: 'flood_debris', label: 'Flood debris zone' },
-];
-
 const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [label, setLabel] = useState('Plastic Watch AOI');
   const [searchText, setSearchText] = useState('');
@@ -470,7 +388,25 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [cacheNotice, setCacheNotice] = useState<string | null>(null);
   const [dronePrepare, setDronePrepare] = useState<DroneValidationPrepareResponse | null>(null);
   const [droneBusy, setDroneBusy] = useState(false);
-  const [activeTab, setActiveTab] = useState<PlasticWatchTab>('results');
+  const [activeTab, setActiveTab] = useState<PlasticWatchTab>('overview');
+  const [missionTypeId, setMissionTypeId] = useState<PlasticMissionTypeId>('ocean_floating');
+  const [drawingPolygon, setDrawingPolygon] = useState(false);
+  const [polygonDraftPoints, setPolygonDraftPoints] = useState<LatLngPoint[]>([]);
+  const [savedPolygonPoints, setSavedPolygonPoints] = useState<LatLngPoint[]>([]);
+  const [manualPolygonJson, setManualPolygonJson] = useState('');
+  const [manualPolygonError, setManualPolygonError] = useState<string | null>(null);
+  const [showPageExplainer, setShowPageExplainer] = useState(false);
+  const [activeWorkflowStep, setActiveWorkflowStep] = useState<string | null>(null);
+
+  const hasSavedAoi = savedPolygonPoints.length >= 3;
+  const polygonCentroid = useMemo(
+    () => computePolygonCentroid(savedPolygonPoints) ?? center,
+    [savedPolygonPoints, center],
+  );
+  const effectiveRadiusKm = useMemo(
+    () => (hasSavedAoi ? computeBoundingRadiusKm(savedPolygonPoints) : radiusKm),
+    [hasSavedAoi, radiusKm, savedPolygonPoints],
+  );
 
   const watchRunIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
@@ -578,7 +514,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       <PlasticWatchProjectInfoPanel
         title={scenario.title}
         subtitle={scenario.locationLabel}
-        defaultOpen={false}
+        defaultOpen
       >
         <InvestorDemoExplainer
           title={scenario.title}
@@ -702,18 +638,56 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     setActivePreset(null);
   };
 
-  const scanParams = useMemo(
-    () => ({
-      lat: center.lat,
-      lng: center.lng,
+  const scanParams = useMemo(() => {
+    const geo = hasSavedAoi ? toPolygonGeoJSON(savedPolygonPoints) : null;
+    return {
+      lat: polygonCentroid.lat,
+      lng: polygonCentroid.lng,
       label,
-      radiusKm,
+      radiusKm: effectiveRadiusKm,
       baselineDate: baselineDay,
       currentDate: currentDay,
       environmentType,
       quickPreset: mapQuickPresetToApi(activePreset),
-    }),
-    [activePreset, baselineDay, center.lat, center.lng, currentDay, environmentType, label, radiusKm],
+      polygon: hasSavedAoi ? savedPolygonPoints.map((p) => [p.lng, p.lat]) : null,
+      aoiGeoJson: geo,
+    };
+  }, [
+    activePreset,
+    baselineDay,
+    currentDay,
+    effectiveRadiusKm,
+    environmentType,
+    hasSavedAoi,
+    label,
+    polygonCentroid.lat,
+    polygonCentroid.lng,
+    savedPolygonPoints,
+  ]);
+
+  const workflowSteps = useMemo(
+    () =>
+      computeMissionWorkflowSteps({
+        missionTypeSelected: true,
+        savedPolygon: savedPolygonPoints,
+        drawingPolygon,
+        providerStatus,
+        providerStatusError,
+        isRunning,
+        lastScan,
+        evidence,
+        lastError,
+      }),
+    [
+      savedPolygonPoints,
+      drawingPolygon,
+      providerStatus,
+      providerStatusError,
+      isRunning,
+      lastScan,
+      evidence,
+      lastError,
+    ],
   );
 
   const plasticScanPendingNotice = useMemo(
@@ -722,6 +696,10 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   );
 
   const runManualScan = useCallback(async () => {
+    if (!hasSavedAoi) {
+      setLastError('Save a valid AOI polygon (at least 3 points) before running a scan.');
+      return;
+    }
     setLastError(null);
     setCacheNotice(null);
     try {
@@ -732,14 +710,19 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
       setLastScan(data);
       setEvidence(null);
       setCacheNotice(fromCache ? 'Served from short client cache (same AOI/window).' : null);
+      setActiveTab('results');
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Scan failed';
       if ((e as Error).name === 'AbortError') return;
       setLastError(msg);
     }
-  }, [scanParams]);
+  }, [hasSavedAoi, scanParams]);
 
   const executeWatch = useCallback(async () => {
+    if (!hasSavedAoi) {
+      setLastError('Save a valid AOI polygon (at least 3 points) before Watch DPAL Work.');
+      return;
+    }
     if (!baselineIso || !currentIso) {
       setLastError('Choose valid baseline and current dates.');
       return;
@@ -802,6 +785,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
       setLastScan(data);
       setCacheNotice(fromCache ? 'Scan result: short client cache hit for identical AOI/window.' : null);
+      setActiveTab('results');
       pushLog('Hyperspectral plastic watch scan response received from API (POST).');
 
       const p = data.providers.pace;
@@ -924,7 +908,55 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         abortRef.current = null;
       }
     }
-  }, [baselineIso, center.lat, center.lng, currentIso, environmentType, label, patchStep, pushLog, radiusKm, resetSteps, scanParams]);
+  }, [baselineIso, center.lat, center.lng, currentIso, environmentType, hasSavedAoi, label, patchStep, pushLog, radiusKm, resetSteps, scanParams]);
+
+  useEffect(() => {
+    const mission = getPlasticMissionType(missionTypeId);
+    setEnvironmentType(mission.environmentType);
+  }, [missionTypeId]);
+
+  const loadDemoMission = useCallback(() => {
+    const scenario = getDemoScenarioById('demo-plastic-manila-bay');
+    setMissionTypeId('beach_coastal');
+    setLabel(scenario?.locationLabel ?? 'Manila Bay demo AOI');
+    setCenter({ lat: 14.5995, lng: 120.9842 });
+    setSavedPolygonPoints([
+      { lat: 14.62, lng: 120.95 },
+      { lat: 14.62, lng: 121.02 },
+      { lat: 14.56, lng: 121.02 },
+      { lat: 14.56, lng: 120.95 },
+    ]);
+    setPolygonDraftPoints([]);
+    setDrawingPolygon(false);
+    setActivePreset('6m');
+    setLastScan(null);
+    setEvidence(null);
+    clearHyperspectralPlasticScanCache();
+  }, []);
+
+  const applyManualPolygon = useCallback(() => {
+    const { points, error } = parseManualPolygonJson(manualPolygonJson);
+    if (error) {
+      setManualPolygonError(error);
+      return;
+    }
+    setManualPolygonError(null);
+    setSavedPolygonPoints(points);
+    setPolygonDraftPoints([]);
+    setDrawingPolygon(false);
+    const c = computePolygonCentroid(points);
+    if (c) setCenter(c);
+  }, [manualPolygonJson]);
+
+  const handleSavedPolygonChange = useCallback((points: LatLngPoint[]) => {
+    setSavedPolygonPoints(points);
+    setLastScan(null);
+    setEvidence(null);
+    clearHyperspectralPlasticScanCache();
+    const c = computePolygonCentroid(points);
+    if (c) setCenter(c);
+    setRadiusKm(computeBoundingRadiusKm(points));
+  }, []);
 
   const handlePrepareDroneValidation = useCallback(async () => {
     setDroneBusy(true);
@@ -1034,15 +1066,15 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const legendRows = useMemo(() => {
     const rows: { key: keyof PlasticMapLayers; label: string; color: string }[] = [
       { key: 'aoiCircle', label: 'AOI', color: 'bg-emerald-600' },
-      { key: 'paceOceanColor', label: 'PACE (legend)', color: 'bg-sky-500' },
-      { key: 'emitHyperspectral', label: 'EMIT (legend)', color: 'bg-violet-500' },
-      { key: 'plasticRiskAnomaly', label: 'Plastic-risk anomaly', color: 'bg-fuchsia-500' },
-      { key: 'turbiditySediment', label: 'Turbidity / sediment', color: 'bg-amber-600' },
-      { key: 'chlorophyllAlgae', label: 'Chlorophyll / algae', color: 'bg-lime-600' },
-      { key: 'floatingDebrisCandidate', label: 'Floating debris candidate', color: 'bg-orange-500' },
-      { key: 'fieldValidationPoints', label: 'Field validation points', color: 'bg-emerald-700' },
-      { key: 'cleanupMissionPins', label: 'Cleanup mission pins', color: 'bg-teal-600' },
-      { key: 'droneValidationPoints', label: 'Drone validation points', color: 'bg-slate-500' },
+      { key: 'paceOceanColor', label: 'PACE (legend only)', color: 'bg-sky-500' },
+      { key: 'emitHyperspectral', label: 'EMIT (legend only)', color: 'bg-violet-500' },
+      { key: 'plasticRiskAnomaly', label: 'Plastic-risk (legend)', color: 'bg-fuchsia-500' },
+      { key: 'turbiditySediment', label: 'Turbidity (legend)', color: 'bg-amber-600' },
+      { key: 'chlorophyllAlgae', label: 'Chlorophyll (legend)', color: 'bg-lime-600' },
+      { key: 'floatingDebrisCandidate', label: 'Debris candidate (legend)', color: 'bg-orange-500' },
+      { key: 'fieldValidationPoints', label: 'Field validation (legend)', color: 'bg-emerald-700' },
+      { key: 'cleanupMissionPins', label: 'Cleanup pins (legend)', color: 'bg-teal-600' },
+      { key: 'droneValidationPoints', label: 'Drone validation (legend)', color: 'bg-slate-500' },
       { key: 'satellite', label: 'Satellite base', color: 'bg-slate-600' },
     ];
     return rows.filter((row) => (row.key === 'aoiCircle' ? layers.aoiCircle : layers[row.key]));
@@ -1128,449 +1160,126 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
 
       <EnvironmentalProviderStatusStrip items={providerStripItems} />
 
-      <div className="mx-auto max-w-[1920px] px-4 pb-2 pt-3">
-        <OceanPlasticIntelligenceHero />
+      <div className="mx-auto max-w-[1920px] space-y-3 px-4 pb-2 pt-3">
+        <PlasticMissionHero
+          onStartMission={() => {
+            setDrawingPolygon(true);
+            setPolygonDraftPoints([]);
+            setShowPageExplainer(false);
+          }}
+          onDrawArea={() => {
+            setDrawingPolygon(true);
+            setPolygonDraftPoints([]);
+          }}
+          onLoadDemo={() => loadDemoMission()}
+          onExplainPage={() => setShowPageExplainer(true)}
+        />
+        <PlasticWatchValueStrip />
+        {showPageExplainer ? <PlasticPageExplainer /> : null}
       </div>
 
       {providerStatus ? (
         <div className="shrink-0 border-b border-cyan-200 bg-cyan-50/90">
           <div className="mx-auto max-w-[1920px] px-4 py-2 text-[11px] leading-snug text-cyan-950">
-            <span className="font-semibold">Next steps: </span>
+            <span className="font-semibold">Operator setup: </span>
+            <span className="text-slate-700">
+              Optional server configuration for live PACE/EMIT lanes — scans still run with honest fallback messages when
+              lanes are off.{' '}
+            </span>
             {plasticWatchSetupBannerBody(providerStatus)}
           </div>
         </div>
       ) : null}
 
-      <div className="mx-auto flex w-full max-w-[1920px] flex-1 min-h-0 flex-col gap-3 px-4 py-4 lg:flex-row">
-        <aside className="w-full shrink-0 space-y-3 lg:w-[320px] lg:max-w-[360px]">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">Define Area of Interest</h2>
-
-            <div className="mt-3">
-              <label className="text-[10px] font-medium uppercase tracking-wide text-slate-500">Search</label>
-              <div className="mt-1 flex gap-1">
-                <div className="relative flex-1">
-                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-                  <input
-                    value={searchText}
-                    onChange={(e) => setSearchText(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') void submitSearch();
-                    }}
-                    placeholder="Search location or click map"
-                    className="w-full rounded-lg border border-slate-200 py-1.5 pl-7 pr-2 text-xs"
-                  />
-                </div>
-                <button
-                  type="button"
-                  disabled={searchBusy}
-                  onClick={() => void submitSearch()}
-                  className="rounded-lg border border-slate-200 px-2 py-1.5 text-xs font-medium hover:bg-slate-50 disabled:opacity-50"
-                >
-                  Go
-                </button>
-              </div>
-              {searchNotice ? <p className="mt-1 text-[10px] text-amber-700">{searchNotice}</p> : null}
-            </div>
-
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="text-[10px] font-medium text-slate-500">
-                Lat
-                <input
-                  type="number"
-                  step="any"
-                  value={Number.isFinite(center.lat) ? center.lat : ''}
-                  onChange={(e) => {
-                    const v = parseLocalizedNumber(e.target.value);
-                    if (Number.isFinite(v)) setCenter((c) => ({ ...c, lat: v }));
-                  }}
-                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-mono"
-                />
-              </label>
-              <label className="text-[10px] font-medium text-slate-500">
-                Lng
-                <input
-                  type="number"
-                  step="any"
-                  value={Number.isFinite(center.lng) ? center.lng : ''}
-                  onChange={(e) => {
-                    const v = parseLocalizedNumber(e.target.value);
-                    if (Number.isFinite(v)) setCenter((c) => ({ ...c, lng: v }));
-                  }}
-                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs font-mono"
-                />
-              </label>
-            </div>
-
-            <div className="mt-3">
-              <p className="text-[10px] font-medium text-slate-500">Radius (km)</p>
-              <div className="mt-1 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRadiusKm((r) => Math.max(1, r - 1))}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  aria-label="Decrease radius"
-                >
-                  −
-                </button>
-                <span className="min-w-[3rem] text-center text-sm font-mono font-semibold">{radiusKm}</span>
-                <button
-                  type="button"
-                  onClick={() => setRadiusKm((r) => Math.min(250, r + 1))}
-                  className="rounded-lg border border-slate-200 px-2 py-1 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  aria-label="Increase radius"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="text-[10px] font-medium text-slate-500">or Draw AOI</span>
-              <button
-                type="button"
-                disabled
-                title="Polygon draw coming soon"
-                className="inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-300 px-2 py-1 text-[10px] font-medium text-slate-400 cursor-not-allowed"
-              >
-                <Layout className="h-3.5 w-3.5" />
-                Draw
-              </button>
-            </div>
-
-            <div className="mt-3 grid grid-cols-1 gap-2">
-              <label className="text-[10px] font-medium text-slate-500">
-                Baseline date
-                <input
-                  type="date"
-                  value={baselineDay}
-                  onChange={(e) => onBaselineChange(e.target.value)}
-                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                />
-              </label>
-              <label className="text-[10px] font-medium text-slate-500">
-                Current date
-                <input
-                  type="date"
-                  value={currentDay}
-                  onChange={(e) => onCurrentChange(e.target.value)}
-                  className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-                />
-              </label>
-            </div>
-
-            <div className="mt-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1.5">Quick presets</p>
-              <div className="flex flex-wrap gap-1">
-                {(
-                  [
-                    ['1m', '1 mo'],
-                    ['3m', '3 mo'],
-                    ['6m', '6 mo'],
-                    ['1y', '1 yr'],
-                  ] as const
-                ).map(([id, lab]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => applyPreset(id)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold border ${
-                      activePreset === id
-                        ? 'border-emerald-800 bg-emerald-800 text-white'
-                        : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {lab}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-3">
-              <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500 mb-1">Environment type</p>
-              <select
-                value={environmentType}
-                onChange={(e) => setEnvironmentType(e.target.value as PlasticEnvironmentType)}
-                className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-xs bg-white"
-              >
-                {ENV_OPTIONS.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="mt-4">
-              <PlasticLayerControl layers={layers} onChange={setLayers} />
-            </div>
-
-            <div className="mt-4 flex flex-col gap-2">
-              <button
-                type="button"
-                disabled={isRunning}
-                onClick={() => void runManualScan()}
-                className="w-full rounded-lg bg-emerald-800 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-900 disabled:opacity-50"
-              >
-                Run scan
-              </button>
-              <button
-                type="button"
-                disabled={isRunning}
-                onClick={() => void executeWatch()}
-                className="w-full rounded-lg border border-slate-300 bg-white py-2 text-sm font-semibold text-emerald-900 hover:bg-slate-50 disabled:opacity-50"
-              >
-                Watch DPAL Work
-              </button>
-              <button
-                type="button"
-                disabled={droneBusy || isRunning}
-                onClick={() => void handlePrepareDroneValidation()}
-                className="w-full rounded-lg border border-cyan-300 bg-cyan-50 py-2 text-xs font-semibold text-cyan-950 hover:bg-cyan-100 disabled:opacity-50"
-              >
-                Prepare Drone Validation
-              </button>
-              {dronePrepare ? (
-                <div className="rounded-lg border border-cyan-200 bg-white p-2 text-[10px] text-slate-700 space-y-1">
-                  <p className="font-semibold text-cyan-950">Request {dronePrepare.requestId}</p>
-                  <p>
-                    Status: <span className="font-mono">{dronePrepare.status}</span> · Mode:{' '}
-                    <span className="font-mono">{dronePrepare.mode}</span>
-                  </p>
-                  <p className="text-slate-600">{dronePrepare.message}</p>
-                  <p className="text-slate-500">Dispatched: {String(dronePrepare.dispatched)} (prepare-only endpoint)</p>
-                </div>
-              ) : null}
-            </div>
-
-            <label className="mt-3 block text-[10px] text-slate-500">
-              AOI label (optional)
-              <input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
-              />
-            </label>
-          </div>
+      <div className="mx-auto grid w-full max-w-[1920px] flex-1 grid-cols-1 gap-4 px-4 py-4 xl:grid-cols-12">
+        <aside className="space-y-3 xl:col-span-3">
+          <PlasticMissionStepper
+            steps={workflowSteps}
+            activeStepId={activeWorkflowStep}
+            onStepClick={setActiveWorkflowStep}
+          />
+          <PlasticMissionSelector selectedId={missionTypeId} onSelect={setMissionTypeId} />
+          <MissionDateControls
+            baselineDay={baselineDay}
+            currentDay={currentDay}
+            activePreset={activePreset}
+            onBaselineChange={onBaselineChange}
+            onCurrentChange={onCurrentChange}
+            onApplyPreset={applyPreset}
+          />
+          <MissionScanActions
+            hasSavedAoi={hasSavedAoi}
+            isRunning={isRunning}
+            droneBusy={droneBusy}
+            onWatch={() => void executeWatch()}
+            onScan={() => void runManualScan()}
+            onDrone={() => void handlePrepareDroneValidation()}
+            dronePrepare={dronePrepare}
+          />
+          {plasticInvestorExplainerEl}
         </aside>
 
-        <main className="flex min-w-0 flex-1 flex-col gap-3">
-          {lastError ? (
-            <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{lastError}</div>
-          ) : null}
-          {cacheNotice ? (
-            <div className="rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs text-cyan-900">{cacheNotice}</div>
-          ) : null}
-          {plasticScanPendingNotice ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-              {plasticScanPendingNotice}
-            </div>
-          ) : null}
-
-          {!googleMapsFrontendConfigured ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-              Google Maps key not configured. Use coordinates or fallback map tiles; API keys are never shown in the UI.
-            </div>
-          ) : null}
-
-          <PlasticWatchTabbedShell
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            mapToolbar={
-              <div className="flex flex-wrap items-center gap-2 text-[10px] text-slate-600">
-                <span>
-                  Baseline: <span className="font-mono font-semibold text-slate-800">{baselineDay}</span>
-                </span>
-                <span>
-                  Current: <span className="font-mono font-semibold text-slate-800">{currentDay}</span>
-                </span>
-              </div>
-            }
-            overviewPanel={
-              plasticInvestorExplainerEl ?? (
-                <p className="text-xs text-slate-500">No demo scenario loaded.</p>
-              )
-            }
-            aoiPanel={
-              <div className="rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-700">
-                <p className="font-semibold text-slate-900">AOI & scan controls</p>
-                <p className="mt-1">
-                  Search, coordinates, radius, dates, environment type, layer visibility, and scan actions live in the{' '}
-                  <strong>left panel</strong>. Use <strong>Run scan</strong> or <strong>Watch DPAL Work</strong> there, then
-                  open the <strong>Results</strong> tab for risk summary and PACE metadata.
-                </p>
-              </div>
-            }
-            resultsPanel={
-              <>
-                <PlasticRiskSummaryCards scan={lastScan} />
-                <PlasticWatchReportAssistant
-                  scan={lastScan}
-                  evidence={evidence}
-                  onOpenChat={() => setActiveTab('chat')}
-                />
-                <PaceSatelliteMetadataCard scan={lastScan} fromCache={Boolean(cacheNotice)} />
-                <SpectralSignaturePanel scan={lastScan} />
-              </>
-            }
-            chatPanel={
-              <PlasticWatchChatPanel scan={lastScan} evidence={evidence} aoiLabel={label || undefined} />
-            }
-            evidencePanel={<PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />}
-            workflowPanel={
-              <div className="space-y-3">
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-3 shadow-sm">
-                  <p className="text-xs font-semibold text-emerald-950">Watch DPAL Work</p>
-                  <p className="text-[10px] text-slate-600 mt-1 leading-snug">
-                    Starts only when you press the button. Opens the step log panel while the workflow runs.
-                  </p>
-                  <button
-                    type="button"
-                    disabled={isRunning}
-                    onClick={() => void executeWatch()}
-                    className="mt-2 w-full rounded-lg bg-emerald-800 py-2 text-[11px] font-semibold text-white hover:bg-emerald-900 disabled:opacity-50"
-                  >
-                    Start Watch workflow
-                  </button>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-white p-3 max-h-[min(52vh,480px)] overflow-y-auto shadow-sm">
-                  <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 mb-2">Step status</p>
-                  <ul className="space-y-2">
-                    {steps.map((s) => (
-                      <li key={s.id} className="flex gap-2 text-[11px] text-slate-700">
-                        <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${stepTone(s.status)}`} />
-                        <span className="leading-snug">
-                          <span className="font-semibold text-slate-900">{s.title}</span>
-                          <span className="block text-slate-500 mt-0.5">{s.explanation}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            }
-            map={
-              <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden w-full">
-<div
-                ref={mapWrapRef}
-                className="relative w-full min-h-[300px] min-w-0 md:min-h-[380px]"
-              >
-                <div
-                  ref={mapTileHostRef}
-                  className="h-[300px] min-h-[300px] w-full md:h-[380px] md:min-h-[380px]"
-                  style={{ width: '100%', minHeight: '300px' }}
-                >
-                  <MapContainer
-                    center={[center.lat, center.lng]}
-                    zoom={9}
-                    scrollWheelZoom
-                    zoomControl={false}
-                    className="z-0 h-full w-full min-h-[300px] rounded-none md:min-h-[380px]"
-                    style={{ height: '100%', width: '100%', minHeight: 'inherit' }}
-                  >
-                    {layers.satellite ? (
-                      <TileLayer
-                        url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                        maxZoom={20}
-                      />
-                    ) : (
-                      <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" maxZoom={19} />
-                    )}
-                    {layers.labels ? (
-                      <TileLayer
-                        url="https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}"
-                        maxZoom={20}
-                      />
-                    ) : null}
-                    {layers.aoiCircle ? (
-                      <Circle
-                        center={[center.lat, center.lng]}
-                        radius={radiusKm * 1000}
-                        pathOptions={{ color: '#047857', weight: 2, fillOpacity: 0.06 }}
-                      />
-                    ) : null}
-                    <MapPicker onPick={handleMapPick} />
-                    <LeafletZoomScale />
-                    <MapViewSync center={center} />
-                    <LeafletMapSizeFixer layoutKey={leafletLayoutKey} />
-                    <LeafletMapResizeObserver containerRef={mapTileHostRef} />
-                  </MapContainer>
-                </div>
-
-                <div className="pointer-events-none absolute inset-0 z-[400] flex items-center justify-center">
-                  <Crosshair className="h-8 w-8 text-emerald-700/50 drop-shadow-sm" strokeWidth={2.5} />
-                </div>
-
-                <div className="pointer-events-auto absolute left-3 top-3 z-[450] flex flex-col gap-1">
-                  <div className="relative" ref={layerMenuRef}>
-                    <button
-                      type="button"
-                      onClick={() => setLayerMenuOpen((o) => !o)}
-                      className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
-                      title="Map layers"
-                    >
-                      <Layout className="h-4 w-4" />
-                    </button>
-                    {layerMenuOpen ? (
-                      <div className="absolute left-0 top-full z-[460] mt-1 w-56 rounded-lg border border-slate-200 bg-white p-2 text-xs shadow-lg">
-                        <p className="text-[10px] font-semibold text-slate-500 mb-1">Quick toggles</p>
-                        <label className="flex items-center justify-between gap-2 py-1">
-                          <span>Satellite base</span>
-                          <input
-                            type="checkbox"
-                            checked={layers.satellite}
-                            onChange={() => setLayers((L) => ({ ...L, satellite: !L.satellite }))}
-                          />
-                        </label>
-                        <label className="flex items-center justify-between gap-2 py-1">
-                          <span>Labels</span>
-                          <input
-                            type="checkbox"
-                            checked={layers.labels}
-                            onChange={() => setLayers((L) => ({ ...L, labels: !L.labels }))}
-                          />
-                        </label>
-                        <label className="flex items-center justify-between gap-2 py-1">
-                          <span>AOI circle</span>
-                          <input
-                            type="checkbox"
-                            checked={layers.aoiCircle}
-                            onChange={() => setLayers((L) => ({ ...L, aoiCircle: !L.aoiCircle }))}
-                          />
-                        </label>
-                      </div>
-                    ) : null}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void toggleFullscreen()}
-                    className="rounded-lg border border-slate-200 bg-white/95 p-2 text-slate-700 shadow-sm hover:bg-white"
-                    title="Fullscreen map"
-                  >
-                    <Maximize2 className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="pointer-events-none absolute bottom-3 right-3 z-[450] max-w-[220px] rounded-lg border border-slate-200 bg-white/95 p-2.5 text-[10px] shadow-md">
-                  <p className="font-semibold text-slate-800 mb-1.5">Legend</p>
-                  <ul className="space-y-1">
-                    {legendRows.length === 0 ? (
-                      <li className="text-slate-500">All overlays hidden.</li>
-                    ) : (
-                      legendRows.map((row) => (
-                        <li key={row.label} className="flex items-center gap-2 text-slate-700">
-                          <span className={`h-2 w-2 rounded-full ${row.color}`} />
-                          {row.label}
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                </div>
-              </div>
-              </div>
-            }
+        <main className="min-w-0 space-y-3 xl:col-span-6">
+          <MissionAlerts
+            lastError={lastError}
+            cacheNotice={cacheNotice}
+            plasticScanPendingNotice={plasticScanPendingNotice}
+            googleMapsConfigured={googleMapsFrontendConfigured}
           />
+          <PlasticAoiMapPanel
+            center={center}
+            onCenterChange={setCenter}
+            layers={layers}
+            onLayersChange={setLayers}
+            drawingPolygon={drawingPolygon}
+            onDrawingPolygonChange={setDrawingPolygon}
+            draftPoints={polygonDraftPoints}
+            onDraftPointsChange={setPolygonDraftPoints}
+            savedPoints={savedPolygonPoints}
+            onSavedPointsChange={handleSavedPolygonChange}
+            aoiLabel={label}
+            onAoiLabelChange={setLabel}
+            searchText={searchText}
+            onSearchTextChange={setSearchText}
+            searchBusy={searchBusy}
+            searchNotice={searchNotice}
+            onSearch={() => void submitSearch()}
+            manualPolygonJson={manualPolygonJson}
+            onManualPolygonJsonChange={setManualPolygonJson}
+            manualPolygonError={manualPolygonError}
+            onApplyManualPolygon={applyManualPolygon}
+            scanDisabled={!hasSavedAoi || isRunning}
+            scanBusy={isRunning}
+            onRunScan={() => void runManualScan()}
+            layoutKey={leafletLayoutKey}
+          />
+          <PlasticSatelliteReadinessPanel
+            missionTypeId={missionTypeId}
+            hasSavedAoi={hasSavedAoi}
+            baselineDay={baselineDay}
+            currentDay={currentDay}
+            providerStatus={providerStatus}
+            providerStatusError={providerStatusError}
+            lastScan={lastScan}
+          />
+          <PlasticScanResultsPanel
+            scan={lastScan}
+            evidence={evidence}
+            cacheNotice={cacheNotice}
+            onOpenChat={() => setActiveTab('chat')}
+          />
+          <PlasticEvidencePacketPanel scan={lastScan} evidence={evidence} />
         </main>
+
+        <aside className="space-y-3 xl:col-span-3">
+          <PlasticAiHelperPanel
+            missionTypeId={missionTypeId}
+            scan={lastScan}
+            evidence={evidence}
+            hasSavedAoi={hasSavedAoi}
+          />
+          <PlasticWatchChatPanel scan={lastScan} evidence={evidence} aoiLabel={label || undefined} />
+        </aside>
       </div>
 
       <EnvironmentalDisclaimerBar tone="amber">
@@ -1594,5 +1303,161 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
     </EnvironmentalDashboardShell>
   );
 };
+
+function MissionDateControls({
+  baselineDay,
+  currentDay,
+  activePreset,
+  onBaselineChange,
+  onCurrentChange,
+  onApplyPreset,
+}: {
+  baselineDay: string;
+  currentDay: string;
+  activePreset: PresetId | null;
+  onBaselineChange: (v: string) => void;
+  onCurrentChange: (v: string) => void;
+  onApplyPreset: (id: PresetId) => void;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <h3 className="text-xs font-semibold text-slate-900">Date range</h3>
+      <div className="mt-2 grid grid-cols-1 gap-2">
+        <label className="text-[10px] font-medium text-slate-500">
+          Baseline
+          <input
+            type="date"
+            value={baselineDay}
+            onChange={(e) => onBaselineChange(e.target.value)}
+            className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+        <label className="text-[10px] font-medium text-slate-500">
+          Current
+          <input
+            type="date"
+            value={currentDay}
+            onChange={(e) => onCurrentChange(e.target.value)}
+            className="mt-0.5 w-full rounded-lg border border-slate-200 px-2 py-1 text-xs"
+          />
+        </label>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1">
+        {(
+          [
+            ['1m', '1 mo'],
+            ['3m', '3 mo'],
+            ['6m', '6 mo'],
+            ['1y', '1 yr'],
+          ] as const
+        ).map(([id, lab]) => (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onApplyPreset(id)}
+            className={`rounded-lg px-2 py-1 text-[10px] font-semibold border ${
+              activePreset === id
+                ? 'border-sky-800 bg-sky-800 text-white'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            {lab}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function motionDateGrid({ children }: { children: React.ReactNode }) {
+  return <div className="mt-2 grid grid-cols-1 gap-2">{children}</div>;
+}
+
+function MissionScanActions({
+  hasSavedAoi,
+  isRunning,
+  droneBusy,
+  onWatch,
+  onScan,
+  onDrone,
+  dronePrepare,
+}: {
+  hasSavedAoi: boolean;
+  isRunning: boolean;
+  droneBusy: boolean;
+  onWatch: () => void;
+  onScan: () => void;
+  onDrone: () => void;
+  dronePrepare: DroneValidationPrepareResponse | null;
+}) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm space-y-2">
+      <h3 className="text-xs font-semibold text-slate-900">Run mission</h3>
+      {!hasSavedAoi ? (
+        <p className="text-[10px] text-amber-800">Save a polygon AOI (≥3 points) before scanning.</p>
+      ) : null}
+      <button
+        type="button"
+        disabled={!hasSavedAoi || isRunning}
+        onClick={onWatch}
+        className="w-full rounded-lg bg-sky-800 py-2.5 text-sm font-semibold text-white hover:bg-sky-900 disabled:opacity-50"
+      >
+        Watch DPAL Work
+      </button>
+      <button
+        type="button"
+        disabled={!hasSavedAoi || isRunning}
+        onClick={onScan}
+        className="w-full rounded-lg border border-slate-300 py-2 text-sm font-semibold text-sky-900 hover:bg-slate-50 disabled:opacity-50"
+      >
+        Run scan only
+      </button>
+      <button
+        type="button"
+        disabled={droneBusy || isRunning}
+        onClick={onDrone}
+        className="w-full rounded-lg border border-cyan-300 bg-cyan-50 py-2 text-xs font-semibold text-cyan-950 disabled:opacity-50"
+      >
+        Prepare drone validation
+      </button>
+      {dronePrepare ? (
+        <p className="text-[10px] text-slate-600">
+          Drone request {dronePrepare.requestId} — {dronePrepare.status} (prepare-only)
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MissionAlerts({
+  lastError,
+  cacheNotice,
+  plasticScanPendingNotice,
+  googleMapsConfigured,
+}: {
+  lastError: string | null;
+  cacheNotice: string | null;
+  plasticScanPendingNotice: string | null;
+  googleMapsConfigured: boolean;
+}) {
+  return (
+    <>
+      {lastError ? (
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-900">{lastError}</div>
+      ) : null}
+      {cacheNotice ? (
+        <div className="rounded-lg border px-3 py-2 text-sm border-cyan-200 bg-cyan-50 text-cyan-900">{cacheNotice}</div>
+      ) : null}
+      {plasticScanPendingNotice ? (
+        <div className="rounded-lg border px-3 py-2 text-sm border-amber-200 bg-amber-50 text-amber-950">{plasticScanPendingNotice}</div>
+      ) : null}
+      {!googleMapsConfigured ? (
+        <div className="rounded-lg border px-3 py-2 text-sm border-amber-200 bg-amber-50 text-amber-950">
+          Google Maps key not configured. Fallback map tiles are used; API keys are never shown in the UI.
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 export default HyperspectralPlasticWatchPage;

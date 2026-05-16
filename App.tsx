@@ -681,7 +681,7 @@ const App: React.FC = () => {
         return;
       }
       if (curPath === '/carbon-compliance' || curPath === '/cad-trust') {
-        navigate('/dmrv/carbon-land', { replace: true });
+        navigate('/dmrv', { replace: true });
         return;
       }
       if (curPath === '/dmrv' || curPath.startsWith('/dmrv/')) return;

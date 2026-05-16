@@ -3,19 +3,14 @@ import { ChevronRight, Lock } from '../../../../components/icons';
 import type { DmrvInputDef } from '../dmrvRegistry';
 import type { DmrvType } from '../dmrvRegistry';
 import { getInputConfigureHint } from '../dmrvInputRegistry';
-import { DmrvProjectFirstCard } from './DmrvProjectFirstCard';
-import { DmrvBlockchainSymbol } from './DmrvBlockchainSymbol';
 import { DmrvInputSymbol } from './dmrvInputSymbols';
 import { DmrvTypeSymbol } from './dmrvTypeSymbols';
-import type { DmrvProjectStatus } from '../services/dmrvProjectContextTypes';
-
 export type DmrvInfographicRowProps = {
   rowId?: string;
   index: number;
   type: DmrvType;
   active: boolean;
   onSelect: () => void;
-  projectStatus: DmrvProjectStatus;
   projectUnlocked: boolean;
   onOpenProjectConfig: () => void;
   onConfigureInput?: (inputDef: DmrvInputDef) => void;
@@ -27,7 +22,6 @@ export function DmrvInfographicRow({
   type,
   active,
   onSelect,
-  projectStatus,
   projectUnlocked,
   onOpenProjectConfig,
   onConfigureInput,
@@ -71,15 +65,22 @@ export function DmrvInfographicRow({
             Inputs for evaluation
           </span>
 
-          <DmrvProjectFirstCard status={projectStatus} onOpen={onOpenProjectConfig} />
-
-          {!projectUnlocked ? (
-            <p className="mb-2 text-center text-[9px] font-medium text-amber-800 xl:text-left">
-              Complete Project Configuration before configuring evidence sources.
-            </p>
-          ) : null}
-
           <span className="flex flex-wrap justify-center gap-2.5 xl:justify-start">
+            <InputConfigChip
+              inputDef={{
+                key: 'project-config',
+                label: 'Project Config',
+                shortDescription: 'Project identity, AOI, methodology, and reporting period.',
+                configType: 'generic',
+                requiredForIntegrity: false,
+                blockchainAnchorRequired: false,
+                validationRole: 'Project context',
+              }}
+              iconLabel="Project Documents"
+              accentColor={type.segmentColor}
+              unlocked
+              onPress={onOpenProjectConfig}
+            />
             {inputDefs.map((inputDef) => (
               <InputConfigChip
                 key={inputDef.key}
@@ -99,10 +100,10 @@ export function DmrvInfographicRow({
                 blockchainAnchorRequired: true,
                 validationRole: 'Integrity timestamp',
               }}
+              iconLabel="Blockchain log"
               accentColor={type.segmentColor}
               unlocked={projectUnlocked}
               onConfigure={onConfigureInput}
-              dark
             />
           </span>
         </span>
@@ -131,57 +132,48 @@ export function DmrvInfographicRow({
 
 function InputConfigChip({
   inputDef,
+  iconLabel,
   accentColor,
   unlocked,
   onConfigure,
-  dark,
+  onPress,
 }: {
   inputDef: DmrvInputDef;
+  /** Override symbol resolver (e.g. project documents icon for Project Config). */
+  iconLabel?: string;
   accentColor: string;
   unlocked: boolean;
   onConfigure?: (inputDef: DmrvInputDef) => void;
-  dark?: boolean;
+  onPress?: () => void;
 }): React.ReactElement {
-  const interactive = unlocked && Boolean(onConfigure);
-  const hint = getInputConfigureHint(inputDef.key);
+  const interactive = Boolean(onPress) || (unlocked && Boolean(onConfigure));
+  const hint = onPress ? inputDef.shortDescription || inputDef.label : getInputConfigureHint(inputDef.key);
 
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
+        if (onPress) {
+          onPress();
+          return;
+        }
         if (interactive) onConfigure?.(inputDef);
       }}
       disabled={!interactive}
-      title={
-        interactive
-          ? hint
-          : 'Project setup required first.'
-      }
-      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
-        dark
-          ? 'border-[#1e3a5f]/25 bg-gradient-to-b from-slate-900 to-slate-800'
-          : 'border-slate-200/90 bg-gradient-to-b from-white to-slate-50'
-      } ${
+      title={interactive ? hint : 'Complete project configuration to unlock.'}
+      className={`group/input relative flex w-[76px] flex-col items-center gap-1.5 rounded-xl border border-slate-200/90 bg-gradient-to-b from-white to-slate-50 px-1 pb-2 pt-1.5 text-center shadow-sm transition ${
         interactive
           ? 'cursor-pointer hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
           : 'cursor-not-allowed opacity-55 grayscale-[0.35]'
       }`}
-      style={dark ? undefined : { borderColor: `${accentColor}40` }}
+      style={{ borderColor: `${accentColor}40` }}
     >
       {!interactive ? (
         <Lock className="absolute right-1 top-1 h-3 w-3 text-slate-500" aria-hidden />
       ) : null}
-      {dark ? (
-        <DmrvBlockchainSymbol size={44} accentColor={accentColor} className="rounded-lg overflow-hidden" />
-      ) : (
-        <DmrvInputSymbol label={inputDef.label} size={44} accentColor={accentColor} />
-      )}
-      <span
-        className={`px-0.5 text-[7.5px] font-bold leading-tight ${dark ? 'text-emerald-100' : 'text-slate-800'}`}
-      >
-        {inputDef.label}
-      </span>
+      <DmrvInputSymbol label={iconLabel ?? inputDef.label} size={44} accentColor={accentColor} />
+      <span className="px-0.5 text-[7.5px] font-bold leading-tight text-slate-800">{inputDef.label}</span>
       {interactive ? (
         <span className="flex items-center gap-0.5 text-[6.5px] font-black uppercase tracking-wide text-[#1e3a5f] opacity-80 group-hover/input:opacity-100">
           Configure

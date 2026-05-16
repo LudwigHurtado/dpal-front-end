@@ -13,7 +13,7 @@ export type PlanetaryIntelligenceCategory = {
 };
 
 export const PLANETARY_INTELLIGENCE_CATEGORIES: PlanetaryIntelligenceCategory[] = [
-  { id: 'carbon-credit-integrity', title: 'Carbon Credit Integrity Audits', icon: 'carbon', href: '/dmrv/carbon-land' },
+  { id: 'carbon-credit-integrity', title: 'Carbon Credit Integrity Audits', icon: 'carbon', href: '/dmrv' },
   { id: 'greenwashing', title: 'Corporate Greenwashing Detection', icon: 'search', href: '/politician' },
   { id: 'methane', title: 'Methane Super-Emitter Monitoring', icon: 'methane', href: '/air' },
   { id: 'co2-facility', title: 'CO₂ Facility Verification', icon: 'factory', href: '/emissions-integrity-audit' },

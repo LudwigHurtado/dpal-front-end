@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowLeft } from '../../../components/icons';
-import { DmrvImageButtonCard } from './components/DmrvImageButtonCard';
-import { DMRV_CATEGORIES, DMRV_HUB_SUBTITLE } from './dmrvRegistry';
+import { DmrvCategoryGallery } from './components/DmrvCategoryGallery';
+import { DMRV_HUB_SUBTITLE } from './dmrvRegistry';
 
 export type DmrvHubPageProps = {
   onReturn?: () => void;
@@ -32,11 +32,10 @@ export default function DmrvHubPage({ onReturn }: DmrvHubPageProps): React.React
           </p>
         </header>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-          {DMRV_CATEGORIES.map((category) => (
-            <DmrvImageButtonCard key={category.slug} category={category} />
-          ))}
-        </div>
+        <DmrvCategoryGallery
+          title="All MRV domains"
+          subtitle="Select a category to open its DMRV types, evidence inputs, and configuration workflow."
+        />
 
         <footer className="mt-10 rounded-xl border border-slate-200 bg-white px-5 py-4 text-center text-[11px] text-slate-600">
           Images are visual entry points only — all labels and actions are live HTML controls. DMRV configuration does

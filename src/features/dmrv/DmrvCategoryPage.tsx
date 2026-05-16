@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Package, Shield } from '../../../components/icons';
 import { DmrvConnectorPanel } from './components/DmrvConnectorPanel';
+import { DmrvCategoryGallery } from './components/DmrvCategoryGallery';
 import { DmrvInfographicBoard } from './components/DmrvInfographicBoard';
 import { DmrvWorkflowPanel } from './components/DmrvWorkflowPanel';
 import { getCategoryBySlug, getConnector, type DmrvType } from './dmrvRegistry';
@@ -61,7 +62,14 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
   return (
     <div className="min-h-full bg-[#f4f6f9] text-slate-900">
       <div className="mx-auto w-full max-w-[min(100%,1520px)] px-4 py-6 sm:px-6 lg:px-8">
-        <CategoryNav onReturn={onReturn} />
+        <CategoryNav onReturn={onReturn} categoryTitle={category.title} />
+
+        <DmrvCategoryGallery
+          currentSlug={category.slug}
+          compact
+          title="Switch MRV category"
+          subtitle="Image cards open other DMRV domains — Carbon & Land, Water & Blue Carbon, Pollution, Biodiversity, and more."
+        />
 
         <DmrvInfographicBoard
           category={category}
@@ -98,7 +106,13 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
   );
 }
 
-function CategoryNav({ onReturn }: { onReturn?: () => void }): React.ReactElement {
+function CategoryNav({
+  onReturn,
+  categoryTitle,
+}: {
+  onReturn?: () => void;
+  categoryTitle?: string;
+}): React.ReactElement {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-2">
       <Link
@@ -106,8 +120,13 @@ function CategoryNav({ onReturn }: { onReturn?: () => void }): React.ReactElemen
         className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-semibold text-slate-800 shadow-sm hover:bg-slate-50"
       >
         <ArrowLeft className="h-4 w-4" />
-        DMRV hub
+        All MRV categories
       </Link>
+      {categoryTitle ? (
+        <span className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-semibold text-[#1e3a5f]">
+          {categoryTitle}
+        </span>
+      ) : null}
       {onReturn ? (
         <button
           type="button"

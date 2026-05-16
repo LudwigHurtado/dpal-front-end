@@ -251,8 +251,8 @@ export const VIEW_PATHS: Record<string, string> = {
   investorDemo: '/investor-demo',
   /** DPAL Command Center — multi-mode orchestration shell (shared adapters / evidence shape). */
   commandCenter: '/command-center',
-  /** Carbon compliance entry — canonical DMRV carbon-land category (alias: `/carbon-compliance`, `/cad-trust`). */
-  carbonComplianceWorkspace: '/dmrv/carbon-land',
+  /** Carbon compliance entry — DMRV hub with all MRV category cards (alias: `/carbon-compliance`, `/cad-trust`). */
+  carbonComplianceWorkspace: '/dmrv',
   /** Platform Architecture v2 — Environmental workspace hub (aliases: `/environmental-hub`). */
   environmentalWorkspace: '/environmental-workspace',
   /** Platform Architecture v2 — secondary modules directory (aliases: `/modules`, `/more-tools`). */

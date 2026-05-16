@@ -46,7 +46,7 @@ export function PlasticWatchTabbedShell({
           <div className="text-center sm:text-left">
             <h2 className="text-sm font-semibold text-slate-900">Area of interest map</h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              Click the map to set center · use tabs below for scan settings and results
+              Click the map to move the green circle (your scan area) · left panel has dates and scan buttons
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-end">{mapToolbar}</div>
