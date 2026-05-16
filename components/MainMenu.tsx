@@ -381,7 +381,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     subLabel="Colorado River conservation exchange pilot, VWCU patterns, evidence, public verification — Pilot / Demonstration Mode; FloodGuard city demos remain at /floodguard."
                     status="Beta"
                     colorClass="cyan"
-                    bgImageUrl="/main-screen/water-project-monitoring.png"
+                    bgImageUrl="/main-screen/water-intelligence.png"
                     onClick={() => navigate('/water-intelligence')}
                 />
 
