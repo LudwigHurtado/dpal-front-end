@@ -157,8 +157,13 @@ import InvestorDemoPage from './src/features/investorDemo/InvestorDemoPage';
 import DpalCommandCenterPage from './src/command-center/DpalCommandCenterPage';
 import CarbonPuraWorkspace from './src/features/partners/carbonpura/CarbonPuraWorkspace';
 import SatelliteAccountabilityPage from './src/features/environmentalIntelligence/satelliteAccountability/SatelliteAccountabilityPage';
+import DPALPlatformShell from './layouts/DPALPlatformShell';
+import PlatformHomePage from './src/features/platformHome/PlatformHomePage';
+import EnvironmentalWorkspacePage from './src/features/environmentalWorkspace/EnvironmentalWorkspacePage';
+import CarbonCompliancePage from './src/features/carbonCompliance/CarbonCompliancePage';
+import AdditionalModulesPage from './src/features/additionalModules/AdditionalModulesPage';
 
-export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace';
+export type View = 'mainMenu' | 'categorySelection' | 'categoryGateway' | 'categoryModeShell' | 'hub' | 'heroHub' | 'privateHubMenu' | 'educationRoleSelection' | 'reportSubmission' | 'missionComplete' | 'reputationAndCurrency' | 'store' | 'reportComplete' | 'liveIntelligence' | 'missionDetail' | 'appLiveIntelligence' | 'generateMission' | 'trainingHolodeck' | 'tacticalVault' | 'transparencyDatabase' | 'aiRegulationHub' | 'incidentRoom' | 'situationRoom' | 'threatMap' | 'teamOps' | 'medicalOutpost' | 'academy' | 'aiWorkDirectives' | 'dpalLifts' | 'goodWheels' | 'outreachEscalation' | 'ecosystem' | 'sustainmentCenter' | 'offsetMarketplace' | 'carbonMRV' | 'ecologicalConservation' | 'earthObservation' | 'forestIntegrity' | 'hyperspectralPlasticWatch' | 'dpalCarbon' | 'afoluEngine' | 'waterMonitor' | 'aquaScanWater' | 'aqualandWell' | 'waterOperationsEngine' | 'globalSignals' | 'escrowService' | 'coinLaunch' | 'subscription' | 'aiSetup' | 'goodDeedsMissions' | 'storage' | 'politicianTransparency' | 'dpalLocator' | 'gameHub' | 'reportProtect' | 'reportDashboard' | 'helpCenter' | 'resolutionLayer' | 'missionMarketplace' | 'marketplaceMissionDetail' | 'missionAssignmentV2' | 'createMission' | 'impactHub' | 'airQualityMonitor' | 'emissionsIntegrityAudit' | 'carbEmissionsAudit' | 'hazardousWasteAudit' | 'environmentalIntelligenceHub' | 'dpalInfographicsGallery' | 'epaGhgLive' | 'epaGhgFacilityDetail' | 'envirofactsGeoIntelligence' | 'previewEnvironmentalCommandCenter' | 'previewEnvironmentalIntelligenceHub' | 'previewFuelStorageAudit' | 'previewEvidencePacket' | 'previewModule' | 'aquascanReportViewer' | 'aquascanSituationRoom' | 'carbReportViewer' | 'carbSituationRoom' | 'fieldOS' | 'floodGuard' | 'investorDemo' | 'commandCenter' | 'satelliteAccountability' | 'carbonPuraWorkspace' | 'carbonComplianceWorkspace' | 'environmentalWorkspace' | 'additionalModules' | 'legacyMainMenuGrid';
 
 export type TextScale = 'standard' | 'large' | 'ultra' | 'magnified';
 
@@ -445,6 +450,7 @@ const App: React.FC = () => {
     };
   }, [location.search]);
   const [globalTextScale, setGlobalTextScale] = useState<TextScale>('standard');
+  const [platformMobileNavOpen, setPlatformMobileNavOpen] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(() => getScopedItem('offline-mode') === 'true');
   const [directives, setDirectives] = useState<AiDirective[]>(() => {
     const saved = getScopedItem('directives');
@@ -836,6 +842,11 @@ const App: React.FC = () => {
   }, [handleNavigate, navigate]);
   const useMobileLayout = isMobileViewport;
   const isMobileCommunityFeed = useMobileLayout && currentView === 'hub' && hubTab === 'work_feed';
+  const hidePlatformSidebar =
+    currentView === 'reportProtect' ||
+    currentView === 'reportDashboard' ||
+    currentView === 'goodWheels' ||
+    currentView === 'impactHub';
 
   useLayoutEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2072,7 +2083,7 @@ const App: React.FC = () => {
 
   return (
     <ActiveLayout>
-    <div className="dpal-app transition-all duration-300 selection:bg-cyan-500/25 overflow-x-hidden">
+    <div className="dpal-app flex min-h-screen flex-col transition-all duration-300 selection:bg-cyan-500/25 overflow-x-hidden">
       {showNavRestoreTip && (
         <div
           role="status"
@@ -2116,7 +2127,7 @@ const App: React.FC = () => {
           </button>
         </div>
       )}
-      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && (
+      {!useMobileLayout && currentView !== 'reportProtect' && currentView !== 'reportDashboard' && currentView !== 'mainMenu' && (
         <Header 
           onNavigateToHeroHub={() => handleNavigate('heroHub', undefined, 'mint')} 
           onNavigateHome={navigateHome} 
@@ -2129,12 +2140,30 @@ const App: React.FC = () => {
         />
       )}
       
-      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
+      <DPALPlatformShell
+        currentPathname={location.pathname}
+        onSelectView={(v) => handleNavigate(v as View)}
+        useMobileLayout={useMobileLayout}
+        hideSidebar={hidePlatformSidebar}
+        mobileNavOpen={platformMobileNavOpen}
+        onMobileNavOpenChange={setPlatformMobileNavOpen}
+        sidebarStickyTop={currentView === 'mainMenu' ? 'top-0' : 'top-[4.75rem]'}
+      >
+      <main className={`container mx-auto ${isMobileCommunityFeed ? 'px-0' : 'px-4'} flex-grow relative z-10 ${useMobileLayout ? (isMobileCommunityFeed ? 'pt-0 pb-0' : 'pt-4 pb-24') : 'py-8'} ${['mainMenu', 'legacyMainMenuGrid', 'carbonComplianceWorkspace', 'environmentalWorkspace', 'additionalModules', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'storage', 'resolutionLayer', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !isMobileCommunityFeed ? 'pb-24' : ''}`}>
         {currentView === 'aiSetup' && (
           <AiSetupView onReturn={() => goBack('mainMenu')} onEnableOfflineMode={() => { setIsOfflineMode(true); setCurrentView(prevView || 'mainMenu'); }} />
         )}
         
         {currentView === 'mainMenu' && (
+          <PlatformHomePage
+            onNavigate={(v) => handleNavigate(v as View)}
+            useMobileLayout={useMobileLayout}
+            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
+            onOpenLiveMap={() => handleNavigate('hub', undefined, 'map')}
+          />
+        )}
+
+        {currentView === 'legacyMainMenuGrid' && (
           <MainMenu
             onNavigate={handleNavigate}
             totalReports={reports.length}
@@ -2156,6 +2185,30 @@ const App: React.FC = () => {
               setInitialCategoriesForIntel([cat]);
               handleNavigate('liveIntelligence');
             }}
+          />
+        )}
+
+        {currentView === 'carbonComplianceWorkspace' && (
+          <CarbonCompliancePage
+            onNavigate={(v) => handleNavigate(v as View)}
+            useMobileLayout={useMobileLayout}
+            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
+          />
+        )}
+
+        {currentView === 'environmentalWorkspace' && (
+          <EnvironmentalWorkspacePage
+            onNavigate={(v) => handleNavigate(v as View)}
+            useMobileLayout={useMobileLayout}
+            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
+          />
+        )}
+
+        {currentView === 'additionalModules' && (
+          <AdditionalModulesPage
+            onNavigate={(v) => handleNavigate(v as View)}
+            useMobileLayout={useMobileLayout}
+            onOpenMobileNav={() => setPlatformMobileNavOpen(true)}
           />
         )}
 
@@ -2996,8 +3049,9 @@ const App: React.FC = () => {
           />
         )}
       </main>
+      </DPALPlatformShell>
 
-      {['mainMenu', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
+      {['mainMenu', 'legacyMainMenuGrid', 'carbonComplianceWorkspace', 'environmentalWorkspace', 'additionalModules', 'hub', 'categorySelection', 'categoryGateway', 'categoryModeShell', 'heroHub', 'transparencyDatabase', 'missionMarketplace', 'marketplaceMissionDetail', 'missionAssignmentV2', 'createMission'].includes(currentView) && !(isMobileCommunityFeed) && (
         <BottomNav
           currentView={currentView}
           onNavigate={(view) => (view === 'mainMenu' ? navigateHome() : handleNavigate(view))}

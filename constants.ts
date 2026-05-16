@@ -192,6 +192,8 @@ export const API_ROUTES = {
   ENVIRONMENTAL_INTELLIGENCE_BUSINESS_WORKFLOWS: '/api/environmental-intelligence/business-workflows',
   /** CarbonPura partner — chain of evidence (Prisma backend) */
   CARBONPURA_PROJECTS: '/api/partners/carbonpura/projects',
+  /** CAD Trust connector — live reachability (Prisma / local backend; probes CADTRUST_API_BASE when sync enabled) */
+  CADTRUST_HEALTH: '/api/cadtrust/health',
 } as const;
 
 export const CARBONPURA_PROJECT_EVIDENCE_EVENTS = (projectId: string) =>

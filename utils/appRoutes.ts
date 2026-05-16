@@ -197,6 +197,14 @@ export const VIEW_PATHS: Record<string, string> = {
   investorDemo: '/investor-demo',
   /** DPAL Command Center — multi-mode orchestration shell (shared adapters / evidence shape). */
   commandCenter: '/command-center',
+  /** Platform Architecture v2 — Carbon Compliance hub (aliases: `/cad-trust`). */
+  carbonComplianceWorkspace: '/carbon-compliance',
+  /** Platform Architecture v2 — Environmental workspace hub (aliases: `/environmental-hub`). */
+  environmentalWorkspace: '/environmental-workspace',
+  /** Platform Architecture v2 — secondary modules directory (aliases: `/modules`, `/more-tools`). */
+  additionalModules: '/additional-modules',
+  /** Classic DPAL main-menu tile grid — preserved for operators who prefer the legacy explorer. */
+  legacyMainMenuGrid: '/classic-home',
 };
 
 export function viewToPath(view: string): string {
@@ -206,6 +214,17 @@ export function viewToPath(view: string): string {
 /** Normalize pathname and resolve to a view id, or null if unknown. */
 export function pathToView(pathname: string): string | null {
   const normalized = pathname.replace(/\/$/, '') || '/';
+  if (normalized === '/planetary-intelligence' || normalized === '/workspaces') return 'mainMenu';
+  if (normalized === '/modules' || normalized === '/more-tools') return 'additionalModules';
+  if (normalized === '/environmental-hub') return 'environmentalWorkspace';
+  if (normalized === '/carbon-mrv') return 'carbonMRV';
+  if (normalized === '/carbonpura') return 'carbonPuraWorkspace';
+  if (normalized === '/cad-trust') return 'carbonComplianceWorkspace';
+  if (normalized === '/ocean-plastic') return 'hyperspectralPlasticWatch';
+  if (normalized === '/biosphere-land') return 'earthObservation';
+  if (normalized === '/evidence') return 'previewEvidencePacket';
+  if (normalized === '/disaster-risk') return 'globalSignals';
+  if (normalized === '/emissions-industrial') return 'carbEmissionsAudit';
   /** Legacy map/beacon screen removed — land on Mission Marketplace. */
   if (normalized === '/field-missions') return 'missionMarketplace';
   if (normalized === '/environmental/epa-live') return 'epaGhgLive';

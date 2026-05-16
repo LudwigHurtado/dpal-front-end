@@ -54,6 +54,10 @@ export const ALLOWED_APP_VIEWS = new Set<string>([
   'missionAssignmentV2',
   'createMission',
   'impactHub',
+  'carbonComplianceWorkspace',
+  'environmentalWorkspace',
+  'additionalModules',
+  'legacyMainMenuGrid',
 ]);
 
 export type NavSessionPayload = {
