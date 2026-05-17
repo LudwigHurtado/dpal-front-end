@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useId, useMemo } from 'react';
 import './adaptiveDmrvSelectorDial.css';
 
 export type AdaptiveDmrvSelectorItem = {
@@ -23,7 +23,7 @@ const CX = DIAL_SIZE / 2;
 const CY = DIAL_SIZE / 2;
 const R_OUTER = 86;
 const R_INNER = 62;
-const GRADIENT_ID = 'dmrv-knob-gradient';
+const KNOB_RADIUS = 28;
 
 function polar(cx: number, cy: number, r: number, angleDeg: number): { x: number; y: number } {
   const rad = ((angleDeg - 90) * Math.PI) / 180;
@@ -60,6 +60,12 @@ export function AdaptiveDmrvSelectorDial({
   onSelect,
   footer,
 }: AdaptiveDmrvSelectorDialProps): React.ReactElement {
+  const uid = useId().replace(/:/g, '');
+  const knobBodyGradient = `dmrv-knob-body-${uid}`;
+  const knobBezelGradient = `dmrv-knob-bezel-${uid}`;
+  const knobHighlightGradient = `dmrv-knob-highlight-${uid}`;
+  const knobShadowFilter = `dmrv-knob-shadow-${uid}`;
+
   const count = Math.max(items.length, 1);
   const slice = 360 / count;
 
@@ -117,10 +123,23 @@ export function AdaptiveDmrvSelectorDial({
           aria-label="DMRV category dial"
         >
           <defs>
-            <linearGradient id={GRADIENT_ID} x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#334155" />
+            <radialGradient id={knobBodyGradient} cx="38%" cy="32%" r="68%">
+              <stop offset="0%" stopColor="#64748b" />
+              <stop offset="42%" stopColor="#334155" />
               <stop offset="100%" stopColor="#0f172a" />
+            </radialGradient>
+            <linearGradient id={knobBezelGradient} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#e2e8f0" />
+              <stop offset="45%" stopColor="#94a3b8" />
+              <stop offset="100%" stopColor="#475569" />
             </linearGradient>
+            <linearGradient id={knobHighlightGradient} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="rgba(255,255,255,0.55)" />
+              <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+            </linearGradient>
+            <filter id={knobShadowFilter} x="-40%" y="-20%" width="180%" height="180%">
+              <feDropShadow dx="0" dy="3" stdDeviation="3" floodColor="#0f172a" floodOpacity="0.35" />
+            </filter>
           </defs>
 
           <circle cx={CX} cy={CY} r={R_OUTER + 2} fill="#f1f5f9" />
@@ -165,48 +184,94 @@ export function AdaptiveDmrvSelectorDial({
             }}
             aria-hidden
           >
-            <line
-              x1={CX}
-              y1={CY}
-              x2={CX}
-              y2={CY - 40}
-              stroke="#e2e8f0"
-              strokeWidth={3}
-              strokeLinecap="round"
+            <polygon
+              points={`${CX},${CY - 6} ${CX - 3.5},${CY + 2} ${CX + 3.5},${CY + 2}`}
+              fill="#cbd5e1"
             />
             <line
               x1={CX}
               y1={CY}
               x2={CX}
-              y2={CY - 40}
-              stroke="#334155"
-              strokeWidth={1.5}
+              y2={CY - 44}
+              stroke="var(--dmrv-dial-accent, #1e3a5f)"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              opacity={0.35}
+            />
+            <line
+              x1={CX}
+              y1={CY}
+              x2={CX}
+              y2={CY - 44}
+              stroke="#1e293b"
+              strokeWidth={1.25}
               strokeLinecap="round"
             />
-            <circle cx={CX} cy={CY - 40} r={2.5} fill="#f8fafc" stroke="#64748b" strokeWidth={1} />
+            <circle
+              cx={CX}
+              cy={CY - 44}
+              r={3.5}
+              fill="var(--dmrv-dial-accent, #1e3a5f)"
+              stroke="#f8fafc"
+              strokeWidth={1.25}
+            />
           </g>
 
-          <circle
-            cx={CX}
-            cy={CY}
-            r={26}
-            className="dmrv-selector-dial__center-knob"
-            fill={`url(#${GRADIENT_ID})`}
-            stroke="#ffffff"
-            strokeWidth={2}
-          />
-          <text
-            x={CX}
-            y={CY + 4}
-            textAnchor="middle"
-            fill="#ffffff"
-            fontSize={9}
-            fontWeight={800}
-            letterSpacing="0.08em"
-            style={{ pointerEvents: 'none', userSelect: 'none' }}
-          >
-            DMRV
-          </text>
+          <g className="dmrv-selector-dial__center-knob" filter={`url(#${knobShadowFilter})`}>
+            <ellipse cx={CX} cy={CY + 3} rx={KNOB_RADIUS + 1} ry={5} fill="rgba(15,23,42,0.18)" aria-hidden />
+            <circle
+              cx={CX}
+              cy={CY}
+              r={KNOB_RADIUS + 3}
+              fill="none"
+              stroke={`url(#${knobBezelGradient})`}
+              strokeWidth={3.5}
+            />
+            {[0, 90, 180, 270].map((angle) => {
+              const tick = polar(CX, CY, KNOB_RADIUS + 1.5, angle);
+              const inner = polar(CX, CY, KNOB_RADIUS - 2, angle);
+              return (
+                <line
+                  key={angle}
+                  x1={tick.x}
+                  y1={tick.y}
+                  x2={inner.x}
+                  y2={inner.y}
+                  stroke="#64748b"
+                  strokeWidth={1.25}
+                  strokeLinecap="round"
+                  opacity={0.65}
+                />
+              );
+            })}
+            <circle cx={CX} cy={CY} r={KNOB_RADIUS} fill={`url(#${knobBodyGradient})`} />
+            <circle cx={CX} cy={CY} r={KNOB_RADIUS - 5} fill="#0f172a" opacity={0.22} />
+            <path
+              d={`M ${CX - KNOB_RADIUS + 6} ${CY - KNOB_RADIUS + 10} A ${KNOB_RADIUS - 4} ${KNOB_RADIUS - 4} 0 0 1 ${CX + KNOB_RADIUS - 6} ${CY - KNOB_RADIUS + 10}`}
+              fill={`url(#${knobHighlightGradient})`}
+              opacity={0.9}
+            />
+            <circle
+              cx={CX}
+              cy={CY}
+              r={KNOB_RADIUS - 9}
+              fill="none"
+              stroke="rgba(255,255,255,0.12)"
+              strokeWidth={1}
+            />
+            <text
+              x={CX}
+              y={CY + 4}
+              textAnchor="middle"
+              fill="#f8fafc"
+              fontSize={8.5}
+              fontWeight={800}
+              letterSpacing="0.12em"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}
+            >
+              DMRV
+            </text>
+          </g>
         </svg>
       </div>
 

@@ -64,11 +64,11 @@
 }
 
 .dmrv-selector-dial__center-knob {
-  transition: box-shadow 0.35s ease;
+  transition: filter 0.35s ease, transform 0.35s ease;
+  transform-origin: 90px 90px;
 }
 
 .dmrv-selector-dial__dial-wrap--active .dmrv-selector-dial__center-knob {
-  box-shadow:
-    0 4px 14px rgba(15, 23, 42, 0.45),
-    0 0 0 3px rgba(30, 58, 95, 0.12);
+  filter: drop-shadow(0 5px 10px rgba(15, 23, 42, 0.4));
+  transform: scale(1.02);
 }
