@@ -67,6 +67,10 @@ export const DMRV_SENSOR_IMAGE_URLS: Record<string, string> = {
   'sentinel-3-olci': '/dmrv/satellites/sentinel-2.png',
   nisar: '/dmrv/satellites/sentinel-1.png',
   'gedi-lidar': '/dmrv/lidar/gedi-iss-mount.png',
+  'icesat-2-atlas': '/dmrv/lidar/icesat-2-atlas.png',
+  'usgs-3dep-lidar': '/dmrv/lidar/usgs-3dep-lidar.png',
+  'drone-lidar': '/dmrv/lidar/drone-lidar.png',
+  'ground-tls-lidar': '/dmrv/lidar/ground-tls-lidar.png',
 };
 
 /** Resolved artwork for configurator cards (explicit entry or catalog map). */
@@ -361,6 +365,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     resolutionLabel: 'Photon footprints',
     revisitLabel: '91-day repeat',
     uiIcon: 'mountain',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['icesat-2-atlas'],
   },
   {
     id: 'usgs-3dep-lidar',
@@ -376,6 +381,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     status: 'available',
     resolutionLabel: '1 m+ where available',
     uiIcon: 'mountain',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['usgs-3dep-lidar'],
   },
   {
     id: 'drone-lidar',
@@ -390,6 +396,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     evidenceRole: 'Field validation point cloud',
     status: 'available',
     uiIcon: 'scan',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['drone-lidar'],
   },
   {
     id: 'ground-tls-lidar',
@@ -404,6 +411,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     evidenceRole: 'Ground-truth 3D structure evidence',
     status: 'available',
     uiIcon: 'trees',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['ground-tls-lidar'],
   },
 ];
 

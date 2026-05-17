@@ -140,16 +140,7 @@ export function DmrvLidarSourcePicker({ selectedRaw, onChange }: DmrvLidarSource
             >
               <div className="relative border-b border-slate-100 bg-white">
                 <div className="flex min-h-[132px] items-center justify-center bg-gradient-to-b from-slate-50 to-white">
-                  {source.id === 'gedi-lidar' ? (
-                    <img
-                      src={GEDI_LIDAR_GALLERY[0]?.src ?? getSensorImageUrl(source) ?? ''}
-                      alt="GEDI on ISS"
-                      loading="lazy"
-                      className="max-h-[140px] w-full object-contain p-2"
-                    />
-                  ) : (
-                    <LidarCardImage source={source} />
-                  )}
+                  <LidarCardImage source={source} />
                 </div>
                 <div className="absolute right-2 top-2">
                   <input
