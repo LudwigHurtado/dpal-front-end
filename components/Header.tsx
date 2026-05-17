@@ -5,7 +5,8 @@ import { ShieldCheck, Shield, User, Coins, Gem, Globe, Maximize2, Search, Monito
 import { useTranslations } from '../i18n';
 import { type Hero, SubscriptionTier, type Category } from '../types';
 import { TextScale, type View, type HeroHubTab, type HubTab } from '../App';
-import { isAiEnabled } from '../services/geminiService';
+import { isAiConfigured } from '../services/geminiService';
+import { isAiLive } from '../src/services/dpalAiClient';
 
 interface HeaderProps {
     onNavigateToHeroHub: () => void;
@@ -22,12 +23,16 @@ const AiStatusIndicator: React.FC = () => {
     const [status, setStatus] = useState<'ONLINE' | 'OFFLINE' | 'DEGRADED'>('OFFLINE');
 
     useEffect(() => {
-        const check = () => {
-            const enabled = isAiEnabled();
-            setStatus(enabled ? 'ONLINE' : 'OFFLINE');
+        const check = async () => {
+            if (!isAiConfigured()) {
+                setStatus('OFFLINE');
+                return;
+            }
+            const live = await isAiLive();
+            setStatus(live ? 'ONLINE' : 'DEGRADED');
         };
-        check();
-        const interval = setInterval(check, 10000);
+        void check();
+        const interval = setInterval(() => void check(), 10000);
         return () => clearInterval(interval);
     }, []);
 

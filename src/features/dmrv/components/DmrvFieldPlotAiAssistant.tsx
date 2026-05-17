@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Mic, RefreshCw, Send, Sparkles, Square, X } from '../../../../components/icons';
-import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
 import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 import { useDmrvVoiceInput } from '../hooks/useDmrvVoiceInput';
 import type { AiHelperMessage } from '../services/dmrvFieldPlotConfigTypes';
-import { fetchDmrvAiAvailability, type DmrvAiAvailability } from '../utils/dmrvAiAvailability';
+import { sendAiGuidance } from '../../../services/dpalAiClient';
 import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
+import { useDpalAiMode } from '../../../shared/hooks/useDpalAiMode';
+import { AiDiagnosticsPanel } from '../../../shared/components/AiDiagnosticsPanel';
 
 export type DmrvFieldPlotAiAssistantProps = {
   contextSummary: string;
@@ -85,9 +86,8 @@ export function DmrvFieldPlotAiAssistant({
   autofillPrompt,
   onApplyAutofill,
 }: DmrvFieldPlotAiAssistantProps): React.ReactElement {
-  const clientAiFlag = isAiEnabled();
-  const [availability, setAvailability] = useState<DmrvAiAvailability | null>(null);
-  const geminiLive = Boolean(availability?.geminiReady);
+  const { geminiLive, isChecking, configured, userFallbackMessage, refresh, ensureLiveBeforeSend } =
+    useDpalAiMode();
   const [messages, setMessages] = useState<AiHelperMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
@@ -102,16 +102,6 @@ export function DmrvFieldPlotAiAssistant({
   useEffect(() => {
     contextRef.current = trimDmrvAiContext(contextSummary);
   }, [contextSummary]);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchDmrvAiAvailability().then((status) => {
-      if (!cancelled) setAvailability(status);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -134,9 +124,9 @@ export function DmrvFieldPlotAiAssistant({
       setLoading(true);
       setError(null);
 
-      const useOfflineOnly = !geminiLive;
+      const live = await ensureLiveBeforeSend();
 
-      if (useOfflineOnly) {
+      if (!live) {
         const offlineText = dmrvRuleBasedReply(contextRef.current, trimmed);
         voiceAssistant.speakReply(offlineText);
         setMessages((prev) => [
@@ -144,16 +134,11 @@ export function DmrvFieldPlotAiAssistant({
           {
             id: `a-offline-${Date.now()}`,
             role: 'assistant',
-            text: `Offline guidance (Gemini not connected)\n\n${offlineText}`,
+            text: `${userFallbackMessage}\n\n${offlineText}`,
             createdAt: new Date().toISOString(),
           },
         ]);
-        if (!clientAiFlag || !geminiLive) {
-          setError(
-            availability?.message ??
-              'Set VITE_USE_SERVER_AI=true and VITE_API_BASE in .env.local, then restart npm run dev.',
-          );
-        }
+        setError(userFallbackMessage);
         setLoading(false);
         voiceCompleteRef.current();
         window.setTimeout(() => {
@@ -164,29 +149,46 @@ export function DmrvFieldPlotAiAssistant({
 
       try {
         const prompt = buildPrompt(contextRef.current, [...messages, userMsg], trimmed);
-        const reply = await runGeminiPrompt(prompt);
-        const assistantText = reply.trim() || 'No response from the assistant.';
-        voiceAssistant.speakReply(assistantText);
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `a-${Date.now()}`,
-            role: 'assistant',
-            text: assistantText,
-            createdAt: new Date().toISOString(),
-          },
-        ]);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Could not reach the AI helper.';
+        const result = await sendAiGuidance({ prompt, context: contextRef.current });
+        const assistantText =
+          result.ok && result.mode === 'live'
+            ? result.text.trim() || 'No response from the assistant.'
+            : null;
+        if (assistantText) {
+          voiceAssistant.speakReply(assistantText);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `a-${Date.now()}`,
+              role: 'assistant',
+              text: assistantText,
+              createdAt: new Date().toISOString(),
+            },
+          ]);
+        } else {
+          const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
+          setError(userFallbackMessage);
+          voiceAssistant.speakReply(fallbackText);
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `a-err-${Date.now()}`,
+              role: 'assistant',
+              text: `${userFallbackMessage}\n\n${fallbackText}`,
+              createdAt: new Date().toISOString(),
+            },
+          ]);
+        }
+      } catch {
         const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
-        setError(`${msg} — showing offline guidance.`);
+        setError(userFallbackMessage);
         voiceAssistant.speakReply(fallbackText);
         setMessages((prev) => [
           ...prev,
           {
             id: `a-err-${Date.now()}`,
             role: 'assistant',
-            text: `Offline guidance (Gemini error)\n\n${fallbackText}`,
+            text: `${userFallbackMessage}\n\n${fallbackText}`,
             createdAt: new Date().toISOString(),
           },
         ]);
@@ -198,7 +200,7 @@ export function DmrvFieldPlotAiAssistant({
         }, 800);
       }
     },
-    [availability?.message, clientAiFlag, disabled, geminiLive, loading, messages, voiceAssistant],
+    [disabled, ensureLiveBeforeSend, loading, messages, userFallbackMessage, voiceAssistant],
   );
 
   const handleVoiceAutoSubmit = useCallback(
@@ -228,7 +230,8 @@ export function DmrvFieldPlotAiAssistant({
 
   const runAutofill = useCallback(async () => {
     if (!autofillPrompt || !onApplyAutofill || disabled) return;
-    if (!geminiLive) {
+    const live = await ensureLiveBeforeSend();
+    if (!live) {
       const offlineText = dmrvRuleBasedReply(contextRef.current, autofillPrompt);
       setMessages((prev) => [
         ...prev,
@@ -239,7 +242,7 @@ export function DmrvFieldPlotAiAssistant({
           createdAt: new Date().toISOString(),
         },
       ]);
-      setError('Autofill needs Gemini — use offline chat for guidance, or configure server AI.');
+      setError(userFallbackMessage);
       return;
     }
     setLoading(true);
@@ -251,7 +254,8 @@ Configuration context:
 ${contextRef.current}
 
 Return ONLY valid JSON — no markdown prose.`;
-      const raw = await runGeminiPrompt(prompt);
+      const guidance = await sendAiGuidance({ prompt, context: contextRef.current });
+      const raw = guidance.ok ? guidance.text : '';
       const parsed = extractJsonObject(raw);
       if (parsed) {
         onApplyAutofill(parsed);
@@ -264,7 +268,7 @@ Return ONLY valid JSON — no markdown prose.`;
     } finally {
       setLoading(false);
     }
-  }, [autofillPrompt, disabled, geminiLive, onApplyAutofill]);
+  }, [autofillPrompt, disabled, ensureLiveBeforeSend, onApplyAutofill, userFallbackMessage]);
 
   const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
 
@@ -316,12 +320,25 @@ Return ONLY valid JSON — no markdown prose.`;
             : 'border-amber-200 bg-amber-50 text-amber-950'
         }`}
       >
-        {availability === null
+        {isChecking
           ? 'Checking AI connection…'
           : geminiLive
-            ? `Gemini connected — ${availability.message}`
-            : `Offline guidance — ${availability?.message ?? 'Gemini not configured'}. Chat still answers from your field-plot context.`}
+            ? 'Live AI guidance is connected.'
+            : configured
+              ? userFallbackMessage
+              : 'AI is not configured for this deployment.'}
       </p>
+      {!geminiLive && configured ? (
+        <button
+          type="button"
+          disabled={loading || isChecking}
+          onClick={() => void refresh(true)}
+          className="mb-3 rounded-lg border border-[#1e3a5f]/25 bg-[#e8f0f7] px-3 py-1.5 text-[10px] font-bold text-[#1e3a5f] hover:bg-white disabled:opacity-50"
+        >
+          Retry Live AI
+        </button>
+      ) : null}
+      <AiDiagnosticsPanel />
 
       <div className="mb-2 flex flex-wrap gap-1.5">{quickButtons}</div>
 

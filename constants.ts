@@ -2,12 +2,11 @@
 /** FIX: Added NftTheme to imports */
 import { Category, Report, Hero, NftRarity, Rank, Item, Archetype, SkillType, TrainingModule, EducationRole, Mission, HeroPath, NftTheme, SubscriptionTier } from "./types";
 import { getCategoryReportImage } from "./utils/reportImages";
-import { buildApiUrl, getDpalApiConfig } from "./src/config/api";
+import { buildApiUrl, getDpalApiConfig, LOCAL_BACKEND_ORIGIN } from "./src/config/api";
 
 /**
- * Standardized API base URL for backend services (Railway).
- * Backend should connect to MongoDB (Railway MongoDB or Atlas) and implement the routes in API_ROUTES.
- * Set VITE_API_BASE in .env.local or deployment env to your Railway backend URL.
+ * API base for the repo `backend/` service (Express + Prisma, port 3001 local).
+ * Set VITE_API_BASE in .env.local or deployment env to your deployed backend origin.
  */
 export const DEFAULT_MAP_LOCATION = 'Los Angeles, CA';
 
@@ -21,10 +20,11 @@ export const getApiBase = (): string => {
   if (typeof window !== 'undefined' && window.location?.origin) {
     return window.location.origin;
   }
-  return getDpalApiConfig().apiBaseUrl || 'https://web-production-a27b.up.railway.app';
+  if (import.meta.env.DEV) return LOCAL_BACKEND_ORIGIN;
+  return '';
 };
 
-/** Build full URL for an API route so all requests go to the same Railway backend. */
+/** Build full URL for an API route against the configured backend/ host. */
 export const apiUrl = (path: string): string => {
   return buildApiUrl(path);
 };
@@ -52,7 +52,11 @@ export const API_ROUTES = {
   AI_ASK: '/api/ai/ask',
   /** POST { model, contents, config? } — server-held Gemini key (see VITE_USE_SERVER_AI). */
   AI_GEMINI: '/api/ai/gemini',
-  /** GET — { ok, gemini } whether server has GEMINI_API_KEY. */
+  /** GET — structured health: { ok, configured, provider, mode, missing }. */
+  AI_HEALTH: '/api/ai/health',
+  /** POST { prompt, model?, context? } — structured guidance response. */
+  AI_GUIDANCE: '/api/ai/guidance',
+  /** GET — { ok, gemini } whether server has GEMINI_API_KEY (legacy). */
   AI_STATUS: '/api/ai/status',
   PERSONA_GENERATE_DETAILS: '/api/persona/generate-details',
   PERSONA_GENERATE_IMAGE: '/api/persona/generate-image',

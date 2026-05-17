@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp } from '../../../../components/icons';
-import { runGeminiPrompt } from '../../../../services/geminiService';
-import { fetchDmrvAiAvailability } from '../utils/dmrvAiAvailability';
+import { sendAiGuidance } from '../../../services/dpalAiClient';
+import { useDpalAiMode } from '../../../shared/hooks/useDpalAiMode';
 import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 
 export type DmrvFieldPlotSectionHelperProps = {
@@ -32,17 +32,7 @@ export function DmrvFieldPlotSectionHelper({
   const [expanded, setExpanded] = useState(false);
   const [reply, setReply] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [geminiLive, setGeminiLive] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchDmrvAiAvailability().then((status) => {
-      if (!cancelled) setGeminiLive(Boolean(status.geminiReady));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { ensureLiveBeforeSend, userFallbackMessage } = useDpalAiMode();
 
   const runInline = useCallback(
     async (prompt: string) => {
@@ -51,15 +41,15 @@ export function DmrvFieldPlotSectionHelper({
       setExpanded(true);
       const ctx = trimDmrvAiContext(contextSummary);
 
-      if (!geminiLive) {
-        setReply(dmrvRuleBasedReply(ctx, prompt));
+      const live = await ensureLiveBeforeSend();
+      if (!live) {
+        setReply(`${userFallbackMessage}\n\n${dmrvRuleBasedReply(ctx, prompt)}`);
         setLoading(false);
         return;
       }
 
       try {
-        const text = await runGeminiPrompt(
-          `You are the DPAL Field Plot configuration assistant for section "${title}".
+        const fullPrompt = `You are the DPAL Field Plot configuration assistant for section "${title}".
 Answer in 2–4 short sentences. Do not claim verification or certified credits.
 
 Context:
@@ -67,16 +57,20 @@ ${ctx}
 
 User question: ${prompt}
 
-Assistant:`,
+Assistant:`;
+        const result = await sendAiGuidance({ prompt: fullPrompt, context: ctx });
+        setReply(
+          result.ok && result.mode === 'live'
+            ? result.text.trim()
+            : `${userFallbackMessage}\n\n${dmrvRuleBasedReply(ctx, prompt)}`,
         );
-        setReply(text.trim());
       } catch {
-        setReply(dmrvRuleBasedReply(ctx, prompt));
+        setReply(`${userFallbackMessage}\n\n${dmrvRuleBasedReply(ctx, prompt)}`);
       } finally {
         setLoading(false);
       }
     },
-    [contextSummary, disabled, geminiLive, title],
+    [contextSummary, disabled, ensureLiveBeforeSend, title, userFallbackMessage],
   );
 
   const handleAction = (action: 'explain' | 'missing' | 'suggest' | 'fill') => {

@@ -28,6 +28,11 @@ import {
   OFFLINE_MISSION_TEMPLATES,
 } from "./offlineAiData";
 import { searchLiveIntelWithBrave, isBraveSearchEnabled } from "./braveSearchService";
+import {
+  hasBrowserGeminiKey,
+  shouldUseServerAi,
+  isAiConfigured,
+} from "../src/services/dpalAiClient";
 import { getDpalApiConfig } from "../src/config/api";
 
 /** Stable default for DMRV helpers and ad-hoc prompts (override with VITE_GEMINI_MODEL). */
@@ -36,17 +41,25 @@ const DEFAULT_TEXT_MODEL =
 
 const FLASH_TEXT_MODEL = DEFAULT_TEXT_MODEL;
 
-const RAILWAY_PRODUCTION_API_BASE = "https://web-production-a27b.up.railway.app";
-
 const getApiKey = () => import.meta.env.VITE_GEMINI_API_KEY;
 
 /** When true, Gemini runs on your API (GEMINI_API_KEY) via POST /api/ai/gemini — no browser key. */
-const useServerGemini = () => import.meta.env.VITE_USE_SERVER_AI === "true";
+const useServerGemini = () => shouldUseServerAi();
 
 /** Client key in bundle OR explicit server-AI mode (see VITE_USE_SERVER_AI). */
-export const isAiEnabled = () => Boolean(getApiKey()) || useServerGemini();
+export const isAiEnabled = () => isAiConfigured();
 
-import { getApiBase, apiUrl as buildApiUrl, API_ROUTES } from "../constants";
+export { shouldUseServerAi, hasBrowserGeminiKey, isAiConfigured };
+
+if (import.meta.env.DEV) {
+  console.info("[DPAL AI] mode", {
+    useServerAi: shouldUseServerAi(),
+    apiBase: (import.meta.env.VITE_API_BASE ?? "").replace(/\/$/, ""),
+    hasBrowserGeminiKey: hasBrowserGeminiKey(),
+  });
+}
+
+import { apiUrl as buildApiUrl, API_ROUTES, getApiBase } from "../constants";
 
 const getApiBaseLocal = () => getApiBase();
 
@@ -75,16 +88,6 @@ type GeminiGenerateParams = {
   contents: unknown;
   config?: unknown;
 };
-
-function isLocalApiBase(base: string): boolean {
-  if (!base) return false;
-  try {
-    const host = new URL(base).hostname;
-    return host === "localhost" || host === "127.0.0.1";
-  } catch {
-    return false;
-  }
-}
 
 function buildGeminiProxyUrl(apiBase: string): string {
   const path = API_ROUTES.AI_GEMINI;
@@ -136,28 +139,8 @@ async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: 
 
   if (useServerGemini()) {
     const cfg = getDpalApiConfig();
-    const primaryBase =
-      cfg.apiBaseUrl === ""
-        ? ""
-        : cfg.apiBaseUrl || cfg.aiServerUrl || RAILWAY_PRODUCTION_API_BASE;
-
-    try {
-      return await postServerGemini(request, primaryBase);
-    } catch (err) {
-      const type = err instanceof AiError ? err.type : undefined;
-      const canRetryProduction =
-        import.meta.env.DEV &&
-        isLocalApiBase(primaryBase) &&
-        (type === "NOT_CONFIGURED" ||
-          type === "NETWORK_ERROR" ||
-          type === "TEMPORARY_FAILURE");
-
-      if (canRetryProduction) {
-        debugLog("Local AI proxy unavailable; retrying production API for Gemini.");
-        return await postServerGemini(request, RAILWAY_PRODUCTION_API_BASE);
-      }
-      throw err;
-    }
+    const primaryBase = cfg.apiBaseUrl || cfg.aiServerUrl || "";
+    return await postServerGemini(request, primaryBase);
   }
 
   if (getApiKey()) {
@@ -233,7 +216,7 @@ const handleApiError = (error: any): never => {
     const displayBase =
       cfg.apiBaseUrl === "" && pageOrigin
         ? `${pageOrigin} (same-origin /api proxy → Railway)`
-        : cfg.apiBaseUrl || cfg.aiServerUrl || getApiBaseLocal() || "Not configured";
+        : cfg.apiBaseUrl || cfg.aiServerUrl || "(same-origin /api → backend/)";
     const crossOriginHint =
       pageOrigin && cfg.apiBaseUrl && !cfg.apiBaseUrl.startsWith(pageOrigin)
         ? `\n\nLikely cause: the browser blocked a cross-origin request from ${pageOrigin} to ${cfg.apiBaseUrl}. Custom domains (e.g. dpal.info) should use same-origin /api proxying (vercel.json) or add the origin to Railway CORS_ORIGINS / FRONTEND_ORIGIN.`
@@ -243,7 +226,7 @@ const handleApiError = (error: any): never => {
       : "";
     throw new AiError(
       "NETWORK_ERROR",
-      `Backend API connection failed.\n\nBackend URL: ${displayBase}${crossOriginHint}${overrideHint}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable (use https://web-production-a27b.up.railway.app on Vercel, not the marketing site alone)\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- GET ${pageOrigin || displayBase}/api/ai/status returns ok\n- VITE_API_BASE and VITE_USE_SERVER_AI are set on Vercel\n- GEMINI_API_KEY is set on the Railway API host`,
+      `Backend API connection failed.\n\nBackend URL: ${displayBase}${crossOriginHint}${overrideHint}\n\nThis could be due to:\n1. Repo backend is not running (\`cd backend && npm run dev\` on port 3001)\n2. Missing or wrong VITE_API_BASE (local: http://127.0.0.1:3001 or leave unset for Vite /api proxy)\n3. CORS configuration on backend/\n4. Internet connectivity problems\n\nPlease check:\n- GET ${pageOrigin || displayBase}/api/ai/status or /api/ai/health returns configured\n- VITE_USE_SERVER_AI=true on the front end\n- GEMINI_API_KEY is set on the backend/ host (not VITE_GEMINI_API_KEY in server mode)`,
     );
   }
 

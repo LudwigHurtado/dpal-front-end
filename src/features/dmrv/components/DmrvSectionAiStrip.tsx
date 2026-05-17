@@ -1,23 +1,18 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp, Copy, RefreshCw, Sparkles } from '../../../../components/icons';
-import { runGeminiPrompt } from '../../../../services/geminiService';
+import { sendAiGuidance } from '../../../services/dpalAiClient';
 import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
 import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
-import { fetchDmrvAiAvailability, type DmrvAiAvailability } from '../utils/dmrvAiAvailability';
+import { useDpalAiMode } from '../../../shared/hooks/useDpalAiMode';
 import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 
 export type DmrvSectionAiStripProps = {
   sectionLabel: string;
   hint: string;
   contextSummary: string;
-  /** When set, "Suggest fill" asks the model for JSON matching this shape and calls onApply. */
   autofillPrompt?: string;
   onApply?: (parsed: Record<string, unknown>) => void;
-  /**
-   * When set, "Suggest fill" applies parsed fields one at a time with status updates
-   * instead of instant onApply.
-   */
   onAnimatedApply?: (
     parsed: Record<string, unknown>,
     helpers: {
@@ -56,8 +51,7 @@ export function DmrvSectionAiStrip({
   disabled = false,
   starters = [],
 }: DmrvSectionAiStripProps): React.ReactElement {
-  const [availability, setAvailability] = useState<DmrvAiAvailability | null>(null);
-  const geminiLive = Boolean(availability?.geminiReady);
+  const { userFallbackMessage, ensureLiveBeforeSend } = useDpalAiMode();
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [reply, setReply] = useState<string | null>(null);
@@ -67,16 +61,6 @@ export function DmrvSectionAiStrip({
   const voice = useAiVoiceAssistant();
 
   contextRef.current = trimDmrvAiContext(contextSummary);
-
-  useEffect(() => {
-    let cancelled = false;
-    void fetchDmrvAiAvailability().then((status) => {
-      if (!cancelled) setAvailability(status);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setInput((current) => appendVoiceTranscript(current, text));
@@ -89,14 +73,11 @@ export function DmrvSectionAiStrip({
       setLoading(true);
       setNotice(null);
 
-      if (!geminiLive) {
-        if (mode === 'autofill') {
-          setNotice('Autofill needs Gemini — showing offline guidance instead.');
-        }
+      const live = await ensureLiveBeforeSend();
+      if (!live) {
         const offlineText = dmrvRuleBasedReply(contextRef.current, message);
-        const spokenText = offlineText;
-        voice.speakReply(spokenText);
-        setReply(`Offline guidance: ${offlineText}`);
+        voice.speakReply(offlineText);
+        setReply(`${userFallbackMessage}\n\n${offlineText}`);
         setExpanded(true);
         setLoading(false);
         return;
@@ -121,8 +102,18 @@ User: ${message}
 
 Assistant:`;
 
-        const raw = await runGeminiPrompt(prompt);
+        const result = await sendAiGuidance({ prompt, context: contextRef.current });
+        const raw = result.ok && result.mode === 'live' ? result.text : '';
         let spokenText = '';
+        if (!raw) {
+          const fallbackText = dmrvRuleBasedReply(contextRef.current, message);
+          setReply(`${userFallbackMessage}\n\n${fallbackText}`);
+          setNotice(userFallbackMessage);
+          voice.speakReply(fallbackText);
+          setExpanded(true);
+          return;
+        }
+
         if (mode === 'autofill' && (onApply || onAnimatedApply)) {
           const parsed = extractJsonObject(raw);
           if (parsed) {
@@ -131,9 +122,9 @@ Assistant:`;
                 applyField: (key, value) => {
                   onApply?.({ [key]: value });
                 },
-                setStatus: (message) => {
-                  setReply(message);
-                  setNotice(message);
+                setStatus: (msg) => {
+                  setReply(msg);
+                  setNotice(msg);
                 },
               });
               spokenText = 'Scene configuration ready. Review and save when ready.';
@@ -156,19 +147,17 @@ Assistant:`;
         }
         if (spokenText) voice.speakReply(spokenText);
         setExpanded(true);
-      } catch (err) {
+      } catch {
         const fallbackText = dmrvRuleBasedReply(contextRef.current, message);
-        setReply(`Offline guidance: ${fallbackText}`);
-        setNotice(
-          `${err instanceof Error ? err.message : 'Assistant unavailable.'} — showing offline guidance.`,
-        );
+        setReply(`${userFallbackMessage}\n\n${fallbackText}`);
+        setNotice(userFallbackMessage);
         voice.speakReply(fallbackText);
         setExpanded(true);
       } finally {
         setLoading(false);
       }
     },
-    [autofillPrompt, disabled, geminiLive, onAnimatedApply, onApply, sectionLabel, voice],
+    [autofillPrompt, disabled, ensureLiveBeforeSend, onAnimatedApply, onApply, sectionLabel, userFallbackMessage, voice],
   );
 
   return (

@@ -1,71 +1,58 @@
-import { API_ROUTES, apiUrl } from '../../../../constants';
+import {
+  getAiHealth,
+  hasBrowserGeminiKey,
+  isAiConfigured,
+  shouldUseServerAi,
+  type AiHealthResponse,
+} from '../../../services/dpalAiClient';
 
 export type DmrvAiAvailability = {
   configured: boolean;
   serverReachable: boolean;
   geminiReady: boolean;
   message: string;
+  health?: AiHealthResponse;
 };
 
-export async function fetchDmrvAiAvailability(): Promise<DmrvAiAvailability> {
-  const useServer = import.meta.env.VITE_USE_SERVER_AI === 'true';
-  const clientKey = Boolean(import.meta.env.VITE_GEMINI_API_KEY?.trim());
+function availabilityMessage(health: AiHealthResponse, geminiReady: boolean): string {
+  if (geminiReady) {
+    return health.mode === 'browser'
+      ? 'Browser Gemini configured'
+      : 'Server Gemini ready';
+  }
+  if (health.missing.includes('VITE_API_BASE')) {
+    return health.detail ?? 'VITE_API_BASE is required for server AI mode.';
+  }
+  if (health.missing.includes('GEMINI_API_KEY')) {
+    return 'Server reachable but GEMINI_API_KEY is missing on backend/.';
+  }
+  return health.detail ?? 'Live AI is not available right now.';
+}
 
-  if (!useServer && !clientKey) {
+export async function fetchDmrvAiAvailability(force = false): Promise<DmrvAiAvailability> {
+  if (!isAiConfigured()) {
     return {
       configured: false,
       serverReachable: false,
       geminiReady: false,
-      message: 'Set VITE_USE_SERVER_AI=true with VITE_API_BASE, or VITE_GEMINI_API_KEY in .env.local',
+      message: shouldUseServerAi()
+        ? 'Set VITE_USE_SERVER_AI=true and run backend/ (port 3001), or set VITE_API_BASE=http://127.0.0.1:3001.'
+        : 'Set VITE_GEMINI_API_KEY or VITE_USE_SERVER_AI=true with backend/ running.',
     };
   }
 
-  if (clientKey && !useServer) {
-    return {
-      configured: true,
-      serverReachable: true,
-      geminiReady: true,
-      message: 'Browser Gemini key configured',
-    };
-  }
+  const health = await getAiHealth(force);
+  const geminiReady = health.ok && health.configured;
+  const serverReachable =
+    health.mode === 'browser' || health.mode === 'offline'
+      ? hasBrowserGeminiKey()
+      : geminiReady || Boolean(health.detail && !/cannot reach/i.test(health.detail));
 
-  try {
-    const res = await fetch(apiUrl(API_ROUTES.AI_STATUS), { method: 'GET' });
-    if (!res.ok) {
-      return {
-        configured: useServer || clientKey,
-        serverReachable: res.status !== 404,
-        geminiReady: false,
-        message:
-          res.status === 404
-            ? 'API host has no /api/ai/status — point VITE_API_BASE at Railway or run local backend with gemini proxy'
-            : `AI status HTTP ${res.status}`,
-      };
-    }
-    const data = (await res.json()) as { ok?: boolean; gemini?: boolean };
-    const geminiReady = Boolean(data.gemini);
-    return {
-      configured: true,
-      serverReachable: true,
-      geminiReady,
-      message: geminiReady
-        ? 'Server Gemini ready'
-        : 'Server reachable but GEMINI_API_KEY missing on API host',
-    };
-  } catch {
-    if (clientKey) {
-      return {
-        configured: true,
-        serverReachable: false,
-        geminiReady: true,
-        message: 'Server AI unreachable — using browser Gemini key',
-      };
-    }
-    return {
-      configured: useServer,
-      serverReachable: false,
-      geminiReady: false,
-      message: 'Cannot reach API for server AI — check VITE_API_BASE and network',
-    };
-  }
+  return {
+    configured: true,
+    serverReachable,
+    geminiReady,
+    message: availabilityMessage(health, geminiReady),
+    health,
+  };
 }

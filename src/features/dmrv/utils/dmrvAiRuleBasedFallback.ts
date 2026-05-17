@@ -116,10 +116,8 @@ export function dmrvRuleBasedReply(contextSummary: string, userMessage: string):
   }
 
   return [
-    'I am in offline guidance mode (Gemini is unavailable). I answer from your DMRV configuration context only — no invented measurements or credits.',
+    'I am answering from your saved DMRV configuration only — I do not invent measurements or certified credits.',
     '',
     'Try asking: "What is missing for verifier review?", "When was my last satellite review?", "Do I have baseline biomass?", or "What are the open threats?"',
-    '',
-    'To enable live Gemini: set VITE_USE_SERVER_AI=true and VITE_API_BASE to a host with GEMINI_API_KEY, or add VITE_GEMINI_API_KEY for browser mode. Restart the dev server after changing .env.local.',
   ].join('\n');
 }
