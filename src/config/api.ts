@@ -106,13 +106,14 @@ export function getDpalApiConfig(): DpalApiConfig {
   const resolvedApiBase = shouldUseSameOriginApiProxy(apiBase, frontendOrigin) ? '' : apiBase;
   const mediaBaseUrl =
     normalizeBase(e.VITE_DPAL_MEDIA_BASE_URL) ||
-    (resolvedApiBase === '' ? '' : apiBase);
+    (resolvedApiBase === '' ? apiBase : resolvedApiBase);
 
   return {
     frontendOrigin,
     publicFrontendBaseUrl,
     apiBaseUrl: resolvedApiBase,
-    aiServerUrl: fromAi || resolvedApiBase || apiBase,
+    /** When using same-origin /api proxy, keep empty so fetch uses relative paths — not cross-origin Railway. */
+    aiServerUrl: fromAi || resolvedApiBase || (resolvedApiBase === '' ? '' : apiBase),
     mediaBaseUrl,
     source,
     hasExplicitApiConfig: Boolean(fromOverride || fromNew || fromAi || fromLegacy),

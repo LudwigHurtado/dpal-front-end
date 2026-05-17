@@ -137,10 +137,9 @@ async function runGeminiGenerate(params: GeminiGenerateParams): Promise<{ text: 
   if (useServerGemini()) {
     const cfg = getDpalApiConfig();
     const primaryBase =
-      cfg.apiBaseUrl ||
-      (cfg.aiServerUrl && cfg.aiServerUrl !== cfg.apiBaseUrl ? cfg.aiServerUrl : "") ||
-      getApiBaseLocal() ||
-      RAILWAY_PRODUCTION_API_BASE;
+      cfg.apiBaseUrl === ""
+        ? ""
+        : cfg.apiBaseUrl || cfg.aiServerUrl || RAILWAY_PRODUCTION_API_BASE;
 
     try {
       return await postServerGemini(request, primaryBase);
@@ -226,16 +225,25 @@ const handleApiError = (error: any): never => {
   console.error(`Backend API Error:`, error);
 
   if (error?.message?.includes("Failed to fetch") || error?.message?.includes("NetworkError") || error?.name === "TypeError") {
-    const apiBase = getApiBaseLocal();
+    const cfg = getDpalApiConfig();
     const pageOrigin =
       typeof window !== "undefined" && window.location?.origin ? window.location.origin : "";
+    const override =
+      typeof window !== "undefined" ? window.localStorage.getItem("dpal_api_base_override")?.trim() : "";
+    const displayBase =
+      cfg.apiBaseUrl === "" && pageOrigin
+        ? `${pageOrigin} (same-origin /api proxy → Railway)`
+        : cfg.apiBaseUrl || cfg.aiServerUrl || getApiBaseLocal() || "Not configured";
     const crossOriginHint =
-      pageOrigin && apiBase && !apiBase.startsWith(pageOrigin)
-        ? `\n\nLikely cause: the browser blocked a cross-origin request from ${pageOrigin} to ${apiBase}. Custom domains (e.g. dpal.info) must either use same-origin /api proxying or be listed in Railway CORS_ORIGINS / FRONTEND_ORIGIN.`
+      pageOrigin && cfg.apiBaseUrl && !cfg.apiBaseUrl.startsWith(pageOrigin)
+        ? `\n\nLikely cause: the browser blocked a cross-origin request from ${pageOrigin} to ${cfg.apiBaseUrl}. Custom domains (e.g. dpal.info) should use same-origin /api proxying (vercel.json) or add the origin to Railway CORS_ORIGINS / FRONTEND_ORIGIN.`
         : "";
+    const overrideHint = override
+      ? `\n\nNote: localStorage key "dpal_api_base_override" is set to "${override}". Clear it in DevTools if API routing looks wrong.`
+      : "";
     throw new AiError(
       "NETWORK_ERROR",
-      `Backend API connection failed.\n\nBackend URL: ${apiBase || "Not configured"}${crossOriginHint}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- Backend is deployed and running\n- VITE_API_BASE is set correctly in Vercel/Railway\n- Backend CORS allows your frontend origin`,
+      `Backend API connection failed.\n\nBackend URL: ${displayBase}${crossOriginHint}${overrideHint}\n\nThis could be due to:\n1. Backend server is not running or not deployed\n2. Incorrect VITE_API_BASE environment variable (use https://web-production-a27b.up.railway.app on Vercel, not the marketing site alone)\n3. CORS configuration issue on backend\n4. Internet connectivity problems\n\nPlease check:\n- GET ${pageOrigin || displayBase}/api/ai/status returns ok\n- VITE_API_BASE and VITE_USE_SERVER_AI are set on Vercel\n- GEMINI_API_KEY is set on the Railway API host`,
     );
   }
 
