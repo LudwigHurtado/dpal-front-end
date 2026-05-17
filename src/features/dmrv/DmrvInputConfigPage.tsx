@@ -9,6 +9,8 @@ import { SceneLivePreviewCard } from './components/SceneLivePreviewCard';
 import { DeepMethodologyCounsel } from './components/DeepMethodologyCounsel';
 import { DmrvMethodologyPresetPanel } from './components/DmrvMethodologyPresetPanel';
 import { DmrvSectionAiStrip } from './components/DmrvSectionAiStrip';
+import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
+import { USGS_3DEP_TERRAIN_RELEVANCE_NOTE } from './dmrvRecommendedSources';
 import { runSceneSteppedAutofill } from './utils/sceneAutofillSteps';
 import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
 import { DmrvInputSymbol } from './components/dmrvInputSymbols';
@@ -114,7 +116,14 @@ export default function DmrvInputConfigPage({
   const integrityScore = config ? computeCompletenessScore(config) : 0;
 
   const aiHelperVariant: DmrvAiHelperVariant =
-    inputKey === 'satellite-imagery' ? 'satellite-imagery' : 'input';
+    inputKey === 'satellite-imagery'
+      ? 'satellite-imagery'
+      : inputKey === 'lidar'
+        ? 'lidar'
+        : 'input';
+
+  const projectLat = storedProject?.location.latitude;
+  const projectLng = storedProject?.location.longitude;
 
   const methodologyRecommendContext = useMemo(() => {
     if (!projectId) {
@@ -477,7 +486,13 @@ export default function DmrvInputConfigPage({
             >
               <ArrowLeft className="h-4 w-4" />
             </button>
-            <DmrvInputSymbol label={inputDef.label} size={48} accentColor={category.color} />
+            <DmrvInputSymbol
+              inputKey={inputDef.key}
+              configType={inputDef.configType}
+              label={inputDef.label}
+              size={48}
+              accentColor={category.color}
+            />
             <div className="min-w-0">
               <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">{category.title}</p>
               <h1 className="text-xl font-black text-[#1e3a5f] md:text-2xl">{inputDef.label}</h1>
@@ -623,6 +638,36 @@ export default function DmrvInputConfigPage({
                     aoiExists={aoiExists}
                     isUpdating={scenePreviewUpdating}
                     autofillStatus={sceneAutofillStatus}
+                  />
+                </div>
+              ) : config.configType === 'lidar' ? (
+                <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-start">
+                  <div className="min-w-0 space-y-3">
+                    <p className="text-xs text-slate-600">
+                      Configure LiDAR provider and point-cloud settings. {USGS_3DEP_TERRAIN_RELEVANCE_NOTE}
+                    </p>
+                    <DmrvDataSourceFields
+                      configType={config.configType}
+                      settings={config.dataSourceSettings}
+                      onChange={patchDataSource}
+                    />
+                    <DmrvSectionAiStrip
+                      sectionLabel="LiDAR terrain evidence"
+                      hint="USGS 3DEP elevation and LiDAR reference links for your AOI center."
+                      contextSummary={aiContextSummary}
+                      disabled={!!busy}
+                      starters={[
+                        'Want me to check whether LiDAR terrain evidence helps this project?',
+                        'For a flood project, how does LiDAR help slope and drainage?',
+                      ]}
+                      autofillPrompt={`Suggest lidar dataSourceSettings for ${typeTitle}. Return JSON with string/boolean fields: provider, pointCloudSource, verticalAccuracy, groundClassificationRequired, canopyHeightModel, uploadUrl.`}
+                      onApply={applySceneSettings}
+                    />
+                  </div>
+                  <Usgs3depLidarPanel
+                    lat={projectLat}
+                    lng={projectLng}
+                    radiusKm={5}
                   />
                 </div>
               ) : (

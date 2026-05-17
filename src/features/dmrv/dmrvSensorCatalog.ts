@@ -371,7 +371,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     detects: ['high-resolution elevation', 'bare-earth DEM', 'terrain', 'infrastructure', 'above-ground features'],
     bestFor: 'Local elevation and terrain validation (US coverage)',
     evidenceRole: 'Local elevation and terrain validation',
-    status: 'needs-api-key',
+    status: 'available',
     resolutionLabel: '1 m+ where available',
     uiIcon: 'mountain',
   },

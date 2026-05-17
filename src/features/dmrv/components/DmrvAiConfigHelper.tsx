@@ -5,7 +5,7 @@ import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyCon
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
 import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
 
-export type DmrvAiHelperVariant = 'input' | 'project' | 'satellite-imagery';
+export type DmrvAiHelperVariant = 'input' | 'project' | 'satellite-imagery' | 'lidar';
 
 export type DmrvAiConfigHelperProps = {
   variant: DmrvAiHelperVariant;
@@ -48,6 +48,15 @@ const VARIANT_META: Record<
       'Which satellite should I pick for forest carbon screening?',
       'When should I use Sentinel-1 SAR instead of optical imagery?',
       'What should I document for validator review?',
+    ],
+  },
+  lidar: {
+    title: 'LiDAR & Terrain AI Helper',
+    placeholder: 'Ask about USGS 3DEP, terrain evidence, or when LiDAR helps this project…',
+    starters: [
+      'Want me to check whether LiDAR terrain evidence helps this project?',
+      'For a flood project, how does LiDAR help slope and drainage?',
+      'Should USGS 3DEP terrain go in my evidence packet?',
     ],
   },
 };

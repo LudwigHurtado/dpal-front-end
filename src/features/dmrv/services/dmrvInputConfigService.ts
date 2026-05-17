@@ -1,5 +1,6 @@
 import { apiUrl, API_ROUTES } from '../../../../constants';
 import { createEnvironmentalEvidencePacket } from '../../../services/environmentalEvidencePacketsApi';
+import { fetchUsgs3depTerrainEvidenceForProject } from '../utils/usgs3depTerrainEvidence';
 import type { DmrvInputConfigType } from '../dmrvInputRegistry';
 import { getDmrvInputByKey, resolveDmrvInputDef } from '../dmrvInputRegistry';
 import { formatReportingPeriod, getDmrvProjectContext } from './dmrvProjectContextService';
@@ -316,21 +317,29 @@ export async function generateDmrvEvidencePacket(config: DmrvInputConfig): Promi
     config.evidencePacket.title.trim() ||
     `${config.inputLabel} — ${config.categorySlug} DMRV`;
 
+  const storedProject = getDmrvProjectContext(config.projectId);
+  const terrainEvidence = await fetchUsgs3depTerrainEvidenceForProject(storedProject, config);
+
+  const evidenceRefs: Record<string, unknown>[] = [
+    {
+      source: 'dmrv_input_config',
+      categorySlug: config.categorySlug,
+      typeId: config.typeId,
+      inputKey: config.inputKey,
+      configType: config.configType,
+      validationRules: config.validationRules,
+      dataSourceSettings: config.dataSourceSettings,
+    },
+  ];
+  if (terrainEvidence) {
+    evidenceRefs.push(terrainEvidence);
+  }
+
   const res = await createEnvironmentalEvidencePacket({
     title,
     projectId: config.projectContext.projectId || config.projectId,
     locationLabel: config.projectContext.locationAoiId || undefined,
-    evidenceRefs: [
-      {
-        source: 'dmrv_input_config',
-        categorySlug: config.categorySlug,
-        typeId: config.typeId,
-        inputKey: config.inputKey,
-        configType: config.configType,
-        validationRules: config.validationRules,
-        dataSourceSettings: config.dataSourceSettings,
-      },
-    ],
+    evidenceRefs,
     qrPayload: config.evidencePacket.generateQrCode
       ? {
           module: 'dmrv',

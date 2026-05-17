@@ -52,6 +52,10 @@ export type DmrvInputSymbolKey =
   | 'health'
   | 'blockchain'
   | 'qr'
+  | 'project-config'
+  | 'methodology'
+  | 'evidence-packet'
+  | 'ai-voice'
   | 'default';
 
 const GradIdContext = createContext('dmrv-sym');
@@ -413,12 +417,77 @@ function QrSymbol({ size, className }: SymProps): React.ReactElement {
   );
 }
 
+function ProjectConfigSymbol({ size, className }: SymProps): React.ReactElement {
+  return (
+    <Sym size={size} className={className}>
+      <rect width="48" height="48" rx="8" fill="#e0f2fe" />
+      <path d="M8 34 Q18 26 28 30 T40 28 L40 40 L8 40 Z" fill="#86efac" />
+      <path d="M8 34 Q18 26 28 30 T40 28" fill="none" stroke="#16a34a" strokeWidth="1.5" />
+      <circle cx="20" cy="22" r="3" fill="#dc2626" />
+      <circle cx="32" cy="20" r="3" fill="#dc2626" />
+      <rect x="14" y="10" width="20" height="8" rx="2" fill="#1e3a5f" opacity="0.9" />
+      <path d="M18 14h12" stroke="#fff" strokeWidth="1.2" strokeLinecap="round" />
+    </Sym>
+  );
+}
+
+function MethodologySymbol({ size, className }: SymProps): React.ReactElement {
+  return (
+    <Sym size={size} className={className}>
+      <rect width="48" height="48" rx="8" fill="#eef2ff" />
+      <rect x="10" y="8" width="28" height="32" rx="3" fill="#fff" stroke="#6366f1" strokeWidth="1.2" />
+      <path d="M14 16h20M14 22h14" stroke="#c7d2fe" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M14 30 L18 24 L22 28 L26 20 L30 26 L34 22" fill="none" stroke="#4f46e5" strokeWidth="2" strokeLinecap="round" />
+      <circle cx="34" cy="12" r="4" fill="#22c55e" />
+      <path d="M32 12l1.5 1.5 3-3" stroke="#fff" strokeWidth="1.2" fill="none" />
+    </Sym>
+  );
+}
+
+function EvidencePacketSymbol({ size, className }: SymProps): React.ReactElement {
+  return (
+    <Sym size={size} className={className}>
+      <rect width="48" height="48" rx="8" fill="#f0fdf4" />
+      <rect x="10" y="14" width="22" height="24" rx="2" fill="#1e3a5f" opacity="0.92" />
+      <path d="M14 20h14M14 26h10M14 32h12" stroke="#93c5fd" strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="34" cy="18" r="8" fill="#22c55e" stroke="#15803d" strokeWidth="1" />
+      <path d="M30 18l3 3 6-6" stroke="#fff" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+      <path d="M28 30 L34 24 L40 30" fill="none" stroke="#059669" strokeWidth="1.5" />
+    </Sym>
+  );
+}
+
+function AiVoiceSymbol({ size, className }: SymProps): React.ReactElement {
+  const gradId = useContext(GradIdContext);
+  return (
+    <Sym size={size} className={className}>
+      <rect width="48" height="48" rx="8" fill={`url(#${gradId}-sky)`} />
+      <rect x="18" y="14" width="12" height="20" rx="6" fill="#1e3a5f" />
+      <path d="M14 26 Q14 34 24 34 Q34 34 34 26" fill="none" stroke="#1e3a5f" strokeWidth="2" />
+      <path d="M24 34v4" stroke="#1e3a5f" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 40h12" stroke="#1e3a5f" strokeWidth="2" strokeLinecap="round" />
+      {[10, 38].map((x) => (
+        <path
+          key={x}
+          d={`M${x} 18 Q${x === 10 ? 6 : 42} 24 ${x} 30`}
+          fill="none"
+          stroke="#22d3ee"
+          strokeWidth="1.5"
+          opacity="0.85"
+        />
+      ))}
+      <circle cx="36" cy="12" r="3" fill="#fbbf24" />
+    </Sym>
+  );
+}
+
 function DefaultSymbol({ size, className }: SymProps): React.ReactElement {
   return (
     <Sym size={size} className={className}>
-      <rect width="48" height="48" rx="8" fill="#f1f5f9" />
-      <rect x="12" y="10" width="24" height="28" rx="3" fill="#fff" stroke="#cbd5e1" strokeWidth="1.2" />
-      <path d="M16 18h16M16 24h12M16 30h14" stroke="#64748b" strokeWidth="1.5" strokeLinecap="round" />
+      <rect width="48" height="48" rx="8" fill="#e8f0f7" />
+      <circle cx="24" cy="24" r="12" fill="#1e3a5f" opacity="0.12" />
+      <path d="M24 14v10M24 28v2" stroke="#1e3a5f" strokeWidth="2.5" strokeLinecap="round" />
+      <circle cx="24" cy="24" r="4" fill="#2a9d8f" />
     </Sym>
   );
 }
@@ -475,8 +544,62 @@ const SYMBOL_MAP: Record<DmrvInputSymbolKey, React.FC<SymProps>> = {
   health: LabSymbol,
   blockchain: BlockchainInputSymbol,
   qr: QrSymbol,
+  'project-config': ProjectConfigSymbol,
+  methodology: MethodologySymbol,
+  'evidence-packet': EvidencePacketSymbol,
+  'ai-voice': AiVoiceSymbol,
   default: DefaultSymbol,
 };
+
+/** Stable registry keys → symbol (preferred over label heuristics). */
+const INPUT_KEY_SYMBOL: Record<string, DmrvInputSymbolKey> = {
+  'project-config': 'project-config',
+  'satellite-imagery': 'satellite',
+  lidar: 'lidar',
+  'field-plots': 'field-plot',
+  'biomass-data': 'biomass',
+  'activity-data': 'activity',
+  'soil-samples': 'soil-sample',
+  'iot-sensors': 'iot-sensor',
+  'management-data': 'management',
+  'weather-data': 'weather',
+  'field-surveys': 'field-survey',
+  'fire-data': 'fire',
+  'grazing-data': 'grazing',
+  'blockchain-log': 'blockchain',
+  methodology: 'methodology',
+  'validation-rules': 'validator',
+  'evidence-packet': 'evidence-packet',
+  'ai-voice-helper': 'ai-voice',
+};
+
+const CONFIG_TYPE_SYMBOL: Record<string, DmrvInputSymbolKey> = {
+  satellite: 'satellite',
+  lidar: 'lidar',
+  'field-plots': 'field-plot',
+  biomass: 'biomass',
+  activity: 'activity',
+  soil: 'soil-sample',
+  iot: 'iot-sensor',
+  management: 'management',
+  weather: 'weather',
+  'field-survey': 'field-survey',
+  fire: 'fire',
+  grazing: 'grazing',
+  drone: 'drone',
+  blockchain: 'blockchain',
+};
+
+export function resolveInputSymbolKeyFromInput(
+  inputKey?: string,
+  label?: string,
+  configType?: string,
+): DmrvInputSymbolKey {
+  if (inputKey && INPUT_KEY_SYMBOL[inputKey]) return INPUT_KEY_SYMBOL[inputKey];
+  if (configType && CONFIG_TYPE_SYMBOL[configType]) return CONFIG_TYPE_SYMBOL[configType];
+  if (label) return resolveInputSymbolKey(label);
+  return 'default';
+}
 
 /** Resolve infographic input label → symbol key (longest match first). */
 export function resolveInputSymbolKey(label: string): DmrvInputSymbolKey {
@@ -527,7 +650,11 @@ export function resolveInputSymbolKey(label: string): DmrvInputSymbolKey {
     ['parcel', /parcel/],
     ['patrol', /patrol/],
     ['permit', /permit|discharge|inspection/],
-    ['documents', /document|report|record|evidence|claim|filing/],
+    ['methodology', /methodology|calculation chain|preset/],
+    ['evidence-packet', /evidence packet|exhibit|legal packet/],
+    ['ai-voice', /ai helper|voice input|voice assist/],
+    ['project-config', /project config|project identity|reporting period/],
+    ['documents', /document|report|record|claim|filing/],
   ];
   for (const [key, re] of rules) {
     if (re.test(lower)) return key;
@@ -537,6 +664,8 @@ export function resolveInputSymbolKey(label: string): DmrvInputSymbolKey {
 
 export type DmrvInputSymbolProps = {
   label: string;
+  inputKey?: string;
+  configType?: string;
   size?: number;
   accentColor?: string;
   className?: string;
@@ -544,12 +673,14 @@ export type DmrvInputSymbolProps = {
 
 export function DmrvInputSymbol({
   label,
+  inputKey,
+  configType,
   size = 44,
   accentColor,
   className,
 }: DmrvInputSymbolProps): React.ReactElement {
   const gradId = useId().replace(/:/g, '');
-  const key = resolveInputSymbolKey(label);
+  const key = resolveInputSymbolKeyFromInput(inputKey, label, configType);
   const Symbol = SYMBOL_MAP[key] ?? DefaultSymbol;
   return (
     <GradIdContext.Provider value={gradId}>

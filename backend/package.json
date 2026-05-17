@@ -19,6 +19,7 @@
     "smoke:env-business-workflows": "npx tsx src/scripts/smokeEnvironmentalBusinessWorkflows.ts",
     "smoke:carbonpura-evidence": "npx tsx src/scripts/smokeCarbonPuraEvidence.ts",
     "smoke:climatiq": "npx tsx src/scripts/smokeClimatiq.ts",
+    "test:usgs-3dep": "npx tsx src/services/usgs3depService.selftest.ts",
     "test:plastic-watch": "npx tsx src/services/hyperspectral/plasticWatch.selftest.ts && npx tsx src/services/hyperspectral/plasticWatch.routeScan.selftest.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

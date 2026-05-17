@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Loader } from '../../../components/icons';
 import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
+import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
+import { USGS_3DEP_TERRAIN_RELEVANCE_NOTE } from './dmrvRecommendedSources';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
@@ -333,6 +335,14 @@ export default function DmrvProjectConfigPage({
               label="Coordinate validation"
               value={validation?.coordinateOk ? 'Valid' : 'Pending / invalid'}
             />
+            <p className="text-xs text-slate-600 sm:col-span-2">{USGS_3DEP_TERRAIN_RELEVANCE_NOTE}</p>
+            <div className="sm:col-span-2">
+              <Usgs3depLidarPanel
+                lat={ctx.location.latitude}
+                lng={ctx.location.longitude}
+                compact
+              />
+            </div>
           </Section>
 
           <Section title="Reporting Period">

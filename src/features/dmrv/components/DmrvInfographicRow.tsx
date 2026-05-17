@@ -168,17 +168,6 @@ export function DmrvInfographicRow({
               ))}
             </div>
 
-            {isSelected ? (
-              <div className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 transition-opacity duration-300">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
-                  Expanded configuration workspace
-                </p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Configure evidence sources, methodology, validation rules, evidence packet, and blockchain anchor for
-                  this DMRV type.
-                </p>
-              </div>
-            ) : null}
           </div>
 
           <div className="min-w-0 border-t border-slate-100 pt-3 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
@@ -270,7 +259,13 @@ function InputConfigChip({
       ) : !interactive ? (
         <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-slate-500" aria-hidden />
       ) : null}
-      <DmrvInputSymbol label={iconLabel ?? inputDef.label} size={iconSize} accentColor={accentColor} />
+      <DmrvInputSymbol
+        inputKey={inputDef.key}
+        configType={inputDef.configType}
+        label={iconLabel ?? inputDef.label}
+        size={iconSize}
+        accentColor={accentColor}
+      />
       <span
         className={`px-0.5 font-bold leading-tight text-slate-800 ${compact ? 'text-[6.5px]' : 'text-[7.5px]'}`}
       >

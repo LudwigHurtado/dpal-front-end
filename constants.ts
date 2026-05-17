@@ -203,6 +203,10 @@ export const API_ROUTES = {
   CLIMATIQ_HEALTH: '/api/climatiq/health',
   CLIMATIQ_SEARCH: '/api/climatiq/search',
   CLIMATIQ_ESTIMATE: '/api/climatiq/estimate',
+  /** USGS 3DEP / National Map elevation & LiDAR context (server proxy; no API key) */
+  USGS_3DEP_STATUS: '/api/providers/usgs-3dep/status',
+  USGS_3DEP_ELEVATION: '/api/providers/usgs-3dep/elevation',
+  USGS_3DEP_LIDAR_CONTEXT: '/api/providers/usgs-3dep/lidar-context',
 } as const;
 
 export const CARBONPURA_PROJECT_EVIDENCE_EVENTS = (projectId: string) =>
