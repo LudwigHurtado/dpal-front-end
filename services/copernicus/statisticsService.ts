@@ -8,6 +8,17 @@ import type {
   CopernicusIndexType,
 } from './types';
 
+function upstreamMessageFromDetails(details: unknown): string | null {
+  if (!details || typeof details !== 'object') return null;
+  const messages: string[] = [];
+  for (const side of ['before', 'after'] as const) {
+    const payload = (details as Record<string, unknown>)[side] as { error?: { message?: string } } | undefined;
+    const message = payload?.error?.message?.trim();
+    if (message) messages.push(message);
+  }
+  return messages.length ? [...new Set(messages)].join(' | ') : null;
+}
+
 export async function fetchAoiStatisticsComparison(params: {
   aoiGeoJson: CopernicusAoiGeoJson;
   collection: CopernicusCollection;
@@ -56,9 +67,15 @@ export async function fetchAoiStatisticsComparison(params: {
       error?: string;
       reason?: string;
       measurementStatus?: string;
+      details?: unknown;
     };
     const status = err.measurementStatus ?? (response.status >= 500 ? 'upstream_error' : 'parser_failed');
-    throw new Error(`${status}: ${err.reason ?? err.error ?? `Statistics API error ${response.status}`}`);
+    const detailMessage = upstreamMessageFromDetails(err.details);
+    const fallback = err.reason ?? detailMessage ?? err.error ?? `Statistics API error ${response.status}`;
+    const message = response.status >= 500 && fallback === 'Internal server error'
+      ? 'The measurement API returned an unexpected error. Retry in a moment, or redraw a smaller AOI and use Sentinel-2 with NDWI.'
+      : fallback;
+    throw new Error(`${status}: ${message}`);
   }
   const payload = (await response.json()) as { comparison?: CopernicusStatisticsComparisonResponse };
   if (!payload.comparison) {

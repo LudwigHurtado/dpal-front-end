@@ -375,6 +375,17 @@ function isValidDateWindow(window: any): boolean {
   return Number.isFinite(from.getTime()) && Number.isFinite(to.getTime()) && from <= to;
 }
 
+function extractUpstreamReason(details: { before?: unknown; after?: unknown } | undefined): string | null {
+  if (!details) return null;
+  const messages: string[] = [];
+  for (const side of ['before', 'after'] as const) {
+    const payload = details[side] as { error?: { message?: string } } | undefined;
+    const message = payload?.error?.message?.trim();
+    if (message) messages.push(message);
+  }
+  return messages.length ? [...new Set(messages)].join(' | ') : null;
+}
+
 function buildStatisticsRequest(args: {
   aoiGeoJson: any;
   indexType: AllowedIndexType;
@@ -382,14 +393,17 @@ function buildStatisticsRequest(args: {
   fromDate: string;
   toDate: string;
 }): any {
-  const resolutionMeters = args.collection === 'sentinel-2-l2a' ? 10 : 10;
   return {
     input: {
-      bounds: { geometry: args.aoiGeoJson },
+      bounds: {
+        geometry: args.aoiGeoJson,
+        properties: { crs: 'http://www.opengis.net/def/crs/OGC/1.3/CRS84' },
+      },
       data: [
         {
           type: args.collection,
           dataFilter: {
+            mosaickingOrder: 'mostRecent',
             timeRange: {
               from: `${args.fromDate}T00:00:00Z`,
               to: `${args.toDate}T23:59:59Z`,
@@ -405,9 +419,18 @@ function buildStatisticsRequest(args: {
       },
       aggregationInterval: { of: 'P1D' },
       lastIntervalBehavior: 'SHORTEN',
-      resx: resolutionMeters,
-      resy: resolutionMeters,
+      width: 128,
+      height: 128,
       evalscript: evalscriptSourceFor(args.indexType),
+    },
+    calculations: {
+      default: {
+        statistics: {
+          default: {
+            percentiles: { k: [5, 50, 95] },
+          },
+        },
+      },
     },
   };
 }
@@ -558,11 +581,14 @@ router.post('/statistics', async (req, res) => {
       proxyToSentinel('/api/v1/statistics', afterReq),
     ]);
     if (beforeResult.status >= 400 || afterResult.status >= 400) {
+      const details = { before: beforeResult.payload, after: afterResult.payload };
+      const upstreamReason = extractUpstreamReason(details);
       return res.status(Math.max(beforeResult.status, afterResult.status)).json({
         ok: false,
         error: 'Copernicus statistics error',
         measurementStatus: 'upstream_error',
-        details: { before: beforeResult.payload, after: afterResult.payload },
+        reason: upstreamReason ?? 'Copernicus statistics request was rejected for this AOI or date range.',
+        details,
       });
     }
     const before = normalizeStatisticsPayload(beforeResult.payload, {

@@ -110,6 +110,7 @@ interface DetailedSatellitePreview {
 
 const DEFAULT_WEST_US_CENTER: [number, number] = [37.25, -119.8];
 const AQUASCAN_AOI_STORAGE_KEY = 'dpal_aquascan_saved_aoi_v2';
+const AQUASCAN_WORKFLOW_TABS_ANCHOR_ID = 'aquascan-workflow-tabs';
 const RECOMMENDED_COMPARISON_PRESETS = [
   {
     id: 'recent-monthly',
@@ -403,17 +404,17 @@ function parseGpsCoords(query: string): { lat: number; lng: number } | null {
 
 function polygonAreaSqKm(points: [number, number][]): number {
   if (points.length < 3) return 0;
-  const lat0 = points.reduce((sum, p) => sum + p[1], 0) / points.length;
+  const lat0 = points.reduce((sum, p) => sum + p[0], 0) / points.length;
   const kmPerDegLat = 111.32;
   const kmPerDegLng = 111.32 * Math.cos((lat0 * Math.PI) / 180);
   let sum = 0;
   for (let i = 0; i < points.length; i += 1) {
-    const [x1, y1] = points[i];
-    const [x2, y2] = points[(i + 1) % points.length];
-    const x1km = x1 * kmPerDegLng;
-    const x2km = x2 * kmPerDegLng;
-    const y1km = y1 * kmPerDegLat;
-    const y2km = y2 * kmPerDegLat;
+    const [lat1, lng1] = points[i];
+    const [lat2, lng2] = points[(i + 1) % points.length];
+    const x1km = lng1 * kmPerDegLng;
+    const x2km = lng2 * kmPerDegLng;
+    const y1km = lat1 * kmPerDegLat;
+    const y2km = lat2 * kmPerDegLat;
     sum += x1km * y2km - x2km * y1km;
   }
   return Math.abs(sum) / 2;
@@ -742,6 +743,18 @@ export default function AquaScanView({
   const [copernicusSetup, setCopernicusSetup] = useState(() => getCopernicusSetupState());
   const [selectedFocusLocation, setSelectedFocusLocation] = useState<FocusLocation | null>(null);
   const [activeTab, setActiveTab] = useState<'intake' | 'layers' | 'mrv' | 'evidence' | 'actions'>('intake');
+  const [showDemoPreviewAccordion, setShowDemoPreviewAccordion] = useState(false);
+  const isDemoMode =
+    import.meta.env.VITE_DEMO_MODE === 'true'
+    || (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('demo') === 'true');
+
+  const focusWorkflowTab = useCallback((tab: 'intake' | 'layers' | 'mrv' | 'evidence' | 'actions') => {
+    setActiveTab(tab);
+    if (typeof window === 'undefined') return;
+    window.requestAnimationFrame(() => {
+      document.getElementById(AQUASCAN_WORKFLOW_TABS_ANCHOR_ID)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
   const [usgs3depTerrainEvidence, setUsgs3depTerrainEvidence] = useState<Usgs3depTerrainEvidence | null>(null);
   const usgs3depStripItem = useUsgs3depProviderStripItem();
   const [comparisonIndexType, setComparisonIndexType] = useState<CopernicusIndexType>('NDWI');
@@ -1591,6 +1604,23 @@ export default function AquaScanView({
     },
   ];
 
+  const currentStepBanner = useMemo(() => {
+    switch (activeTab) {
+      case 'intake':
+        return 'Current step: Intake — confirm project details, concern type, and focus location.';
+      case 'layers':
+        return 'Current step: Layers — select satellite layers and overlay settings for the saved AOI.';
+      case 'mrv':
+        return 'Current step: MRV Compare — select index, confirm dates, run satellite comparison.';
+      case 'evidence':
+        return 'Current step: Evidence Packet — review indicators and generate exportable evidence.';
+      case 'actions':
+        return 'Current step: Actions — route screening results into accountable next steps.';
+      default:
+        return '';
+    }
+  }, [activeTab]);
+
   const mrvBlockReason = !selectedFocusLocation
     ? 'Select a focus location first.'
     : !readySavedAoi
@@ -2067,6 +2097,13 @@ export default function AquaScanView({
       setComparisonError('Backend unavailable.');
       return;
     }
+    if (
+      comparisonCollection === 'sentinel-1-grd'
+      && comparisonIndexType !== 'NBR'
+    ) {
+      setComparisonError('upstream_error: Sentinel-1 SAR does not support optical indices like NDWI/NDVI. Switch collection to Sentinel-2 L2A or choose NBR for disturbance screening.');
+      return;
+    }
     setComparisonError(null);
     setComparisonLoading(true);
     setActionNotice('Calculating live AOI statistics...');
@@ -2135,7 +2172,11 @@ export default function AquaScanView({
       } else if (/^backend_unavailable:/i.test(message)) {
         setComparisonError('backend_unavailable: Copernicus backend is unreachable.');
       } else if (/^upstream_error:/i.test(message)) {
-        setComparisonError(`upstream_error: ${message.replace(/^upstream_error:\s*/i, '')}`);
+        const upstreamDetail = message.replace(/^upstream_error:\s*/i, '');
+        const resolutionHint = /meters per pixel|exceeds the limit/i.test(upstreamDetail)
+          ? ' Try a smaller AOI (draw a tighter boundary) or use Sentinel-2 L2A.'
+          : '';
+        setComparisonError(`upstream_error: ${upstreamDetail}${resolutionHint}`);
       } else if (/^no_valid_samples:/i.test(message)) {
         setComparisonError(`no_valid_samples: ${message.replace(/^no_valid_samples:\s*/i, '')}`);
       } else if (/configured|unavailable|no comparison|no scene|not found|statistics api error/i.test(message)) {
@@ -2932,20 +2973,20 @@ export default function AquaScanView({
       </div>
 
       {/* -- 4. Main Workspace (3-column) -- */}
-      <div className="mx-auto flex w-full max-w-[1400px] flex-1">
+      <div className="mx-auto flex w-full max-w-[1400px] items-start">
 
         {/* Left: Workflow Rail */}
         <nav
           id={AQUASCAN_WORKFLOW_RAIL_ANCHOR_ID}
           aria-label="AquaScan workflow rail"
-          className="hidden w-[180px] shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-slate-800 p-3 lg:flex"
+          className="hidden w-[180px] shrink-0 self-start sticky top-[7.5rem] max-h-[calc(100vh-8.75rem)] flex-col gap-0.5 overflow-y-auto border-r border-slate-800 p-3 lg:flex"
         >
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Workflow</p>
           {workflowSteps.map((step) => (
             <button
               key={step.id}
               type="button"
-              onClick={() => { if (step.tabId) setActiveTab(step.tabId); }}
+              onClick={() => { if (step.tabId) focusWorkflowTab(step.tabId); }}
               className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-xs transition ${
                 step.status === 'complete'
                   ? 'text-emerald-300 hover:bg-emerald-900/20'
@@ -2988,15 +3029,36 @@ export default function AquaScanView({
               ['Calculate Comparison', workflowState.hasActiveComparison, false, workflowState.hasActiveComparison ? 'Done' : workflowState.hasComparisonSetup ? 'Ready' : 'Needed'],
               ['Generate Evidence Packet', workflowState.evidencePacketStatus === 'done', false, workflowState.evidencePacketStatus === 'done' ? 'Done' : 'Optional'],
               ['Choose Action', workflowState.actionStatus !== 'locked', workflowState.actionStatus === 'locked', workflowState.actionStatus === 'done' ? 'Done' : workflowState.actionStatus === 'ready' ? 'Ready' : 'Locked'],
-            ].map(([label, done, locked, stateText]) => (
-              <div key={String(label)} className="flex items-center gap-2 py-1 text-[11px]">
-                <span className={`h-2 w-2 rounded-full ${locked ? 'bg-slate-700' : done ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-                <span className="flex-1 text-slate-300">{label}</span>
-                <span className={`text-[10px] ${locked ? 'text-slate-600' : done ? 'text-emerald-300' : 'text-amber-200'}`}>
-                  {String(stateText)}
-                </span>
-              </div>
-            ))}
+            ].map(([label, done, locked, stateText]) => {
+              const isCompareStep = label === 'Calculate Comparison';
+              const rowClass = 'flex w-full items-center gap-2 py-1 text-left text-[11px]';
+              const content = (
+                <>
+                  <span className={`h-2 w-2 rounded-full ${locked ? 'bg-slate-700' : done ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+                  <span className="flex-1 text-slate-300">{label}</span>
+                  <span className={`text-[10px] ${locked ? 'text-slate-600' : done ? 'text-emerald-300' : 'text-amber-200'}`}>
+                    {String(stateText)}
+                  </span>
+                </>
+              );
+              if (isCompareStep) {
+                return (
+                  <button
+                    key={String(label)}
+                    type="button"
+                    onClick={() => focusWorkflowTab('mrv')}
+                    className={`${rowClass} rounded-md transition hover:bg-cyan-900/20`}
+                  >
+                    {content}
+                  </button>
+                );
+              }
+              return (
+                <div key={String(label)} className={rowClass}>
+                  {content}
+                </div>
+              );
+            })}
             {!hasCurrentComparisonResult && hasPreviousMeasurements ? (
               <p className="mt-2 text-[10px] text-amber-200">Previous measurements available in history.</p>
             ) : null}
@@ -3405,7 +3467,7 @@ export default function AquaScanView({
         </div>
 
         {/* Right: Intelligence Panel */}
-        <aside className="hidden w-[240px] shrink-0 overflow-y-auto border-l border-slate-800 p-3 lg:block">
+        <aside className="hidden w-[240px] shrink-0 self-start sticky top-[7.5rem] max-h-[calc(100vh-8.75rem)] overflow-y-auto border-l border-slate-800 p-3 lg:block">
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">Intelligence</p>
 
           {/* Risk Score */}
@@ -3584,46 +3646,19 @@ export default function AquaScanView({
             </div>
           ) : null}
 
-          <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
-            Indicative MRV estimate - not certified carbon credit. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
-          </p>
         </aside>
       </div>
 
-      {/* -- 4b. Investor Demo Explainer (light card, sits between workspace and bottom tabs) -- */}
-      {(() => {
-        const scenario = getDemoScenarioById('demo-aquascan-cedar-river');
-        if (!scenario) return null;
-        return (
-          <div className="mx-auto w-full max-w-[1400px] px-4 pt-4">
-            <InvestorDemoExplainer
-              title={scenario.title}
-              moduleLabel={scenario.moduleLabel}
-              whatYouAreSeeing="An AquaScan command center prepared for a water-quality investigation. Focus Location, workflow rail, map, intelligence panel, and bottom tabs are visible — no Copernicus call has fired yet."
-              whyItMatters="Community water concerns become defensible when location, AOI, Copernicus comparison, and validator status are all captured in one evidence packet."
-              honestyNote={scenario.limitationNote}
-              nextAction={scenario.recommendedNextAction}
-              accent={scenario.accent}
-              evidencePreview={{
-                location: scenario.locationLabel,
-                timestampLabel: 'Before / after window — set in MRV Compare before calculating.',
-                providerSources: scenario.providerSources,
-                signalSummary:
-                  'No comparison has run yet — NDWI / NDVI / NDMI deltas will be reported after the operator runs MRV Compare.',
-                confidenceNote:
-                  'AquaScan readings are indicative MRV — they do not certify carbon credits or replace lab results.',
-                fieldValidationStatus:
-                  'Field sampling, lab tests, or validator review are required to escalate any anomaly.',
-                qrHashStatus: 'Evidence packet hash is issued when the packet is generated in the Evidence Packet tab.',
-                recommendedAction: scenario.recommendedNextAction,
-              }}
-            />
-          </div>
-        );
-      })()}
-
-      {/* -- 5. Bottom Workspace Tabs -- */}
-      <div className="border-t border-slate-800 bg-slate-950">
+      {/* -- 5. Workflow tabs + active panel (directly under workspace) -- */}
+      <div
+        id={AQUASCAN_WORKFLOW_TABS_ANCHOR_ID}
+        className="mt-5 scroll-mt-28 border-t border-slate-800 bg-slate-950"
+      >
+        <div className="mx-auto max-w-[1400px] px-4 pt-3">
+          <p className="rounded-lg border border-cyan-500/30 bg-cyan-950/25 px-3 py-2 text-[11px] font-medium text-cyan-100">
+            {currentStepBanner}
+          </p>
+        </div>
         <div className="mx-auto max-w-[1400px]">
           {/* Tab nav */}
           <div className="flex overflow-x-auto border-b border-slate-800">
@@ -3639,7 +3674,7 @@ export default function AquaScanView({
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveTab(id)}
+                onClick={() => focusWorkflowTab(id)}
                 className={`shrink-0 border-b-2 px-4 py-2.5 text-xs font-semibold transition ${
                   activeTab === id
                     ? 'border-cyan-400 text-cyan-200'
@@ -4229,6 +4264,51 @@ export default function AquaScanView({
                     Optional: Generate a deeper Evidence Packet with attachments and validator material for export and review.
                   </p>
                 </div>
+                {isDemoMode ? (() => {
+                  const scenario = getDemoScenarioById('demo-aquascan-cedar-river');
+                  if (!scenario) return null;
+                  return (
+                    <div className="rounded-xl border border-slate-700 bg-slate-900/60">
+                      <button
+                        type="button"
+                        onClick={() => setShowDemoPreviewAccordion((prev) => !prev)}
+                        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left text-xs font-semibold text-slate-200"
+                        aria-expanded={showDemoPreviewAccordion}
+                      >
+                        Preview evidence packet summary
+                        <ChevronRight
+                          className={`h-4 w-4 shrink-0 text-slate-400 transition ${showDemoPreviewAccordion ? 'rotate-90' : ''}`}
+                        />
+                      </button>
+                      {showDemoPreviewAccordion ? (
+                        <div className="border-t border-slate-800 p-3">
+                          <InvestorDemoExplainer
+                            title={scenario.title}
+                            moduleLabel={scenario.moduleLabel}
+                            whatYouAreSeeing="An AquaScan command center prepared for a water-quality investigation. Focus Location, workflow rail, map, intelligence panel, and workflow tabs are visible — no Copernicus call has fired yet."
+                            whyItMatters="Community water concerns become defensible when location, AOI, Copernicus comparison, and validator status are all captured in one evidence packet."
+                            honestyNote={scenario.limitationNote}
+                            nextAction={scenario.recommendedNextAction}
+                            accent={scenario.accent}
+                            evidencePreview={{
+                              location: scenario.locationLabel,
+                              timestampLabel: 'Before / after window — set in MRV Compare before calculating.',
+                              providerSources: scenario.providerSources,
+                              signalSummary:
+                                'No comparison has run yet — NDWI / NDVI / NDMI deltas will be reported after the operator runs MRV Compare.',
+                              confidenceNote:
+                                'AquaScan readings are indicative MRV — they do not certify carbon credits or replace lab results.',
+                              fieldValidationStatus:
+                                'Field sampling, lab tests, or validator review are required to escalate any anomaly.',
+                              qrHashStatus: 'Evidence packet hash is issued when the packet is generated in the Evidence Packet tab.',
+                              recommendedAction: scenario.recommendedNextAction,
+                            }}
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })() : null}
                 {comparisonResult && !hasCurrentComparisonResult ? (
                   <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
                     Restored comparison belongs to a different AOI/date setup. Recreate that setup or rerun comparison before generating a packet from measurement results.
