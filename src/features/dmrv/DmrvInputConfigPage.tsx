@@ -18,7 +18,12 @@ import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs
 import { DmrvGediLidarGallery } from './components/DmrvGediLidarGallery';
 import { USGS_3DEP_TERRAIN_RELEVANCE_NOTE } from './dmrvRecommendedSources';
 import { runSceneSteppedAutofill } from './utils/sceneAutofillSteps';
-import { DMRV_SATELLITE_SETTINGS_KEY } from './dmrvSatelliteCatalog';
+import {
+  DMRV_SATELLITE_SETTINGS_KEY,
+  missionIdsToSensorSourceIds,
+  parseSelectedSatelliteIds,
+} from './dmrvSatelliteCatalog';
+import { saveSelectedSourceIds } from './services/dmrvSourceSelectionService';
 import { DmrvInputSymbol } from './components/dmrvInputSymbols';
 import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
@@ -139,6 +144,12 @@ export default function DmrvInputConfigPage({
     projectContext: storedProject,
     enabled: Boolean(config && projectId),
   });
+
+  useEffect(() => {
+    if (config?.configType !== 'satellite' || window.location.hash !== '#satellite-stack') return;
+    const el = document.getElementById('satellite-stack');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [config?.configType, projectId]);
 
   useEffect(() => {
     if (!categorySlug || !inputKey || !projectId) return;
@@ -416,6 +427,23 @@ export default function DmrvInputConfigPage({
     );
   }, []);
 
+  const syncSatelliteSourceSelection = useCallback(
+    (serializedIds: string) => {
+      if (!projectId) return;
+      const missionIds = parseSelectedSatelliteIds(serializedIds);
+      saveSelectedSourceIds(projectId, typeId, 'satellite', missionIdsToSensorSourceIds(missionIds));
+    },
+    [projectId, typeId],
+  );
+
+  const patchSatelliteSelection = useCallback(
+    (serializedIds: string) => {
+      patchDataSource(DMRV_SATELLITE_SETTINGS_KEY, serializedIds);
+      syncSatelliteSourceSelection(serializedIds);
+    },
+    [patchDataSource, syncSatelliteSourceSelection],
+  );
+
   const patchValidation = useCallback((key: keyof DmrvInputConfig['validationRules'], value: boolean) => {
     setConfig((prev) =>
       prev ? { ...prev, validationRules: { ...prev.validationRules, [key]: value } } : prev,
@@ -434,14 +462,11 @@ export default function DmrvInputConfigPage({
   const applySatellitePick = useCallback((parsed: Record<string, unknown>) => {
     const raw = parsed.selectedSatellites ?? parsed.satelliteIds;
     if (typeof raw === 'string') {
-      patchDataSource(DMRV_SATELLITE_SETTINGS_KEY, raw);
+      patchSatelliteSelection(raw);
     } else if (Array.isArray(raw)) {
-      patchDataSource(
-        DMRV_SATELLITE_SETTINGS_KEY,
-        raw.filter((id): id is string => typeof id === 'string').join(','),
-      );
+      patchSatelliteSelection(raw.filter((id): id is string => typeof id === 'string').join(','));
     }
-  }, [patchDataSource]);
+  }, [patchSatelliteSelection]);
 
   const handleAiFillFieldPlots = useCallback(() => {
     if (!config || !storedProject) return;
@@ -565,6 +590,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
       fieldChanged: saved.inputKey,
     });
     if (saved.configType === 'satellite') {
+      syncSatelliteSourceSelection(String(saved.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY] ?? ''));
       saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.dataSources, 'satellite-config');
     } else if (saved.configType === 'field-plots') {
       saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.fieldPlots, 'field-plots');
@@ -572,7 +598,7 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
       saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.validation, 'validation-rules');
     }
     setNotice('Configuration saved locally — living report updated.');
-  }, [config]);
+  }, [config, syncSatelliteSourceSelection]);
 
   const handleTest = useCallback(async () => {
     if (!config) return;
@@ -743,11 +769,11 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
 
         <DmrvWorkflowProgress activeStep={isFieldPlots ? 3 : 2} />
 
-        {sourceStackPath ? (
+        {sourceStackPath && sourceStackKind === 'lidar' ? (
           <p className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-            Step 1: pick {sourceStackKind === 'lidar' ? 'LiDAR' : 'satellite'} missions and sensors in the{' '}
+            Step 1: pick LiDAR missions and sensors in the{' '}
             <Link to={sourceStackPath} className="font-bold text-[#1e3a5f] underline">
-              source stack workspace
+              LiDAR source stack workspace
             </Link>
             . Step 2: return here for scene dates, coverage rules, and evidence packet settings.
           </p>
@@ -824,10 +850,10 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
         <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
           <main className="space-y-4">
             {config.configType === 'satellite' ? (
-              <Panel title="Pick satellites for this MRV use">
+              <Panel title="Pick satellites for this MRV use" id="satellite-stack">
                 <DmrvSatellitePicker
                   selectedRaw={config.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY]}
-                  onChange={(ids) => patchDataSource(DMRV_SATELLITE_SETTINGS_KEY, ids)}
+                  onChange={patchSatelliteSelection}
                 />
                 <DmrvSectionAiStrip
                   sectionLabel="Satellite pick"
@@ -1161,9 +1187,17 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }): React.ReactElement {
+function Panel({
+  title,
+  id,
+  children,
+}: {
+  title: string;
+  id?: string;
+  children: React.ReactNode;
+}): React.ReactElement {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section id={id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <h2 className="mb-3 text-[11px] font-black uppercase tracking-[0.14em] text-[#1e3a5f]">{title}</h2>
       {children}
     </section>

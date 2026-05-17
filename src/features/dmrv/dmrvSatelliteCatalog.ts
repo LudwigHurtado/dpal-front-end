@@ -131,3 +131,22 @@ export function collectTechnologiesForIds(ids: string[]): string[] {
   }
   return [...tech];
 }
+
+/** Maps mission picker IDs to sensor-catalog IDs used by reports and methodology context. */
+export const DMRV_MISSION_TO_SENSOR_ID: Record<string, string> = {
+  'landsat-9': 'landsat-8-9',
+  'sentinel-2': 'sentinel-2-msi',
+  'sentinel-1': 'sentinel-1-sar',
+  modis: 'modis',
+  pace: 'pace-oci',
+  'sentinel-5p': 'viirs',
+};
+
+export function missionIdsToSensorSourceIds(missionIds: string[]): string[] {
+  const out: string[] = [];
+  for (const id of missionIds) {
+    const mapped = DMRV_MISSION_TO_SENSOR_ID[id] ?? id;
+    if (!out.includes(mapped)) out.push(mapped);
+  }
+  return out;
+}

@@ -14,13 +14,17 @@ export function sourceStackKindToInputKey(kind: DmrvSourceStackKind): string {
   return kind === 'lidar' ? 'lidar' : 'satellite-imagery';
 }
 
-/** Full-page satellite / LiDAR source stack picker (replaces modal configurator). */
+/** Satellite mission picker + scene settings (uploaded mission cards). LiDAR uses the source-stack page. */
 export function dmrvSourceStackPath(
   projectId: string,
   categorySlug: string,
   sourceKind: DmrvSourceStackKind,
   typeId?: string,
 ): string {
+  if (sourceKind === 'satellite') {
+    const base = dmrvInputConfigPath(projectId, categorySlug, 'satellite-imagery', typeId);
+    return `${base}#satellite-stack`;
+  }
   const base = `/dmrv/projects/${encodeURIComponent(projectId)}/${encodeURIComponent(categorySlug)}/sources/${encodeURIComponent(sourceKind)}`;
   if (!typeId) return base;
   return `${base}?typeId=${encodeURIComponent(typeId)}`;

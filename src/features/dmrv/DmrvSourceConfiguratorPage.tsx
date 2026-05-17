@@ -9,6 +9,7 @@ import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
 import {
   dmrvCategoryPath,
   dmrvInputConfigPath,
+  dmrvSourceStackPath,
   sourceStackKindToInputKey,
   type DmrvSourceStackKind,
 } from './dmrvNavigation';
@@ -83,6 +84,17 @@ export default function DmrvSourceConfiguratorPage({
 
   if (!sourceKind || !VALID_KINDS.has(sourceKind) || !category) {
     return <Navigate to="/dmrv" replace />;
+  }
+
+  if (sourceKind === 'satellite') {
+    const pid =
+      projectId || defaultDmrvProjectId(categorySlug, typeId);
+    return (
+      <Navigate
+        to={dmrvSourceStackPath(pid, categorySlug, 'satellite', typeId)}
+        replace
+      />
+    );
   }
 
   if (!projectId) {
