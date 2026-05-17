@@ -29,6 +29,8 @@ import {
   getForestIntegrityScan,
   postForestIntegrityEvidencePacket,
 } from './services/forestIntegrityApi';
+import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
 import type {
   ForestEvidencePacketResponse,
   ForestIntegrityScanResponse,
@@ -172,6 +174,7 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchNotice, setSearchNotice] = useState<string | null>(null);
   const [center, setCenter] = useState({ lat: -3.4653, lng: -62.2159 });
+  const usgs3depStripItem = useUsgs3depProviderStripItem();
   const [radiusKm, setRadiusKm] = useState(15);
   const [baselineDay, setBaselineDay] = useState(() => {
     const d = new Date();
@@ -659,8 +662,9 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
         state: gediState,
         hint: ps?.gediImplemented ? 'Lane present — may return partial context' : 'Not implemented',
       },
+      usgs3depStripItem,
     ];
-  }, [providerStatus, lastScan]);
+  }, [providerStatus, lastScan, usgs3depStripItem]);
 
   return (
     <EnvironmentalDashboardShell>
@@ -886,6 +890,10 @@ const ForestIntegrityPage: React.FC<Props> = ({ onReturn }) => {
 
             <div className="mt-4">
               <ForestLayerControl layers={layers} onChange={setLayers} />
+            </div>
+
+            <div className="mt-4">
+              <Usgs3depLidarPanel compact lat={center.lat} lng={center.lng} radiusKm={radiusKm} />
             </div>
 
             <div className="mt-4 flex flex-col gap-2">

@@ -64,6 +64,9 @@ import EnvironmentalProviderStatusStrip from '../src/features/environmentalIntel
 import type { EnvironmentalProviderStripItem } from '../src/features/environmentalIntelligence/shared/EnvironmentalProviderStatusStrip';
 import type { EnvironmentalProviderUiState } from '../src/features/environmentalIntelligence/shared/environmentalServiceStatus';
 import EnvironmentalDisclaimerBar from '../src/features/environmentalIntelligence/shared/EnvironmentalDisclaimerBar';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../src/features/environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
+import type { Usgs3depTerrainEvidence } from '../src/features/environmentalIntelligence/services/usgs3depApi';
 import { CarbonPuraContextBanner } from '../src/features/partners/carbonpura/components/CarbonPuraContextBanner';
 interface AquaScanViewProps {
   onReturn: () => void;
@@ -739,6 +742,8 @@ export default function AquaScanView({
   const [copernicusSetup, setCopernicusSetup] = useState(() => getCopernicusSetupState());
   const [selectedFocusLocation, setSelectedFocusLocation] = useState<FocusLocation | null>(null);
   const [activeTab, setActiveTab] = useState<'intake' | 'layers' | 'mrv' | 'evidence' | 'actions'>('intake');
+  const [usgs3depTerrainEvidence, setUsgs3depTerrainEvidence] = useState<Usgs3depTerrainEvidence | null>(null);
+  const usgs3depStripItem = useUsgs3depProviderStripItem();
   const [comparisonIndexType, setComparisonIndexType] = useState<CopernicusIndexType>('NDWI');
   const [comparisonCollection, setComparisonCollection] = useState<'sentinel-2-l2a' | 'sentinel-1-grd'>('sentinel-2-l2a');
   const [beforeRange, setBeforeRange] = useState({ from: gibsDefaultDate(), to: gibsDefaultDate() });
@@ -1522,11 +1527,13 @@ export default function AquaScanView({
         state: 'partial',
         hint: 'USGS / NWS / DPAL FloodGuard overlays when enabled in workflow',
       },
+      usgs3depStripItem,
     ];
   }, [
     copernicusSetup.configured,
     liveDataReason,
     liveDataRequired,
+    usgs3depStripItem,
     waterApiError,
     waterApiLoading,
     waterData,
@@ -1945,7 +1952,8 @@ export default function AquaScanView({
     warnings: comparisonResultForPacket?.warnings ?? [],
     limitations: evidencePacket.limitations,
     disclaimer: packetPreview.legalSafeNote,
-  }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResultForPacket, evidencePacket, intelligenceReader.confidenceInterpretation, intelligenceReader.evidenceNeeded, intelligenceReader.keyFindings, intelligenceReader.limitations, intelligenceReader.recommendedActions, intelligenceReader.suggestedQuestions, intelligenceReader.summary, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation]);
+    usgs3depTerrain: usgs3depTerrainEvidence,
+  }), [beforeRange, afterRange, comparisonHasValidSamples, comparisonMeasurementStatus, comparisonResultForPacket, evidencePacket, intelligenceReader.confidenceInterpretation, intelligenceReader.evidenceNeeded, intelligenceReader.keyFindings, intelligenceReader.limitations, intelligenceReader.recommendedActions, intelligenceReader.suggestedQuestions, intelligenceReader.summary, nearbyEntities, overlayPacketRecords, packetPreview.legalSafeNote, savedAoiAreaHectares, savedAoiAreaSqKm, selectedFocusLocation, usgs3depTerrainEvidence]);
 
   const activeHistoryResult = displayedHistoryItem;
   const comparisonSetupReady = Boolean(readySavedAoi && comparisonIndexType && beforeRange.from && beforeRange.to && afterRange.from && afterRange.to);
@@ -3562,6 +3570,20 @@ export default function AquaScanView({
             </p>
           </div>
 
+          {selectedFocusLocation ? (
+            <div className="mt-3 border-t border-slate-800 pt-3">
+              <Usgs3depLidarPanel
+                variant="dark"
+                compact
+                lat={selectedFocusLocation.latitude}
+                lng={selectedFocusLocation.longitude}
+                radiusKm={5}
+                aoiGeoJson={savedAoiGeoJson}
+                onTerrainEvidence={setUsgs3depTerrainEvidence}
+              />
+            </div>
+          ) : null}
+
           <p className="mt-3 text-[9px] leading-relaxed text-slate-600">
             Indicative MRV estimate - not certified carbon credit. Satellite indicators must be verified with field evidence, lab results, or validator review before official conclusions.
           </p>
@@ -4188,6 +4210,16 @@ export default function AquaScanView({
                   <p className="rounded-lg border border-amber-500/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-200">
                     Select a focus location and save an AOI before generating an evidence packet.
                   </p>
+                ) : null}
+                {selectedFocusLocation ? (
+                  <Usgs3depLidarPanel
+                    variant="dark"
+                    lat={selectedFocusLocation.latitude}
+                    lng={selectedFocusLocation.longitude}
+                    radiusKm={5}
+                    aoiGeoJson={savedAoiGeoJson}
+                    onTerrainEvidence={setUsgs3depTerrainEvidence}
+                  />
                 ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-violet-500/40 bg-violet-900/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-100">

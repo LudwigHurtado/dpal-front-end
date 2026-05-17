@@ -5,7 +5,7 @@
 
 import { API_ROUTES, apiUrl } from '../../constants';
 
-export type HubAdapterId = 'health' | 'copernicus' | 'carb' | 'signals' | 'ai';
+export type HubAdapterId = 'health' | 'copernicus' | 'carb' | 'signals' | 'ai' | 'usgs3dep';
 
 export type HubAdapterDisplayStatus =
   | 'ok'
@@ -41,6 +41,7 @@ export const HUB_PROBE_CACHE_TTL_MS: Record<HubAdapterId, number> = {
   carb: 600_000,
   signals: 600_000,
   ai: 600_000,
+  usgs3dep: 600_000,
 };
 
 export const HUB_AUTO_REFRESH_MS = 300_000;
@@ -146,6 +147,7 @@ function labels(): Record<HubAdapterId, string> {
     carb: 'CARB data module',
     signals: 'Global signals API',
     ai: 'Server AI',
+    usgs3dep: 'USGS 3DEP terrain',
   };
 }
 
@@ -304,6 +306,26 @@ export async function runEnvironmentalHubProbes(options: {
         if (o?.ok === false) return { status: 'degraded', detail: 'AI status unavailable' };
         if (o?.gemini === false) return { status: 'degraded', detail: 'Reachable — GEMINI_API_KEY not set on server' };
         return { status: 'ok', detail: 'Gemini proxy ready' };
+      },
+    },
+    {
+      id: 'usgs3dep',
+      url: apiUrl(API_ROUTES.USGS_3DEP_STATUS),
+      interpret: (res, json) => {
+        if (res.status === 429) return { status: 'rate_limited', detail: `Rate limited HTTP ${res.status}` };
+        if (res.status === 404) {
+          return {
+            status: 'offline',
+            detail: 'Route missing on API host — deploy /api/providers/usgs-3dep on VITE_API_BASE',
+          };
+        }
+        if (!res.ok) return { status: 'offline', detail: `HTTP ${res.status}` };
+        const o = json as { ok?: boolean; enabled?: boolean; epqsConfigured?: boolean; message?: string } | null;
+        if (o?.ok === false) return { status: 'degraded', detail: o.message ?? 'USGS 3DEP status error' };
+        if (o?.enabled === false) {
+          return { status: 'degraded', detail: 'Module disabled — set USGS_3DEP_ENABLED=true on API server' };
+        }
+        return { status: 'ok', detail: o?.message ?? 'EPQS elevation proxy ready' };
       },
     },
   ];
@@ -514,11 +536,11 @@ export type SuperAgentEvidencePillarKey = 'water' | 'earthObservation' | 'pollut
 
 export const SUPER_AGENT_PILLAR_HUB_ADAPTERS: Record<SuperAgentEvidencePillarKey, readonly HubAdapterId[]> = {
   /** API host + Copernicus proxy cover AquaScan / server-backed water compares. */
-  water: ['health', 'copernicus'],
-  earthObservation: ['copernicus'],
-  pollution: ['carb'],
+  water: ['health', 'copernicus', 'usgs3dep'],
+  earthObservation: ['copernicus', 'usgs3dep'],
+  pollution: ['carb', 'usgs3dep'],
   /** Carbon / VIU intelligence uses server AI + global signals feed when live. */
-  carbonViu: ['ai', 'signals'],
+  carbonViu: ['ai', 'signals', 'usgs3dep'],
 };
 
 export type PillarRateLimitStatus =

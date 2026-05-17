@@ -381,6 +381,71 @@ export default function DmrvInputConfigPage({
     }
   }, [patchDataSource]);
 
+  const handleBulkAutofill = useCallback(
+    (parsed: Record<string, unknown>) => {
+      applySatellitePick(parsed);
+      const nestedDs = parsed.dataSourceSettings;
+      if (nestedDs && typeof nestedDs === 'object' && !Array.isArray(nestedDs)) {
+        applySceneSettings(nestedDs as Record<string, unknown>);
+      } else {
+        applySceneSettings(parsed);
+      }
+      const nestedRules = parsed.validationRules;
+      if (nestedRules && typeof nestedRules === 'object' && !Array.isArray(nestedRules)) {
+        applyValidationRules(nestedRules as Record<string, unknown>);
+      }
+      const nestedPacket = parsed.evidencePacket;
+      if (nestedPacket && typeof nestedPacket === 'object' && !Array.isArray(nestedPacket)) {
+        applyEvidencePacket(nestedPacket as Record<string, unknown>);
+      }
+    },
+    [applyEvidencePacket, applySatellitePick, applySceneSettings, applyValidationRules],
+  );
+
+  const bulkAutofillPrompt = useMemo(() => {
+    if (!config) return undefined;
+    if (config.configType === 'satellite') {
+      return `Suggest a complete satellite MRV configuration for ${typeTitle}. Return JSON only:
+{
+  "selectedSatellites": "landsat-9,sentinel-2,sentinel-1",
+  "provider": "string",
+  "collection": "string",
+  "startDate": "YYYY-MM-DD",
+  "endDate": "YYYY-MM-DD",
+  "cloudCoverLimit": "string",
+  "resolution": "string",
+  "minimumCoveragePct": "string",
+  "refreshFrequency": "string",
+  "aoiRequired": boolean,
+  "validationRules": {
+    "requireCoordinates": boolean,
+    "requireTimestamp": boolean,
+    "requireSourceDocument": boolean,
+    "requireReviewerApproval": boolean,
+    "requireFieldVerification": boolean,
+    "requireBeforeAfterComparison": boolean,
+    "requireAnomalyDetection": boolean,
+    "requireUncertaintyScore": boolean
+  },
+  "evidencePacket": {
+    "title": "string",
+    "publicVisibility": "private|validator_only|public",
+    "includeMapSnapshot": boolean,
+    "includeRawDataReference": boolean,
+    "includeReviewerNotes": boolean,
+    "includeAttachments": boolean,
+    "generateQrCode": boolean
+  }
+}
+Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5p.`;
+    }
+    return `Suggest dataSourceSettings and validationRules for ${typeTitle} DMRV input "${inputDef.label}" (configType: ${config.configType}). Return JSON:
+{
+  "dataSourceSettings": { },
+  "validationRules": { }
+}`;
+  }, [config, inputDef.label, typeTitle]);
+
   const handleSave = useCallback(() => {
     if (!config) return;
     const saved = saveDmrvInputConfig(config);
@@ -671,11 +736,25 @@ export default function DmrvInputConfigPage({
                   />
                 </div>
               ) : (
-                <DmrvDataSourceFields
-                  configType={config.configType}
-                  settings={config.dataSourceSettings}
-                  onChange={patchDataSource}
-                />
+                <>
+                  <DmrvDataSourceFields
+                    configType={config.configType}
+                    settings={config.dataSourceSettings}
+                    onChange={patchDataSource}
+                  />
+                  <DmrvSectionAiStrip
+                    sectionLabel="Data source fields"
+                    hint="Ask for values to paste into the fields above."
+                    contextSummary={aiContextSummary}
+                    disabled={!!busy}
+                    starters={[
+                      'What should I enter for this evidence source?',
+                      'Which fields are required before I can save?',
+                    ]}
+                    autofillPrompt={`Suggest dataSourceSettings for ${typeTitle} ${inputDef.label}. Return JSON with string/boolean field keys matching this config type.`}
+                    onApply={applySceneSettings}
+                  />
+                </>
               )}
             </Panel>
 
@@ -732,7 +811,13 @@ export default function DmrvInputConfigPage({
           </main>
 
           <aside className="space-y-4">
-            <DmrvAiConfigHelper variant={aiHelperVariant} contextSummary={aiContextSummary} disabled={!!busy} />
+            <DmrvAiConfigHelper
+              variant={aiHelperVariant}
+              contextSummary={aiContextSummary}
+              disabled={!!busy}
+              autofillPrompt={bulkAutofillPrompt}
+              onApplyAutofill={handleBulkAutofill}
+            />
             <Panel title="Evidence + Blockchain Status">
               <BlockchainPanel config={config} />
             </Panel>

@@ -17,6 +17,8 @@ import {
   demoSourceToneLabel,
   type DemoScenario,
 } from '../src/features/environmentalIntelligence/shared/demoScenarios';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../src/features/environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
 
 type ProbeToneLevel = HubConnectivityRow['status'];
 
@@ -202,6 +204,7 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
     }
   });
 
+  const usgs3depStrip = useUsgs3depProviderStripItem();
   const [connectivity, setConnectivity] = React.useState<HubConnectivityRow[]>(() => getHubConnectivityLoadingRows());
   const [lastProbeAt, setLastProbeAt] = React.useState<Date | null>(null);
   const [refreshNotice, setRefreshNotice] = React.useState<string | null>(null);
@@ -483,6 +486,19 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             onOpenWorkspace={() => onNavigate('earthObservation')}
           />
           <EnvironmentalServiceCard
+            title="USGS 3DEP · Terrain &amp; LiDAR"
+            subtitle="Public elevation and LiDAR reference for slope, drainage, floodplain, and land-disturbance context — no API key."
+            badge={usgs3depStrip.state === 'live' ? 'Live' : 'Partial'}
+            providerSummary={usgs3depStrip.hint ?? 'EPQS elevation via backend proxy'}
+            accent="emerald"
+            heroImageSrc="/main-screen/land-mineral-monitoring.png"
+            watchHint="Point-cloud analysis is a second-stage workflow; current lane returns terrain context and source links."
+            onOpenWorkspace={() => {
+              document.getElementById('env-hub-usgs-3dep-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+            openWorkspaceLabel="Check terrain below"
+          />
+          <EnvironmentalServiceCard
             title="AquaScan Water Intelligence"
             subtitle="Water extent, flood-risk context, Copernicus MRV compare, and evidence-packet monitoring."
             badge={aquaScanBadge}
@@ -574,6 +590,22 @@ const EnvironmentalIntelligenceHubView: React.FC<EnvironmentalIntelligenceHubVie
             heroImageSrc="/environmental-intelligence/water-satellite-monitor-main.png"
             onOpenWorkspace={() => onNavigate('globalSignals')}
           />
+        </div>
+      </section>
+
+      <section
+        id="env-hub-usgs-3dep-panel"
+        className="mb-10 rounded-2xl border border-slate-800 bg-slate-900/85 p-5 shadow-black/20 md:p-6"
+      >
+        <h2 className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-400/95">
+          Terrain &amp; LiDAR · USGS 3DEP
+        </h2>
+        <p className="mt-1 max-w-4xl text-xs text-slate-400">
+          Check elevation and LiDAR availability for any project coordinates. Use in AquaScan, DMRV, flood, carbon,
+          and plastic workflows when slope, drainage, shoreline, or land-disturbance context matters.
+        </p>
+        <div className="mt-4 max-w-lg">
+          <Usgs3depLidarPanel variant="dark" lat={34.0522} lng={-118.2437} radiusKm={5} />
         </div>
       </section>
 

@@ -9,6 +9,8 @@ import { AiError, isAiEnabled, runGeminiPrompt } from '../services/geminiService
 import { AiVoiceReplyControls } from '../src/shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../src/features/environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
 import {
   AlertTriangle, CheckCircle, ChevronDown, ChevronUp, Cpu, Database, FileText, Globe, Map, MapPin,
   Plus, QrCode, RefreshCw, Search, Send, ShieldCheck, Sparkles, Star, Target, Upload,
@@ -974,6 +976,7 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
   onPreparePackage,
   savedProjectAoi,
 }) => {
+  const usgs3depStripItem = useUsgs3depProviderStripItem();
   const [projectName, setProjectName] = useState(defaultPlacePreset.projectName || 'Washoe County Rangeland Pilot');
   const [projectCode, setProjectCode] = useState(defaultPlacePreset.projectCode || 'DPAL-WCN-005');
   const [projectType, setProjectType] = useState<ProjectType>(defaultPlacePreset.projectType || 'restoration');
@@ -1925,6 +1928,17 @@ const DpalCarbonViuCalculator: React.FC<DpalCarbonViuCalculatorProps> = ({
                 {coordinateWarning}
               </div>
             ) : null}
+            <div className="mt-4">
+              <Usgs3depLidarPanel
+                variant="dark"
+                compact
+                lat={polygonCenter.lat}
+                lng={polygonCenter.lng}
+              />
+              <p className="mt-2 text-[10px] text-slate-500">
+                USGS 3DEP: {usgs3depStripItem.hint} — EPQS ground elevation at polygon center; not a certified LiDAR survey.
+              </p>
+            </div>
           </div>
         </div>
 

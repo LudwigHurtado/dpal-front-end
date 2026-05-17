@@ -70,6 +70,8 @@ import FloodGuardStartPanel, {
 import WaterIntelligenceWorkflowPanel from '../../waterIntelligence/components/WaterIntelligenceWorkflowPanel';
 import RussWaterMarketAssistant from '../../waterIntelligence/RussWaterMarketAssistant';
 import MapSourceGuidanceCard from '../../waterIntelligence/components/MapSourceGuidanceCard';
+import { Usgs3depLidarPanel } from '../../environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../../environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
 import { CITY_FLOODGUARD_WORKFLOW_PANEL_STEPS } from '../../waterIntelligence/waterIntelligenceWorkflow';
 
 interface FloodGuardDashboardProps {
@@ -174,6 +176,7 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
   investorDemoMode = false,
 }) => {
   const [activeTab, setActiveTab] = useState<FloodGuardTab>('overview');
+  const usgs3depStripItem = useUsgs3depProviderStripItem();
   const [city, setCity] = useState<FloodCity>(SANTA_CRUZ_CITY);
   const [zones, setZones] = useState<FloodZone[]>(FLOOD_ZONES_BY_CITY[SANTA_CRUZ_CITY.cityId] ?? []);
   const [scoresByZone, setScoresByZone] = useState<Record<string, FloodRiskScore>>(buildScoresByZone(FLOOD_ZONES_BY_CITY[SANTA_CRUZ_CITY.cityId] ?? []));
@@ -711,6 +714,15 @@ const FloodGuardDashboard: React.FC<FloodGuardDashboardProps> = ({
             {selectedZone && selectedScore && (
               <FloodRiskScoreCard zone={selectedZone} score={selectedScore} />
             )}
+            <Usgs3depLidarPanel
+              variant="dark"
+              compact
+              lat={selectedZone?.center.lat ?? city.centerLat}
+              lng={selectedZone?.center.lng ?? city.centerLng}
+            />
+            <p className="text-[10px] text-slate-500 px-1">
+              USGS 3DEP: {usgs3depStripItem.hint} — terrain context for floodplain and drainage screening.
+            </p>
             <FloodAlertFeed
               alerts={alerts}
               zonesById={zonesById}

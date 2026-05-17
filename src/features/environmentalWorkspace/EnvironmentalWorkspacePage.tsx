@@ -66,6 +66,12 @@ export default function EnvironmentalWorkspacePage({
               onClick={() => onNavigate('environmentalIntelligenceHub')}
             />
             <WorkspaceToolCard
+              title="USGS 3DEP Terrain"
+              description="Public elevation & LiDAR context for slope, drainage, and floodplain screening — no API key."
+              badge="Terrain"
+              onClick={() => onNavigate('environmentalIntelligenceHub')}
+            />
+            <WorkspaceToolCard
               title="Air Quality Monitor"
               description="OpenAQ readings plus satellite-linked scans where configured."
               onClick={() => onNavigate('airQualityMonitor')}

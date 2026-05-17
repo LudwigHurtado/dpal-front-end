@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from '../../../components/icons';
+import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvSourceConfigurator } from './components/DmrvSourceConfigurator';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
@@ -92,6 +93,23 @@ export default function DmrvSourceConfiguratorPage({
   const initialSelectedIds = getSelectedSourceIds(projectId, typeId, sourceKind);
   const typeTitle = dmrvType?.title ?? typeId;
 
+  const aiContextSummary = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          categorySlug,
+          typeId,
+          typeTitle,
+          sourceKind,
+          projectId,
+          selectedSourceIds: initialSelectedIds,
+        },
+        null,
+        2,
+      ),
+    [categorySlug, initialSelectedIds, projectId, sourceKind, typeId, typeTitle],
+  );
+
   return (
     <div className="min-h-screen bg-[#f4f6f9] text-slate-900">
       <div className="mx-auto w-full max-w-[min(100%,1520px)] px-4 py-6 sm:px-6 lg:px-8">
@@ -143,15 +161,22 @@ export default function DmrvSourceConfiguratorPage({
           .
         </p>
 
-        <DmrvSourceConfigurator
-          dmrvTypeId={typeId}
-          dmrvTypeName={typeTitle}
-          sourceKind={sourceKind}
-          projectId={projectId}
-          onClose={handleBack}
-          onSaveSelectedSources={handleSave}
-          initialSelectedIds={initialSelectedIds}
-        />
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
+          <DmrvSourceConfigurator
+            dmrvTypeId={typeId}
+            dmrvTypeName={typeTitle}
+            sourceKind={sourceKind}
+            projectId={projectId}
+            onClose={handleBack}
+            onSaveSelectedSources={handleSave}
+            initialSelectedIds={initialSelectedIds}
+          />
+          <DmrvAiConfigHelper
+            variant={sourceKind === 'lidar' ? 'lidar' : 'satellite-imagery'}
+            contextSummary={aiContextSummary}
+            autofillPrompt={`Suggest ${sourceKind} mission/source IDs for ${typeTitle}. Return JSON: { "selectedSourceIds": ["id1","id2"] } using catalog missions appropriate for this MRV type.`}
+          />
+        </div>
       </div>
     </div>
   );

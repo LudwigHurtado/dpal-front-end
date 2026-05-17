@@ -24,6 +24,7 @@ import { AiVoiceReplyControls } from '../src/shared/components/AiVoiceReplyContr
 import { appendVoiceTranscript, VoiceInputButton } from '../src/shared/components/VoiceInputButton';
 import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
 import { buildDpalMrvPrompt } from '../services/mrvPrompt';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
 import { apiUrl as buildApiUrl, API_ROUTES as ALL_ROUTES } from '../constants';
 import {
   ArrowLeft, MapPin, CheckCircle, AlertTriangle, Activity,
@@ -1606,6 +1607,15 @@ function ProjectDetailView({
           </div>
         </div>
       )}
+
+      {project.location.gpsCenter?.lat && project.location.gpsCenter.lat !== 0 ? (
+        <Usgs3depLidarPanel
+          variant="dark"
+          compact
+          lat={project.location.gpsCenter.lat}
+          lng={project.location.gpsCenter.lng}
+        />
+      ) : null}
 
       {/* Latest metrics */}
       {latestSnap && (

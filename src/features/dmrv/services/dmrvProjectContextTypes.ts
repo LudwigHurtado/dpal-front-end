@@ -26,6 +26,8 @@ export type DmrvProjectContext = {
     longitude: string;
     aoiId: string;
     aoiSummary: string;
+    /** Serialized polygon vertices (`LatLngPoint[]`) or GeoJSON for map restore. */
+    aoiGeoJson: string;
     geoJsonUploaded: boolean;
     coordinateValidation: 'valid' | 'invalid' | 'pending';
   };

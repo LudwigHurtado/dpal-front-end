@@ -10,6 +10,8 @@ export function DmrvProjectContextBanner({
   project: DmrvProjectContext;
 }): React.ReactElement {
   const locationLabel =
+    project.location.countryRegion.trim() ||
+    project.location.aoiSummary.trim() ||
     project.location.aoiId.trim() ||
     (project.location.latitude && project.location.longitude
       ? `${project.location.latitude}, ${project.location.longitude}`

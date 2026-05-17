@@ -9,6 +9,8 @@ import {
 import ProjectDetailView from './ProjectDetailView';
 import MRVResultsView from './MRVResultsView';
 import DpalCarbonViuCalculator from './DpalCarbonViuCalculator';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../src/features/environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
 import {
   AFOLU_AUTOPILOT_TARGETS,
   AUTOPILOT_MODES,
@@ -981,6 +983,7 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
   const [projectSetupError, setProjectSetupError] = useState('');
 
   const selectedProject = projects.find((project) => project.id === selectedProjectId) || projects[0];
+  const usgs3depStripItem = useUsgs3depProviderStripItem();
   const projectMissions = missions.filter((mission) => mission.projectId === selectedProject.id);
   const projectAssets = assets.filter((asset) => asset.projectId === selectedProject.id);
   const projectEvidence = evidence.filter((item) => item.projectId === selectedProject.id);
@@ -2044,6 +2047,17 @@ const AfoluEngineView: React.FC<AfoluEngineViewProps> = ({ onReturn }) => {
                       </Popup>
                     </CircleMarker>
                   </MapContainer>
+                </div>
+                <div className="mt-4 space-y-2">
+                  <Usgs3depLidarPanel
+                    variant="dark"
+                    compact
+                    lat={selectedProject.latitude}
+                    lng={selectedProject.longitude}
+                  />
+                  <p className="text-[10px] text-slate-500">
+                    USGS 3DEP: {usgs3depStripItem.hint} — terrain elevation for carbon AOI screening (not certified LiDAR survey).
+                  </p>
                 </div>
               </Card>
             </div>

@@ -15,6 +15,8 @@ export type Usgs3depLidarPanelProps = {
   radiusKm?: number;
   aoiGeoJson?: unknown | null;
   compact?: boolean;
+  /** `dark` for slate command centers (AquaScan, FloodGuard). */
+  variant?: 'light' | 'dark';
   onTerrainEvidence?: (evidence: Usgs3depTerrainEvidence | null) => void;
   className?: string;
 };
@@ -31,19 +33,21 @@ function ResultCard({
   label,
   value,
   highlight,
+  dark = false,
   className = '',
 }: {
   label: string;
   value: string;
   highlight?: boolean;
+  dark?: boolean;
   className?: string;
 }): React.ReactElement {
   return (
     <div
-      className={`rounded-lg border px-2.5 py-2 ${highlight ? 'border-emerald-200 bg-emerald-50' : 'border-slate-200 bg-white'} ${className}`}
+      className={`rounded-lg border px-2.5 py-2 ${highlight ? (dark ? 'border-emerald-500/40 bg-emerald-950/40' : 'border-emerald-200 bg-emerald-50') : dark ? 'border-slate-600 bg-slate-900/80' : 'border-slate-200 bg-white'} ${className}`}
     >
-      <p className="text-[10px] font-bold uppercase text-slate-500">{label}</p>
-      <p className="mt-0.5 text-xs font-semibold text-slate-900">{value}</p>
+      <p className={`text-[10px] font-bold uppercase ${dark ? 'text-slate-400' : 'text-slate-500'}`}>{label}</p>
+      <p className={`mt-0.5 text-xs font-semibold ${dark ? 'text-slate-100' : 'text-slate-900'}`}>{value}</p>
     </div>
   );
 }
@@ -54,9 +58,11 @@ export function Usgs3depLidarPanel({
   radiusKm = 5,
   aoiGeoJson = null,
   compact = false,
+  variant = 'light',
   onTerrainEvidence,
   className = '',
 }: Usgs3depLidarPanelProps): React.ReactElement {
+  const dark = variant === 'dark';
   const [providerStatus, setProviderStatus] = useState<Usgs3depProviderStatus | null>(null);
   const [panelStatus, setPanelStatus] = useState<PanelStatus>('loading');
   const [latInput, setLatInput] = useState(String(latProp ?? ''));
@@ -155,16 +161,26 @@ export function Usgs3depLidarPanel({
 
   return (
     <div className={className}>
-      <div className="rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm">
+      <div
+        className={
+          dark
+            ? 'rounded-xl border border-slate-700 bg-gradient-to-br from-slate-900 to-slate-950 shadow-sm'
+            : 'rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white shadow-sm'
+        }
+      >
         <div className="flex items-start justify-between gap-3 p-4 pb-2">
             <div className="flex items-center gap-2">
               <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#1e3a5f]/10 text-[#1e3a5f]">
                 <Globe className="h-5 w-5" aria-hidden />
               </span>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">USGS 3DEP / Airborne LiDAR</h3>
+                <h3 className={`text-sm font-bold ${dark ? 'text-white' : 'text-slate-900'}`}>
+                  USGS 3DEP / Airborne LiDAR
+                </h3>
                 {!compact ? (
-                  <p className="text-[11px] text-slate-500">The National Map · terrain & elevation</p>
+                  <p className={`text-[11px] ${dark ? 'text-slate-400' : 'text-slate-500'}`}>
+                    The National Map · terrain & elevation
+                  </p>
                 ) : null}
               </div>
             </div>
@@ -176,7 +192,7 @@ export function Usgs3depLidarPanel({
           </div>
 
           {!compact ? (
-            <p className="px-4 pb-2 text-xs leading-relaxed text-slate-600">
+            <p className={`px-4 pb-2 text-xs leading-relaxed ${dark ? 'text-slate-400' : 'text-slate-600'}`}>
               Click the map or draw an AOI, and DPAL will attach terrain evidence to your project. No API key
               required — USGS 3DEP provides public elevation and LiDAR reference data.
             </p>
@@ -185,20 +201,20 @@ export function Usgs3depLidarPanel({
           <div className={`px-4 ${compact ? 'pb-3' : 'pb-4'}`}>
             <div className="grid grid-cols-2 gap-2">
               <label className="block space-y-1">
-                <span className="text-[10px] font-bold uppercase text-slate-500">Latitude</span>
+                <span className={`text-[10px] font-bold uppercase ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Latitude</span>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  className={`w-full rounded-lg border px-2 py-1.5 text-sm ${dark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-slate-200'}`}
                   value={latInput}
                   onChange={(e) => setLatInput(e.target.value)}
                   placeholder="34.0522"
                 />
               </label>
               <label className="block space-y-1">
-                <span className="text-[10px] font-bold uppercase text-slate-500">Longitude</span>
+                <span className={`text-[10px] font-bold uppercase ${dark ? 'text-slate-400' : 'text-slate-500'}`}>Longitude</span>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-slate-200 px-2 py-1.5 text-sm"
+                  className={`w-full rounded-lg border px-2 py-1.5 text-sm ${dark ? 'border-slate-600 bg-slate-950 text-slate-100' : 'border-slate-200'}`}
                   value={lngInput}
                   onChange={(e) => setLngInput(e.target.value)}
                   placeholder="-118.2437"
@@ -227,17 +243,19 @@ export function Usgs3depLidarPanel({
               {elevationOk ? (
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                   <ResultCard
+                    dark={dark}
                     label="Elevation"
                     value={`${elevationOk.elevation.toFixed(1)} ${elevationOk.elevationUnit}`}
                   />
-                  <ResultCard label="Units" value={elevationOk.units} />
+                  <ResultCard dark={dark} label="Units" value={elevationOk.units} />
                   <ResultCard
+                    dark={dark}
                     label="Terrain context"
                     value={elevationOk.resolutionNote}
                     className="col-span-2 sm:col-span-1"
                   />
-                  <ResultCard label="LiDAR source" value="USGS 3DEP / National Map" />
-                  <ResultCard label="Evidence readiness" value="Terrain context ready" highlight />
+                  <ResultCard dark={dark} label="LiDAR source" value="USGS 3DEP / National Map" />
+                  <ResultCard dark={dark} label="Evidence readiness" value="Terrain context ready" highlight />
                 </div>
               ) : null}
 

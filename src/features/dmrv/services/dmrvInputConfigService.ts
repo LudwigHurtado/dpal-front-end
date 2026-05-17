@@ -51,6 +51,8 @@ export function projectContextSnapshot(stored?: DmrvStoredProjectContext | null)
     };
   }
   const locationLabel =
+    stored.location.countryRegion.trim() ||
+    stored.location.aoiSummary.trim() ||
     stored.location.aoiId.trim() ||
     (stored.location.latitude && stored.location.longitude
       ? `${stored.location.latitude}, ${stored.location.longitude}`
@@ -64,6 +66,29 @@ export function projectContextSnapshot(stored?: DmrvStoredProjectContext | null)
     responsibleOrganization: stored.organization,
     validatorReviewer: stored.reviewer.name,
   };
+}
+
+/** Push saved project location / identity into all DMRV input configs for this project. */
+export function syncDmrvInputConfigsProjectContext(projectId: string): void {
+  const stored = getDmrvProjectContext(projectId);
+  if (!stored) return;
+  const snapshot = projectContextSnapshot(stored);
+  const all = readAll();
+  let changed = false;
+  for (const [key, config] of Object.entries(all)) {
+    if (config.projectId !== projectId) continue;
+    all[key] = {
+      ...config,
+      projectContext: snapshot,
+      dataSourceSettings: {
+        ...config.dataSourceSettings,
+        latitude: stored.location.latitude.trim() || config.dataSourceSettings.latitude,
+        longitude: stored.location.longitude.trim() || config.dataSourceSettings.longitude,
+      },
+    };
+    changed = true;
+  }
+  if (changed) writeAll(all);
 }
 
 export function buildDefaultConfig(params: {

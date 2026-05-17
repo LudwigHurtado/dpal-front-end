@@ -94,21 +94,42 @@ function Sym({ size = 40, className, children }: SymProps & { children: React.Re
 }
 
 function SatelliteSymbol({ size, className }: SymProps): React.ReactElement {
-  const gradId = useContext(GradIdContext);
   return (
     <Sym size={size} className={className}>
-      <rect width="48" height="48" rx="8" fill={`url(#${gradId}-sky)`} />
-      <circle cx="24" cy="30" r="11" fill={`url(#${gradId}-earth)`} />
-      <ellipse cx="20" cy="26" rx="4" ry="2.5" fill="#86efac" opacity="0.85" />
-      <path
-        d="M8 14h32l-4 8H12l-4-8z"
-        fill="#64748b"
-        stroke="#334155"
-        strokeWidth="0.8"
+      <rect width="48" height="48" rx="8" fill="#0b1220" />
+      <ellipse
+        cx="24"
+        cy="28"
+        rx="17"
+        ry="5.5"
+        fill="none"
+        stroke="#38bdf8"
+        strokeWidth="1.1"
+        opacity="0.55"
+        strokeDasharray="3 2.5"
       />
-      <rect x="14" y="10" width="20" height="5" rx="1" fill="#94a3b8" />
-      <circle cx="34" cy="12" r="2.5" fill="#fbbf24" />
-      <path d="M34 9v-3M34 17v2M39 12h3M29 12h-3" stroke="#fbbf24" strokeWidth="1.2" />
+      <rect x="5" y="21" width="9" height="7" rx="1" fill="#1e3a8a" stroke="#60a5fa" strokeWidth="0.9" />
+      <rect x="34" y="21" width="9" height="7" rx="1" fill="#1e3a8a" stroke="#60a5fa" strokeWidth="0.9" />
+      <path d="M7 23h2M7 26h2M39 23h2M39 26h2" stroke="#93c5fd" strokeWidth="0.7" opacity="0.85" />
+      <rect x="17.5" y="19" width="13" height="11" rx="2" fill="#475569" stroke="#cbd5e1" strokeWidth="0.9" />
+      <rect x="20" y="22" width="8" height="5" rx="1" fill="#334155" />
+      <path
+        d="M24 19 L24 12 M21 12 L27 12"
+        stroke="#e2e8f0"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+      <circle cx="24" cy="10.5" r="2.2" fill="#fbbf24" stroke="#f59e0b" strokeWidth="0.6" />
+      <path
+        d="M24 8.3c2.2-1.2 4.6-0.8 6.2 0.6M24 8.3c-2.2-1.2-4.6-0.8-6.2 0.6"
+        stroke="#fbbf24"
+        strokeWidth="0.9"
+        fill="none"
+        opacity="0.9"
+      />
+      <circle cx="10" cy="12" r="0.9" fill="#f8fafc" opacity="0.85" />
+      <circle cx="37" cy="14" r="0.7" fill="#f8fafc" opacity="0.65" />
+      <circle cx="32" cy="8" r="0.5" fill="#f8fafc" opacity="0.5" />
     </Sym>
   );
 }

@@ -74,6 +74,7 @@ export function buildDefaultProjectContext(params: {
       longitude: '',
       aoiId: '',
       aoiSummary: '',
+      aoiGeoJson: '',
       geoJsonUploaded: false,
       coordinateValidation: 'pending',
     },
@@ -148,7 +149,8 @@ export function validateDmrvProjectContext(ctx: DmrvProjectContext): DmrvProject
     ctx.location.longitude.trim() !== '' &&
     !Number.isNaN(Number(ctx.location.latitude)) &&
     !Number.isNaN(Number(ctx.location.longitude));
-  const hasAoi = ctx.location.aoiId.trim() !== '';
+  const hasPolygon = ctx.location.aoiGeoJson?.trim() !== '';
+  const hasAoi = ctx.location.aoiId.trim() !== '' || hasPolygon;
   if (!hasCoords && !hasAoi) missing.push('coordinatesOrAoi');
 
   if (!ctx.reporting.startDate.trim()) missing.push('reportingPeriodStart');
@@ -225,6 +227,9 @@ export async function anchorDmrvProjectIdentity(ctx: DmrvProjectContext): Promis
       latitude: ctx.location.latitude,
       longitude: ctx.location.longitude,
       aoiId: ctx.location.aoiId,
+      countryRegion: ctx.location.countryRegion,
+      aoiSummary: ctx.location.aoiSummary,
+      aoiGeoJson: ctx.location.aoiGeoJson,
     },
     methodology: ctx.methodology.name,
     reportingPeriod: `${ctx.reporting.startDate} — ${ctx.reporting.endDate}`,

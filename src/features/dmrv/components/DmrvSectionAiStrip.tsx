@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Bot, ChevronDown, ChevronUp, RefreshCw, Sparkles } from '../../../../components/icons';
+import { Bot, ChevronDown, ChevronUp, Copy, RefreshCw, Sparkles } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
 import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
@@ -236,9 +236,20 @@ Assistant:`;
             ttsUnsupportedMessage={voice.ttsUnsupportedMessage}
           />
           {reply ? (
-            <p className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] leading-relaxed text-slate-700">
-              {reply}
-            </p>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2">
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(reply).catch(() => undefined);
+                  setNotice('Copied reply to clipboard.');
+                }}
+                className="mb-1 inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-px text-[9px] font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                <Copy className="h-2.5 w-2.5" aria-hidden />
+                Copy
+              </button>
+              <p className="text-[11px] leading-relaxed text-slate-700">{reply}</p>
+            </div>
           ) : null}
           {notice ? <p className="text-[10px] text-amber-800">{notice}</p> : null}
         </div>

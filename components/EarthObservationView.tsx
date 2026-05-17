@@ -12,6 +12,7 @@ import { useAiVoiceAssistant } from '../src/shared/hooks/useAiVoiceAssistant';
 import { buildDpalMrvPrompt, type DpalMrvMode } from '../services/mrvPrompt';
 import DpalProjectGuide from './dpal-assistant/DpalProjectGuide';
 import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
 import type { ChatMessage } from '../types';
 import type { DpalProjectGuideSnapshot } from './dpal-assistant/projectGuideTypes';
 import {
@@ -810,6 +811,14 @@ const EarthObservationView: React.FC<EarthObservationViewProps> = ({ onReturn, a
                 </div>
                 <div className="flex flex-wrap gap-2">{(['7d', '14d', '30d', '3m', '6m', '12m'] as const).map((p) => <button key={p} type="button" onClick={() => applyRangePreset(p)} className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${selectedPreset === p ? 'border-sky-500 bg-sky-500/20 text-sky-200' : 'border-slate-700 bg-slate-900 text-slate-300'}`}>{PRESET_DISPLAY[p]}</button>)}</div>
                 <button type="button" onClick={() => setSavedAoi((prev) => ({ ...prev, exists: true, isSaved: true, center: { lat: scanLocation.lat, lng: scanLocation.lng }, radiusKm: scanRadius, areaKm2: computeAreaKm2(scanRadius), source: prev.source ?? 'radius', savedAt: new Date().toISOString() }))} disabled={!canSaveAoi} className="w-full rounded-lg border border-slate-600 bg-slate-950 px-4 py-2 text-xs font-bold text-slate-200 disabled:opacity-50">{savedAoi.isSaved ? 'AOI saved' : 'Save AOI boundary'}</button>
+                <Usgs3depLidarPanel
+                  variant="dark"
+                  compact
+                  lat={scanLocation.lat}
+                  lng={scanLocation.lng}
+                  radiusKm={scanRadius}
+                  aoiGeoJson={savedAoi.boundaryGeoJson}
+                />
                 <button onClick={runScan} disabled={!canRunScan} className="w-full rounded-lg bg-sky-600 px-4 py-3 text-sm font-bold text-white disabled:opacity-50">{loading ? 'Checking satellite products...' : 'Run scan'}</button>
               </div>
               <ObservationMap center={scanLocation} radiusKm={scanRadius} onSelect={setScanLocation} />

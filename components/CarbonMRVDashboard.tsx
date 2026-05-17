@@ -32,6 +32,7 @@ import 'leaflet/dist/leaflet.css';
 import { loadGoogleMaps } from '../services/googleMapsLoader';
 import { GibsTileViewer } from './GibsTileViewer';
 import { NavigatorHelperCard, useNavigatorOutcomeTracking } from '../src/features/dpalNavigator';
+import { Usgs3depLidarPanel } from '../src/features/environmentalIntelligence/components/Usgs3depLidarPanel';
 
 interface SnapshotMapProps {
   lat: number;
@@ -1328,6 +1329,16 @@ const CarbonMRVDashboard: React.FC<CarbonMRVDashboardProps> = ({ onReturn, hero,
             {editMsg && !editingProject && (
               <p className={`mt-2 text-xs font-semibold ${editMsg.includes('successfully') ? 'text-emerald-400' : 'text-rose-400'}`}>{editMsg}</p>
             )}
+            {selectedProject.location.gpsCenter.lat && selectedProject.location.gpsCenter.lat !== 0 ? (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <Usgs3depLidarPanel
+                  variant="dark"
+                  compact
+                  lat={selectedProject.location.gpsCenter.lat}
+                  lng={selectedProject.location.gpsCenter.lng}
+                />
+              </div>
+            ) : null}
             {/* Full project edit form */}
             {editingProject && (
               <div className="mt-4 border-t border-white/10 pt-4 space-y-4">

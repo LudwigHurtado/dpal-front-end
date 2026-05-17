@@ -1,9 +1,23 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ExternalLink, Loader } from '../../../components/icons';
 import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
 import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
 import { USGS_3DEP_TERRAIN_RELEVANCE_NOTE } from './dmrvRecommendedSources';
+import { DmrvAoiMapPanel } from './components/DmrvAoiMapPanel';
+import { DmrvProjectFormAssist } from './components/DmrvProjectFormAssist';
+import { nominatimReverseGeocode } from '../../good-wheels/features/map/nominatimReverseGeocode';
+import {
+  computePolygonAreaKm2,
+  computePolygonCentroid,
+  parseStoredAoiPoints,
+  type LatLngPoint,
+} from './utils/dmrvAoiMapUtils';
+import {
+  buildDmrvLocationSuggestions,
+  type DmrvLocationSuggestions,
+} from './utils/dmrvLocationAssist';
+import { computeDmrvProjectWorkflowLinks } from './utils/dmrvWorkflowLinks';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
@@ -19,6 +33,7 @@ import {
   updateDmrvProjectContext,
   validateDmrvProjectContext,
 } from './services/dmrvProjectContextService';
+import { syncDmrvInputConfigsProjectContext } from './services/dmrvInputConfigService';
 import type { DmrvMethodologyDomain, DmrvProjectContext } from './services/dmrvProjectContextTypes';
 
 export type DmrvProjectConfigPageProps = {
@@ -46,6 +61,11 @@ export default function DmrvProjectConfigPage({
   const [ctx, setCtx] = useState<DmrvProjectContext | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [aoiMapPoints, setAoiMapPoints] = useState<LatLngPoint[]>([]);
+  const [drawMapTrigger, setDrawMapTrigger] = useState(0);
+  const [uploadMapTrigger, setUploadMapTrigger] = useState(0);
+  const [locationSuggestions, setLocationSuggestions] = useState<DmrvLocationSuggestions | null>(null);
+  const geocodeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!category) return;
@@ -73,7 +93,208 @@ export default function DmrvProjectConfigPage({
     );
   }, [category, categorySlug, dmrvType?.title, isNew, routeProjectId, typeId]);
 
+  useEffect(() => {
+    if (!ctx) return;
+    setAoiMapPoints(parseStoredAoiPoints(ctx.location.aoiGeoJson ?? ''));
+  }, [ctx?.location.aoiGeoJson, ctx?.projectId]);
+
   const validation = useMemo(() => (ctx ? validateDmrvProjectContext(ctx) : null), [ctx]);
+
+  const workflowLinks = useMemo(
+    () => (ctx ? computeDmrvProjectWorkflowLinks(ctx, validation) : []),
+    [ctx, validation],
+  );
+
+  const satelliteReady = Boolean(
+    validation?.coordinateOk && (ctx?.projectId.trim() || defaultDmrvProjectId(categorySlug, typeId)),
+  );
+
+  const enrichLocationFromMap = useCallback(
+    async (points: LatLngPoint[], kind: 'center' | 'polygon') => {
+      if (!category) return;
+      const centroid =
+        kind === 'polygon' && points.length >= 3
+          ? computePolygonCentroid(points)
+          : points[0] ?? null;
+      if (!centroid) return;
+
+      const areaKm2 = kind === 'polygon' ? computePolygonAreaKm2(points) : 0;
+      geocodeAbortRef.current?.abort();
+      const ac = new AbortController();
+      geocodeAbortRef.current = ac;
+
+      const placeLabel = await nominatimReverseGeocode(
+        { lat: centroid.lat, lng: centroid.lng },
+        ac.signal,
+      );
+
+      const suggestions = buildDmrvLocationSuggestions({
+        placeLabel,
+        categorySlug,
+        categoryTitle: category.title,
+        typeId,
+        typeTitle: dmrvType?.title ?? typeId,
+        areaKm2,
+        hasPolygon: kind === 'polygon' && points.length >= 3,
+      });
+      setLocationSuggestions(suggestions);
+
+      setCtx((prev) => {
+        if (!prev) return prev;
+        const next = { ...prev };
+        if (!prev.location.countryRegion.trim() && suggestions.suggestedCountryRegion) {
+          next.location = {
+            ...next.location,
+            countryRegion: suggestions.suggestedCountryRegion,
+          };
+        }
+        if (!prev.projectName.trim()) {
+          next.projectName = suggestions.suggestedProjectName;
+        }
+        if (!prev.description.trim()) {
+          next.description = suggestions.suggestedDescription;
+        }
+        if (!prev.methodology.name.trim()) {
+          next.methodology = {
+            ...next.methodology,
+            name: suggestions.suggestedMethodologyName,
+            standardFramework: suggestions.suggestedStandardFramework,
+            domain: suggestions.suggestedDomain,
+            requiredEvidenceSources: suggestions.suggestedEvidenceSources,
+          };
+        }
+        return next;
+      });
+
+      setNotice(
+        kind === 'polygon'
+          ? 'AOI saved — suggested project name and methodology filled where fields were empty.'
+          : 'Map location saved — review suggested project name below.',
+      );
+    },
+    [category, categorySlug, dmrvType?.title, typeId],
+  );
+
+  const applyAoiFromMap = useCallback((points: LatLngPoint[]) => {
+    setCtx((prev) => {
+      if (!prev) return prev;
+      if (points.length === 1) {
+        return {
+          ...prev,
+          location: {
+            ...prev.location,
+            latitude: points[0].lat.toFixed(6),
+            longitude: points[0].lng.toFixed(6),
+            coordinateValidation: 'valid',
+          },
+        };
+      }
+      if (points.length < 3) return prev;
+      const centroid = computePolygonCentroid(points);
+      const areaKm2 = computePolygonAreaKm2(points);
+      const aoiId = prev.location.aoiId.trim() || `aoi-${Date.now().toString(36)}`;
+      const summary =
+        prev.location.aoiSummary.trim() ||
+        `Polygon AOI · ${points.length} vertices · ~${areaKm2.toFixed(2)} km²`;
+      return {
+        ...prev,
+        location: {
+          ...prev.location,
+          latitude: centroid ? centroid.lat.toFixed(6) : prev.location.latitude,
+          longitude: centroid ? centroid.lng.toFixed(6) : prev.location.longitude,
+          aoiId,
+          aoiSummary: summary,
+          aoiGeoJson: JSON.stringify(points),
+          geoJsonUploaded: true,
+          coordinateValidation: 'valid',
+        },
+      };
+    });
+    if (points.length >= 3) setAoiMapPoints(points);
+  }, []);
+
+  const handleLocationCommitted = useCallback(
+    (payload: { points: LatLngPoint[]; kind: 'center' | 'polygon' }) => {
+      void enrichLocationFromMap(payload.points, payload.kind);
+    },
+    [enrichLocationFromMap],
+  );
+
+  const applyAllLocationSuggestions = useCallback(() => {
+    if (!locationSuggestions) return;
+    setCtx((prev) =>
+      prev
+        ? {
+            ...prev,
+            projectName: locationSuggestions.suggestedProjectName,
+            projectId: locationSuggestions.suggestedProjectId,
+            description: locationSuggestions.suggestedDescription,
+            location: {
+              ...prev.location,
+              countryRegion:
+                locationSuggestions.suggestedCountryRegion || prev.location.countryRegion,
+            },
+            methodology: {
+              ...prev.methodology,
+              name: locationSuggestions.suggestedMethodologyName,
+              standardFramework: locationSuggestions.suggestedStandardFramework,
+              domain: locationSuggestions.suggestedDomain,
+              requiredEvidenceSources: locationSuggestions.suggestedEvidenceSources,
+            },
+          }
+        : prev,
+    );
+    setNotice('Applied location-based suggestions to project identity and methodology.');
+  }, [locationSuggestions]);
+
+  const applySuggestedProjectName = useCallback(() => {
+    if (!locationSuggestions) return;
+    setCtx((prev) =>
+      prev
+        ? {
+            ...prev,
+            projectName: locationSuggestions.suggestedProjectName,
+            projectId: locationSuggestions.suggestedProjectId,
+          }
+        : prev,
+    );
+  }, [locationSuggestions]);
+
+  const applySuggestedMethodology = useCallback(() => {
+    if (!locationSuggestions) return;
+    setCtx((prev) =>
+      prev
+        ? {
+            ...prev,
+            methodology: {
+              ...prev.methodology,
+              name: locationSuggestions.suggestedMethodologyName,
+              standardFramework: locationSuggestions.suggestedStandardFramework,
+              domain: locationSuggestions.suggestedDomain,
+              requiredEvidenceSources: locationSuggestions.suggestedEvidenceSources,
+            },
+          }
+        : prev,
+    );
+  }, [locationSuggestions]);
+
+  const clearAoiFromMap = useCallback(() => {
+    setAoiMapPoints([]);
+    setCtx((prev) =>
+      prev
+        ? {
+            ...prev,
+            location: {
+              ...prev.location,
+              aoiGeoJson: '',
+              geoJsonUploaded: false,
+              coordinateValidation: 'pending',
+            },
+          }
+        : prev,
+    );
+    setLocationSuggestions(null);
+  }, []);
 
   const aiContextSummary = useMemo(() => {
     if (!ctx) return '';
@@ -131,8 +352,20 @@ export default function DmrvProjectConfigPage({
       return;
     }
     setCtx(saved);
-    setNotice('Project configuration saved.');
+    syncDmrvInputConfigsProjectContext(saved.projectId);
+    setNotice('Project configuration saved — satellite and evidence configs linked to this AOI.');
     navigate(dmrvCategoryPath(categorySlug, typeId, saved.projectId), { replace: true });
+  }, [categorySlug, ctx, isNew, navigate, typeId]);
+
+  const handleSaveAndOpenSatellite = useCallback(() => {
+    if (!ctx) return;
+    const saved = isNew ? createDmrvProjectContext(ctx) : updateDmrvProjectContext(ctx.projectId, ctx);
+    if (!saved) {
+      setNotice('Save project configuration before opening satellite setup.');
+      return;
+    }
+    syncDmrvInputConfigsProjectContext(saved.projectId);
+    navigate(dmrvSourceStackPath(saved.projectId, categorySlug, 'satellite', typeId));
   }, [categorySlug, ctx, isNew, navigate, typeId]);
 
   const handleSkipToCategory = useCallback(() => {
@@ -149,6 +382,10 @@ export default function DmrvProjectConfigPage({
 
   const handleOpenSatelliteConfig = useCallback(() => {
     const pid = ctx?.projectId?.trim() || defaultDmrvProjectId(categorySlug, typeId);
+    if (ctx) {
+      updateDmrvProjectContext(pid, ctx);
+      syncDmrvInputConfigsProjectContext(pid);
+    }
     ensureDmrvProjectContext({
       categorySlug,
       categoryTitle: category?.title ?? categorySlug,
@@ -157,7 +394,7 @@ export default function DmrvProjectConfigPage({
       projectId: pid,
     });
     navigate(dmrvSourceStackPath(pid, categorySlug, 'satellite', typeId));
-  }, [category?.title, categorySlug, ctx?.projectId, dmrvType?.title, navigate, typeId]);
+  }, [category?.title, categorySlug, ctx, dmrvType?.title, navigate, typeId]);
 
   const handleGenerateHash = useCallback(async () => {
     if (!ctx) return;
@@ -240,8 +477,8 @@ export default function DmrvProjectConfigPage({
               </button>
               <h1 className="text-xl font-black text-[#1e3a5f] md:text-2xl">Project Configuration</h1>
               <p className="mt-1 text-sm text-slate-600">
-                Optional project identity, AOI, methodology, reporting period, and blockchain root record. You can configure
-                evidence sources from the DMRV selector icons without completing every field here.
+                Start with the map to define your AOI — DPAL suggests a project name and links location to satellite
+                evidence, integrity packets, and blockchain identity. Save before opening satellite configuration.
               </p>
             </div>
             <span
@@ -262,10 +499,12 @@ export default function DmrvProjectConfigPage({
             onClick={handleSkipToCategory}
           />
           <ActionBtn
-            label="Open satellite config"
+            label="Save & configure satellite"
             primary
-            onClick={handleOpenSatelliteConfig}
+            onClick={handleSaveAndOpenSatellite}
+            disabled={!satelliteReady}
           />
+          <ActionBtn label="Open satellite (quick)" onClick={handleOpenSatelliteConfig} />
         </div>
 
         <DmrvWorkflowProgress activeStep={0} />
@@ -284,27 +523,61 @@ export default function DmrvProjectConfigPage({
           </p>
         ) : null}
 
-        <DmrvAiConfigHelper variant="project" contextSummary={aiContextSummary} disabled={!!busy} />
+        <DmrvAiConfigHelper
+          variant="project"
+          contextSummary={aiContextSummary}
+          disabled={!!busy}
+          autofillPrompt={`Suggest project configuration fields for DMRV. Return JSON with string fields: projectName, projectId, organization, description, locationLabel, latitude, longitude, aoiId, reportingPeriodStart, reportingPeriodEnd, methodologyName, standardFramework, domain.`}
+          onApplyAutofill={(parsed) => {
+            if (typeof parsed.projectName === 'string') patch({ projectName: parsed.projectName });
+            if (typeof parsed.projectId === 'string') patch({ projectId: parsed.projectId });
+            if (typeof parsed.organization === 'string') patch({ organization: parsed.organization });
+            if (typeof parsed.description === 'string') patch({ description: parsed.description });
+            if (typeof parsed.locationLabel === 'string') patchLocation('countryRegion', parsed.locationLabel);
+            if (typeof parsed.latitude === 'string') patchLocation('latitude', parsed.latitude);
+            if (typeof parsed.longitude === 'string') patchLocation('longitude', parsed.longitude);
+            if (typeof parsed.aoiId === 'string') patchLocation('aoiId', parsed.aoiId);
+            if (typeof parsed.reportingPeriodStart === 'string') {
+              patchReporting('startDate', parsed.reportingPeriodStart);
+            }
+            if (typeof parsed.reportingPeriodEnd === 'string') {
+              patchReporting('endDate', parsed.reportingPeriodEnd);
+            }
+            if (typeof parsed.methodologyName === 'string') patchMethodology('name', parsed.methodologyName);
+            if (typeof parsed.standardFramework === 'string') {
+              patchMethodology('standardFramework', parsed.standardFramework);
+            }
+            if (typeof parsed.domain === 'string') {
+              patchMethodology('domain', parsed.domain as DmrvMethodologyDomain);
+            }
+          }}
+        />
 
         <div className="mt-4 space-y-4">
-          <Section title="Project Identity">
-            <Field label="Project name" value={ctx.projectName} onChange={(v) => patch({ projectName: v })} />
-            <Field label="Project ID" value={ctx.projectId} onChange={(v) => patch({ projectId: v })} />
-            <Field label="Organization / owner" value={ctx.organization} onChange={(v) => patch({ organization: v })} />
-            <label className="block space-y-1 sm:col-span-2">
-              <span className="text-[10px] font-bold uppercase text-slate-500">Project description</span>
-              <textarea
-                className={inputClass}
-                rows={2}
-                value={ctx.description}
-                onChange={(e) => patch({ description: e.target.value })}
-              />
-            </label>
-            <ReadOnly label="Category" value={category.title} />
-            <ReadOnly label="DMRV type" value={dmrvType?.title ?? typeId} />
-          </Section>
-
           <Section title="Location / AOI">
+            <div className="sm:col-span-2">
+              <DmrvAoiMapPanel
+                latitude={ctx.location.latitude}
+                longitude={ctx.location.longitude}
+                savedPoints={aoiMapPoints}
+                onSavedPointsChange={setAoiMapPoints}
+                onApplyToProject={applyAoiFromMap}
+                onClearProject={clearAoiFromMap}
+                drawTrigger={drawMapTrigger}
+                uploadTrigger={uploadMapTrigger}
+                onLocationCommitted={handleLocationCommitted}
+                autoStartDrawing={aoiMapPoints.length < 3}
+              />
+            </div>
+            <DmrvProjectFormAssist
+              workflowLinks={workflowLinks}
+              suggestions={locationSuggestions}
+              onApplyAllSuggestions={applyAllLocationSuggestions}
+              onApplyProjectName={applySuggestedProjectName}
+              onApplyMethodology={applySuggestedMethodology}
+              onOpenSatellite={handleSaveAndOpenSatellite}
+              satelliteReady={satelliteReady}
+            />
             <Field
               label="Country / region"
               value={ctx.location.countryRegion}
@@ -324,10 +597,18 @@ export default function DmrvProjectConfigPage({
               />
             </label>
             <div className="flex flex-wrap gap-2 sm:col-span-2">
-              <button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-800">
-                Draw AOI (map)
+              <button
+                type="button"
+                onClick={() => setDrawMapTrigger((n) => n + 1)}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50"
+              >
+                Draw AOI on map
               </button>
-              <button type="button" className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold text-slate-800">
+              <button
+                type="button"
+                onClick={() => setUploadMapTrigger((n) => n + 1)}
+                className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-bold text-slate-800 hover:bg-slate-50"
+              >
                 Upload GeoJSON
               </button>
             </div>
@@ -343,6 +624,29 @@ export default function DmrvProjectConfigPage({
                 compact
               />
             </div>
+          </Section>
+
+          <Section title="Project Identity">
+            {locationSuggestions && !ctx.projectName.trim() ? (
+              <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950 sm:col-span-2">
+                Suggested name: <span className="font-semibold">{locationSuggestions.suggestedProjectName}</span> — use
+                Apply all in the map section above, or enter your own.
+              </p>
+            ) : null}
+            <Field label="Project name" value={ctx.projectName} onChange={(v) => patch({ projectName: v })} />
+            <Field label="Project ID" value={ctx.projectId} onChange={(v) => patch({ projectId: v })} />
+            <Field label="Organization / owner" value={ctx.organization} onChange={(v) => patch({ organization: v })} />
+            <label className="block space-y-1 sm:col-span-2">
+              <span className="text-[10px] font-bold uppercase text-slate-500">Project description</span>
+              <textarea
+                className={inputClass}
+                rows={2}
+                value={ctx.description}
+                onChange={(e) => patch({ description: e.target.value })}
+              />
+            </label>
+            <ReadOnly label="Category" value={category.title} />
+            <ReadOnly label="DMRV type" value={dmrvType?.title ?? typeId} />
           </Section>
 
           <Section title="Reporting Period">

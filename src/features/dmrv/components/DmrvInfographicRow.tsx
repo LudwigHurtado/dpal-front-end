@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ChevronRight, Lock } from '../../../../components/icons';
+import { ChevronRight, Lock, Satellite } from '../../../../components/icons';
 import type { DmrvInputDef } from '../dmrvRegistry';
 import type { DmrvType } from '../dmrvRegistry';
 import { DMRV_EXPANDED_WORKFLOW_INPUTS, getInputConfigureHint } from '../dmrvInputRegistry';
@@ -164,6 +164,7 @@ export function DmrvInfographicRow({
                       : onConfigureInput
                   }
                   isSourcePicker={SOURCE_PICKER_KEYS.has(inputDef.key)}
+                  isSatellitePicker={inputDef.key === 'satellite-imagery'}
                 />
               ))}
             </div>
@@ -201,6 +202,7 @@ function InputConfigChip({
   onPress,
   sourceMeta,
   isSourcePicker,
+  isSatellitePicker = false,
   compact = false,
 }: {
   inputDef: DmrvInputDef;
@@ -210,6 +212,7 @@ function InputConfigChip({
   onPress?: () => void;
   sourceMeta?: DmrvInputSourceMeta;
   isSourcePicker?: boolean;
+  isSatellitePicker?: boolean;
   compact?: boolean;
 }): React.ReactElement {
   const comingSoon = inputDef.availability === 'coming-soon';
@@ -245,9 +248,11 @@ function InputConfigChip({
           : configured
             ? 'border-emerald-400/80 bg-gradient-to-b from-emerald-50 to-white hover:shadow-md hover:ring-2 hover:ring-emerald-500/20'
             : interactive
-              ? isSourcePicker
-                ? 'cursor-pointer border-sky-400/70 bg-gradient-to-b from-sky-50 to-white hover:border-sky-500 hover:shadow-md hover:ring-2 hover:ring-sky-500/25'
-                : 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
+              ? isSatellitePicker
+                ? 'cursor-pointer border-sky-500/90 bg-gradient-to-b from-slate-900 via-sky-950/20 to-sky-50 hover:border-sky-600 hover:shadow-md hover:ring-2 hover:ring-sky-400/40'
+                : isSourcePicker
+                  ? 'cursor-pointer border-emerald-400/70 bg-gradient-to-b from-emerald-50 to-white hover:border-emerald-500 hover:shadow-md hover:ring-2 hover:ring-emerald-500/25'
+                  : 'cursor-pointer border-slate-200/90 bg-gradient-to-b from-white to-slate-50 hover:border-slate-400 hover:shadow-md hover:ring-2 hover:ring-[#1e3a5f]/20'
               : 'cursor-not-allowed border-slate-200/90 bg-gradient-to-b from-white to-slate-50 opacity-55 grayscale-[0.35]'
       }`}
       style={{ borderColor: configured || comingSoon ? undefined : `${accentColor}40` }}
@@ -258,6 +263,13 @@ function InputConfigChip({
         </span>
       ) : !interactive ? (
         <Lock className="absolute right-1 top-1 h-2.5 w-2.5 text-slate-500" aria-hidden />
+      ) : isSatellitePicker ? (
+        <span
+          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 text-white shadow-sm ring-1 ring-white"
+          aria-hidden
+        >
+          <Satellite className="h-2.5 w-2.5" />
+        </span>
       ) : null}
       <DmrvInputSymbol
         inputKey={inputDef.key}
@@ -267,9 +279,9 @@ function InputConfigChip({
         accentColor={accentColor}
       />
       <span
-        className={`px-0.5 font-bold leading-tight text-slate-800 ${compact ? 'text-[6.5px]' : 'text-[7.5px]'}`}
+        className={`px-0.5 font-bold leading-tight ${isSatellitePicker ? 'text-sky-950' : 'text-slate-800'} ${compact ? 'text-[6.5px]' : 'text-[7.5px]'}`}
       >
-        {inputDef.label}
+        {isSatellitePicker ? 'Satellite' : inputDef.label}
       </span>
 
       {comingSoon ? (
@@ -298,8 +310,12 @@ function InputConfigChip({
           )}
         </>
       ) : interactive ? (
-        <span className="flex items-center gap-0.5 text-[6px] font-black uppercase tracking-wide text-[#1e3a5f] opacity-80 group-hover/input:opacity-100">
-          {isSourcePicker ? 'Pick' : inputDef.key === 'project-config' || inputDef.key === 'methodology' ? 'Open' : 'Configure'}
+        <span
+          className={`flex items-center gap-0.5 text-[6px] font-black uppercase tracking-wide opacity-80 group-hover/input:opacity-100 ${
+            isSatellitePicker ? 'text-sky-800' : 'text-[#1e3a5f]'
+          }`}
+        >
+          {isSatellitePicker ? 'Pick satellites' : isSourcePicker ? 'Pick' : inputDef.key === 'project-config' || inputDef.key === 'methodology' ? 'Open' : 'Configure'}
           <ChevronRight className="h-2 w-2" aria-hidden />
         </span>
       ) : (

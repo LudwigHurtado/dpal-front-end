@@ -48,6 +48,8 @@ import { PlasticSatelliteReadinessPanel } from './components/PlasticSatelliteRea
 import { PlasticScanResultsPanel } from './components/PlasticScanResultsPanel';
 import { PlasticPageExplainer } from './components/PlasticPageExplainer';
 import PlasticEvidencePacketPanel from './components/PlasticEvidencePacketPanel';
+import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
+import { useUsgs3depProviderStripItem } from '../environmentalIntelligence/hooks/useUsgs3depProviderStripItem';
 import type { PlasticMissionTypeId } from './data/plasticMissionTypes';
 import { getPlasticMissionType } from './data/plasticMissionTypes';
 import {
@@ -344,6 +346,7 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
   const [searchBusy, setSearchBusy] = useState(false);
   const [searchNotice, setSearchNotice] = useState<string | null>(null);
   const [center, setCenter] = useState({ lat: 14.5995, lng: 120.9842 });
+  const usgs3depStripItem = useUsgs3depProviderStripItem();
   const [radiusKm, setRadiusKm] = useState(12);
   const [environmentType, setEnvironmentType] = useState<PlasticEnvironmentType>('coast');
   const [baselineDay, setBaselineDay] = useState(() => {
@@ -473,8 +476,9 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         state: drone,
         hint: scan?.providers.drone.message ?? ps?.drone.message ?? 'Connector-ready — configure server env for API dispatch',
       },
+      usgs3depStripItem,
     ];
-  }, [googleMapsFrontendConfigured, lastScan, providerStatus]);
+  }, [googleMapsFrontendConfigured, lastScan, providerStatus, usgs3depStripItem]);
 
   const plasticInvestorExplainerEl = useMemo(() => {
     const scenario = getDemoScenarioById('demo-plastic-manila-bay');
@@ -1236,6 +1240,12 @@ const HyperspectralPlasticWatchPage: React.FC<Props> = ({ onReturn }) => {
         </main>
 
         <aside className="space-y-3 xl:col-span-3">
+          <Usgs3depLidarPanel
+            compact
+            lat={center.lat}
+            lng={center.lng}
+            radiusKm={radiusKm}
+          />
           <PlasticAiHelperPanel
             missionTypeId={missionTypeId}
             scan={lastScan}
