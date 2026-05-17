@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Copy, FileText, Package, Printer, Shield, Sparkles } from '../../../../components/icons';
 import { DmrvAiConfigHelper } from '../components/DmrvAiConfigHelper';
@@ -50,10 +50,6 @@ export function DmrvLiveReportPanel({
   } = useDmrvReport(projectId);
 
   const project = useMemo(() => getDmrvProjectContext(projectId), [projectId, report?.updatedAt]);
-
-  useEffect(() => {
-    refresh({ workflowStep: workflowStep ?? 'live-panel', changeSummary: 'Live report panel opened', actor: 'user' });
-  }, [projectId, refresh, workflowStep]);
 
   const aiContext = useMemo(() => {
     if (!report) return '';

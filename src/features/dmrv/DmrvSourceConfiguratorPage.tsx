@@ -95,28 +95,73 @@ export default function DmrvSourceConfiguratorPage({
     );
   }
 
+  return (
+    <DmrvSourceConfiguratorWorkspace
+      projectId={projectId}
+      categorySlug={categorySlug}
+      category={category}
+      sourceKind={sourceKind}
+      typeId={typeId}
+      typeTitle={dmrvType?.title ?? typeId}
+      onReturn={onReturn}
+      handleBack={handleBack}
+      handleSave={handleSave}
+      navigate={navigate}
+    />
+  );
+}
+
+type WorkspaceProps = {
+  projectId: string;
+  categorySlug: string;
+  category: NonNullable<ReturnType<typeof getCategoryBySlug>>;
+  sourceKind: DmrvSourceStackKind;
+  typeId: string;
+  typeTitle: string;
+  onReturn?: () => void;
+  handleBack: () => void;
+  handleSave: (ids: string[]) => void;
+  navigate: ReturnType<typeof useNavigate>;
+};
+
+function DmrvSourceConfiguratorWorkspace({
+  projectId,
+  categorySlug,
+  category,
+  sourceKind,
+  typeId,
+  typeTitle,
+  onReturn,
+  handleBack,
+  handleSave,
+  navigate,
+}: WorkspaceProps): React.ReactElement {
   ensureDmrvProjectContext({
     categorySlug,
     categoryTitle: category.title,
     typeId,
-    typeTitle: dmrvType?.title ?? typeId,
+    typeTitle,
     projectId,
   });
 
   const inputKey = sourceStackKindToInputKey(sourceKind);
   const sceneConfigPath = dmrvInputConfigPath(projectId, categorySlug, inputKey, typeId);
-  const initialSelectedIds = getSelectedSourceIds(projectId, typeId, sourceKind);
+  const initialSelectedIds = useMemo(
+    () => getSelectedSourceIds(projectId, typeId, sourceKind),
+    [projectId, sourceKind, typeId],
+  );
   const [draftSourceIds, setDraftSourceIds] = useState<string[]>(initialSelectedIds);
 
-  const liveSourceKind: 'satellite' | 'lidar' | undefined =
-    sourceKind === 'satellite' || sourceKind === 'lidar' ? sourceKind : undefined;
+  useEffect(() => {
+    setDraftSourceIds(initialSelectedIds);
+  }, [initialSelectedIds]);
 
-  useDmrvLiveReportSync(projectId, 'satellite-config', {
-    draftSourceSelections: liveSourceKind
-      ? { [liveSourceKind]: draftSourceIds }
-      : undefined,
-  });
-  const typeTitle = dmrvType?.title ?? typeId;
+  const draftSourceSelections = useMemo(
+    () => ({ [sourceKind]: draftSourceIds } as const),
+    [draftSourceIds, sourceKind],
+  );
+
+  useDmrvLiveReportSync(projectId, 'satellite-config', { draftSourceSelections });
 
   const aiContextSummary = useMemo(
     () =>
@@ -199,23 +244,23 @@ export default function DmrvSourceConfiguratorPage({
           typeId={typeId}
           workflowStep="satellite-config"
         >
-        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
-          <DmrvSourceConfigurator
-            dmrvTypeId={typeId}
-            dmrvTypeName={typeTitle}
-            sourceKind={sourceKind}
-            projectId={projectId}
-            onClose={handleBack}
-            onSaveSelectedSources={handleSave}
-            onDraftSelectionChange={setDraftSourceIds}
-            initialSelectedIds={initialSelectedIds}
-          />
-          <DmrvAiConfigHelper
-            variant={sourceKind === 'lidar' ? 'lidar' : 'satellite-imagery'}
-            contextSummary={aiContextSummary}
-            autofillPrompt={`Suggest ${sourceKind} mission/source IDs for ${typeTitle}. Return JSON: { "selectedSourceIds": ["id1","id2"] } using catalog missions appropriate for this MRV type.`}
-          />
-        </div>
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(260px,300px)]">
+            <DmrvSourceConfigurator
+              dmrvTypeId={typeId}
+              dmrvTypeName={typeTitle}
+              sourceKind={sourceKind}
+              projectId={projectId}
+              onClose={handleBack}
+              onSaveSelectedSources={handleSave}
+              onDraftSelectionChange={setDraftSourceIds}
+              initialSelectedIds={initialSelectedIds}
+            />
+            <DmrvAiConfigHelper
+              variant={sourceKind === 'lidar' ? 'lidar' : 'satellite-imagery'}
+              contextSummary={aiContextSummary}
+              autofillPrompt={`Suggest ${sourceKind} mission/source IDs for ${typeTitle}. Return JSON: { "selectedSourceIds": ["id1","id2"] } using catalog missions appropriate for this MRV type.`}
+            />
+          </div>
         </DmrvWorkflowShell>
       </div>
     </div>

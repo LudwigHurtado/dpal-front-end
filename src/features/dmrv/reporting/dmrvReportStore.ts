@@ -13,18 +13,36 @@ import type {
 
 const STORAGE_KEY = 'dpal_dmrv_live_reports_v1';
 
+/** In-memory store so getDmrvReport returns stable references for useSyncExternalStore. */
+let memoryReports: Record<string, DmrvReport> | null = null;
+
+export function invalidateDmrvReportMemoryCache(): void {
+  memoryReports = null;
+}
+
 function readAll(): Record<string, DmrvReport> {
+  if (memoryReports) return memoryReports;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) {
+      memoryReports = {};
+      return memoryReports;
+    }
     const parsed = JSON.parse(raw) as Record<string, DmrvReport>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    const map = parsed && typeof parsed === 'object' ? parsed : {};
+    for (const [pid, report] of Object.entries(map)) {
+      map[pid] = migrateReport(report);
+    }
+    memoryReports = map;
+    return memoryReports;
   } catch {
-    return {};
+    memoryReports = {};
+    return memoryReports;
   }
 }
 
 function writeAll(map: Record<string, DmrvReport>): void {
+  memoryReports = map;
   localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
 }
 
@@ -112,8 +130,7 @@ function persistReport(projectId: string, report: DmrvReport, emitUpdate = true)
 export type { DmrvReportBuildOverrides };
 
 export function getDmrvReport(projectId: string): DmrvReport | null {
-  const raw = readAll()[projectId];
-  return raw ? migrateReport(raw) : null;
+  return readAll()[projectId] ?? null;
 }
 
 /** Rebuild report from workflow stores + optional in-form drafts — no audit trail entry. */
@@ -124,6 +141,11 @@ export function rebuildDmrvReportSilent(
   const previous = getDmrvReport(projectId);
   const built = buildDmrvReport(projectId, previous, overrides);
   const next = withAnchorState(migrateReport(built));
+  if (previous) {
+    const prevHash = computeDmrvReportJsonHashSync(previous);
+    const nextHash = computeDmrvReportJsonHashSync(next);
+    if (prevHash === nextHash) return previous;
+  }
   return persistReport(projectId, next);
 }
 
@@ -306,7 +328,10 @@ export function subscribeDmrvReport(
     if (!detail?.projectId || detail.projectId === projectId) listener();
   };
   const onStorage = (e: StorageEvent) => {
-    if (e.key === STORAGE_KEY) listener();
+    if (e.key === STORAGE_KEY) {
+      invalidateDmrvReportMemoryCache();
+      listener();
+    }
   };
   if (typeof window !== 'undefined') {
     window.addEventListener(DMRV_REPORT_UPDATED_EVENT, onEvent);

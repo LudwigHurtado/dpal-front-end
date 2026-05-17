@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { DmrvProjectContext } from '../services/dmrvProjectContextTypes';
 import type { DmrvInputConfig } from '../services/dmrvInputConfigTypes';
 import { scheduleDebouncedReportPersist } from './dmrvReportApi';
@@ -16,6 +16,26 @@ export type DmrvLiveReportSyncOptions = {
   enabled?: boolean;
 };
 
+function stableSourceSelectionKey(
+  draft?: Partial<Record<'satellite' | 'lidar', string[]>>,
+): string {
+  if (!draft) return '';
+  return JSON.stringify({
+    satellite: draft.satellite ?? [],
+    lidar: draft.lidar ?? [],
+  });
+}
+
+function stableInputConfigKey(config: DmrvInputConfig | null | undefined): string {
+  if (!config) return '';
+  return JSON.stringify(config);
+}
+
+function stableProjectContextKey(ctx: DmrvProjectContext | null | undefined): string {
+  if (!ctx) return '';
+  return JSON.stringify(ctx);
+}
+
 /**
  * Keeps the living report object in sync while the user edits a workflow step.
  * - Instant local rebuild (no audit event per keystroke)
@@ -27,20 +47,43 @@ export function useDmrvLiveReportSync(
   options?: DmrvLiveReportSyncOptions,
 ): void {
   const enabled = options?.enabled !== false;
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+
+  const satelliteIdsKey = options?.draftSourceSelections?.satellite?.join('\0') ?? '';
+  const lidarIdsKey = options?.draftSourceSelections?.lidar?.join('\0') ?? '';
+  const draftKey = useMemo(
+    () => stableSourceSelectionKey(options?.draftSourceSelections),
+    [satelliteIdsKey, lidarIdsKey],
+  );
+  const activeConfigKey = useMemo(
+    () => stableInputConfigKey(options?.activeInputConfig),
+    [options?.activeInputConfig],
+  );
+  const projectContextKey = useMemo(
+    () => stableProjectContextKey(options?.projectContext),
+    [options?.projectContext],
+  );
+  const draftInputConfigsKey = useMemo(
+    () => (options?.draftInputConfigs ? JSON.stringify(options.draftInputConfigs) : ''),
+    [options?.draftInputConfigs],
+  );
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastAuditRef = useRef<string>('');
 
   useEffect(() => {
     if (!enabled || !projectId?.trim()) return undefined;
 
+    const liveOptions = optionsRef.current;
     const overrides: DmrvReportBuildOverrides = {};
-    if (options?.projectContext) overrides.projectContext = options.projectContext;
-    if (options?.draftInputConfigs) overrides.inputConfigs = options.draftInputConfigs;
-    else if (options?.activeInputConfig) {
-      overrides.activeInputConfig = options.activeInputConfig;
+    if (liveOptions?.projectContext) overrides.projectContext = liveOptions.projectContext;
+    if (liveOptions?.draftInputConfigs) overrides.inputConfigs = liveOptions.draftInputConfigs;
+    else if (liveOptions?.activeInputConfig) {
+      overrides.activeInputConfig = liveOptions.activeInputConfig;
     }
-    if (options?.draftSourceSelections) {
-      overrides.draftSourceSelections = options.draftSourceSelections;
+    if (liveOptions?.draftSourceSelections) {
+      overrides.draftSourceSelections = liveOptions.draftSourceSelections;
     }
 
     rebuildDmrvReportSilent(projectId, overrides);
@@ -48,7 +91,7 @@ export function useDmrvLiveReportSync(
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       debounceRef.current = null;
-      const auditKey = `${workflowStep}:${JSON.stringify(overrides).length}`;
+      const auditKey = `${workflowStep}:${projectContextKey}:${activeConfigKey}:${draftKey}`;
       if (auditKey === lastAuditRef.current) return;
       lastAuditRef.current = auditKey;
       const meta: Partial<DmrvReportSyncMeta> = {
@@ -67,9 +110,9 @@ export function useDmrvLiveReportSync(
     enabled,
     projectId,
     workflowStep,
-    options?.projectContext,
-    options?.draftInputConfigs,
-    options?.activeInputConfig,
-    options?.draftSourceSelections,
+    projectContextKey,
+    activeConfigKey,
+    draftInputConfigsKey,
+    draftKey,
   ]);
 }
