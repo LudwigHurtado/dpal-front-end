@@ -56,7 +56,22 @@ export const DMRV_SENSOR_IMAGE_URLS: Record<string, string> = {
   'sentinel-1-sar': '/dmrv/satellites/sentinel-1.png',
   modis: '/dmrv/satellites/modis.png',
   'pace-oci': '/dmrv/satellites/pace.png',
+  'esa-biomass': '/dmrv/satellites/esa-biomass.png',
+  ecostress: '/dmrv/satellites/ecostress.png',
+  swot: '/dmrv/satellites/swot.png',
+  enmap: '/dmrv/satellites/enmap.png',
+  emit: '/dmrv/satellites/emit.png',
+  prisma: '/dmrv/satellites/prisma.png',
+  desis: '/dmrv/satellites/desis.png',
+  viirs: '/dmrv/satellites/viirs.png',
+  'sentinel-3-olci': '/dmrv/satellites/sentinel-2.png',
+  nisar: '/dmrv/satellites/sentinel-1.png',
 };
+
+/** Resolved artwork for configurator cards (explicit entry or catalog map). */
+export function getSensorImageUrl(source: Pick<DmrvSensorSource, 'id' | 'imageUrl'>): string | undefined {
+  return source.imageUrl ?? DMRV_SENSOR_IMAGE_URLS[source.id];
+}
 
 export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
   {
@@ -144,6 +159,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     resolutionLabel: '~200 m',
     revisitLabel: 'Mission cadence',
     uiIcon: 'radar',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['esa-biomass'],
   },
   {
     id: 'nisar',
@@ -159,6 +175,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     status: 'coming-soon',
     resolutionLabel: 'TBD',
     uiIcon: 'radar',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.nisar,
   },
   {
     id: 'ecostress',
@@ -175,6 +192,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     resolutionLabel: '70 m',
     revisitLabel: 'ISS orbit',
     uiIcon: 'thermal',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.ecostress,
   },
   {
     id: 'pace-oci',
@@ -209,6 +227,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     resolutionLabel: '300 m–1 km',
     revisitLabel: '~1–2 days',
     uiIcon: 'waves',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS['sentinel-3-olci'],
   },
   {
     id: 'swot',
@@ -225,6 +244,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     resolutionLabel: 'Variable',
     revisitLabel: '21-day repeat',
     uiIcon: 'scan',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.swot,
   },
   {
     id: 'enmap',
@@ -240,6 +260,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     status: 'needs-api-key',
     resolutionLabel: '30 m',
     uiIcon: 'layers',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.enmap,
   },
   {
     id: 'emit',
@@ -255,6 +276,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     status: 'research-only',
     resolutionLabel: '60 m',
     uiIcon: 'layers',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.emit,
   },
   {
     id: 'prisma',
@@ -270,6 +292,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     status: 'needs-api-key',
     resolutionLabel: '30 m',
     uiIcon: 'layers',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.prisma,
   },
   {
     id: 'desis',
@@ -285,6 +308,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     status: 'needs-api-key',
     resolutionLabel: '30 m',
     uiIcon: 'layers',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.desis,
   },
   {
     id: 'modis',
@@ -318,6 +342,7 @@ export const DMRV_SENSOR_SOURCES: DmrvSensorSource[] = [
     resolutionLabel: '375 m–750 m',
     revisitLabel: 'Daily',
     uiIcon: 'satellite',
+    imageUrl: DMRV_SENSOR_IMAGE_URLS.viirs,
   },
   {
     id: 'icesat-2-atlas',

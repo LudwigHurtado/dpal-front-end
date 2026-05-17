@@ -13,12 +13,12 @@ import {
   Sun,
   TreePine,
   Waves,
-  X,
 } from '../../../../components/icons';
 import type { IconProps } from '../../../../components/icons';
 import { getDefaultSourceIds, getTypeHelperCopy } from '../dmrvRecommendedSources';
 import {
   DMRV_SENSOR_TYPE_LABELS,
+  getSensorImageUrl,
   getSensorSourceById,
   getSensorSourcesForKind,
   sourceStatusBadgeClass,
@@ -34,7 +34,6 @@ export type DmrvSourceConfiguratorProps = {
   dmrvTypeName: string;
   sourceKind: DmrvSourceConfiguratorKind;
   projectId: string;
-  isOpen: boolean;
   onClose: () => void;
   onSaveSelectedSources: (ids: string[]) => void;
   initialSelectedIds?: string[];
@@ -87,11 +86,10 @@ export function DmrvSourceConfigurator({
   dmrvTypeName,
   sourceKind,
   projectId,
-  isOpen,
   onClose,
   onSaveSelectedSources,
   initialSelectedIds = [],
-}: DmrvSourceConfiguratorProps): React.ReactElement | null {
+}: DmrvSourceConfiguratorProps): React.ReactElement {
   const [draftIds, setDraftIds] = useState<string[]>(initialSelectedIds);
   const sources = useMemo(() => getSensorSourcesForKind(sourceKind), [sourceKind]);
   const recommendedDefaults = useMemo(
@@ -107,10 +105,9 @@ export function DmrvSourceConfigurator({
   );
 
   useEffect(() => {
-    if (!isOpen) return;
     const seed = initialSelectedIds.length > 0 ? initialSelectedIds : recommendedDefaults;
     setDraftIds(seed);
-  }, [isOpen, initialSelectedIds, recommendedDefaults]);
+  }, [initialSelectedIds, recommendedDefaults]);
 
   const toggle = useCallback(
     (id: string, checked: boolean) => {
@@ -136,16 +133,11 @@ export function DmrvSourceConfigurator({
     onClose();
   };
 
-  if (!isOpen) return null;
-
   return (
     <div
-      className="fixed inset-0 z-[80] flex items-stretch justify-center bg-slate-900/55 p-0 sm:p-4"
-      role="dialog"
-      aria-modal="true"
+      className="flex w-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
       aria-labelledby="dmrv-source-configurator-title"
     >
-      <div className="flex h-full w-full max-w-[min(100%,1280px)] flex-col overflow-hidden rounded-none border border-slate-200 bg-white shadow-2xl sm:max-h-[min(100%,920px)] sm:rounded-2xl">
         <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 bg-gradient-to-r from-[#e8f0f7] to-white px-5 py-4">
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-500">DPAL DMRV</p>
@@ -158,14 +150,6 @@ export function DmrvSourceConfigurator({
               evidence search — not a live scan.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-            aria-label="Close configurator"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </header>
 
         {helperCopy ? (
@@ -174,8 +158,8 @@ export function DmrvSourceConfigurator({
           </p>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-          <div className="grid gap-4 xl:grid-cols-[minmax(200px,220px)_minmax(0,1fr)_minmax(200px,240px)]">
+        <div className="px-5 py-4">
+          <div className="grid gap-4 lg:grid-cols-[minmax(220px,260px)_minmax(0,1fr)_minmax(220px,280px)]">
             <aside className="space-y-3">
               <h3 className="text-[10px] font-black uppercase tracking-[0.14em] text-[#1e3a5f]">Recommended stack</h3>
               <ul className="space-y-2">
@@ -219,6 +203,7 @@ export function DmrvSourceConfigurator({
                     checked={draftIds.includes(source.id)}
                     isRecommended={recommendedSet.has(source.id)}
                     onToggle={(checked) => toggle(source.id, checked)}
+                    showMissionArt={sourceKind === 'satellite'}
                   />
                 ))}
               </div>
@@ -309,8 +294,39 @@ export function DmrvSourceConfigurator({
             </button>
           </div>
         </footer>
-      </div>
     </div>
+  );
+}
+
+function SourceCardImage({
+  src,
+  alt,
+  sourceId,
+  uiIcon,
+}: {
+  src: string;
+  alt: string;
+  sourceId: string;
+  uiIcon: DmrvSensorUiIcon;
+}): React.ReactElement {
+  const [failed, setFailed] = useState(false);
+  if (failed) {
+    return (
+      <div className="flex h-full min-h-[108px] w-full flex-col items-center justify-center gap-1 bg-gradient-to-br from-[#e8f0f7] to-slate-100 px-3 text-center">
+        <SensorIcon icon={uiIcon} className="h-8 w-8 text-[#1e3a5f]/70" />
+        <span className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{sourceId}</span>
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={alt}
+      loading="lazy"
+      decoding="async"
+      className="mx-auto h-full max-h-[120px] w-full object-contain object-center p-2"
+      onError={() => setFailed(true)}
+    />
   );
 }
 
@@ -319,35 +335,62 @@ function SourceCard({
   checked,
   isRecommended,
   onToggle,
+  showMissionArt,
 }: {
   source: DmrvSensorSource;
   checked: boolean;
   isRecommended: boolean;
   onToggle: (checked: boolean) => void;
+  showMissionArt: boolean;
 }): React.ReactElement {
   const statusLabel = sourceStatusDisplay(source.status);
+  const imageUrl = getSensorImageUrl(source);
+  const hasArt = showMissionArt && Boolean(imageUrl);
+
   return (
     <label
-      className={`flex cursor-pointer flex-col gap-2 rounded-xl border p-3 transition hover:shadow-md ${
+      className={`group flex cursor-pointer flex-col overflow-hidden rounded-xl border transition hover:shadow-md ${
         checked ? 'border-[#1e3a5f] bg-[#f8fafc] ring-2 ring-[#1e3a5f]/15' : 'border-slate-200 bg-white'
       }`}
     >
-      {source.imageUrl ? (
-        <div className="h-20 overflow-hidden rounded-lg border border-slate-100 bg-white">
-          <img src={source.imageUrl} alt="" className="h-full w-full object-contain p-1" loading="lazy" />
+      {hasArt && imageUrl ? (
+        <div className="relative border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white">
+          <div className="flex min-h-[112px] items-center justify-center">
+            <SourceCardImage
+              src={imageUrl}
+              alt={`${source.name} spacecraft`}
+              sourceId={source.id}
+              uiIcon={source.uiIcon}
+            />
+          </div>
+          <div className="absolute right-2 top-2">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => onToggle(e.target.checked)}
+              className="h-5 w-5 rounded border-slate-300 bg-white text-[#1e3a5f] shadow-md"
+              aria-label={`Select ${source.name}`}
+            />
+          </div>
         </div>
       ) : null}
-      <div className="flex items-start gap-2">
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={(e) => onToggle(e.target.checked)}
-          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1e3a5f]"
-        />
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f0f7] text-[#1e3a5f]">
-          <SensorIcon icon={source.uiIcon} />
-        </span>
-        <span className="min-w-0 flex-1">
+
+      <div className="flex flex-col gap-2 p-3">
+        <div className="flex items-start gap-2">
+          {!hasArt ? (
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={(e) => onToggle(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-slate-300 text-[#1e3a5f]"
+            />
+          ) : null}
+          {!hasArt ? (
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#e8f0f7] text-[#1e3a5f]">
+              <SensorIcon icon={source.uiIcon} />
+            </span>
+          ) : null}
+          <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-1.5">
             <span className="text-sm font-bold text-slate-900">{source.name}</span>
             {isRecommended ? (
@@ -381,6 +424,7 @@ function SourceCard({
           <dd>{source.evidenceRole}</dd>
         </div>
       </dl>
+      </div>
     </label>
   );
 }
