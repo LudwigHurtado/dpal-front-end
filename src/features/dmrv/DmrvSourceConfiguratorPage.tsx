@@ -86,12 +86,11 @@ export default function DmrvSourceConfiguratorPage({
     return <Navigate to="/dmrv" replace />;
   }
 
-  if (sourceKind === 'satellite') {
-    const pid =
-      projectId || defaultDmrvProjectId(categorySlug, typeId);
+  if (sourceKind === 'satellite' || sourceKind === 'lidar') {
+    const pid = projectId || defaultDmrvProjectId(categorySlug, typeId);
     return (
       <Navigate
-        to={dmrvSourceStackPath(pid, categorySlug, 'satellite', typeId)}
+        to={dmrvSourceStackPath(pid, categorySlug, sourceKind, typeId)}
         replace
       />
     );

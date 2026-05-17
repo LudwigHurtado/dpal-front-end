@@ -9,15 +9,16 @@ import { DmrvFieldPlotSectionHelper } from './components/DmrvFieldPlotSectionHel
 import { DmrvFieldPlotValidationCards } from './components/DmrvFieldPlotValidationCards';
 import { DmrvBreadcrumb } from './components/DmrvBreadcrumb';
 import { DmrvDataSourceFields } from './components/dmrvInputConfigFields';
+import { DmrvLidarSourcePicker } from './components/DmrvLidarSourcePicker';
 import { DmrvSatellitePicker } from './components/DmrvSatellitePicker';
 import { SceneLivePreviewCard } from './components/SceneLivePreviewCard';
 import { DeepMethodologyCounsel } from './components/DeepMethodologyCounsel';
 import { DmrvMethodologyPresetPanel } from './components/DmrvMethodologyPresetPanel';
 import { DmrvSectionAiStrip } from './components/DmrvSectionAiStrip';
 import { Usgs3depLidarPanel } from '../environmentalIntelligence/components/Usgs3depLidarPanel';
-import { DmrvGediLidarGallery } from './components/DmrvGediLidarGallery';
 import { USGS_3DEP_TERRAIN_RELEVANCE_NOTE } from './dmrvRecommendedSources';
 import { runSceneSteppedAutofill } from './utils/sceneAutofillSteps';
+import { DMRV_LIDAR_SETTINGS_KEY, parseSelectedLidarIds } from './dmrvLidarCatalog';
 import {
   DMRV_SATELLITE_SETTINGS_KEY,
   missionIdsToSensorSourceIds,
@@ -29,7 +30,7 @@ import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner'
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
 import { getDmrvInputByKey, resolveDmrvInputDef } from './dmrvInputRegistry';
-import { dmrvCategoryPath, dmrvSourceStackPath, inputKeyToSourceStackKind } from './dmrvNavigation';
+import { dmrvCategoryPath } from './dmrvNavigation';
 import { anchorDmrvInputConfig } from './services/dmrvBlockchainAnchor';
 import {
   buildDefaultConfig,
@@ -148,6 +149,12 @@ export default function DmrvInputConfigPage({
   useEffect(() => {
     if (config?.configType !== 'satellite' || window.location.hash !== '#satellite-stack') return;
     const el = document.getElementById('satellite-stack');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [config?.configType, projectId]);
+
+  useEffect(() => {
+    if (config?.configType !== 'lidar' || window.location.hash !== '#lidar-stack') return;
+    const el = document.getElementById('lidar-stack');
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [config?.configType, projectId]);
 
@@ -289,6 +296,21 @@ export default function DmrvInputConfigPage({
     );
   }, [categorySlug, config, typeTitle]);
 
+  const lidarPickContext = useMemo(() => {
+    if (!config) return '';
+    return JSON.stringify(
+      {
+        section: 'lidar_pick',
+        dmrvType: typeTitle,
+        category: categorySlug,
+        selectedLidarSources: config.dataSourceSettings[DMRV_LIDAR_SETTINGS_KEY],
+        sources: ['gedi-lidar', 'icesat-2-atlas', 'usgs-3dep-lidar', 'drone-lidar', 'ground-tls-lidar'],
+      },
+      null,
+      2,
+    );
+  }, [categorySlug, config, typeTitle]);
+
   const sceneCoverageContext = useMemo(() => {
     if (!config) return '';
     return JSON.stringify(
@@ -321,7 +343,7 @@ export default function DmrvInputConfigPage({
       if (!prev) return prev;
       const next = { ...prev.dataSourceSettings };
       for (const [key, value] of Object.entries(parsed)) {
-        if (key === 'selectedSatellites') continue;
+        if (key === 'selectedSatellites' || key === 'selectedLidarSources') continue;
         if (typeof value === 'boolean' || typeof value === 'string' || typeof value === 'number') {
           next[key] = value;
         }
@@ -444,6 +466,23 @@ export default function DmrvInputConfigPage({
     [patchDataSource, syncSatelliteSourceSelection],
   );
 
+  const syncLidarSourceSelection = useCallback(
+    (serializedIds: string) => {
+      if (!projectId) return;
+      const ids = parseSelectedLidarIds(serializedIds);
+      saveSelectedSourceIds(projectId, typeId, 'lidar', ids);
+    },
+    [projectId, typeId],
+  );
+
+  const patchLidarSelection = useCallback(
+    (serializedIds: string) => {
+      patchDataSource(DMRV_LIDAR_SETTINGS_KEY, serializedIds);
+      syncLidarSourceSelection(serializedIds);
+    },
+    [patchDataSource, syncLidarSourceSelection],
+  );
+
   const patchValidation = useCallback((key: keyof DmrvInputConfig['validationRules'], value: boolean) => {
     setConfig((prev) =>
       prev ? { ...prev, validationRules: { ...prev.validationRules, [key]: value } } : prev,
@@ -467,6 +506,15 @@ export default function DmrvInputConfigPage({
       patchSatelliteSelection(raw.filter((id): id is string => typeof id === 'string').join(','));
     }
   }, [patchSatelliteSelection]);
+
+  const applyLidarPick = useCallback((parsed: Record<string, unknown>) => {
+    const raw = parsed.selectedLidarSources ?? parsed.lidarIds;
+    if (typeof raw === 'string') {
+      patchLidarSelection(raw);
+    } else if (Array.isArray(raw)) {
+      patchLidarSelection(raw.filter((id): id is string => typeof id === 'string').join(','));
+    }
+  }, [patchLidarSelection]);
 
   const handleAiFillFieldPlots = useCallback(() => {
     if (!config || !storedProject) return;
@@ -592,13 +640,15 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
     if (saved.configType === 'satellite') {
       syncSatelliteSourceSelection(String(saved.dataSourceSettings[DMRV_SATELLITE_SETTINGS_KEY] ?? ''));
       saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.dataSources, 'satellite-config');
+    } else if (saved.configType === 'lidar') {
+      syncLidarSourceSelection(String(saved.dataSourceSettings[DMRV_LIDAR_SETTINGS_KEY] ?? ''));
     } else if (saved.configType === 'field-plots') {
       saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.fieldPlots, 'field-plots');
     } else if (saved.inputKey === 'validation-rules') {
       saveReportSnapshot(saved.projectId, DMRV_REPORT_MILESTONES.validation, 'validation-rules');
     }
     setNotice('Configuration saved locally — living report updated.');
-  }, [config, syncSatelliteSourceSelection]);
+  }, [config, syncLidarSourceSelection, syncSatelliteSourceSelection]);
 
   const handleTest = useCallback(async () => {
     if (!config) return;
@@ -707,11 +757,6 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
   }
 
   const backPath = dmrvCategoryPath(categorySlug, typeId, projectId);
-  const sourceStackKind = inputKeyToSourceStackKind(inputKey);
-  const sourceStackPath =
-    sourceStackKind && projectId
-      ? dmrvSourceStackPath(projectId, categorySlug, sourceStackKind, typeId)
-      : null;
 
   return (
     <div className="min-h-full bg-white text-slate-900">
@@ -768,16 +813,6 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
         ) : null}
 
         <DmrvWorkflowProgress activeStep={isFieldPlots ? 3 : 2} />
-
-        {sourceStackPath && sourceStackKind === 'lidar' ? (
-          <p className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-            Step 1: pick LiDAR missions and sensors in the{' '}
-            <Link to={sourceStackPath} className="font-bold text-[#1e3a5f] underline">
-              LiDAR source stack workspace
-            </Link>
-            . Step 2: return here for scene dates, coverage rules, and evidence packet settings.
-          </p>
-        ) : null}
 
         {storedProject ? (
           <>
@@ -870,6 +905,27 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
               </Panel>
             ) : null}
 
+            {config.configType === 'lidar' ? (
+              <Panel title="Pick LiDAR sources for this MRV use" id="lidar-stack">
+                <DmrvLidarSourcePicker
+                  selectedRaw={config.dataSourceSettings[DMRV_LIDAR_SETTINGS_KEY]}
+                  onChange={patchLidarSelection}
+                />
+                <DmrvSectionAiStrip
+                  sectionLabel="LiDAR pick"
+                  hint={`Ask which LiDAR sources fit ${typeTitle} — GEDI, ICESat-2, 3DEP, or field TLS.`}
+                  contextSummary={lidarPickContext}
+                  disabled={!!busy}
+                  starters={[
+                    'When should I use GEDI vs USGS 3DEP?',
+                    'Do I need drone LiDAR for this AOI?',
+                  ]}
+                  autofillPrompt={`Suggest LiDAR source IDs for ${typeTitle} DMRV. Return JSON: { "selectedLidarSources": "gedi-lidar,usgs-3dep-lidar" } using only: gedi-lidar, icesat-2-atlas, usgs-3dep-lidar, drone-lidar, ground-tls-lidar.`}
+                  onApply={applyLidarPick}
+                />
+              </Panel>
+            ) : null}
+
             {config.configType === 'biomass' ? (
               <Panel title="Methodology Preset">
                 <DmrvMethodologyPresetPanel
@@ -899,7 +955,15 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
               />
             ) : null}
 
-            <Panel title={config.configType === 'satellite' ? 'Scene & coverage settings' : 'Data Source Settings'}>
+            <Panel
+              title={
+                config.configType === 'satellite'
+                  ? 'Scene & coverage settings'
+                  : config.configType === 'lidar'
+                    ? 'Point cloud & coverage settings'
+                    : 'Data Source Settings'
+              }
+            >
               {config.configType === 'satellite' ? (
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,340px)] lg:items-start">
                   <div className="min-w-0 space-y-3">
@@ -955,7 +1019,6 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
               ) : config.configType === 'lidar' ? (
                 <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(280px,360px)] lg:items-start">
                   <div className="min-w-0 space-y-3">
-                    <DmrvGediLidarGallery compact className="rounded-xl border border-slate-200 bg-white p-3" />
                     <p className="text-xs text-slate-600">
                       Configure LiDAR provider and point-cloud settings. {USGS_3DEP_TERRAIN_RELEVANCE_NOTE}
                     </p>

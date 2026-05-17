@@ -235,6 +235,7 @@ function defaultDataSourceSettings(configType: DmrvInputConfigType): Record<stri
       };
     case 'lidar':
       return {
+        selectedLidarSources: '',
         provider: '',
         pointCloudSource: '',
         verticalAccuracy: '',
