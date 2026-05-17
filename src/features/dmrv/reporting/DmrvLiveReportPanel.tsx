@@ -101,8 +101,14 @@ export function DmrvLiveReportPanel({
       workflowStep: workflowStep ?? 'ai-assist',
       changeSummary: 'Refreshed report from saved workflow data (no invented field values)',
     });
-    setNotice('Report rebuilt from project + evidence configs. Empty fields stay Missing or Not Yet Configured.');
-  }, [projectId, workflowStep]);
+    const gaps = report?.evidenceSummary.verifierReadinessGaps ?? [];
+    setAiSection(missingSections[0] ?? needsReviewSections[0] ?? null);
+    setNotice(
+      gaps.length
+        ? `Report refreshed. Ask the AI helper below: "What is missing for verifier review?" (${gaps.length} gap(s) flagged).`
+        : 'Report refreshed. Use the AI helper below to ask about satellite, biomass, or threats.',
+    );
+  }, [missingSections, needsReviewSections, projectId, report?.evidenceSummary.verifierReadinessGaps, workflowStep]);
 
   const handleAnchorReport = useCallback(async () => {
     if (!report || !latestVersion) {
@@ -304,8 +310,7 @@ export function DmrvLiveReportPanel({
             />
           </div>
 
-          {missingSections[0] || aiSection ? (
-            <div className="space-y-2 border-t border-slate-100 pt-3">
+          <div className="space-y-2 border-t border-slate-100 pt-3">
               <p className="text-[10px] font-black uppercase tracking-wide text-slate-500">AI helper</p>
               <div className="flex flex-wrap gap-1">
                 {(aiSection ? [aiSection] : missingSections.slice(0, 3)).map((s) => (
@@ -325,7 +330,6 @@ export function DmrvLiveReportPanel({
                 autofillPrompt="Analyze this living dMRV report. List missing sections and safe next steps. Do not invent data. Mark unknowns as Missing, Needs Review, or Not Yet Configured."
               />
             </div>
-          ) : null}
 
           <DmrvReportDisclaimer reportType={report.reportType} compact />
 

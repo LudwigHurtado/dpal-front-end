@@ -2,11 +2,15 @@ import type { DmrvProjectContext, DmrvProjectValidationResult } from '../service
 
 export type DmrvWorkflowLinkStatus = 'ready' | 'partial' | 'pending';
 
+export type DmrvWorkflowLinkAction = 'open-satellite' | 'open-lidar';
+
 export type DmrvWorkflowLink = {
   id: string;
   label: string;
   status: DmrvWorkflowLinkStatus;
   detail: string;
+  /** When set, the card is a button that opens the matching source-stack workspace. */
+  action?: DmrvWorkflowLinkAction;
 };
 
 export function computeDmrvProjectWorkflowLinks(
@@ -44,8 +48,18 @@ export function computeDmrvProjectWorkflowLinks(
       label: 'Satellite & evidence',
       status: coordOk && hasProjectId ? 'ready' : coordOk ? 'partial' : 'pending',
       detail: coordOk
-        ? 'Open satellite config — scenes use this lat/lng and AOI context.'
+        ? 'Open satellite source stack — scenes use this lat/lng and AOI context.'
         : 'Save location first so satellite sources inherit coordinates.',
+      action: coordOk ? 'open-satellite' : undefined,
+    },
+    {
+      id: 'lidar',
+      label: 'LiDAR & canopy structure',
+      status: coordOk && hasProjectId ? 'ready' : coordOk ? 'partial' : 'pending',
+      detail: coordOk
+        ? 'Open LiDAR source stack — canopy height and terrain cross-checks use this AOI.'
+        : 'Save location first so LiDAR sources inherit coordinates.',
+      action: coordOk ? 'open-lidar' : undefined,
     },
     {
       id: 'methodology',

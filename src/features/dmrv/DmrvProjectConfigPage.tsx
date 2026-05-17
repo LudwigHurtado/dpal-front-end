@@ -401,21 +401,32 @@ export default function DmrvProjectConfigPage({
     navigate(dmrvCategoryPath(categorySlug, typeId, pid));
   }, [category?.title, categorySlug, ctx?.projectId, dmrvType?.title, navigate, typeId]);
 
+  const openSourceStack = useCallback(
+    (sourceKind: 'satellite' | 'lidar') => {
+      const pid = ctx?.projectId?.trim() || defaultDmrvProjectId(categorySlug, typeId);
+      if (ctx) {
+        updateDmrvProjectContext(pid, ctx);
+        syncDmrvInputConfigsProjectContext(pid);
+      }
+      ensureDmrvProjectContext({
+        categorySlug,
+        categoryTitle: category?.title ?? categorySlug,
+        typeId,
+        typeTitle: dmrvType?.title ?? typeId,
+        projectId: pid,
+      });
+      navigate(dmrvSourceStackPath(pid, categorySlug, sourceKind, typeId));
+    },
+    [category?.title, categorySlug, ctx, dmrvType?.title, navigate, typeId],
+  );
+
   const handleOpenSatelliteConfig = useCallback(() => {
-    const pid = ctx?.projectId?.trim() || defaultDmrvProjectId(categorySlug, typeId);
-    if (ctx) {
-      updateDmrvProjectContext(pid, ctx);
-      syncDmrvInputConfigsProjectContext(pid);
-    }
-    ensureDmrvProjectContext({
-      categorySlug,
-      categoryTitle: category?.title ?? categorySlug,
-      typeId,
-      typeTitle: dmrvType?.title ?? typeId,
-      projectId: pid,
-    });
-    navigate(dmrvSourceStackPath(pid, categorySlug, 'satellite', typeId));
-  }, [category?.title, categorySlug, ctx, dmrvType?.title, navigate, typeId]);
+    openSourceStack('satellite');
+  }, [openSourceStack]);
+
+  const handleOpenLidarConfig = useCallback(() => {
+    openSourceStack('lidar');
+  }, [openSourceStack]);
 
   const handleGenerateHash = useCallback(async () => {
     if (!ctx) return;
@@ -543,6 +554,7 @@ export default function DmrvProjectConfigPage({
             disabled={!satelliteReady}
           />
           <ActionBtn label="Open satellite (quick)" onClick={handleOpenSatelliteConfig} />
+          <ActionBtn label="Open LiDAR (quick)" onClick={handleOpenLidarConfig} />
         </div>
 
         {liveProjectId && categorySlug ? (
@@ -629,6 +641,7 @@ export default function DmrvProjectConfigPage({
               onApplyProjectName={applySuggestedProjectName}
               onApplyMethodology={applySuggestedMethodology}
               onOpenSatellite={handleSaveAndOpenSatellite}
+              onOpenLidar={handleOpenLidarConfig}
               satelliteReady={satelliteReady}
             />
             <Field

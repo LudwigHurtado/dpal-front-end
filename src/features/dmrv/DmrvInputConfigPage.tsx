@@ -24,7 +24,7 @@ import { DmrvProjectContextBanner } from './components/DmrvProjectContextBanner'
 import { DmrvWorkflowProgress } from './components/DmrvWorkflowProgress';
 import { getCategoryBySlug, getTypeForCategory } from './dmrvRegistry';
 import { getDmrvInputByKey, resolveDmrvInputDef } from './dmrvInputRegistry';
-import { dmrvCategoryPath } from './dmrvNavigation';
+import { dmrvCategoryPath, dmrvSourceStackPath, inputKeyToSourceStackKind } from './dmrvNavigation';
 import { anchorDmrvInputConfig } from './services/dmrvBlockchainAnchor';
 import {
   buildDefaultConfig,
@@ -681,6 +681,11 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
   }
 
   const backPath = dmrvCategoryPath(categorySlug, typeId, projectId);
+  const sourceStackKind = inputKeyToSourceStackKind(inputKey);
+  const sourceStackPath =
+    sourceStackKind && projectId
+      ? dmrvSourceStackPath(projectId, categorySlug, sourceStackKind, typeId)
+      : null;
 
   return (
     <div className="min-h-full bg-white text-slate-900">
@@ -737,6 +742,16 @@ Use only mission IDs: landsat-9, sentinel-2, sentinel-1, modis, pace, sentinel-5
         ) : null}
 
         <DmrvWorkflowProgress activeStep={isFieldPlots ? 3 : 2} />
+
+        {sourceStackPath ? (
+          <p className="mb-4 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+            Step 1: pick {sourceStackKind === 'lidar' ? 'LiDAR' : 'satellite'} missions and sensors in the{' '}
+            <Link to={sourceStackPath} className="font-bold text-[#1e3a5f] underline">
+              source stack workspace
+            </Link>
+            . Step 2: return here for scene dates, coverage rules, and evidence packet settings.
+          </p>
+        ) : null}
 
         {storedProject ? (
           <>

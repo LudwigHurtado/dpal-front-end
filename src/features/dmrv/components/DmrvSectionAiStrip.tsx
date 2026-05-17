@@ -1,9 +1,11 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp, Copy, RefreshCw, Sparkles } from '../../../../components/icons';
-import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { runGeminiPrompt } from '../../../../services/geminiService';
 import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
 import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
+import { fetchDmrvAiAvailability, type DmrvAiAvailability } from '../utils/dmrvAiAvailability';
+import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 
 export type DmrvSectionAiStripProps = {
   sectionLabel: string;
@@ -54,7 +56,8 @@ export function DmrvSectionAiStrip({
   disabled = false,
   starters = [],
 }: DmrvSectionAiStripProps): React.ReactElement {
-  const aiEnabled = isAiEnabled();
+  const [availability, setAvailability] = useState<DmrvAiAvailability | null>(null);
+  const geminiLive = Boolean(availability?.geminiReady);
   const [expanded, setExpanded] = useState(false);
   const [input, setInput] = useState('');
   const [reply, setReply] = useState<string | null>(null);
@@ -63,7 +66,17 @@ export function DmrvSectionAiStrip({
   const contextRef = useRef(contextSummary);
   const voice = useAiVoiceAssistant();
 
-  contextRef.current = contextSummary;
+  contextRef.current = trimDmrvAiContext(contextSummary);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDmrvAiAvailability().then((status) => {
+      if (!cancelled) setAvailability(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleVoiceTranscript = useCallback((text: string) => {
     setInput((current) => appendVoiceTranscript(current, text));
@@ -72,12 +85,23 @@ export function DmrvSectionAiStrip({
 
   const ask = useCallback(
     async (message: string, mode: 'chat' | 'autofill') => {
-      if (!aiEnabled || disabled) {
-        setNotice('Configure VITE_USE_SERVER_AI or VITE_GEMINI_API_KEY to use the assistant.');
-        return;
-      }
+      if (disabled) return;
       setLoading(true);
       setNotice(null);
+
+      if (!geminiLive) {
+        if (mode === 'autofill') {
+          setNotice('Autofill needs Gemini — showing offline guidance instead.');
+        }
+        const offlineText = dmrvRuleBasedReply(contextRef.current, message);
+        const spokenText = offlineText;
+        voice.speakReply(spokenText);
+        setReply(`Offline guidance: ${offlineText}`);
+        setExpanded(true);
+        setLoading(false);
+        return;
+      }
+
       try {
         const prompt =
           mode === 'autofill' && autofillPrompt
@@ -133,12 +157,18 @@ Assistant:`;
         if (spokenText) voice.speakReply(spokenText);
         setExpanded(true);
       } catch (err) {
-        setNotice(err instanceof Error ? err.message : 'Assistant unavailable.');
+        const fallbackText = dmrvRuleBasedReply(contextRef.current, message);
+        setReply(`Offline guidance: ${fallbackText}`);
+        setNotice(
+          `${err instanceof Error ? err.message : 'Assistant unavailable.'} — showing offline guidance.`,
+        );
+        voice.speakReply(fallbackText);
+        setExpanded(true);
       } finally {
         setLoading(false);
       }
     },
-    [aiEnabled, autofillPrompt, disabled, onAnimatedApply, onApply, sectionLabel, voice],
+    [autofillPrompt, disabled, geminiLive, onAnimatedApply, onApply, sectionLabel, voice],
   );
 
   return (
@@ -152,7 +182,7 @@ Assistant:`;
         {autofillPrompt && (onApply || onAnimatedApply) ? (
           <button
             type="button"
-            disabled={loading || disabled || !aiEnabled}
+            disabled={loading || disabled}
             onClick={() => void ask('Suggest values for this section.', 'autofill')}
             className="inline-flex items-center gap-1 rounded-md border border-[#1e3a5f]/25 bg-[#e8f0f7] px-2 py-1 text-[10px] font-bold text-[#1e3a5f] hover:bg-white disabled:opacity-50"
           >
@@ -184,7 +214,7 @@ Assistant:`;
                 <button
                   key={s}
                   type="button"
-                  disabled={loading || disabled || !aiEnabled}
+                  disabled={loading || disabled}
                   onClick={() => void ask(s, 'chat')}
                   className="rounded border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-medium text-slate-700 hover:border-[#1e3a5f]/30 disabled:opacity-50"
                 >
@@ -215,7 +245,7 @@ Assistant:`;
             />
             <button
               type="button"
-              disabled={!input.trim() || loading || disabled || !aiEnabled}
+              disabled={!input.trim() || loading || disabled}
               onClick={() => {
                 void ask(input, 'chat');
                 setInput('');

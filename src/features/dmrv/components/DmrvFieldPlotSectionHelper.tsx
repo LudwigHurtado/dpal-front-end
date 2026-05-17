@@ -1,6 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Bot, ChevronDown, ChevronUp } from '../../../../components/icons';
-import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { runGeminiPrompt } from '../../../../services/geminiService';
+import { fetchDmrvAiAvailability } from '../utils/dmrvAiAvailability';
+import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 
 export type DmrvFieldPlotSectionHelperProps = {
   title: string;
@@ -30,24 +32,38 @@ export function DmrvFieldPlotSectionHelper({
   const [expanded, setExpanded] = useState(false);
   const [reply, setReply] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const aiEnabled = isAiEnabled();
+  const [geminiLive, setGeminiLive] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDmrvAiAvailability().then((status) => {
+      if (!cancelled) setGeminiLive(Boolean(status.geminiReady));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const runInline = useCallback(
     async (prompt: string) => {
-      if (!aiEnabled || disabled) {
-        setReply('Configure VITE_USE_SERVER_AI or VITE_GEMINI_API_KEY for AI guidance.');
-        setExpanded(true);
-        return;
-      }
+      if (disabled) return;
       setLoading(true);
       setExpanded(true);
+      const ctx = trimDmrvAiContext(contextSummary);
+
+      if (!geminiLive) {
+        setReply(dmrvRuleBasedReply(ctx, prompt));
+        setLoading(false);
+        return;
+      }
+
       try {
         const text = await runGeminiPrompt(
           `You are the DPAL Field Plot configuration assistant for section "${title}".
 Answer in 2–4 short sentences. Do not claim verification or certified credits.
 
 Context:
-${contextSummary}
+${ctx}
 
 User question: ${prompt}
 
@@ -55,12 +71,12 @@ Assistant:`,
         );
         setReply(text.trim());
       } catch {
-        setReply('Could not reach the assistant. Try the full AI panel on the right.');
+        setReply(dmrvRuleBasedReply(ctx, prompt));
       } finally {
         setLoading(false);
       }
     },
-    [aiEnabled, contextSummary, disabled, title],
+    [contextSummary, disabled, geminiLive, title],
   );
 
   const handleAction = (action: 'explain' | 'missing' | 'suggest' | 'fill') => {

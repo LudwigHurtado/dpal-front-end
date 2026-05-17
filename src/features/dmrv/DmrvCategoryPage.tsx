@@ -42,11 +42,21 @@ export default function DmrvCategoryPage({ onReturn, onNavigate }: DmrvCategoryP
     [category, selectedTypeId],
   );
 
-  const handleSelectType = useCallback((typeId: string) => {
-    setSelectedTypeId(typeId);
-    setActiveConnectorId(null);
-    setShowWorkflow(true);
-  }, []);
+  const handleSelectType = useCallback(
+    (typeId: string) => {
+      setSelectedTypeId(typeId);
+      setActiveConnectorId(null);
+      setShowWorkflow(true);
+      const params = new URLSearchParams();
+      params.set('typeId', typeId);
+      if (projectId) params.set('projectId', projectId);
+      navigate(
+        { pathname: `/dmrv/${encodeURIComponent(categorySlug ?? '')}`, search: params.toString() },
+        { replace: true },
+      );
+    },
+    [categorySlug, navigate, projectId],
+  );
 
   const handleConnectorOpen = useCallback((connectorId: string) => {
     setActiveConnectorId(connectorId);

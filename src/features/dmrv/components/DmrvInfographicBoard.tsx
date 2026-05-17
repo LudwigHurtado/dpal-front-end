@@ -97,6 +97,8 @@ export function DmrvInfographicBoard({
         projectId: pid,
       });
 
+      onSelectType(typeId);
+
       const sourceKind = inputKeyToSourceStackKind(inputDef.key);
       if (sourceKind) {
         navigate(dmrvSourceStackPath(pid, category.slug, sourceKind, typeId));
@@ -105,7 +107,7 @@ export function DmrvInfographicBoard({
 
       navigate(dmrvInputConfigPath(pid, category.slug, inputDef.key, typeId));
     },
-    [category.slug, category.title, navigate, resolveProjectId, types],
+    [category.slug, category.title, navigate, onSelectType, resolveProjectId, types],
   );
 
   const handleSelectType = useCallback(

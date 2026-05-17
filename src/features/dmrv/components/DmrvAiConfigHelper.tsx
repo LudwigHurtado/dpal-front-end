@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Bot, Copy, RefreshCw, Send, Sparkles, X } from '../../../../components/icons';
 import { isAiEnabled, runGeminiPrompt } from '../../../../services/geminiService';
+import { fetchDmrvAiAvailability, type DmrvAiAvailability } from '../utils/dmrvAiAvailability';
+import { dmrvRuleBasedReply, trimDmrvAiContext } from '../utils/dmrvAiRuleBasedFallback';
 import { AiVoiceReplyControls } from '../../../shared/components/AiVoiceReplyControls';
 import { appendVoiceTranscript, VoiceInputButton } from '../../../shared/components/VoiceInputButton';
 import { useAiVoiceAssistant } from '../../../shared/hooks/useAiVoiceAssistant';
@@ -120,7 +122,10 @@ export function DmrvAiConfigHelper({
   onApplyAutofill,
 }: DmrvAiConfigHelperProps): React.ReactElement {
   const meta = VARIANT_META[variant];
-  const aiEnabled = isAiEnabled();
+  const clientAiFlag = isAiEnabled();
+  const [availability, setAvailability] = useState<DmrvAiAvailability | null>(null);
+  const geminiLive = Boolean(availability?.geminiReady);
+  const aiEnabled = clientAiFlag;
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [loading, setLoading] = useState(false);
@@ -134,8 +139,18 @@ export function DmrvAiConfigHelper({
   const lastAssistantReply = messages.filter((m) => m.role === 'assistant').at(-1)?.text ?? null;
 
   useEffect(() => {
-    contextRef.current = contextSummary;
+    contextRef.current = trimDmrvAiContext(contextSummary);
   }, [contextSummary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchDmrvAiAvailability().then((status) => {
+      if (!cancelled) setAvailability(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -150,16 +165,36 @@ export function DmrvAiConfigHelper({
       const trimmed = text.trim();
       if (!trimmed || loading || disabled) return;
 
-      if (!aiEnabled) {
-        setError('AI helper is not configured. Set VITE_USE_SERVER_AI or VITE_GEMINI_API_KEY for guidance.');
-        return;
-      }
-
       const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: 'user', text: trimmed };
       setMessages((prev) => [...prev, userMsg]);
       setInputValue('');
       setLoading(true);
       setError(null);
+
+      const useOfflineOnly = !geminiLive;
+
+      if (useOfflineOnly) {
+        const offlineText = dmrvRuleBasedReply(contextRef.current, trimmed);
+        voice.speakReply(offlineText);
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `a-offline-${Date.now()}`,
+            role: 'assistant',
+            text: `**Offline guidance** (Gemini not connected)\n\n${offlineText}`,
+          },
+        ]);
+        if (!clientAiFlag) {
+          setError(
+            availability?.message ??
+              'Set VITE_USE_SERVER_AI=true and VITE_API_BASE in .env.local, then restart npm run dev.',
+          );
+        } else if (!geminiLive) {
+          setError(availability?.message ?? 'Gemini unavailable on API — showing offline guidance.');
+        }
+        setLoading(false);
+        return;
+      }
 
       try {
         const prompt = buildPrompt(contextRef.current, [...messages, userMsg], trimmed);
@@ -172,27 +207,35 @@ export function DmrvAiConfigHelper({
         ]);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Could not reach the AI helper.';
-        setError(msg);
-        const fallbackText =
-          'The configuration helper could not complete this request. You can still save your settings and continue manually.';
+        const fallbackText = dmrvRuleBasedReply(contextRef.current, trimmed);
+        setError(`${msg} — showing offline guidance.`);
         voice.speakReply(fallbackText);
         setMessages((prev) => [
           ...prev,
           {
             id: `a-err-${Date.now()}`,
             role: 'assistant',
-            text: fallbackText,
+            text: `**Offline guidance** (Gemini error)\n\n${fallbackText}`,
           },
         ]);
       } finally {
         setLoading(false);
       }
     },
-    [aiEnabled, disabled, loading, messages, voice],
+    [availability?.message, clientAiFlag, disabled, geminiLive, loading, messages, voice],
   );
 
   const runAutofill = useCallback(async () => {
-    if (!autofillPrompt || !onApplyAutofill || !aiEnabled || disabled) return;
+    if (!autofillPrompt || !onApplyAutofill || disabled) return;
+    if (!geminiLive) {
+      setError('Autofill needs Gemini — configure VITE_USE_SERVER_AI + API, or use offline chat for guidance.');
+      const offlineText = dmrvRuleBasedReply(contextRef.current, autofillPrompt);
+      setMessages((prev) => [
+        ...prev,
+        { id: `a-fill-offline-${Date.now()}`, role: 'assistant', text: offlineText },
+      ]);
+      return;
+    }
     setLoading(true);
     setError(null);
     setWorkspaceNotice(null);
@@ -223,7 +266,7 @@ Return ONLY valid JSON — no markdown prose.`;
     } finally {
       setLoading(false);
     }
-  }, [aiEnabled, autofillPrompt, disabled, onApplyAutofill, voice]);
+  }, [autofillPrompt, disabled, geminiLive, onApplyAutofill, voice]);
 
   const copyMessage = useCallback(async (text: string) => {
     const ok = await copyText(text);
@@ -236,14 +279,14 @@ Return ONLY valid JSON — no markdown prose.`;
         <button
           key={prompt}
           type="button"
-          disabled={loading || disabled || !aiEnabled}
+          disabled={loading || disabled}
           onClick={() => void sendMessage(prompt)}
           className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-left text-[10px] font-semibold text-slate-700 hover:border-[#1e3a5f]/30 hover:bg-white disabled:opacity-50"
         >
           {prompt}
         </button>
       )),
-    [aiEnabled, disabled, loading, meta.starters, sendMessage],
+    [disabled, loading, meta.starters, sendMessage],
   );
 
   return (
@@ -271,7 +314,7 @@ Return ONLY valid JSON — no markdown prose.`;
           {autofillPrompt && onApplyAutofill ? (
             <button
               type="button"
-              disabled={loading || disabled || !aiEnabled}
+              disabled={loading || disabled}
               onClick={() => void runAutofill()}
               className="inline-flex items-center justify-center gap-1 rounded-lg border border-emerald-300/60 bg-emerald-50 px-2 py-1 text-[10px] font-bold text-emerald-900 hover:bg-white disabled:opacity-50"
             >
@@ -282,12 +325,19 @@ Return ONLY valid JSON — no markdown prose.`;
         </div>
       </div>
 
-      {!aiEnabled ? (
-        <p className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-          AI guidance is unavailable until Gemini is configured for this deployment. You can still configure fields
-          manually.
-        </p>
-      ) : null}
+      <p
+        className={`mb-3 rounded-lg border px-3 py-2 text-xs ${
+          geminiLive
+            ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+            : 'border-amber-200 bg-amber-50 text-amber-950'
+        }`}
+      >
+        {availability === null
+          ? 'Checking AI connection…'
+          : geminiLive
+            ? `Gemini connected — ${availability.message}`
+            : `Offline guidance mode — ${availability?.message ?? 'Gemini not configured'}. Chat still answers from your DMRV context without inventing data.`}
+      </p>
 
       <div className="max-h-48 space-y-2 overflow-y-auto rounded-lg border border-slate-100 bg-slate-50/80 p-3">
         {messages.length === 0 ? (
@@ -466,7 +516,7 @@ Return ONLY valid JSON — no markdown prose.`;
                 {autofillPrompt && onApplyAutofill ? (
                   <button
                     type="button"
-                    disabled={loading || disabled || !aiEnabled}
+                    disabled={loading || disabled}
                     onClick={() => void runAutofill()}
                     className="inline-flex items-center gap-1 rounded-lg border border-emerald-300/60 bg-emerald-50 px-3 py-2 text-[11px] font-bold text-emerald-900 hover:bg-white disabled:opacity-50"
                   >
@@ -476,7 +526,7 @@ Return ONLY valid JSON — no markdown prose.`;
                 ) : null}
                 <button
                   type="button"
-                  disabled={loading || disabled || !aiEnabled}
+                  disabled={loading || disabled}
                   onClick={() =>
                     void sendMessage(
                       'List recommended values for every field with copy-paste friendly labels.',

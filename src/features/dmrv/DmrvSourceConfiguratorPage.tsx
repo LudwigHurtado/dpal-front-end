@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from '../../../components/icons';
 import { DmrvAiConfigHelper } from './components/DmrvAiConfigHelper';
@@ -61,6 +61,10 @@ export default function DmrvSourceConfiguratorPage({
   const handleBack = useCallback(() => {
     navigate(backPath);
   }, [backPath, navigate]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [projectId, sourceKind, categorySlug]);
 
   const handleSave = useCallback(
     (ids: string[]) => {

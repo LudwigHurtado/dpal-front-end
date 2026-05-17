@@ -24,6 +24,8 @@ export type DmrvInfographicRowProps = {
 };
 
 const SOURCE_PICKER_KEYS = new Set(['satellite-imagery', 'lidar']);
+/** Always surface remote-sensing pickers in collapsed rows when the type supports them. */
+const SOURCE_PICKER_PRIORITY = ['satellite-imagery', 'lidar'] as const;
 const COLLAPSED_PREVIEW_COUNT = 2;
 
 const PROJECT_CONFIG_DEF: DmrvInputDef = {
@@ -52,7 +54,23 @@ const ROW_GRID =
 function buildVisibleActions(type: DmrvType, expanded: boolean): DmrvInputDef[] {
   const typeInputs = type.inputDefs;
   if (!expanded) {
-    return [PROJECT_CONFIG_DEF, ...typeInputs.slice(0, COLLAPSED_PREVIEW_COUNT)];
+    const seen = new Set<string>();
+    const merged: DmrvInputDef[] = [PROJECT_CONFIG_DEF];
+    seen.add(PROJECT_CONFIG_DEF.key);
+    for (const key of SOURCE_PICKER_PRIORITY) {
+      const def = typeInputs.find((d) => d.key === key);
+      if (def && !seen.has(def.key)) {
+        seen.add(def.key);
+        merged.push(def);
+      }
+    }
+    for (const def of typeInputs) {
+      if (seen.has(def.key)) continue;
+      if (merged.length >= 1 + SOURCE_PICKER_PRIORITY.length + COLLAPSED_PREVIEW_COUNT) break;
+      seen.add(def.key);
+      merged.push(def);
+    }
+    return merged;
   }
   const seen = new Set<string>();
   const merged: DmrvInputDef[] = [];
@@ -224,7 +242,8 @@ function InputConfigChip({
   return (
     <button
       type="button"
-      onClick={() => {
+      onClick={(e) => {
+        e.stopPropagation();
         if (!interactive) return;
         if (onPress) {
           onPress();
@@ -240,7 +259,7 @@ function InputConfigChip({
             ? hint
             : 'Evidence input unavailable for this row.'
       }
-      className={`group/input relative flex w-full min-w-0 flex-col items-center gap-0.5 rounded-lg border px-1 pb-1.5 pt-1 text-center shadow-sm transition ${
+      className={`group/input relative z-10 flex w-full min-w-0 flex-col items-center gap-0.5 rounded-lg border px-1 pb-1.5 pt-1 text-center shadow-sm transition ${
         compact ? 'max-h-[108px]' : ''
       } ${
         comingSoon

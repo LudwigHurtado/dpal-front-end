@@ -16,6 +16,7 @@ export type DmrvProjectFormAssistProps = {
   onApplyProjectName: () => void;
   onApplyMethodology: () => void;
   onOpenSatellite: () => void;
+  onOpenLidar?: () => void;
   satelliteReady: boolean;
 };
 
@@ -26,6 +27,7 @@ export function DmrvProjectFormAssist({
   onApplyProjectName,
   onApplyMethodology,
   onOpenSatellite,
+  onOpenLidar,
   satelliteReady,
 }: DmrvProjectFormAssistProps): React.ReactElement {
   return (
@@ -39,15 +41,40 @@ export function DmrvProjectFormAssist({
           each step.
         </p>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {workflowLinks.map((link) => (
-            <li
-              key={link.id}
-              className={`rounded-lg border px-2.5 py-2 text-[11px] ${STATUS_STYLES[link.status]}`}
-            >
-              <p className="font-bold">{link.label}</p>
-              <p className="mt-0.5 leading-snug opacity-90">{link.detail}</p>
-            </li>
-          ))}
+          {workflowLinks.map((link) => {
+            const openHandler =
+              link.action === 'open-satellite'
+                ? onOpenSatellite
+                : link.action === 'open-lidar'
+                  ? onOpenLidar
+                  : undefined;
+            const interactive = Boolean(openHandler);
+            const Tag = interactive ? 'button' : 'div';
+            return (
+              <li key={link.id}>
+                <Tag
+                  type={interactive ? 'button' : undefined}
+                  onClick={interactive ? openHandler : undefined}
+                  disabled={interactive && link.action === 'open-satellite' ? !satelliteReady : false}
+                  className={`w-full rounded-lg border px-2.5 py-2 text-left text-[11px] transition ${
+                    STATUS_STYLES[link.status]
+                  } ${
+                    interactive
+                      ? 'cursor-pointer hover:ring-2 hover:ring-[#1e3a5f]/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e3a5f]/35 disabled:cursor-not-allowed disabled:opacity-60'
+                      : ''
+                  }`}
+                >
+                  <p className="font-bold">{link.label}</p>
+                  <p className="mt-0.5 leading-snug opacity-90">{link.detail}</p>
+                  {interactive ? (
+                    <p className="mt-1 text-[10px] font-black uppercase tracking-wide text-[#1e3a5f]">
+                      Open workspace →
+                    </p>
+                  ) : null}
+                </Tag>
+              </li>
+            );
+          })}
         </ul>
       </div>
 
@@ -100,6 +127,16 @@ export function DmrvProjectFormAssist({
         >
           Configure satellite →
         </button>
+        {onOpenLidar ? (
+          <button
+            type="button"
+            disabled={!satelliteReady}
+            onClick={onOpenLidar}
+            className="rounded-lg border border-emerald-600 bg-white px-3 py-2 text-xs font-bold text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+          >
+            Configure LiDAR →
+          </button>
+        ) : null}
       </div>
     </div>
   );
