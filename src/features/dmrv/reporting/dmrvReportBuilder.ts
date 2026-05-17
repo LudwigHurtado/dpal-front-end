@@ -1,4 +1,9 @@
-import { formatReportingPeriod, getDmrvProjectContext } from '../services/dmrvProjectContextService';
+import {
+  formatReportingPeriod,
+  getDmrvProjectContext,
+  normalizeDmrvProjectContext,
+} from '../services/dmrvProjectContextService';
+import { safeTrim } from '../utils/safeString';
 import type { DmrvProjectContext } from '../services/dmrvProjectContextTypes';
 import { listDmrvInputConfigsForProject } from '../services/dmrvInputConfigService';
 import type { DmrvInputConfig } from '../services/dmrvInputConfigTypes';
@@ -130,12 +135,13 @@ function fieldPlotConfig(configs: DmrvInputConfig[]): DmrvInputConfig | undefine
 }
 
 function aoiLabel(ctx: DmrvProjectContext | null): string {
-  if (!ctx) return '';
-  if (ctx.location.aoiSummary.trim()) return ctx.location.aoiSummary.trim();
-  if (ctx.location.aoiId.trim()) return ctx.location.aoiId.trim();
-  if (ctx.location.aoiGeoJson.trim()) return 'AOI polygon saved';
-  if (ctx.location.latitude && ctx.location.longitude) {
-    return `${ctx.location.latitude}, ${ctx.location.longitude}`;
+  if (!ctx?.location) return '';
+  const loc = ctx.location;
+  if (safeTrim(loc.aoiSummary)) return safeTrim(loc.aoiSummary);
+  if (safeTrim(loc.aoiId)) return safeTrim(loc.aoiId);
+  if (safeTrim(loc.aoiGeoJson)) return 'AOI polygon saved';
+  if (safeTrim(loc.latitude) && safeTrim(loc.longitude)) {
+    return `${safeTrim(loc.latitude)}, ${safeTrim(loc.longitude)}`;
   }
   return '';
 }
@@ -336,7 +342,7 @@ function buildFieldMap(
       'Active validation rules',
       configs
         .flatMap((c) =>
-          Object.entries(c.validationRules)
+          Object.entries(c.validationRules ?? {})
             .filter(([, v]) => v)
             .map(([k]) => k),
         )
@@ -347,19 +353,19 @@ function buildFieldMap(
     reviewerGate: fieldFromRaw(
       'reviewerGate',
       'Reviewer gate',
-      ctx?.reviewer.reviewRequired ? 'Human review required' : '',
+      ctx?.reviewer?.reviewRequired ? 'Human review required' : '',
       { sourceStep: 'validation-rules' },
     ),
     reviewer: fieldFromRaw(
       'reviewer',
       'Validator / reviewer',
-      ctx?.reviewer.name || ctx?.reviewer.organization,
+      ctx?.reviewer?.name || ctx?.reviewer?.organization,
       { sourceStep: 'validator-review' },
     ),
     humanVerification: fieldFromRaw(
       'humanVerification',
       'Human verification',
-      ctx?.reviewer.humanVerificationRequired ? 'Required' : 'Not required',
+      ctx?.reviewer?.humanVerificationRequired ? 'Required' : 'Not required',
       { sourceStep: 'validator-review' },
     ),
     safeguardSummary: fieldFromRaw(
@@ -380,7 +386,7 @@ function buildFieldMap(
     packetVisibility: fieldFromRaw(
       'packetVisibility',
       'Packet visibility',
-      configs.map((c) => c.evidencePacket.publicVisibility).filter(Boolean).join(', '),
+      configs.map((c) => c.evidencePacket?.publicVisibility).filter(Boolean).join(', '),
       { sourceStep: 'evidence-packet' },
     ),
     registryIds: fieldFromRaw('registryIds', 'Registry IDs', ctx?.projectId, { sourceStep: 'interoperability' }),
@@ -428,7 +434,7 @@ function buildFieldMap(
       sourceStep: 'ai-evaluation',
     }),
     confidence: fieldFromRaw('confidence', 'Confidence', dsText(ds, 'confidenceScore'), { needsReview: true }),
-    validationNeeds: fieldFromRaw('validationNeeds', 'Validation needs', ctx?.reviewer.reviewRequired ? 'Human review required' : '', {
+    validationNeeds: fieldFromRaw('validationNeeds', 'Validation needs', ctx?.reviewer?.reviewRequired ? 'Human review required' : '', {
       needsReview: true,
     }),
     sourceType: fieldFromRaw('sourceType', 'Source type', ctx?.typeTitle, { sourceStep: 'methodology' }),
@@ -478,7 +484,7 @@ function buildFieldMap(
       'verificationChecklist',
       'Verification checklist',
       configs
-        .filter((c) => c.validationRules.requireReviewerApproval)
+        .filter((c) => c.validationRules?.requireReviewerApproval)
         .map((c) => c.inputLabel)
         .join(', '),
       { sourceStep: 'validator-review' },
@@ -512,7 +518,7 @@ function buildSection(
       c.status === 'ready' ||
       c.status === 'blockchain_anchored',
   ).length;
-  const humanReviewRequired = fields.some((f) => f.needsReview) || Boolean(ctx?.reviewer.humanVerificationRequired);
+  const humanReviewRequired = fields.some((f) => f.needsReview) || Boolean(ctx?.reviewer?.humanVerificationRequired);
   const missingHints = fields.filter((f) => f.status === 'missing').map((f) => `Add ${f.label}`);
 
   let summary = notConfiguredValue();
@@ -637,7 +643,7 @@ function buildInteroperabilityMetadata(
     ].filter((h): h is string => Boolean(h)),
     dataSourceIds: configs.map((c) => c.inputKey),
     validationStatus: configs.some((c) => c.status === 'verified') ? 'partially_verified' : 'draft',
-    verifierStatus: ctx?.reviewer.name ? 'assigned' : 'not_assigned',
+    verifierStatus: safeTrim(ctx?.reviewer?.name) ? 'assigned' : 'not_assigned',
     claimType: ctx?.typeTitle || report.typeId,
     limitations,
     exportedAt: new Date().toISOString(),
@@ -725,7 +731,8 @@ function buildValidationRules(configs: DmrvInputConfig[]): DmrvValidationRuleRow
   };
   const rows: DmrvValidationRuleRow[] = [];
   for (const c of configs) {
-    for (const [key, enabled] of Object.entries(c.validationRules)) {
+    const rules = c.validationRules ?? {};
+    for (const [key, enabled] of Object.entries(rules)) {
       rows.push({
         ruleId: `${c.inputKey}:${key}`,
         label: `${c.inputLabel} — ${ruleLabels[key] ?? key}`,
@@ -742,16 +749,18 @@ function buildValidationRules(configs: DmrvInputConfig[]): DmrvValidationRuleRow
 }
 
 function buildEvidencePacketContext(configs: DmrvInputConfig[]): DmrvEvidencePacketContext {
-  const withPacket = configs.filter((c) => c.evidencePacketId || c.evidencePacket.title.trim());
+  const withPacket = configs.filter(
+    (c) => c.evidencePacketId || safeTrim(c.evidencePacket?.title),
+  );
   const primary = withPacket[0];
   const hasPacket = withPacket.length > 0;
   return {
     packetIds: configs.map((c) => c.evidencePacketId).filter((id): id is string => Boolean(id)),
-    title: primary?.evidencePacket.title ?? 'Not Yet Configured',
-    visibility: primary?.evidencePacket.publicVisibility ?? '—',
-    includesMap: primary?.evidencePacket.includeMapSnapshot ?? false,
-    includesRawData: primary?.evidencePacket.includeRawDataReference ?? false,
-    includesReviewerNotes: primary?.evidencePacket.includeReviewerNotes ?? false,
+    title: primary?.evidencePacket?.title ?? 'Not Yet Configured',
+    visibility: primary?.evidencePacket?.publicVisibility ?? '—',
+    includesMap: primary?.evidencePacket?.includeMapSnapshot ?? false,
+    includesRawData: primary?.evidencePacket?.includeRawDataReference ?? false,
+    includesReviewerNotes: primary?.evidencePacket?.includeReviewerNotes ?? false,
     appendicesSummary: hasPacket
       ? `${withPacket.length} input(s) with packet settings`
       : 'Not Yet Configured',
@@ -764,10 +773,11 @@ export function buildDmrvReport(
   previous?: DmrvReport | null,
   overrides?: DmrvReportBuildOverrides,
 ): DmrvReport {
-  const ctx =
+  const ctxRaw =
     overrides?.projectContext !== undefined
       ? overrides.projectContext
       : getDmrvProjectContext(projectId);
+  const ctx = ctxRaw ? normalizeDmrvProjectContext(ctxRaw) : null;
   const configs = resolveInputConfigs(projectId, overrides);
   const categoryId = ctx?.categorySlug ?? configs[0]?.categorySlug ?? 'custom-intelligence';
   const typeId = ctx?.typeId ?? configs[0]?.typeId ?? 'custom';
@@ -801,7 +811,7 @@ export function buildDmrvReport(
       domain: ctx?.methodology.domain ?? 'custom',
       uncertaintyRules: ctx?.methodology.uncertaintyRules ?? '',
       requiredEvidenceSources: ctx?.methodology.requiredEvidenceSources ?? '',
-      status: ctx?.methodology.name.trim() ? 'complete' : 'missing',
+      status: safeTrim(ctx?.methodology?.name) ? 'complete' : 'missing',
     },
     dataSourceContext: {
       satelliteProvider: sat ? dsText(sat.dataSourceSettings, 'provider') : '',
@@ -832,17 +842,19 @@ export function buildDmrvReport(
     },
     validationContext: {
       rulesActive: configs.reduce(
-        (n, c) => n + Object.values(c.validationRules).filter(Boolean).length,
+        (n, c) => n + Object.values(c.validationRules ?? {}).filter(Boolean).length,
         0,
       ),
-      reviewerRequired: ctx?.reviewer.reviewRequired ?? true,
-      humanVerificationRequired: ctx?.reviewer.humanVerificationRequired ?? true,
-      status: configs.some((c) => Object.values(c.validationRules).some(Boolean)) ? 'partial' : 'missing',
+      reviewerRequired: ctx?.reviewer?.reviewRequired ?? true,
+      humanVerificationRequired: ctx?.reviewer?.humanVerificationRequired ?? true,
+      status: configs.some((c) => Object.values(c.validationRules ?? {}).some(Boolean))
+        ? 'partial'
+        : 'missing',
       rules: buildValidationRules(configs),
     },
     calculationContext: {
       summary: sat ? dsText(sat.dataSourceSettings, 'co2eEstimate') || notConfiguredValue() : notConfiguredValue(),
-      uncertaintyNote: ctx?.methodology.uncertaintyRules || notConfiguredValue(),
+      uncertaintyNote: ctx?.methodology?.uncertaintyRules || notConfiguredValue(),
       status: 'missing',
     },
     blockchainContext: {
@@ -859,7 +871,7 @@ export function buildDmrvReport(
         ctx,
         configs,
       ),
-      registryReady: readinessScore.overall >= 70 && Boolean(ctx?.methodology.name.trim()),
+      registryReady: readinessScore.overall >= 70 && Boolean(safeTrim(ctx?.methodology?.name)),
     },
     sections,
     auditTrail: previous?.auditTrail ?? [],

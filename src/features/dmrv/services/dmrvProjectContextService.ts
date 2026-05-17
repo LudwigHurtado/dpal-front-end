@@ -1,5 +1,7 @@
 import { apiUrl, API_ROUTES, CARBON_PROJECT_LEDGER } from '../../../../constants';
 import { emitDmrvReportDirty } from '../reporting/dmrvReportEvents';
+import { safeTrim } from '../utils/safeString';
+import { utf8ToBase64 } from '../utils/utf8Base64';
 import type { DmrvProjectContext, DmrvProjectStatus, DmrvProjectValidationResult } from './dmrvProjectContextTypes';
 
 const STORAGE_KEY = 'dpal_dmrv_project_contexts_v1';
@@ -107,9 +109,111 @@ export function buildDefaultProjectContext(params: {
   };
 }
 
+/** Repair partial or legacy localStorage project records before report build / validation. */
+export function normalizeDmrvProjectContext(
+  raw: Partial<DmrvProjectContext> | null | undefined,
+): DmrvProjectContext | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const categorySlug = safeTrim(raw.categorySlug) || 'carbon-land';
+  const typeId = safeTrim(raw.typeId) || 'forest-land-use';
+  const base = buildDefaultProjectContext({
+    categorySlug,
+    categoryTitle: safeTrim(raw.categoryTitle) || categorySlug,
+    typeId,
+    typeTitle: safeTrim(raw.typeTitle) || typeId,
+    projectId: safeTrim(raw.projectId) || undefined,
+  });
+  const loc: Partial<DmrvProjectContext['location']> =
+    raw.location && typeof raw.location === 'object' ? raw.location : {};
+  const reporting: Partial<DmrvProjectContext['reporting']> =
+    raw.reporting && typeof raw.reporting === 'object' ? raw.reporting : {};
+  const methodology: Partial<DmrvProjectContext['methodology']> =
+    raw.methodology && typeof raw.methodology === 'object' ? raw.methodology : {};
+  const reviewer: Partial<DmrvProjectContext['reviewer']> =
+    raw.reviewer && typeof raw.reviewer === 'object' ? raw.reviewer : {};
+  const blockchain: Partial<DmrvProjectContext['blockchain']> =
+    raw.blockchain && typeof raw.blockchain === 'object' ? raw.blockchain : {};
+  const normalized: DmrvProjectContext = {
+    ...base,
+    projectId: safeTrim(raw.projectId) || base.projectId,
+    projectName: safeTrim(raw.projectName),
+    organization: safeTrim(raw.organization),
+    description: safeTrim(raw.description),
+    location: {
+      ...base.location,
+      countryRegion: safeTrim(loc.countryRegion),
+      latitude: safeTrim(loc.latitude),
+      longitude: safeTrim(loc.longitude),
+      aoiId: safeTrim(loc.aoiId),
+      aoiSummary: safeTrim(loc.aoiSummary),
+      aoiGeoJson: safeTrim(loc.aoiGeoJson),
+      geoJsonUploaded: Boolean(loc.geoJsonUploaded),
+      coordinateValidation:
+        loc.coordinateValidation === 'valid' || loc.coordinateValidation === 'invalid'
+          ? loc.coordinateValidation
+          : 'pending',
+    },
+    reporting: {
+      ...base.reporting,
+      startDate: safeTrim(reporting.startDate),
+      endDate: safeTrim(reporting.endDate),
+      monitoringFrequency: safeTrim(reporting.monitoringFrequency) || base.reporting.monitoringFrequency,
+      baselineYear: safeTrim(reporting.baselineYear),
+      comparisonPeriod: safeTrim(reporting.comparisonPeriod),
+    },
+    methodology: {
+      ...base.methodology,
+      name: safeTrim(methodology.name),
+      standardFramework: safeTrim(methodology.standardFramework),
+      domain:
+        methodology.domain === 'carbon' ||
+        methodology.domain === 'biodiversity' ||
+        methodology.domain === 'pollution' ||
+        methodology.domain === 'water' ||
+        methodology.domain === 'custom'
+          ? methodology.domain
+          : base.methodology.domain,
+      requiredEvidenceSources: safeTrim(methodology.requiredEvidenceSources),
+      uncertaintyRules: safeTrim(methodology.uncertaintyRules),
+    },
+    reviewer: {
+      ...base.reviewer,
+      name: safeTrim(reviewer.name),
+      organization: safeTrim(reviewer.organization),
+      role: safeTrim(reviewer.role) || base.reviewer.role,
+      reviewRequired: reviewer.reviewRequired !== false,
+      humanVerificationRequired: reviewer.humanVerificationRequired !== false,
+    },
+    blockchain: {
+      ...base.blockchain,
+      status:
+        blockchain.status === 'pending' ||
+        blockchain.status === 'anchored' ||
+        blockchain.status === 'unavailable'
+          ? blockchain.status
+          : 'none',
+      configHash: safeTrim(blockchain.configHash) || undefined,
+      ledgerRecordId: safeTrim(blockchain.ledgerRecordId) || undefined,
+      qrEvidenceRootUrl: safeTrim(blockchain.qrEvidenceRootUrl) || undefined,
+      anchoredAt: safeTrim(blockchain.anchoredAt) || undefined,
+      serviceMessage: safeTrim(blockchain.serviceMessage) || undefined,
+    },
+    createdAt: safeTrim(raw.createdAt) || base.createdAt,
+    updatedAt: safeTrim(raw.updatedAt) || base.updatedAt,
+    status: base.status,
+  };
+  normalized.status = deriveProjectStatus(normalized);
+  return normalized;
+}
+
 export function createDmrvProjectContext(payload: DmrvProjectContext): DmrvProjectContext {
   const map = readAll();
-  const saved = { ...payload, updatedAt: new Date().toISOString(), status: deriveProjectStatus(payload) };
+  const normalized = normalizeDmrvProjectContext(payload) ?? payload;
+  const saved = {
+    ...normalized,
+    updatedAt: new Date().toISOString(),
+    status: deriveProjectStatus(normalized),
+  };
   map[saved.projectId] = saved;
   writeAll(map);
   emitDmrvReportDirty(saved.projectId);
@@ -117,7 +221,8 @@ export function createDmrvProjectContext(payload: DmrvProjectContext): DmrvProje
 }
 
 export function getDmrvProjectContext(projectId: string): DmrvProjectContext | null {
-  return readAll()[projectId] ?? null;
+  const raw = readAll()[projectId];
+  return raw ? normalizeDmrvProjectContext(raw) : null;
 }
 
 export function updateDmrvProjectContext(
@@ -209,7 +314,7 @@ export async function generateDmrvProjectHash(ctx: DmrvProjectContext): Promise<
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-  return `local-${btoa(canonical).slice(0, 48)}`;
+  return `local-${utf8ToBase64(canonical).slice(0, 48)}`;
 }
 
 export type AnchorProjectResult =

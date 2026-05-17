@@ -1,6 +1,7 @@
 import { buildDmrvReport, type DmrvReportBuildOverrides } from './dmrvReportBuilder';
 import { ensureReportLedgers } from './dmrvReportEvidenceSummary';
 import { emitDmrvReportDirty, emitDmrvReportUpdated, DMRV_REPORT_DIRTY_EVENT, DMRV_REPORT_UPDATED_EVENT } from './dmrvReportEvents';
+import { safeTrim } from '../utils/safeString';
 import { computeDmrvReportJsonHashSync } from './dmrvReportHash';
 import type {
   DmrvAuditEvent,
@@ -69,7 +70,7 @@ function migrateReport(report: DmrvReport): DmrvReport {
 }
 
 function appendAudit(report: DmrvReport, meta: DmrvReportSyncMeta): DmrvAuditEvent[] {
-  if (!meta.changeSummary.trim()) return report.auditTrail;
+  if (!safeTrim(meta.changeSummary)) return report.auditTrail;
   const event: DmrvAuditEvent = {
     id: auditId(),
     timestamp: new Date().toISOString(),

@@ -2,9 +2,15 @@ import { apiUrl, API_ROUTES } from '../../../../constants';
 import { emitDmrvReportDirty } from '../reporting/dmrvReportEvents';
 import { createEnvironmentalEvidencePacket } from '../../../services/environmentalEvidencePacketsApi';
 import { fetchUsgs3depTerrainEvidenceForProject } from '../utils/usgs3depTerrainEvidence';
+import { safeTrim } from '../utils/safeString';
+import { utf8ToBase64 } from '../utils/utf8Base64';
 import type { DmrvInputConfigType } from '../dmrvInputRegistry';
 import { getDmrvInputByKey, resolveDmrvInputDef } from '../dmrvInputRegistry';
-import { formatReportingPeriod, getDmrvProjectContext } from './dmrvProjectContextService';
+import {
+  formatReportingPeriod,
+  getDmrvProjectContext,
+  normalizeDmrvProjectContext,
+} from './dmrvProjectContextService';
 import type { DmrvProjectContext as DmrvStoredProjectContext } from './dmrvProjectContextTypes';
 import type {
   DmrvEvidencePacketResult,
@@ -24,10 +30,85 @@ function readAll(): Record<string, DmrvInputConfig> {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw) as Record<string, DmrvInputConfig>;
-    return parsed && typeof parsed === 'object' ? parsed : {};
+    if (!parsed || typeof parsed !== 'object') return {};
+    const out: Record<string, DmrvInputConfig> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (value && typeof value === 'object') {
+        out[key] = normalizeDmrvInputConfig(value);
+      }
+    }
+    return out;
   } catch {
     return {};
   }
+}
+
+/** Repair partial legacy input configs (missing evidencePacket, validationRules, etc.). */
+export function normalizeDmrvInputConfig(raw: Partial<DmrvInputConfig>): DmrvInputConfig {
+  const projectId = safeTrim(raw.projectId) || defaultProjectId('carbon-land', 'forest-land-use');
+  const categorySlug = safeTrim(raw.categorySlug) || 'carbon-land';
+  const typeId = safeTrim(raw.typeId) || 'forest-land-use';
+  const inputKey = safeTrim(raw.inputKey) || 'generic';
+  const defaults = buildDefaultConfig({
+    projectId,
+    categorySlug,
+    typeId,
+    inputKey,
+    inputLabel: safeTrim(raw.inputLabel) || undefined,
+  });
+  const ep: Partial<DmrvInputConfig['evidencePacket']> =
+    raw.evidencePacket && typeof raw.evidencePacket === 'object' ? raw.evidencePacket : {};
+  const vr: Partial<DmrvInputConfig['validationRules']> =
+    raw.validationRules && typeof raw.validationRules === 'object' ? raw.validationRules : {};
+  const bc: Partial<DmrvInputConfig['blockchain']> =
+    raw.blockchain && typeof raw.blockchain === 'object' ? raw.blockchain : {};
+  const pcs: Partial<DmrvInputConfig['projectContext']> =
+    raw.projectContext && typeof raw.projectContext === 'object' ? raw.projectContext : {};
+  return {
+    ...defaults,
+    ...raw,
+    projectId,
+    categorySlug,
+    typeId,
+    inputKey,
+    inputLabel: safeTrim(raw.inputLabel) || defaults.inputLabel,
+    configType: raw.configType ?? defaults.configType,
+    status: raw.status ?? defaults.status,
+    projectContext: { ...defaults.projectContext, ...pcs },
+    dataSourceSettings: { ...defaults.dataSourceSettings, ...(raw.dataSourceSettings ?? {}) },
+    validationRules: { ...defaults.validationRules, ...vr },
+    evidencePacket: {
+      ...defaults.evidencePacket,
+      title: safeTrim(ep.title) || defaults.evidencePacket.title,
+      includeMapSnapshot: ep.includeMapSnapshot ?? defaults.evidencePacket.includeMapSnapshot,
+      includeRawDataReference: ep.includeRawDataReference ?? defaults.evidencePacket.includeRawDataReference,
+      includeReviewerNotes: ep.includeReviewerNotes ?? defaults.evidencePacket.includeReviewerNotes,
+      includeAttachments: ep.includeAttachments ?? defaults.evidencePacket.includeAttachments,
+      generateQrCode: ep.generateQrCode ?? defaults.evidencePacket.generateQrCode,
+      publicVisibility:
+        ep.publicVisibility === 'private' ||
+        ep.publicVisibility === 'validator_only' ||
+        ep.publicVisibility === 'public'
+          ? ep.publicVisibility
+          : defaults.evidencePacket.publicVisibility,
+    },
+    blockchain: {
+      ...defaults.blockchain,
+      status:
+        bc.status === 'pending' ||
+        bc.status === 'anchored' ||
+        bc.status === 'unavailable'
+          ? bc.status
+          : defaults.blockchain.status,
+      lastAnchoredHash: safeTrim(bc.lastAnchoredHash) || undefined,
+      anchoredAt: safeTrim(bc.anchoredAt) || undefined,
+      ledgerRecordId: safeTrim(bc.ledgerRecordId) || undefined,
+      qrEvidenceUrl: safeTrim(bc.qrEvidenceUrl) || undefined,
+      serviceMessage: safeTrim(bc.serviceMessage) || undefined,
+    },
+    evidencePacketId: safeTrim(raw.evidencePacketId) || undefined,
+    updatedAt: safeTrim(raw.updatedAt) || defaults.updatedAt,
+  };
 }
 
 function writeAll(map: Record<string, DmrvInputConfig>): void {
@@ -51,21 +132,22 @@ export function projectContextSnapshot(stored?: DmrvStoredProjectContext | null)
       validatorReviewer: '',
     };
   }
+  const normalized = normalizeDmrvProjectContext(stored) ?? stored;
   const locationLabel =
-    stored.location.countryRegion.trim() ||
-    stored.location.aoiSummary.trim() ||
-    stored.location.aoiId.trim() ||
-    (stored.location.latitude && stored.location.longitude
-      ? `${stored.location.latitude}, ${stored.location.longitude}`
+    safeTrim(normalized.location.countryRegion) ||
+    safeTrim(normalized.location.aoiSummary) ||
+    safeTrim(normalized.location.aoiId) ||
+    (normalized.location.latitude && normalized.location.longitude
+      ? `${normalized.location.latitude}, ${normalized.location.longitude}`
       : '');
   return {
-    projectName: stored.projectName,
-    projectId: stored.projectId,
+    projectName: normalized.projectName,
+    projectId: normalized.projectId,
     locationAoiId: locationLabel,
-    methodology: stored.methodology.name,
-    reportingPeriod: formatReportingPeriod(stored),
-    responsibleOrganization: stored.organization,
-    validatorReviewer: stored.reviewer.name,
+    methodology: normalized.methodology.name,
+    reportingPeriod: formatReportingPeriod(normalized),
+    responsibleOrganization: normalized.organization,
+    validatorReviewer: normalized.reviewer.name,
   };
 }
 
@@ -83,8 +165,8 @@ export function syncDmrvInputConfigsProjectContext(projectId: string): void {
       projectContext: snapshot,
       dataSourceSettings: {
         ...config.dataSourceSettings,
-        latitude: stored.location.latitude.trim() || config.dataSourceSettings.latitude,
-        longitude: stored.location.longitude.trim() || config.dataSourceSettings.longitude,
+        latitude: safeTrim(stored.location?.latitude) || config.dataSourceSettings.latitude,
+        longitude: safeTrim(stored.location?.longitude) || config.dataSourceSettings.longitude,
       },
     };
     changed = true;
@@ -297,7 +379,7 @@ export function computeCompletenessScore(config: DmrvInputConfig): number {
   const rules = Object.values(config.validationRules).filter(Boolean).length;
   points += Math.min(12, rules * 2);
 
-  if (config.evidencePacket.title.trim()) points += 6;
+  if (safeTrim(config.evidencePacket?.title)) points += 6;
   if (config.evidencePacketId) points += 12;
 
   if (config.blockchain.status === 'anchored') points += 15;
@@ -348,7 +430,7 @@ export async function testDmrvInputSource(config: DmrvInputConfig): Promise<Dmrv
 
 export async function generateDmrvEvidencePacket(config: DmrvInputConfig): Promise<DmrvEvidencePacketResult> {
   const title =
-    config.evidencePacket.title.trim() ||
+    safeTrim(config.evidencePacket?.title) ||
     `${config.inputLabel} — ${config.categorySlug} DMRV`;
 
   const storedProject = getDmrvProjectContext(config.projectId);
@@ -374,7 +456,7 @@ export async function generateDmrvEvidencePacket(config: DmrvInputConfig): Promi
     projectId: config.projectContext.projectId || config.projectId,
     locationLabel: config.projectContext.locationAoiId || undefined,
     evidenceRefs,
-    qrPayload: config.evidencePacket.generateQrCode
+    qrPayload: config.evidencePacket?.generateQrCode
       ? {
           module: 'dmrv',
           categorySlug: config.categorySlug,
@@ -394,7 +476,7 @@ export async function generateDmrvEvidencePacket(config: DmrvInputConfig): Promi
   }
 
   const localId = `dmrv-packet-${config.inputKey}-${Date.now().toString(36)}`;
-  const localHash = `sha256-local-${btoa(JSON.stringify(config)).slice(0, 32)}`;
+  const localHash = `sha256-local-${utf8ToBase64(JSON.stringify(config)).slice(0, 32)}`;
   return {
     ok: true,
     packetId: localId,

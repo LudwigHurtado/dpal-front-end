@@ -1,3 +1,4 @@
+import { utf8ToBase64 } from '../utils/utf8Base64';
 import type { DmrvReport } from './dmrvReportTypes';
 
 /** Canonical payload for integrity hashing (excludes audit trail and anchor metadata). */
@@ -29,10 +30,10 @@ export async function computeDmrvReportJsonHash(report: DmrvReport): Promise<str
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
   }
-  return `local-${btoa(canonical).slice(0, 48)}`;
+  return `local-${utf8ToBase64(canonical).slice(0, 48)}`;
 }
 
 export function computeDmrvReportJsonHashSync(report: DmrvReport): string {
   const canonical = JSON.stringify(canonicalReportForHash(report));
-  return `local-${btoa(canonical).slice(0, 48)}`;
+  return `local-${utf8ToBase64(canonical).slice(0, 48)}`;
 }
